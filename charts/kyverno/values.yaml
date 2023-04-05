@@ -972,6 +972,7 @@ reportsController:
   extraArgs:
     clientRateLimitQPS: 300
     clientRateLimitBurst: 300
+    skipResourceFilters: true
 
   resources:
     # -- Pod resource limits

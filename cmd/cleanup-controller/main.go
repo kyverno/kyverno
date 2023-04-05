@@ -225,7 +225,7 @@ func main() {
 			DumpPayload: dumpPayload,
 		},
 		probes{},
-		config.NewDefaultConfiguration(),
+		config.NewDefaultConfiguration(false),
 	)
 	// start server
 	server.Run(ctx.Done())

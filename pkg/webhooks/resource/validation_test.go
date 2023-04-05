@@ -1050,7 +1050,8 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 	}
 
 	eng := engine.NewEngine(
-		config.NewDefaultConfiguration(),
+		config.NewDefaultConfiguration(false),
+		config.NewDefaultMetricsConfiguration(),
 		nil,
 		registryclient.NewOrDie(),
 		engineapi.DefaultContextLoaderFactory(nil),
@@ -1129,7 +1130,8 @@ func Test_RuleSelector(t *testing.T) {
 	ctx := engine.NewPolicyContext(kyvernov1.Create).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
 
 	eng := engine.NewEngine(
-		config.NewDefaultConfiguration(),
+		config.NewDefaultConfiguration(false),
+		config.NewDefaultMetricsConfiguration(),
 		nil,
 		registryclient.NewOrDie(),
 		engineapi.DefaultContextLoaderFactory(nil),

@@ -35,7 +35,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 	kyvernoInformers.Start(ctx.Done())
 
 	dclient := dclient.NewEmptyFakeClient()
-	configuration := config.NewDefaultConfiguration()
+	configuration := config.NewDefaultConfiguration(false)
 	urLister := kyvernoInformers.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace())
 	peLister := kyvernoInformers.Kyverno().V2alpha1().PolicyExceptions().Lister()
 	rclient := registryclient.NewOrDie()
@@ -54,6 +54,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 		pcBuilder:      webhookutils.NewPolicyContextBuilder(configuration),
 		engine: engine.NewEngine(
 			configuration,
+			config.NewDefaultMetricsConfiguration(),
 			dclient,
 			rclient,
 			engineapi.DefaultContextLoaderFactory(configMapResolver),
