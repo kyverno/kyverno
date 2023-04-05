@@ -538,7 +538,7 @@ func TestEngineResponse_GetFailedRules(t *testing.T) {
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
 					*RuleFail("fail-1", Validation, ""),
-					*RuleError("error-2", Validation, "", nil),
+					*RuleError("error-1", Validation, "", nil),
 				},
 			},
 		},
