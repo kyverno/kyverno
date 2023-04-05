@@ -53,7 +53,7 @@ func (e *engine) verifyAndPatchImages(
 			engineapi.ImageVerify,
 		)
 		matchedResource = resource
-		stats := engineapi.NewExecutionStatsFull(startTime, time.Now())
+		stats := engineapi.NewExecutionStats(startTime, time.Now())
 		for _, ruleResp := range ruleResp {
 			resp.Add(stats, ruleResp)
 		}

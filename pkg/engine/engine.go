@@ -85,7 +85,7 @@ func (e *engine) Validate(
 		policyResponse := e.validate(ctx, logger, policyContext)
 		response = response.WithPolicyResponse(policyResponse)
 	}
-	response = response.WithStats(engineapi.NewExecutionStatsFull(startTime, time.Now()))
+	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
 	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
 	return response
 }
@@ -103,7 +103,7 @@ func (e *engine) Mutate(
 			WithPolicyResponse(policyResponse).
 			WithPatchedResource(patchedResource)
 	}
-	response = response.WithStats(engineapi.NewExecutionStatsFull(startTime, time.Now()))
+	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
 	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
 	return response
 }
@@ -119,7 +119,7 @@ func (e *engine) Generate(
 		policyResponse := e.generateResponse(ctx, logger, policyContext)
 		response = response.WithPolicyResponse(policyResponse)
 	}
-	response = response.WithStats(engineapi.NewExecutionStatsFull(startTime, time.Now()))
+	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
 	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
 	return response
 }
@@ -136,7 +136,7 @@ func (e *engine) VerifyAndPatchImages(
 		policyResponse, innerIvm := e.verifyAndPatchImages(ctx, logger, policyContext)
 		response, ivm = response.WithPolicyResponse(policyResponse), innerIvm
 	}
-	response = response.WithStats(engineapi.NewExecutionStatsFull(startTime, time.Now()))
+	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
 	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
 	return response, ivm
 }
@@ -152,7 +152,7 @@ func (e *engine) ApplyBackgroundChecks(
 		policyResponse := e.applyBackgroundChecks(ctx, logger, policyContext)
 		response = response.WithPolicyResponse(policyResponse)
 	}
-	response = response.WithStats(engineapi.NewExecutionStatsFull(startTime, time.Now()))
+	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
 	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
 	return response
 }
