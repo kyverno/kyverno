@@ -95,10 +95,6 @@ var (
 	kyvernoPodName = osutils.GetEnvWithFallback("KYVERNO_POD_NAME", "kyverno")
 	// kyvernoConfigMapName is the Kyverno configmap name
 	kyvernoConfigMapName = osutils.GetEnvWithFallback("INIT_CONFIG", "kyverno")
-	// defaultExcludedUsernames are the usernames excluded by default when matching an incoming admission request
-	defaultExcludedUsernames []string
-	// defaultExcludedGroups are the groups excluded by default when matching an incoming admission request
-	defaultExcludedGroups []string = []string{"system:serviceaccounts:kube-system", "system:nodes"}
 	// kyvernoDryRunNamespace is the namespace for DryRun option of YAML verification
 	kyvernoDryrunNamespace = osutils.GetEnvWithFallback("KYVERNO_DRYRUN_NAMESPACE", "kyverno-dryrun")
 )
@@ -179,8 +175,6 @@ func NewDefaultConfiguration(skipResourceFilters bool) *configuration {
 		skipResourceFilters:           skipResourceFilters,
 		defaultRegistry:               "docker.io",
 		enableDefaultRegistryMutation: true,
-		excludedGroups:                defaultExcludedGroups,
-		excludedUsernames:             defaultExcludedUsernames,
 	}
 }
 
@@ -293,8 +287,6 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	cd.excludedClusterRoles = []string{}
 	cd.generateSuccessEvents = false
 	cd.webhooks = nil
-	cd.excludedGroups = append(cd.excludedGroups, defaultExcludedGroups...)
-	cd.excludedUsernames = append(cd.excludedUsernames, defaultExcludedUsernames...)
 	// load filters
 	cd.filters = parseKinds(cm.Data["resourceFilters"])
 	newDefaultRegistry, ok := cm.Data["defaultRegistry"]
@@ -392,6 +384,4 @@ func (cd *configuration) unload() {
 	cd.generateSuccessEvents = false
 	cd.webhooks = nil
 	cd.webhookAnnotations = nil
-	cd.excludedGroups = append(cd.excludedGroups, defaultExcludedGroups...)
-	cd.excludedUsernames = append(cd.excludedUsernames, defaultExcludedUsernames...)
 }
