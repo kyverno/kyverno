@@ -78,13 +78,14 @@ func (e *engine) Validate(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 ) engineapi.EngineResponse {
-	response := engineapi.NewEngineResponseFromPolicyContext(policyContext, time.Now())
+	startTime := time.Now()
+	response := engineapi.NewEngineResponseFromPolicyContext(policyContext)
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.validate"), policyContext)
 	if internal.MatchPolicyContext(logger, policyContext, e.configuration) {
 		policyResponse := e.validate(ctx, logger, policyContext)
 		response = response.WithPolicyResponse(policyResponse)
 	}
-	response = response.Done(time.Now())
+	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
 	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
 	return response
 }
@@ -93,7 +94,8 @@ func (e *engine) Mutate(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 ) engineapi.EngineResponse {
-	response := engineapi.NewEngineResponseFromPolicyContext(policyContext, time.Now())
+	startTime := time.Now()
+	response := engineapi.NewEngineResponseFromPolicyContext(policyContext)
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.mutate"), policyContext)
 	if internal.MatchPolicyContext(logger, policyContext, e.configuration) {
 		policyResponse, patchedResource := e.mutate(ctx, logger, policyContext)
@@ -101,7 +103,7 @@ func (e *engine) Mutate(
 			WithPolicyResponse(policyResponse).
 			WithPatchedResource(patchedResource)
 	}
-	response = response.Done(time.Now())
+	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
 	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
 	return response
 }
@@ -110,13 +112,14 @@ func (e *engine) Generate(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 ) engineapi.EngineResponse {
-	response := engineapi.NewEngineResponseFromPolicyContext(policyContext, time.Now())
+	startTime := time.Now()
+	response := engineapi.NewEngineResponseFromPolicyContext(policyContext)
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.generate"), policyContext)
 	if internal.MatchPolicyContext(logger, policyContext, e.configuration) {
 		policyResponse := e.generateResponse(ctx, logger, policyContext)
 		response = response.WithPolicyResponse(policyResponse)
 	}
-	response = response.Done(time.Now())
+	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
 	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
 	return response
 }
@@ -125,14 +128,15 @@ func (e *engine) VerifyAndPatchImages(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 ) (engineapi.EngineResponse, engineapi.ImageVerificationMetadata) {
-	response := engineapi.NewEngineResponseFromPolicyContext(policyContext, time.Now())
+	startTime := time.Now()
+	response := engineapi.NewEngineResponseFromPolicyContext(policyContext)
 	ivm := engineapi.ImageVerificationMetadata{}
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.verify"), policyContext)
 	if internal.MatchPolicyContext(logger, policyContext, e.configuration) {
 		policyResponse, innerIvm := e.verifyAndPatchImages(ctx, logger, policyContext)
 		response, ivm = response.WithPolicyResponse(policyResponse), innerIvm
 	}
-	response = response.Done(time.Now())
+	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
 	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
 	return response, ivm
 }
@@ -141,13 +145,14 @@ func (e *engine) ApplyBackgroundChecks(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 ) engineapi.EngineResponse {
-	response := engineapi.NewEngineResponseFromPolicyContext(policyContext, time.Now())
+	startTime := time.Now()
+	response := engineapi.NewEngineResponseFromPolicyContext(policyContext)
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.background"), policyContext)
 	if internal.MatchPolicyContext(logger, policyContext, e.configuration) {
 		policyResponse := e.applyBackgroundChecks(ctx, logger, policyContext)
 		response = response.WithPolicyResponse(policyResponse)
 	}
-	response = response.Done(time.Now())
+	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
 	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
 	return response
 }

@@ -2,7 +2,6 @@ package utils
 
 import (
 	"testing"
-	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -85,11 +84,11 @@ func TestBlockRequest(t *testing.T) {
 		name: "failure - enforce",
 		args: args{
 			engineResponses: []engineapi.EngineResponse{
-				engineapi.NewEngineResponse(resource, enforcePolicy, nil, &engineapi.PolicyResponse{
+				engineapi.NewEngineResponse(resource, enforcePolicy, nil).WithPolicyResponse(engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
 						*engineapi.RuleFail("rule-fail", engineapi.Validation, "message fail"),
 					},
-				}, time.Now()),
+				}),
 			},
 			failurePolicy: kyvernov1.Fail,
 			log:           logr.Discard(),
@@ -99,11 +98,11 @@ func TestBlockRequest(t *testing.T) {
 		name: "failure - audit",
 		args: args{
 			engineResponses: []engineapi.EngineResponse{
-				engineapi.NewEngineResponse(resource, auditPolicy, nil, &engineapi.PolicyResponse{
+				engineapi.NewEngineResponse(resource, auditPolicy, nil).WithPolicyResponse(engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
 						*engineapi.RuleFail("rule-fail", engineapi.Validation, "message fail"),
 					},
-				}, time.Now()),
+				}),
 			},
 			failurePolicy: kyvernov1.Fail,
 			log:           logr.Discard(),
@@ -113,11 +112,11 @@ func TestBlockRequest(t *testing.T) {
 		name: "error - fail",
 		args: args{
 			engineResponses: []engineapi.EngineResponse{
-				engineapi.NewEngineResponse(resource, auditPolicy, nil, &engineapi.PolicyResponse{
+				engineapi.NewEngineResponse(resource, auditPolicy, nil).WithPolicyResponse(engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
 						*engineapi.RuleError("rule-error", engineapi.Validation, "message error", nil),
 					},
-				}, time.Now()),
+				}),
 			},
 			failurePolicy: kyvernov1.Fail,
 			log:           logr.Discard(),
@@ -127,11 +126,11 @@ func TestBlockRequest(t *testing.T) {
 		name: "error - ignore",
 		args: args{
 			engineResponses: []engineapi.EngineResponse{
-				engineapi.NewEngineResponse(resource, auditPolicy, nil, &engineapi.PolicyResponse{
+				engineapi.NewEngineResponse(resource, auditPolicy, nil).WithPolicyResponse(engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
 						*engineapi.RuleError("rule-error", engineapi.Validation, "message error", nil),
 					},
-				}, time.Now()),
+				}),
 			},
 			failurePolicy: kyvernov1.Ignore,
 			log:           logr.Discard(),
@@ -141,11 +140,11 @@ func TestBlockRequest(t *testing.T) {
 		name: "warning - ignore",
 		args: args{
 			engineResponses: []engineapi.EngineResponse{
-				engineapi.NewEngineResponse(resource, auditPolicy, nil, &engineapi.PolicyResponse{
+				engineapi.NewEngineResponse(resource, auditPolicy, nil).WithPolicyResponse(engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
 						*engineapi.NewRuleResponse("rule-warning", engineapi.Validation, "message warning", engineapi.RuleStatusWarn),
 					},
-				}, time.Now()),
+				}),
 			},
 			failurePolicy: kyvernov1.Ignore,
 			log:           logr.Discard(),
@@ -155,11 +154,11 @@ func TestBlockRequest(t *testing.T) {
 		name: "warning - fail",
 		args: args{
 			engineResponses: []engineapi.EngineResponse{
-				engineapi.NewEngineResponse(resource, auditPolicy, nil, &engineapi.PolicyResponse{
+				engineapi.NewEngineResponse(resource, auditPolicy, nil).WithPolicyResponse(engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
 						*engineapi.NewRuleResponse("rule-warning", engineapi.Validation, "message warning", engineapi.RuleStatusWarn),
 					},
-				}, time.Now()),
+				}),
 			},
 			failurePolicy: kyvernov1.Fail,
 			log:           logr.Discard(),
@@ -203,11 +202,11 @@ func TestGetBlockedMessages(t *testing.T) {
 		name: "failure - enforce",
 		args: args{
 			engineResponses: []engineapi.EngineResponse{
-				engineapi.NewEngineResponse(resource, enforcePolicy, nil, &engineapi.PolicyResponse{
+				engineapi.NewEngineResponse(resource, enforcePolicy, nil).WithPolicyResponse(engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
 						*engineapi.RuleFail("rule-fail", engineapi.Validation, "message fail"),
 					},
-				}, time.Now()),
+				}),
 			},
 		},
 		want: "\n\npolicy foo/bar/baz for resource violation: \n\ntest:\n  rule-fail: message fail\n",
@@ -215,11 +214,11 @@ func TestGetBlockedMessages(t *testing.T) {
 		name: "error - enforce",
 		args: args{
 			engineResponses: []engineapi.EngineResponse{
-				engineapi.NewEngineResponse(resource, enforcePolicy, nil, &engineapi.PolicyResponse{
+				engineapi.NewEngineResponse(resource, enforcePolicy, nil).WithPolicyResponse(engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
 						*engineapi.RuleError("rule-error", engineapi.Validation, "message error", nil),
 					},
-				}, time.Now()),
+				}),
 			},
 		},
 		want: "\n\npolicy foo/bar/baz for resource error: \n\ntest:\n  rule-error: message error\n",
@@ -227,12 +226,12 @@ func TestGetBlockedMessages(t *testing.T) {
 		name: "error and failure - enforce",
 		args: args{
 			engineResponses: []engineapi.EngineResponse{
-				engineapi.NewEngineResponse(resource, enforcePolicy, nil, &engineapi.PolicyResponse{
+				engineapi.NewEngineResponse(resource, enforcePolicy, nil).WithPolicyResponse(engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
 						*engineapi.RuleFail("rule-fail", engineapi.Validation, "message fail"),
 						*engineapi.RuleError("rule-error", engineapi.Validation, "message error", nil),
 					},
-				}, time.Now()),
+				}),
 			},
 		},
 		want: "\n\npolicy foo/bar/baz for resource violation: \n\ntest:\n  rule-error: message error\n  rule-fail: message fail\n",

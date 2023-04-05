@@ -109,7 +109,6 @@ func (r RuleResponse) WithPatches(patches ...[]byte) *RuleResponse {
 
 func (r RuleResponse) WithStats(stats ExecutionStats) RuleResponse {
 	r.stats = stats
-
 	return r
 }
 
