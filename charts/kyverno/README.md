@@ -177,6 +177,8 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `config.excludeUsername` was renamed to `config.excludeUsernames`
 - `config.excludeGroupRole` was renamed to `config.excludeGroups`
 
+Hardcoded defaults for `config.excludeGroups` and `config.excludeUsernames` have been removed, please review those fields if you provide your own exclusions.
+
 ## Uninstalling the Chart
 
 To uninstall/delete the `kyverno` deployment:
@@ -202,8 +204,10 @@ The command removes all the Kubernetes components associated with the chart and 
 | config.annotations | object | `{}` | Additional annotations to add to the configmap. |
 | config.enableDefaultRegistryMutation | bool | `true` | Enable registry mutation for container images. Enabled by default. |
 | config.defaultRegistry | string | `"docker.io"` | The registry hostname used for the image mutation. |
-| config.excludeGroups | list | `[]` | Exclude groups |
+| config.excludeGroups | list | `["system:serviceaccounts:kube-system","system:nodes"]` | Exclude groups |
 | config.excludeUsernames | list | `[]` | Exclude usernames |
+| config.excludeRoles | list | `[]` | Exclude roles |
+| config.excludeClusterRoles | list | `[]` | Exclude roles |
 | config.excludeBackgroundUsernames | list | `[]` | Exclude usernames for mutateExisting and generate policies |
 | config.generateSuccessEvents | bool | `false` | Generate success events. |
 | config.resourceFilters | list | See [values.yaml](values.yaml) | Resource types to be skipped by the Kyverno policy engine. Make sure to surround each entry in quotes so that it doesn't get parsed as a nested YAML list. These are joined together without spaces, run through `tpl`, and the result is set in the config map. |

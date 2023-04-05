@@ -50,10 +50,19 @@ config:
   defaultRegistry: docker.io
 
   # -- Exclude groups
-  excludeGroups: []
+  excludeGroups:
+    - system:serviceaccounts:kube-system
+    - system:nodes
 
   # -- Exclude usernames
   excludeUsernames: []
+    # - system:kube-scheduler
+
+  # -- Exclude roles
+  excludeRoles: []
+
+  # -- Exclude roles
+  excludeClusterRoles: []
 
   # -- Exclude usernames for mutateExisting and generate policies
   excludeBackgroundUsernames: []
