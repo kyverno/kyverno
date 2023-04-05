@@ -19,7 +19,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
-	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -123,8 +122,6 @@ func (h *generationHandler) handleTrigger(
 
 		h.applyGeneration(ctx, request, policy, appliedRules, policyContext)
 		h.syncTriggerAction(ctx, request, policy, failedRules, policyContext)
-
-		go webhookutils.RegisterPolicyExecutionDurationMetricGenerate(ctx, h.log, h.metrics, string(request.Operation), policy, engineResponse)
 	}
 }
 

@@ -122,9 +122,6 @@ func (v *mutationHandler) applyMutations(
 					engineResponses = append(engineResponses, *engineResponse)
 				}
 
-				// registering the kyverno_policy_execution_duration_seconds metric concurrently
-				go webhookutils.RegisterPolicyExecutionDurationMetricMutate(context.TODO(), v.log, v.metrics, string(request.Operation), policy, *engineResponse)
-
 				return nil
 			},
 		)
