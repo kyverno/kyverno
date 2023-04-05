@@ -242,7 +242,6 @@ func extractStatements(ctx context.Context, repo *remote.Repository, targetDesc 
 
 func extractStatement(ctx context.Context, repo *remote.Repository, targetDesc ocispec.Descriptor) (map[string]interface{}, error) {
 	repoDesc, artifactListIO, err := oras.Fetch(ctx, repo, repo.Reference.Reference, oras.DefaultFetchOptions)
-
 	if err != nil {
 		return nil, err
 	}
