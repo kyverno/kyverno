@@ -36,11 +36,7 @@ func TestGetWarningMessages(t *testing.T) {
 				},
 				PolicyResponse: engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
-						{
-							Name:    "rule",
-							Status:  engineapi.RuleStatusWarn,
-							Message: "message warn",
-						},
+						*engineapi.NewRuleResponse("rule", engineapi.Validation, "message warn", engineapi.RuleStatusWarn),
 					},
 				},
 			},
@@ -59,31 +55,11 @@ func TestGetWarningMessages(t *testing.T) {
 				},
 				PolicyResponse: engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
-						{
-							Name:    "rule-pass",
-							Status:  engineapi.RuleStatusPass,
-							Message: "message pass",
-						},
-						{
-							Name:    "rule-warn",
-							Status:  engineapi.RuleStatusWarn,
-							Message: "message warn",
-						},
-						{
-							Name:    "rule-fail",
-							Status:  engineapi.RuleStatusFail,
-							Message: "message fail",
-						},
-						{
-							Name:    "rule-error",
-							Status:  engineapi.RuleStatusError,
-							Message: "message error",
-						},
-						{
-							Name:    "rule-skip",
-							Status:  engineapi.RuleStatusSkip,
-							Message: "message skip",
-						},
+						*engineapi.RulePass("rule-pass", engineapi.Validation, "message pass"),
+						*engineapi.NewRuleResponse("rule-warn", engineapi.Validation, "message warn", engineapi.RuleStatusWarn),
+						*engineapi.RuleFail("rule-fail", engineapi.Validation, "message fail"),
+						*engineapi.RuleError("rule-error", engineapi.Validation, "message error", nil),
+						*engineapi.RuleSkip("rule-skip", engineapi.Validation, "message skip"),
 					},
 				},
 			},

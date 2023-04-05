@@ -1072,8 +1072,8 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			)
 			if tc.blocked && tc.messages != nil {
 				for _, r := range er.PolicyResponse.Rules {
-					msg := tc.messages[r.Name]
-					assert.Equal(t, r.Message, msg)
+					msg := tc.messages[r.Name()]
+					assert.Equal(t, r.Message(), msg)
 				}
 			}
 
