@@ -439,7 +439,7 @@ func (iv *ImageVerifier) buildVerifier(
 ) (images.ImageVerifier, *images.Options, string) {
 	switch imageVerify.Type {
 	case kyvernov1.NotaryV2:
-		return iv.buildNotaryV2Verifier(attestor, imageVerify, image)
+		return iv.buildNotaryV2Verifier(attestor, imageVerify, image, attestation)
 	default:
 		return iv.buildCosignVerifier(attestor, imageVerify, image, attestation)
 	}
@@ -515,6 +515,7 @@ func (iv *ImageVerifier) buildNotaryV2Verifier(
 	attestor kyvernov1.Attestor,
 	imageVerify kyvernov1.ImageVerification,
 	image string,
+	attestation *kyvernov1.Attestation,
 ) (images.ImageVerifier, *images.Options, string) {
 	path := ""
 	opts := &images.Options{
@@ -522,6 +523,51 @@ func (iv *ImageVerifier) buildNotaryV2Verifier(
 		Cert:           attestor.Certificates.Certificate,
 		CertChain:      attestor.Certificates.CertificateChain,
 		RegistryClient: iv.rclient,
+	}
+
+	if attestation != nil {
+		opts.PredicateType = attestation.PredicateType
+		opts.FetchAttestations = true
+	}
+
+	if attestor.Keys != nil {
+		path = path + ".keys"
+		if attestor.Keys.PublicKeys != "" {
+			opts.Key = attestor.Keys.PublicKeys
+		} else if attestor.Keys.Secret != nil {
+			opts.Key = fmt.Sprintf("k8s://%s/%s", attestor.Keys.Secret.Namespace, attestor.Keys.Secret.Name)
+		} else if attestor.Keys.KMS != "" {
+			opts.Key = attestor.Keys.KMS
+		}
+		if attestor.Keys.Rekor != nil {
+			opts.RekorURL = attestor.Keys.Rekor.URL
+		}
+		opts.SignatureAlgorithm = attestor.Keys.SignatureAlgorithm
+	} else if attestor.Certificates != nil {
+		path = path + ".certificates"
+		opts.Cert = attestor.Certificates.Certificate
+		opts.CertChain = attestor.Certificates.CertificateChain
+		if attestor.Certificates.Rekor != nil {
+			opts.RekorURL = attestor.Certificates.Rekor.URL
+		}
+	} else if attestor.Keyless != nil {
+		path = path + ".keyless"
+		if attestor.Keyless.Rekor != nil {
+			opts.RekorURL = attestor.Keyless.Rekor.URL
+		}
+
+		opts.Roots = attestor.Keyless.Roots
+		opts.Issuer = attestor.Keyless.Issuer
+		opts.Subject = attestor.Keyless.Subject
+		opts.AdditionalExtensions = attestor.Keyless.AdditionalExtensions
+	}
+
+	if attestor.Repository != "" {
+		opts.Repository = attestor.Repository
+	}
+
+	if attestor.Annotations != nil {
+		opts.Annotations = attestor.Annotations
 	}
 
 	return notaryv2.NewVerifier(), opts, path

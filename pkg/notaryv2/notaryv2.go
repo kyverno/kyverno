@@ -135,7 +135,7 @@ func (v *notaryV2Verifier) verifyOutcomes(outcomes []*notation.VerificationOutco
 }
 
 func (v *notaryV2Verifier) FetchAttestations(ctx context.Context, opts images.Options) (*images.Response, error) {
-	v.log.V(3).Info("fetching attestations", "reference", opts.ImageRef)
+	v.log.V(2).Info("fetching attestations", "reference", opts.ImageRef, "opts", opts)
 
 	repo, err := remote.NewRepository(opts.ImageRef)
 	if err != nil {
@@ -155,45 +155,52 @@ func (v *notaryV2Verifier) FetchAttestations(ctx context.Context, opts images.Op
 	var statements []map[string]interface{}
 
 	for _, referrer := range referrersDescs {
-		match, predicateType, err := matchArtifactType(referrer, opts.PredicateType)
+		match, _, err := matchArtifactType(referrer, opts.PredicateType)
 		if err != nil {
 			return nil, err
 		}
 
 		if !match {
-			v.log.V(3).Info("predicateType doesn't match, continue", "expected", opts.PredicateType, "received", predicateType)
+			v.log.V(2).Info("predicateType doesn't match, continue", "expected", opts.PredicateType, "received", referrer.ArtifactType)
 			continue
 		}
 
 		targetDesc, err := verifyAttestators(ctx, v, repo, opts, referrer)
 		if err != nil {
 			msg := err.Error()
-			v.log.V(3).Info(msg, "failed to verify referrer %s", targetDesc.Digest.String())
+			v.log.V(2).Info(msg, "failed to verify referrer %s", targetDesc.Digest.String())
 			continue
 		}
 
-		statements, err = extractStatements(ctx, repo, targetDesc)
+		v.log.V(2).Info("extracting statements", "desc", targetDesc, "repo", repo)
+		statements, err = extractStatements(ctx, repo, referrer)
 		if err != nil {
 			msg := err.Error()
-			v.log.V(3).Info(msg, "failed to extract statements %s", targetDesc.Digest.String())
+			v.log.V(2).Info("failed to extract statements %s", "err", msg)
 			continue
 		}
 
-		v.log.V(3).Info("verified images", "digest", len(targetDesc.Digest))
+		v.log.V(2).Info("verified attestators", "digest", targetDesc.Digest.String())
 		break
 	}
 
+	if len(statements) == 0 {
+		return nil, fmt.Errorf("failed to fetch attestations")
+	}
+	v.log.V(2).Info(fmt.Sprintf("sending response %+v", &images.Response{Digest: repoDesc.Digest.String(), Statements: statements}))
 	return &images.Response{Digest: repoDesc.Digest.String(), Statements: statements}, nil
 }
 
 func verifyAttestators(ctx context.Context, v *notaryV2Verifier, remoteRepo *remote.Repository, opts images.Options, desc ocispec.Descriptor) (ocispec.Descriptor, error) {
 	if opts.Cert == "" && opts.CertChain == "" {
 		// skips the checks when no attestor is provided
+		v.log.V(2).Info("skipping as no attestators is provided", desc)
 		return desc, nil
 	}
 	certsPEM := combineCerts(opts)
 	certs, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(certsPEM)))
 	if err != nil {
+		v.log.V(2).Info("failed to parse certificates", "err", err)
 		return ocispec.Descriptor{}, errors.Wrapf(err, "failed to parse certificates")
 	}
 
@@ -201,12 +208,14 @@ func verifyAttestators(ctx context.Context, v *notaryV2Verifier, remoteRepo *rem
 	policyDoc := v.buildPolicy()
 	notationVerifier, err := verifier.New(policyDoc, trustStore, nil)
 	if err != nil {
+		v.log.V(2).Info("failed to created verifier", "err", err)
 		return ocispec.Descriptor{}, errors.Wrapf(err, "failed to created verifier")
 	}
 
 	reference := remoteRepo.Reference.Registry + "/" + remoteRepo.Reference.Repository + "@" + desc.Digest.String()
 	repo, parsedRef, err := parseReference(ctx, reference, opts.RegistryClient)
 	if err != nil {
+		v.log.V(2).Info("failed to parse image reference", "ref", opts.ImageRef, "err", err)
 		return ocispec.Descriptor{}, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
 	}
 
@@ -218,14 +227,17 @@ func verifyAttestators(ctx context.Context, v *notaryV2Verifier, remoteRepo *rem
 
 	targetDesc, outcomes, err := notation.Verify(context.TODO(), notationVerifier, repo, remoteVerifyOptions)
 	if err != nil {
+		v.log.V(2).Info("failed to vefify attestator", "remoteVerifyOptions", remoteVerifyOptions, "repo", repo)
 		return targetDesc, err
 	}
 	if err := v.verifyOutcomes(outcomes); err != nil {
 		return targetDesc, err
 	}
 	if targetDesc.Digest != desc.Digest {
+		v.log.V(2).Info("digest mismatch", "expected", desc.Digest.String(), "found", targetDesc.Digest.String())
 		return targetDesc, errors.Errorf("digest mismatch")
 	}
+	v.log.V(2).Info("attestator verified", "desc", targetDesc.Digest.String())
 
 	return targetDesc, nil
 }
@@ -241,13 +253,11 @@ func extractStatements(ctx context.Context, repo *remote.Repository, targetDesc 
 }
 
 func extractStatement(ctx context.Context, repo *remote.Repository, targetDesc ocispec.Descriptor) (map[string]interface{}, error) {
-	repoDesc, artifactListIO, err := oras.Fetch(ctx, repo, repo.Reference.Reference, oras.DefaultFetchOptions)
+	_, artifactListIO, err := oras.Fetch(context.TODO(), repo, repo.Reference.Reference, oras.DefaultFetchOptions)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error in oras fetch: %w", err)
 	}
-	if repoDesc.Digest != targetDesc.Digest {
-		return nil, errors.Errorf("Couldn't fetch statement")
-	}
+
 	buf := new(bytes.Buffer)
 	_, err = buf.ReadFrom(artifactListIO)
 	if err != nil {
@@ -262,6 +272,9 @@ func extractStatement(ctx context.Context, repo *remote.Repository, targetDesc o
 	data := make(map[string]interface{})
 	if err := json.Unmarshal(buf.Bytes(), &data); err != nil {
 		return nil, err
+	}
+	if data["predicateType"] == nil {
+		data["predicateType"] = targetDesc.ArtifactType
 	}
 	return data, nil
 }
