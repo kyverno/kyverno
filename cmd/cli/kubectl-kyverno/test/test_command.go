@@ -445,7 +445,7 @@ func getLocalDirTestFiles(
 }
 
 func buildPolicyResults(
-	engineResponses []*engineapi.EngineResponse,
+	engineResponses []engineapi.EngineResponse,
 	testResults []api.TestResults,
 	policyResourcePath string,
 	fs billy.Filesystem,
@@ -740,7 +740,7 @@ func getAndCompareResource(path string, engineResource unstructured.Unstructured
 	return status
 }
 
-func buildMessage(resp *engineapi.EngineResponse) string {
+func buildMessage(resp engineapi.EngineResponse) string {
 	var bldr strings.Builder
 	for _, ruleResp := range resp.PolicyResponse.Rules {
 		fmt.Fprintf(&bldr, "  %s: %s \n", ruleResp.Name(), ruleResp.Status())
@@ -775,7 +775,7 @@ func applyPoliciesFromPath(
 	removeColor bool,
 	auditWarn bool,
 ) (err error) {
-	engineResponses := make([]*engineapi.EngineResponse, 0)
+	engineResponses := make([]engineapi.EngineResponse, 0)
 	var dClient dclient.Interface
 	values := &api.Test{}
 	var variablesString string

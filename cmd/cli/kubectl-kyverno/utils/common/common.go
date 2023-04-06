@@ -368,8 +368,8 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 }
 
 // ApplyPolicyOnResource - function to apply policy on resource
-func ApplyPolicyOnResource(c ApplyPolicyConfig) ([]*engineapi.EngineResponse, error) {
-	var engineResponses []*engineapi.EngineResponse
+func ApplyPolicyOnResource(c ApplyPolicyConfig) ([]engineapi.EngineResponse, error) {
+	var engineResponses []engineapi.EngineResponse
 	namespaceLabels := make(map[string]string)
 	operationIsDelete := false
 
@@ -491,7 +491,7 @@ OuterLoop:
 		WithResourceKind(gvk, subresource)
 
 	mutateResponse := eng.Mutate(context.Background(), policyContext)
-	engineResponses = append(engineResponses, &mutateResponse)
+	engineResponses = append(engineResponses, mutateResponse)
 
 	err = processMutateEngineResponse(c, &mutateResponse, resPath)
 	if err != nil {
@@ -515,12 +515,12 @@ OuterLoop:
 	}
 
 	if !validateResponse.IsEmpty() {
-		engineResponses = append(engineResponses, &validateResponse)
+		engineResponses = append(engineResponses, validateResponse)
 	}
 
 	verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
 	if !verifyImageResponse.IsEmpty() {
-		engineResponses = append(engineResponses, &verifyImageResponse)
+		engineResponses = append(engineResponses, verifyImageResponse)
 	}
 
 	var policyHasGenerate bool
@@ -539,7 +539,7 @@ OuterLoop:
 			} else {
 				generateResponse.PolicyResponse.Rules = newRuleResponse
 			}
-			engineResponses = append(engineResponses, &generateResponse)
+			engineResponses = append(engineResponses, generateResponse)
 		}
 		updateResultCounts(c.Policy, &generateResponse, resPath, c.Rc, c.AuditWarn)
 	}

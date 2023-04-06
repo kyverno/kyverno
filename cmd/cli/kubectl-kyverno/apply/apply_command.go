@@ -200,7 +200,7 @@ func Command() *cobra.Command {
 	return cmd
 }
 
-func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, resources []*unstructured.Unstructured, skipInvalidPolicies SkippedInvalidPolicies, responses []*engineapi.EngineResponse, err error) {
+func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, resources []*unstructured.Unstructured, skipInvalidPolicies SkippedInvalidPolicies, responses []engineapi.EngineResponse, err error) {
 	store.SetMock(true)
 	store.SetRegistryAccess(c.RegistryAccess)
 	if c.Cluster {
@@ -468,7 +468,7 @@ func checkMutateLogPath(mutateLogPath string) (mutateLogPathIsDir bool, err erro
 }
 
 // PrintReportOrViolation - printing policy report/violations
-func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resourcePaths []string, resourcesLen int, skipInvalidPolicies SkippedInvalidPolicies, stdin bool, pvInfos []*engineapi.EngineResponse, warnExitCode int, warnNoPassed bool) {
+func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resourcePaths []string, resourcesLen int, skipInvalidPolicies SkippedInvalidPolicies, stdin bool, engineResponses []engineapi.EngineResponse, warnExitCode int, warnNoPassed bool) {
 	divider := "----------------------------------------------------------------------"
 
 	if len(skipInvalidPolicies.skipped) > 0 {
@@ -489,7 +489,7 @@ func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resource
 	}
 
 	if policyReport {
-		resps := buildPolicyReports(pvInfos)
+		resps := buildPolicyReports(engineResponses...)
 		if len(resps) > 0 || resourcesLen == 0 {
 			fmt.Println(divider)
 			fmt.Println("POLICY REPORT:")
