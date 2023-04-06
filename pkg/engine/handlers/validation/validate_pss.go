@@ -20,8 +20,8 @@ import (
 
 type validatePssHandler struct{}
 
-func NewValidatePssHandler() handlers.Handler {
-	return validatePssHandler{}
+func NewValidatePssHandler() (handlers.Handler, error) {
+	return validatePssHandler{}, nil
 }
 
 func (h validatePssHandler) Process(
@@ -30,9 +30,10 @@ func (h validatePssHandler) Process(
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
+	_ engineapi.EngineContextLoader,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
-	podSecurity := rule.Validation.PodSecurity
 	// Marshal pod metadata and spec
+	podSecurity := rule.Validation.PodSecurity
 	podSpec, metadata, err := getSpec(resource)
 	if err != nil {
 		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.Validation, "Error while getting new resource", err))

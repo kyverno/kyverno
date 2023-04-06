@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: disallow-latest-tag
 spec:
-  validationFailureAction: audit
+  validationFailureAction: Audit
   rules:
   - match:
       resources:
