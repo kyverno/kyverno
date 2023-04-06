@@ -249,7 +249,10 @@ func extractStatement(ctx context.Context, repo *remote.Repository, targetDesc o
 		return nil, errors.Errorf("Couldn't fetch statement")
 	}
 	buf := new(bytes.Buffer)
-	buf.ReadFrom(artifactListIO)
+	_, err = buf.ReadFrom(artifactListIO)
+	if err != nil {
+		return nil, err
+	}
 
 	manifest := ocispec.Manifest{}
 	if err := json.Unmarshal(buf.Bytes(), &manifest); err != nil {
