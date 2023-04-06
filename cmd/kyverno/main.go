@@ -153,6 +153,7 @@ func createrLeaderControllers(
 	certRenewer tls.CertRenewer,
 	runtime runtimeutils.Runtime,
 	servicePort int32,
+	configuration config.Configuration,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	certManager := certmanager.NewController(
 		kubeKyvernoInformer.Core().V1().Secrets(),
@@ -169,7 +170,6 @@ func createrLeaderControllers(
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kubeKyvernoInformer.Core().V1().Secrets(),
-		kubeKyvernoInformer.Core().V1().ConfigMaps(),
 		kubeKyvernoInformer.Coordination().V1().Leases(),
 		kubeInformer.Rbac().V1().ClusterRoles(),
 		serverIP,
@@ -178,13 +178,13 @@ func createrLeaderControllers(
 		autoUpdateWebhooks,
 		admissionReports,
 		runtime,
+		configuration,
 	)
 	exceptionWebhookController := genericwebhookcontroller.NewController(
 		exceptionWebhookControllerName,
 		kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 		kubeKyvernoInformer.Core().V1().Secrets(),
-		kubeKyvernoInformer.Core().V1().ConfigMaps(),
 		config.ExceptionValidatingWebhookConfigurationName,
 		config.ExceptionValidatingWebhookServicePath,
 		serverIP,
@@ -202,6 +202,7 @@ func createrLeaderControllers(
 		}},
 		genericwebhookcontroller.Fail,
 		genericwebhookcontroller.None,
+		configuration,
 	)
 	return []internal.Controller{
 			internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers),
@@ -450,6 +451,7 @@ func main() {
 				certRenewer,
 				runtime,
 				int32(servicePort),
+				configuration,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create leader controllers")

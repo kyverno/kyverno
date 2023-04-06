@@ -74,6 +74,7 @@ SED                                := gsed
 else
 SED                                := sed
 endif
+COMMA                              := ,
 
 $(KIND):
 	@echo Install kind... >&2
@@ -824,7 +825,7 @@ kind-load-image-archive: $(KIND) ## Load docker images from archive
 .PHONY: kind-install-kyverno
 kind-install-kyverno: $(HELM) ## Install kyverno helm chart
 	@echo Install kyverno chart... >&2
-	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
+	$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
 		--set admissionController.container.image.registry=$(LOCAL_REGISTRY) \
 		--set admissionController.container.image.repository=$(LOCAL_KYVERNO_REPO) \
 		--set admissionController.container.image.tag=$(IMAGE_TAG_DEV) \
@@ -840,7 +841,7 @@ kind-install-kyverno: $(HELM) ## Install kyverno helm chart
 		--set backgroundController.image.registry=$(LOCAL_REGISTRY) \
 		--set backgroundController.image.repository=$(LOCAL_BACKGROUND_REPO) \
 		--set backgroundController.image.tag=$(IMAGE_TAG_DEV) \
-		--values ./scripts/config/$(USE_CONFIG)/kyverno.yaml
+		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno.yaml)
 
 .PHONY: kind-deploy-kyverno
 kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
@@ -850,7 +851,7 @@ kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cl
 kind-deploy-kyverno-policies: $(HELM) ## Deploy kyverno-policies helm chart
 	@echo Install kyverno-policies chart... >&2
 	@$(HELM) upgrade --install kyverno-policies --namespace kyverno --create-namespace --wait ./charts/kyverno-policies \
-		--values ./scripts/config/$(USE_CONFIG)/kyverno-policies.yaml
+		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno-policies.yaml)
 
 .PHONY: kind-deploy-all
 kind-deploy-all: | kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in kind cluster and deploy helm charts

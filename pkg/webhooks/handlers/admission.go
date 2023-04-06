@@ -62,10 +62,5 @@ func (inner AdmissionHandler) withAdmission(logger logr.Logger) HttpHandler {
 			HttpError(request.Context(), writer, request, logger, err, http.StatusInternalServerError)
 			return
 		}
-		if admissionReview.Request.Kind.Kind == "Lease" {
-			logger.V(6).Info("admission review request processed", "time", time.Since(startTime).String())
-		} else {
-			logger.V(4).Info("admission review request processed", "time", time.Since(startTime).String())
-		}
 	}
 }
