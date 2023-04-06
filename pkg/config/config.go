@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"sync"
 
@@ -9,7 +10,7 @@ import (
 	osutils "github.com/kyverno/kyverno/pkg/utils/os"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
@@ -151,7 +152,9 @@ type Configuration interface {
 	// GetWebhookAnnotations returns annotations to set on webhook configs
 	GetWebhookAnnotations() map[string]string
 	// Load loads configuration from a configmap
-	Load(cm *corev1.ConfigMap)
+	Load(*corev1.ConfigMap)
+	// OnChanged adds a callback to be invoked when the configuration is reloaded
+	OnChanged(func())
 }
 
 // configuration stores the configuration
@@ -168,6 +171,7 @@ type configuration struct {
 	webhooks                      []WebhookConfig
 	webhookAnnotations            map[string]string
 	mux                           sync.RWMutex
+	callbacks                     []func()
 }
 
 // NewDefaultConfiguration ...
@@ -183,13 +187,19 @@ func NewDefaultConfiguration(skipResourceFilters bool) *configuration {
 func NewConfiguration(client kubernetes.Interface, skipResourceFilters bool) (Configuration, error) {
 	cd := NewDefaultConfiguration(skipResourceFilters)
 	if cm, err := client.CoreV1().ConfigMaps(kyvernoNamespace).Get(context.TODO(), kyvernoConfigMapName, metav1.GetOptions{}); err != nil {
-		if !errors.IsNotFound(err) {
+		if !apierrors.IsNotFound(err) {
 			return nil, err
 		}
 	} else {
 		cd.load(cm)
 	}
 	return cd, nil
+}
+
+func (cd *configuration) OnChanged(callback func()) {
+	cd.mux.Lock()
+	defer cd.mux.Unlock()
+	cd.callbacks = append(cd.callbacks, callback)
 }
 
 func (cd *configuration) ToFilter(gvk schema.GroupVersionKind, subresource, namespace, name string) bool {
@@ -282,94 +292,120 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	}
 	cd.mux.Lock()
 	defer cd.mux.Unlock()
+	defer cd.notify()
 	// reset
-	cd.filters = []filter{}
+	cd.defaultRegistry = "docker.io"
+	cd.enableDefaultRegistryMutation = true
 	cd.excludedUsernames = []string{}
 	cd.excludedGroups = []string{}
 	cd.excludedRoles = []string{}
 	cd.excludedClusterRoles = []string{}
+	cd.filters = []filter{}
 	cd.generateSuccessEvents = false
 	cd.webhooks = nil
+	cd.webhookAnnotations = nil
 	// load filters
 	cd.filters = parseKinds(cm.Data["resourceFilters"])
-	newDefaultRegistry, ok := cm.Data["defaultRegistry"]
+	logger.Info("filters configured", "filters", cd.filters)
+	// load defaultRegistry
+	defaultRegistry, ok := cm.Data["defaultRegistry"]
 	if !ok {
-		logger.V(6).Info("configuration: No defaultRegistry defined in ConfigMap")
+		logger.Info("defaultRegistry not set")
 	} else {
-		if valid.IsDNSName(newDefaultRegistry) {
-			logger.V(4).Info("Updated defaultRegistry config parameter.", "oldDefaultRegistry", cd.defaultRegistry, "newDefaultRegistry", newDefaultRegistry)
-			cd.defaultRegistry = newDefaultRegistry
+		logger := logger.WithValues("defaultRegistry", defaultRegistry)
+		if valid.IsDNSName(defaultRegistry) {
+			cd.defaultRegistry = defaultRegistry
+			logger.Info("defaultRegistry configured")
 		} else {
-			logger.V(4).Info("defaultRegistry didn't change because the provided config value isn't a valid DNS hostname")
+			logger.Error(errors.New("defaultRegistry is not a valid DNS hostname"), "failed to configure defaultRegistry")
 		}
 	}
+	// load enableDefaultRegistryMutation
 	enableDefaultRegistryMutation, ok := cm.Data["enableDefaultRegistryMutation"]
 	if !ok {
-		logger.V(6).Info("configuration: No enableDefaultRegistryMutation defined in ConfigMap")
+		logger.Info("enableDefaultRegistryMutation not set")
 	} else {
-		newEnableDefaultRegistryMutation, err := strconv.ParseBool(enableDefaultRegistryMutation)
+		logger := logger.WithValues("enableDefaultRegistryMutation", enableDefaultRegistryMutation)
+		enableDefaultRegistryMutation, err := strconv.ParseBool(enableDefaultRegistryMutation)
 		if err != nil {
-			logger.V(4).Info("configuration: Invalid value for enableDefaultRegistryMutation defined in ConfigMap. enableDefaultRegistryMutation didn't change")
+			logger.Error(err, "enableDefaultRegistryMutation is not a boolean")
+		} else {
+			cd.enableDefaultRegistryMutation = enableDefaultRegistryMutation
+			logger.Info("enableDefaultRegistryMutation configured")
 		}
-		logger.V(4).Info("Updated enableDefaultRegistryMutation config parameter", "oldEnableDefaultRegistryMutation", cd.enableDefaultRegistryMutation, "newEnableDefaultRegistryMutation", newEnableDefaultRegistryMutation)
-		cd.enableDefaultRegistryMutation = newEnableDefaultRegistryMutation
 	}
 	// load excludeGroupRole
 	excludedGroups, ok := cm.Data["excludeGroups"]
 	if !ok {
-		logger.V(6).Info("configuration: No excludeGroups defined in ConfigMap")
+		logger.Info("excludeGroups not set")
 	} else {
 		cd.excludedGroups = parseStrings(excludedGroups)
+		logger.Info("excludedGroups configured", "excludeGroups", cd.excludedGroups)
 	}
 	// load excludeUsername
 	excludedUsernames, ok := cm.Data["excludeUsernames"]
 	if !ok {
-		logger.V(6).Info("configuration: No excludeUsernames defined in ConfigMap")
+		logger.Info("excludeUsernames not set")
 	} else {
 		cd.excludedUsernames = parseStrings(excludedUsernames)
+		logger.Info("excludedUsernames configured", "excludeUsernames", cd.excludedUsernames)
 	}
 	// load excludeRoles
 	excludedRoles, ok := cm.Data["excludeRoles"]
 	if !ok {
-		logger.V(6).Info("configuration: No excludeRoles defined in ConfigMap")
+		logger.Info("excludeRoles not set")
 	} else {
 		cd.excludedRoles = parseStrings(excludedRoles)
+		logger.Info("excludedRoles configured", "excludeRoles", cd.excludedRoles)
 	}
 	// load excludeClusterRoles
 	excludedClusterRoles, ok := cm.Data["excludeClusterRoles"]
 	if !ok {
-		logger.V(6).Info("configuration: No excludeClusterRoles defined in ConfigMap")
+		logger.Info("excludeClusterRoles not set")
 	} else {
 		cd.excludedClusterRoles = parseStrings(excludedClusterRoles)
+		logger.Info("excludedClusterRoles configured", "excludeClusterRoles", cd.excludedClusterRoles)
 	}
 	// load generateSuccessEvents
 	generateSuccessEvents, ok := cm.Data["generateSuccessEvents"]
-	if ok {
+	if !ok {
+		logger.Info("generateSuccessEvents not set")
+	} else {
+		logger := logger.WithValues("generateSuccessEvents", generateSuccessEvents)
 		generateSuccessEvents, err := strconv.ParseBool(generateSuccessEvents)
 		if err != nil {
-			logger.Error(err, "failed to parse generateSuccessEvents")
+			logger.Error(err, "generateSuccessEvents is not a boolean")
 		} else {
 			cd.generateSuccessEvents = generateSuccessEvents
+			logger.Info("generateSuccessEvents configured")
 		}
 	}
 	// load webhooks
 	webhooks, ok := cm.Data["webhooks"]
-	if ok {
+	if !ok {
+		logger.Info("webhooks not set")
+	} else {
+		logger := logger.WithValues("webhooks", webhooks)
 		webhooks, err := parseWebhooks(webhooks)
 		if err != nil {
 			logger.Error(err, "failed to parse webhooks")
 		} else {
 			cd.webhooks = webhooks
+			logger.Info("webhooks configured")
 		}
 	}
 	// load webhook annotations
 	webhookAnnotations, ok := cm.Data["webhookAnnotations"]
-	if ok {
+	if !ok {
+		logger.Info("webhookAnnotations not set")
+	} else {
+		logger := logger.WithValues("webhookAnnotations", webhookAnnotations)
 		webhookAnnotations, err := parseWebhookAnnotations(webhookAnnotations)
 		if err != nil {
 			logger.Error(err, "failed to parse webhook annotations")
 		} else {
 			cd.webhookAnnotations = webhookAnnotations
+			logger.Info("webhookAnnotations configured")
 		}
 	}
 }
@@ -377,14 +413,21 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 func (cd *configuration) unload() {
 	cd.mux.Lock()
 	defer cd.mux.Unlock()
-	cd.filters = []filter{}
+	defer cd.notify()
 	cd.defaultRegistry = "docker.io"
 	cd.enableDefaultRegistryMutation = true
 	cd.excludedUsernames = []string{}
 	cd.excludedGroups = []string{}
 	cd.excludedRoles = []string{}
 	cd.excludedClusterRoles = []string{}
+	cd.filters = []filter{}
 	cd.generateSuccessEvents = false
 	cd.webhooks = nil
 	cd.webhookAnnotations = nil
+}
+
+func (cd *configuration) notify() {
+	for _, callback := range cd.callbacks {
+		callback()
+	}
 }

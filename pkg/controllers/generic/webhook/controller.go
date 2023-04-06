@@ -40,9 +40,8 @@ type controller struct {
 	vwcClient controllerutils.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration]
 
 	// listers
-	vwcLister       admissionregistrationv1listers.ValidatingWebhookConfigurationLister
-	secretLister    corev1listers.SecretNamespaceLister
-	configMapLister corev1listers.ConfigMapLister
+	vwcLister    admissionregistrationv1listers.ValidatingWebhookConfigurationLister
+	secretLister corev1listers.SecretNamespaceLister
 
 	// queue
 	queue workqueue.RateLimitingInterface
@@ -57,6 +56,7 @@ type controller struct {
 	rules          []admissionregistrationv1.RuleWithOperations
 	failurePolicy  *admissionregistrationv1.FailurePolicyType
 	sideEffects    *admissionregistrationv1.SideEffectClass
+	configuration  config.Configuration
 }
 
 func NewController(
@@ -64,7 +64,6 @@ func NewController(
 	vwcClient controllerutils.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration],
 	vwcInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer,
 	secretInformer corev1informers.SecretInformer,
-	configMapInformer corev1informers.ConfigMapInformer,
 	webhookName string,
 	path string,
 	server string,
@@ -72,23 +71,24 @@ func NewController(
 	rules []admissionregistrationv1.RuleWithOperations,
 	failurePolicy *admissionregistrationv1.FailurePolicyType,
 	sideEffects *admissionregistrationv1.SideEffectClass,
+	configuration config.Configuration,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 	c := controller{
-		vwcClient:       vwcClient,
-		vwcLister:       vwcInformer.Lister(),
-		secretLister:    secretInformer.Lister().Secrets(config.KyvernoNamespace()),
-		configMapLister: configMapInformer.Lister(),
-		queue:           queue,
-		controllerName:  controllerName,
-		logger:          logging.ControllerLogger(controllerName),
-		webhookName:     webhookName,
-		path:            path,
-		server:          server,
-		servicePort:     servicePort,
-		rules:           rules,
-		failurePolicy:   failurePolicy,
-		sideEffects:     sideEffects,
+		vwcClient:      vwcClient,
+		vwcLister:      vwcInformer.Lister(),
+		secretLister:   secretInformer.Lister().Secrets(config.KyvernoNamespace()),
+		queue:          queue,
+		controllerName: controllerName,
+		logger:         logging.ControllerLogger(controllerName),
+		webhookName:    webhookName,
+		path:           path,
+		server:         server,
+		servicePort:    servicePort,
+		rules:          rules,
+		failurePolicy:  failurePolicy,
+		sideEffects:    sideEffects,
+		configuration:  configuration,
 	}
 	controllerutils.AddDefaultEventHandlers(c.logger, vwcInformer.Informer(), queue)
 	controllerutils.AddEventHandlersT(
@@ -109,24 +109,7 @@ func NewController(
 			}
 		},
 	)
-	controllerutils.AddEventHandlersT(
-		configMapInformer.Informer(),
-		func(obj *corev1.ConfigMap) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoConfigMapName() {
-				c.enqueue()
-			}
-		},
-		func(_, obj *corev1.ConfigMap) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoConfigMapName() {
-				c.enqueue()
-			}
-		},
-		func(obj *corev1.ConfigMap) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoConfigMapName() {
-				c.enqueue()
-			}
-		},
-	)
+	configuration.OnChanged(c.enqueue)
 	return &c
 }
 
@@ -139,15 +122,6 @@ func (c *controller) enqueue() {
 	c.queue.Add(c.webhookName)
 }
 
-func (c *controller) loadConfig() config.Configuration {
-	cfg := config.NewDefaultConfiguration(false)
-	cm, err := c.configMapLister.ConfigMaps(config.KyvernoNamespace()).Get(config.KyvernoConfigMapName())
-	if err == nil {
-		cfg.Load(cm)
-	}
-	return cfg
-}
-
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, _ string) error {
 	if key != c.webhookName {
 		return nil
@@ -156,7 +130,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	if err != nil {
 		return err
 	}
-	desired, err := c.build(c.loadConfig(), caData)
+	desired, err := c.build(c.configuration, caData)
 	if err != nil {
 		return err
 	}
