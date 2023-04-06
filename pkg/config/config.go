@@ -152,7 +152,9 @@ type Configuration interface {
 	// GetWebhookAnnotations returns annotations to set on webhook configs
 	GetWebhookAnnotations() map[string]string
 	// Load loads configuration from a configmap
-	Load(cm *corev1.ConfigMap)
+	Load(*corev1.ConfigMap)
+	// OnChanged adds a callback to be invoked when the configuration is reloaded
+	OnChanged(func())
 }
 
 // configuration stores the configuration
@@ -169,6 +171,7 @@ type configuration struct {
 	webhooks                      []WebhookConfig
 	webhookAnnotations            map[string]string
 	mux                           sync.RWMutex
+	callbacks                     []func()
 }
 
 // NewDefaultConfiguration ...
@@ -191,6 +194,12 @@ func NewConfiguration(client kubernetes.Interface, skipResourceFilters bool) (Co
 		cd.load(cm)
 	}
 	return cd, nil
+}
+
+func (cd *configuration) OnChanged(callback func()) {
+	cd.mux.Lock()
+	defer cd.mux.Unlock()
+	cd.callbacks = append(cd.callbacks, callback)
 }
 
 func (cd *configuration) ToFilter(gvk schema.GroupVersionKind, subresource, namespace, name string) bool {
@@ -297,6 +306,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	}
 	cd.mux.Lock()
 	defer cd.mux.Unlock()
+	defer cd.notify()
 	// reset
 	cd.defaultRegistry = "docker.io"
 	cd.enableDefaultRegistryMutation = true
@@ -417,6 +427,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 func (cd *configuration) unload() {
 	cd.mux.Lock()
 	defer cd.mux.Unlock()
+	defer cd.notify()
 	cd.defaultRegistry = "docker.io"
 	cd.enableDefaultRegistryMutation = true
 	cd.excludedUsernames = []string{}
@@ -427,4 +438,10 @@ func (cd *configuration) unload() {
 	cd.generateSuccessEvents = false
 	cd.webhooks = nil
 	cd.webhookAnnotations = nil
+}
+
+func (cd *configuration) notify() {
+	for _, callback := range cd.callbacks {
+		callback()
+	}
 }
