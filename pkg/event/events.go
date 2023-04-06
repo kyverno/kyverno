@@ -9,7 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func NewPolicyFailEvent(source Source, reason Reason, engineResponse engineapi.EngineResponse, ruleResp *engineapi.RuleResponse, blocked bool) Info {
+func NewPolicyFailEvent(source Source, reason Reason, engineResponse engineapi.EngineResponse, ruleResp engineapi.RuleResponse, blocked bool) Info {
 	return Info{
 		Kind:      getPolicyKind(engineResponse.Policy),
 		Name:      engineResponse.Policy.GetName(),
@@ -20,7 +20,7 @@ func NewPolicyFailEvent(source Source, reason Reason, engineResponse engineapi.E
 	}
 }
 
-func buildPolicyEventMessage(resp *engineapi.RuleResponse, resource engineapi.ResourceSpec, blocked bool) string {
+func buildPolicyEventMessage(resp engineapi.RuleResponse, resource engineapi.ResourceSpec, blocked bool) string {
 	var b strings.Builder
 	if resource.Namespace != "" {
 		fmt.Fprintf(&b, "%s %s/%s", resource.Kind, resource.Namespace, resource.Name)
@@ -68,7 +68,7 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 	}
 }
 
-func NewResourceViolationEvent(source Source, reason Reason, engineResponse engineapi.EngineResponse, ruleResp *engineapi.RuleResponse) Info {
+func NewResourceViolationEvent(source Source, reason Reason, engineResponse engineapi.EngineResponse, ruleResp engineapi.RuleResponse) Info {
 	var bldr strings.Builder
 	defer bldr.Reset()
 
@@ -123,7 +123,7 @@ func NewBackgroundSuccessEvent(policy, rule string, source Source, r *unstructur
 	return events
 }
 
-func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp *engineapi.RuleResponse, source Source) []Info {
+func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp engineapi.RuleResponse, source Source) []Info {
 	exception := ruleResp.Exception()
 	exceptionName, exceptionNamespace := exception.GetName(), exception.GetNamespace()
 	policyMessage := fmt.Sprintf("resource %s was skipped from rule %s due to policy exception %s/%s", resourceKey(engineResponse.PatchedResource), ruleResp.Name(), exceptionNamespace, exceptionName)
