@@ -922,8 +922,15 @@ dev-lab-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 		--repo https://charts.bitnami.com/bitnami metrics-server \
 		--values ./scripts/config/dev/metrics-server.yaml
 
+.PHONY: dev-lab-policy-reporter
+dev-lab-policy-reporter: $(HELM) ## Deploy policy-reporter helm chart
+	@echo Install policy-reporter chart... >&2
+	@$(HELM) upgrade --install policy-reporter --namespace policy-reporter --create-namespace --wait \
+		--repo https://kyverno.github.io/policy-reporter policy-reporter \
+		--values ./scripts/config/dev/policy-reporter.yaml
+
 .PHONY: dev-lab-all
-dev-lab-all: dev-lab-ingress-ngingx dev-lab-metrics-server dev-lab-prometheus dev-lab-loki dev-lab-tempo ## Deploy all dev lab components
+dev-lab-all: dev-lab-ingress-ngingx dev-lab-metrics-server dev-lab-prometheus dev-lab-loki dev-lab-tempo dev-lab-policy-reporter ## Deploy all dev lab components
 
 ########
 # HELP #
