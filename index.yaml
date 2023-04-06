@@ -3,6 +3,53 @@ entries:
   kyverno:
   - annotations:
       artifacthub.io/changes: |
+        - kind: added
+          description: make sigstore volume configurable
+        - kind: changed
+          description: no deployments can run with 0 replicas
+        - kind: changed
+          description: change dashboard title of kyverno grafana dashboard
+        - kind: added
+          description: view aggregated cluster role support
+        - kind: added
+          description: support for webhook annotations in config map
+        - kind: added
+          description: allow overriding PDB api version
+        - kind: fixed
+          description: missing image pull secrets in helm hooks
+        - kind: added
+          description: support `excludeRoles` and `excludeClusterRoles` in config
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://kyverno.io/docs
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
+    appVersion: v1.10.0-alpha.1
+    created: "2023-04-06T19:46:53.782438557Z"
+    description: Kubernetes Native Policy Management
+    digest: 8a4c7d930747f725d788220b1ca583bb4bb62d3c8abe22b6a49bed722a8435e6
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.16.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-v3.0.0-alpha.1.tgz
+    version: v3.0.0-alpha.1
+  - annotations:
+      artifacthub.io/changes: |
         - kind: changed
           description: Syntax change for webhooksCleanup switch to match with the rest of the file
         - kind: fixed
@@ -6440,4 +6487,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2023-03-22T08:07:50.647045828Z"
+generated: "2023-04-06T19:46:53.768599847Z"
