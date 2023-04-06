@@ -16,11 +16,12 @@ limitations under the License.
 package v2alpha1
 
 import (
-	"fmt"
-
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -43,9 +44,9 @@ type PolicyException struct {
 
 // Validate implements programmatic validation
 func (p *PolicyException) Validate() (errs field.ErrorList) {
-	if err := ValidateVariables(p); err != nil {
-		errs = append(errs, field.Forbidden(field.NewPath(""), fmt.Sprintf("Policy Exception \"%s\" should not have variables", p.Name)))
-	}
+	// if err := ValidateVariables(p); err != nil {
+	// 	errs = append(errs, field.Forbidden(field.NewPath(""), fmt.Sprintf("Policy Exception \"%s\" should not have variables", p.Name)))
+	// }
 	errs = append(errs, p.Spec.Validate(field.NewPath("spec"))...)
 	return errs
 }
@@ -66,11 +67,16 @@ type PolicyExceptionSpec struct {
 	// uses variables that are only available in the admission review request (e.g. user name).
 	Background *bool `json:"background,omitempty" yaml:"background,omitempty"`
 
-	// Match defines match clause used to check if a resource applies to the exception
+	// Match defines match clause used to check
 	Match kyvernov2beta1.MatchResources `json:"match"`
 
 	// Exceptions is a list policy/rules to be excluded
 	Exceptions []Exception `json:"exceptions"`
+
+	// Conditions are used to determine if a resource applies to the exception by evaluating a
+	// set of conditions. The declaration can contain nested `any` or `all` statements.
+	// +optional
+	RawAnyAllConditions *apiextv1.JSON `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
 }
 
 func (p *PolicyExceptionSpec) BackgroundProcessingEnabled() bool {
@@ -134,6 +140,14 @@ func (p *Exception) Contains(policy string, rule string) bool {
 		}
 	}
 	return false
+}
+
+func (p *PolicyExceptionSpec) GetAnyAllConditions() apiextensions.JSON {
+	return kyvernov1.FromJSON(p.RawAnyAllConditions)
+}
+
+func (p *PolicyExceptionSpec) SetAnyAllConditions(in apiextensions.JSON) {
+	p.RawAnyAllConditions = kyvernov1.ToJSON(in)
 }
 
 // +kubebuilder:object:root=true
