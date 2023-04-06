@@ -68,10 +68,7 @@ func (e *engine) validate(
 			engineapi.Validation,
 		)
 		matchedResource = resource
-		stats := engineapi.NewExecutionStats(startTime, time.Now())
-		for _, ruleResp := range ruleResp {
-			resp.Add(stats, ruleResp)
-		}
+		resp.Add(engineapi.NewExecutionStats(startTime, time.Now()), ruleResp...)
 		if applyRules == kyvernov1.ApplyOne && resp.Stats.RulesAppliedCount > 0 {
 			break
 		}
