@@ -33,14 +33,14 @@ func (inner AdmissionHandler) withProtection() AdmissionHandler {
 		}
 		newResource, oldResource, err := admissionutils.ExtractResources(nil, request.AdmissionRequest)
 		if err != nil {
-			logger.Error(err, "Failed to extract resources")
+			logger.Error(err, "failed to extract resources")
 			return admissionutils.Response(request.UID, err)
 		}
 		for _, resource := range []unstructured.Unstructured{newResource, oldResource} {
 			resLabels := resource.GetLabels()
 			if resLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp {
 				if request.UserInfo.Username != kyvernoUsername {
-					logger.Info("Access to the resource not authorized, this is a kyverno managed resource and should be altered only by kyverno")
+					logger.V(2).Info("access to the resource not authorized, this is a kyverno managed resource and should be altered only by kyverno")
 					return admissionutils.Response(request.UID, errors.New("A kyverno managed resource can only be modified by kyverno"))
 				}
 			}
