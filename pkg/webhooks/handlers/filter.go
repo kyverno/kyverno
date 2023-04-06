@@ -27,7 +27,7 @@ func (inner AdmissionHandler) WithSubResourceFilter(subresources ...string) Admi
 }
 
 func filtered(ctx context.Context, logger logr.Logger, request AdmissionRequest, message string, keysAndValues ...interface{}) AdmissionResponse {
-	logger.V(2).Info("admission request filtered because user is excluded", keysAndValues...)
+	logger.V(2).Info(message, keysAndValues...)
 	tracing.SetAttributes(ctx, tracing.RequestFilteredKey.Bool(true))
 	return admissionutils.ResponseSuccess(request.UID)
 }
