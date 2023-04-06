@@ -31929,8 +31929,7 @@ spec:
                   type: object
                 type: array
               match:
-                description: Match defines match clause used to check if a resource
-                  applies to the exception
+                description: Match defines match clause used to check
                 properties:
                   all:
                     description: All allows specifying resources which will be ANDed
@@ -32369,6 +32368,11 @@ spec:
                       type: object
                     type: array
                 type: object
+              preconditions:
+                description: Conditions are used to determine if a resource applies
+                  to the exception by evaluating a set of conditions. The declaration
+                  can contain nested `any` or `all` statements.
+                x-kubernetes-preserve-unknown-fields: true
             required:
             - exceptions
             - match
