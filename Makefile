@@ -304,7 +304,8 @@ ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-clean
 
 REGISTRY_USERNAME   ?= dummy
 PLATFORMS           := all
-KO_TAGS             := $(IMAGE_TAG_LATEST),$(IMAGE_TAG)
+# KO_TAGS             := $(IMAGE_TAG_LATEST),$(IMAGE_TAG)
+KO_TAGS             := $(IMAGE_TAG)
 KO_TAGS_DEV         := $(IMAGE_TAG_LATEST),$(IMAGE_TAG_DEV)
 
 .PHONY: ko-login
