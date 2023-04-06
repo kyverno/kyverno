@@ -231,10 +231,7 @@ func (e *engine) invokeRuleHandler(
 			} else if handler, err := handlerFactory(); err != nil {
 				return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to instantiate handler", err))
 			} else if handler != nil {
-				// check if there's an exception
-				if ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule); ruleResp != nil {
-					return resource, handlers.RuleResponses(ruleResp)
-				}
+
 				// load rule context
 				contextLoader := e.ContextLoader(policyContext.Policy(), rule)
 				if err := contextLoader(ctx, rule.Context, policyContext.JSONContext()); err != nil {
@@ -244,6 +241,10 @@ func (e *engine) invokeRuleHandler(
 						logger.Error(err, "failed to load context")
 					}
 					return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to load context", err))
+				}
+				// check if there's an exception
+				if ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule); ruleResp != nil {
+					return resource, handlers.RuleResponses(ruleResp)
 				}
 				// check preconditions
 				preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), rule.GetAnyAllConditions())

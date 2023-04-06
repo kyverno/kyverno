@@ -41,6 +41,7 @@ func findExceptions(
 
 // matchesException checks if an exception applies to the resource being admitted
 func matchesException(
+	logger logr.Logger,
 	selector engineapi.PolicyExceptionSelector,
 	policyContext engineapi.PolicyContext,
 	rule kyvernov1.Rule,
@@ -52,7 +53,17 @@ func matchesException(
 	}
 	gvk, subresource := policyContext.ResourceKind()
 	for _, candidate := range candidates {
-		err := matched.CheckMatchesResources(
+		if candidate.Spec.GetAnyAllConditions() != nil {
+			conditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), candidate.Spec.GetAnyAllConditions)
+			if err != nil {
+				return nil, fmt.Errorf("failed to substitute variables in exception %s conditions: %w", candidate.Name, err)
+			}
+			if !conditionsPassed {
+				logger.Info("exception %s conditions are not met", candidate.Name)
+				continue
+			}
+		}
+		err = matched.CheckMatchesResources(
 			policyContext.NewResource(),
 			candidate.Spec.Match,
 			policyContext.NamespaceLabels(),
@@ -78,7 +89,7 @@ func (e *engine) hasPolicyExceptions(
 	rule kyvernov1.Rule,
 ) *engineapi.RuleResponse {
 	// if matches, check if there is a corresponding policy exception
-	exception, err := matchesException(e.exceptionSelector, ctx, rule, e.configuration)
+	exception, err := matchesException(logger, e.exceptionSelector, ctx, rule, e.configuration)
 	var response *engineapi.RuleResponse
 	// if we found an exception
 	if err == nil && exception != nil {
