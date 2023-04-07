@@ -54,13 +54,12 @@ func matchesException(
 	gvk, subresource := policyContext.ResourceKind()
 	for _, candidate := range candidates {
 		if candidate.Spec.GetAnyAllConditions() != nil {
-			conditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), candidate.Spec.GetAnyAllConditions)
+			conditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), candidate.Spec.GetAnyAllConditions())
 			if err != nil {
 				return nil, fmt.Errorf("failed to substitute variables in exception %s conditions: %w", candidate.Name, err)
 			}
 			if !conditionsPassed {
-				logger.Info("exception %s conditions are not met", candidate.Name)
-				continue
+				return nil, fmt.Errorf("exception %s conditions are not met", candidate.Name)
 			}
 		}
 		err = matched.CheckMatchesResources(
