@@ -18,7 +18,7 @@ jobs:
       background-controller-digest: ${{ steps.release-background-controller.outputs.digest }}
       cleanup-controller-digest: ${{ steps.release-cleanup-controller.outputs.digest }}
       cli-digest: ${{ steps.release-cli.outputs.digest }}
-      reports-controller: ${{ steps.release-reports-controller.outputs.digest }}
+      reports-controller-digest: ${{ steps.release-reports-controller.outputs.digest }}
     steps:
       - name: Checkout
         uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
