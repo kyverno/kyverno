@@ -40,7 +40,7 @@ jobs:
       - name: Publish kyverno
         uses: ./.github/actions/publish-image
         with:
-          makefile-target: ko-publish-kyverno-dev
+          makefile-target: ko-publish-kyverno
           registry: ghcr.io
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
@@ -53,11 +53,12 @@ jobs:
       - name: Publish kyvernopre
         uses: ./.github/actions/publish-image
         with:
-          makefile-target: ko-publish-kyverno-init-dev
+          makefile-target: ko-publish-kyverno-init
           registry: ghcr.io
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
           sbom-name: kyvernopre
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
@@ -66,11 +67,12 @@ jobs:
       - name: Publish cleanup-controller
         uses: ./.github/actions/publish-image
         with:
-          makefile-target: ko-publish-cleanup-controller-dev
+          makefile-target: ko-publish-cleanup-controller
           registry: ghcr.io
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
           sbom-name: cleanup-controller
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
@@ -79,11 +81,12 @@ jobs:
       - name: Publish cli
         uses: ./.github/actions/publish-image
         with:
-          makefile-target: ko-publish-cli-dev
+          makefile-target: ko-publish-cli
           registry: ghcr.io
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
           sbom-name: cli
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
@@ -92,11 +95,12 @@ jobs:
       - name: Publish reports-controller
         uses: ./.github/actions/publish-image
         with:
-          makefile-target: ko-publish-reports-controller-dev
+          makefile-target: ko-publish-reports-controller
           registry: ghcr.io
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
           sbom-name: reports-controller
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
@@ -105,11 +109,12 @@ jobs:
       - name: Publish background-controller
         uses: ./.github/actions/publish-image
         with:
-          makefile-target: ko-publish-background-controller-dev
+          makefile-target: ko-publish-background-controller
           registry: ghcr.io
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
           sbom-name: background-controller
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom

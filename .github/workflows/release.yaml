@@ -39,6 +39,7 @@ jobs:
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
           sbom-name: kyverno
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
@@ -52,6 +53,7 @@ jobs:
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
           sbom-name: kyvernopre
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
@@ -65,6 +67,7 @@ jobs:
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
           sbom-name: background-controller
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
@@ -78,6 +81,7 @@ jobs:
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
           sbom-name: cleanup-controller
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
@@ -91,6 +95,7 @@ jobs:
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
           sbom-name: cli
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
@@ -104,6 +109,7 @@ jobs:
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
           sbom-name: reports-controller
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
@@ -204,9 +210,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: release-images
     steps:
-      - name: Set version
-        id: version
-        run: echo "version=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
       - name: Checkout
         uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
       - name: Setup build env
@@ -214,7 +217,7 @@ jobs:
       - uses: creekorful/goreportcard-action@1f35ced8cdac2cba28c9a2f2288a16aacfd507f9 # v1.0
       - name: Make Release
         env:
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ github.ref_name }}
         run: |
           rm -rf release
           mkdir release
@@ -236,9 +239,6 @@ jobs:
       id-token: write # needed for keyless signing
       packages: write # needed for ghcr access  
     steps:
-      - name: Set version
-        id: version
-        run: echo "version=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
       - name: Checkout
         uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
       - name: Setup build env
@@ -252,7 +252,7 @@ jobs:
         with:
           cosign-release: 'v1.13.0'
       - name: Build yaml manifest
-        run: make codegen-manifest-release
+        run: VERSION=${{ github.ref_name }} make codegen-manifest-release
       - name: Upload install manifest
         uses: svenstaro/upload-release-action@7319e4733ec7a184d739a6f412c40ffc339b69c7 # 2.5.0
         with:
@@ -281,15 +281,15 @@ jobs:
           mkdir -p config/.release-manifests
           cp .manifest/release.yaml config/.release-manifests/install.yaml
           cd config/.release-manifests/ && \
-          flux push artifact oci://ghcr.io/${{ github.repository_owner }}/manifests/kyverno:${{ steps.version.outputs.version }} \
+          flux push artifact oci://ghcr.io/${{ github.repository_owner }}/manifests/kyverno:${{ github.ref_name }} \
             --path="." \
             --source="$(git config --get remote.origin.url)" \
-            --revision="${{ steps.version.outputs.version }}/$(git rev-parse HEAD)"
+            --revision="${{ github.ref_name }}/$(git rev-parse HEAD)"
       - name: Sign manifests in GHCR with Cosign
         env:
           COSIGN_EXPERIMENTAL: 1
         run: |
-          cosign sign ghcr.io/${{ github.repository_owner }}/manifests/kyverno:${{ steps.version.outputs.version }}
+          cosign sign ghcr.io/${{ github.repository_owner }}/manifests/kyverno:${{ github.ref_name }}
 
   release-cli-via-krew:
     runs-on: ubuntu-latest
