@@ -231,7 +231,6 @@ func (e *engine) invokeRuleHandler(
 			} else if handler, err := handlerFactory(); err != nil {
 				return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to instantiate handler", err))
 			} else if handler != nil {
-
 				// load rule context
 				contextLoader := e.ContextLoader(policyContext.Policy(), rule)
 				if err := contextLoader(ctx, rule.Context, policyContext.JSONContext()); err != nil {
