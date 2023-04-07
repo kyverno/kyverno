@@ -264,7 +264,7 @@ KO_TAGS             := $(GIT_SHA)
 else ifeq ($(VERSION),main)
 KO_TAGS             := $(GIT_SHA),latest
 else
-KO_TAGS             := $(GIT_SHA),$(VERSION)
+KO_TAGS             := $(GIT_SHA),$(subst /,-,$(VERSION))
 endif
 
 KO_CLI_REPO         := $(PACKAGE)/$(CLI_DIR)
@@ -277,7 +277,7 @@ KO_BACKGROUND_REPO  := $(PACKAGE)/$(BACKGROUND_DIR)
 .PHONY: ko-build-kyverno-init
 ko-build-kyverno-init: $(KO) ## Build kyvernopre local image (with ko)
 	@echo Build kyvernopre local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
+	LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
 		$(KO) build ./$(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-kyverno
