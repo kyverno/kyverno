@@ -137,20 +137,24 @@ func (v *notaryV2Verifier) verifyOutcomes(outcomes []*notation.VerificationOutco
 func (v *notaryV2Verifier) FetchAttestations(ctx context.Context, opts images.Options) (*images.Response, error) {
 	v.log.V(2).Info("fetching attestations", "reference", opts.ImageRef, "opts", opts)
 
-	repo, err := remote.NewRepository(opts.ImageRef)
+	repo, _, err := parseReferenceToRemoteRepo(ctx, opts.ImageRef, opts.RegistryClient)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
 	}
+
+	v.log.V(2).Info("client setup done", "repo", repo)
 
 	repoDesc, err := oras.Resolve(ctx, repo, repo.Reference.Reference, oras.DefaultResolveOptions)
 	if err != nil {
 		return nil, err
 	}
+	v.log.V(2).Info("fetched repository", "repoDesc", repoDesc)
 
 	referrersDescs, err := fetchReferrers(ctx, repo, repoDesc)
 	if err != nil {
 		return nil, err
 	}
+	v.log.V(2).Info("fetched referrers", "referrers", referrersDescs)
 
 	var statements []map[string]interface{}
 
@@ -204,6 +208,7 @@ func verifyAttestators(ctx context.Context, v *notaryV2Verifier, remoteRepo *rem
 		return ocispec.Descriptor{}, errors.Wrapf(err, "failed to parse certificates")
 	}
 
+	v.log.V(2).Info("parsed certificates")
 	trustStore := NewTrustStore("kyverno", certs)
 	policyDoc := v.buildPolicy()
 	notationVerifier, err := verifier.New(policyDoc, trustStore, nil)
@@ -212,6 +217,7 @@ func verifyAttestators(ctx context.Context, v *notaryV2Verifier, remoteRepo *rem
 		return ocispec.Descriptor{}, errors.Wrapf(err, "failed to created verifier")
 	}
 
+	v.log.V(2).Info("created verifier")
 	reference := remoteRepo.Reference.Registry + "/" + remoteRepo.Reference.Repository + "@" + desc.Digest.String()
 	repo, parsedRef, err := parseReference(ctx, reference, opts.RegistryClient)
 	if err != nil {
@@ -225,6 +231,7 @@ func verifyAttestators(ctx context.Context, v *notaryV2Verifier, remoteRepo *rem
 		MaxSignatureAttempts: 10,
 	}
 
+	v.log.V(2).Info("verification started")
 	targetDesc, outcomes, err := notation.Verify(context.TODO(), notationVerifier, repo, remoteVerifyOptions)
 	if err != nil {
 		v.log.V(2).Info("failed to vefify attestator", "remoteVerifyOptions", remoteVerifyOptions, "repo", repo)

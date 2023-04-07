@@ -41,6 +41,28 @@ func parseReference(ctx context.Context, ref string, registryClient registryclie
 	return repository, parsedRef, nil
 }
 
+func parseReferenceToRemoteRepo(ctx context.Context, ref string, registryClient registryclient.Client) (*remote.Repository, registry.Reference, error) {
+	parsedRef, err := registry.ParseReference(ref)
+	if err != nil {
+		return nil, registry.Reference{}, errors.Wrapf(err, "failed to parse registry reference %s", ref)
+	}
+
+	authClient, plainHTTP, err := getAuthClient(ctx, parsedRef, registryClient)
+	if err != nil {
+		return nil, registry.Reference{}, err
+	}
+
+	repo, err := remote.NewRepository(ref)
+	if err != nil {
+		return nil, registry.Reference{}, errors.Wrapf(err, "failed to initialize repository")
+	}
+
+	repo.PlainHTTP = plainHTTP
+	repo.Client = authClient
+
+	return repo, parsedRef, nil
+}
+
 type imageResource struct {
 	ref registry.Reference
 }
