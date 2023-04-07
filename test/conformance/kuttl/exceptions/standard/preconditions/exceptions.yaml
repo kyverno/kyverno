@@ -1,0 +1,55 @@
+apiVersion: kyverno.io/v2alpha1
+kind: PolicyException
+metadata:
+  name: first-polex
+  namespace: exception-conditions
+spec:
+  exceptions:
+  - policyName: require-labels
+    ruleNames:
+    - check-for-labels
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+        namespaces:
+        - exception-conditions
+        names:
+        - important-tool
+  preconditions:
+    any:
+    - key: "{{ request.operation }}"
+      operator: Equals
+      value: "DELETE"
+    - key: "{{ foo }}"
+      operator: Equals
+      value: "bar"
+---
+apiVersion: kyverno.io/v2alpha1
+kind: PolicyException
+metadata:
+  name: second-polex
+  namespace: exception-conditions
+spec:
+  exceptions:
+  - policyName: require-labels
+    ruleNames:
+    - check-for-labels
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+        namespaces:
+        - exception-conditions
+        names:
+        - un-important-tool
+  preconditions:
+    all:
+    - key: "{{ request.operation }}"
+      operator: Equals
+      value: "DELETE"
+    - key: "{{ foo }}"
+      operator: Equals
+      value: "bazz"
