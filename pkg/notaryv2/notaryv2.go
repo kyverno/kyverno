@@ -260,28 +260,51 @@ func extractStatements(ctx context.Context, repo *remote.Repository, targetDesc 
 }
 
 func extractStatement(ctx context.Context, repo *remote.Repository, targetDesc ocispec.Descriptor) (map[string]interface{}, error) {
-	_, artifactListIO, err := oras.Fetch(context.TODO(), repo, repo.Reference.Reference, oras.DefaultFetchOptions)
+	descData, err := fetchBytes(ctx, repo, targetDesc)
 	if err != nil {
-		return nil, fmt.Errorf("error in oras fetch: %w", err)
+		return nil, fmt.Errorf("error in fetching statement: %w", err)
 	}
 
-	buf := new(bytes.Buffer)
-	_, err = buf.ReadFrom(artifactListIO)
+	var predicateDesc ocispec.Descriptor
+	switch targetDesc.MediaType {
+	case ocispec.MediaTypeArtifactManifest:
+		artifact := ocispec.Artifact{}
+		if err := json.Unmarshal(descData, &artifact); err != nil {
+			return nil, fmt.Errorf("error decoding the payload: %w", err)
+		}
+		if len(artifact.Blobs) == 0 {
+			return nil, fmt.Errorf("no predicate found: %+v", artifact)
+		}
+		predicateDesc = artifact.Blobs[0]
+	case ocispec.MediaTypeImageManifest:
+		artifact := ocispec.Manifest{}
+		if err := json.Unmarshal(descData, &artifact); err != nil {
+			return nil, fmt.Errorf("error decoding the payload: %w", err)
+		}
+		if len(artifact.Layers) == 0 {
+			return nil, fmt.Errorf("no predicate found: %+v", artifact)
+		}
+		predicateDesc = artifact.Layers[0]
+	}
+
+	predicateBytes, err := fetchBytes(context.TODO(), repo, predicateDesc)
 	if err != nil {
+		return nil, fmt.Errorf("error decoding predicate: %+v", predicateDesc)
+	}
+	predicate := make(map[string]interface{})
+	if err := json.Unmarshal(predicateBytes, &predicate); err != nil {
 		return nil, err
 	}
 
-	manifest := ocispec.Manifest{}
-	if err := json.Unmarshal(buf.Bytes(), &manifest); err != nil {
-		return nil, fmt.Errorf("error decoding the payload: %w", err)
-	}
-
 	data := make(map[string]interface{})
-	if err := json.Unmarshal(buf.Bytes(), &data); err != nil {
+	if err := json.Unmarshal(descData, &data); err != nil {
 		return nil, err
 	}
 	if data["predicateType"] == nil {
 		data["predicateType"] = targetDesc.ArtifactType
+	}
+	if data["predicate"] == nil {
+		data["predicate"] = predicate
 	}
 	return data, nil
 }
@@ -318,4 +341,13 @@ func fetchReferrers(ctx context.Context, src content.ReadOnlyGraphStorage, desc 
 		}
 	}
 	return results, nil
+}
+
+func fetchBytes(ctx context.Context, fetcher content.Fetcher, desc ocispec.Descriptor) ([]byte, error) {
+	rc, err := fetcher.Fetch(ctx, desc)
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+	return content.ReadAll(rc, desc)
 }
