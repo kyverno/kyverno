@@ -15,12 +15,12 @@ inputs:
   registry-password:
     required: true
     description: registry credentials password
-  version:
-    required: true
-    description: published image version
   repository:
     required: true
     description: repository to publish image to
+  version:
+    required: true
+    description: published image version
   sign-image:
     required: true
     description: sign image

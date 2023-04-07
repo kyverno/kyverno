@@ -58,6 +58,7 @@ jobs:
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
           sbom-name: kyvernopre
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
@@ -71,6 +72,7 @@ jobs:
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
           sbom-name: cleanup-controller
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
@@ -84,6 +86,7 @@ jobs:
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
           sbom-name: cli
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
@@ -97,6 +100,7 @@ jobs:
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
           sbom-name: reports-controller
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
@@ -110,6 +114,7 @@ jobs:
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
           sbom-name: background-controller
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
