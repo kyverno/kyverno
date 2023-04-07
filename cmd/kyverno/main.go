@@ -22,7 +22,7 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
-	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
+	genericconfigmapcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/configmap"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
@@ -107,14 +107,14 @@ func createNonLeaderControllers(
 	eng engineapi.Engine,
 	genWorkers int,
 	kubeInformer kubeinformers.SharedInformerFactory,
-	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
+	kubeClient kubernetes.Interface,
 	kyvernoClient versioned.Interface,
 	dynamicClient dclient.Interface,
 	configuration config.Configuration,
 	policyCache policycache.Cache,
 	manager openapi.Manager,
-) ([]internal.Controller, func() error) {
+) ([]internal.Controller, func(context.Context) error) {
 	policyCacheController := policycachecontroller.NewController(
 		dynamicClient,
 		policyCache,
@@ -125,17 +125,30 @@ func createNonLeaderControllers(
 		dynamicClient,
 		manager,
 	)
-	configurationController := configcontroller.NewController(
-		configuration,
-		kubeKyvernoInformer.Core().V1().ConfigMaps(),
+	configurationController := genericconfigmapcontroller.NewController(
+		"config-controller",
+		kubeClient,
+		resyncPeriod,
+		config.KyvernoNamespace(),
+		config.KyvernoConfigMapName(),
+		func(ctx context.Context, cm *corev1.ConfigMap) error {
+			configuration.Load(cm)
+			return nil
+		},
 	)
 	return []internal.Controller{
 			internal.NewController(policycachecontroller.ControllerName, policyCacheController, policycachecontroller.Workers),
 			internal.NewController(openapicontroller.ControllerName, openApiController, openapicontroller.Workers),
-			internal.NewController(configcontroller.ControllerName, configurationController, configcontroller.Workers),
+			internal.NewController("config-controller", configurationController, genericconfigmapcontroller.Workers),
 		},
-		func() error {
-			return policyCacheController.WarmUp()
+		func(ctx context.Context) error {
+			if err := policyCacheController.WarmUp(); err != nil {
+				return err
+			}
+			if err := configurationController.WarmUp(ctx); err != nil {
+				return err
+			}
+			return nil
 		}
 }
 
@@ -400,8 +413,8 @@ func main() {
 		eng,
 		genWorkers,
 		kubeInformer,
-		kubeKyvernoInformer,
 		kyvernoInformer,
+		kubeClient,
 		kyvernoClient,
 		dClient,
 		configuration,
@@ -415,7 +428,7 @@ func main() {
 	}
 	// bootstrap non leader controllers
 	if nonLeaderBootstrap != nil {
-		if err := nonLeaderBootstrap(); err != nil {
+		if err := nonLeaderBootstrap(signalCtx); err != nil {
 			logger.Error(err, "failed to bootstrap non leader controllers")
 			os.Exit(1)
 		}
