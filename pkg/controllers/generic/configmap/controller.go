@@ -99,10 +99,10 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, _, _ 
 func (c *controller) doReconcile(ctx context.Context, logger logr.Logger) error {
 	observed, err := c.lister.Get(c.name)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return c.callback(ctx, nil)
+		if !apierrors.IsNotFound(err) {
+			return err
 		}
-		return err
+		return c.callback(ctx, nil)
 	}
 	return c.callback(ctx, observed)
 }
