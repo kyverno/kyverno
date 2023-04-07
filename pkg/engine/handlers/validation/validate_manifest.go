@@ -62,13 +62,13 @@ func (h validateManifestHandler) Process(
 	verified, reason, err := h.verifyManifest(ctx, logger, policyContext, *rule.Validation.Manifests)
 	if err != nil {
 		logger.V(3).Info("verifyManifest return err", "error", err.Error())
-		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.Validation, "error occurred during manifest verification", err))
+		return resource, handlers.WithError(rule, engineapi.Validation, "error occurred during manifest verification", err)
 	}
 	logger.V(3).Info("verifyManifest result", "verified", strconv.FormatBool(verified), "reason", reason)
 	if !verified {
-		return resource, handlers.RuleResponses(internal.RuleResponse(rule, engineapi.Validation, reason, engineapi.RuleStatusFail))
+		return resource, handlers.WithFail(rule, engineapi.Validation, reason)
 	}
-	return resource, handlers.RuleResponses(internal.RulePass(rule, engineapi.Validation, reason))
+	return resource, handlers.WithPass(rule, engineapi.Validation, reason)
 }
 
 func (h validateManifestHandler) verifyManifest(

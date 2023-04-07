@@ -89,18 +89,19 @@ func (e *engine) hasPolicyExceptions(
 ) *engineapi.RuleResponse {
 	// if matches, check if there is a corresponding policy exception
 	exception, err := matchesException(logger, e.exceptionSelector, ctx, rule, e.configuration)
-	var response *engineapi.RuleResponse
-	// if we found an exception
-	if err == nil && exception != nil {
-		key, err := cache.MetaNamespaceKeyFunc(exception)
-		if err != nil {
-			logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
-			response = internal.RuleError(rule, ruleType, "failed to compute exception key", err)
-		} else {
-			logger.V(3).Info("policy rule skipped due to policy exception", "exception", key)
-			response = internal.RuleSkip(rule, ruleType, "rule skipped due to policy exception "+key)
-			response.Exception = exception
-		}
+	if err != nil {
+		logger.Error(err, "failed to match exceptions")
+		return nil
 	}
-	return response
+	if exception == nil {
+		return nil
+	}
+	key, err := cache.MetaNamespaceKeyFunc(exception)
+	if err != nil {
+		logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
+		return engineapi.RuleError(rule.Name, ruleType, "failed to compute exception key", err)
+	} else {
+		logger.V(3).Info("policy rule skipped due to policy exception", "exception", key)
+		return engineapi.RuleSkip(rule.Name, ruleType, "rule skipped due to policy exception "+key).WithException(exception)
+	}
 }

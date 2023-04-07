@@ -149,17 +149,16 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 
 		er := c.engine.Mutate(context.TODO(), policyContext)
 		for _, r := range er.PolicyResponse.Rules {
-			patched := r.PatchedTarget
-			patchedTargetSubresourceName := r.PatchedTargetSubresourceName
-			switch r.Status {
+			patched, parentGVR, patchedSubresource := r.PatchedTarget()
+			switch r.Status() {
 			case engineapi.RuleStatusFail, engineapi.RuleStatusError, engineapi.RuleStatusWarn:
-				err := fmt.Errorf("failed to mutate existing resource, rule response%v: %s", r.Status, r.Message)
+				err := fmt.Errorf("failed to mutate existing resource, rule response%v: %s", r.Status(), r.Message())
 				logger.Error(err, "")
 				errs = append(errs, err)
 				c.report(err, ur.Spec.Policy, rule.Name, patched)
 
 			case engineapi.RuleStatusSkip:
-				logger.Info("mutate existing rule skipped", "rule", r.Name, "message", r.Message)
+				logger.Info("mutate existing rule skipped", "rule", r.Name(), "message", r.Message())
 				c.report(err, ur.Spec.Policy, rule.Name, patched)
 
 			case engineapi.RuleStatusPass:
@@ -171,18 +170,18 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 				}
 
 				if patchedNew == nil {
-					logger.Error(ErrEmptyPatch, "", "rule", r.Name, "message", r.Message)
+					logger.Error(ErrEmptyPatch, "", "rule", r.Name(), "message", r.Message())
 					errs = append(errs, err)
 					continue
 				}
 
-				if r.Status == engineapi.RuleStatusPass {
+				if r.Status() == engineapi.RuleStatusPass {
 					patchedNew.SetResourceVersion(patched.GetResourceVersion())
 					var updateErr error
-					if patchedTargetSubresourceName == "status" {
+					if patchedSubresource == "status" {
 						_, updateErr = c.client.UpdateStatusResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
-					} else if patchedTargetSubresourceName != "" {
-						parentResourceGVR := r.PatchedTargetParentResourceGVR
+					} else if patchedSubresource != "" {
+						parentResourceGVR := parentGVR
 						parentResourceGV := schema.GroupVersion{Group: parentResourceGVR.Group, Version: parentResourceGVR.Version}
 						parentResourceGVK, err := c.client.Discovery().GetGVKFromGVR(parentResourceGV.WithResource(parentResourceGVR.Resource))
 						if err != nil {
@@ -190,7 +189,7 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 							errs = append(errs, err)
 							continue
 						}
-						_, updateErr = c.client.UpdateResource(context.TODO(), parentResourceGV.String(), parentResourceGVK.Kind, patchedNew.GetNamespace(), patchedNew.Object, false, patchedTargetSubresourceName)
+						_, updateErr = c.client.UpdateResource(context.TODO(), parentResourceGV.String(), parentResourceGVK.Kind, patchedNew.GetNamespace(), patchedNew.Object, false, patchedSubresource)
 					} else {
 						_, updateErr = c.client.UpdateResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
 					}
@@ -261,7 +260,7 @@ func addAnnotation(policy kyvernov1.PolicyInterface, patched *unstructured.Unstr
 	patchedNew = patched
 	var rulePatches []utils.RulePatch
 
-	for _, patch := range r.Patches {
+	for _, patch := range r.Patches() {
 		var patchmap map[string]interface{}
 		if err := json.Unmarshal(patch, &patchmap); err != nil {
 			return nil, fmt.Errorf("failed to parse JSON patch bytes: %v", err)
@@ -272,7 +271,7 @@ func addAnnotation(policy kyvernov1.PolicyInterface, patched *unstructured.Unstr
 			Op       string `json:"op"`
 			Path     string `json:"path"`
 		}{
-			RuleName: r.Name,
+			RuleName: r.Name(),
 			Op:       patchmap["op"].(string),
 			Path:     patchmap["path"].(string),
 		}
