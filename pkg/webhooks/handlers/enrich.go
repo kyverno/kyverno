@@ -32,6 +32,7 @@ func (inner AdmissionHandler) withRoles(
 	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
 		roles, clusterRoles, err := userinfo.GetRoleRef(rbLister, crbLister, request.UserInfo)
 		if err != nil {
+			logger.Error(err, "failed to get roles/cluster roles from user infos")
 			return admissionutils.Response(request.UID, err)
 		}
 		request.Roles = roles
@@ -50,6 +51,7 @@ func (inner AdmissionHandler) withTopLevelGVK(
 	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
 		gvk, err := client.GetGVKFromGVR(schema.GroupVersionResource(request.Resource))
 		if err != nil {
+			logger.Error(err, "failed to get top level GVK from GVR")
 			return admissionutils.Response(request.UID, err)
 		}
 		request.GroupVersionKind = gvk
