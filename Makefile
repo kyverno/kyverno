@@ -259,11 +259,14 @@ build-all: build-kyverno-init build-kyverno build-cli build-cleanup-controller b
 
 LOCAL_PLATFORM      := linux/$(GOARCH)
 KO_REGISTRY         := ko.local
-ifdef IMAGE_TAGS
-KO_TAGS             := $(IMAGE_TAGS),$(GIT_SHA)
-else
+ifndef VERSION
 KO_TAGS             := $(GIT_SHA)
+else ifeq ($(VERSION),main)
+KO_TAGS             := $(GIT_SHA),latest
+else
+KO_TAGS             := $(GIT_SHA),$(VERSION)
 endif
+
 KO_CLI_REPO         := $(PACKAGE)/$(CLI_DIR)
 KO_KYVERNOPRE_REPO  := $(PACKAGE)/$(KYVERNOPRE_DIR)
 KO_KYVERNO_REPO     := $(PACKAGE)/$(KYVERNO_DIR)
