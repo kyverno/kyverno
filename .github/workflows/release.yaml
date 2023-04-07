@@ -252,7 +252,7 @@ jobs:
         with:
           cosign-release: 'v1.13.0'
       - name: Build yaml manifest
-        run: make codegen-manifest-release
+        run: VERSION=${{ steps.version.outputs.version }} make codegen-manifest-release
       - name: Upload install manifest
         uses: svenstaro/upload-release-action@7319e4733ec7a184d739a6f412c40ffc339b69c7 # 2.5.0
         with:

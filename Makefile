@@ -4,24 +4,10 @@
 # DEFAULTS #
 ############
 
-# GIT_VERSION          := $(shell git describe --match "v[0-9]*" --tags $(git rev-list --tags --max-count=1))
-# GIT_VERSION_DEV      := $(shell git describe --match "[0-9].[0-9]-dev*")
-# GIT_BRANCH           := $(shell git branch --show-current | cut -d ' ' -f2)
 GIT_SHA              := $(shell git rev-parse HEAD)
-# GIT_HASH             := $(GIT_BRANCH)/$(GIT_SHA)
 TIMESTAMP            := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
-# VERSION              ?= $(shell git describe --match "v[0-9]*")
 REGISTRY             ?= ghcr.io
 REPO                 ?= kyverno
-# ifeq ($(GIT_BRANCH),main)
-# IMAGE_TAG_LATEST     := latest
-# else
-# IMAGE_TAG_LATEST     := $(subst release-,,$(GIT_BRANCH))-latest
-# endif
-# IMAGE_TAG_DEV         = $(GIT_VERSION_DEV)
-# IMAGE_TAG            ?= $(GIT_VERSION)
-# K8S_VERSION          ?= $(shell kubectl version --short | grep -i server | cut -d" " -f3 | cut -c2-)
-# IMAGE_TAG_DEV        := $(GIT_SHA)
 KIND_IMAGE           ?= kindest/node:v1.26.2
 KIND_NAME            ?= kind
 GOOS                 ?= $(shell go env GOOS)
@@ -159,8 +145,6 @@ PACKAGE        ?= github.com/kyverno/kyverno
 CGO_ENABLED    ?= 0
 ifdef VERSION
 LD_FLAGS       := "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_SHA) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
-else ifdef GIT_BRANCH
-LD_FLAGS       := "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_BRANCH) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_SHA) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
 else
 LD_FLAGS       := "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_SHA) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_SHA) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
 endif
@@ -532,16 +516,16 @@ codegen-manifest-release: $(HELM) ## Create release manifest
 	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
-		--set templating.version=$(GIT_VERSION) \
-		--set admissionController.container.image.tag=$(GIT_VERSION) \
-		--set admissionController.initContainer.image.tag=$(GIT_VERSION) \
-		--set cleanupController.image.tag=$(GIT_VERSION) \
-		--set reportsController.image.tag=$(GIT_VERSION) \
+		--set templating.version=$(VERSION) \
+		--set admissionController.container.image.tag=$(VERSION) \
+		--set admissionController.initContainer.image.tag=$(VERSION) \
+		--set cleanupController.image.tag=$(VERSION) \
+		--set reportsController.image.tag=$(VERSION) \
  		| $(SED) -e '/^#.*/d' \
 		> ./.manifest/release.yaml
 
 .PHONY: codegen-manifest-all
-codegen-manifest-all: codegen-manifest-install-latest codegen-manifest-debug codegen-manifest-release ## Create all manifests
+codegen-manifest-all: codegen-manifest-install-latest codegen-manifest-debug ## Create all manifests
 
 .PHONY: codegen-quick
 codegen-quick: codegen-deepcopy-all codegen-crds-all codegen-api-docs codegen-helm-all codegen-manifest-all ## Generate all generated code except client
