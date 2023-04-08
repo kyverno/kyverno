@@ -1,0 +1,201 @@
+package common
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
+	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	engineContext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/registryclient"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+type KyvernoPolicies struct{}
+
+func (p *KyvernoPolicies) ApplyPolicyOnResource(c ApplyPolicyConfig) ([]engineapi.EngineResponse, error) {
+	var engineResponses []engineapi.EngineResponse
+	namespaceLabels := make(map[string]string)
+	operationIsDelete := false
+
+	if c.Variables["request.operation"] == "DELETE" {
+		operationIsDelete = true
+	}
+
+	policyWithNamespaceSelector := false
+OuterLoop:
+	for _, p := range autogen.ComputeRules(c.Policy) {
+		if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
+			p.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
+			policyWithNamespaceSelector = true
+			break
+		}
+		for _, m := range p.MatchResources.Any {
+			if m.ResourceDescription.NamespaceSelector != nil {
+				policyWithNamespaceSelector = true
+				break OuterLoop
+			}
+		}
+		for _, m := range p.MatchResources.All {
+			if m.ResourceDescription.NamespaceSelector != nil {
+				policyWithNamespaceSelector = true
+				break OuterLoop
+			}
+		}
+		for _, e := range p.ExcludeResources.Any {
+			if e.ResourceDescription.NamespaceSelector != nil {
+				policyWithNamespaceSelector = true
+				break OuterLoop
+			}
+		}
+		for _, e := range p.ExcludeResources.All {
+			if e.ResourceDescription.NamespaceSelector != nil {
+				policyWithNamespaceSelector = true
+				break OuterLoop
+			}
+		}
+	}
+
+	if policyWithNamespaceSelector {
+		resourceNamespace := c.Resource.GetNamespace()
+		namespaceLabels = c.NamespaceSelectorMap[c.Resource.GetNamespace()]
+		if resourceNamespace != "default" && len(namespaceLabels) < 1 {
+			return engineResponses, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", c.Resource.GetName()), nil)
+		}
+	}
+
+	resPath := fmt.Sprintf("%s/%s/%s", c.Resource.GetNamespace(), c.Resource.GetKind(), c.Resource.GetName())
+	log.Log.V(3).Info("applying policy on resource", "policy", c.Policy.GetName(), "resource", resPath)
+
+	resourceRaw, err := c.Resource.MarshalJSON()
+	if err != nil {
+		log.Log.Error(err, "failed to marshal resource")
+	}
+
+	updatedResource, err := kubeutils.BytesToUnstructured(resourceRaw)
+	if err != nil {
+		log.Log.Error(err, "unable to convert raw resource to unstructured")
+	}
+	ctx := engineContext.NewContext()
+
+	if operationIsDelete {
+		err = engineContext.AddOldResource(ctx, resourceRaw)
+	} else {
+		err = engineContext.AddResource(ctx, resourceRaw)
+	}
+
+	if err != nil {
+		log.Log.Error(err, "failed to load resource in context")
+	}
+
+	for key, value := range c.Variables {
+		err = ctx.AddVariable(key, value)
+		if err != nil {
+			log.Log.Error(err, "failed to add variable to context")
+		}
+	}
+
+	cfg := config.NewDefaultConfiguration(false)
+	if err := ctx.AddImageInfos(c.Resource, cfg); err != nil {
+		log.Log.Error(err, "failed to add image variables to context")
+	}
+
+	gvk, subresource := updatedResource.GroupVersionKind(), ""
+	// If --cluster flag is not set, then we need to find the top level resource GVK and subresource
+	if c.Client == nil {
+		for _, s := range c.Subresources {
+			subgvk := schema.GroupVersionKind{
+				Group:   s.APIResource.Group,
+				Version: s.APIResource.Version,
+				Kind:    s.APIResource.Kind,
+			}
+			if gvk == subgvk {
+				gvk = schema.GroupVersionKind{
+					Group:   s.ParentResource.Group,
+					Version: s.ParentResource.Version,
+					Kind:    s.ParentResource.Kind,
+				}
+				parts := strings.Split(s.APIResource.Name, "/")
+				subresource = parts[1]
+			}
+		}
+	}
+	eng := engine.NewEngine(
+		cfg,
+		config.NewDefaultMetricsConfiguration(),
+		c.Client,
+		registryclient.NewOrDie(),
+		store.ContextLoaderFactory(nil),
+		nil,
+	)
+	policyContext := engine.NewPolicyContextWithJsonContext(kyvernov1.Create, ctx).
+		WithPolicy(c.Policy).
+		WithNewResource(*updatedResource).
+		WithNamespaceLabels(namespaceLabels).
+		WithAdmissionInfo(c.UserInfo).
+		WithResourceKind(gvk, subresource)
+
+	mutateResponse := eng.Mutate(context.Background(), policyContext)
+	engineResponses = append(engineResponses, mutateResponse)
+
+	err = processMutateEngineResponse(c, &mutateResponse, resPath)
+	if err != nil {
+		if !sanitizederror.IsErrorSanitized(err) {
+			return engineResponses, sanitizederror.NewWithError("failed to print mutated result", err)
+		}
+	}
+
+	var policyHasValidate bool
+	for _, rule := range autogen.ComputeRules(c.Policy) {
+		if rule.HasValidate() || rule.HasVerifyImageChecks() {
+			policyHasValidate = true
+		}
+	}
+
+	policyContext = policyContext.WithNewResource(mutateResponse.PatchedResource)
+
+	var validateResponse engineapi.EngineResponse
+	if policyHasValidate {
+		validateResponse = eng.Validate(context.Background(), policyContext)
+	}
+
+	if !validateResponse.IsEmpty() {
+		engineResponses = append(engineResponses, validateResponse)
+	}
+
+	verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
+	if !verifyImageResponse.IsEmpty() {
+		engineResponses = append(engineResponses, verifyImageResponse)
+	}
+
+	var policyHasGenerate bool
+	for _, rule := range autogen.ComputeRules(c.Policy) {
+		if rule.HasGenerate() {
+			policyHasGenerate = true
+		}
+	}
+
+	if policyHasGenerate {
+		generateResponse := eng.ApplyBackgroundChecks(context.TODO(), policyContext)
+		if !generateResponse.IsEmpty() {
+			newRuleResponse, err := handleGeneratePolicy(&generateResponse, *policyContext, c.RuleToCloneSourceResource)
+			if err != nil {
+				log.Log.Error(err, "failed to apply generate policy")
+			} else {
+				generateResponse.PolicyResponse.Rules = newRuleResponse
+			}
+			engineResponses = append(engineResponses, generateResponse)
+		}
+		updateResultCounts(c.Policy, &generateResponse, resPath, c.Rc, c.AuditWarn)
+	}
+
+	return engineResponses, nil
+}

@@ -81,6 +81,7 @@ type NamespaceSelector struct {
 
 type ApplyPolicyConfig struct {
 	Policy                    kyvernov1.PolicyInterface
+	ValidatingAdmissionPolicy v1alpha1.ValidatingAdmissionPolicy
 	Resource                  *unstructured.Unstructured
 	MutateLogPath             string
 	MutateLogPathIsDir        bool

@@ -77,9 +77,20 @@ func buildPolicyResults(engineResponses ...engineapi.EngineResponse) map[string]
 	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 
 	for _, engineResponse := range engineResponses {
-		policy := engineResponse.Policy
+		var ns string
+		var policyName string
+
+		if engineResponse.IsValidatingAdmissionPolicy() {
+			validatingAdmissionPolicy := engineResponse.ValidatingAdmissionPolicy
+			ns = validatingAdmissionPolicy.GetNamespace()
+			policyName = validatingAdmissionPolicy.GetName()
+		} else {
+			kyvernoPolicy := engineResponse.Policy
+			ns = kyvernoPolicy.GetNamespace()
+			policyName = kyvernoPolicy.GetName()
+		}
+
 		var appname string
-		ns := policy.GetNamespace()
 		if ns != "" {
 			appname = fmt.Sprintf("policyreport-ns-%s", ns)
 		} else {
@@ -92,7 +103,7 @@ func buildPolicyResults(engineResponses ...engineapi.EngineResponse) map[string]
 			}
 
 			result := policyreportv1alpha2.PolicyReportResult{
-				Policy: policy.GetName(),
+				Policy: policyName,
 				Resources: []corev1.ObjectReference{
 					{
 						Kind:       engineResponse.Resource.GetKind(),

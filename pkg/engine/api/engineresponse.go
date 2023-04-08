@@ -7,6 +7,7 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	utils "github.com/kyverno/kyverno/pkg/utils/match"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
+	"k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -16,6 +17,8 @@ type EngineResponse struct {
 	Resource unstructured.Unstructured
 	// Policy is the original policy
 	Policy kyvernov1.PolicyInterface
+	// Policy is the validating admission policy
+	ValidatingAdmissionPolicy v1alpha1.ValidatingAdmissionPolicy
 	// NamespaceLabels given by policy context
 	NamespaceLabels map[string]string
 	// PatchedResource is the resource patched with the engine action changes
@@ -70,6 +73,19 @@ func (er EngineResponse) WithPatchedResource(patchedResource unstructured.Unstru
 	return er
 }
 
+func NewEngineResponseWithValidatingAdmissionPolicy(
+	resource unstructured.Unstructured,
+	policy v1alpha1.ValidatingAdmissionPolicy,
+	namespaceLabels map[string]string,
+) EngineResponse {
+	response := EngineResponse{
+		Resource:                  resource,
+		ValidatingAdmissionPolicy: policy,
+		NamespaceLabels:           namespaceLabels,
+	}
+	return response
+}
+
 // IsOneOf checks if any rule has status in a given list
 func (er EngineResponse) IsOneOf(status ...RuleStatus) bool {
 	for _, r := range er.PolicyResponse.Rules {
@@ -108,6 +124,10 @@ func (er EngineResponse) IsEmpty() bool {
 // isNil checks if rule is an empty rule
 func (er EngineResponse) IsNil() bool {
 	return datautils.DeepEqual(er, EngineResponse{})
+}
+
+func (er EngineResponse) IsValidatingAdmissionPolicy() bool {
+	return er.ValidatingAdmissionPolicy.String() != "nil"
 }
 
 // GetPatches returns all the patches joined
