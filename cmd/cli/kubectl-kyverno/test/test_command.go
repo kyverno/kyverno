@@ -455,11 +455,27 @@ func buildPolicyResults(
 	results := map[string]policyreportv1alpha2.PolicyReportResult{}
 
 	for _, resp := range engineResponses {
-		policyName := resp.Policy.GetName()
+		var ns string
+		var name string
+		var ann map[string]string
+
+		if resp.IsValidatingAdmissionPolicy() {
+			validatingAdmissionPolicy := resp.ValidatingAdmissionPolicy
+			ns = validatingAdmissionPolicy.GetNamespace()
+			name = validatingAdmissionPolicy.GetName()
+			ann = validatingAdmissionPolicy.GetAnnotations()
+		} else {
+			kyvernoPolicy := resp.Policy
+			ns = kyvernoPolicy.GetNamespace()
+			name = kyvernoPolicy.GetName()
+			ann = kyvernoPolicy.GetAnnotations()
+		}
+
+		policyName := name
 		resourceName := resp.Resource.GetName()
 		resourceKind := resp.Resource.GetKind()
 		resourceNamespace := resp.Resource.GetNamespace()
-		policyNamespace := resp.Policy.GetNamespace()
+		policyNamespace := ns
 
 		var rules []string
 		for _, rule := range resp.PolicyResponse.Rules {
@@ -651,7 +667,6 @@ func buildPolicyResults(
 						continue
 					}
 
-					ann := resp.Policy.GetAnnotations()
 					if rule.Status() == engineapi.RuleStatusSkip {
 						result.Result = policyreportv1alpha2.StatusSkip
 					} else if rule.Status() == engineapi.RuleStatusError {
@@ -915,6 +930,7 @@ func applyPoliciesFromPath(
 		fmt.Printf("applying %s to %s... \n", msgPolicies, msgResources)
 	}
 
+	kyvernoPolicy := common.KyvernoPolicies{}
 	for _, policy := range policies {
 		_, err := policy2.Validate(policy, nil, nil, true, openApiManager)
 		if err != nil {
@@ -954,13 +970,33 @@ func applyPoliciesFromPath(
 				Client:                    dClient,
 				Subresources:              subresources,
 			}
-			ers, err := common.ApplyPolicyOnResource(applyPolicyConfig)
+			ers, err := kyvernoPolicy.ApplyPolicyOnResource(applyPolicyConfig)
 			if err != nil {
 				return sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}
 			engineResponses = append(engineResponses, ers...)
 		}
 	}
+
+	validatingAdmissionPolicy := common.ValidatingAdmissionPolicies{}
+	for _, policy := range validatingAdmissionPolicies {
+		for _, resource := range resources {
+			applyPolicyConfig := common.ApplyPolicyConfig{
+				ValidatingAdmissionPolicy: policy,
+				Resource:                  resource,
+				PolicyReport:              true,
+				Rc:                        &resultCounts,
+				Client:                    dClient,
+				Subresources:              subresources,
+			}
+			ers, err := validatingAdmissionPolicy.ApplyPolicyOnResource(applyPolicyConfig)
+			if err != nil {
+				return sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
+			}
+			engineResponses = append(engineResponses, ers...)
+		}
+	}
+
 	resultsMap, testResults := buildPolicyResults(engineResponses, values.Results, policyResourcePath, fs, isGit, auditWarn)
 	resultErr := printTestResult(resultsMap, testResults, rc, failOnly, removeColor)
 	if resultErr != nil {
