@@ -185,14 +185,15 @@ func (v *notaryV2Verifier) FetchAttestations(ctx context.Context, opts images.Op
 		}
 
 		v.log.V(2).Info("verified attestators", "digest", targetDesc.Digest.String())
-		break
+
+		if len(statements) == 0 {
+			return nil, fmt.Errorf("failed to fetch attestations")
+		}
+		v.log.V(2).Info(fmt.Sprintf("sending response %+v", &images.Response{Digest: repoDesc.Digest.String(), Statements: statements}))
+		return &images.Response{Digest: repoDesc.Digest.String(), Statements: statements}, nil
 	}
 
-	if len(statements) == 0 {
-		return nil, fmt.Errorf("failed to fetch attestations")
-	}
-	v.log.V(2).Info(fmt.Sprintf("sending response %+v", &images.Response{Digest: repoDesc.Digest.String(), Statements: statements}))
-	return &images.Response{Digest: repoDesc.Digest.String(), Statements: statements}, nil
+	return nil, fmt.Errorf("failed to fetch attestations")
 }
 
 func verifyAttestators(ctx context.Context, v *notaryV2Verifier, remoteRepo *remote.Repository, opts images.Options, desc ocispec.Descriptor) (ocispec.Descriptor, error) {
