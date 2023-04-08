@@ -232,7 +232,7 @@ func verifyAttestators(ctx context.Context, v *notaryV2Verifier, remoteRepo *rem
 	}
 
 	v.log.V(2).Info("verification started")
-	targetDesc, outcomes, err := notation.Verify(context.TODO(), notationVerifier, repo, remoteVerifyOptions)
+	targetDesc, outcomes, err := notation.Verify(ctx, notationVerifier, repo, remoteVerifyOptions)
 	if err != nil {
 		v.log.V(2).Info("failed to vefify attestator", "remoteVerifyOptions", remoteVerifyOptions, "repo", repo)
 		return targetDesc, err
@@ -275,19 +275,25 @@ func extractStatement(ctx context.Context, repo *remote.Repository, targetDesc o
 		if len(artifact.Blobs) == 0 {
 			return nil, fmt.Errorf("no predicate found: %+v", artifact)
 		}
+		if len(artifact.Blobs) > 1 {
+			return nil, fmt.Errorf("multiple blobs in predicate not supported: %+v", artifact)
+		}
 		predicateDesc = artifact.Blobs[0]
 	case ocispec.MediaTypeImageManifest:
-		artifact := ocispec.Manifest{}
-		if err := json.Unmarshal(descData, &artifact); err != nil {
+		image := ocispec.Manifest{}
+		if err := json.Unmarshal(descData, &image); err != nil {
 			return nil, fmt.Errorf("error decoding the payload: %w", err)
 		}
-		if len(artifact.Layers) == 0 {
-			return nil, fmt.Errorf("no predicate found: %+v", artifact)
+		if len(image.Layers) == 0 {
+			return nil, fmt.Errorf("no predicate found: %+v", image)
 		}
-		predicateDesc = artifact.Layers[0]
+		if len(image.Layers) > 1 {
+			return nil, fmt.Errorf("multiple layers in predicate not supported: %+v", image)
+		}
+		predicateDesc = image.Layers[0]
 	}
 
-	predicateBytes, err := fetchBytes(context.TODO(), repo, predicateDesc)
+	predicateBytes, err := fetchBytes(ctx, repo, predicateDesc)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding predicate: %+v", predicateDesc)
 	}
