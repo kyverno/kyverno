@@ -6,7 +6,7 @@ import (
 )
 
 // ImageVerificationType selects the type of verification algorithm
-// +kubebuilder:validation:Enum=Cosign;NotaryV2
+// +kubebuilder:validation:Enum=Cosign;Notary
 // +kubebuilder:default=Cosign
 type ImageVerificationType string
 
@@ -20,7 +20,7 @@ const (
 // mutated to include the SHA digest retrieved during the registration.
 type ImageVerification struct {
 	// Type specifies the method of signature validation. The allowed options
-	// are Cosign and NotaryV2. By default Cosign is used if a type is not specified.
+	// are Cosign and Notary. By default Cosign is used if a type is not specified.
 	// +kubebuilder:validation:Optional
 	Type ImageVerificationType `json:"type,omitempty" yaml:"type,omitempty"`
 
