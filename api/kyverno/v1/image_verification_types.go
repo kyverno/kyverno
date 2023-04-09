@@ -15,7 +15,7 @@ type ImageVerificationType string
 
 const (
 	Cosign   ImageVerificationType = "Cosign"
-	NotaryV2 ImageVerificationType = "NotaryV2"
+	NotaryV2 ImageVerificationType = "Notary"
 )
 
 // ImageVerification validates that images that match the specified pattern
