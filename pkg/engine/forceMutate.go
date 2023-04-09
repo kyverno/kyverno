@@ -86,8 +86,8 @@ func applyForEachMutate(name string, foreach []kyvernov1.ForEachMutation, resour
 func applyPatches(name string, mergePatch apiextensions.JSON, jsonPatch string, resource unstructured.Unstructured, logger logr.Logger) (unstructured.Unstructured, error) {
 	patcher := mutate.NewPatcher(name, mergePatch, jsonPatch, resource, logger)
 	resp, mutatedResource := patcher.Patch()
-	if resp.Status != engineapi.RuleStatusPass {
-		return mutatedResource, fmt.Errorf("mutate status %q: %s", resp.Status, resp.Message)
+	if resp.Status() != engineapi.RuleStatusPass {
+		return mutatedResource, fmt.Errorf("mutate status %q: %s", resp.Status(), resp.Message())
 	}
 
 	return mutatedResource, nil

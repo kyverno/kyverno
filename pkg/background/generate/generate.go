@@ -35,6 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
@@ -137,22 +138,63 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 const doesNotApply = "policy does not apply to resource"
 
 func (c *GenerateController) getTrigger(spec kyvernov1beta1.UpdateRequestSpec) (*unstructured.Unstructured, error) {
-	if spec.Context.AdmissionRequestInfo.Operation == admissionv1.Delete {
-		request := spec.Context.AdmissionRequestInfo.AdmissionRequest
-		_, oldResource, err := admissionutils.ExtractResources(nil, request)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load resource from context: %w", err)
-		}
-		labels := oldResource.GetLabels()
-		if labels[common.GeneratePolicyLabel] != "" {
-			// non-trigger deletion, get trigger from ur spec
-			c.log.V(4).Info("non-trigger resource is deleted, fetching the trigger from the UR spec", "trigger", spec.Resource.String())
-			return common.GetResource(c.client, spec, c.log)
-		}
-		return &oldResource, nil
+	admissionRequest := spec.Context.AdmissionRequestInfo.AdmissionRequest
+	if admissionRequest == nil {
+		return common.GetResource(c.client, spec, c.log)
 	} else {
+		operation := spec.Context.AdmissionRequestInfo.Operation
+		if operation == admissionv1.Delete {
+			return getTriggerForDeleteOperation(spec, c)
+		} else if operation == admissionv1.Create {
+			return getTriggerForCreateOperation(spec, c)
+		} else {
+			newResource, oldResource, err := admissionutils.ExtractResources(nil, *admissionRequest)
+			if err != nil {
+				c.log.Error(err, "failed to extract resources from admission review request")
+				return nil, err
+			}
+
+			trigger := &newResource
+			if newResource.Object == nil {
+				trigger = &oldResource
+			}
+			return trigger, nil
+		}
+	}
+}
+
+func getTriggerForDeleteOperation(spec kyvernov1beta1.UpdateRequestSpec, c *GenerateController) (*unstructured.Unstructured, error) {
+	request := spec.Context.AdmissionRequestInfo.AdmissionRequest
+	_, oldResource, err := admissionutils.ExtractResources(nil, *request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load resource from context: %w", err)
+	}
+	labels := oldResource.GetLabels()
+	if labels[common.GeneratePolicyLabel] != "" {
+		// non-trigger deletion, get trigger from ur spec
+		c.log.V(4).Info("non-trigger resource is deleted, fetching the trigger from the UR spec", "trigger", spec.Resource.String())
 		return common.GetResource(c.client, spec, c.log)
 	}
+	return &oldResource, nil
+}
+
+func getTriggerForCreateOperation(spec kyvernov1beta1.UpdateRequestSpec, c *GenerateController) (*unstructured.Unstructured, error) {
+	admissionRequest := spec.Context.AdmissionRequestInfo.AdmissionRequest
+	trigger, err := common.GetResource(c.client, spec, c.log)
+	if err != nil || trigger == nil {
+		if admissionRequest.SubResource == "" {
+			return nil, err
+		} else {
+			c.log.V(4).Info("trigger resource not found for subresource, reverting to resource in AdmissionReviewRequest", "subresource", admissionRequest.SubResource)
+			newResource, _, err := admissionutils.ExtractResources(nil, *admissionRequest)
+			if err != nil {
+				c.log.Error(err, "failed to extract resources from admission review request")
+				return nil, err
+			}
+			trigger = &newResource
+		}
+	}
+	return trigger, err
 }
 
 func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, ur kyvernov1beta1.UpdateRequest, namespaceLabels map[string]string) ([]kyvernov1.ResourceSpec, error) {
@@ -175,8 +217,18 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 		return nil, err
 	}
 
+	admissionRequest := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
+	if admissionRequest != nil {
+		var gvk schema.GroupVersionKind
+		gvk, err = c.client.Discovery().GetGVKFromGVR(schema.GroupVersionResource(admissionRequest.Resource))
+		if err != nil {
+			return nil, err
+		}
+		policyContext = policyContext.WithResourceKind(gvk, admissionRequest.SubResource)
+	}
+
 	// check if the policy still applies to the resource
-	engineResponse := c.engine.GenerateResponse(context.Background(), policyContext, ur)
+	engineResponse := c.engine.Generate(context.Background(), policyContext)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		logger.V(4).Info(doesNotApply)
 		return nil, errors.New(doesNotApply)
@@ -185,7 +237,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 	var applicableRules []string
 	// Removing UR if rule is failed. Used when the generate condition failed but ur exist
 	for _, r := range engineResponse.PolicyResponse.Rules {
-		if r.Status != engineapi.RuleStatusPass {
+		if r.Status() != engineapi.RuleStatusPass {
 			logger.V(4).Info("querying all update requests")
 			selector := labels.SelectorFromSet(labels.Set(map[string]string{
 				kyvernov1beta1.URGenerateResourceNameLabel: engineResponse.Resource.GetName(),
@@ -205,7 +257,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 				}
 			}
 		} else {
-			applicableRules = append(applicableRules, r.Name)
+			applicableRules = append(applicableRules, r.Name())
 		}
 	}
 

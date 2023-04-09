@@ -80,6 +80,8 @@ func main() {
 	// setup metrics
 	ctx, logger, metricsConfig, sdown := internal.Setup("kyverno-cleanup-controller")
 	defer sdown()
+	// configuration
+	configuration := config.NewDefaultConfiguration(false)
 	// create instrumented clients
 	kubeClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
 	leaderElectionClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
@@ -124,7 +126,6 @@ func main() {
 					kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 					kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 					kubeKyvernoInformer.Core().V1().Secrets(),
-					kubeKyvernoInformer.Core().V1().ConfigMaps(),
 					config.CleanupValidatingWebhookConfigurationName,
 					config.CleanupValidatingWebhookServicePath,
 					serverIP,
@@ -145,6 +146,7 @@ func main() {
 					}},
 					genericwebhookcontroller.Fail,
 					genericwebhookcontroller.None,
+					configuration,
 				),
 				webhookWorkers,
 			)
@@ -225,17 +227,10 @@ func main() {
 			DumpPayload: dumpPayload,
 		},
 		probes{},
-		config.NewDefaultConfiguration(),
+		configuration,
 	)
 	// start server
 	server.Run(ctx.Done())
-	// wait for termination signal and run leader election loop
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			le.Run(ctx)
-		}
-	}
+	// start leader election
+	le.Run(ctx)
 }

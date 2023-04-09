@@ -220,6 +220,7 @@ func main() {
 		maxQueuedEvents           int
 		enablePolicyException     bool
 		exceptionNamespace        string
+		skipResourceFilters       bool
 	)
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
 	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
@@ -234,6 +235,7 @@ func main() {
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions.")
 	flagset.BoolVar(&enablePolicyException, "enablePolicyException", false, "Enable PolicyException feature.")
+	flagset.BoolVar(&skipResourceFilters, "skipResourceFilters", true, "If true, resource filters wont be considered.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -298,7 +300,7 @@ func main() {
 		logger.Error(err, "failed to create config map resolver")
 		os.Exit(1)
 	}
-	configuration, err := config.NewConfiguration(kubeClient)
+	configuration, err := config.NewConfiguration(kubeClient, skipResourceFilters)
 	if err != nil {
 		logger.Error(err, "failed to initialize configuration")
 		os.Exit(1)
@@ -321,6 +323,7 @@ func main() {
 	}
 	eng := engine.NewEngine(
 		configuration,
+		metricsConfig.Config(),
 		dClient,
 		rclient,
 		engineapi.DefaultContextLoaderFactory(configMapResolver),
@@ -415,13 +418,6 @@ func main() {
 	for _, controller := range nonLeaderControllers {
 		controller.Run(ctx, logger.WithName("controllers"), &wg)
 	}
-	for {
-		select {
-		case <-ctx.Done():
-			wg.Wait()
-			return
-		default:
-			le.Run(ctx)
-		}
-	}
+	le.Run(ctx)
+	wg.Wait()
 }

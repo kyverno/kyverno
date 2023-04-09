@@ -88,7 +88,7 @@ func extract(obj interface{}, path []string, keyPath, valuePath string, fields [
 			}
 		}
 		value, ok := output[valuePath].(string)
-		if !ok {
+		if !ok || strings.TrimSpace(value) == "" {
 			// the image may not be present
 			logging.V(4).Info("image information is not present", "pointer", pointer)
 			return nil

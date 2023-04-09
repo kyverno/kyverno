@@ -85,7 +85,6 @@ type controller struct {
 	cpolLister        kyvernov1listers.ClusterPolicyLister
 	polLister         kyvernov1listers.PolicyLister
 	secretLister      corev1listers.SecretLister
-	configMapLister   corev1listers.ConfigMapLister
 	leaseLister       coordinationv1listers.LeaseLister
 	clusterroleLister rbacv1listers.ClusterRoleLister
 
@@ -99,6 +98,7 @@ type controller struct {
 	autoUpdateWebhooks bool
 	admissionReports   bool
 	runtime            runtimeutils.Runtime
+	configuration      config.Configuration
 
 	// state
 	lock        sync.Mutex
@@ -116,7 +116,6 @@ func NewController(
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
 	secretInformer corev1informers.SecretInformer,
-	configMapInformer corev1informers.ConfigMapInformer,
 	leaseInformer coordinationv1informers.LeaseInformer,
 	clusterroleInformer rbacv1informers.ClusterRoleInformer,
 	server string,
@@ -125,6 +124,7 @@ func NewController(
 	autoUpdateWebhooks bool,
 	admissionReports bool,
 	runtime runtimeutils.Runtime,
+	configuration config.Configuration,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
@@ -138,7 +138,6 @@ func NewController(
 		cpolLister:         cpolInformer.Lister(),
 		polLister:          polInformer.Lister(),
 		secretLister:       secretInformer.Lister(),
-		configMapLister:    configMapInformer.Lister(),
 		leaseLister:        leaseInformer.Lister(),
 		clusterroleLister:  clusterroleInformer.Lister(),
 		queue:              queue,
@@ -148,6 +147,7 @@ func NewController(
 		autoUpdateWebhooks: autoUpdateWebhooks,
 		admissionReports:   admissionReports,
 		runtime:            runtime,
+		configuration:      configuration,
 		policyState: map[string]sets.Set[string]{
 			config.MutatingWebhookConfigurationName:   sets.New[string](),
 			config.ValidatingWebhookConfigurationName: sets.New[string](),
@@ -173,24 +173,6 @@ func NewController(
 			}
 		},
 	)
-	controllerutils.AddEventHandlersT(
-		configMapInformer.Informer(),
-		func(obj *corev1.ConfigMap) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoConfigMapName() {
-				c.enqueueAll()
-			}
-		},
-		func(_, obj *corev1.ConfigMap) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoConfigMapName() {
-				c.enqueueAll()
-			}
-		},
-		func(obj *corev1.ConfigMap) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoConfigMapName() {
-				c.enqueueAll()
-			}
-		},
-	)
 	controllerutils.AddEventHandlers(
 		cpolInformer.Informer(),
 		func(interface{}) { c.enqueueResourceWebhooks(0) },
@@ -203,6 +185,7 @@ func NewController(
 		func(interface{}, interface{}) { c.enqueueResourceWebhooks(0) },
 		func(interface{}) { c.enqueueResourceWebhooks(0) },
 	)
+	configuration.OnChanged(c.enqueueAll)
 	return &c
 }
 
@@ -293,15 +276,6 @@ func (c *controller) enqueueVerifyWebhook() {
 	c.queue.Add(config.VerifyMutatingWebhookConfigurationName)
 }
 
-func (c *controller) loadConfig() config.Configuration {
-	cfg := config.NewDefaultConfiguration()
-	cm, err := c.configMapLister.ConfigMaps(config.KyvernoNamespace()).Get(config.KyvernoConfigMapName())
-	if err == nil {
-		cfg.Load(cm)
-	}
-	return cfg
-}
-
 func (c *controller) recordPolicyState(webhookConfigurationName string, policies ...kyvernov1.PolicyInterface) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -370,7 +344,7 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 	if err != nil {
 		return err
 	}
-	desired, err := build(c.loadConfig(), caData)
+	desired, err := build(c.configuration, caData)
 	if err != nil {
 		return err
 	}
@@ -400,7 +374,7 @@ func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, 
 	if err != nil {
 		return err
 	}
-	desired, err := build(c.loadConfig(), caData)
+	desired, err := build(c.configuration, caData)
 	if err != nil {
 		return err
 	}

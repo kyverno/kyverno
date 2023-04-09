@@ -153,6 +153,7 @@ func createrLeaderControllers(
 	certRenewer tls.CertRenewer,
 	runtime runtimeutils.Runtime,
 	servicePort int32,
+	configuration config.Configuration,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	certManager := certmanager.NewController(
 		kubeKyvernoInformer.Core().V1().Secrets(),
@@ -169,7 +170,6 @@ func createrLeaderControllers(
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kubeKyvernoInformer.Core().V1().Secrets(),
-		kubeKyvernoInformer.Core().V1().ConfigMaps(),
 		kubeKyvernoInformer.Coordination().V1().Leases(),
 		kubeInformer.Rbac().V1().ClusterRoles(),
 		serverIP,
@@ -178,13 +178,13 @@ func createrLeaderControllers(
 		autoUpdateWebhooks,
 		admissionReports,
 		runtime,
+		configuration,
 	)
 	exceptionWebhookController := genericwebhookcontroller.NewController(
 		exceptionWebhookControllerName,
 		kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 		kubeKyvernoInformer.Core().V1().Secrets(),
-		kubeKyvernoInformer.Core().V1().ConfigMaps(),
 		config.ExceptionValidatingWebhookConfigurationName,
 		config.ExceptionValidatingWebhookServicePath,
 		serverIP,
@@ -202,6 +202,7 @@ func createrLeaderControllers(
 		}},
 		genericwebhookcontroller.Fail,
 		genericwebhookcontroller.None,
+		configuration,
 	)
 	return []internal.Controller{
 			internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers),
@@ -216,21 +217,22 @@ func main() {
 	var (
 		// TODO: this has been added to backward support command line arguments
 		// will be removed in future and the configuration will be set only via configmaps
-		serverIP                   string
-		webhookTimeout             int
-		genWorkers                 int
-		maxQueuedEvents            int
-		autoUpdateWebhooks         bool
-		imagePullSecrets           string
-		imageSignatureRepository   string
-		allowInsecureRegistry      bool
-		webhookRegistrationTimeout time.Duration
-		admissionReports           bool
-		dumpPayload                bool
-		leaderElectionRetryPeriod  time.Duration
-		enablePolicyException      bool
-		exceptionNamespace         string
-		servicePort                int
+		serverIP                     string
+		webhookTimeout               int
+		genWorkers                   int
+		maxQueuedEvents              int
+		autoUpdateWebhooks           bool
+		imagePullSecrets             string
+		imageSignatureRepository     string
+		allowInsecureRegistry        bool
+		webhookRegistrationTimeout   time.Duration
+		admissionReports             bool
+		dumpPayload                  bool
+		leaderElectionRetryPeriod    time.Duration
+		enablePolicyException        bool
+		exceptionNamespace           string
+		servicePort                  int
+		backgroundServiceAccountName string
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -250,6 +252,7 @@ func main() {
 	flagset.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions.")
 	flagset.BoolVar(&enablePolicyException, "enablePolicyException", false, "Enable PolicyException feature.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
+	flagset.StringVar(&backgroundServiceAccountName, "backgroundServiceAccountName", "", "Background service account name.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -322,7 +325,7 @@ func main() {
 		logger.Error(err, "failed to create config map resolver")
 		os.Exit(1)
 	}
-	configuration, err := config.NewConfiguration(kubeClient)
+	configuration, err := config.NewConfiguration(kubeClient, false)
 	if err != nil {
 		logger.Error(err, "failed to initialize configuration")
 		os.Exit(1)
@@ -386,6 +389,7 @@ func main() {
 	}
 	eng := engine.NewEngine(
 		configuration,
+		metricsConfig.Config(),
 		dClient,
 		rclient,
 		engineapi.DefaultContextLoaderFactory(configMapResolver),
@@ -447,6 +451,7 @@ func main() {
 				certRenewer,
 				runtime,
 				int32(servicePort),
+				configuration,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create leader controllers")
@@ -517,6 +522,7 @@ func main() {
 		eventGenerator,
 		openApiManager,
 		admissionReports,
+		backgroundServiceAccountName,
 	)
 	exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
 		Enabled:   enablePolicyException,
@@ -544,6 +550,7 @@ func main() {
 		runtime,
 		kubeInformer.Rbac().V1().RoleBindings().Lister(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
+		dClient.Discovery(),
 	)
 	// start informers and wait for cache sync
 	// we need to call start again because we potentially registered new informers

@@ -15,49 +15,38 @@ import (
 )
 
 // ProcessStrategicMergePatch ...
-func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource unstructured.Unstructured, log logr.Logger) (resp engineapi.RuleResponse, patchedResource unstructured.Unstructured) {
+func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource unstructured.Unstructured, log logr.Logger) (engineapi.RuleResponse, unstructured.Unstructured) {
 	startTime := time.Now()
 	logger := log.WithName("ProcessStrategicMergePatch").WithValues("rule", ruleName)
 	logger.V(4).Info("started applying strategicMerge patch", "startTime", startTime)
-	resp.Name = ruleName
-	resp.Type = engineapi.Mutation
 
 	defer func() {
-		resp.Stats.ProcessingTime = time.Since(startTime)
-		resp.Stats.Timestamp = startTime.Unix()
-		logger.V(4).Info("finished applying strategicMerge patch", "processingTime", resp.Stats.ProcessingTime.String())
+		logger.V(4).Info("finished applying strategicMerge patch", "processingTime", time.Since(startTime))
 	}()
 
 	overlayBytes, err := json.Marshal(overlay)
 	if err != nil {
-		resp.Status = engineapi.RuleStatusFail
 		logger.Error(err, "failed to marshal resource")
-		resp.Message = fmt.Sprintf("failed to process patchStrategicMerge: %v", err)
-		return resp, resource
+		return *engineapi.RuleFail(ruleName, engineapi.Mutation, fmt.Sprintf("failed to process patchStrategicMerge: %v", err)), resource
 	}
 
 	base, err := json.Marshal(resource.Object)
 	if err != nil {
-		resp.Status = engineapi.RuleStatusFail
 		logger.Error(err, "failed to marshal resource")
-		resp.Message = fmt.Sprintf("failed to process patchStrategicMerge: %v", err)
-		return resp, resource
+		return *engineapi.RuleFail(ruleName, engineapi.Mutation, fmt.Sprintf("failed to process patchStrategicMerge: %v", err)), resource
 	}
 	patchedBytes, err := strategicMergePatch(logger, string(base), string(overlayBytes))
 	if err != nil {
 		log.Error(err, "failed to apply patchStrategicMerge")
 		msg := fmt.Sprintf("failed to apply patchStrategicMerge: %v", err)
-		resp.Status = engineapi.RuleStatusFail
-		resp.Message = msg
-		return resp, resource
+		return *engineapi.RuleFail(ruleName, engineapi.Mutation, msg), resource
 	}
 
+	var patchedResource unstructured.Unstructured
 	err = patchedResource.UnmarshalJSON(patchedBytes)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal resource")
-		resp.Status = engineapi.RuleStatusFail
-		resp.Message = fmt.Sprintf("failed to process patchStrategicMerge: %v", err)
-		return resp, resource
+		return *engineapi.RuleFail(ruleName, engineapi.Mutation, fmt.Sprintf("failed to process patchStrategicMerge: %v", err)), resource
 	}
 
 	log.V(6).Info("generating JSON patches from patched resource", "patchedResource", patchedResource.Object)
@@ -65,20 +54,15 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 	jsonPatches, err := generatePatches(base, patchedBytes)
 	if err != nil {
 		msg := fmt.Sprintf("failed to generated JSON patches from patched resource: %v", err.Error())
-		resp.Status = engineapi.RuleStatusFail
 		log.V(2).Info(msg)
-		resp.Message = msg
-		return resp, patchedResource
+		return *engineapi.RuleFail(ruleName, engineapi.Mutation, msg), patchedResource
 	}
 
 	for _, p := range jsonPatches {
 		log.V(5).Info("generated patch", "patch", string(p))
 	}
 
-	resp.Status = engineapi.RuleStatusPass
-	resp.Patches = jsonPatches
-	resp.Message = "applied strategic merge patch"
-	return resp, patchedResource
+	return *engineapi.RulePass(ruleName, engineapi.Mutation, "applied strategic merge patch").WithPatches(jsonPatches...), patchedResource
 }
 
 func strategicMergePatch(logger logr.Logger, base, overlay string) ([]byte, error) {

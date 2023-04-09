@@ -25,7 +25,7 @@ import (
 )
 
 type ImageVerificationHandler interface {
-	Handle(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext) ([]byte, []string, error)
+	Handle(context.Context, admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext) ([]byte, []string, error)
 }
 
 type imageVerificationHandler struct {
@@ -57,7 +57,7 @@ func NewImageVerificationHandler(
 
 func (h *imageVerificationHandler) Handle(
 	ctx context.Context,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 ) ([]byte, []string, error) {
@@ -72,7 +72,7 @@ func (h *imageVerificationHandler) Handle(
 func (h *imageVerificationHandler) handleVerifyImages(
 	ctx context.Context,
 	logger logr.Logger,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	policyContext *engine.PolicyContext,
 	policies []kyvernov1.PolicyInterface,
 ) (bool, string, []byte, []string) {
@@ -147,7 +147,7 @@ func isResourceDeleted(policyContext *engine.PolicyContext) bool {
 func (v *imageVerificationHandler) handleAudit(
 	ctx context.Context,
 	resource unstructured.Unstructured,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	namespaceLabels map[string]string,
 	engineResponses ...engineapi.EngineResponse,
 ) {

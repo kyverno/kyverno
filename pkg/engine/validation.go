@@ -19,33 +19,36 @@ func (e *engine) validate(
 	policyContext engineapi.PolicyContext,
 ) engineapi.PolicyResponse {
 	resp := engineapi.NewPolicyResponse()
+	policy := policyContext.Policy()
+	matchedResource := policyContext.NewResource()
+	applyRules := policy.GetSpec().GetApplyRules()
 
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
 
-	applyRules := policyContext.Policy().GetSpec().GetApplyRules()
-
-	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
-		logger := internal.LoggerWithRule(logger, rule)
+	for _, rule := range autogen.ComputeRules(policy) {
 		startTime := time.Now()
-		hasValidate := rule.HasValidate()
-		hasVerifyImageChecks := rule.HasVerifyImageChecks()
-		if !hasValidate && !hasVerifyImageChecks {
-			continue
-		}
-		var handlerFactory handlers.HandlerFactory
-		if hasValidate {
-			hasVerifyManifest := rule.HasVerifyManifests()
-			hasValidatePss := rule.HasValidatePodSecurity()
-			if hasVerifyManifest {
-				handlerFactory = handlers.WithHandler(e.validateManifestHandler)
-			} else if hasValidatePss {
-				handlerFactory = handlers.WithHandler(e.validatePssHandler)
-			} else {
-				handlerFactory = handlers.WithHandler(e.validateResourceHandler)
+		logger := internal.LoggerWithRule(logger, rule)
+		handlerFactory := func() (handlers.Handler, error) {
+			hasValidate := rule.HasValidate()
+			hasVerifyImageChecks := rule.HasVerifyImageChecks()
+			if !hasValidate && !hasVerifyImageChecks {
+				return nil, nil
 			}
-		} else if hasVerifyImageChecks {
-			handlerFactory = func() (handlers.Handler, error) {
+			if hasValidate {
+				hasVerifyManifest := rule.HasVerifyManifests()
+				hasValidatePss := rule.HasValidatePodSecurity()
+				if hasVerifyManifest {
+					return validation.NewValidateManifestHandler(
+						policyContext,
+						e.client,
+					)
+				} else if hasValidatePss {
+					return validation.NewValidatePssHandler()
+				} else {
+					return validation.NewValidateResourceHandler()
+				}
+			} else if hasVerifyImageChecks {
 				return validation.NewValidateImageHandler(
 					policyContext,
 					policyContext.NewResource(),
@@ -53,23 +56,19 @@ func (e *engine) validate(
 					e.configuration,
 				)
 			}
+			return nil, nil
 		}
-		if handlerFactory != nil {
-			_, ruleResp := e.invokeRuleHandler(
-				ctx,
-				logger,
-				handlerFactory,
-				policyContext,
-				policyContext.NewResource(),
-				rule,
-				engineapi.Validation,
-			)
-			for _, ruleResp := range ruleResp {
-				ruleResp := ruleResp
-				internal.AddRuleResponse(&resp, &ruleResp, startTime)
-				logger.V(4).Info("finished processing rule", "processingTime", ruleResp.Stats.ProcessingTime.String())
-			}
-		}
+		resource, ruleResp := e.invokeRuleHandler(
+			ctx,
+			logger,
+			handlerFactory,
+			policyContext,
+			matchedResource,
+			rule,
+			engineapi.Validation,
+		)
+		matchedResource = resource
+		resp.Add(engineapi.NewExecutionStats(startTime, time.Now()), ruleResp...)
 		if applyRules == kyvernov1.ApplyOne && resp.Stats.RulesAppliedCount > 0 {
 			break
 		}

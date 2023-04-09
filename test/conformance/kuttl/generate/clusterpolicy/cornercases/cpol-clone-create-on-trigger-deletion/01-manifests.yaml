@@ -31,11 +31,8 @@ spec:
       - resources:
           kinds:
           - Namespace
-    preconditions:
-      any:
-      - key: "{{ request.operation }}"
-        operator: Equals
-        value: DELETE
+          operations:
+          - DELETE
     generate:
       apiVersion: v1
       kind: Secret
