@@ -1,4 +1,4 @@
-package kube
+package tls
 
 import (
 	"context"

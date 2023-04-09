@@ -18,6 +18,13 @@ permissions:
 jobs:
   publish-images:
     runs-on: ubuntu-latest
+    outputs:
+      kyverno-digest: ${{ steps.publish-kyverno.outputs.digest }}
+      kyverno-init-digest: ${{ steps.publish-kyverno-init.outputs.digest }}
+      background-controller-digest: ${{ steps.publish-background-controller.outputs.digest }}
+      cleanup-controller-digest: ${{ steps.publish-cleanup-controller.outputs.digest }}
+      cli-digest: ${{ steps.publish-cli.outputs.digest }}
+      reports-controller-digest: ${{ steps.publish-reports-controller.outputs.digest }}
     steps:
       - name: Checkout
         uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
@@ -38,80 +45,182 @@ jobs:
         with:
           cosign-release: 'v1.13.0'
       - name: Publish kyverno
+        id: publish-kyverno
         uses: ./.github/actions/publish-image
         with:
-          makefile-target: ko-publish-kyverno-dev
+          makefile-target: ko-publish-kyverno
           registry: ghcr.io
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
           sbom-name: kyverno
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
           signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
           main-path: ./cmd/kyverno
-      - name: Publish kyvernopre
+      - name: Publish kyverno-init
+        id: publish-kyverno-init
         uses: ./.github/actions/publish-image
         with:
-          makefile-target: ko-publish-kyverno-init-dev
+          makefile-target: ko-publish-kyverno-init
           registry: ghcr.io
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
-          sbom-name: kyvernopre
+          sbom-name: kyverno-init
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
           signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
           main-path: ./cmd/kyverno-init
-      - name: Publish cleanup-controller
+      - name: Publish background-controller
+        id: publish-background-controller
         uses: ./.github/actions/publish-image
         with:
-          makefile-target: ko-publish-cleanup-controller-dev
+          makefile-target: ko-publish-background-controller
           registry: ghcr.io
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
+          sign-image: true
+          sbom-name: background-controller
+          sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
+          signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
+          main-path: ./cmd/background-controller
+      - name: Publish cleanup-controller
+        id: publish-cleanup-controller
+        uses: ./.github/actions/publish-image
+        with:
+          makefile-target: ko-publish-cleanup-controller
+          registry: ghcr.io
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.CR_PAT }}
+          repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
           sbom-name: cleanup-controller
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
           signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
           main-path: ./cmd/cleanup-controller
       - name: Publish cli
+        id: publish-cli
         uses: ./.github/actions/publish-image
         with:
-          makefile-target: ko-publish-cli-dev
+          makefile-target: ko-publish-cli
           registry: ghcr.io
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
           sbom-name: cli
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
           signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
           main-path: ./cmd/cli/kubectl-kyverno
       - name: Publish reports-controller
+        id: publish-reports-controller
         uses: ./.github/actions/publish-image
         with:
-          makefile-target: ko-publish-reports-controller-dev
+          makefile-target: ko-publish-reports-controller
           registry: ghcr.io
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
           sbom-name: reports-controller
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
           signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
           main-path: ./cmd/reports-controller
-      - name: Publish background-controller
-        uses: ./.github/actions/publish-image
-        with:
-          makefile-target: ko-publish-background-controller-dev
-          registry: ghcr.io
-          registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.CR_PAT }}
-          repository: ${{ github.repository_owner }}
-          sign-image: true
-          sbom-name: background-controller
-          sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
-          signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
-          main-path: ./cmd/background-controller
+
+  generate-kyverno-provenance:
+    needs: publish-images
+    permissions:
+      id-token: write   # To sign the provenance.
+      packages: write   # To upload assets to release.
+      actions: read     # To read the workflow path.
+    # NOTE: The container generator workflow is not officially released as GA.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.5.0
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/kyverno
+      digest: "${{ needs.publish-images.outputs.kyverno-digest }}"
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.CR_PAT }}
+
+  generate-kyverno-init-provenance:
+    needs: publish-images
+    permissions:
+      id-token: write   # To sign the provenance.
+      packages: write   # To upload assets to release.
+      actions: read     # To read the workflow path.
+    # NOTE: The container generator workflow is not officially released as GA.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.5.0
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/kyvernopre
+      digest: "${{ needs.publish-images.outputs.kyverno-init-digest }}"
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.CR_PAT }}
+
+  generate-background-controller-provenance:
+    needs: publish-images
+    permissions:
+      id-token: write   # To sign the provenance.
+      packages: write   # To upload assets to release.
+      actions: read     # To read the workflow path.
+    # NOTE: The container generator workflow is not officially released as GA.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.5.0
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/background-controller
+      digest: "${{ needs.publish-images.outputs.background-controller-digest }}"
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.CR_PAT }}
+
+  generate-cleanup-controller-provenance:
+    needs: publish-images
+    permissions:
+      id-token: write   # To sign the provenance.
+      packages: write   # To upload assets to release.
+      actions: read     # To read the workflow path.
+    # NOTE: The container generator workflow is not officially released as GA.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.5.0
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/cleanup-controller
+      digest: "${{ needs.publish-images.outputs.cleanup-controller-digest }}"
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.CR_PAT }}
+
+  generate-kyverno-cli-provenance:
+    needs: publish-images
+    permissions:
+      id-token: write   # To sign the provenance.
+      packages: write   # To upload assets to release.
+      actions: read     # To read the workflow path.
+    # NOTE: The container generator workflow is not officially released as GA.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.5.0
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/kyverno-cli
+      digest: "${{ needs.publish-images.outputs.cli-digest }}"
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.CR_PAT }}
+
+  generate-reports-controller-provenance:
+    needs: publish-images
+    permissions:
+      id-token: write   # To sign the provenance.
+      packages: write   # To upload assets to release.
+      actions: read     # To read the workflow path.
+    # NOTE: The container generator workflow is not officially released as GA.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.5.0
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/reports-controller
+      digest: "${{ needs.publish-images.outputs.reports-controller-digest }}"
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.CR_PAT }}

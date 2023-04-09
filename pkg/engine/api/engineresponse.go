@@ -2,7 +2,6 @@ package api
 
 import (
 	"fmt"
-	"time"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -24,7 +23,7 @@ type EngineResponse struct {
 	// PolicyResponse contains the engine policy response
 	PolicyResponse PolicyResponse
 	// Stats contains engine statistics
-	Stats ExecutionStats
+	stats ExecutionStats
 }
 
 func Resource(policyContext PolicyContext) unstructured.Unstructured {
@@ -35,13 +34,11 @@ func Resource(policyContext PolicyContext) unstructured.Unstructured {
 	return resource
 }
 
-func NewEngineResponseFromPolicyContext(policyContext PolicyContext, timestamp time.Time) EngineResponse {
+func NewEngineResponseFromPolicyContext(policyContext PolicyContext) EngineResponse {
 	return NewEngineResponse(
 		Resource(policyContext),
 		policyContext.Policy(),
 		policyContext.NamespaceLabels(),
-		nil,
-		timestamp,
 	)
 }
 
@@ -49,20 +46,13 @@ func NewEngineResponse(
 	resource unstructured.Unstructured,
 	policy kyvernov1.PolicyInterface,
 	namespaceLabels map[string]string,
-	policyResponse *PolicyResponse,
-	timestamp time.Time,
 ) EngineResponse {
-	response := EngineResponse{
+	return EngineResponse{
 		Resource:        resource,
 		Policy:          policy,
 		NamespaceLabels: namespaceLabels,
 		PatchedResource: resource,
-		Stats:           NewExecutionStats(timestamp),
 	}
-	if policyResponse != nil {
-		response = response.WithPolicyResponse(*policyResponse)
-	}
-	return response
 }
 
 func (er EngineResponse) WithPolicyResponse(policyResponse PolicyResponse) EngineResponse {
@@ -70,13 +60,13 @@ func (er EngineResponse) WithPolicyResponse(policyResponse PolicyResponse) Engin
 	return er
 }
 
-func (er EngineResponse) WithPatchedResource(patchedResource unstructured.Unstructured) EngineResponse {
-	er.PatchedResource = patchedResource
-	return er
+func (r EngineResponse) WithStats(stats ExecutionStats) EngineResponse {
+	r.stats = stats
+	return r
 }
 
-func (er EngineResponse) Done(timestamp time.Time) EngineResponse {
-	er.Stats.Done(timestamp)
+func (er EngineResponse) WithPatchedResource(patchedResource unstructured.Unstructured) EngineResponse {
+	er.PatchedResource = patchedResource
 	return er
 }
 
@@ -124,9 +114,7 @@ func (er EngineResponse) IsNil() bool {
 func (er EngineResponse) GetPatches() [][]byte {
 	var patches [][]byte
 	for _, r := range er.PolicyResponse.Rules {
-		if r.Patches != nil {
-			patches = append(patches, r.Patches...)
-		}
+		patches = append(patches, r.Patches()...)
 	}
 	return patches
 }
@@ -161,7 +149,7 @@ func (er EngineResponse) getRules(predicate func(RuleResponse) bool) []string {
 	var rules []string
 	for _, r := range er.PolicyResponse.Rules {
 		if predicate(r) {
-			rules = append(rules, r.Name)
+			rules = append(rules, r.Name())
 		}
 	}
 	return rules
@@ -171,7 +159,7 @@ func (er EngineResponse) getRulesWithErrors(predicate func(RuleResponse) bool) [
 	var rules []string
 	for _, r := range er.PolicyResponse.Rules {
 		if predicate(r) {
-			rules = append(rules, fmt.Sprintf("%s: %s", r.Name, r.Message))
+			rules = append(rules, fmt.Sprintf("%s: %s", r.Name(), r.Message()))
 		}
 	}
 	return rules

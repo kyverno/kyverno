@@ -3,13 +3,6 @@
 ## indicate that creation of a file should fail. See the BEST_PRACTICES.md file for an example. 
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
-commands:
-- script: |
-    if kubectl apply -f manifests.yaml
-    then 
-      echo "Tested failed. Policy was created when it shouldn't have been."
-      exit 1 
-    else 
-      echo "Test succeeded. Policy was not created as intended."
-      exit 0
-    fi
+apply:
+- file: manifests.yaml
+  shouldFail: true
