@@ -19,7 +19,6 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	metadataclient "github.com/kyverno/kyverno/pkg/clients/metadata"
 	"github.com/kyverno/kyverno/pkg/config"
-	genericconfigmapcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/configmap"
 	admissionreportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/admission"
 	aggregatereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
 	backgroundscancontroller "github.com/kyverno/kyverno/pkg/controllers/report/background"
@@ -33,9 +32,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	corev1 "k8s.io/api/core/v1"
 	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
@@ -194,32 +191,6 @@ func createrLeaderControllers(
 	return reportControllers, warmup, nil
 }
 
-func createNonLeaderControllers(
-	configuration config.Configuration,
-	kubeClient kubernetes.Interface,
-) ([]internal.Controller, func(context.Context) error) {
-	configurationController := genericconfigmapcontroller.NewController(
-		"config-controller",
-		kubeClient,
-		resyncPeriod,
-		config.KyvernoNamespace(),
-		config.KyvernoConfigMapName(),
-		func(ctx context.Context, cm *corev1.ConfigMap) error {
-			configuration.Load(cm)
-			return nil
-		},
-	)
-	return []internal.Controller{
-			internal.NewController("config-controller", configurationController, genericconfigmapcontroller.Workers),
-		},
-		func(ctx context.Context) error {
-			if err := configurationController.WarmUp(ctx); err != nil {
-				return err
-			}
-			return nil
-		}
-}
-
 func main() {
 	var (
 		leaderElectionRetryPeriod time.Duration
@@ -282,6 +253,8 @@ func main() {
 	// THIS IS AN UGLY FIX
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
+	// configuration
+	configuration := internal.StartConfigController(ctx, logger, kubeClient, skipResourceFilters)
 	// informer factories
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
@@ -314,11 +287,6 @@ func main() {
 		logger.Error(err, "failed to create config map resolver")
 		os.Exit(1)
 	}
-	configuration, err := config.NewConfiguration(kubeClient, skipResourceFilters)
-	if err != nil {
-		logger.Error(err, "failed to initialize configuration")
-		os.Exit(1)
-	}
 	eventGenerator := event.NewEventGenerator(
 		dClient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
@@ -343,22 +311,10 @@ func main() {
 		engineapi.DefaultContextLoaderFactory(configMapResolver),
 		exceptionsLister,
 	)
-	// create non leader controllers
-	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
-		configuration,
-		kubeClient,
-	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kyvernoInformer, kubeKyvernoInformer, cacheInformer) {
 		logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		os.Exit(1)
-	}
-	// bootstrap non leader controllers
-	if nonLeaderBootstrap != nil {
-		if err := nonLeaderBootstrap(ctx); err != nil {
-			logger.Error(err, "failed to bootstrap non leader controllers")
-			os.Exit(1)
-		}
 	}
 	// start event generator
 	var wg sync.WaitGroup
@@ -427,10 +383,6 @@ func main() {
 	if err != nil {
 		logger.Error(err, "failed to initialize leader election")
 		os.Exit(1)
-	}
-	// start non leader controllers
-	for _, controller := range nonLeaderControllers {
-		controller.Run(ctx, logger.WithName("controllers"), &wg)
 	}
 	le.Run(ctx)
 	wg.Wait()

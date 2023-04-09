@@ -1,6 +1,20 @@
 package internal
 
-import "flag"
+import (
+	"context"
+	"flag"
+	"time"
+
+	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/config"
+	genericconfigmapcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/configmap"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
+)
+
+const (
+	resyncPeriod = 15 * time.Minute
+)
 
 type Configuration interface {
 	UsesMetrics() bool
@@ -76,4 +90,21 @@ func (c *configuration) UsesKubeconfig() bool {
 
 func (c *configuration) FlagSets() []*flag.FlagSet {
 	return c.flagSets
+}
+
+func StartConfigController(ctx context.Context, logger logr.Logger, client kubernetes.Interface, skipResourceFilters bool) config.Configuration {
+	configuration := config.NewDefaultConfiguration(skipResourceFilters)
+	configurationController := genericconfigmapcontroller.NewController(
+		"config-controller",
+		client,
+		resyncPeriod,
+		config.KyvernoNamespace(),
+		config.KyvernoConfigMapName(),
+		func(ctx context.Context, cm *corev1.ConfigMap) error {
+			configuration.Load(cm)
+			return nil
+		},
+	)
+	checkError(logger, configurationController.WarmUp(ctx), "failed to init config controller")
+	return configuration
 }

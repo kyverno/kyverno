@@ -22,7 +22,6 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
-	genericconfigmapcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/configmap"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
@@ -125,27 +124,12 @@ func createNonLeaderControllers(
 		dynamicClient,
 		manager,
 	)
-	configurationController := genericconfigmapcontroller.NewController(
-		"config-controller",
-		kubeClient,
-		resyncPeriod,
-		config.KyvernoNamespace(),
-		config.KyvernoConfigMapName(),
-		func(ctx context.Context, cm *corev1.ConfigMap) error {
-			configuration.Load(cm)
-			return nil
-		},
-	)
 	return []internal.Controller{
 			internal.NewController(policycachecontroller.ControllerName, policyCacheController, policycachecontroller.Workers),
 			internal.NewController(openapicontroller.ControllerName, openApiController, openapicontroller.Workers),
-			internal.NewController("config-controller", configurationController, genericconfigmapcontroller.Workers),
 		},
 		func(ctx context.Context) error {
 			if err := policyCacheController.WarmUp(); err != nil {
-				return err
-			}
-			if err := configurationController.WarmUp(ctx); err != nil {
 				return err
 			}
 			return nil
@@ -305,6 +289,8 @@ func main() {
 		logger.Error(err, "sanity checks failed")
 		os.Exit(1)
 	}
+	// configuration
+	configuration := internal.StartConfigController(signalCtx, logger, kubeClient, false)
 	// informer factories
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
@@ -336,11 +322,6 @@ func main() {
 	configMapResolver, err := engineapi.NewNamespacedResourceResolver(informerBasedResolver, clientBasedResolver)
 	if err != nil {
 		logger.Error(err, "failed to create config map resolver")
-		os.Exit(1)
-	}
-	configuration, err := config.NewConfiguration(kubeClient, false)
-	if err != nil {
-		logger.Error(err, "failed to initialize configuration")
 		os.Exit(1)
 	}
 	openApiManager, err := openapi.NewManager(logger.WithName("openapi"))

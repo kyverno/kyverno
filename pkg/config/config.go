@@ -1,7 +1,6 @@
 package config
 
 import (
-	"context"
 	"errors"
 	"strconv"
 	"sync"
@@ -10,10 +9,7 @@ import (
 	osutils "github.com/kyverno/kyverno/pkg/utils/os"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/kubernetes"
 )
 
 // These constants MUST be equal to the corresponding names in service definition in definitions/install.yaml
@@ -181,19 +177,6 @@ func NewDefaultConfiguration(skipResourceFilters bool) *configuration {
 		defaultRegistry:               "docker.io",
 		enableDefaultRegistryMutation: true,
 	}
-}
-
-// NewConfiguration ...
-func NewConfiguration(client kubernetes.Interface, skipResourceFilters bool) (Configuration, error) {
-	cd := NewDefaultConfiguration(skipResourceFilters)
-	if cm, err := client.CoreV1().ConfigMaps(kyvernoNamespace).Get(context.TODO(), kyvernoConfigMapName, metav1.GetOptions{}); err != nil {
-		if !apierrors.IsNotFound(err) {
-			return nil, err
-		}
-	} else {
-		cd.load(cm)
-	}
-	return cd, nil
 }
 
 func (cd *configuration) OnChanged(callback func()) {
