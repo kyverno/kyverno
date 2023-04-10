@@ -93,6 +93,8 @@ var (
 	kyvernoPodName = osutils.GetEnvWithFallback("KYVERNO_POD_NAME", "kyverno")
 	// kyvernoConfigMapName is the Kyverno configmap name
 	kyvernoConfigMapName = osutils.GetEnvWithFallback("INIT_CONFIG", "kyverno")
+	// kyvernoMetricsConfigMapName is the Kyverno metrics configmap name
+	kyvernoMetricsConfigMapName = osutils.GetEnvWithFallback("METRICS_CONFIG", "kyverno-metrics")
 	// kyvernoDryRunNamespace is the namespace for DryRun option of YAML verification
 	kyvernoDryrunNamespace = osutils.GetEnvWithFallback("KYVERNO_DRYRUN_NAMESPACE", "kyverno-dryrun")
 )
@@ -123,6 +125,10 @@ func KyvernoPodName() string {
 
 func KyvernoConfigMapName() string {
 	return kyvernoConfigMapName
+}
+
+func KyvernoMetricsConfigMapName() string {
+	return kyvernoMetricsConfigMapName
 }
 
 // Configuration to be used by consumer to check filters

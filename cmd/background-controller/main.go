@@ -144,54 +144,51 @@ func main() {
 	// setup signals
 	// setup maxprocs
 	// setup metrics
-	signalCtx, logger, metricsConfig, sdown := internal.Setup("kyverno-background-controller")
+	signalCtx, setup, sdown := internal.Setup("kyverno-background-controller", false)
 	defer sdown()
+	// logger := setup.Logger
 	// create instrumented clients
-	kubeClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
-	leaderElectionClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
-	kyvernoClient := internal.CreateKyvernoClient(logger, kyvernoclient.WithMetrics(metricsConfig, metrics.KyvernoClient), kyvernoclient.WithTracing())
-	dynamicClient := internal.CreateDynamicClient(logger, dynamicclient.WithMetrics(metricsConfig, metrics.KyvernoClient), dynamicclient.WithTracing())
-	dClient, err := dclient.NewClient(signalCtx, dynamicClient, kubeClient, 15*time.Minute)
+	leaderElectionClient := internal.CreateKubernetesClient(setup.Logger, kubeclient.WithMetrics(setup.MetricsManager, metrics.KubeClient), kubeclient.WithTracing())
+	kyvernoClient := internal.CreateKyvernoClient(setup.Logger, kyvernoclient.WithMetrics(setup.MetricsManager, metrics.KyvernoClient), kyvernoclient.WithTracing())
+	dynamicClient := internal.CreateDynamicClient(setup.Logger, dynamicclient.WithMetrics(setup.MetricsManager, metrics.KyvernoClient), dynamicclient.WithTracing())
+	dClient, err := dclient.NewClient(signalCtx, dynamicClient, setup.KubeClient, 15*time.Minute)
 	if err != nil {
-		logger.Error(err, "failed to create dynamic client")
+		setup.Logger.Error(err, "failed to create dynamic client")
 		os.Exit(1)
 	}
-
 	// THIS IS AN UGLY FIX
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
-	// configuration
-	configuration := internal.StartConfigController(signalCtx, logger, kubeClient, false)
 	// informer factories
-	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
+	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
-	cacheInformer, err := resolvers.GetCacheInformerFactory(kubeClient, resyncPeriod)
+	cacheInformer, err := resolvers.GetCacheInformerFactory(setup.KubeClient, resyncPeriod)
 	if err != nil {
-		logger.Error(err, "failed to create cache informer factory")
+		setup.Logger.Error(err, "failed to create cache informer factory")
 		os.Exit(1)
 	}
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
 	// setup registry client
-	rclient, err := setupRegistryClient(signalCtx, logger, secretLister, imagePullSecrets, allowInsecureRegistry)
+	rclient, err := setupRegistryClient(signalCtx, setup.Logger, secretLister, imagePullSecrets, allowInsecureRegistry)
 	if err != nil {
-		logger.Error(err, "failed to setup registry client")
+		setup.Logger.Error(err, "failed to setup registry client")
 		os.Exit(1)
 	}
 	// setup cosign
-	setupCosign(logger, imageSignatureRepository)
+	setupCosign(setup.Logger, imageSignatureRepository)
 	informerBasedResolver, err := resolvers.NewInformerBasedResolver(cacheInformer.Core().V1().ConfigMaps().Lister())
 	if err != nil {
-		logger.Error(err, "failed to create informer based resolver")
+		setup.Logger.Error(err, "failed to create informer based resolver")
 		os.Exit(1)
 	}
-	clientBasedResolver, err := resolvers.NewClientBasedResolver(kubeClient)
+	clientBasedResolver, err := resolvers.NewClientBasedResolver(setup.KubeClient)
 	if err != nil {
-		logger.Error(err, "failed to create client based resolver")
+		setup.Logger.Error(err, "failed to create client based resolver")
 		os.Exit(1)
 	}
 	configMapResolver, err := engineapi.NewNamespacedResourceResolver(informerBasedResolver, clientBasedResolver)
 	if err != nil {
-		logger.Error(err, "failed to create config map resolver")
+		setup.Logger.Error(err, "failed to create config map resolver")
 		os.Exit(1)
 	}
 	eventGenerator := event.NewEventGenerator(
@@ -204,14 +201,14 @@ func main() {
 	// this controller only subscribe to events, nothing is returned...
 	var wg sync.WaitGroup
 	policymetricscontroller.NewController(
-		metricsConfig,
+		setup.MetricsManager,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		&wg,
 	)
 	engine := engine.NewEngine(
-		configuration,
-		metricsConfig.Config(),
+		setup.Configuration,
+		setup.MetricsManager.Config(),
 		dClient,
 		rclient,
 		engineapi.DefaultContextLoaderFactory(configMapResolver),
@@ -219,24 +216,24 @@ func main() {
 		nil,
 	)
 	// start informers and wait for cache sync
-	if !internal.StartInformersAndWaitForCacheSync(signalCtx, logger, kyvernoInformer, kubeKyvernoInformer, cacheInformer) {
-		logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
+	if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer, kubeKyvernoInformer, cacheInformer) {
+		setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		os.Exit(1)
 	}
 	// start event generator
 	go eventGenerator.Run(signalCtx, 3, &wg)
 	// setup leader election
 	le, err := leaderelection.New(
-		logger.WithName("leader-election"),
+		setup.Logger.WithName("leader-election"),
 		"kyverno-background-controller",
 		config.KyvernoNamespace(),
 		leaderElectionClient,
 		config.KyvernoPodName(),
 		leaderElectionRetryPeriod,
 		func(ctx context.Context) {
-			logger := logger.WithName("leader")
+			logger := setup.Logger.WithName("leader")
 			// create leader factories
-			kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
+			kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
 			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
 			// create leader controllers
 			leaderControllers, err := createrLeaderControllers(
@@ -247,8 +244,8 @@ func main() {
 				kyvernoClient,
 				dClient,
 				rclient,
-				configuration,
-				metricsConfig,
+				setup.Configuration,
+				setup.MetricsManager,
 				eventGenerator,
 				configMapResolver,
 			)
@@ -272,7 +269,7 @@ func main() {
 		nil,
 	)
 	if err != nil {
-		logger.Error(err, "failed to initialize leader election")
+		setup.Logger.Error(err, "failed to initialize leader election")
 		os.Exit(1)
 	}
 	// start leader election
