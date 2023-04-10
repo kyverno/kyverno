@@ -809,7 +809,7 @@ kind-install-kyverno: $(HELM) ## Install kyverno helm chart
 
 .PHONY: kind-deploy-kyverno
 kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
-	$(MAKE) kind-install-kyverno
+	@$(MAKE) kind-install-kyverno
 
 .PHONY: kind-deploy-kyverno-policies
 kind-deploy-kyverno-policies: $(HELM) ## Deploy kyverno-policies helm chart
