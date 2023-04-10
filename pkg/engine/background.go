@@ -10,6 +10,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
+	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 )
 
@@ -22,7 +23,7 @@ func (e *engine) applyBackgroundChecks(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
-) engineapi.EngineResponse {
+) engineapi.PolicyResponse {
 	return e.filterRules(policyContext, logger, time.Now())
 }
 
@@ -30,38 +31,20 @@ func (e *engine) filterRules(
 	policyContext engineapi.PolicyContext,
 	logger logr.Logger,
 	startTime time.Time,
-) engineapi.EngineResponse {
-	newResource := policyContext.NewResource()
+) engineapi.PolicyResponse {
 	policy := policyContext.Policy()
-	kind := newResource.GetKind()
-	name := newResource.GetName()
-	namespace := newResource.GetNamespace()
-	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
-	resp.PolicyResponse = engineapi.PolicyResponse{
-		Stats: engineapi.PolicyStats{
-			ExecutionStats: engineapi.ExecutionStats{
-				Timestamp: startTime.Unix(),
-			},
-		},
-	}
-
-	if e.configuration.ToFilter(kind, namespace, name) {
-		logger.Info("resource excluded")
-		return *resp
-	}
-
+	resp := engineapi.NewPolicyResponse()
 	applyRules := policy.GetSpec().GetApplyRules()
 	for _, rule := range autogen.ComputeRules(policy) {
 		logger := internal.LoggerWithRule(logger, rule)
 		if ruleResp := e.filterRule(rule, logger, policyContext); ruleResp != nil {
-			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
-			if applyRules == kyvernov1.ApplyOne && ruleResp.Status != engineapi.RuleStatusSkip {
+			resp.Rules = append(resp.Rules, *ruleResp)
+			if applyRules == kyvernov1.ApplyOne && ruleResp.Status() != engineapi.RuleStatusSkip {
 				break
 			}
 		}
 	}
-
-	return *resp
+	return resp
 }
 
 func (e *engine) filterRule(
@@ -79,35 +62,24 @@ func (e *engine) filterRule(
 	}
 
 	// check if there is a corresponding policy exception
-	ruleResp := hasPolicyExceptions(logger, ruleType, e.exceptionSelector, policyContext, &rule, e.configuration)
+	ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule)
 	if ruleResp != nil {
 		return ruleResp
 	}
-
-	startTime := time.Now()
 
 	newResource := policyContext.NewResource()
 	oldResource := policyContext.OldResource()
 	admissionInfo := policyContext.AdmissionInfo()
 	ctx := policyContext.JSONContext()
-	excludeGroupRole := e.configuration.GetExcludedGroups()
 	namespaceLabels := policyContext.NamespaceLabels()
 	policy := policyContext.Policy()
 	gvk, subresource := policyContext.ResourceKind()
 
-	if err := matchesResourceDescription(newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, policy.GetNamespace(), gvk, subresource); err != nil {
+	if err := engineutils.MatchesResourceDescription(newResource, rule, admissionInfo, namespaceLabels, policy.GetNamespace(), gvk, subresource, policyContext.Operation()); err != nil {
 		if ruleType == engineapi.Generation {
 			// if the oldResource matched, return "false" to delete GR for it
-			if err = matchesResourceDescription(oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, policy.GetNamespace(), gvk, subresource); err == nil {
-				return &engineapi.RuleResponse{
-					Name:   rule.Name,
-					Type:   ruleType,
-					Status: engineapi.RuleStatusFail,
-					Stats: engineapi.ExecutionStats{
-						ProcessingTime: time.Since(startTime),
-						Timestamp:      startTime.Unix(),
-					},
-				}
+			if err = engineutils.MatchesResourceDescription(oldResource, rule, admissionInfo, namespaceLabels, policy.GetNamespace(), gvk, subresource, policyContext.Operation()); err == nil {
+				return engineapi.RuleFail(rule.Name, ruleType, "")
 			}
 		}
 		logger.V(4).Info("rule not matched", "reason", err.Error())
@@ -117,7 +89,8 @@ func (e *engine) filterRule(
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
 
-	if err := internal.LoadContext(context.TODO(), e, policyContext, rule); err != nil {
+	contextLoader := e.ContextLoader(policyContext.Policy(), rule)
+	if err := contextLoader(context.TODO(), rule.Context, policyContext.JSONContext()); err != nil {
 		logger.V(4).Info("cannot add external data to the context", "reason", err.Error())
 		return nil
 	}
@@ -140,17 +113,9 @@ func (e *engine) filterRule(
 	// evaluate pre-conditions
 	if !variables.EvaluateConditions(logger, ctx, copyConditions) {
 		logger.V(4).Info("skip rule as preconditions are not met", "rule", ruleCopy.Name)
-		return internal.RuleSkip(ruleCopy, ruleType, "")
+		return engineapi.RuleSkip(ruleCopy.Name, ruleType, "")
 	}
 
 	// build rule Response
-	return &engineapi.RuleResponse{
-		Name:   ruleCopy.Name,
-		Type:   ruleType,
-		Status: engineapi.RuleStatusPass,
-		Stats: engineapi.ExecutionStats{
-			ProcessingTime: time.Since(startTime),
-			Timestamp:      startTime.Unix(),
-		},
-	}
+	return engineapi.RulePass(ruleCopy.Name, ruleType, "")
 }

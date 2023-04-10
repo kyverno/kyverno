@@ -8,7 +8,6 @@ import (
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/engine/internal"
 	matched "github.com/kyverno/kyverno/pkg/utils/match"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -43,7 +42,7 @@ func findExceptions(
 func matchesException(
 	selector engineapi.PolicyExceptionSelector,
 	policyContext engineapi.PolicyContext,
-	rule *kyvernov1.Rule,
+	rule kyvernov1.Rule,
 	cfg config.Configuration,
 ) (*kyvernov2alpha1.PolicyException, error) {
 	candidates, err := findExceptions(selector, policyContext.Policy(), rule.Name)
@@ -71,28 +70,27 @@ func matchesException(
 
 // hasPolicyExceptions returns nil when there are no matching exceptions.
 // A rule response is returned when an exception is matched, or there is an error.
-func hasPolicyExceptions(
-	log logr.Logger,
+func (e *engine) hasPolicyExceptions(
+	logger logr.Logger,
 	ruleType engineapi.RuleType,
-	selector engineapi.PolicyExceptionSelector,
 	ctx engineapi.PolicyContext,
-	rule *kyvernov1.Rule,
-	cfg config.Configuration,
+	rule kyvernov1.Rule,
 ) *engineapi.RuleResponse {
 	// if matches, check if there is a corresponding policy exception
-	exception, err := matchesException(selector, ctx, rule, cfg)
-	var response *engineapi.RuleResponse
-	// if we found an exception
-	if err == nil && exception != nil {
-		key, err := cache.MetaNamespaceKeyFunc(exception)
-		if err != nil {
-			log.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
-			response = internal.RuleError(rule, ruleType, "failed to compute exception key", err)
-		} else {
-			log.V(3).Info("policy rule skipped due to policy exception", "exception", key)
-			response = internal.RuleSkip(rule, ruleType, "rule skipped due to policy exception "+key)
-			response.Exception = exception
-		}
+	exception, err := matchesException(e.exceptionSelector, ctx, rule, e.configuration)
+	if err != nil {
+		logger.Error(err, "failed to match exceptions")
+		return nil
 	}
-	return response
+	if exception == nil {
+		return nil
+	}
+	key, err := cache.MetaNamespaceKeyFunc(exception)
+	if err != nil {
+		logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
+		return engineapi.RuleError(rule.Name, ruleType, "failed to compute exception key", err)
+	} else {
+		logger.V(3).Info("policy rule skipped due to policy exception", "exception", key)
+		return engineapi.RuleSkip(rule.Name, ruleType, "rule skipped due to policy exception "+key).WithException(exception)
+	}
 }

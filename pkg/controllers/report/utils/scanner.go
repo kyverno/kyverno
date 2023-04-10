@@ -20,7 +20,7 @@ type scanner struct {
 }
 
 type ScanResult struct {
-	EngineResponse *engineapi.EngineResponse
+	EngineResponse engineapi.EngineResponse
 	Error          error
 }
 
@@ -62,7 +62,7 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 				response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ivResponse.PolicyResponse.Rules...)
 			}
 		}
-		results[policy] = ScanResult{response, multierr.Combine(errors...)}
+		results[policy] = ScanResult{*response, multierr.Combine(errors...)}
 	}
 	return results
 }
@@ -81,7 +81,7 @@ func (s *scanner) validateResource(ctx context.Context, resource unstructured.Un
 	if err := enginectx.AddOperation("CREATE"); err != nil {
 		return nil, err
 	}
-	policyCtx := engine.NewPolicyContextWithJsonContext(enginectx).
+	policyCtx := engine.NewPolicyContextWithJsonContext(kyvernov1.Create, enginectx).
 		WithNewResource(resource).
 		WithPolicy(policy).
 		WithNamespaceLabels(nsLabels)
@@ -103,7 +103,7 @@ func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unst
 	if err := enginectx.AddOperation("CREATE"); err != nil {
 		return nil, err
 	}
-	policyCtx := engine.NewPolicyContextWithJsonContext(enginectx).
+	policyCtx := engine.NewPolicyContextWithJsonContext(kyvernov1.Create, enginectx).
 		WithNewResource(resource).
 		WithPolicy(policy).
 		WithNamespaceLabels(nsLabels)
@@ -111,5 +111,5 @@ func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unst
 	if len(response.PolicyResponse.Rules) > 0 {
 		s.logger.Info("validateImages", "policy", policy, "response", response)
 	}
-	return response, nil
+	return &response, nil
 }

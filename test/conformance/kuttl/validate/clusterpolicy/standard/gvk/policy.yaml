@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: rds-enforce-final-snapshot
 spec:
-  validationFailureAction: enforce
+  validationFailureAction: Enforce
   rules:
     - name: rds-enforce-final-snapshot
       match:

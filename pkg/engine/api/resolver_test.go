@@ -123,7 +123,7 @@ func Test_namespacedResourceResolverChain_Get(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			resolver, _ := NewNamespacedResourceResolver(tt.fields.resolvers...)
 			got, err := resolver.Get(context.TODO(), tt.args.namespace, tt.args.name)
-			if !reflect.DeepEqual(err, tt.wantErr) {
+			if !reflect.DeepEqual(err, tt.wantErr) { //nolint:deepequalerrors
 				t.Errorf("ConfigmapResolver.Get() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}

@@ -15,13 +15,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         with:
           build-cache-key: build-images
       - name: ko build
-        run: make docker-save-image-all
+        run: VERSION=${{ github.ref_name }} make docker-save-image-all
       - name: upload images archive
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
@@ -50,13 +50,14 @@ jobs:
           - rbac
           - reports
           - validate
+          - verify-manifests
           - verifyImages
           - webhooks
     runs-on: ubuntu-latest
     needs: prepare-images
     steps:
       - name: Checkout
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         with:

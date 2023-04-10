@@ -25,7 +25,7 @@ import (
 )
 
 type ImageVerificationHandler interface {
-	Handle(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext) ([]byte, []string, error)
+	Handle(context.Context, admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext) ([]byte, []string, error)
 }
 
 type imageVerificationHandler struct {
@@ -57,7 +57,7 @@ func NewImageVerificationHandler(
 
 func (h *imageVerificationHandler) Handle(
 	ctx context.Context,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 ) ([]byte, []string, error) {
@@ -72,16 +72,16 @@ func (h *imageVerificationHandler) Handle(
 func (h *imageVerificationHandler) handleVerifyImages(
 	ctx context.Context,
 	logger logr.Logger,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	policyContext *engine.PolicyContext,
 	policies []kyvernov1.PolicyInterface,
 ) (bool, string, []byte, []string) {
 	if len(policies) == 0 {
 		return true, "", nil, nil
 	}
-	var engineResponses []*engineapi.EngineResponse
+	var engineResponses []engineapi.EngineResponse
 	var patches [][]byte
-	verifiedImageData := &engineapi.ImageVerificationMetadata{}
+	verifiedImageData := engineapi.ImageVerificationMetadata{}
 	for _, policy := range policies {
 		tracing.ChildSpan(
 			ctx,
@@ -90,8 +90,9 @@ func (h *imageVerificationHandler) handleVerifyImages(
 			func(ctx context.Context, span trace.Span) {
 				policyContext := policyContext.WithPolicy(policy)
 				resp, ivm := h.engine.VerifyAndPatchImages(ctx, policyContext)
-
-				engineResponses = append(engineResponses, resp)
+				if !resp.IsEmpty() {
+					engineResponses = append(engineResponses, resp)
+				}
 				patches = append(patches, resp.GetPatches()...)
 				verifiedImageData.Merge(ivm)
 			},
@@ -146,9 +147,9 @@ func isResourceDeleted(policyContext *engine.PolicyContext) bool {
 func (v *imageVerificationHandler) handleAudit(
 	ctx context.Context,
 	resource unstructured.Unstructured,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	namespaceLabels map[string]string,
-	engineResponses ...*engineapi.EngineResponse,
+	engineResponses ...engineapi.EngineResponse,
 ) {
 	createReport := v.admissionReports
 	if admissionutils.IsDryRun(request) {

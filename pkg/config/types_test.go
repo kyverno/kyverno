@@ -37,7 +37,7 @@ func Test_parseRbac(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := parseRbac(tt.args.in); !reflect.DeepEqual(got, tt.want) {
+			if got := parseStrings(tt.args.in); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("parseRbac() = %v, want %v", got, tt.want)
 			}
 		})
@@ -64,56 +64,76 @@ func Test_parseKinds(t *testing.T) {
 	}, {
 		args: args{"[*]"},
 		want: []filter{
-			{"*", "", ""},
+			{"*", "*", "*", "", "", ""},
+		},
+	}, {
+		args: args{"[*/*]"},
+		want: []filter{
+			{"*", "*", "*", "*", "", ""},
+		},
+	}, {
+		args: args{"[Pod/*]"},
+		want: []filter{
+			{"*", "*", "Pod", "*", "", ""},
+		},
+	}, {
+		args: args{"[v1/Pod/*]"},
+		want: []filter{
+			{"*", "v1", "Pod", "*", "", ""},
+		},
+	}, {
+		args: args{"[v1/Pod]"},
+		want: []filter{
+			{"*", "v1", "Pod", "", "", ""},
 		},
 	}, {
 		args: args{"[Node]"},
 		want: []filter{
-			{"Node", "", ""},
+			{"*", "*", "Node", "", "", ""},
 		},
 	}, {
 		args: args{"[Node,*,*]"},
 		want: []filter{
-			{"Node", "*", "*"},
+			{"*", "*", "Node", "", "*", "*"},
 		},
 	}, {
 		args: args{"[Pod,default,nginx]"},
 		want: []filter{
-			{"Pod", "default", "nginx"},
+			{"*", "*", "Pod", "", "default", "nginx"},
 		},
 	}, {
 		args: args{"[Pod,*,nginx]"},
 		want: []filter{
-			{"Pod", "*", "nginx"},
+			{"*", "*", "Pod", "", "*", "nginx"},
 		},
 	}, {
 		args: args{"[Pod,*]"},
 		want: []filter{
-			{"Pod", "*", ""},
+			{"*", "*", "Pod", "", "*", ""},
 		},
 	}, {
 		args: args{"[Pod,default,nginx][Pod,kube-system,api-server]"},
 		want: []filter{
-			{"Pod", "default", "nginx"},
-			{"Pod", "kube-system", "api-server"},
+			{"*", "*", "Pod", "", "default", "nginx"},
+			{"*", "*", "Pod", "", "kube-system", "api-server"},
 		},
 	}, {
 		args: args{"[Pod,default,nginx],[Pod,kube-system,api-server]"},
 		want: []filter{
-			{"Pod", "default", "nginx"},
-			{"Pod", "kube-system", "api-server"},
+			{"*", "*", "Pod", "", "default", "nginx"},
+			{"*", "*", "Pod", "", "kube-system", "api-server"},
 		},
 	}, {
 		args: args{"[Pod,default,nginx] [Pod,kube-system,api-server]"},
 		want: []filter{
-			{"Pod", "default", "nginx"},
-			{"Pod", "kube-system", "api-server"},
+			{"*", "*", "Pod", "", "default", "nginx"},
+			{"*", "*", "Pod", "", "kube-system", "api-server"},
 		},
 	}, {
 		args: args{"[Pod,default,nginx]Pod,kube-system,api-server[Pod,kube-system,api-server]"},
 		want: []filter{
-			{"Pod", "default", "nginx"},
-			{"Pod", "kube-system", "api-server"},
+			{"*", "*", "Pod", "", "default", "nginx"},
+			{"*", "*", "Pod", "", "kube-system", "api-server"},
 		},
 	}, {
 		args: args{"[Pod,default,nginx,unexpected]"},

@@ -63,8 +63,12 @@ type ImageVerification struct {
 }
 
 // Validate implements programmatic validation
-func (iv *ImageVerification) Validate(path *field.Path) (errs field.ErrorList) {
+func (iv *ImageVerification) Validate(isAuditFailureAction bool, path *field.Path) (errs field.ErrorList) {
 	copy := iv
+
+	if isAuditFailureAction && iv.MutateDigest {
+		errs = append(errs, field.Invalid(path.Child("mutateDigest"), iv.MutateDigest, "mutateDigest must be set to false for ‘Audit’ failure action"))
+	}
 
 	if len(copy.ImageReferences) == 0 {
 		errs = append(errs, field.Invalid(path, iv, "An image reference is required"))

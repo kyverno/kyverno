@@ -1,0 +1,5 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: ./modify-resource-filters.sh removeBinding
+  - command: kubectl run nginx-pod --image=nginx -n test-ns

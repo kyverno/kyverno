@@ -3,7 +3,6 @@ package policy
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -21,6 +20,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	corev1 "k8s.io/api/core/v1"
@@ -203,7 +203,7 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 		return
 	}
 
-	if reflect.DeepEqual(oldP.GetSpec(), curP.GetSpec()) {
+	if datautils.DeepEqual(oldP.GetSpec(), curP.GetSpec()) {
 		return
 	}
 
@@ -416,8 +416,8 @@ func (pc *PolicyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest
 	}
 
 	for _, ruleResponse := range engineResponse.PolicyResponse.Rules {
-		if ruleResponse.Status != engineapi.RuleStatusPass {
-			pc.log.Error(err, "can not create new UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule.Status", ruleResponse.Status)
+		if ruleResponse.Status() != engineapi.RuleStatusPass {
+			pc.log.Error(err, "can not create new UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule.Status", ruleResponse.Status())
 			continue
 		}
 

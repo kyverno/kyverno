@@ -27,6 +27,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"golang.org/x/exp/slices"
@@ -38,14 +39,15 @@ import (
 	"k8s.io/client-go/discovery"
 )
 
-var allowedVariables = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
-
-var allowedVariablesBackground = regexp.MustCompile(`request\.|element|elementIndex|@|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
-
-// wildCardAllowedVariables represents regex for the allowed fields in wildcards
-var wildCardAllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace)[^{}]*\}\}`)
-
-var errOperationForbidden = errors.New("variables are forbidden in the path of a JSONPatch")
+var (
+	allowedVariables                   = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images\.|image\.|([a-z_0-9]+\()[^{}]`)
+	allowedVariablesBackground         = regexp.MustCompile(`request\.|element|elementIndex|@|images\.|image\.|([a-z_0-9]+\()[^{}]`)
+	allowedVariablesInTarget           = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
+	allowedVariablesBackgroundInTarget = regexp.MustCompile(`request\.|element|elementIndex|@|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
+	// wildCardAllowedVariables represents regex for the allowed fields in wildcards
+	wildCardAllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace)[^{}]*\}\}`)
+	errOperationForbidden    = errors.New("variables are forbidden in the path of a JSONPatch")
+)
 
 // validateJSONPatchPathForForwardSlash checks for forward slash
 func validateJSONPatchPathForForwardSlash(patch string) error {
@@ -336,9 +338,14 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		}
 
 		if rule.HasVerifyImages() {
+			isAuditFailureAction := false
+			if spec.ValidationFailureAction == kyvernov1.Audit {
+				isAuditFailureAction = true
+			}
+
 			verifyImagePath := rulePath.Child("verifyImages")
 			for index, i := range rule.VerifyImages {
-				errs = append(errs, i.Validate(verifyImagePath.Index(index))...)
+				errs = append(errs, i.Validate(isAuditFailureAction, verifyImagePath.Index(index))...)
 			}
 			if len(errs) != 0 {
 				return warnings, errs.ToAggregate()
@@ -435,9 +442,22 @@ func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) erro
 			}
 		}
 
-		ctx := buildContext(ruleCopy, background)
-		if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *ruleCopy); !variables.CheckNotFoundErr(err) {
-			return fmt.Errorf("variable substitution failed for rule %s: %s", ruleCopy.Name, err.Error())
+		// skip variable checks on mutate.targets, they will be validated separately
+		withoutTargets := ruleCopy.DeepCopy()
+		for i := range withoutTargets.Mutation.Targets {
+			withoutTargets.Mutation.Targets[i].RawAnyAllConditions = nil
+		}
+		ctx := buildContext(withoutTargets, background, false, nil)
+		if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *withoutTargets); !variables.CheckNotFoundErr(err) {
+			return fmt.Errorf("variable substitution failed for rule %s: %s", withoutTargets.Name, err.Error())
+		}
+
+		// perform variable checks with mutate.targets
+		for _, target := range r.Mutation.Targets {
+			ctx := buildContext(ruleCopy, background, true, target.Context)
+			if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *ruleCopy); !variables.CheckNotFoundErr(err) {
+				return fmt.Errorf("variable substitution failed for rule target %s: %s", ruleCopy.Name, err.Error())
+			}
 		}
 	}
 
@@ -548,29 +568,34 @@ func imageRefHasVariables(verifyImages []kyvernov1.ImageVerification) error {
 	return nil
 }
 
-func buildContext(rule *kyvernov1.Rule, background bool) *enginecontext.MockContext {
-	re := getAllowedVariables(background)
+func buildContext(rule *kyvernov1.Rule, background bool, target bool, targetContext []kyvernov1.ContextEntry) *enginecontext.MockContext {
+	re := getAllowedVariables(background, target)
 	ctx := enginecontext.NewMockContext(re)
-
 	addContextVariables(rule.Context, ctx)
-
 	for _, fe := range rule.Validation.ForEachValidation {
 		addContextVariables(fe.Context, ctx)
 	}
-
 	for _, fe := range rule.Mutation.ForEachMutation {
 		addContextVariables(fe.Context, ctx)
 	}
-
+	for _, fe := range rule.Mutation.Targets {
+		addContextVariables(fe.Context, ctx)
+	}
 	return ctx
 }
 
-func getAllowedVariables(background bool) *regexp.Regexp {
-	if background {
-		return allowedVariablesBackground
+func getAllowedVariables(background bool, target bool) *regexp.Regexp {
+	if target {
+		if background {
+			return allowedVariablesBackgroundInTarget
+		}
+		return allowedVariablesInTarget
+	} else {
+		if background {
+			return allowedVariablesBackground
+		}
+		return allowedVariables
 	}
-
-	return allowedVariables
 }
 
 func addContextVariables(entries []kyvernov1.ContextEntry, ctx *enginecontext.MockContext) {
@@ -760,11 +785,11 @@ func validateResources(path *field.Path, rule kyvernov1.Rule) (string, error) {
 		return "exclude", errs.ToAggregate()
 	}
 
-	if (len(rule.MatchResources.Any) > 0 || len(rule.MatchResources.All) > 0) && !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyvernov1.ResourceDescription{}) {
+	if (len(rule.MatchResources.Any) > 0 || len(rule.MatchResources.All) > 0) && !datautils.DeepEqual(rule.MatchResources.ResourceDescription, kyvernov1.ResourceDescription{}) {
 		return "match.", fmt.Errorf("can't specify any/all together with match resources")
 	}
 
-	if (len(rule.ExcludeResources.Any) > 0 || len(rule.ExcludeResources.All) > 0) && !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyvernov1.ResourceDescription{}) {
+	if (len(rule.ExcludeResources.Any) > 0 || len(rule.ExcludeResources.All) > 0) && !datautils.DeepEqual(rule.ExcludeResources.ResourceDescription, kyvernov1.ResourceDescription{}) {
 		return "exclude.", fmt.Errorf("can't specify any/all together with exclude resources")
 	}
 
@@ -831,7 +856,7 @@ func validateConditions(conditions apiextensions.JSON, schemaKey string) (string
 	switch typedConditions := kyvernoConditions.(type) {
 	case kyvernov1.AnyAllConditions:
 		// validating the conditions under 'any', if there are any
-		if !reflect.DeepEqual(typedConditions, kyvernov1.AnyAllConditions{}) && typedConditions.AnyConditions != nil {
+		if !datautils.DeepEqual(typedConditions, kyvernov1.AnyAllConditions{}) && typedConditions.AnyConditions != nil {
 			for i, condition := range typedConditions.AnyConditions {
 				if path, err := validateConditionValues(condition); err != nil {
 					return fmt.Sprintf("%s.any[%d].%s", schemaKey, i, path), err
@@ -839,7 +864,7 @@ func validateConditions(conditions apiextensions.JSON, schemaKey string) (string
 			}
 		}
 		// validating the conditions under 'all', if there are any
-		if !reflect.DeepEqual(typedConditions, kyvernov1.AnyAllConditions{}) && typedConditions.AllConditions != nil {
+		if !datautils.DeepEqual(typedConditions, kyvernov1.AnyAllConditions{}) && typedConditions.AllConditions != nil {
 			for i, condition := range typedConditions.AllConditions {
 				if path, err := validateConditionValues(condition); err != nil {
 					return fmt.Sprintf("%s.all[%d].%s", schemaKey, i, path), err
@@ -1074,7 +1099,7 @@ func validateImageRegistry(entry kyvernov1.ContextEntry) error {
 // - kinds is empty array in matched resource block, i.e. kinds: []
 // - selector is invalid
 func validateMatchedResourceDescription(rd kyvernov1.ResourceDescription) (string, error) {
-	if reflect.DeepEqual(rd, kyvernov1.ResourceDescription{}) {
+	if datautils.DeepEqual(rd, kyvernov1.ResourceDescription{}) {
 		return "", fmt.Errorf("match resources not specified")
 	}
 
@@ -1160,7 +1185,7 @@ func podControllerAutoGenExclusion(policy kyvernov1.PolicyInterface) bool {
 
 	reorderVal := strings.Split(strings.ToLower(val), ",")
 	sort.Slice(reorderVal, func(i, j int) bool { return reorderVal[i] < reorderVal[j] })
-	if ok && !reflect.DeepEqual(reorderVal, []string{"cronjob", "daemonset", "deployment", "job", "statefulset"}) {
+	if ok && !datautils.DeepEqual(reorderVal, []string{"cronjob", "daemonset", "deployment", "job", "statefulset"}) {
 		return true
 	}
 	return false
@@ -1226,7 +1251,7 @@ func validateKinds(kinds []string, mock, backgroundScanningEnabled, isValidation
 			if len(gvrss) == 0 {
 				return fmt.Errorf("unable to convert GVK to GVR for kinds %s", k)
 			}
-			if backgroundScanningEnabled {
+			if isValidationPolicy && backgroundScanningEnabled {
 				for gvrs := range gvrss {
 					if gvrs.SubResource != "" {
 						return fmt.Errorf("background scan enabled with subresource %s", k)

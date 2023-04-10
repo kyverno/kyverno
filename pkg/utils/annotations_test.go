@@ -19,23 +19,19 @@ func newPolicyResponse(rule string, patchesStr []string, status engineapi.RuleSt
 
 	return engineapi.PolicyResponse{
 		Rules: []engineapi.RuleResponse{
-			{
-				Name:    rule,
-				Patches: patches,
-				Status:  status,
-			},
+			*engineapi.NewRuleResponse(rule, engineapi.Mutation, "", status).WithPatches(patches...),
 		},
 	}
 }
 
-func newEngineResponse(policy, rule string, patchesStr []string, status engineapi.RuleStatus, annotation map[string]interface{}) *engineapi.EngineResponse {
+func newEngineResponse(policy, rule string, patchesStr []string, status engineapi.RuleStatus, annotation map[string]interface{}) engineapi.EngineResponse {
 	p := &kyvernov1.ClusterPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: policy,
 		},
 	}
 	policyResponse := newPolicyResponse(rule, patchesStr, status)
-	response := engineapi.NewEngineResponse(unstructured.Unstructured{}, p, nil, &policyResponse)
+	response := engineapi.NewEngineResponse(unstructured.Unstructured{}, p, nil).WithPolicyResponse(policyResponse)
 	response.PatchedResource = unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"metadata": map[string]interface{}{
@@ -49,7 +45,7 @@ func newEngineResponse(policy, rule string, patchesStr []string, status engineap
 func Test_empty_annotation(t *testing.T) {
 	patchStr := `{ "op": "replace", "path": "/spec/containers/0/imagePullPolicy", "value": "IfNotPresent" }`
 	engineResponse := newEngineResponse("mutate-container", "default-imagepullpolicy", []string{patchStr}, engineapi.RuleStatusPass, nil)
-	annPatches := GenerateAnnotationPatches([]*engineapi.EngineResponse{engineResponse}, logging.GlobalLogger())
+	annPatches := GenerateAnnotationPatches([]engineapi.EngineResponse{engineResponse}, logging.GlobalLogger())
 	expectedPatches := `{"path":"/metadata/annotations","op":"add","value":{"policies.kyverno.io/last-applied-patches":"default-imagepullpolicy.mutate-container.kyverno.io: replaced /spec/containers/0/imagePullPolicy\n"}}`
 	assert.Equal(t, string(annPatches[0]), expectedPatches)
 }
@@ -60,7 +56,7 @@ func Test_exist_annotation(t *testing.T) {
 	}
 	patchStr := `{ "op": "replace", "path": "/spec/containers/0/imagePullPolicy", "value": "IfNotPresent" }`
 	engineResponse := newEngineResponse("mutate-container", "default-imagepullpolicy", []string{patchStr}, engineapi.RuleStatusPass, annotation)
-	annPatches := GenerateAnnotationPatches([]*engineapi.EngineResponse{engineResponse}, logging.GlobalLogger())
+	annPatches := GenerateAnnotationPatches([]engineapi.EngineResponse{engineResponse}, logging.GlobalLogger())
 	expectedPatches := `{"path":"/metadata/annotations/policies.kyverno.io~1last-applied-patches","op":"add","value":"default-imagepullpolicy.mutate-container.kyverno.io: replaced /spec/containers/0/imagePullPolicy\n"}`
 	assert.Equal(t, string(annPatches[0]), expectedPatches)
 }
@@ -71,7 +67,7 @@ func Test_exist_kyverno_annotation(t *testing.T) {
 	}
 	patchStr := `{ "op": "replace", "path": "/spec/containers/0/imagePullPolicy", "value": "IfNotPresent" }`
 	engineResponse := newEngineResponse("mutate-container", "default-imagepullpolicy", []string{patchStr}, engineapi.RuleStatusPass, annotation)
-	annPatches := GenerateAnnotationPatches([]*engineapi.EngineResponse{engineResponse}, logging.GlobalLogger())
+	annPatches := GenerateAnnotationPatches([]engineapi.EngineResponse{engineResponse}, logging.GlobalLogger())
 	expectedPatches := `{"path":"/metadata/annotations/policies.kyverno.io~1last-applied-patches","op":"add","value":"default-imagepullpolicy.mutate-container.kyverno.io: replaced /spec/containers/0/imagePullPolicy\n"}`
 	assert.Equal(t, string(annPatches[0]), expectedPatches)
 }
@@ -81,10 +77,10 @@ func Test_annotation_nil_patch(t *testing.T) {
 		"policies.kyverno.patches": "old-annotation",
 	}
 	engineResponse := newEngineResponse("mutate-container", "default-imagepullpolicy", nil, engineapi.RuleStatusPass, annotation)
-	annPatches := GenerateAnnotationPatches([]*engineapi.EngineResponse{engineResponse}, logging.GlobalLogger())
+	annPatches := GenerateAnnotationPatches([]engineapi.EngineResponse{engineResponse}, logging.GlobalLogger())
 	assert.Assert(t, annPatches == nil)
 	engineResponseNew := newEngineResponse("mutate-container", "default-imagepullpolicy", []string{""}, engineapi.RuleStatusPass, annotation)
-	annPatchesNew := GenerateAnnotationPatches([]*engineapi.EngineResponse{engineResponseNew}, logging.GlobalLogger())
+	annPatchesNew := GenerateAnnotationPatches([]engineapi.EngineResponse{engineResponseNew}, logging.GlobalLogger())
 	assert.Assert(t, annPatchesNew == nil)
 }
 
@@ -93,7 +89,7 @@ func Test_annotation_failed_Patch(t *testing.T) {
 		"policies.kyverno.patches": "old-annotation",
 	}
 	engineResponse := newEngineResponse("mutate-container", "default-imagepullpolicy", nil, engineapi.RuleStatusFail, annotation)
-	annPatches := GenerateAnnotationPatches([]*engineapi.EngineResponse{engineResponse}, logging.GlobalLogger())
+	annPatches := GenerateAnnotationPatches([]engineapi.EngineResponse{engineResponse}, logging.GlobalLogger())
 	assert.Assert(t, annPatches == nil)
 }
 
@@ -103,7 +99,7 @@ func Test_exist_patches(t *testing.T) {
 	}
 	patchStr := `{ "op": "replace", "path": "/spec/containers/0/imagePullPolicy", "value": "IfNotPresent" }`
 	engineResponse := newEngineResponse("mutate-container", "default-imagepullpolicy", []string{patchStr}, engineapi.RuleStatusPass, annotation)
-	annPatches := GenerateAnnotationPatches([]*engineapi.EngineResponse{engineResponse}, logging.GlobalLogger())
+	annPatches := GenerateAnnotationPatches([]engineapi.EngineResponse{engineResponse}, logging.GlobalLogger())
 	expectedPatches1 := `{"path":"/metadata/annotations/policies.kyverno.io~1patches","op":"remove"}`
 	expectedPatches2 := `{"path":"/metadata/annotations/policies.kyverno.io~1last-applied-patches","op":"add","value":"default-imagepullpolicy.mutate-container.kyverno.io: replaced /spec/containers/0/imagePullPolicy\n"}`
 	assert.Equal(t, string(annPatches[0]), expectedPatches1)

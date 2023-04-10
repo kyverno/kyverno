@@ -19,6 +19,7 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	metadataclient "github.com/kyverno/kyverno/pkg/clients/metadata"
 	"github.com/kyverno/kyverno/pkg/config"
+	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
 	admissionreportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/admission"
 	aggregatereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
 	backgroundscancontroller "github.com/kyverno/kyverno/pkg/controllers/report/background"
@@ -191,6 +192,20 @@ func createrLeaderControllers(
 	return reportControllers, warmup, nil
 }
 
+func createNonLeaderControllers(
+	configuration config.Configuration,
+	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
+) ([]internal.Controller, func() error) {
+	configurationController := configcontroller.NewController(
+		configuration,
+		kubeKyvernoInformer.Core().V1().ConfigMaps(),
+	)
+	return []internal.Controller{
+			internal.NewController(configcontroller.ControllerName, configurationController, configcontroller.Workers),
+		},
+		nil
+}
+
 func main() {
 	var (
 		leaderElectionRetryPeriod time.Duration
@@ -205,6 +220,7 @@ func main() {
 		maxQueuedEvents           int
 		enablePolicyException     bool
 		exceptionNamespace        string
+		skipResourceFilters       bool
 	)
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
 	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
@@ -219,6 +235,7 @@ func main() {
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions.")
 	flagset.BoolVar(&enablePolicyException, "enablePolicyException", false, "Enable PolicyException feature.")
+	flagset.BoolVar(&skipResourceFilters, "skipResourceFilters", true, "If true, resource filters wont be considered.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -283,7 +300,7 @@ func main() {
 		logger.Error(err, "failed to create config map resolver")
 		os.Exit(1)
 	}
-	configuration, err := config.NewConfiguration(kubeClient)
+	configuration, err := config.NewConfiguration(kubeClient, skipResourceFilters)
 	if err != nil {
 		logger.Error(err, "failed to initialize configuration")
 		os.Exit(1)
@@ -304,21 +321,34 @@ func main() {
 			exceptionsLister = lister
 		}
 	}
-	// start informers and wait for cache sync
-	if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kyvernoInformer, kubeKyvernoInformer, cacheInformer) {
-		logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
-		os.Exit(1)
-	}
-	// start event generator
-	var wg sync.WaitGroup
-	go eventGenerator.Run(ctx, 3, &wg)
 	eng := engine.NewEngine(
 		configuration,
+		metricsConfig.Config(),
 		dClient,
 		rclient,
 		engineapi.DefaultContextLoaderFactory(configMapResolver),
 		exceptionsLister,
 	)
+	// create non leader controllers
+	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
+		configuration,
+		kubeKyvernoInformer,
+	)
+	// start informers and wait for cache sync
+	if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kyvernoInformer, kubeKyvernoInformer, cacheInformer) {
+		logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
+		os.Exit(1)
+	}
+	// bootstrap non leader controllers
+	if nonLeaderBootstrap != nil {
+		if err := nonLeaderBootstrap(); err != nil {
+			logger.Error(err, "failed to bootstrap non leader controllers")
+			os.Exit(1)
+		}
+	}
+	// start event generator
+	var wg sync.WaitGroup
+	go eventGenerator.Run(ctx, 3, &wg)
 	// setup leader election
 	le, err := leaderelection.New(
 		logger.WithName("leader-election"),
@@ -384,13 +414,10 @@ func main() {
 		logger.Error(err, "failed to initialize leader election")
 		os.Exit(1)
 	}
-	for {
-		select {
-		case <-ctx.Done():
-			wg.Wait()
-			return
-		default:
-			le.Run(ctx)
-		}
+	// start non leader controllers
+	for _, controller := range nonLeaderControllers {
+		controller.Run(ctx, logger.WithName("controllers"), &wg)
 	}
+	le.Run(ctx)
+	wg.Wait()
 }
