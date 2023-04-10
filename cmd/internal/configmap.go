@@ -29,6 +29,7 @@ func startConfigController(ctx context.Context, logger logr.Logger, client kuber
 		},
 	)
 	checkError(logger, configurationController.WarmUp(ctx), "failed to init config controller")
+	go configurationController.Run(ctx, 1)
 	return configuration
 }
 
@@ -46,5 +47,6 @@ func startMetricsConfigController(ctx context.Context, logger logr.Logger, clien
 		},
 	)
 	checkError(logger, configurationController.WarmUp(ctx), "failed to init metrics config controller")
+	go configurationController.Run(ctx, 1)
 	return configuration
 }
