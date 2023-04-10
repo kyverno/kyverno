@@ -199,7 +199,7 @@ $(KYVERNO_BIN): fmt vet
 
 $(CLI_BIN): fmt vet
 	@echo Build cli binary... >&2
-	CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
 		go build -o ./$(CLI_BIN) -ldflags=$(LD_FLAGS) ./$(CLI_DIR)
 
 $(CLEANUP_BIN): fmt vet
@@ -261,7 +261,7 @@ KO_BACKGROUND_REPO  := $(PACKAGE)/$(BACKGROUND_DIR)
 .PHONY: ko-build-kyverno-init
 ko-build-kyverno-init: $(KO) ## Build kyvernopre local image (with ko)
 	@echo Build kyvernopre local image with ko... >&2
-	LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
 		$(KO) build ./$(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-kyverno
