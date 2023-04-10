@@ -21,3 +21,26 @@ spec:
           metadata:
             labels:
               team: '?*'
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-labels
+spec:
+  failurePolicy: Fail
+  validationFailureAction: Enforce
+  background: false
+  rules:
+  - name: add-labels
+    match:
+      resources:
+        kinds:
+        - Pod
+        - Service
+        - ConfigMap
+        - Secret
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            foo: bar

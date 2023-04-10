@@ -5,6 +5,7 @@ admissionController:
   container:
     extraArgs:
       enablePolicyException: true
+      v: 4
 
   serviceMonitor:
     enabled: true
@@ -18,10 +19,16 @@ admissionController:
     format: json
 
 backgroundController:
+  extraArgs:
+    v: 4
+
   serviceMonitor:
     enabled: true
 
 cleanupController:
+  extraArgs:
+    v: 4
+
   rbac:
     clusterRole:
       extraResources:
@@ -44,6 +51,7 @@ cleanupController:
 reportsController:
   extraArgs:
     enablePolicyException: true
+    v: 4
 
   serviceMonitor:
     enabled: true
