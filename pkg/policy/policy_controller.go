@@ -75,8 +75,6 @@ type PolicyController struct {
 	// nsLister can list/get namespaces from the shared informer's store
 	nsLister corev1listers.NamespaceLister
 
-	informerCacheResolvers engineapi.ConfigmapResolver
-
 	informersSynced []cache.InformerSynced
 
 	// helpers to validate against current loaded configuration
@@ -100,7 +98,6 @@ func NewPolicyController(
 	configHandler config.Configuration,
 	eventGen event.Interface,
 	namespaces corev1informers.NamespaceInformer,
-	informerCacheResolvers engineapi.ConfigmapResolver,
 	log logr.Logger,
 	reconcilePeriod time.Duration,
 	metricsConfig metrics.MetricsConfigManager,
@@ -112,19 +109,18 @@ func NewPolicyController(
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: eventInterface})
 
 	pc := PolicyController{
-		client:                 client,
-		kyvernoClient:          kyvernoClient,
-		engine:                 engine,
-		pInformer:              pInformer,
-		npInformer:             npInformer,
-		eventGen:               eventGen,
-		eventRecorder:          eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "policy_controller"}),
-		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
-		configHandler:          configHandler,
-		informerCacheResolvers: informerCacheResolvers,
-		reconcilePeriod:        reconcilePeriod,
-		metricsConfig:          metricsConfig,
-		log:                    log,
+		client:          client,
+		kyvernoClient:   kyvernoClient,
+		engine:          engine,
+		pInformer:       pInformer,
+		npInformer:      npInformer,
+		eventGen:        eventGen,
+		eventRecorder:   eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "policy_controller"}),
+		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
+		configHandler:   configHandler,
+		reconcilePeriod: reconcilePeriod,
+		metricsConfig:   metricsConfig,
+		log:             log,
 	}
 
 	pc.pLister = pInformer.Lister()
