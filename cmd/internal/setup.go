@@ -35,7 +35,7 @@ func Setup(name string, skipResourceFilters bool) (context.Context, SetupResult,
 	sdownMaxProcs := SetupMaxProcs(logger)
 	SetupProfiling(logger)
 	ctx, sdownSignals := SetupSignals(logger)
-	client := kubeclient.From(CreateKubernetesClient(logger), kubeclient.WithLogging(logger), kubeclient.WithTracing())
+	client := kubeclient.From(CreateKubernetesClient(logger), kubeclient.WithTracing())
 	metricsConfiguration := startMetricsConfigController(ctx, logger, client)
 	metricsManager, sdownMetrics := SetupMetrics(ctx, logger, metricsConfiguration, client)
 	client = client.WithMetrics(metricsManager, metrics.KubeClient)
