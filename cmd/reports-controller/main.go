@@ -244,7 +244,6 @@ func main() {
 		setup.Logger.Error(err, "failed to setup registry client")
 		os.Exit(1)
 	}
-	// setup cosign
 	eventGenerator := event.NewEventGenerator(
 		dClient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),

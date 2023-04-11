@@ -285,7 +285,6 @@ func main() {
 		setup.Logger.Error(err, "failed to setup registry client")
 		os.Exit(1)
 	}
-	// setup cosign
 	openApiManager, err := openapi.NewManager(setup.Logger.WithName("openapi"))
 	if err != nil {
 		setup.Logger.Error(err, "Failed to create openapi manager")
