@@ -13,6 +13,7 @@ type Configuration interface {
 	UsesConfigMapCaching() bool
 	UsesCosign() bool
 	UsesRegistryClient() bool
+	UsesLeaderElection() bool
 	FlagSets() []*flag.FlagSet
 }
 
@@ -74,6 +75,12 @@ func WithRegistryClient() ConfigurationOption {
 	}
 }
 
+func WithLeaderElection() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesLeaderElection = true
+	}
+}
+
 func WithFlagSets(flagsets ...*flag.FlagSet) ConfigurationOption {
 	return func(c *configuration) {
 		c.flagSets = append(c.flagSets, flagsets...)
@@ -89,6 +96,7 @@ type configuration struct {
 	usesConfigMapCaching bool
 	usesCosign           bool
 	usesRegistryClient   bool
+	usesLeaderElection   bool
 	flagSets             []*flag.FlagSet
 }
 
@@ -122,6 +130,10 @@ func (c *configuration) UsesCosign() bool {
 
 func (c *configuration) UsesRegistryClient() bool {
 	return c.usesRegistryClient
+}
+
+func (c *configuration) UsesLeaderElection() bool {
+	return c.usesLeaderElection
 }
 
 func (c *configuration) FlagSets() []*flag.FlagSet {

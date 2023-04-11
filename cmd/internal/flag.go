@@ -2,7 +2,9 @@ package internal
 
 import (
 	"flag"
+	"time"
 
+	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 )
 
@@ -37,6 +39,8 @@ var (
 	// registry client
 	imagePullSecrets      string
 	allowInsecureRegistry bool
+	// leader election
+	leaderElectionRetryPeriod time.Duration
 )
 
 func initLoggingFlags() {
@@ -90,6 +94,10 @@ func initRegistryClientFlags() {
 	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
 }
 
+func initLeaderElectionFlags() {
+	flag.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
+}
+
 func InitFlags(config Configuration) {
 	// logging
 	initLoggingFlags()
@@ -125,6 +133,10 @@ func InitFlags(config Configuration) {
 	if config.UsesRegistryClient() {
 		initRegistryClientFlags()
 	}
+	// leader election
+	if config.UsesLeaderElection() {
+		initLeaderElectionFlags()
+	}
 	for _, flagset := range config.FlagSets() {
 		flagset.VisitAll(func(f *flag.Flag) {
 			flag.CommandLine.Var(f.Value, f.Name, f.Usage)
@@ -143,4 +155,8 @@ func ExceptionNamespace() string {
 
 func PolicyExceptionEnabled() bool {
 	return enablePolicyException
+}
+
+func LeaderElectionRetryPeriod() time.Duration {
+	return leaderElectionRetryPeriod
 }
