@@ -25,9 +25,7 @@ import (
 	backgroundscancontroller "github.com/kyverno/kyverno/pkg/controllers/report/background"
 	resourcereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	"github.com/kyverno/kyverno/pkg/cosign"
-	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -79,7 +77,6 @@ func createReportControllers(
 	metadataFactory metadatainformers.SharedInformerFactory,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
-	configMapResolver engineapi.ConfigmapResolver,
 	backgroundScanInterval time.Duration,
 	configuration config.Configuration,
 	eventGenerator event.Interface,
@@ -136,7 +133,6 @@ func createReportControllers(
 					kyvernoV1.ClusterPolicies(),
 					kubeInformer.Core().V1().Namespaces(),
 					resourceReportController,
-					configMapResolver,
 					backgroundScanInterval,
 					configuration,
 					eventGenerator,
@@ -169,7 +165,6 @@ func createrLeaderControllers(
 	rclient registryclient.Client,
 	configuration config.Configuration,
 	eventGenerator event.Interface,
-	configMapResolver engineapi.ConfigmapResolver,
 	backgroundScanInterval time.Duration,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	reportControllers, warmup := createReportControllers(
@@ -184,7 +179,6 @@ func createrLeaderControllers(
 		metadataInformer,
 		kubeInformer,
 		kyvernoInformer,
-		configMapResolver,
 		backgroundScanInterval,
 		configuration,
 		eventGenerator,
@@ -218,8 +212,6 @@ func main() {
 		backgroundScanWorkers     int
 		backgroundScanInterval    time.Duration
 		maxQueuedEvents           int
-		enablePolicyException     bool
-		exceptionNamespace        string
 		skipResourceFilters       bool
 	)
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
@@ -233,8 +225,6 @@ func main() {
 	flagset.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
 	flagset.DurationVar(&backgroundScanInterval, "backgroundScanInterval", time.Hour, "Configure background scan interval.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
-	flagset.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions.")
-	flagset.BoolVar(&enablePolicyException, "enablePolicyException", false, "Enable PolicyException feature.")
 	flagset.BoolVar(&skipResourceFilters, "skipResourceFilters", true, "If true, resource filters wont be considered.")
 	// config
 	appConfig := internal.NewConfiguration(
@@ -242,6 +232,8 @@ func main() {
 		internal.WithMetrics(),
 		internal.WithTracing(),
 		internal.WithKubeconfig(),
+		internal.WithPolicyExceptions(),
+		internal.WithConfigMapCaching(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -271,11 +263,6 @@ func main() {
 	// informer factories
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
-	cacheInformer, err := resolvers.GetCacheInformerFactory(kubeClient, resyncPeriod)
-	if err != nil {
-		logger.Error(err, "failed to create cache informer factory")
-		os.Exit(1)
-	}
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
 	// setup registry client
 	rclient, err := setupRegistryClient(ctx, logger, secretLister, imagePullSecrets, allowInsecureRegistry)
@@ -285,21 +272,6 @@ func main() {
 	}
 	// setup cosign
 	setupCosign(logger, imageSignatureRepository)
-	informerBasedResolver, err := resolvers.NewInformerBasedResolver(cacheInformer.Core().V1().ConfigMaps().Lister())
-	if err != nil {
-		logger.Error(err, "failed to create informer based resolver")
-		os.Exit(1)
-	}
-	clientBasedResolver, err := resolvers.NewClientBasedResolver(kubeClient)
-	if err != nil {
-		logger.Error(err, "failed to create client based resolver")
-		os.Exit(1)
-	}
-	configMapResolver, err := engineapi.NewNamespacedResourceResolver(informerBasedResolver, clientBasedResolver)
-	if err != nil {
-		logger.Error(err, "failed to create config map resolver")
-		os.Exit(1)
-	}
 	configuration, err := config.NewConfiguration(kubeClient, skipResourceFilters)
 	if err != nil {
 		logger.Error(err, "failed to initialize configuration")
@@ -312,22 +284,16 @@ func main() {
 		maxQueuedEvents,
 		logging.WithName("EventGenerator"),
 	)
-	var exceptionsLister engineapi.PolicyExceptionSelector
-	if enablePolicyException {
-		lister := kyvernoInformer.Kyverno().V2alpha1().PolicyExceptions().Lister()
-		if exceptionNamespace != "" {
-			exceptionsLister = lister.PolicyExceptions(exceptionNamespace)
-		} else {
-			exceptionsLister = lister
-		}
-	}
-	eng := engine.NewEngine(
+	// engine
+	engine := internal.NewEngine(
+		ctx,
+		logger,
 		configuration,
 		metricsConfig.Config(),
 		dClient,
 		rclient,
-		engineapi.DefaultContextLoaderFactory(configMapResolver),
-		exceptionsLister,
+		kubeClient,
+		kyvernoClient,
 	)
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
@@ -335,7 +301,7 @@ func main() {
 		kubeKyvernoInformer,
 	)
 	// start informers and wait for cache sync
-	if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kyvernoInformer, kubeKyvernoInformer, cacheInformer) {
+	if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kyvernoInformer, kubeKyvernoInformer) {
 		logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		os.Exit(1)
 	}
@@ -366,7 +332,7 @@ func main() {
 			metadataInformer := metadatainformers.NewSharedInformerFactory(metadataClient, 15*time.Minute)
 			// create leader controllers
 			leaderControllers, warmup, err := createrLeaderControllers(
-				eng,
+				engine,
 				backgroundScan,
 				admissionReports,
 				reportsChunkSize,
@@ -379,7 +345,6 @@ func main() {
 				rclient,
 				configuration,
 				eventGenerator,
-				configMapResolver,
 				backgroundScanInterval,
 			)
 			if err != nil {

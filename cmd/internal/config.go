@@ -7,6 +7,8 @@ type Configuration interface {
 	UsesTracing() bool
 	UsesProfiling() bool
 	UsesKubeconfig() bool
+	UsesPolicyExceptions() bool
+	UsesConfigMapCaching() bool
 	FlagSets() []*flag.FlagSet
 }
 
@@ -44,6 +46,18 @@ func WithKubeconfig() ConfigurationOption {
 	}
 }
 
+func WithPolicyExceptions() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesPolicyExceptions = true
+	}
+}
+
+func WithConfigMapCaching() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesConfigMapCaching = true
+	}
+}
+
 func WithFlagSets(flagsets ...*flag.FlagSet) ConfigurationOption {
 	return func(c *configuration) {
 		c.flagSets = append(c.flagSets, flagsets...)
@@ -51,11 +65,13 @@ func WithFlagSets(flagsets ...*flag.FlagSet) ConfigurationOption {
 }
 
 type configuration struct {
-	usesMetrics    bool
-	usesTracing    bool
-	usesProfiling  bool
-	usesKubeconfig bool
-	flagSets       []*flag.FlagSet
+	usesMetrics          bool
+	usesTracing          bool
+	usesProfiling        bool
+	usesKubeconfig       bool
+	usesPolicyExceptions bool
+	usesConfigMapCaching bool
+	flagSets             []*flag.FlagSet
 }
 
 func (c *configuration) UsesMetrics() bool {
@@ -72,6 +88,14 @@ func (c *configuration) UsesProfiling() bool {
 
 func (c *configuration) UsesKubeconfig() bool {
 	return c.usesKubeconfig
+}
+
+func (c *configuration) UsesPolicyExceptions() bool {
+	return c.usesPolicyExceptions
+}
+
+func (c *configuration) UsesConfigMapCaching() bool {
+	return c.usesConfigMapCaching
 }
 
 func (c *configuration) FlagSets() []*flag.FlagSet {
