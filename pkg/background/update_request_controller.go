@@ -56,9 +56,8 @@ type controller struct {
 	// queue
 	queue workqueue.RateLimitingInterface
 
-	eventGen               event.Interface
-	configuration          config.Configuration
-	informerCacheResolvers engineapi.ConfigmapResolver
+	eventGen      event.Interface
+	configuration config.Configuration
 }
 
 // NewController returns an instance of the Generate-Request Controller
@@ -72,21 +71,19 @@ func NewController(
 	namespaceInformer corev1informers.NamespaceInformer,
 	eventGen event.Interface,
 	dynamicConfig config.Configuration,
-	informerCacheResolvers engineapi.ConfigmapResolver,
 ) Controller {
 	urLister := urInformer.Lister().UpdateRequests(config.KyvernoNamespace())
 	c := controller{
-		client:                 client,
-		kyvernoClient:          kyvernoClient,
-		engine:                 engine,
-		cpolLister:             cpolInformer.Lister(),
-		polLister:              polInformer.Lister(),
-		urLister:               urLister,
-		nsLister:               namespaceInformer.Lister(),
-		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "background"),
-		eventGen:               eventGen,
-		configuration:          dynamicConfig,
-		informerCacheResolvers: informerCacheResolvers,
+		client:        client,
+		kyvernoClient: kyvernoClient,
+		engine:        engine,
+		cpolLister:    cpolInformer.Lister(),
+		polLister:     polInformer.Lister(),
+		urLister:      urLister,
+		nsLister:      namespaceInformer.Lister(),
+		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "background"),
+		eventGen:      eventGen,
+		configuration: dynamicConfig,
 	}
 	_, _ = urInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addUR,

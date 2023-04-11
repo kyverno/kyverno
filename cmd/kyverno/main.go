@@ -29,9 +29,7 @@ import (
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	"github.com/kyverno/kyverno/pkg/cosign"
-	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -226,8 +224,6 @@ func main() {
 		admissionReports             bool
 		dumpPayload                  bool
 		leaderElectionRetryPeriod    time.Duration
-		enablePolicyException        bool
-		exceptionNamespace           string
 		servicePort                  int
 		backgroundServiceAccountName string
 	)
@@ -246,8 +242,6 @@ func main() {
 	flagset.Func(toggle.ForceFailurePolicyIgnoreFlagName, toggle.ForceFailurePolicyIgnoreDescription, toggle.ForceFailurePolicyIgnore.Parse)
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
-	flagset.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions.")
-	flagset.BoolVar(&enablePolicyException, "enablePolicyException", false, "Enable PolicyException feature.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
 	flagset.StringVar(&backgroundServiceAccountName, "backgroundServiceAccountName", "", "Background service account name.")
 	// config
@@ -256,6 +250,8 @@ func main() {
 		internal.WithTracing(),
 		internal.WithMetrics(),
 		internal.WithKubeconfig(),
+		internal.WithPolicyExceptions(),
+		internal.WithConfigMapCaching(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -292,11 +288,6 @@ func main() {
 	kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
-	cacheInformer, err := resolvers.GetCacheInformerFactory(setup.KubeClient, resyncPeriod)
-	if err != nil {
-		setup.Logger.Error(err, "failed to create cache informer factory")
-		os.Exit(1)
-	}
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
 	// setup registry client
 	rclient, err := setupRegistryClient(signalCtx, setup.Logger, secretLister, imagePullSecrets, allowInsecureRegistry)
@@ -306,21 +297,6 @@ func main() {
 	}
 	// setup cosign
 	setupCosign(setup.Logger, imageSignatureRepository)
-	informerBasedResolver, err := resolvers.NewInformerBasedResolver(cacheInformer.Core().V1().ConfigMaps().Lister())
-	if err != nil {
-		setup.Logger.Error(err, "failed to create informer based resolver")
-		os.Exit(1)
-	}
-	clientBasedResolver, err := resolvers.NewClientBasedResolver(setup.KubeClient)
-	if err != nil {
-		setup.Logger.Error(err, "failed to create client based resolver")
-		os.Exit(1)
-	}
-	configMapResolver, err := engineapi.NewNamespacedResourceResolver(informerBasedResolver, clientBasedResolver)
-	if err != nil {
-		setup.Logger.Error(err, "failed to create config map resolver")
-		os.Exit(1)
-	}
 	openApiManager, err := openapi.NewManager(setup.Logger.WithName("openapi"))
 	if err != nil {
 		setup.Logger.Error(err, "Failed to create openapi manager")
@@ -369,26 +345,20 @@ func main() {
 		kubeKyvernoInformer.Apps().V1().Deployments(),
 		certRenewer,
 	)
-	var exceptionsLister engineapi.PolicyExceptionSelector
-	if enablePolicyException {
-		lister := kyvernoInformer.Kyverno().V2alpha1().PolicyExceptions().Lister()
-		if exceptionNamespace != "" {
-			exceptionsLister = lister.PolicyExceptions(exceptionNamespace)
-		} else {
-			exceptionsLister = lister
-		}
-	}
-	eng := engine.NewEngine(
+	// engine
+	engine := internal.NewEngine(
+		signalCtx,
+		setup.Logger,
 		setup.Configuration,
-		setup.MetricsManager.Config(),
+		setup.MetricsConfiguration,
 		dClient,
 		rclient,
-		engineapi.DefaultContextLoaderFactory(configMapResolver),
-		exceptionsLister,
+		setup.KubeClient,
+		kyvernoClient,
 	)
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
-		eng,
+		engine,
 		genWorkers,
 		kubeInformer,
 		kyvernoInformer,
@@ -400,7 +370,7 @@ func main() {
 		openApiManager,
 	)
 	// start informers and wait for cache sync
-	if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer, cacheInformer) {
+	if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
 		setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		os.Exit(1)
 	}
@@ -496,7 +466,7 @@ func main() {
 		openApiManager,
 	)
 	resourceHandlers := webhooksresource.NewHandlers(
-		eng,
+		engine,
 		dClient,
 		kyvernoClient,
 		rclient,
@@ -516,8 +486,8 @@ func main() {
 		backgroundServiceAccountName,
 	)
 	exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
-		Enabled:   enablePolicyException,
-		Namespace: exceptionNamespace,
+		Enabled:   internal.PolicyExceptionEnabled(),
+		Namespace: internal.ExceptionNamespace(),
 	})
 	server := webhooks.NewServer(
 		policyHandlers,
@@ -545,7 +515,7 @@ func main() {
 	)
 	// start informers and wait for cache sync
 	// we need to call start again because we potentially registered new informers
-	if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer, cacheInformer) {
+	if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
 		setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		os.Exit(1)
 	}

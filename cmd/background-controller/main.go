@@ -21,9 +21,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	"github.com/kyverno/kyverno/pkg/cosign"
-	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -74,7 +72,6 @@ func createrLeaderControllers(
 	configuration config.Configuration,
 	metricsConfig metrics.MetricsConfigManager,
 	eventGenerator event.Interface,
-	configMapResolver engineapi.ConfigmapResolver,
 ) ([]internal.Controller, error) {
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
@@ -86,7 +83,6 @@ func createrLeaderControllers(
 		configuration,
 		eventGenerator,
 		kubeInformer.Core().V1().Namespaces(),
-		configMapResolver,
 		logging.WithName("PolicyController"),
 		time.Hour,
 		metricsConfig,
@@ -104,7 +100,6 @@ func createrLeaderControllers(
 		kubeInformer.Core().V1().Namespaces(),
 		eventGenerator,
 		configuration,
-		configMapResolver,
 	)
 	return []internal.Controller{
 		internal.NewController("policy-controller", policyCtrl, 2),
@@ -134,6 +129,8 @@ func main() {
 		internal.WithMetrics(),
 		internal.WithTracing(),
 		internal.WithKubeconfig(),
+		internal.WithPolicyExceptions(),
+		internal.WithConfigMapCaching(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -162,11 +159,6 @@ func main() {
 	// informer factories
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
-	cacheInformer, err := resolvers.GetCacheInformerFactory(setup.KubeClient, resyncPeriod)
-	if err != nil {
-		setup.Logger.Error(err, "failed to create cache informer factory")
-		os.Exit(1)
-	}
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
 	// setup registry client
 	rclient, err := setupRegistryClient(signalCtx, setup.Logger, secretLister, imagePullSecrets, allowInsecureRegistry)
@@ -176,21 +168,6 @@ func main() {
 	}
 	// setup cosign
 	setupCosign(setup.Logger, imageSignatureRepository)
-	informerBasedResolver, err := resolvers.NewInformerBasedResolver(cacheInformer.Core().V1().ConfigMaps().Lister())
-	if err != nil {
-		setup.Logger.Error(err, "failed to create informer based resolver")
-		os.Exit(1)
-	}
-	clientBasedResolver, err := resolvers.NewClientBasedResolver(setup.KubeClient)
-	if err != nil {
-		setup.Logger.Error(err, "failed to create client based resolver")
-		os.Exit(1)
-	}
-	configMapResolver, err := engineapi.NewNamespacedResourceResolver(informerBasedResolver, clientBasedResolver)
-	if err != nil {
-		setup.Logger.Error(err, "failed to create config map resolver")
-		os.Exit(1)
-	}
 	eventGenerator := event.NewEventGenerator(
 		dClient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
@@ -206,17 +183,18 @@ func main() {
 		kyvernoInformer.Kyverno().V1().Policies(),
 		&wg,
 	)
-	engine := engine.NewEngine(
+	engine := internal.NewEngine(
+		signalCtx,
+		setup.Logger,
 		setup.Configuration,
-		setup.MetricsManager.Config(),
+		setup.MetricsConfiguration,
 		dClient,
 		rclient,
-		engineapi.DefaultContextLoaderFactory(configMapResolver),
-		// TODO: do we need exceptions here ?
-		nil,
+		setup.KubeClient,
+		kyvernoClient,
 	)
 	// start informers and wait for cache sync
-	if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer, kubeKyvernoInformer, cacheInformer) {
+	if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer, kubeKyvernoInformer) {
 		setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		os.Exit(1)
 	}
@@ -247,7 +225,6 @@ func main() {
 				setup.Configuration,
 				setup.MetricsManager,
 				eventGenerator,
-				configMapResolver,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create leader controllers")
