@@ -70,14 +70,18 @@ const (
 	MetricsPath = "/metrics"
 )
 
+// keys in config map
 const (
-	// Due to kubernetes issue, we must use next literal constants instead of deployment TypeMeta fields
-	// Issue: https://github.com/kubernetes/kubernetes/pull/63972
-	// When the issue is closed, we should use TypeMeta struct instead of this constants
-	// ClusterRoleAPIVersion define the default clusterrole resource apiVersion
-	ClusterRoleAPIVersion = "rbac.authorization.k8s.io/v1"
-	// ClusterRoleKind define the default clusterrole resource kind
-	ClusterRoleKind = "ClusterRole"
+	resourceFilters               = "resourceFilters"
+	defaultRegistry               = "defaultRegistry"
+	enableDefaultRegistryMutation = "enableDefaultRegistryMutation"
+	excludeGroups                 = "excludeGroups"
+	excludeUsernames              = "excludeUsernames"
+	excludeRoles                  = "excludeRoles"
+	excludeClusterRoles           = "excludeClusterRoles"
+	generateSuccessEvents         = "generateSuccessEvents"
+	webhooks                      = "webhooks"
+	webhookAnnotations            = "webhookAnnotations"
 )
 
 var (
@@ -276,12 +280,13 @@ func (cd *configuration) Load(cm *corev1.ConfigMap) {
 
 func (cd *configuration) load(cm *corev1.ConfigMap) {
 	logger := logger.WithValues("name", cm.Name, "namespace", cm.Namespace)
-	if cm.Data == nil {
-		return
-	}
 	cd.mux.Lock()
 	defer cd.mux.Unlock()
 	defer cd.notify()
+	data := cm.Data
+	if data == nil {
+		data = map[string]string{}
+	}
 	// reset
 	cd.defaultRegistry = "docker.io"
 	cd.enableDefaultRegistryMutation = true
@@ -294,10 +299,10 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	cd.webhooks = nil
 	cd.webhookAnnotations = nil
 	// load filters
-	cd.filters = parseKinds(cm.Data["resourceFilters"])
+	cd.filters = parseKinds(data[resourceFilters])
 	logger.Info("filters configured", "filters", cd.filters)
 	// load defaultRegistry
-	defaultRegistry, ok := cm.Data["defaultRegistry"]
+	defaultRegistry, ok := data[defaultRegistry]
 	if !ok {
 		logger.Info("defaultRegistry not set")
 	} else {
@@ -310,7 +315,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		}
 	}
 	// load enableDefaultRegistryMutation
-	enableDefaultRegistryMutation, ok := cm.Data["enableDefaultRegistryMutation"]
+	enableDefaultRegistryMutation, ok := data[enableDefaultRegistryMutation]
 	if !ok {
 		logger.Info("enableDefaultRegistryMutation not set")
 	} else {
@@ -324,7 +329,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		}
 	}
 	// load excludeGroupRole
-	excludedGroups, ok := cm.Data["excludeGroups"]
+	excludedGroups, ok := data[excludeGroups]
 	if !ok {
 		logger.Info("excludeGroups not set")
 	} else {
@@ -332,7 +337,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		logger.Info("excludedGroups configured", "excludeGroups", cd.excludedGroups)
 	}
 	// load excludeUsername
-	excludedUsernames, ok := cm.Data["excludeUsernames"]
+	excludedUsernames, ok := data[excludeUsernames]
 	if !ok {
 		logger.Info("excludeUsernames not set")
 	} else {
@@ -340,7 +345,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		logger.Info("excludedUsernames configured", "excludeUsernames", cd.excludedUsernames)
 	}
 	// load excludeRoles
-	excludedRoles, ok := cm.Data["excludeRoles"]
+	excludedRoles, ok := data[excludeRoles]
 	if !ok {
 		logger.Info("excludeRoles not set")
 	} else {
@@ -348,7 +353,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		logger.Info("excludedRoles configured", "excludeRoles", cd.excludedRoles)
 	}
 	// load excludeClusterRoles
-	excludedClusterRoles, ok := cm.Data["excludeClusterRoles"]
+	excludedClusterRoles, ok := data[excludeClusterRoles]
 	if !ok {
 		logger.Info("excludeClusterRoles not set")
 	} else {
@@ -356,7 +361,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		logger.Info("excludedClusterRoles configured", "excludeClusterRoles", cd.excludedClusterRoles)
 	}
 	// load generateSuccessEvents
-	generateSuccessEvents, ok := cm.Data["generateSuccessEvents"]
+	generateSuccessEvents, ok := data[generateSuccessEvents]
 	if !ok {
 		logger.Info("generateSuccessEvents not set")
 	} else {
@@ -370,7 +375,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		}
 	}
 	// load webhooks
-	webhooks, ok := cm.Data["webhooks"]
+	webhooks, ok := data[webhooks]
 	if !ok {
 		logger.Info("webhooks not set")
 	} else {
@@ -384,7 +389,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		}
 	}
 	// load webhook annotations
-	webhookAnnotations, ok := cm.Data["webhookAnnotations"]
+	webhookAnnotations, ok := data[webhookAnnotations]
 	if !ok {
 		logger.Info("webhookAnnotations not set")
 	} else {
@@ -413,6 +418,7 @@ func (cd *configuration) unload() {
 	cd.generateSuccessEvents = false
 	cd.webhooks = nil
 	cd.webhookAnnotations = nil
+	logger.Info("configuration unloaded")
 }
 
 func (cd *configuration) notify() {
