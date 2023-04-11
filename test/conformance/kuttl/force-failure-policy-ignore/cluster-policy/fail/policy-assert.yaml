@@ -7,3 +7,13 @@ status:
     - reason: Succeeded
       status: "True"
       type: Ready
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-labels
+status:
+  conditions:
+    - reason: Succeeded
+      status: "True"
+      type: Ready
