@@ -36,7 +36,7 @@ func createClientConfig(logger logr.Logger) *rest.Config {
 	return clientConfig
 }
 
-func CreateKubernetesClient(logger logr.Logger, opts ...kube.NewOption) kubernetes.Interface {
+func createKubernetesClient(logger logr.Logger, opts ...kube.NewOption) kubernetes.Interface {
 	logger = logger.WithName("kube-client")
 	logger.Info("create kube client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
 	client, err := kube.NewForConfig(createClientConfig(logger), opts...)

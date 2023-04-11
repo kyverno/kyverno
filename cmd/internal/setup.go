@@ -38,7 +38,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	sdownMaxProcs := setupMaxProcs(logger)
 	setupProfiling(logger)
 	ctx, sdownSignals := setupSignals(logger)
-	client := kubeclient.From(CreateKubernetesClient(logger), kubeclient.WithTracing())
+	client := kubeclient.From(createKubernetesClient(logger), kubeclient.WithTracing())
 	metricsConfiguration := startMetricsConfigController(ctx, logger, client)
 	metricsManager, sdownMetrics := SetupMetrics(ctx, logger, metricsConfiguration, client)
 	client = client.WithMetrics(metricsManager, metrics.KubeClient)
@@ -51,7 +51,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	}
 	var leaderElectionClient kubernetes.Interface
 	if config.UsesRegistryClient() {
-		leaderElectionClient = CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsManager, metrics.KubeClient), kubeclient.WithTracing())
+		leaderElectionClient = createKubernetesClient(logger, kubeclient.WithMetrics(metricsManager, metrics.KubeClient), kubeclient.WithTracing())
 	}
 	return ctx,
 		SetupResult{
