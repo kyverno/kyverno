@@ -202,16 +202,7 @@ spec:
           volumeMounts:
             - mountPath: {{ .Values.admissionController.tufRootMountPath }}
               name: sigstore
-            - mountPath: /var/run/secrets/tokens
-              name: api-token
       volumes:
       - name: sigstore
         {{- toYaml (required "A valid .Values.admissionController.sigstoreVolume entry is required" .Values.admissionController.sigstoreVolume) | nindent 8 }}
-      - name: api-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              path: api-token
-              expirationSeconds: 600
-              audience: kyverno-extension
 {{- end -}}
