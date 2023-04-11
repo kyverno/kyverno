@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -31,7 +30,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeinformers "k8s.io/client-go/informers"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
@@ -39,22 +37,6 @@ import (
 const (
 	resyncPeriod = 15 * time.Minute
 )
-
-func setupRegistryClient(ctx context.Context, logger logr.Logger, lister corev1listers.SecretNamespaceLister, imagePullSecrets string, allowInsecureRegistry bool) (registryclient.Client, error) {
-	logger = logger.WithName("registry-client")
-	logger.Info("setup registry client...", "secrets", imagePullSecrets, "insecure", allowInsecureRegistry)
-	registryOptions := []registryclient.Option{
-		registryclient.WithTracing(),
-	}
-	secrets := strings.Split(imagePullSecrets, ",")
-	if imagePullSecrets != "" && len(secrets) > 0 {
-		registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(ctx, lister, secrets...))
-	}
-	if allowInsecureRegistry {
-		registryOptions = append(registryOptions, registryclient.WithAllowInsecureRegistry())
-	}
-	return registryclient.New(registryOptions...)
-}
 
 func setupCosign(logger logr.Logger, imageSignatureRepository string) {
 	logger = logger.WithName("cosign")
@@ -188,9 +170,7 @@ func createrLeaderControllers(
 func main() {
 	var (
 		leaderElectionRetryPeriod time.Duration
-		imagePullSecrets          string
 		imageSignatureRepository  string
-		allowInsecureRegistry     bool
 		backgroundScan            bool
 		admissionReports          bool
 		reportsChunkSize          int
@@ -201,9 +181,7 @@ func main() {
 	)
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
 	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
-	flagset.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
 	flagset.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
-	flagset.BoolVar(&allowInsecureRegistry, "allowInsecureRegistry", false, "Whether to allow insecure connections to registries. Don't use this for anything but testing.")
 	flagset.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable backgound scan.")
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flagset.IntVar(&reportsChunkSize, "reportsChunkSize", 1000, "Max number of results in generated reports, reports will be split accordingly if there are more results to be stored.")
@@ -219,17 +197,13 @@ func main() {
 		internal.WithKubeconfig(),
 		internal.WithPolicyExceptions(),
 		internal.WithConfigMapCaching(),
+		internal.WithRegistryClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
-	// setup logger
-	// show version
-	// start profiling
-	// setup signals
-	// setup maxprocs
-	// setup metrics
-	ctx, setup, sdown := internal.Setup("kyverno-reports-controller", skipResourceFilters)
+	// setup
+	ctx, setup, sdown := internal.Setup(appConfig, "kyverno-reports-controller", skipResourceFilters)
 	defer sdown()
 	// create instrumented clients
 	leaderElectionClient := internal.CreateKubernetesClient(setup.Logger, kubeclient.WithMetrics(setup.MetricsManager, metrics.KubeClient), kubeclient.WithTracing())
@@ -245,15 +219,7 @@ func main() {
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
 	// informer factories
-	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
-	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
-	// setup registry client
-	rclient, err := setupRegistryClient(ctx, setup.Logger, secretLister, imagePullSecrets, allowInsecureRegistry)
-	if err != nil {
-		setup.Logger.Error(err, "failed to setup registry client")
-		os.Exit(1)
-	}
 	// setup cosign
 	setupCosign(setup.Logger, imageSignatureRepository)
 	eventGenerator := event.NewEventGenerator(
@@ -270,12 +236,12 @@ func main() {
 		setup.Configuration,
 		setup.MetricsConfiguration,
 		dClient,
-		rclient,
+		setup.RegistryClient,
 		setup.KubeClient,
 		kyvernoClient,
 	)
 	// start informers and wait for cache sync
-	if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kyvernoInformer, kubeKyvernoInformer) {
+	if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kyvernoInformer) {
 		setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		os.Exit(1)
 	}
@@ -309,7 +275,7 @@ func main() {
 				metadataInformer,
 				kyvernoClient,
 				dClient,
-				rclient,
+				setup.RegistryClient,
 				setup.Configuration,
 				eventGenerator,
 				backgroundScanInterval,
