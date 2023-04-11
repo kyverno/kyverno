@@ -14,7 +14,6 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	dynamicclient "github.com/kyverno/kyverno/pkg/clients/dynamic"
-	kubeclient "github.com/kyverno/kyverno/pkg/clients/kube"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	metadataclient "github.com/kyverno/kyverno/pkg/clients/metadata"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -169,18 +168,16 @@ func createrLeaderControllers(
 
 func main() {
 	var (
-		leaderElectionRetryPeriod time.Duration
-		imageSignatureRepository  string
-		backgroundScan            bool
-		admissionReports          bool
-		reportsChunkSize          int
-		backgroundScanWorkers     int
-		backgroundScanInterval    time.Duration
-		maxQueuedEvents           int
-		skipResourceFilters       bool
+		imageSignatureRepository string
+		backgroundScan           bool
+		admissionReports         bool
+		reportsChunkSize         int
+		backgroundScanWorkers    int
+		backgroundScanInterval   time.Duration
+		maxQueuedEvents          int
+		skipResourceFilters      bool
 	)
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
-	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
 	flagset.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
 	flagset.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable backgound scan.")
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
@@ -198,6 +195,7 @@ func main() {
 		internal.WithPolicyExceptions(),
 		internal.WithConfigMapCaching(),
 		internal.WithRegistryClient(),
+		internal.WithLeaderElection(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -206,7 +204,6 @@ func main() {
 	ctx, setup, sdown := internal.Setup(appConfig, "kyverno-reports-controller", skipResourceFilters)
 	defer sdown()
 	// create instrumented clients
-	leaderElectionClient := internal.CreateKubernetesClient(setup.Logger, kubeclient.WithMetrics(setup.MetricsManager, metrics.KubeClient), kubeclient.WithTracing())
 	kyvernoClient := internal.CreateKyvernoClient(setup.Logger, kyvernoclient.WithMetrics(setup.MetricsManager, metrics.KyvernoClient), kyvernoclient.WithTracing())
 	metadataClient := internal.CreateMetadataClient(setup.Logger, metadataclient.WithMetrics(setup.MetricsManager, metrics.KyvernoClient), metadataclient.WithTracing())
 	dynamicClient := internal.CreateDynamicClient(setup.Logger, dynamicclient.WithMetrics(setup.MetricsManager, metrics.KyvernoClient), dynamicclient.WithTracing())
@@ -253,9 +250,9 @@ func main() {
 		setup.Logger.WithName("leader-election"),
 		"kyverno-reports-controller",
 		config.KyvernoNamespace(),
-		leaderElectionClient,
+		setup.LeaderElectionClient,
 		config.KyvernoPodName(),
-		leaderElectionRetryPeriod,
+		internal.LeaderElectionRetryPeriod(),
 		func(ctx context.Context) {
 			logger := setup.Logger.WithName("leader")
 			// create leader factories

@@ -28,15 +28,16 @@ type SetupResult struct {
 	MetricsConfiguration config.MetricsConfiguration
 	MetricsManager       metrics.MetricsConfigManager
 	KubeClient           kubernetes.Interface
+	LeaderElectionClient kubernetes.Interface
 	RegistryClient       registryclient.Client
 }
 
 func Setup(config Configuration, name string, skipResourceFilters bool) (context.Context, SetupResult, context.CancelFunc) {
-	logger := SetupLogger()
-	ShowVersion(logger)
-	sdownMaxProcs := SetupMaxProcs(logger)
-	SetupProfiling(logger)
-	ctx, sdownSignals := SetupSignals(logger)
+	logger := setupLogger()
+	showVersion(logger)
+	sdownMaxProcs := setupMaxProcs(logger)
+	setupProfiling(logger)
+	ctx, sdownSignals := setupSignals(logger)
 	client := kubeclient.From(CreateKubernetesClient(logger), kubeclient.WithTracing())
 	metricsConfiguration := startMetricsConfigController(ctx, logger, client)
 	metricsManager, sdownMetrics := SetupMetrics(ctx, logger, metricsConfiguration, client)
@@ -47,6 +48,10 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	if config.UsesRegistryClient() {
 		registryClient = setupRegistryClient(ctx, logger, client)
 	}
+	var leaderElectionClient kubernetes.Interface
+	if config.UsesRegistryClient() {
+		leaderElectionClient = CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsManager, metrics.KubeClient), kubeclient.WithTracing())
+	}
 	return ctx,
 		SetupResult{
 			Logger:               logger,
@@ -54,6 +59,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 			MetricsConfiguration: metricsConfiguration,
 			MetricsManager:       metricsManager,
 			KubeClient:           client,
+			LeaderElectionClient: leaderElectionClient,
 			RegistryClient:       registryClient,
 		},
 		shutdown(logger.WithName("shutdown"), sdownMaxProcs, sdownMetrics, sdownTracing, sdownSignals)
