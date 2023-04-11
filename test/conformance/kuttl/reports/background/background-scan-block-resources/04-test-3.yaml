@@ -1,0 +1,15 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestSuite
+metadata:
+  name: kyverno-background-policy-test-3
+spec:
+  tests:
+    - name: background-policies-dont-create-events
+      steps:
+        assert:
+          - command:
+              - kubectl
+              - get
+              - events
+              - --selector=kyverno.io/policy-name=disallow-latest-tag
+            equals: ""

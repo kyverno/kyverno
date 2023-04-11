@@ -1,0 +1,21 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestSuite
+metadata:
+  name: kyverno-background-policy-test-1
+spec:
+  tests:
+    - name: background-policies-dont-block-resources
+      steps:
+        - name: verify-resource-is-not-blocked
+          command:
+            - kubectl
+            - get
+            - pod
+            - my-pod
+        assert:
+          - command:
+              - kubectl
+              - get
+              - pod
+              - my-pod
+            equals: "Running"
