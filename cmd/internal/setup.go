@@ -41,6 +41,7 @@ func Setup(name string, skipResourceFilters bool) (context.Context, SetupResult,
 	client = client.WithMetrics(metricsManager, metrics.KubeClient)
 	configuration := startConfigController(ctx, logger, client, skipResourceFilters)
 	sdownTracing := SetupTracing(logger, name, client)
+	setupCosign(logger)
 	return ctx,
 		SetupResult{
 			Logger:               logger,

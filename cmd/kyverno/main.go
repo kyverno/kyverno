@@ -28,7 +28,6 @@ import (
 	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
-	"github.com/kyverno/kyverno/pkg/cosign"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
@@ -75,14 +74,6 @@ func setupRegistryClient(ctx context.Context, logger logr.Logger, lister corev1l
 		registryOptions = append(registryOptions, registryclient.WithAllowInsecureRegistry())
 	}
 	return registryclient.New(registryOptions...)
-}
-
-func setupCosign(logger logr.Logger, imageSignatureRepository string) {
-	logger = logger.WithName("cosign")
-	logger.Info("setup cosign...", "repository", imageSignatureRepository)
-	if imageSignatureRepository != "" {
-		cosign.ImageSignatureRepository = imageSignatureRepository
-	}
 }
 
 func showWarnings(logger logr.Logger) {
@@ -218,7 +209,6 @@ func main() {
 		maxQueuedEvents              int
 		autoUpdateWebhooks           bool
 		imagePullSecrets             string
-		imageSignatureRepository     string
 		allowInsecureRegistry        bool
 		webhookRegistrationTimeout   time.Duration
 		admissionReports             bool
@@ -234,7 +224,6 @@ func main() {
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flagset.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
-	flagset.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
 	flagset.BoolVar(&allowInsecureRegistry, "allowInsecureRegistry", false, "Whether to allow insecure connections to registries. Don't use this for anything but testing.")
 	flagset.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
 	flagset.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
@@ -252,6 +241,7 @@ func main() {
 		internal.WithKubeconfig(),
 		internal.WithPolicyExceptions(),
 		internal.WithConfigMapCaching(),
+		internal.WithCosign(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -296,7 +286,6 @@ func main() {
 		os.Exit(1)
 	}
 	// setup cosign
-	setupCosign(setup.Logger, imageSignatureRepository)
 	openApiManager, err := openapi.NewManager(setup.Logger.WithName("openapi"))
 	if err != nil {
 		setup.Logger.Error(err, "Failed to create openapi manager")

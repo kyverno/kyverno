@@ -32,6 +32,8 @@ var (
 	enablePolicyException  bool
 	exceptionNamespace     string
 	enableConfigMapCaching bool
+	// cosign
+	imageSignatureRepository string
 )
 
 func initLoggingFlags() {
@@ -76,6 +78,10 @@ func initConfigMapCachingFlags() {
 	flag.BoolVar(&enableConfigMapCaching, "enableConfigMapCaching", true, "Enable config maps caching.")
 }
 
+func initCosignFlags() {
+	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
+}
+
 func InitFlags(config Configuration) {
 	// logging
 	initLoggingFlags()
@@ -102,6 +108,10 @@ func InitFlags(config Configuration) {
 	// config map caching
 	if config.UsesConfigMapCaching() {
 		initConfigMapCachingFlags()
+	}
+	// cosign
+	if config.UsesCosign() {
+		initCosignFlags()
 	}
 	for _, flagset := range config.FlagSets() {
 		flagset.VisitAll(func(f *flag.Flag) {

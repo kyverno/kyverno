@@ -23,7 +23,6 @@ import (
 	aggregatereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
 	backgroundscancontroller "github.com/kyverno/kyverno/pkg/controllers/report/background"
 	resourcereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/resource"
-	"github.com/kyverno/kyverno/pkg/cosign"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
@@ -54,14 +53,6 @@ func setupRegistryClient(ctx context.Context, logger logr.Logger, lister corev1l
 		registryOptions = append(registryOptions, registryclient.WithAllowInsecureRegistry())
 	}
 	return registryclient.New(registryOptions...)
-}
-
-func setupCosign(logger logr.Logger, imageSignatureRepository string) {
-	logger = logger.WithName("cosign")
-	logger.Info("setup cosign...", "repository", imageSignatureRepository)
-	if imageSignatureRepository != "" {
-		cosign.ImageSignatureRepository = imageSignatureRepository
-	}
 }
 
 func createReportControllers(
@@ -189,7 +180,6 @@ func main() {
 	var (
 		leaderElectionRetryPeriod time.Duration
 		imagePullSecrets          string
-		imageSignatureRepository  string
 		allowInsecureRegistry     bool
 		backgroundScan            bool
 		admissionReports          bool
@@ -202,7 +192,6 @@ func main() {
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
 	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
 	flagset.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
-	flagset.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
 	flagset.BoolVar(&allowInsecureRegistry, "allowInsecureRegistry", false, "Whether to allow insecure connections to registries. Don't use this for anything but testing.")
 	flagset.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable backgound scan.")
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
@@ -219,6 +208,7 @@ func main() {
 		internal.WithKubeconfig(),
 		internal.WithPolicyExceptions(),
 		internal.WithConfigMapCaching(),
+		internal.WithCosign(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -255,7 +245,6 @@ func main() {
 		os.Exit(1)
 	}
 	// setup cosign
-	setupCosign(setup.Logger, imageSignatureRepository)
 	eventGenerator := event.NewEventGenerator(
 		dClient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
