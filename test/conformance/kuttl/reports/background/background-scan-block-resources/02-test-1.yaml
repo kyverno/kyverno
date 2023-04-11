@@ -12,7 +12,7 @@ spec:
             - get
             - pod
             - my-pod
-        assert:
+          assert:
           - command:
               - kubectl
               - get
