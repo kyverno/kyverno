@@ -7,7 +7,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -36,7 +35,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -52,7 +50,6 @@ import (
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
 
@@ -60,22 +57,6 @@ const (
 	resyncPeriod                   = 15 * time.Minute
 	exceptionWebhookControllerName = "exception-webhook-controller"
 )
-
-func setupRegistryClient(ctx context.Context, logger logr.Logger, lister corev1listers.SecretNamespaceLister, imagePullSecrets string, allowInsecureRegistry bool) (registryclient.Client, error) {
-	logger = logger.WithName("registry-client")
-	logger.Info("setup registry client...", "secrets", imagePullSecrets, "insecure", allowInsecureRegistry)
-	registryOptions := []registryclient.Option{
-		registryclient.WithTracing(),
-	}
-	secrets := strings.Split(imagePullSecrets, ",")
-	if imagePullSecrets != "" && len(secrets) > 0 {
-		registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(ctx, lister, secrets...))
-	}
-	if allowInsecureRegistry {
-		registryOptions = append(registryOptions, registryclient.WithAllowInsecureRegistry())
-	}
-	return registryclient.New(registryOptions...)
-}
 
 func setupCosign(logger logr.Logger, imageSignatureRepository string) {
 	logger = logger.WithName("cosign")
@@ -217,9 +198,7 @@ func main() {
 		genWorkers                   int
 		maxQueuedEvents              int
 		autoUpdateWebhooks           bool
-		imagePullSecrets             string
 		imageSignatureRepository     string
-		allowInsecureRegistry        bool
 		webhookRegistrationTimeout   time.Duration
 		admissionReports             bool
 		dumpPayload                  bool
@@ -233,9 +212,7 @@ func main() {
 	flagset.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
-	flagset.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
 	flagset.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
-	flagset.BoolVar(&allowInsecureRegistry, "allowInsecureRegistry", false, "Whether to allow insecure connections to registries. Don't use this for anything but testing.")
 	flagset.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
 	flagset.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	flagset.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
@@ -252,17 +229,13 @@ func main() {
 		internal.WithKubeconfig(),
 		internal.WithPolicyExceptions(),
 		internal.WithConfigMapCaching(),
+		internal.WithRegistryClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
-	// setup logger
-	// show version
-	// start profiling
-	// setup signals
-	// setup maxprocs
-	// setup metrics
-	signalCtx, setup, sdown := internal.Setup("kyverno-admission-controller", false)
+	// setup
+	signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-admission-controller", false)
 	defer sdown()
 	// show version
 	showWarnings(setup.Logger)
@@ -289,12 +262,6 @@ func main() {
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
-	// setup registry client
-	rclient, err := setupRegistryClient(signalCtx, setup.Logger, secretLister, imagePullSecrets, allowInsecureRegistry)
-	if err != nil {
-		setup.Logger.Error(err, "failed to setup registry client")
-		os.Exit(1)
-	}
 	// setup cosign
 	setupCosign(setup.Logger, imageSignatureRepository)
 	openApiManager, err := openapi.NewManager(setup.Logger.WithName("openapi"))
@@ -352,7 +319,7 @@ func main() {
 		setup.Configuration,
 		setup.MetricsConfiguration,
 		dClient,
-		rclient,
+		setup.RegistryClient,
 		setup.KubeClient,
 		kyvernoClient,
 	)
@@ -469,7 +436,7 @@ func main() {
 		engine,
 		dClient,
 		kyvernoClient,
-		rclient,
+		setup.RegistryClient,
 		setup.Configuration,
 		setup.MetricsManager,
 		policyCache,

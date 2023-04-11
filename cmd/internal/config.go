@@ -11,6 +11,7 @@ type Configuration interface {
 	UsesKubeconfig() bool
 	UsesPolicyExceptions() bool
 	UsesConfigMapCaching() bool
+	UsesRegistryClient() bool
 	FlagSets() []*flag.FlagSet
 }
 
@@ -60,6 +61,12 @@ func WithConfigMapCaching() ConfigurationOption {
 	}
 }
 
+func WithRegistryClient() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesRegistryClient = true
+	}
+}
+
 func WithFlagSets(flagsets ...*flag.FlagSet) ConfigurationOption {
 	return func(c *configuration) {
 		c.flagSets = append(c.flagSets, flagsets...)
@@ -73,6 +80,7 @@ type configuration struct {
 	usesKubeconfig       bool
 	usesPolicyExceptions bool
 	usesConfigMapCaching bool
+	usesRegistryClient   bool
 	flagSets             []*flag.FlagSet
 }
 
@@ -98,6 +106,10 @@ func (c *configuration) UsesPolicyExceptions() bool {
 
 func (c *configuration) UsesConfigMapCaching() bool {
 	return c.usesConfigMapCaching
+}
+
+func (c *configuration) UsesRegistryClient() bool {
+	return c.usesRegistryClient
 }
 
 func (c *configuration) FlagSets() []*flag.FlagSet {
