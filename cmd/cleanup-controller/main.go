@@ -13,7 +13,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/internal"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	dynamicclient "github.com/kyverno/kyverno/pkg/clients/dynamic"
-	kubeclient "github.com/kyverno/kyverno/pkg/clients/kube"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
@@ -52,14 +51,12 @@ func (probes) IsLive() bool {
 
 func main() {
 	var (
-		leaderElectionRetryPeriod time.Duration
-		dumpPayload               bool
-		serverIP                  string
-		servicePort               int
+		dumpPayload bool
+		serverIP    string
+		servicePort int
 	)
 	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
-	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
 	// config
@@ -68,6 +65,7 @@ func main() {
 		internal.WithMetrics(),
 		internal.WithTracing(),
 		internal.WithKubeconfig(),
+		internal.WithLeaderElection(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -76,16 +74,15 @@ func main() {
 	ctx, setup, sdown := internal.Setup(appConfig, "kyverno-cleanup-controller", false)
 	defer sdown()
 	// create instrumented clients
-	leaderElectionClient := internal.CreateKubernetesClient(setup.Logger, kubeclient.WithMetrics(setup.MetricsManager, metrics.KubeClient), kubeclient.WithTracing())
 	kyvernoClient := internal.CreateKyvernoClient(setup.Logger, kyvernoclient.WithMetrics(setup.MetricsManager, metrics.KubeClient), kyvernoclient.WithTracing())
 	// setup leader election
 	le, err := leaderelection.New(
 		setup.Logger.WithName("leader-election"),
 		"kyverno-cleanup-controller",
 		config.KyvernoNamespace(),
-		leaderElectionClient,
+		setup.LeaderElectionClient,
 		config.KyvernoPodName(),
-		leaderElectionRetryPeriod,
+		internal.LeaderElectionRetryPeriod(),
 		func(ctx context.Context) {
 			logger := setup.Logger.WithName("leader")
 			// informer factories
