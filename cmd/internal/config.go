@@ -12,6 +12,7 @@ type Configuration interface {
 	UsesPolicyExceptions() bool
 	UsesConfigMapCaching() bool
 	UsesCosign() bool
+	UsesRegistryClient() bool
 	FlagSets() []*flag.FlagSet
 }
 
@@ -67,6 +68,12 @@ func WithCosign() ConfigurationOption {
 	}
 }
 
+func WithRegistryClient() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesRegistryClient = true
+	}
+}
+
 func WithFlagSets(flagsets ...*flag.FlagSet) ConfigurationOption {
 	return func(c *configuration) {
 		c.flagSets = append(c.flagSets, flagsets...)
@@ -81,6 +88,7 @@ type configuration struct {
 	usesPolicyExceptions bool
 	usesConfigMapCaching bool
 	usesCosign           bool
+	usesRegistryClient   bool
 	flagSets             []*flag.FlagSet
 }
 
@@ -110,6 +118,10 @@ func (c *configuration) UsesConfigMapCaching() bool {
 
 func (c *configuration) UsesCosign() bool {
 	return c.usesCosign
+}
+
+func (c *configuration) UsesRegistryClient() bool {
+	return c.usesRegistryClient
 }
 
 func (c *configuration) FlagSets() []*flag.FlagSet {

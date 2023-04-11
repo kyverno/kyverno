@@ -7,6 +7,7 @@ import (
 	kubeclient "github.com/kyverno/kyverno/pkg/clients/kube"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -27,9 +28,10 @@ type SetupResult struct {
 	MetricsConfiguration config.MetricsConfiguration
 	MetricsManager       metrics.MetricsConfigManager
 	KubeClient           kubernetes.Interface
+	RegistryClient       registryclient.Client
 }
 
-func Setup(name string, skipResourceFilters bool) (context.Context, SetupResult, context.CancelFunc) {
+func Setup(config Configuration, name string, skipResourceFilters bool) (context.Context, SetupResult, context.CancelFunc) {
 	logger := SetupLogger()
 	ShowVersion(logger)
 	sdownMaxProcs := SetupMaxProcs(logger)
@@ -42,6 +44,10 @@ func Setup(name string, skipResourceFilters bool) (context.Context, SetupResult,
 	configuration := startConfigController(ctx, logger, client, skipResourceFilters)
 	sdownTracing := SetupTracing(logger, name, client)
 	setupCosign(logger)
+	var registryClient registryclient.Client
+	if config.UsesRegistryClient() {
+		registryClient = setupRegistryClient(ctx, logger, client)
+	}
 	return ctx,
 		SetupResult{
 			Logger:               logger,
@@ -49,6 +55,7 @@ func Setup(name string, skipResourceFilters bool) (context.Context, SetupResult,
 			MetricsConfiguration: metricsConfiguration,
 			MetricsManager:       metricsManager,
 			KubeClient:           client,
+			RegistryClient:       registryClient,
 		},
 		shutdown(logger.WithName("shutdown"), sdownMaxProcs, sdownMetrics, sdownTracing, sdownSignals)
 }

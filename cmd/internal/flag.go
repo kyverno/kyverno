@@ -34,6 +34,9 @@ var (
 	enableConfigMapCaching bool
 	// cosign
 	imageSignatureRepository string
+	// registry client
+	imagePullSecrets      string
+	allowInsecureRegistry bool
 )
 
 func initLoggingFlags() {
@@ -82,6 +85,11 @@ func initCosignFlags() {
 	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
 }
 
+func initRegistryClientFlags() {
+	flag.BoolVar(&allowInsecureRegistry, "allowInsecureRegistry", false, "Whether to allow insecure connections to registries. Don't use this for anything but testing.")
+	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
+}
+
 func InitFlags(config Configuration) {
 	// logging
 	initLoggingFlags()
@@ -112,6 +120,10 @@ func InitFlags(config Configuration) {
 	// cosign
 	if config.UsesCosign() {
 		initCosignFlags()
+	}
+	// registry client
+	if config.UsesRegistryClient() {
+		initRegistryClientFlags()
 	}
 	for _, flagset := range config.FlagSets() {
 		flagset.VisitAll(func(f *flag.Flag) {

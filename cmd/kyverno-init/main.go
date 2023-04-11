@@ -40,7 +40,7 @@ func main() {
 	// start profiling
 	// setup signals
 	// setup maxprocs
-	ctx, setup, sdown := internal.Setup("kyverno-init-controller", false)
+	ctx, setup, sdown := internal.Setup(appConfig, "kyverno-init-controller", false)
 	defer sdown()
 	// create clients
 	dynamicClient := internal.CreateDynamicClient(setup.Logger)
