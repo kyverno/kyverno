@@ -43,6 +43,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	client = client.WithMetrics(metricsManager, metrics.KubeClient)
 	configuration := startConfigController(ctx, logger, client, skipResourceFilters)
 	sdownTracing := SetupTracing(logger, name, client)
+	setupCosign(logger)
 	var registryClient registryclient.Client
 	if config.UsesRegistryClient() {
 		registryClient = setupRegistryClient(ctx, logger, client)
