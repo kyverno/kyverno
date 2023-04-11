@@ -33,12 +33,13 @@ spec:
   rules:
   - name: add-labels
     match:
-      resources:
-        kinds:
-        - Pod
-        - Service
-        - ConfigMap
-        - Secret
+      any:
+      - resources:
+          kinds:
+          - Pod
+          - Service
+          - ConfigMap
+          - Secret
     mutate:
       patchStrategicMerge:
         metadata:
