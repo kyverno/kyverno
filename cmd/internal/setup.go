@@ -50,7 +50,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 		registryClient = setupRegistryClient(ctx, logger, client)
 	}
 	var leaderElectionClient kubernetes.Interface
-	if config.UsesRegistryClient() {
+	if config.UsesLeaderElection() {
 		leaderElectionClient = createKubernetesClient(logger, kubeclient.WithMetrics(metricsManager, metrics.KubeClient), kubeclient.WithTracing())
 	}
 	return ctx,
