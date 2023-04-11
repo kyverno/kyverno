@@ -32,6 +32,9 @@ var (
 	enablePolicyException  bool
 	exceptionNamespace     string
 	enableConfigMapCaching bool
+	// registry client
+	imagePullSecrets      string
+	allowInsecureRegistry bool
 )
 
 func initLoggingFlags() {
@@ -76,6 +79,11 @@ func initConfigMapCachingFlags() {
 	flag.BoolVar(&enableConfigMapCaching, "enableConfigMapCaching", true, "Enable config maps caching.")
 }
 
+func initRegistryClientFlags() {
+	flag.BoolVar(&allowInsecureRegistry, "allowInsecureRegistry", false, "Whether to allow insecure connections to registries. Don't use this for anything but testing.")
+	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
+}
+
 func InitFlags(config Configuration) {
 	// logging
 	initLoggingFlags()
@@ -102,6 +110,10 @@ func InitFlags(config Configuration) {
 	// config map caching
 	if config.UsesConfigMapCaching() {
 		initConfigMapCachingFlags()
+	}
+	// registry client
+	if config.UsesRegistryClient() {
+		initRegistryClientFlags()
 	}
 	for _, flagset := range config.FlagSets() {
 		flagset.VisitAll(func(f *flag.Flag) {
