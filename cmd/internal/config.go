@@ -1,6 +1,8 @@
 package internal
 
-import "flag"
+import (
+	"flag"
+)
 
 type Configuration interface {
 	UsesMetrics() bool
