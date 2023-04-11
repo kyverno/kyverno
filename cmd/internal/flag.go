@@ -28,6 +28,10 @@ var (
 	kubeconfig           string
 	clientRateLimitQPS   float64
 	clientRateLimitBurst int
+	// engine
+	enablePolicyException  bool
+	exceptionNamespace     string
+	enableConfigMapCaching bool
 )
 
 func initLoggingFlags() {
@@ -63,6 +67,15 @@ func initKubeconfigFlags() {
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 50, "Configure the maximum burst for throttle. Uses the client default if zero.")
 }
 
+func initPolicyExceptionsFlags() {
+	flag.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions.")
+	flag.BoolVar(&enablePolicyException, "enablePolicyException", false, "Enable PolicyException feature.")
+}
+
+func initConfigMapCachingFlags() {
+	flag.BoolVar(&enableConfigMapCaching, "enableConfigMapCaching", true, "Enable config maps caching.")
+}
+
 func InitFlags(config Configuration) {
 	// logging
 	initLoggingFlags()
@@ -82,6 +95,14 @@ func InitFlags(config Configuration) {
 	if config.UsesKubeconfig() {
 		initKubeconfigFlags()
 	}
+	// policy exceptions
+	if config.UsesPolicyExceptions() {
+		initPolicyExceptionsFlags()
+	}
+	// config map caching
+	if config.UsesConfigMapCaching() {
+		initConfigMapCachingFlags()
+	}
 	for _, flagset := range config.FlagSets() {
 		flagset.VisitAll(func(f *flag.Flag) {
 			flag.CommandLine.Var(f.Value, f.Name, f.Usage)
@@ -92,4 +113,12 @@ func InitFlags(config Configuration) {
 func ParseFlags(config Configuration) {
 	InitFlags(config)
 	flag.Parse()
+}
+
+func ExceptionNamespace() string {
+	return exceptionNamespace
+}
+
+func PolicyExceptionEnabled() bool {
+	return enablePolicyException
 }
