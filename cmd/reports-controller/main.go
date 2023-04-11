@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
@@ -21,7 +20,6 @@ import (
 	aggregatereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
 	backgroundscancontroller "github.com/kyverno/kyverno/pkg/controllers/report/background"
 	resourcereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/resource"
-	"github.com/kyverno/kyverno/pkg/cosign"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
@@ -36,14 +34,6 @@ import (
 const (
 	resyncPeriod = 15 * time.Minute
 )
-
-func setupCosign(logger logr.Logger, imageSignatureRepository string) {
-	logger = logger.WithName("cosign")
-	logger.Info("setup cosign...", "repository", imageSignatureRepository)
-	if imageSignatureRepository != "" {
-		cosign.ImageSignatureRepository = imageSignatureRepository
-	}
-}
 
 func createReportControllers(
 	eng engineapi.Engine,
@@ -168,17 +158,15 @@ func createrLeaderControllers(
 
 func main() {
 	var (
-		imageSignatureRepository string
-		backgroundScan           bool
-		admissionReports         bool
-		reportsChunkSize         int
-		backgroundScanWorkers    int
-		backgroundScanInterval   time.Duration
-		maxQueuedEvents          int
-		skipResourceFilters      bool
+		backgroundScan         bool
+		admissionReports       bool
+		reportsChunkSize       int
+		backgroundScanWorkers  int
+		backgroundScanInterval time.Duration
+		maxQueuedEvents        int
+		skipResourceFilters    bool
 	)
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
-	flagset.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
 	flagset.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable backgound scan.")
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flagset.IntVar(&reportsChunkSize, "reportsChunkSize", 1000, "Max number of results in generated reports, reports will be split accordingly if there are more results to be stored.")
@@ -194,6 +182,7 @@ func main() {
 		internal.WithKubeconfig(),
 		internal.WithPolicyExceptions(),
 		internal.WithConfigMapCaching(),
+		internal.WithCosign(),
 		internal.WithRegistryClient(),
 		internal.WithLeaderElection(),
 		internal.WithFlagSets(flagset),
@@ -217,8 +206,6 @@ func main() {
 	kyamlopenapi.Schema()
 	// informer factories
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
-	// setup cosign
-	setupCosign(setup.Logger, imageSignatureRepository)
 	eventGenerator := event.NewEventGenerator(
 		dClient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),

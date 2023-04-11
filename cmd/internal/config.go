@@ -11,6 +11,7 @@ type Configuration interface {
 	UsesKubeconfig() bool
 	UsesPolicyExceptions() bool
 	UsesConfigMapCaching() bool
+	UsesCosign() bool
 	UsesRegistryClient() bool
 	UsesLeaderElection() bool
 	FlagSets() []*flag.FlagSet
@@ -62,6 +63,12 @@ func WithConfigMapCaching() ConfigurationOption {
 	}
 }
 
+func WithCosign() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesCosign = true
+	}
+}
+
 func WithRegistryClient() ConfigurationOption {
 	return func(c *configuration) {
 		c.usesRegistryClient = true
@@ -87,6 +94,7 @@ type configuration struct {
 	usesKubeconfig       bool
 	usesPolicyExceptions bool
 	usesConfigMapCaching bool
+	usesCosign           bool
 	usesRegistryClient   bool
 	usesLeaderElection   bool
 	flagSets             []*flag.FlagSet
@@ -114,6 +122,10 @@ func (c *configuration) UsesPolicyExceptions() bool {
 
 func (c *configuration) UsesConfigMapCaching() bool {
 	return c.usesConfigMapCaching
+}
+
+func (c *configuration) UsesCosign() bool {
+	return c.usesCosign
 }
 
 func (c *configuration) UsesRegistryClient() bool {
