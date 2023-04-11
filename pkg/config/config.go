@@ -1,7 +1,6 @@
 package config
 
 import (
-	"context"
 	"errors"
 	"strconv"
 	"sync"
@@ -10,10 +9,7 @@ import (
 	osutils "github.com/kyverno/kyverno/pkg/utils/os"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/kubernetes"
 )
 
 // These constants MUST be equal to the corresponding names in service definition in definitions/install.yaml
@@ -101,6 +97,8 @@ var (
 	kyvernoPodName = osutils.GetEnvWithFallback("KYVERNO_POD_NAME", "kyverno")
 	// kyvernoConfigMapName is the Kyverno configmap name
 	kyvernoConfigMapName = osutils.GetEnvWithFallback("INIT_CONFIG", "kyverno")
+	// kyvernoMetricsConfigMapName is the Kyverno metrics configmap name
+	kyvernoMetricsConfigMapName = osutils.GetEnvWithFallback("METRICS_CONFIG", "kyverno-metrics")
 	// kyvernoDryRunNamespace is the namespace for DryRun option of YAML verification
 	kyvernoDryrunNamespace = osutils.GetEnvWithFallback("KYVERNO_DRYRUN_NAMESPACE", "kyverno-dryrun")
 )
@@ -131,6 +129,10 @@ func KyvernoPodName() string {
 
 func KyvernoConfigMapName() string {
 	return kyvernoConfigMapName
+}
+
+func KyvernoMetricsConfigMapName() string {
+	return kyvernoMetricsConfigMapName
 }
 
 // Configuration to be used by consumer to check filters
@@ -185,19 +187,6 @@ func NewDefaultConfiguration(skipResourceFilters bool) *configuration {
 		defaultRegistry:               "docker.io",
 		enableDefaultRegistryMutation: true,
 	}
-}
-
-// NewConfiguration ...
-func NewConfiguration(client kubernetes.Interface, skipResourceFilters bool) (Configuration, error) {
-	cd := NewDefaultConfiguration(skipResourceFilters)
-	if cm, err := client.CoreV1().ConfigMaps(kyvernoNamespace).Get(context.TODO(), kyvernoConfigMapName, metav1.GetOptions{}); err != nil {
-		if !apierrors.IsNotFound(err) {
-			return nil, err
-		}
-	} else {
-		cd.load(cm)
-	}
-	return cd, nil
 }
 
 func (cd *configuration) OnChanged(callback func()) {

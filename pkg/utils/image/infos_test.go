@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
 )
 
 // initializeMockConfig initializes a basic configuration with a fake dynamic client
@@ -20,11 +19,8 @@ func initializeMockConfig(defaultRegistry string, enableDefaultRegistryMutation 
 		ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "kyverno"},
 		Data:       configMapData,
 	}
-	cs := fake.NewSimpleClientset(&cm)
-	dynamicConfig, err := config.NewConfiguration(cs, false)
-	if err != nil {
-		return nil, err
-	}
+	dynamicConfig := config.NewDefaultConfiguration(false)
+	dynamicConfig.Load(&cm)
 	return dynamicConfig, nil
 }
 
