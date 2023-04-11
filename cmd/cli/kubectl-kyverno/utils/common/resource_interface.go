@@ -7,5 +7,5 @@ import (
 
 // ResourceInterface abstracts the matched resources by either Kyverno Policies or Validating Admission Policies
 type ResourceInterface interface {
-	GetMatchedResources(resourcePaths []string, dClient dclient.Interface, namespace string, policyReport bool) ([]*unstructured.Unstructured, error)
+	FetchResourcesFromPolicy(resourcePaths []string, dClient dclient.Interface, namespace string, policyReport bool) ([]*unstructured.Unstructured, error)
 }

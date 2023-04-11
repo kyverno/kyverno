@@ -16,6 +16,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	v1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,22 +41,22 @@ func GetResources(
 
 	if cluster && dClient != nil {
 		if len(policies) > 0 {
-			matchedResources := &KyvernoMatchedResources{
+			matchedResources := &KyvernoResources{
 				policies: policies,
 			}
 
-			resources, err = matchedResources.GetMatchedResources(resourcePaths, dClient, namespace, policyReport)
+			resources, err = matchedResources.FetchResourcesFromPolicy(resourcePaths, dClient, namespace, policyReport)
 			if err != nil {
 				return resources, err
 			}
 		}
 
 		if len(validatingAdmissionPolicies) > 0 {
-			matchedResources := &ValidatingAdmissionMatchedResources{
+			matchedResources := &ValidatingAdmissionResources{
 				policies: validatingAdmissionPolicies,
 			}
 
-			resources, err = matchedResources.GetMatchedResources(resourcePaths, dClient, namespace, policyReport)
+			resources, err = matchedResources.FetchResourcesFromPolicy(resourcePaths, dClient, namespace, policyReport)
 			if err != nil {
 				return resources, err
 			}
@@ -349,6 +351,8 @@ func getKindsFromValidatingAdmissionRule(rule v1.Rule, client dclient.Interface)
 	for _, group := range rule.APIGroups {
 		for _, version := range rule.APIVersions {
 			for _, resource := range rule.Resources {
+				resource = cases.Title(language.English, cases.NoLower).String(resource)
+				resource, _ = strings.CutSuffix(resource, "s")
 				var kind string
 				if group == "*" && version == "*" {
 					kind = resource

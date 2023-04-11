@@ -1,18 +1,17 @@
 package common
 
 import (
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-type KyvernoMatchedResources struct {
-	policies []kyvernov1.PolicyInterface
+type ValidatingAdmissionResources struct {
+	policies []v1alpha1.ValidatingAdmissionPolicy
 }
 
-func (r *KyvernoMatchedResources) GetMatchedResources(resourcePaths []string, dClient dclient.Interface, namespace string, policyReport bool) ([]*unstructured.Unstructured, error) {
+func (r *ValidatingAdmissionResources) FetchResourcesFromPolicy(resourcePaths []string, dClient dclient.Interface, namespace string, policyReport bool) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	var err error
 
@@ -21,9 +20,9 @@ func (r *KyvernoMatchedResources) GetMatchedResources(resourcePaths []string, dC
 	var subresourceMap map[schema.GroupVersionKind]Subresource
 
 	for _, policy := range r.policies {
-		for _, rule := range autogen.ComputeRules(policy) {
+		for _, rule := range policy.Spec.MatchConstraints.ResourceRules {
 			var resourceTypesInRule map[schema.GroupVersionKind]bool
-			resourceTypesInRule, subresourceMap = GetKindsFromRule(rule, dClient)
+			resourceTypesInRule, subresourceMap = getKindsFromValidatingAdmissionRule(rule.RuleWithOperations.Rule, dClient)
 			for resourceKind := range resourceTypesInRule {
 				resourceTypesMap[resourceKind] = true
 			}
@@ -35,6 +34,5 @@ func (r *KyvernoMatchedResources) GetMatchedResources(resourcePaths []string, dC
 	}
 
 	resources, err = whenClusterIsTrue(resourceTypes, subresourceMap, dClient, namespace, resourcePaths, policyReport)
-
 	return resources, err
 }
