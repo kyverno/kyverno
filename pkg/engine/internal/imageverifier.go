@@ -519,9 +519,9 @@ func (iv *ImageVerifier) buildNotaryV2Verifier(
 ) (images.ImageVerifier, *images.Options, string) {
 	path := ""
 	opts := &images.Options{
-		ImageRef:       image,
-		Cert:           attestor.Certificates.Certificate,
-		CertChain:      attestor.Certificates.CertificateChain,
+		ImageRef: image,
+		// Cert:           attestor.Certificates.Certificate,
+		// CertChain:      attestor.Certificates.CertificateChain,
 		RegistryClient: iv.rclient,
 	}
 
