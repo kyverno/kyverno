@@ -1002,7 +1002,7 @@ func Test_foreach_order_mutation_(t *testing.T) {
 		switch i {
 		case 0:
 			assert.Equal(t, ctnr["name"], "mongod")
-		case 2:
+		case 1:
 			assert.Equal(t, ctnr["name"], "nginx")
 		case 3:
 			assert.Equal(t, ctnr["name"], "mongodb-agent")
