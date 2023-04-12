@@ -4,6 +4,7 @@ metadata:
   name: foreach-remove-elements
 spec:
   background: false
+  schemaValidation: false
   rules:
     - name: remove-elements
       match:
