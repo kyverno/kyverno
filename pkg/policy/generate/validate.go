@@ -57,10 +57,10 @@ func (g *Generate) Validate(ctx context.Context) (string, error) {
 		}
 	} else {
 		if name != "" {
-			return "name", fmt.Errorf("with cloneList, generate.name. should not be specified.")
+			return "name", fmt.Errorf("with cloneList, generate.name. should not be specified")
 		}
 		if kind != "" {
-			return "kind", fmt.Errorf("with cloneList, generate.kind. should not be specified.")
+			return "kind", fmt.Errorf("with cloneList, generate.kind. should not be specified")
 		}
 	}
 
