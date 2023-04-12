@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -177,7 +178,7 @@ func Command() *cobra.Command {
 				return err
 			}
 
-			PrintReportOrViolation(applyCommandConfig.PolicyReport, rc, applyCommandConfig.ResourcePaths, len(resources), skipInvalidPolicies, applyCommandConfig.Stdin, pvInfos, applyCommandConfig.warnExitCode, applyCommandConfig.warnNoPassed)
+			PrintReportOrViolation(applyCommandConfig.PolicyReport, rc, applyCommandConfig.ResourcePaths, len(resources), skipInvalidPolicies, applyCommandConfig.Stdin, pvInfos, applyCommandConfig.warnExitCode, applyCommandConfig.warnNoPassed, applyCommandConfig.AuditWarn)
 			return nil
 		},
 	}
@@ -388,7 +389,6 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 	skipInvalidPolicies.skipped = make([]string, 0)
 	skipInvalidPolicies.invalid = make([]string, 0)
 
-	kyvernoPolicy := common.KyvernoPolicies{}
 	for _, policy := range policies {
 		_, err := policy2.Validate(policy, nil, nil, true, openApiManager)
 		if err != nil {
@@ -437,11 +437,56 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 				AuditWarn:            c.AuditWarn,
 				Subresources:         subresources,
 			}
-			ers, err := kyvernoPolicy.ApplyPolicyOnResource(applyPolicyConfig)
+			ers, err := common.ApplyPolicyOnResource(applyPolicyConfig)
 			if err != nil {
 				return rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}
-			responses = append(responses, ers...)
+			for _, response := range ers {
+				if !response.IsEmpty() {
+					for _, rule := range autogen.ComputeRules(response.Policy) {
+						if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
+							ruleFoundInEngineResponse := false
+							for _, valResponseRule := range response.PolicyResponse.Rules {
+								if rule.Name == valResponseRule.Name() {
+									ruleFoundInEngineResponse = true
+									switch valResponseRule.Status() {
+									case engineapi.RuleStatusPass:
+										rc.Pass++
+									case engineapi.RuleStatusFail:
+										ann := policy.GetAnnotations()
+										if scored, ok := ann[kyvernov1.AnnotationPolicyScored]; ok && scored == "false" {
+											rc.Warn++
+											break
+										} else if applyPolicyConfig.AuditWarn && response.GetValidationFailureAction().Audit() {
+											rc.Warn++
+										} else {
+											rc.Fail++
+										}
+									case engineapi.RuleStatusError:
+										rc.Error++
+									case engineapi.RuleStatusWarn:
+										rc.Warn++
+									case engineapi.RuleStatusSkip:
+										rc.Skip++
+									}
+									continue
+								}
+							}
+							if !ruleFoundInEngineResponse {
+								rc.Skip++
+								response.PolicyResponse.Rules = append(response.PolicyResponse.Rules,
+									*engineapi.RuleSkip(
+										rule.Name,
+										engineapi.Validation,
+										rule.Validation.Message,
+									),
+								)
+							}
+						}
+					}
+				}
+				responses = append(responses, response)
+			}
 		}
 	}
 
@@ -491,7 +536,7 @@ func checkMutateLogPath(mutateLogPath string) (mutateLogPathIsDir bool, err erro
 }
 
 // PrintReportOrViolation - printing policy report/violations
-func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resourcePaths []string, resourcesLen int, skipInvalidPolicies SkippedInvalidPolicies, stdin bool, engineResponses []engineapi.EngineResponse, warnExitCode int, warnNoPassed bool) {
+func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resourcePaths []string, resourcesLen int, skipInvalidPolicies SkippedInvalidPolicies, stdin bool, engineResponses []engineapi.EngineResponse, warnExitCode int, warnNoPassed bool, auditWarn bool) {
 	divider := "----------------------------------------------------------------------"
 
 	if len(skipInvalidPolicies.skipped) > 0 {
@@ -512,7 +557,7 @@ func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resource
 	}
 
 	if policyReport {
-		resps := buildPolicyReports(engineResponses...)
+		resps := buildPolicyReports(auditWarn, engineResponses...)
 		if len(resps) > 0 || resourcesLen == 0 {
 			fmt.Println(divider)
 			fmt.Println("POLICY REPORT:")
@@ -526,8 +571,7 @@ func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resource
 		}
 	} else {
 		if !stdin {
-			fmt.Printf("\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n",
-				rc.Pass, rc.Fail, rc.Warn, rc.Error, rc.Skip)
+			fmt.Printf("\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n", rc.Pass, rc.Fail, rc.Warn, rc.Error, rc.Skip)
 		}
 	}
 

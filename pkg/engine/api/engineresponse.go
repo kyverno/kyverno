@@ -25,7 +25,7 @@ type EngineResponse struct {
 	PatchedResource unstructured.Unstructured
 	// PolicyResponse contains the engine policy response
 	PolicyResponse PolicyResponse
-	// Stats contains engine statistics
+	// stats contains engine statistics
 	stats ExecutionStats
 }
 

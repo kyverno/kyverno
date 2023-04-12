@@ -19,11 +19,11 @@ import (
 const clusterpolicyreport = "clusterpolicyreport"
 
 // resps is the engine responses generated for a single policy
-func buildPolicyReports(engineResponses ...engineapi.EngineResponse) (res []*unstructured.Unstructured) {
+func buildPolicyReports(auditWarn bool, engineResponses ...engineapi.EngineResponse) (res []*unstructured.Unstructured) {
 	var raw []byte
 	var err error
 
-	resultsMap := buildPolicyResults(engineResponses...)
+	resultsMap := buildPolicyResults(auditWarn, engineResponses...)
 	for scope, result := range resultsMap {
 		if scope == clusterpolicyreport {
 			report := &policyreportv1alpha2.ClusterPolicyReport{
@@ -72,7 +72,7 @@ func buildPolicyReports(engineResponses ...engineapi.EngineResponse) (res []*uns
 
 // buildPolicyResults returns a string-PolicyReportResult map
 // the key of the map is one of "clusterpolicyreport", "policyreport-ns-<namespace>"
-func buildPolicyResults(engineResponses ...engineapi.EngineResponse) map[string][]policyreportv1alpha2.PolicyReportResult {
+func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineResponse) map[string][]policyreportv1alpha2.PolicyReportResult {
 	results := make(map[string][]policyreportv1alpha2.PolicyReportResult)
 	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 
@@ -116,9 +116,27 @@ func buildPolicyResults(engineResponses ...engineapi.EngineResponse) map[string]
 				Scored: true,
 			}
 
+			ann := engineResponse.Policy.GetAnnotations()
+			if ruleResponse.Status() == engineapi.RuleStatusSkip {
+				result.Result = policyreportv1alpha2.StatusSkip
+			} else if ruleResponse.Status() == engineapi.RuleStatusError {
+				result.Result = policyreportv1alpha2.StatusError
+			} else if ruleResponse.Status() == engineapi.RuleStatusPass {
+				result.Result = policyreportv1alpha2.StatusPass
+			} else if ruleResponse.Status() == engineapi.RuleStatusFail {
+				if scored, ok := ann[kyvernov1.AnnotationPolicyScored]; ok && scored == "false" {
+					result.Result = policyreportv1alpha2.StatusWarn
+				} else if auditWarn && engineResponse.GetValidationFailureAction().Audit() {
+					result.Result = policyreportv1alpha2.StatusWarn
+				} else {
+					result.Result = policyreportv1alpha2.StatusFail
+				}
+			} else {
+				fmt.Println(ruleResponse)
+			}
+
 			result.Rule = ruleResponse.Name()
 			result.Message = ruleResponse.Message()
-			result.Result = policyreportv1alpha2.PolicyResult(ruleResponse.Status())
 			result.Source = kyvernov1.ValueKyvernoApp
 			result.Timestamp = now
 			results[appname] = append(results[appname], result)

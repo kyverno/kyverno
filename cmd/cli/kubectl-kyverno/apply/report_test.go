@@ -102,7 +102,7 @@ func Test_buildPolicyReports(t *testing.T) {
 		),
 	)
 
-	reports := buildPolicyReports(er)
+	reports := buildPolicyReports(false, er)
 	assert.Assert(t, len(reports) == 1, len(reports))
 
 	for _, report := range reports {
@@ -144,7 +144,7 @@ func Test_buildPolicyResults(t *testing.T) {
 		),
 	)
 
-	results := buildPolicyResults(er)
+	results := buildPolicyResults(false, er)
 
 	for _, result := range results {
 		assert.Assert(t, len(result) == 2, len(result))
