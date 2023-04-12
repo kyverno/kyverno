@@ -4,9 +4,6 @@ metadata:
   name: podinfo
   namespace: apply-on-deletion-ns
 spec:
-  clusterIP: 10.43.112.123
-  clusterIPs:
-  - 10.43.112.123
   internalTrafficPolicy: Cluster
   ipFamilies:
   - IPv4
