@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: podinfo
   namespace: apply-on-deletion-ns
-  lables:
+  labels:
     name: podinfo
     namespace: apply-on-deletion-ns
 spec:
