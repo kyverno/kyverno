@@ -16,6 +16,7 @@ metadata:
 spec:
   validationFailureAction: audit
   background: true
+  admission: false
   rules:
   - name: require-image-tag
     match:
