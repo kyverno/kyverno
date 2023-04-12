@@ -103,6 +103,7 @@ func extract(
 			return nil
 		}
 		if jmesPath != "" {
+			// TODO: should be injected
 			jp := jmespath.New(cfg)
 			q, err := jp.Query(jmesPath)
 			if err != nil {
