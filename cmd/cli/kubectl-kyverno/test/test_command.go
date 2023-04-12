@@ -37,129 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var longHelp = `
-The test command provides a facility to test resources against policies by comparing expected results, declared ahead of time in a test manifest file, to actual results reported by Kyverno. Users provide the path to the folder containing a kyverno-test.yaml file where the location could be on a local filesystem or a remote git repository.
-`
-
-var exampleHelp = `
-# Test a git repository containing Kyverno test cases.
-kyverno test https://github.com/kyverno/policies/pod-security --git-branch main
-<snip>
-
-Executing require-non-root-groups...
-applying 1 policy to 2 resources...
-
-│───│─────────────────────────│──────────────────────────│──────────────────────────────────│────────│
-│ # │ POLICY                  │ RULE                     │ RESOURCE                         │ RESULT │
-│───│─────────────────────────│──────────────────────────│──────────────────────────────────│────────│
-│ 1 │ require-non-root-groups │ check-runasgroup         │ default/Pod/fs-group0            │ Pass   │
-│ 2 │ require-non-root-groups │ check-supplementalGroups │ default/Pod/fs-group0            │ Pass   │
-│ 3 │ require-non-root-groups │ check-fsGroup            │ default/Pod/fs-group0            │ Pass   │
-│ 4 │ require-non-root-groups │ check-supplementalGroups │ default/Pod/supplemental-groups0 │ Pass   │
-│ 5 │ require-non-root-groups │ check-fsGroup            │ default/Pod/supplemental-groups0 │ Pass   │
-│ 6 │ require-non-root-groups │ check-runasgroup         │ default/Pod/supplemental-groups0 │ Pass   │
-│───│─────────────────────────│──────────────────────────│──────────────────────────────────│────────│
-<snip>
-
-# Test a local folder containing test cases.
-kyverno test .
-
-Executing limit-containers-per-pod...
-applying 1 policy to 4 resources...
-
-│───│──────────────────────────│──────────────────────────────────────│─────────────────────────────│────────│
-│ # │ POLICY                   │ RULE                                 │ RESOURCE                    │ RESULT │
-│───│──────────────────────────│──────────────────────────────────────│─────────────────────────────│────────│
-│ 1 │ limit-containers-per-pod │ limit-containers-per-pod-bare        │ default/Pod/myapp-pod-1     │ Pass   │
-│ 2 │ limit-containers-per-pod │ limit-containers-per-pod-bare        │ default/Pod/myapp-pod-2     │ Pass   │
-│ 3 │ limit-containers-per-pod │ limit-containers-per-pod-controllers │ default/Deployment/mydeploy │ Pass   │
-│ 4 │ limit-containers-per-pod │ limit-containers-per-pod-cronjob     │ default/CronJob/mycronjob   │ Pass   │
-│───│──────────────────────────│──────────────────────────────────────│─────────────────────────────│────────│
-
-Test Summary: 4 tests passed and 0 tests failed
-
-# Test some specific test cases out of many test cases in a local folder.
-kyverno test . --test-case-selector "policy=disallow-latest-tag, rule=require-image-tag, resource=test-require-image-tag-pass"
-
-Executing test-simple...
-applying 1 policy to 1 resource...
-
-│───│─────────────────────│───────────────────│─────────────────────────────────────────│────────│
-│ # │ POLICY              │ RULE              │ RESOURCE                                │ RESULT │
-│───│─────────────────────│───────────────────│─────────────────────────────────────────│────────│
-│ 1 │ disallow-latest-tag │ require-image-tag │ default/Pod/test-require-image-tag-pass │ Pass   │
-│───│─────────────────────│───────────────────│─────────────────────────────────────────│────────│
-
-Test Summary: 1 tests passed and 0 tests failed
-
-
-
-**TEST FILE STRUCTURE**:
-
-The kyverno-test.yaml has four parts:
-	"policies"   --> List of policies which are applied.
-	"resources"  --> List of resources on which the policies are applied.
-	"variables"  --> Variable file path containing variables referenced in the policy (OPTIONAL).
-	"results"    --> List of results expected after applying the policies to the resources.
-
-** TEST FILE FORMAT**:
-
-name: <test_name>
-policies:
-- <path/to/policy1.yaml>
-- <path/to/policy2.yaml>
-resources:
-- <path/to/resource1.yaml>
-- <path/to/resource2.yaml>
-variables: <variable_file> (OPTIONAL)
-results:
-- policy: <name> (For Namespaced [Policy] files, format is <policy_namespace>/<policy_name>)
-  rule: <name>
-  resource: <name>
-  namespace: <name> (OPTIONAL)
-  kind: <name>
-  patchedResource: <path/to/patched/resource.yaml> (For mutate policies/rules only)
-  result: <pass|fail|skip>
-
-**VARIABLES FILE FORMAT**:
-
-policies:
-- name: <policy_name>
-  rules:
-  - name: <rule_name>
-    # Global variable values
-    values:
-      foo: bar
-  resources:
-  - name: <resource_name_1>
-    # Resource-specific variable values
-    values:
-      foo: baz
-  - name: <resource_name_2>
-    values:
-      foo: bin
-# If policy is matching on Kind/Subresource, then this is required
-subresources:
-  - subresource:
-      name: <name of subresource>
-      kind: <kind of subresource>
-      group: <group of subresource>
-      version: <version of subresource>
-    parentResource:
-      name: <name of parent resource>
-      kind: <kind of parent resource>
-      group: <group of parent resource>
-      version: <version of parent resource>
-
-**RESULT DESCRIPTIONS**:
-
-pass  --> The resource is either validated by the policy or, if a mutation, equals the state of the patched resource.
-fail  --> The resource fails validation or the patched resource generated by Kyverno is not equal to the input resource provided by the user.
-skip  --> The rule is not applied.
-
-For more information visit https://kyverno.io/docs/kyverno-cli/#test
-`
-
 // Command returns version command
 func Command() *cobra.Command {
 	var cmd *cobra.Command
@@ -221,13 +98,6 @@ type resultCounts struct {
 	Fail int
 }
 
-type testFilter struct {
-	policy   string
-	rule     string
-	resource string
-	enabled  bool
-}
-
 var ftable []Table
 
 func testCommandExecute(
@@ -239,52 +109,21 @@ func testCommandExecute(
 	removeColor bool,
 	auditWarn bool,
 ) (rc *resultCounts, err error) {
-	var errors []error
-	fs := memfs.New()
-	rc = &resultCounts{}
-	var testYamlCount int
-	tf := &testFilter{
-		enabled: true,
-	}
-
+	// check input dir
 	if len(dirPath) == 0 {
 		return rc, sanitizederror.NewWithError("a directory is required", err)
 	}
-
-	if len(testCase) != 0 {
-		parameters := map[string]string{"policy": "", "rule": "", "resource": ""}
-
-		for _, t := range strings.Split(testCase, ",") {
-			if !strings.Contains(t, "=") {
-				fmt.Printf("\n Invalid test-case-selector argument. Selecting all test cases. \n")
-				tf.enabled = false
-				break
-			}
-
-			key := strings.TrimSpace(strings.Split(t, "=")[0])
-			value := strings.TrimSpace(strings.Split(t, "=")[1])
-
-			_, ok := parameters[key]
-			if !ok {
-				fmt.Printf("\n Invalid parameter. Parameter can only be policy, rule or resource. Selecting all test cases \n")
-				tf.enabled = false
-				break
-			}
-
-			parameters[key] = value
-		}
-
-		tf.policy = parameters["policy"]
-		tf.rule = parameters["rule"]
-		tf.resource = parameters["resource"]
-	} else {
-		tf.enabled = false
-	}
-
+	// parse filter
+	filter := parseFilter(testCase)
+	// init openapi manager
 	openApiManager, err := openapi.NewManager(log.Log)
 	if err != nil {
 		return rc, fmt.Errorf("unable to create open api controller, %w", err)
 	}
+	var errors []error
+	fs := memfs.New()
+	rc = &resultCounts{}
+	var testYamlCount int
 	if strings.Contains(dirPath[0], "https://") {
 		gitURL, err := url.Parse(dirPath[0])
 		if err != nil {
@@ -358,7 +197,7 @@ func testCommandExecute(
 					errors = append(errors, sanitizederror.NewWithError("failed to convert to JSON", err))
 					continue
 				}
-				if err := applyPoliciesFromPath(fs, policyBytes, true, policyresoucePath, rc, openApiManager, tf, failOnly, removeColor, auditWarn); err != nil {
+				if err := applyPoliciesFromPath(fs, policyBytes, true, policyresoucePath, rc, openApiManager, filter, failOnly, removeColor, auditWarn); err != nil {
 					return rc, sanitizederror.NewWithError("failed to apply test command", err)
 				}
 			}
@@ -370,7 +209,7 @@ func testCommandExecute(
 	} else {
 		var testFiles int
 		path := filepath.Clean(dirPath[0])
-		errors = getLocalDirTestFiles(fs, path, fileName, rc, &testFiles, openApiManager, tf, failOnly, removeColor, auditWarn)
+		errors = getLocalDirTestFiles(fs, path, fileName, rc, &testFiles, openApiManager, filter, failOnly, removeColor, auditWarn)
 
 		if testFiles == 0 {
 			fmt.Printf("\n No test files found. Please provide test YAML files named kyverno-test.yaml \n")
@@ -406,7 +245,7 @@ func getLocalDirTestFiles(
 	rc *resultCounts,
 	testFiles *int,
 	openApiManager openapi.Manager,
-	tf *testFilter,
+	filter filter,
 	failOnly bool,
 	removeColor bool,
 	auditWarn bool,
@@ -419,7 +258,7 @@ func getLocalDirTestFiles(
 	}
 	for _, file := range files {
 		if file.IsDir() {
-			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, rc, testFiles, openApiManager, tf, failOnly, removeColor, auditWarn)
+			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, rc, testFiles, openApiManager, filter, failOnly, removeColor, auditWarn)
 			continue
 		}
 		if file.Name() == fileName {
@@ -435,7 +274,7 @@ func getLocalDirTestFiles(
 				errors = append(errors, sanitizederror.NewWithError("failed to convert json", err))
 				continue
 			}
-			if err := applyPoliciesFromPath(fs, valuesBytes, false, path, rc, openApiManager, tf, failOnly, removeColor, auditWarn); err != nil {
+			if err := applyPoliciesFromPath(fs, valuesBytes, false, path, rc, openApiManager, filter, failOnly, removeColor, auditWarn); err != nil {
 				errors = append(errors, sanitizederror.NewWithError(fmt.Sprintf("failed to apply test command from file %s", file.Name()), err))
 				continue
 			}
@@ -770,7 +609,7 @@ func applyPoliciesFromPath(
 	policyResourcePath string,
 	rc *resultCounts,
 	openApiManager openapi.Manager,
-	tf *testFilter,
+	filter filter,
 	failOnly bool,
 	removeColor bool,
 	auditWarn bool,
@@ -786,15 +625,14 @@ func applyPoliciesFromPath(
 		return sanitizederror.NewWithError("failed to decode yaml", err)
 	}
 
-	if tf.enabled {
-		var filteredResults []api.TestResults
-		for _, res := range values.Results {
-			if (len(tf.policy) == 0 || tf.policy == res.Policy) && (len(tf.resource) == 0 || tf.resource == res.Resource) && (len(tf.rule) == 0 || tf.rule == res.Rule) {
-				filteredResults = append(filteredResults, res)
-			}
+	var filteredResults []api.TestResults
+	for _, res := range values.Results {
+		if filter(res) {
+			filteredResults = append(filteredResults, res)
 		}
-		values.Results = filteredResults
 	}
+	values.Results = filteredResults
+
 	if len(values.Results) == 0 {
 		return nil
 	}
