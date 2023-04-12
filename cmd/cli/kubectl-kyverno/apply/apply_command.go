@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -438,7 +439,52 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 			if err != nil {
 				return rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}
-			responses = append(responses, ers...)
+			for _, response := range ers {
+				if !response.IsEmpty() {
+					for _, rule := range autogen.ComputeRules(response.Policy) {
+						if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
+							ruleFoundInEngineResponse := false
+							for _, valResponseRule := range response.PolicyResponse.Rules {
+								if rule.Name == valResponseRule.Name() {
+									ruleFoundInEngineResponse = true
+									switch valResponseRule.Status() {
+									case engineapi.RuleStatusPass:
+										rc.Pass++
+									case engineapi.RuleStatusFail:
+										ann := policy.GetAnnotations()
+										if scored, ok := ann[kyvernov1.AnnotationPolicyScored]; ok && scored == "false" {
+											rc.Warn++
+											break
+										} else if applyPolicyConfig.AuditWarn && response.GetValidationFailureAction().Audit() {
+											rc.Warn++
+										} else {
+											rc.Fail++
+										}
+									case engineapi.RuleStatusError:
+										rc.Error++
+									case engineapi.RuleStatusWarn:
+										rc.Warn++
+									case engineapi.RuleStatusSkip:
+										rc.Skip++
+									}
+									continue
+								}
+							}
+							if !ruleFoundInEngineResponse {
+								rc.Skip++
+								response.PolicyResponse.Rules = append(response.PolicyResponse.Rules,
+									*engineapi.RuleSkip(
+										rule.Name,
+										engineapi.Validation,
+										rule.Validation.Message,
+									),
+								)
+							}
+						}
+					}
+				}
+				responses = append(responses, response)
+			}
 		}
 	}
 
