@@ -19,3 +19,11 @@ var (
 
 	RegexVariableKey = regexp.MustCompile(`\{{(.*?)\}}`)
 )
+
+var Forbidden = []*regexp.Regexp{
+	regexp.MustCompile(`[^\.](serviceAccountName)\b`),
+	regexp.MustCompile(`[^\.](serviceAccountNamespace)\b`),
+	regexp.MustCompile(`[^\.](request.userInfo)\b`),
+	regexp.MustCompile(`[^\.](request.roles)\b`),
+	regexp.MustCompile(`[^\.](request.clusterRoles)\b`),
+}
