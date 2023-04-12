@@ -245,7 +245,19 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
+<p>Deprecated, use generateExisting instead</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generateExisting</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>GenerateExisting controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
@@ -471,7 +483,19 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
+<p>Deprecated, use generateExisting instead</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generateExisting</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>GenerateExisting controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
@@ -557,6 +581,16 @@ of deployments across all namespaces.</p>
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.AdmissionOperation">AdmissionOperation
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ResourceDescription">ResourceDescription</a>, 
+<a href="#kyverno.io/v2beta1.ResourceDescription">ResourceDescription</a>)
+</p>
+<p>
+<p>AdmissionOperation can have one of the values CREATE, UPDATE, CONNECT, DELETE, which are used to match a specific action.</p>
+</p>
 <h3 id="kyverno.io/v1.AnyAllConditions">AnyAllConditions
 </h3>
 <p>
@@ -1119,6 +1153,7 @@ string
 <a href="#kyverno.io/v1.ForEachMutation">ForEachMutation</a>, 
 <a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>, 
 <a href="#kyverno.io/v1.Rule">Rule</a>, 
+<a href="#kyverno.io/v1.TargetResourceSpec">TargetResourceSpec</a>, 
 <a href="#kyverno.io/v2beta1.Rule">Rule</a>)
 </p>
 <p>
@@ -1530,6 +1565,10 @@ Kubernetes apiextensions/v1.JSON
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.GenerateType">GenerateType
+(<code>string</code> alias)</p></h3>
+<p>
+</p>
 <h3 id="kyverno.io/v1.Generation">Generation
 </h3>
 <p>
@@ -2261,8 +2300,8 @@ Please specify under &ldquo;any&rdquo; or &ldquo;all&rdquo; instead.</p>
 <td>
 <code>targets</code><br/>
 <em>
-<a href="#kyverno.io/v1.ResourceSpec">
-[]ResourceSpec
+<a href="#kyverno.io/v1.TargetResourceSpec">
+[]TargetResourceSpec
 </a>
 </em>
 </td>
@@ -2393,7 +2432,7 @@ string
 <td>
 <em>(Optional)</em>
 <p>Version defines the Pod Security Standard versions that Kubernetes supports.
-Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, latest. Defaults to latest.</p>
+Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, v1.26, latest. Defaults to latest.</p>
 </td>
 </tr>
 <tr>
@@ -2706,6 +2745,20 @@ and <code>?</code> (matches one character).Wildcards allows writing label select
 does not match an empty label set.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>operations</code><br/>
+<em>
+<a href="#kyverno.io/v1.AdmissionOperation">
+[]AdmissionOperation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Operations can contain values [&ldquo;CREATE, &ldquo;UPDATE&rdquo;, &ldquo;CONNECT&rdquo;, &ldquo;DELETE&rdquo;], which are used to match a specific action.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -2767,7 +2820,7 @@ ResourceDescription
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.Generation">Generation</a>, 
-<a href="#kyverno.io/v1.Mutation">Mutation</a>, 
+<a href="#kyverno.io/v1.TargetResourceSpec">TargetResourceSpec</a>, 
 <a href="#kyverno.io/v1beta1.UpdateRequestSpec">UpdateRequestSpec</a>, 
 <a href="#kyverno.io/v1beta1.UpdateRequestStatus">UpdateRequestStatus</a>)
 </p>
@@ -3335,7 +3388,19 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
+<p>Deprecated, use generateExisting instead</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generateExisting</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>GenerateExisting controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
@@ -3426,6 +3491,71 @@ CTLog
 <p>Rekor provides configuration for the Rekor transparency log service. If the value is nil,
 Rekor is not checked. If an empty object is provided the public instance of
 Rekor (<a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>) is used.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.TargetResourceSpec">TargetResourceSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Mutation">Mutation</a>)
+</p>
+<p>
+<p>TargetResourceSpec defines targets for mutating existing resources.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>ResourceSpec</code><br/>
+<em>
+<a href="#kyverno.io/v1.ResourceSpec">
+ResourceSpec
+</a>
+</em>
+</td>
+<td>
+<p>ResourceSpec contains the target resources to load when mutating existing resources.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>context</code><br/>
+<em>
+<a href="#kyverno.io/v1.ContextEntry">
+[]ContextEntry
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Context defines variables and data sources that can be used during rule execution.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>preconditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Preconditions are used to determine if a policy rule should be applied by evaluating a
+set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements. A direct list
+of conditions (without <code>any</code> or <code>all</code> statements is supported for backwards compatibility but
+will be deprecated in the next major release.
+See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
 </td>
 </tr>
 </tbody>
@@ -5641,7 +5771,19 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
+<p>Deprecated, use generateExisting instead</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generateExisting</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>GenerateExisting controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
@@ -5866,7 +6008,19 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
+<p>Deprecated, use generateExisting instead</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generateExisting</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>GenerateExisting controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
@@ -6342,6 +6496,20 @@ and <code>?</code> (matches one character).Wildcards allows writing label select
 does not match an empty label set.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>operations</code><br/>
+<em>
+<a href="#kyverno.io/v1.AdmissionOperation">
+[]AdmissionOperation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Operations can contain values [&ldquo;CREATE, &ldquo;UPDATE&rdquo;, &ldquo;CONNECT&rdquo;, &ldquo;DELETE&rdquo;], which are used to match a specific action.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -6719,7 +6887,19 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
+<p>Deprecated, use generateExisting instead</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generateExisting</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>GenerateExisting controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>

@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: zk-kafka-address
+  name: cpol-data-sync-delete-policy
 status:
   conditions:
   - reason: Succeeded

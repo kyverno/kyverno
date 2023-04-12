@@ -7,7 +7,7 @@ import (
 	"go.uber.org/automaxprocs/maxprocs"
 )
 
-func SetupMaxProcs(logger logr.Logger) func() {
+func setupMaxProcs(logger logr.Logger) func() {
 	logger = logger.WithName("maxprocs")
 	logger.Info("setup maxprocs...")
 	undo, err := maxprocs.Set(

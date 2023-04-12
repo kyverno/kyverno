@@ -1,0 +1,10 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: generate-update-downstream-rule
+  namespace: default
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready

@@ -4,9 +4,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ template "kyverno.background-controller.name" . }}
+  namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.background-controller.labels" . | nindent 4 }}
-  namespace: {{ template "kyverno.namespace" . }}
 spec:
   replicas: {{ template "kyverno.deployment.replicas" .Values.backgroundController.replicas }}
   {{- with .Values.backgroundController.updateStrategy }}
@@ -21,7 +21,7 @@ spec:
       labels:
         {{- include "kyverno.background-controller.labels" . | nindent 8 }}
     spec:
-      {{- with .Values.backgroundController.image.pullSecrets }}
+      {{- with .Values.backgroundController.imagePullSecrets }}
       imagePullSecrets: 
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
@@ -99,8 +99,13 @@ spec:
             - --transportCreds={{ . }}
             {{- end }}
             {{- end }}
-            {{- range .Values.backgroundController.extraArgs }}
-            - {{ . }}
+            {{- if or .Values.imagePullSecrets .Values.existingImagePullSecrets }}
+            - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
+            {{- end }}
+            {{- range $key, $value := .Values.backgroundController.extraArgs }}
+            {{- if $value }}
+            - --{{ $key }}={{ $value }}
+            {{- end }}
             {{- end }}
           env:
           - name: METRICS_CONFIG

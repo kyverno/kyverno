@@ -3,21 +3,18 @@ package dclient
 import (
 	"testing"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"gotest.tools/assert"
+	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 var (
 	networkPolicyAPIResource       = metav1.APIResource{Name: "networkpolicies", SingularName: "", Namespaced: true, Kind: "NetworkPolicy"}
 	networkPolicyStatusAPIResource = metav1.APIResource{Name: "networkpolicies/status", SingularName: "", Namespaced: true, Kind: "NetworkPolicy"}
-
-	podAPIResource         = metav1.APIResource{Name: "pods", SingularName: "", Namespaced: true, Kind: "Pod"}
-	podEvictionAPIResource = metav1.APIResource{Name: "pods/eviction", SingularName: "", Namespaced: true, Group: "policy", Version: "v1", Kind: "Eviction"}
-	podLogAPIResource      = metav1.APIResource{Name: "pods/log", SingularName: "", Namespaced: true, Kind: "Pod"}
-
-	cronJobAPIResource = metav1.APIResource{Name: "cronjobs", SingularName: "", Namespaced: true, Kind: "CronJob"}
+	podAPIResource                 = metav1.APIResource{Name: "pods", SingularName: "", Namespaced: true, Kind: "Pod"}
+	podEvictionAPIResource         = metav1.APIResource{Name: "pods/eviction", SingularName: "", Namespaced: true, Group: "policy", Version: "v1", Kind: "Eviction"}
+	podLogAPIResource              = metav1.APIResource{Name: "pods/log", SingularName: "", Namespaced: true, Kind: "Pod"}
+	cronJobAPIResource             = metav1.APIResource{Name: "cronjobs", SingularName: "", Namespaced: true, Kind: "CronJob"}
 )
 
 func Test_findSubresource(t *testing.T) {
@@ -40,7 +37,7 @@ func Test_findSubresource(t *testing.T) {
 	}
 
 	apiResource, gvr, err := findSubresource("", "pods", "eviction", "Pod/eviction", serverGroupsAndResources)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, gvr, schema.GroupVersionResource{Resource: "pods/eviction", Group: "policy", Version: "v1"})
 
 	// Not comparing directly because actual apiResource also contains fields like 'ShortNames' which are not set in the expected apiResource
@@ -50,7 +47,7 @@ func Test_findSubresource(t *testing.T) {
 	assert.Equal(t, apiResource.Version, podEvictionAPIResource.Version)
 
 	apiResource, gvr, err = findSubresource("v1", "pods", "eviction", "Pod/eviction", serverGroupsAndResources)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, gvr, schema.GroupVersionResource{Resource: "pods/eviction", Group: "policy", Version: "v1"})
 
 	// Not comparing directly because actual apiResource also contains fields like 'ShortNames' which are not set in the expected apiResource
@@ -60,7 +57,7 @@ func Test_findSubresource(t *testing.T) {
 	assert.Equal(t, apiResource.Version, podEvictionAPIResource.Version)
 
 	apiResource, gvr, err = findSubresource("networking.k8s.io/*", "networkpolicies", "status", "NetworkPolicy/status", serverGroupsAndResources)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, gvr, schema.GroupVersionResource{Resource: "networkpolicies/status", Group: "networking.k8s.io", Version: "v1"})
 
 	// Not comparing directly because actual apiResource also contains fields like 'ShortNames' which are not set in the expected apiResource
@@ -112,7 +109,7 @@ func Test_findResource(t *testing.T) {
 	}
 
 	apiResource, parentAPIResource, gvr, err := findResource("", "Pod", serverPreferredResourcesList, serverGroupsAndResources)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, gvr, schema.GroupVersionResource{Resource: "pods", Group: "", Version: "v1"})
 	assert.Equal(t, parentAPIResource, (*metav1.APIResource)(nil))
 
@@ -125,7 +122,7 @@ func Test_findResource(t *testing.T) {
 	assert.Equal(t, apiResource.Version, "v1")
 
 	apiResource, parentAPIResource, gvr, err = findResource("policy/v1", "Eviction", serverPreferredResourcesList, serverGroupsAndResources)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, gvr, schema.GroupVersionResource{Resource: "pods/eviction", Group: "policy", Version: "v1"})
 
 	assert.Equal(t, parentAPIResource.Name, podAPIResource.Name)
@@ -140,7 +137,7 @@ func Test_findResource(t *testing.T) {
 	assert.Equal(t, apiResource.Version, podEvictionAPIResource.Version)
 
 	apiResource, parentAPIResource, gvr, err = findResource("", "CronJob", serverPreferredResourcesList, serverGroupsAndResources)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, gvr, schema.GroupVersionResource{Resource: "cronjobs", Group: "batch", Version: "v1"})
 
 	assert.Equal(t, parentAPIResource, (*metav1.APIResource)(nil))
@@ -152,7 +149,7 @@ func Test_findResource(t *testing.T) {
 	assert.Equal(t, apiResource.Version, "v1")
 
 	apiResource, parentAPIResource, gvr, err = findResource("batch/v1beta1", "CronJob", serverPreferredResourcesList, serverGroupsAndResources)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, gvr, schema.GroupVersionResource{Resource: "cronjobs", Group: "batch", Version: "v1beta1"})
 
 	assert.Equal(t, parentAPIResource, (*metav1.APIResource)(nil))
@@ -189,15 +186,18 @@ func Test_findResourceFromResourceName(t *testing.T) {
 		},
 	}
 
-	apiResource, err := findResourceFromResourceName("v1", "pods", serverGroupsAndResources)
-	assert.NilError(t, err)
+	apiResource, err := findResourceFromResourceName(schema.GroupVersionResource{Version: "v1", Resource: "pods"}, serverGroupsAndResources)
+	assert.NoError(t, err)
 	assert.Equal(t, apiResource.Name, podAPIResource.Name)
 	assert.Equal(t, apiResource.Kind, podAPIResource.Kind)
 	assert.Equal(t, apiResource.Group, "")
 	assert.Equal(t, apiResource.Version, "v1")
 
-	apiResource, err = findResourceFromResourceName("policy/v1", "pods/eviction", serverGroupsAndResources)
-	assert.NilError(t, err)
+	apiResource, err = findResourceFromResourceName(schema.GroupVersionResource{Group: "policy", Version: "v1", Resource: "pods/eviction"}, serverGroupsAndResources)
+	assert.Error(t, err)
+
+	apiResource, err = findResourceFromResourceName(schema.GroupVersionResource{Version: "v1", Resource: "pods/eviction"}, serverGroupsAndResources)
+	assert.NoError(t, err)
 	assert.Equal(t, apiResource.Name, podEvictionAPIResource.Name)
 	assert.Equal(t, apiResource.Kind, podEvictionAPIResource.Kind)
 	assert.Equal(t, apiResource.Group, podEvictionAPIResource.Group)

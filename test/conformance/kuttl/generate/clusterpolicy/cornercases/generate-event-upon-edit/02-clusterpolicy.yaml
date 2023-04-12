@@ -1,0 +1,38 @@
+apiVersion: kyverno.io/v2beta1
+kind: ClusterPolicy
+metadata:
+  name: generate-event-upon-edit
+spec:
+  background: false
+  rules:
+  - name: generate-event-on-edit
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    preconditions:
+      any:
+      - key: "{{ request.operation }}"
+        operator: Equals
+        value: UPDATE
+    generate:
+      apiVersion: v1
+      kind: Event
+      name: "edit.{{ random('[a-z0-9]{12}') }}"
+      namespace: "{{request.object.metadata.namespace}}"
+      synchronize: false
+      data:
+        firstTimestamp: "{{ time_now_utc() }}"
+        involvedObject:
+          apiVersion: v1
+          kind: ConfigMap
+          name: "{{ request.name }}"
+          namespace: "{{ request.namespace }}"
+          uid: "{{request.object.metadata.uid}}"
+        lastTimestamp: "{{ time_now_utc() }}"
+        message: This resource was updated by {{ request.userInfo | to_string(@) }}
+        reason: Edit
+        source:
+          component: kyverno
+        type: Warning

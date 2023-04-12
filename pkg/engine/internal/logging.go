@@ -1,8 +1,6 @@
 package internal
 
 import (
-	"reflect"
-
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -25,7 +23,7 @@ func LoggerWithPolicy(logger logr.Logger, policy kyvernov1.PolicyInterface) logr
 }
 
 func LoggerWithResource(logger logr.Logger, prefix string, resource unstructured.Unstructured) logr.Logger {
-	if reflect.DeepEqual(resource, unstructured.Unstructured{}) {
+	if resource.Object == nil {
 		return logger
 	}
 	return logger.WithValues(

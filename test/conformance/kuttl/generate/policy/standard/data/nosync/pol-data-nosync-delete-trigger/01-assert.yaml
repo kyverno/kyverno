@@ -1,0 +1,10 @@
+apiVersion: kyverno.io/v2beta1
+kind: Policy
+metadata:
+  name:  pol-data-nosync-delete-trigger
+  namespace: pol-data-nosync-delete-trigger-ns
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready

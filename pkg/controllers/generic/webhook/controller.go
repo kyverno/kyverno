@@ -56,6 +56,7 @@ type controller struct {
 	rules          []admissionregistrationv1.RuleWithOperations
 	failurePolicy  *admissionregistrationv1.FailurePolicyType
 	sideEffects    *admissionregistrationv1.SideEffectClass
+	configuration  config.Configuration
 }
 
 func NewController(
@@ -70,6 +71,7 @@ func NewController(
 	rules []admissionregistrationv1.RuleWithOperations,
 	failurePolicy *admissionregistrationv1.FailurePolicyType,
 	sideEffects *admissionregistrationv1.SideEffectClass,
+	configuration config.Configuration,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 	c := controller{
@@ -86,6 +88,7 @@ func NewController(
 		rules:          rules,
 		failurePolicy:  failurePolicy,
 		sideEffects:    sideEffects,
+		configuration:  configuration,
 	}
 	controllerutils.AddDefaultEventHandlers(c.logger, vwcInformer.Informer(), queue)
 	controllerutils.AddEventHandlersT(
@@ -106,6 +109,7 @@ func NewController(
 			}
 		},
 	)
+	configuration.OnChanged(c.enqueue)
 	return &c
 }
 
@@ -126,7 +130,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	if err != nil {
 		return err
 	}
-	desired, err := c.build(caData)
+	desired, err := c.build(c.configuration, caData)
 	if err != nil {
 		return err
 	}
@@ -140,6 +144,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	}
 	_, err = controllerutils.Update(ctx, observed, c.vwcClient, func(w *admissionregistrationv1.ValidatingWebhookConfiguration) error {
 		w.Labels = desired.Labels
+		w.Annotations = desired.Annotations
 		w.OwnerReferences = desired.OwnerReferences
 		w.Webhooks = desired.Webhooks
 		return nil
@@ -147,19 +152,20 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	return err
 }
 
-func objectMeta(name string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
+func objectMeta(name string, annotations map[string]string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name: name,
 		Labels: map[string]string{
 			utils.ManagedByLabel: kyvernov1.ValueKyvernoApp,
 		},
+		Annotations:     annotations,
 		OwnerReferences: owner,
 	}
 }
 
-func (c *controller) build(caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
+func (c *controller) build(cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
 	return &admissionregistrationv1.ValidatingWebhookConfiguration{
-			ObjectMeta: objectMeta(c.webhookName),
+			ObjectMeta: objectMeta(c.webhookName, cfg.GetWebhookAnnotations()),
 			Webhooks: []admissionregistrationv1.ValidatingWebhook{{
 				Name:                    fmt.Sprintf("%s.%s.svc", config.KyvernoServiceName(), config.KyvernoNamespace()),
 				ClientConfig:            c.clientConfig(caBundle),

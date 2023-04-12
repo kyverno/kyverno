@@ -1,12 +1,12 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: org-label-inheritance-existing
+  name: org-label-inheritance-existing-standard
   annotations:  
     pod-policies.kyverno.io/autogen-controllers: none
 spec:
   mutateExistingOnPolicyUpdate: false
-  validationFailureAction: enforce
+  validationFailureAction: Enforce
   rules:
   - name: propagate org label from namespace
     match:
@@ -39,4 +39,4 @@ kind: Namespace
 metadata:
   labels:
     org: kyverno-test
-  name: test
+  name: org-label-inheritance-existing-standard-ns
