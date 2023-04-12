@@ -40,6 +40,7 @@ jobs:
           - v1.24.7
           - v1.25.3
           - v1.26.0
+          - v1.27.0
         tests:
           - autogen
           - cleanup
@@ -97,6 +98,7 @@ jobs:
           - v1.24.7
           - v1.25.3
           - v1.26.0
+          - v1.27.0
         tests:
           - force-failure-policy-ignore
           - rbac
@@ -122,6 +124,52 @@ jobs:
       - name: Install kyverno
         run: |
           export USE_CONFIG=standard,force-failure-policy-ignore
+          make kind-install-kyverno
+      - name: Wait for kyverno ready
+        uses: ./.github/actions/kyverno-wait-ready
+      - name: Test with kuttl
+        run: |
+          ./.tools/kubectl-kuttl test ./test/conformance/kuttl/${{ matrix.tests }} \
+            --config ./test/conformance/kuttl/_config/common.yaml
+      - name: Debug failure
+        if: failure()
+        uses: ./.github/actions/kyverno-logs
+
+  # runs conformance test suites with configuration:
+  # - default
+  default:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version:
+          - v1.24.7
+          - v1.25.3
+          - v1.26.0
+          - v1.27.0
+        tests:
+          - rbac
+    runs-on: ubuntu-latest
+    needs: prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        with:
+          build-cache-key: run-conformance
+      - name: Create kind cluster
+        run: |
+          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version }}
+          make kind-create-cluster
+      - name: Download kyverno images archive
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: kyverno.tar
+      - name: Load kyverno images archive in kind cluster
+        run: make kind-load-image-archive
+      - name: Install kyverno
+        run: |
+          export USE_CONFIG=default
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
