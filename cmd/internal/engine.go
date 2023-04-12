@@ -23,6 +23,7 @@ func NewEngine(
 	logger logr.Logger,
 	configuration config.Configuration,
 	metricsConfiguration config.MetricsConfiguration,
+	jp jmespath.Interface,
 	client dclient.Interface,
 	rclient registryclient.Client,
 	kubeClient kubernetes.Interface,
@@ -35,7 +36,7 @@ func NewEngine(
 	return engine.NewEngine(
 		configuration,
 		metricsConfiguration,
-		jmespath.New(configuration),
+		jp,
 		client,
 		rclient,
 		engineapi.DefaultContextLoaderFactory(configMapResolver),

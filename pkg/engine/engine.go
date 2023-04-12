@@ -53,7 +53,7 @@ func NewEngine(
 	meter := global.MeterProvider().Meter(metrics.MeterName)
 	resultCounter, err := meter.Int64Counter(
 		"kyverno_policy_results",
-		instrument.WithDescription("can be used to track the results associated with the policies applied in the user’s cluster, at the level from rule to policy to admission requests"),
+		instrument.WithDescription("can be used to track the results associated with the policies applied in the user's cluster, at the level from rule to policy to admission requests"),
 	)
 	if err != nil {
 		logging.Error(err, "failed to register metric kyverno_policy_results")

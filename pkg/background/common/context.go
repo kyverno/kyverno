@@ -16,13 +16,14 @@ import (
 )
 
 func NewBackgroundContext(dclient dclient.Interface, ur *kyvernov1beta1.UpdateRequest,
+	logger logr.Logger,
 	policy kyvernov1.PolicyInterface,
 	trigger *unstructured.Unstructured,
 	cfg config.Configuration,
+	jp jmespath.Interface,
 	namespaceLabels map[string]string,
-	logger logr.Logger,
 ) (*engine.PolicyContext, error) {
-	ctx := context.NewContext(jmespath.New(cfg))
+	ctx := context.NewContext(jp)
 	var new, old unstructured.Unstructured
 	var err error
 

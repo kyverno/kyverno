@@ -219,6 +219,7 @@ func main() {
 		setup.Logger,
 		setup.Configuration,
 		setup.MetricsConfiguration,
+		setup.Jp,
 		dClient,
 		setup.RegistryClient,
 		setup.KubeClient,
