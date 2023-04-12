@@ -1,0 +1,8 @@
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: source-secret
+  namespace: pol-clone-sync-delete-trigger-ns
+type: Opaque
