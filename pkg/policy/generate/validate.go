@@ -122,7 +122,7 @@ func (g *Generate) validateClone(c kyvernov1.CloneFrom, cl kyvernov1.CloneList, 
 			return "", fmt.Errorf("kyverno does not have permissions to 'get' resource %s/%s. Update permissions in ClusterRole 'kyverno:background-controller:additional'", kind, namespace)
 		}
 	} else {
-		g.log.V(4).Info("name & namespace uses variables, so cannot be resolved. Skipping Auth Checks.")
+		g.log.V(2).Info("name & namespace uses variables, so cannot be resolved. Skipping Auth Checks.")
 	}
 	return "", nil
 }
@@ -170,7 +170,7 @@ func (g *Generate) canIGenerate(ctx context.Context, kind, namespace string) err
 			return fmt.Errorf("kyverno does not have permissions to 'delete' resource %s/%s. Update permissions in ClusterRole 'kyverno:background-controller:additional'", kind, namespace)
 		}
 	} else {
-		g.log.V(4).Info("name & namespace uses variables, so cannot be resolved. Skipping Auth Checks.")
+		g.log.V(2).Info("name & namespace uses variables, so cannot be resolved. Skipping Auth Checks.")
 	}
 
 	return nil
