@@ -18,6 +18,7 @@ type scanner struct {
 	logger logr.Logger
 	engine engineapi.Engine
 	config config.Configuration
+	jp     jmespath.Interface
 }
 
 type ScanResult struct {
@@ -33,11 +34,13 @@ func NewScanner(
 	logger logr.Logger,
 	engine engineapi.Engine,
 	config config.Configuration,
+	jp jmespath.Interface,
 ) Scanner {
 	return &scanner{
 		logger: logger,
 		engine: engine,
 		config: config,
+		jp:     jp,
 	}
 }
 
@@ -69,7 +72,7 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 }
 
 func (s *scanner) validateResource(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*engineapi.EngineResponse, error) {
-	enginectx := enginecontext.NewContext(jmespath.New(s.config))
+	enginectx := enginecontext.NewContext(s.jp)
 	if err := enginectx.AddResource(resource.Object); err != nil {
 		return nil, err
 	}
@@ -91,7 +94,7 @@ func (s *scanner) validateResource(ctx context.Context, resource unstructured.Un
 }
 
 func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*engineapi.EngineResponse, error) {
-	enginectx := enginecontext.NewContext(jmespath.New(s.config))
+	enginectx := enginecontext.NewContext(s.jp)
 	if err := enginectx.AddResource(resource.Object); err != nil {
 		return nil, err
 	}
