@@ -77,7 +77,9 @@ func substituteVariables(rule kyvernov1.Rule, ctx enginecontext.EvalInterface, l
 	// remove attestations as variables are not substituted in them
 	ruleCopy := *rule.DeepCopy()
 	for i := range ruleCopy.VerifyImages {
-		ruleCopy.VerifyImages[i].Attestations = nil
+		for j := range ruleCopy.VerifyImages[i].Attestations {
+			ruleCopy.VerifyImages[i].Attestations[j].Conditions = nil
+		}
 	}
 	var err error
 	ruleCopy, err = variables.SubstituteAllInRule(logger, ctx, ruleCopy)
