@@ -2,24 +2,14 @@ package api
 
 import (
 	"testing"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func TestRuleResponse_String(t *testing.T) {
 	type fields struct {
-		Name                           string
-		Type                           RuleType
-		Message                        string
-		Patches                        [][]byte
-		GeneratedResource              unstructured.Unstructured
-		Status                         RuleStatus
-		Stats                          ExecutionStats
-		PatchedTarget                  *unstructured.Unstructured
-		PatchedTargetSubresourceName   string
-		PatchedTargetParentResourceGVR metav1.GroupVersionResource
-		PodSecurityChecks              *PodSecurityChecks
+		Name    string
+		Type    RuleType
+		Message string
+		Status  RuleStatus
 	}
 	tests := []struct {
 		name   string
@@ -56,19 +46,12 @@ func TestRuleResponse_String(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rr := RuleResponse{
-				Name:                           tt.fields.Name,
-				Type:                           tt.fields.Type,
-				Message:                        tt.fields.Message,
-				Patches:                        tt.fields.Patches,
-				GeneratedResource:              tt.fields.GeneratedResource,
-				Status:                         tt.fields.Status,
-				Stats:                          tt.fields.Stats,
-				PatchedTarget:                  tt.fields.PatchedTarget,
-				PatchedTargetSubresourceName:   tt.fields.PatchedTargetSubresourceName,
-				PatchedTargetParentResourceGVR: tt.fields.PatchedTargetParentResourceGVR,
-				PodSecurityChecks:              tt.fields.PodSecurityChecks,
-			}
+			rr := NewRuleResponse(
+				tt.fields.Name,
+				tt.fields.Type,
+				tt.fields.Message,
+				tt.fields.Status,
+			)
 			if got := rr.String(); got != tt.want {
 				t.Errorf("RuleResponse.ToString() = %v, want %v", got, tt.want)
 			}
@@ -78,17 +61,10 @@ func TestRuleResponse_String(t *testing.T) {
 
 func TestRuleResponse_HasStatus(t *testing.T) {
 	type fields struct {
-		Name                           string
-		Type                           RuleType
-		Message                        string
-		Patches                        [][]byte
-		GeneratedResource              unstructured.Unstructured
-		Status                         RuleStatus
-		Stats                          ExecutionStats
-		PatchedTarget                  *unstructured.Unstructured
-		PatchedTargetSubresourceName   string
-		PatchedTargetParentResourceGVR metav1.GroupVersionResource
-		PodSecurityChecks              *PodSecurityChecks
+		Name    string
+		Type    RuleType
+		Message string
+		Status  RuleStatus
 	}
 	type args struct {
 		status []RuleStatus
@@ -138,19 +114,12 @@ func TestRuleResponse_HasStatus(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := RuleResponse{
-				Name:                           tt.fields.Name,
-				Type:                           tt.fields.Type,
-				Message:                        tt.fields.Message,
-				Patches:                        tt.fields.Patches,
-				GeneratedResource:              tt.fields.GeneratedResource,
-				Status:                         tt.fields.Status,
-				Stats:                          tt.fields.Stats,
-				PatchedTarget:                  tt.fields.PatchedTarget,
-				PatchedTargetSubresourceName:   tt.fields.PatchedTargetSubresourceName,
-				PatchedTargetParentResourceGVR: tt.fields.PatchedTargetParentResourceGVR,
-				PodSecurityChecks:              tt.fields.PodSecurityChecks,
-			}
+			r := NewRuleResponse(
+				tt.fields.Name,
+				tt.fields.Type,
+				tt.fields.Message,
+				tt.fields.Status,
+			)
 			if got := r.HasStatus(tt.args.status...); got != tt.want {
 				t.Errorf("RuleResponse.HasStatus() = %v, want %v", got, tt.want)
 			}

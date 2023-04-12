@@ -19,13 +19,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
-	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type GenerationHandler interface {
-	Handle(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext)
+	Handle(context.Context, admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext)
 }
 
 func NewGenerationHandler(
@@ -72,7 +71,7 @@ type generationHandler struct {
 
 func (h *generationHandler) Handle(
 	ctx context.Context,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 ) {
@@ -91,7 +90,7 @@ func getAppliedRules(policy kyvernov1.PolicyInterface, applied []engineapi.RuleR
 			continue
 		}
 		for _, applied := range applied {
-			if applied.Name == rule.Name && applied.Type == engineapi.Generation {
+			if applied.Name() == rule.Name && applied.RuleType() == engineapi.Generation {
 				rules = append(rules, rule)
 			}
 		}
@@ -101,7 +100,7 @@ func getAppliedRules(policy kyvernov1.PolicyInterface, applied []engineapi.RuleR
 
 func (h *generationHandler) handleTrigger(
 	ctx context.Context,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 ) {
@@ -114,25 +113,22 @@ func (h *generationHandler) handleTrigger(
 		}
 		engineResponse := h.engine.ApplyBackgroundChecks(ctx, policyContext)
 		for _, rule := range engineResponse.PolicyResponse.Rules {
-			if rule.Status == engineapi.RuleStatusPass {
+			if rule.Status() == engineapi.RuleStatusPass {
 				appliedRules = append(appliedRules, rule)
-			} else if rule.Status == engineapi.RuleStatusFail {
+			} else if rule.Status() == engineapi.RuleStatusFail {
 				failedRules = append(failedRules, rule)
 			}
 		}
 
 		h.applyGeneration(ctx, request, policy, appliedRules, policyContext)
 		h.syncTriggerAction(ctx, request, policy, failedRules, policyContext)
-
-		go webhookutils.RegisterPolicyResultsMetricGeneration(ctx, h.log, h.metrics, string(request.Operation), policy, engineResponse)
-		go webhookutils.RegisterPolicyExecutionDurationMetricGenerate(ctx, h.log, h.metrics, string(request.Operation), policy, engineResponse)
 	}
 }
 
 func (h *generationHandler) handleNonTrigger(
 	ctx context.Context,
 	policyContext *engine.PolicyContext,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 ) {
 	resource := policyContext.OldResource()
 	labels := resource.GetLabels()
@@ -146,7 +142,7 @@ func (h *generationHandler) handleNonTrigger(
 
 func (h *generationHandler) applyGeneration(
 	ctx context.Context,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	policy kyvernov1.PolicyInterface,
 	appliedRules []engineapi.RuleResponse,
 	policyContext *engine.PolicyContext,
@@ -182,7 +178,7 @@ func (h *generationHandler) applyGeneration(
 // it can be 1. trigger deletion; 2. trigger no longer matches, when a rule fails
 func (h *generationHandler) syncTriggerAction(
 	ctx context.Context,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	policy kyvernov1.PolicyInterface,
 	failedRules []engineapi.RuleResponse,
 	policyContext *engine.PolicyContext,
@@ -203,11 +199,7 @@ func (h *generationHandler) syncTriggerAction(
 	rules := getAppliedRules(policy, failedRules)
 	for _, rule := range rules {
 		// fire generation on trigger deletion
-		if (request.Operation == admissionv1.Delete) && precondition(rule, kyvernov1.Condition{
-			RawKey:   kyvernov1.ToJSON("request.operation"),
-			Operator: "Equals",
-			RawValue: kyvernov1.ToJSON("DELETE"),
-		}) {
+		if (request.Operation == admissionv1.Delete) && matchDeleteOperation(rule) {
 			h.log.V(4).Info("creating the UR to generate downstream on trigger's deletion", "operation", request.Operation, "rule", rule.Name)
 			ur := buildURSpec(kyvernov1beta1.Generate, pKey, rule.Name, urSpec, false)
 			ur.Context = buildURContext(request, policyContext)
@@ -235,7 +227,7 @@ func (h *generationHandler) syncTriggerAction(
 	}
 }
 
-func (h *generationHandler) createUR(ctx context.Context, policyContext *engine.PolicyContext, request *admissionv1.AdmissionRequest) (err error) {
+func (h *generationHandler) createUR(ctx context.Context, policyContext *engine.PolicyContext, request admissionv1.AdmissionRequest) (err error) {
 	var policy kyvernov1.PolicyInterface
 	new := policyContext.NewResource()
 	labels := new.GetLabels()

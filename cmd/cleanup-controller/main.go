@@ -13,7 +13,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/internal"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	dynamicclient "github.com/kyverno/kyverno/pkg/clients/dynamic"
-	kubeclient "github.com/kyverno/kyverno/pkg/clients/kube"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
@@ -52,14 +51,12 @@ func (probes) IsLive() bool {
 
 func main() {
 	var (
-		leaderElectionRetryPeriod time.Duration
-		dumpPayload               bool
-		serverIP                  string
-		servicePort               int
+		dumpPayload bool
+		serverIP    string
+		servicePort int
 	)
 	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
-	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
 	// config
@@ -68,41 +65,35 @@ func main() {
 		internal.WithMetrics(),
 		internal.WithTracing(),
 		internal.WithKubeconfig(),
+		internal.WithLeaderElection(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
-	// setup logger
-	// show version
-	// start profiling
-	// setup signals
-	// setup maxprocs
-	// setup metrics
-	ctx, logger, metricsConfig, sdown := internal.Setup("kyverno-cleanup-controller")
+	// setup
+	ctx, setup, sdown := internal.Setup(appConfig, "kyverno-cleanup-controller", false)
 	defer sdown()
 	// create instrumented clients
-	kubeClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
-	leaderElectionClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
-	kyvernoClient := internal.CreateKyvernoClient(logger, kyvernoclient.WithMetrics(metricsConfig, metrics.KubeClient), kyvernoclient.WithTracing())
+	kyvernoClient := internal.CreateKyvernoClient(setup.Logger, kyvernoclient.WithMetrics(setup.MetricsManager, metrics.KubeClient), kyvernoclient.WithTracing())
 	// setup leader election
 	le, err := leaderelection.New(
-		logger.WithName("leader-election"),
+		setup.Logger.WithName("leader-election"),
 		"kyverno-cleanup-controller",
 		config.KyvernoNamespace(),
-		leaderElectionClient,
+		setup.LeaderElectionClient,
 		config.KyvernoPodName(),
-		leaderElectionRetryPeriod,
+		internal.LeaderElectionRetryPeriod(),
 		func(ctx context.Context) {
-			logger := logger.WithName("leader")
+			logger := setup.Logger.WithName("leader")
 			// informer factories
-			kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
+			kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod)
 			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
-			kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
+			kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 			// listers
 			secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
 			// controllers
 			renewer := tls.NewCertRenewer(
-				kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
+				setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
 				secretLister,
 				tls.CertRenewalInterval,
 				tls.CAValidityDuration,
@@ -121,10 +112,9 @@ func main() {
 				webhookControllerName,
 				genericwebhookcontroller.NewController(
 					webhookControllerName,
-					kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
+					setup.KubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 					kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 					kubeKyvernoInformer.Core().V1().Secrets(),
-					kubeKyvernoInformer.Core().V1().ConfigMaps(),
 					config.CleanupValidatingWebhookConfigurationName,
 					config.CleanupValidatingWebhookServicePath,
 					serverIP,
@@ -145,13 +135,14 @@ func main() {
 					}},
 					genericwebhookcontroller.Fail,
 					genericwebhookcontroller.None,
+					setup.Configuration,
 				),
 				webhookWorkers,
 			)
 			cleanupController := internal.NewController(
 				cleanup.ControllerName,
 				cleanup.NewController(
-					kubeClient,
+					setup.KubeClient,
 					kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies(),
 					kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies(),
 					kubeInformer.Batch().V1().CronJobs(),
@@ -175,14 +166,14 @@ func main() {
 		nil,
 	)
 	if err != nil {
-		logger.Error(err, "failed to initialize leader election")
+		setup.Logger.Error(err, "failed to initialize leader election")
 		os.Exit(1)
 	}
-	dynamicClient := internal.CreateDynamicClient(logger, dynamicclient.WithMetrics(metricsConfig, metrics.KyvernoClient), dynamicclient.WithTracing())
-	dClient := internal.CreateDClient(logger, ctx, dynamicClient, kubeClient, 15*time.Minute)
+	dynamicClient := internal.CreateDynamicClient(setup.Logger, dynamicclient.WithMetrics(setup.MetricsManager, metrics.KyvernoClient), dynamicclient.WithTracing())
+	dClient := internal.CreateDClient(setup.Logger, ctx, dynamicClient, setup.KubeClient, 15*time.Minute)
 	// informer factories
-	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
-	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
+	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod)
+	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
 	// listers
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
@@ -191,24 +182,24 @@ func main() {
 	nsLister := kubeInformer.Core().V1().Namespaces().Lister()
 	// log policy changes
 	genericloggingcontroller.NewController(
-		logger.WithName("cleanup-policy"),
+		setup.Logger.WithName("cleanup-policy"),
 		"CleanupPolicy",
 		kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies(),
 		genericloggingcontroller.CheckGeneration,
 	)
 	genericloggingcontroller.NewController(
-		logger.WithName("cluster-cleanup-policy"),
+		setup.Logger.WithName("cluster-cleanup-policy"),
 		"ClusterCleanupPolicy",
 		kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies(),
 		genericloggingcontroller.CheckGeneration,
 	)
 	// start informers and wait for cache sync
-	if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kubeKyvernoInformer, kubeInformer, kyvernoInformer) {
+	if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kubeKyvernoInformer, kubeInformer, kyvernoInformer) {
 		os.Exit(1)
 	}
 	// create handlers
 	admissionHandlers := admissionhandlers.New(dClient)
-	cleanupHandlers := cleanuphandlers.New(dClient, cpolLister, polLister, nsLister, logger.WithName("cleanup-handler"))
+	cleanupHandlers := cleanuphandlers.New(dClient, cpolLister, polLister, nsLister, setup.Logger.WithName("cleanup-handler"))
 	// create server
 	server := NewServer(
 		func() ([]byte, []byte, error) {
@@ -220,22 +211,15 @@ func main() {
 		},
 		admissionHandlers.Validate,
 		cleanupHandlers.Cleanup,
-		metricsConfig,
+		setup.MetricsManager,
 		webhooks.DebugModeOptions{
 			DumpPayload: dumpPayload,
 		},
 		probes{},
-		config.NewDefaultConfiguration(),
+		setup.Configuration,
 	)
 	// start server
 	server.Run(ctx.Done())
-	// wait for termination signal and run leader election loop
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			le.Run(ctx)
-		}
-	}
+	// start leader election
+	le.Run(ctx)
 }

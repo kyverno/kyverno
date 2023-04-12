@@ -266,7 +266,7 @@ func (r ResourceFilter) IsEmpty() bool {
 type Mutation struct {
 	// Targets defines the target resources to be mutated.
 	// +optional
-	Targets []ResourceSpec `json:"targets,omitempty" yaml:"targets,omitempty"`
+	Targets []TargetResourceSpec `json:"targets,omitempty" yaml:"targets,omitempty"`
 
 	// PatchStrategicMerge is a strategic merge patch used to modify resources.
 	// See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
@@ -375,8 +375,8 @@ type PodSecurity struct {
 	Level api.Level `json:"level,omitempty" yaml:"level,omitempty"`
 
 	// Version defines the Pod Security Standard versions that Kubernetes supports.
-	// Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, latest. Defaults to latest.
-	// +kubebuilder:validation:Enum=v1.19;v1.20;v1.21;v1.22;v1.23;v1.24;v1.25;latest
+	// Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, v1.26, latest. Defaults to latest.
+	// +kubebuilder:validation:Enum=v1.19;v1.20;v1.21;v1.22;v1.23;v1.24;v1.25;v1.26;latest
 	// +optional
 	Version string `json:"version,omitempty" yaml:"version,omitempty"`
 

@@ -67,6 +67,14 @@ func (r ResourceDescription) IsEmpty() bool {
 		r.NamespaceSelector == nil
 }
 
+func (r ResourceDescription) GetOperations() []string {
+	ops := []string{}
+	for _, op := range r.Operations {
+		ops = append(ops, string(op))
+	}
+	return ops
+}
+
 // Validate implements programmatic validation
 func (r *ResourceDescription) Validate(path *field.Path, namespaced bool, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if r.Name != "" && len(r.Names) > 0 {

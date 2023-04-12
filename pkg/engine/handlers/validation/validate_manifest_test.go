@@ -619,12 +619,12 @@ FdGxexVrR4YqO1pRViKxmD9oMu4I7K/4sM51nbH65ycB2uRiDfIdRoV/+A==
 
 var (
 	h   = validateManifestHandler{}
-	cfg = config.NewDefaultConfiguration()
+	cfg = config.NewDefaultConfiguration(false)
 )
 
 func Test_VerifyManifest_SignedYAML(t *testing.T) {
 	policyContext := buildContext(t, test_policy, signed_resource, "")
-	var request *v1.AdmissionRequest
+	var request v1.AdmissionRequest
 	_ = json.Unmarshal([]byte(signed_adreq), &request)
 	policyContext.JSONContext().AddRequest(request)
 	policyContext.Policy().SetName("test-policy")
@@ -646,7 +646,7 @@ func Test_VerifyManifest_SignedYAML(t *testing.T) {
 
 func Test_VerifyManifest_UnsignedYAML(t *testing.T) {
 	policyContext := buildContext(t, test_policy, unsigned_resource, "")
-	var request *v1.AdmissionRequest
+	var request v1.AdmissionRequest
 	_ = json.Unmarshal([]byte(unsigned_adreq), &request)
 	policyContext.JSONContext().AddRequest(request)
 	policyContext.Policy().SetName("test-policy")
@@ -668,7 +668,7 @@ func Test_VerifyManifest_UnsignedYAML(t *testing.T) {
 
 func Test_VerifyManifest_InvalidYAML(t *testing.T) {
 	policyContext := buildContext(t, test_policy, invalid_resource, "")
-	var request *v1.AdmissionRequest
+	var request v1.AdmissionRequest
 	_ = json.Unmarshal([]byte(invalid_adreq), &request)
 	policyContext.JSONContext().AddRequest(request)
 	policyContext.Policy().SetName("test-policy")
@@ -690,7 +690,7 @@ func Test_VerifyManifest_InvalidYAML(t *testing.T) {
 
 func Test_VerifyManifest_MustAll_InvalidYAML(t *testing.T) {
 	policyContext := buildContext(t, test_policy, multi_sig_resource, "")
-	var request *v1.AdmissionRequest
+	var request v1.AdmissionRequest
 	_ = json.Unmarshal([]byte(multi_sig_adreq), &request)
 	policyContext.JSONContext().AddRequest(request)
 	policyContext.Policy().SetName("test-policy")
@@ -718,7 +718,7 @@ func Test_VerifyManifest_MustAll_InvalidYAML(t *testing.T) {
 
 func Test_VerifyManifest_MustAll_ValidYAML(t *testing.T) {
 	policyContext := buildContext(t, test_policy, multi_sig2_resource, "")
-	var request *v1.AdmissionRequest
+	var request v1.AdmissionRequest
 	_ = json.Unmarshal([]byte(multi_sig2_adreq), &request)
 	policyContext.JSONContext().AddRequest(request)
 	policyContext.Policy().SetName("test-policy")
@@ -750,7 +750,7 @@ func Test_VerifyManifest_MustAll_ValidYAML(t *testing.T) {
 
 func Test_VerifyManifest_AtLeastOne(t *testing.T) {
 	policyContext := buildContext(t, test_policy, multi_sig_resource, "")
-	var request *v1.AdmissionRequest
+	var request v1.AdmissionRequest
 	_ = json.Unmarshal([]byte(multi_sig_adreq), &request)
 	policyContext.JSONContext().AddRequest(request)
 	policyContext.Policy().SetName("test-policy")

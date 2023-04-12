@@ -1,0 +1,8 @@
+## Checks that the manifests.yaml file CANNOT be successfully created. If it can, fail the test as this is incorrect.
+## Note that the need for this type of script is deprecated in favor of Kyverno kuttl's feature allowing a TestStep to
+## indicate that creation of a file should fail. See the BEST_PRACTICES.md file for an example. 
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+- file: manifests.yaml
+  shouldFail: true

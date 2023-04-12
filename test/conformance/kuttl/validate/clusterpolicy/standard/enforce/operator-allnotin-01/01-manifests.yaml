@@ -24,4 +24,4 @@ spec:
           metadata:
             labels:
               app.kubernetes.io/name: "?*"
-  validationFailureAction: enforce
+  validationFailureAction: Enforce

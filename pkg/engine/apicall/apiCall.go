@@ -99,7 +99,12 @@ func (a *apiCall) executeServiceCall(service *kyvernov1.ServiceCall) ([]byte, er
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)
+		b, err := io.ReadAll(resp.Body)
+		if err == nil {
+			return nil, fmt.Errorf("HTTP %s: %s", resp.Status, string(b))
+		}
+
+		return nil, fmt.Errorf("HTTP %s", resp.Status)
 	}
 
 	defer resp.Body.Close()
@@ -139,9 +144,10 @@ func (a *apiCall) buildHTTPRequest(service *kyvernov1.ServiceCall) (req *http.Re
 }
 
 func (a *apiCall) getToken() string {
-	b, err := os.ReadFile("/var/run/secrets/tokens/api-token")
+	fileName := "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	b, err := os.ReadFile(fileName)
 	if err != nil {
-		a.log.Info("failed to read token", "path", "/var/run/secrets/tokens/api-token")
+		a.log.Info("failed to read service account token", "path", fileName)
 		return ""
 	}
 

@@ -21,11 +21,8 @@ spec:
       - resources:
           kinds:
           - ConfigMap
-    preconditions:
-      any:
-      - key: "{{ request.operation }}"
-        operator: Equals
-        value: DELETE
+          operations:
+          - DELETE
     generate:
       apiVersion: networking.k8s.io/v1
       kind: NetworkPolicy

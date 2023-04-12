@@ -21,7 +21,7 @@ spec:
       labels:
         {{- include "kyverno.background-controller.labels" . | nindent 8 }}
     spec:
-      {{- with .Values.backgroundController.image.pullSecrets }}
+      {{- with .Values.backgroundController.imagePullSecrets }}
       imagePullSecrets: 
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
@@ -98,6 +98,9 @@ spec:
             {{- with .Values.backgroundController.metering.creds }}
             - --transportCreds={{ . }}
             {{- end }}
+            {{- end }}
+            {{- if or .Values.imagePullSecrets .Values.existingImagePullSecrets }}
+            - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
             {{- end }}
             {{- range $key, $value := .Values.backgroundController.extraArgs }}
             {{- if $value }}

@@ -21,7 +21,7 @@ spec:
       labels:
         {{- include "kyverno.reports-controller.labels" . | nindent 8 }}
     spec:
-      {{- with .Values.reportsController.image.pullSecrets }}
+      {{- with .Values.reportsController.imagePullSecrets }}
       imagePullSecrets: 
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
@@ -98,6 +98,9 @@ spec:
             {{- with .Values.reportsController.metering.creds }}
             - --transportCreds={{ . }}
             {{- end }}
+            {{- end }}
+            {{- if or .Values.imagePullSecrets .Values.existingImagePullSecrets }}
+            - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
             {{- end }}
             {{- range $key, $value := .Values.reportsController.extraArgs }}
             {{- if $value }}

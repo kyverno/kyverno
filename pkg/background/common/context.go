@@ -26,11 +26,11 @@ func NewBackgroundContext(dclient dclient.Interface, ur *kyvernov1beta1.UpdateRe
 	var err error
 
 	if ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest != nil {
-		if err := ctx.AddRequest(ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest); err != nil {
+		if err := ctx.AddRequest(*ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest); err != nil {
 			return nil, fmt.Errorf("failed to load request in context: %w", err)
 		}
 
-		new, old, err = admissionutils.ExtractResources(nil, ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest)
+		new, old, err = admissionutils.ExtractResources(nil, *ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load request in context: %w", err)
 		}

@@ -38,3 +38,7 @@ annotations:
       description: support for webhook annotations in config map
     - kind: added
       description: allow overriding PDB api version
+    - kind: fixed
+      description: missing image pull secrets in helm hooks
+    - kind: added
+      description: support `excludeRoles` and `excludeClusterRoles` in config

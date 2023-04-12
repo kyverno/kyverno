@@ -148,7 +148,7 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `initImage` has been replaced with `admissionController.initContainer.image`
 - `initResources` has been replaced with `admissionController.initContainer.resources`
 - `image` has been replaced with `admissionController.container.image`
-- `image.pullSecrets` has been replaced with `admissionController.pullSecrets`
+- `image.pullSecrets` has been replaced with `admissionController.imagePullSecrets`
 - `resources` has been replaced with `admissionController.container.resources`
 - `service` has been replaced with `admissionController.service`
 - `metricsService` has been replaced with `admissionController.metricsService`
@@ -174,6 +174,10 @@ In `v3` chart values changed significantly, please read the instructions below t
 - Image references are now using the `registry` setting, if you override the registry or repository fields please use `registry` (`--set image.registry=ghcr.io --set image.repository=kyverno/kyverno` instead of `--set image.repository=ghcr.io/kyverno/kyverno`).
 
 - Admission controller `Deployment` name changed from `kyverno` to `kyverno-admission-controller`.
+- `config.excludeUsername` was renamed to `config.excludeUsernames`
+- `config.excludeGroupRole` was renamed to `config.excludeGroups`
+
+Hardcoded defaults for `config.excludeGroups` and `config.excludeUsernames` have been removed, please review those fields if you provide your own exclusions.
 
 ## Uninstalling the Chart
 
@@ -200,9 +204,10 @@ The command removes all the Kubernetes components associated with the chart and 
 | config.annotations | object | `{}` | Additional annotations to add to the configmap. |
 | config.enableDefaultRegistryMutation | bool | `true` | Enable registry mutation for container images. Enabled by default. |
 | config.defaultRegistry | string | `"docker.io"` | The registry hostname used for the image mutation. |
-| config.excludeGroupRole | list | `[]` | Exclude group role |
-| config.excludeUsername | list | `[]` | Exclude username |
-| config.excludeBackgroundUsernames | list | `[]` | Exclude usernames for mutateExisting and generate policies |
+| config.excludeGroups | list | `["system:serviceaccounts:kube-system","system:nodes"]` | Exclude groups |
+| config.excludeUsernames | list | `[]` | Exclude usernames |
+| config.excludeRoles | list | `[]` | Exclude roles |
+| config.excludeClusterRoles | list | `[]` | Exclude roles |
 | config.generateSuccessEvents | bool | `false` | Generate success events. |
 | config.resourceFilters | list | See [values.yaml](values.yaml) | Resource types to be skipped by the Kyverno policy engine. Make sure to surround each entry in quotes so that it doesn't get parsed as a nested YAML list. These are joined together without spaces, run through `tpl`, and the result is set in the config map. |
 | config.webhooks | list | `[]` | Defines the `namespaceSelector` in the webhook configurations. Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element will be forwarded to the webhook configurations. The Kyverno namespace is excluded if `excludeKyvernoNamespace` is `true` (default) |
@@ -227,6 +232,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | customLabels | object | `{}` | Additional labels |
 | webhooksCleanup.enabled | bool | `false` | Create a helm pre-delete hook to cleanup webhooks. |
 | webhooksCleanup.image | string | `"bitnami/kubectl:latest"` | `kubectl` image to run commands for deleting webhooks. |
+| webhooksCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
 | grafana.enabled | bool | `false` | Enable grafana dashboard creation. |
 | grafana.configMapName | string | `"{{ include \"kyverno.fullname\" . }}-grafana"` | Configmap name template. |
 | grafana.namespace | string | `nil` | Namespace to create the grafana dashboard configmap. If not set, it will be created in the same namespace where the chart is deployed. |
@@ -258,7 +264,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.podDisruptionBudget.maxUnavailable | string | `nil` | Configures the maximum unavailable pods for disruptions. Cannot be used if `minAvailable` is set. |
 | admissionController.tufRootMountPath | string | `"/.sigstore"` | A writable volume to use for the TUF root initialization. |
 | admissionController.sigstoreVolume | object | `{"emptyDir":{}}` | Volume to be mounted in pods for TUF/cosign work. |
-| admissionController.pullSecrets | list | `[]` | Image pull secrets |
+| admissionController.imagePullSecrets | list | `[]` | Image pull secrets |
 | admissionController.initContainer.image.registry | string | `"ghcr.io"` | Image registry |
 | admissionController.initContainer.image.repository | string | `"kyverno/kyvernopre"` | Image repository |
 | admissionController.initContainer.image.tag | string | `nil` | Image tag If missing, defaults to image.tag |
@@ -317,7 +323,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | cleanupController.image.repository | string | `"kyverno/cleanup-controller"` | Image repository |
 | cleanupController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | cleanupController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
-| cleanupController.image.pullSecrets | list | `[]` | Image pull secrets |
+| cleanupController.imagePullSecrets | list | `[]` | Image pull secrets |
 | cleanupController.replicas | int | `nil` | Desired number of pods |
 | cleanupController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | cleanupController.priorityClassName | string | `""` | Optional priority class |
@@ -377,13 +383,13 @@ The command removes all the Kubernetes components associated with the chart and 
 | reportsController.image.repository | string | `"kyverno/reports-controller"` | Image repository |
 | reportsController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | reportsController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
-| reportsController.image.pullSecrets | list | `[]` | Image pull secrets |
+| reportsController.imagePullSecrets | list | `[]` | Image pull secrets |
 | reportsController.replicas | int | `nil` | Desired number of pods |
 | reportsController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | reportsController.priorityClassName | string | `""` | Optional priority class |
 | reportsController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
 | reportsController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
-| reportsController.extraArgs | object | `{"clientRateLimitBurst":300,"clientRateLimitQPS":300}` | Extra arguments passed to the container on the command line |
+| reportsController.extraArgs | object | `{"clientRateLimitBurst":300,"clientRateLimitQPS":300,"skipResourceFilters":true}` | Extra arguments passed to the container on the command line |
 | reportsController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
 | reportsController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
 | reportsController.nodeSelector | object | `{}` | Node labels for pod assignment |
@@ -432,7 +438,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | backgroundController.image.repository | string | `"ghcr.io/kyverno/background-controller"` | Image repository |
 | backgroundController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | backgroundController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
-| backgroundController.image.pullSecrets | list | `[]` | Image pull secrets |
+| backgroundController.imagePullSecrets | list | `[]` | Image pull secrets |
 | backgroundController.replicas | int | `nil` | Desired number of pods |
 | backgroundController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | backgroundController.priorityClassName | string | `""` | Optional priority class |

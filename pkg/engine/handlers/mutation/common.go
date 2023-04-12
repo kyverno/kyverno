@@ -14,27 +14,14 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func mutateResource(rule *kyvernov1.Rule, ctx engineapi.PolicyContext, resource unstructured.Unstructured, logger logr.Logger) *mutate.Response {
-	preconditionsPassed, err := internal.CheckPreconditions(logger, ctx, rule.GetAnyAllConditions())
-	if err != nil {
-		return mutate.NewErrorResponse("failed to evaluate preconditions", err)
-	}
-
-	if !preconditionsPassed {
-		return mutate.NewResponse(engineapi.RuleStatusSkip, resource, nil, "preconditions not met")
-	}
-
-	return mutate.Mutate(rule, ctx.JSONContext(), resource, logger)
-}
-
 type forEachMutator struct {
-	rule          *kyvernov1.Rule
+	logger        logr.Logger
+	rule          kyvernov1.Rule
 	policyContext engineapi.PolicyContext
 	foreach       []kyvernov1.ForEachMutation
 	resource      resourceInfo
 	nesting       int
 	contextLoader engineapi.EngineContextLoader
-	log           logr.Logger
 }
 
 func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
@@ -42,20 +29,6 @@ func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 	allPatches := make([][]byte, 0)
 
 	for _, foreach := range f.foreach {
-		if err := f.contextLoader(ctx, f.rule.Context, f.policyContext.JSONContext()); err != nil {
-			f.log.Error(err, "failed to load context")
-			return mutate.NewErrorResponse("failed to load context", err)
-		}
-
-		preconditionsPassed, err := internal.CheckPreconditions(f.log, f.policyContext, f.rule.GetAnyAllConditions())
-		if err != nil {
-			return mutate.NewErrorResponse("failed to evaluate preconditions", err)
-		}
-
-		if !preconditionsPassed {
-			return mutate.NewResponse(engineapi.RuleStatusSkip, f.resource.unstructured, nil, "preconditions not met")
-		}
-
 		elements, err := engineutils.EvaluateList(foreach.List, f.policyContext.JSONContext())
 		if err != nil {
 			msg := fmt.Sprintf("failed to evaluate list %s: %v", foreach.List, err)
@@ -73,9 +46,9 @@ func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 				f.resource.unstructured = mutateResp.PatchedResource
 				allPatches = append(allPatches, mutateResp.Patches...)
 			}
-			f.log.Info("mutateResp.PatchedResource", "resource", mutateResp.PatchedResource)
+			f.logger.Info("mutateResp.PatchedResource", "resource", mutateResp.PatchedResource)
 			if err := f.policyContext.JSONContext().AddResource(mutateResp.PatchedResource.Object); err != nil {
-				f.log.Error(err, "failed to update resource in context")
+				f.logger.Error(err, "failed to update resource in context")
 			}
 		}
 	}
@@ -115,13 +88,13 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 			return mutate.NewErrorResponse(fmt.Sprintf("failed to load to mutate.foreach[%d].context", index), err)
 		}
 
-		preconditionsPassed, err := internal.CheckPreconditions(f.log, policyContext, foreach.AnyAllConditions)
+		preconditionsPassed, err := internal.CheckPreconditions(f.logger, policyContext.JSONContext(), foreach.AnyAllConditions)
 		if err != nil {
 			return mutate.NewErrorResponse(fmt.Sprintf("failed to evaluate mutate.foreach[%d].preconditions", index), err)
 		}
 
 		if !preconditionsPassed {
-			f.log.Info("mutate.foreach.preconditions not met", "elementIndex", index)
+			f.logger.Info("mutate.foreach.preconditions not met", "elementIndex", index)
 			continue
 		}
 
@@ -136,7 +109,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 				rule:          f.rule,
 				policyContext: f.policyContext,
 				resource:      patchedResource,
-				log:           f.log,
+				logger:        f.logger,
 				foreach:       nestedForEach,
 				nesting:       f.nesting + 1,
 				contextLoader: f.contextLoader,
@@ -144,7 +117,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 
 			mutateResp = m.mutateForEach(ctx)
 		} else {
-			mutateResp = mutate.ForEach(f.rule.Name, foreach, policyContext, patchedResource.unstructured, element, f.log)
+			mutateResp = mutate.ForEach(f.rule.Name, foreach, policyContext, patchedResource.unstructured, element, f.logger)
 		}
 
 		if mutateResp.Status == engineapi.RuleStatusFail || mutateResp.Status == engineapi.RuleStatusError {
@@ -161,15 +134,21 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 }
 
 func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info resourceInfo) *engineapi.RuleResponse {
-	resp := internal.RuleResponse(*rule, engineapi.Mutation, mutateResp.Message, mutateResp.Status)
-	if resp.Status == engineapi.RuleStatusPass {
-		resp.Patches = mutateResp.Patches
-		resp.Message = buildSuccessMessage(mutateResp.PatchedResource)
+	message := mutateResp.Message
+	if mutateResp.Status == engineapi.RuleStatusPass {
+		message = buildSuccessMessage(mutateResp.PatchedResource)
 	}
-	if len(rule.Mutation.Targets) != 0 {
-		resp.PatchedTarget = &mutateResp.PatchedResource
-		resp.PatchedTargetSubresourceName = info.subresource
-		resp.PatchedTargetParentResourceGVR = info.parentResourceGVR
+	resp := engineapi.NewRuleResponse(
+		rule.Name,
+		engineapi.Mutation,
+		message,
+		mutateResp.Status,
+	)
+	if mutateResp.Status == engineapi.RuleStatusPass {
+		resp = resp.WithPatches(mutateResp.Patches...)
+		if len(rule.Mutation.Targets) != 0 {
+			resp = resp.WithPatchedTarget(&mutateResp.PatchedResource, info.parentResourceGVR, info.subresource)
+		}
 	}
 	return resp
 }

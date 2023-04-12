@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pol-data-sync-delete-trigger-ns
+---
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: pol-data-sync-delete-trigger
+  namespace: pol-data-sync-delete-trigger-ns 
+spec:
+  rules:
+  - name: default-deny
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    generate:
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      name: default-deny
+      namespace: pol-data-sync-delete-trigger-ns
+      synchronize: true
+      data:
+        spec:
+          podSelector: {}
+          policyTypes:
+          - Ingress
+          - Egress
