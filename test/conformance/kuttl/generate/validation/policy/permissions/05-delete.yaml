@@ -1,0 +1,5 @@
+## reset changed clusterrole for the rest of the tests
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:background-controller:additional
