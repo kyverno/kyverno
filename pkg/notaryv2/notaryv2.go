@@ -189,7 +189,7 @@ func (v *notaryV2Verifier) FetchAttestations(ctx context.Context, opts images.Op
 		if len(statements) == 0 {
 			return nil, fmt.Errorf("failed to fetch attestations")
 		}
-		v.log.V(2).Info(fmt.Sprintf("sending response %+v", &images.Response{Digest: repoDesc.Digest.String(), Statements: statements}))
+		v.log.V(2).Info("sending response")
 		return &images.Response{Digest: repoDesc.Digest.String(), Statements: statements}, nil
 	}
 
@@ -197,9 +197,10 @@ func (v *notaryV2Verifier) FetchAttestations(ctx context.Context, opts images.Op
 }
 
 func verifyAttestators(ctx context.Context, v *notaryV2Verifier, remoteRepo *remote.Repository, opts images.Options, desc ocispec.Descriptor) (ocispec.Descriptor, error) {
+	v.log.V(2).Info("verifying attestations", "reference", opts.ImageRef, "opts", opts)
 	if opts.Cert == "" && opts.CertChain == "" {
 		// skips the checks when no attestor is provided
-		v.log.V(2).Info("skipping as no attestators is provided", desc)
+		// v.log.V(2).Info("skipping as no attestators is provided", desc)
 		return desc, nil
 	}
 	certsPEM := combineCerts(opts)

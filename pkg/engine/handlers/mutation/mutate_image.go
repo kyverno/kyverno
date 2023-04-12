@@ -87,8 +87,10 @@ func substituteVariables(rule kyvernov1.Rule, ctx enginecontext.EvalInterface, l
 		return nil, err
 	}
 	// replace attestations
-	for i := range rule.VerifyImages {
-		ruleCopy.VerifyImages[i].Attestations = rule.VerifyImages[i].Attestations
+	for i := range ruleCopy.VerifyImages {
+		for j := range ruleCopy.VerifyImages[i].Attestations {
+			ruleCopy.VerifyImages[i].Attestations[j].Conditions = rule.VerifyImages[i].Attestations[j].Conditions
+		}
 	}
 	return &ruleCopy, nil
 }
