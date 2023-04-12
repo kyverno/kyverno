@@ -28,3 +28,23 @@ func ObjectHasVariables(object interface{}) error {
 	}
 	return nil
 }
+
+func GetVariables(object interface{}) [][]string {
+	objectJSON, err := json.Marshal(object)
+	if err != nil {
+		return nil
+	}
+	return RegexVariables.FindAllStringSubmatch(string(objectJSON), -1)
+
+}
+
+func HasForbiddenVars(vars [][]string) error {
+	for _, v := range vars {
+		for _, f := range Forbidden {
+			if f.Match([]byte(v[2])) {
+				return fmt.Errorf("variable %s is not allowed", v[2])
+			}
+		}
+	}
+	return nil
+}
