@@ -35,7 +35,6 @@ func GetVariables(object interface{}) [][]string {
 		return nil
 	}
 	return RegexVariables.FindAllStringSubmatch(string(objectJSON), -1)
-
 }
 
 func HasForbiddenVars(vars [][]string) error {
