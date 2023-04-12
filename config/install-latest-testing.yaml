@@ -34547,6 +34547,9 @@ rules:
       - get
       - list
       - watch
+    resourceNames:
+      - kyverno
+      - kyverno-metrics
   - apiGroups:
       - coordination.k8s.io
     resources:
@@ -34596,6 +34599,9 @@ rules:
       - get
       - list
       - watch
+    resourceNames:
+      - kyverno
+      - kyverno-metrics
   - apiGroups:
       - coordination.k8s.io
     resources:
@@ -34636,6 +34642,9 @@ rules:
       - get
       - list
       - watch
+    resourceNames:
+      - kyverno
+      - kyverno-metrics
   - apiGroups:
       - coordination.k8s.io
     resources:
@@ -34666,6 +34675,9 @@ rules:
       - get
       - list
       - watch
+    resourceNames:
+      - kyverno
+      - kyverno-metrics
   - apiGroups:
       - coordination.k8s.io
     resources:
@@ -35039,18 +35051,9 @@ spec:
           volumeMounts:
             - mountPath: /.sigstore
               name: sigstore
-            - mountPath: /var/run/secrets/tokens
-              name: api-token
       volumes:
       - name: sigstore
         emptyDir: {}
-      - name: api-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              path: api-token
-              expirationSeconds: 600
-              audience: kyverno-extension
 ---
 apiVersion: apps/v1
 kind: Deployment
