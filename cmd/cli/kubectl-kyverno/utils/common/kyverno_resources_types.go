@@ -13,7 +13,7 @@ type KyvernoResources struct {
 }
 
 func (r *KyvernoResources) FetchResourcesFromPolicy(resourcePaths []string, dClient dclient.Interface, namespace string, policyReport bool) ([]*unstructured.Unstructured, error) {
-	resources := make([]*unstructured.Unstructured, 0)
+	var resources []*unstructured.Unstructured
 	var err error
 
 	resourceTypesMap := make(map[schema.GroupVersionKind]bool)

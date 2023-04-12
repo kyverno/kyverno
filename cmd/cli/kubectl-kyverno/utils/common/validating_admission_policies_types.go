@@ -6,7 +6,7 @@ import (
 	"time"
 
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	v1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -74,7 +74,7 @@ func (p *ValidatingAdmissionPolicies) ApplyPolicyOnResource(c ApplyPolicyConfig)
 	versionedAttr, _ := admission.NewVersionedAttributes(admissionAttributes, admissionAttributes.GetKind(), nil)
 
 	ctx := context.TODO()
-	failPolicy := v1.FailurePolicyType(*c.ValidatingAdmissionPolicy.Spec.FailurePolicy)
+	failPolicy := admissionregistrationv1.FailurePolicyType(*c.ValidatingAdmissionPolicy.Spec.FailurePolicy)
 
 	matchConditions := c.ValidatingAdmissionPolicy.Spec.MatchConditions
 	var matchExpressions []cel.ExpressionAccessor

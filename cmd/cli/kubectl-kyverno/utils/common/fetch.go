@@ -18,7 +18,7 @@ import (
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
-	v1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -344,7 +344,7 @@ func GetKindsFromRule(rule kyvernov1.Rule, client dclient.Interface) (map[schema
 	return resourceTypesMap, subresourceMap
 }
 
-func getKindsFromValidatingAdmissionRule(rule v1.Rule, client dclient.Interface) (map[schema.GroupVersionKind]bool, map[schema.GroupVersionKind]Subresource) {
+func getKindsFromValidatingAdmissionRule(rule admissionregistrationv1.Rule, client dclient.Interface) (map[schema.GroupVersionKind]bool, map[schema.GroupVersionKind]Subresource) {
 	resourceTypesMap := make(map[schema.GroupVersionKind]bool)
 	subresourceMap := make(map[schema.GroupVersionKind]Subresource)
 
