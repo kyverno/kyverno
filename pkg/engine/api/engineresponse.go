@@ -16,8 +16,8 @@ type EngineResponse struct {
 	Resource unstructured.Unstructured
 	// Policy is the original policy
 	Policy kyvernov1.PolicyInterface
-	// NamespaceLabels given by policy context
-	NamespaceLabels map[string]string
+	// namespaceLabels given by policy context
+	namespaceLabels map[string]string
 	// PatchedResource is the resource patched with the engine action changes
 	PatchedResource unstructured.Unstructured
 	// PolicyResponse contains the engine policy response
@@ -50,7 +50,7 @@ func NewEngineResponse(
 	return EngineResponse{
 		Resource:        resource,
 		Policy:          policy,
-		NamespaceLabels: namespaceLabels,
+		namespaceLabels: namespaceLabels,
 		PatchedResource: resource,
 	}
 }
@@ -68,6 +68,15 @@ func (r EngineResponse) WithStats(stats ExecutionStats) EngineResponse {
 func (er EngineResponse) WithPatchedResource(patchedResource unstructured.Unstructured) EngineResponse {
 	er.PatchedResource = patchedResource
 	return er
+}
+
+func (er EngineResponse) WithNamespaceLabels(namespaceLabels map[string]string) EngineResponse {
+	er.namespaceLabels = namespaceLabels
+	return er
+}
+
+func (er *EngineResponse) NamespaceLabels() map[string]string {
+	return er.namespaceLabels
 }
 
 // IsOneOf checks if any rule has status in a given list
@@ -172,7 +181,7 @@ func (er EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailur
 			continue
 		}
 		if v.Namespaces == nil {
-			hasPass, err := utils.CheckSelector(v.NamespaceSelector, er.NamespaceLabels)
+			hasPass, err := utils.CheckSelector(v.NamespaceSelector, er.namespaceLabels)
 			if err == nil && hasPass {
 				return v.Action
 			}
@@ -182,7 +191,7 @@ func (er EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailur
 				if v.NamespaceSelector == nil {
 					return v.Action
 				}
-				hasPass, err := utils.CheckSelector(v.NamespaceSelector, er.NamespaceLabels)
+				hasPass, err := utils.CheckSelector(v.NamespaceSelector, er.namespaceLabels)
 				if err == nil && hasPass {
 					return v.Action
 				}
