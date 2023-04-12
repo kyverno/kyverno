@@ -16,6 +16,8 @@ limitations under the License.
 package v2alpha1
 
 import (
+	"fmt"
+
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
@@ -44,15 +46,76 @@ type PolicyException struct {
 
 // Validate implements programmatic validation
 func (p *PolicyException) Validate() (errs field.ErrorList) {
-	// if err := ValidateVariables(p); err != nil {
-	// 	errs = append(errs, field.Forbidden(field.NewPath(""), fmt.Sprintf("Policy Exception \"%s\" should not have variables", p.Name)))
-	// }
+	errs = append(errs, ValidateVariables(p)...)
 	errs = append(errs, p.Spec.Validate(field.NewPath("spec"))...)
 	return errs
 }
 
-func ValidateVariables(polex *PolicyException) error {
-	return regex.ObjectHasVariables(polex)
+func ValidateVariables(p *PolicyException) (errs field.ErrorList) {
+	vars := regex.GetVariables(p)
+	background := p.Spec.BackgroundProcessingEnabled()
+	root := field.NewPath("spec")
+	if background {
+		if err := p.hasUserVars(vars, root); err != nil {
+			errs = append(errs, err...)
+		}
+	}
+	if err := p.hasInvalidVars(background, root); err != nil {
+		errs = append(errs, field.Forbidden(root, fmt.Sprintf("policy contains invalid variables: %s", err)))
+	}
+	return errs
+}
+
+func (p *PolicyException) hasInvalidVars(bg bool, path *field.Path) (errs field.ErrorList) {
+	if len(regex.GetVariables(p.Spec.Match)) > 0 {
+		errs = append(errs, field.Forbidden(path.Child("match"), fmt.Sprintf("policy exception \"%s\" should not have variables in match section", p.Name)))
+	}
+	return errs
+}
+
+func (p *PolicyException) hasUserVars(vars [][]string, path *field.Path) (errs field.ErrorList) {
+	if err := hasUserInMatch(p, path); err != nil {
+		errs = append(errs, err...)
+	}
+	if err := regex.HasForbiddenVars(vars); err != nil {
+		errs = append(errs, field.Forbidden(path, fmt.Sprintf("%s", err)))
+	}
+	return errs
+}
+
+func hasUserInMatch(p *PolicyException, path *field.Path) (errs field.ErrorList) {
+	nxtpth := path.Child("match")
+	if len(p.Spec.Match.All) > 0 {
+		for i, a := range p.Spec.Match.All {
+			if pth := userInfoDefined(a.UserInfo); pth != "" {
+				errs = append(errs, field.Forbidden(nxtpth.Child("all").Index(i), "invalid variable used, only select variables are allowed in background mode. Set spec.background=false to disable background mode for this policy exception"))
+			}
+		}
+		return errs
+	}
+	if len(p.Spec.Match.Any) > 0 {
+		for i, a := range p.Spec.Match.Any {
+			if pth := userInfoDefined(a.UserInfo); pth != "" {
+				// return fmt.Errorf("invalid variable used at path: spec/match/any/%d", i)
+				errs = append(errs, field.Forbidden(nxtpth.Child("any").Index(i), "invalid variable used, only select variables are allowed in background mode. Set spec.background=false to disable background mode for this policy exception"))
+			}
+		}
+		return errs
+	}
+	return nil
+}
+
+func userInfoDefined(ui kyvernov1.UserInfo) string {
+	if len(ui.Roles) > 0 {
+		return "roles"
+	}
+	if len(ui.ClusterRoles) > 0 {
+		return "clusterRoles"
+	}
+	if len(ui.Subjects) > 0 {
+		return "subjects"
+	}
+	return ""
 }
 
 // Contains returns true if it contains an exception for the given policy/rule pair
