@@ -40,6 +40,7 @@ jobs:
           - v1.24.7
           - v1.25.3
           - v1.26.0
+          - v1.27.0
         tests:
           - autogen
           - cleanup
@@ -97,6 +98,7 @@ jobs:
           - v1.24.7
           - v1.25.3
           - v1.26.0
+          - v1.27.0
         tests:
           - force-failure-policy-ignore
           - rbac
@@ -143,6 +145,7 @@ jobs:
           - v1.24.7
           - v1.25.3
           - v1.26.0
+          - v1.27.0
         tests:
           - rbac
     runs-on: ubuntu-latest
