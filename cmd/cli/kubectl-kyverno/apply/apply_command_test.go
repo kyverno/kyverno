@@ -174,6 +174,42 @@ func Test_Apply(t *testing.T) {
 				},
 			},
 		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/validate-deployment/policy.yaml"},
+				ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/validate-deployment/deployment1.yaml"},
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []preport.PolicyReport{
+				{
+					Summary: preport.PolicyReportSummary{
+						Pass:  2,
+						Fail:  0,
+						Skip:  0,
+						Error: 0,
+						Warn:  0,
+					},
+				},
+			},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/validate-deployment/policy.yaml"},
+				ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/validate-deployment/deployment2.yaml"},
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []preport.PolicyReport{
+				{
+					Summary: preport.PolicyReportSummary{
+						Pass:  1,
+						Fail:  1,
+						Skip:  0,
+						Error: 0,
+						Warn:  0,
+					},
+				},
+			},
+		},
 	}
 
 	compareSummary := func(expected preport.PolicyReportSummary, actual map[string]interface{}, desc string) {

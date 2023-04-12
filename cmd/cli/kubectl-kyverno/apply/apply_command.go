@@ -389,6 +389,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 	skipInvalidPolicies.skipped = make([]string, 0)
 	skipInvalidPolicies.invalid = make([]string, 0)
 
+	kyvernoPolicy := common.KyvernoPolicies{}
 	for _, policy := range policies {
 		_, err := policy2.Validate(policy, nil, nil, true, openApiManager)
 		if err != nil {
@@ -437,7 +438,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 				AuditWarn:            c.AuditWarn,
 				Subresources:         subresources,
 			}
-			ers, err := common.ApplyPolicyOnResource(applyPolicyConfig)
+			ers, err := kyvernoPolicy.ApplyPolicyOnResource(applyPolicyConfig)
 			if err != nil {
 				return rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}

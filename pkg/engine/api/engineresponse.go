@@ -127,7 +127,7 @@ func (er EngineResponse) IsNil() bool {
 }
 
 func (er EngineResponse) IsValidatingAdmissionPolicy() bool {
-	return er.ValidatingAdmissionPolicy.String() != "nil"
+	return !datautils.DeepEqual(er.ValidatingAdmissionPolicy, v1alpha1.ValidatingAdmissionPolicy{})
 }
 
 // GetPatches returns all the patches joined

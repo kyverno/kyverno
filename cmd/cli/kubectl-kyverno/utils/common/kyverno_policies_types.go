@@ -165,6 +165,7 @@ OuterLoop:
 	var validateResponse engineapi.EngineResponse
 	if policyHasValidate {
 		validateResponse = eng.Validate(context.Background(), policyContext)
+		ProcessValidateEngineResponse(c.Policy, validateResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
 	}
 
 	if !validateResponse.IsEmpty() {
@@ -174,6 +175,7 @@ OuterLoop:
 	verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
 	if !verifyImageResponse.IsEmpty() {
 		engineResponses = append(engineResponses, verifyImageResponse)
+		ProcessValidateEngineResponse(c.Policy, verifyImageResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
 	}
 
 	var policyHasGenerate bool

@@ -77,17 +77,19 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 
 	for _, engineResponse := range engineResponses {
-		var ns string
-		var policyName string
+		var ns, policyName string
+		var ann map[string]string
 
 		if engineResponse.IsValidatingAdmissionPolicy() {
 			validatingAdmissionPolicy := engineResponse.ValidatingAdmissionPolicy
 			ns = validatingAdmissionPolicy.GetNamespace()
 			policyName = validatingAdmissionPolicy.GetName()
+			ann = validatingAdmissionPolicy.GetAnnotations()
 		} else {
 			kyvernoPolicy := engineResponse.Policy
 			ns = kyvernoPolicy.GetNamespace()
 			policyName = kyvernoPolicy.GetName()
+			ann = kyvernoPolicy.GetAnnotations()
 		}
 
 		var appname string
@@ -116,7 +118,6 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 				Scored: true,
 			}
 
-			ann := engineResponse.Policy.GetAnnotations()
 			if ruleResponse.Status() == engineapi.RuleStatusSkip {
 				result.Result = policyreportv1alpha2.StatusSkip
 			} else if ruleResponse.Status() == engineapi.RuleStatusError {
