@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: podinfo
+  namespace: apply-on-deletion-ns
+  lables:
+    name: podinfo
+    namespace: apply-on-deletion-ns
+spec:
+  clusterIP: 10.43.112.123
+  clusterIPs:
+  - 10.43.112.123
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 9898
+    protocol: TCP
+    targetPort: http
+  - name: grpc
+    port: 9999
+    protocol: TCP
+    targetPort: grpc
+  selector:
+    app: podinfo
+  sessionAffinity: None
+  type: ClusterIP
