@@ -15,13 +15,16 @@ type PolicyContextBuilder interface {
 
 type policyContextBuilder struct {
 	configuration config.Configuration
+	jp            jmespath.Interface
 }
 
 func NewPolicyContextBuilder(
 	configuration config.Configuration,
+	jp jmespath.Interface,
 ) PolicyContextBuilder {
 	return &policyContextBuilder{
 		configuration: configuration,
+		jp:            jp,
 	}
 }
 
@@ -31,5 +34,5 @@ func (b *policyContextBuilder) Build(request admissionv1.AdmissionRequest, roles
 		Roles:             roles,
 		ClusterRoles:      clusterRoles,
 	}
-	return engine.NewPolicyContextFromAdmissionRequest(jmespath.New(b.configuration), request, userRequestInfo, gvk, b.configuration)
+	return engine.NewPolicyContextFromAdmissionRequest(b.jp, request, userRequestInfo, gvk, b.configuration)
 }
