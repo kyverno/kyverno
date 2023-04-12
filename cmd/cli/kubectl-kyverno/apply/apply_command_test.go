@@ -206,7 +206,7 @@ func Test_Apply(t *testing.T) {
 		_, _, _, info, err := tc.config.applyCommandHelper()
 		assert.NilError(t, err, desc)
 
-		resps := buildPolicyReports(info)
+		resps := buildPolicyReports(tc.config.AuditWarn, info...)
 		assert.Assert(t, len(resps) > 0, "policy reports should not be empty: %s", desc)
 		for i, resp := range resps {
 			compareSummary(tc.expectedPolicyReports[i].Summary, resp.UnstructuredContent()["summary"].(map[string]interface{}), desc)
