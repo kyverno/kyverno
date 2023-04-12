@@ -1141,8 +1141,8 @@ func Test_RuleSelector(t *testing.T) {
 		context.TODO(),
 		ctx,
 	)
-	assert.Assert(t, resp.PolicyResponse.Stats.RulesAppliedCount == 2)
-	assert.Assert(t, resp.PolicyResponse.Stats.RulesErrorCount == 0)
+	assert.Assert(t, resp.PolicyResponse.RulesAppliedCount() == 2)
+	assert.Assert(t, resp.PolicyResponse.RulesErrorCount() == 0)
 
 	log := log.WithName("Test_RuleSelector")
 	blocked := webhookutils.BlockRequest([]engineapi.EngineResponse{resp}, kyvernov1.Fail, log)
@@ -1154,8 +1154,8 @@ func Test_RuleSelector(t *testing.T) {
 		context.TODO(),
 		ctx,
 	)
-	assert.Assert(t, resp.PolicyResponse.Stats.RulesAppliedCount == 1)
-	assert.Assert(t, resp.PolicyResponse.Stats.RulesErrorCount == 0)
+	assert.Assert(t, resp.PolicyResponse.RulesAppliedCount() == 1)
+	assert.Assert(t, resp.PolicyResponse.RulesErrorCount() == 0)
 
 	blocked = webhookutils.BlockRequest([]engineapi.EngineResponse{resp}, kyvernov1.Fail, log)
 	assert.Assert(t, blocked == false)
