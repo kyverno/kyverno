@@ -54,7 +54,7 @@ func (e *engine) verifyAndPatchImages(
 		)
 		matchedResource = resource
 		resp.Add(engineapi.NewExecutionStats(startTime, time.Now()), ruleResp...)
-		if applyRules == kyvernov1.ApplyOne && resp.Stats.RulesAppliedCount > 0 {
+		if applyRules == kyvernov1.ApplyOne && resp.RulesAppliedCount() > 0 {
 			break
 		}
 	}
