@@ -77,6 +77,7 @@ func FindDownstream(client dclient.Interface, policy kyvernov1.PolicyInterface, 
 		common.GeneratePolicyLabel:          policy.GetName(),
 		common.GeneratePolicyNamespaceLabel: policy.GetNamespace(),
 		common.GenerateRuleLabel:            rule.Name,
+		kyvernov1.LabelAppManagedBy:         kyvernov1.ValueKyvernoApp,
 	}}
 
 	return client.ListResource(context.TODO(), generation.GetAPIVersion(), generation.GetKind(), "", selector)
