@@ -59,6 +59,7 @@ func createrLeaderControllers(
 		logging.WithName("PolicyController"),
 		time.Hour,
 		metricsConfig,
+		jp,
 	)
 	if err != nil {
 		return nil, err
