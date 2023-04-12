@@ -2,7 +2,7 @@ package apicall
 
 import (
 	"bytes"
-	goctx "context"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -14,26 +14,34 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/engine/context"
+	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 )
 
 type apiCall struct {
 	log     logr.Logger
+	jp      jmespath.Interface
 	entry   kyvernov1.ContextEntry
-	ctx     goctx.Context
-	jsonCtx context.Interface
+	ctx     context.Context
+	jsonCtx enginecontext.Interface
 	client  dclient.Interface
 }
 
-func New(ctx goctx.Context, entry kyvernov1.ContextEntry, jsonCtx context.Interface, client dclient.Interface, log logr.Logger) (*apiCall, error) {
+func New(
+	ctx context.Context,
+	jp jmespath.Interface,
+	entry kyvernov1.ContextEntry,
+	jsonCtx enginecontext.Interface,
+	client dclient.Interface,
+	log logr.Logger,
+) (*apiCall, error) {
 	if entry.APICall == nil {
 		return nil, fmt.Errorf("missing APICall in context entry %v", entry)
 	}
-
 	return &apiCall{
 		ctx:     ctx,
+		jp:      jp,
 		entry:   entry,
 		jsonCtx: jsonCtx,
 		client:  client,
@@ -203,7 +211,7 @@ func (a *apiCall) transformAndStore(jsonData []byte) ([]byte, error) {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s JMESPath %s: %w", a.entry.Name, a.entry.APICall.JMESPath, err)
 	}
 
-	results, err := applyJMESPathJSON(path.(string), jsonData)
+	results, err := a.applyJMESPathJSON(path.(string), jsonData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply JMESPath %s for context entry %s: %w", path, a.entry.Name, err)
 	}
@@ -222,17 +230,11 @@ func (a *apiCall) transformAndStore(jsonData []byte) ([]byte, error) {
 	return contextData, nil
 }
 
-func applyJMESPathJSON(jmesPath string, jsonData []byte) (interface{}, error) {
+func (a *apiCall) applyJMESPathJSON(jmesPath string, jsonData []byte) (interface{}, error) {
 	var data interface{}
 	err := json.Unmarshal(jsonData, &data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal JSON: %s, error: %w", string(jsonData), err)
 	}
-
-	jp, err := jmespath.New(jmesPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to compile JMESPath: %s, error: %v", jmesPath, err)
-	}
-
-	return jp.Search(data)
+	return a.jp.Search(jmesPath, data)
 }

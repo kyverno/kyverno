@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -68,7 +69,7 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 }
 
 func (s *scanner) validateResource(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*engineapi.EngineResponse, error) {
-	enginectx := enginecontext.NewContext()
+	enginectx := enginecontext.NewContext(jmespath.New(s.config))
 	if err := enginectx.AddResource(resource.Object); err != nil {
 		return nil, err
 	}
@@ -90,7 +91,7 @@ func (s *scanner) validateResource(ctx context.Context, resource unstructured.Un
 }
 
 func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*engineapi.EngineResponse, error) {
-	enginectx := enginecontext.NewContext()
+	enginectx := enginecontext.NewContext(jmespath.New(s.config))
 	if err := enginectx.AddResource(resource.Object); err != nil {
 		return nil, err
 	}

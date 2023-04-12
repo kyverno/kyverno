@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -104,6 +105,7 @@ func (h *handlers) lookupPolicy(namespace, name string) (kyvernov2alpha1.Cleanup
 }
 
 func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy kyvernov2alpha1.CleanupPolicyInterface, cfg config.Configuration) error {
+	jp := jmespath.New(cfg)
 	spec := policy.GetSpec()
 	kinds := sets.New(spec.MatchResources.GetKinds()...)
 	debug := logger.V(4)
@@ -181,7 +183,7 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 					}
 					// check conditions
 					if spec.Conditions != nil {
-						enginectx := enginecontext.NewContext()
+						enginectx := enginecontext.NewContext(jp)
 						if err := enginectx.AddTargetResource(resource.Object); err != nil {
 							debug.Error(err, "failed to add resource in context")
 							errs = append(errs, err)

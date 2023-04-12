@@ -14,6 +14,7 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -28,6 +29,7 @@ import (
 type engine struct {
 	configuration        config.Configuration
 	metricsConfiguration config.MetricsConfiguration
+	jp                   jmespath.Interface
 	client               dclient.Interface
 	rclient              registryclient.Client
 	contextLoader        engineapi.ContextLoaderFactory
@@ -42,6 +44,7 @@ type handlerFactory = func() (handlers.Handler, error)
 func NewEngine(
 	configuration config.Configuration,
 	metricsConfiguration config.MetricsConfiguration,
+	jp jmespath.Interface,
 	client dclient.Interface,
 	rclient registryclient.Client,
 	contextLoader engineapi.ContextLoaderFactory,
@@ -65,6 +68,7 @@ func NewEngine(
 	return &engine{
 		configuration:        configuration,
 		metricsConfiguration: metricsConfiguration,
+		jp:                   jp,
 		client:               client,
 		rclient:              rclient,
 		contextLoader:        contextLoader,
@@ -165,6 +169,7 @@ func (e *engine) ContextLoader(
 	return func(ctx context.Context, contextEntries []kyvernov1.ContextEntry, jsonContext enginecontext.Interface) error {
 		return loader.Load(
 			ctx,
+			e.jp,
 			e.client,
 			e.rclient,
 			contextEntries,

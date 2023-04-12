@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
@@ -55,6 +56,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 		engine: engine.NewEngine(
 			configuration,
 			config.NewDefaultMetricsConfiguration(),
+			jmespath.New(configuration),
 			dclient,
 			rclient,
 			engineapi.DefaultContextLoaderFactory(configMapResolver),

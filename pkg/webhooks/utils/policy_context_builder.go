@@ -4,6 +4,7 @@ import (
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -30,5 +31,5 @@ func (b *policyContextBuilder) Build(request admissionv1.AdmissionRequest, roles
 		Roles:             roles,
 		ClusterRoles:      clusterRoles,
 	}
-	return engine.NewPolicyContextFromAdmissionRequest(request, userRequestInfo, gvk, b.configuration)
+	return engine.NewPolicyContextFromAdmissionRequest(jmespath.New(b.configuration), request, userRequestInfo, gvk, b.configuration)
 }
