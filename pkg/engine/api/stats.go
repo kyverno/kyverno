@@ -33,8 +33,16 @@ func (s ExecutionStats) ProcessingTime() time.Duration {
 
 // PolicyStats stores statistics for the single policy application
 type PolicyStats struct {
-	// RulesAppliedCount is the count of rules that were applied successfully
-	RulesAppliedCount int
-	// RulesErrorCount is the count of rules that with execution errors
-	RulesErrorCount int
+	// rulesAppliedCount is the count of rules that were applied successfully
+	rulesAppliedCount int
+	// rulesErrorCount is the count of rules that with execution errors
+	rulesErrorCount int
+}
+
+func (ps *PolicyStats) RulesAppliedCount() int {
+	return ps.rulesAppliedCount
+}
+
+func (ps *PolicyStats) RulesErrorCount() int {
+	return ps.rulesErrorCount
 }
