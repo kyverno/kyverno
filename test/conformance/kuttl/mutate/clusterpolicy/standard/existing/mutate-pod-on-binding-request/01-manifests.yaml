@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-ns
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-pod-on-binding-request
+spec:
+  background: false
+  rules:
+    - name: mutate-pod-on-binding-request
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod/binding
+              names:
+                - nginx-pod
+      preconditions:
+        all:
+          - key: "{{node}}"
+            operator: NotEquals
+            value: ""
+          - key: "{{ request.operation }}"
+            operator: AnyIn
+            value:
+              - CREATE
+              - UPDATE
+      context:
+        - name: node
+          variable:
+            jmesPath: request.object.target.name
+            default: ''
+        - name: foolabel
+          apiCall:
+            urlPath: "/api/v1/nodes/{{node}}"
+            jmesPath: metadata.labels.foo || 'empty'
+      mutate:
+        targets:
+          - apiVersion: v1
+            kind: Pod
+            name: "{{ request.name }}"
+            namespace: "{{ request.namespace}}"
+        patchStrategicMerge:
+          metadata:
+            labels:
+              foo: "{{ foolabel }}"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+  name: kyverno:modify-pods
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - update
+      - patch

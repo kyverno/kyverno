@@ -19,11 +19,7 @@ func newPolicyResponse(rule string, patchesStr []string, status engineapi.RuleSt
 
 	return engineapi.PolicyResponse{
 		Rules: []engineapi.RuleResponse{
-			{
-				Name:    rule,
-				Patches: patches,
-				Status:  status,
-			},
+			*engineapi.NewRuleResponse(rule, engineapi.Mutation, "", status).WithPatches(patches...),
 		},
 	}
 }
@@ -35,7 +31,7 @@ func newEngineResponse(policy, rule string, patchesStr []string, status engineap
 		},
 	}
 	policyResponse := newPolicyResponse(rule, patchesStr, status)
-	response := engineapi.NewEngineResponse(unstructured.Unstructured{}, p, nil, &policyResponse)
+	response := engineapi.NewEngineResponse(unstructured.Unstructured{}, p, nil).WithPolicyResponse(policyResponse)
 	response.PatchedResource = unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"metadata": map[string]interface{}{

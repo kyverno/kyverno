@@ -6,54 +6,42 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/userinfo"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 )
 
 func (inner AdmissionHandler) WithDump(
 	enabled bool,
-	rbLister rbacv1listers.RoleBindingLister,
-	crbLister rbacv1listers.ClusterRoleBindingLister,
 ) AdmissionHandler {
 	if !enabled {
 		return inner
 	}
-	return inner.withDump(rbLister, crbLister).WithTrace("DUMP")
+	return inner.withDump().WithTrace("DUMP")
 }
 
-func (inner AdmissionHandler) withDump(
-	rbLister rbacv1listers.RoleBindingLister,
-	crbLister rbacv1listers.ClusterRoleBindingLister,
-) AdmissionHandler {
-	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+func (inner AdmissionHandler) withDump() AdmissionHandler {
+	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
 		response := inner(ctx, logger, request, startTime)
-		dumpPayload(logger, rbLister, crbLister, request, response)
+		dumpPayload(logger, request, response)
 		return response
 	}
 }
 
 func dumpPayload(
 	logger logr.Logger,
-	rbLister rbacv1listers.RoleBindingLister,
-	crbLister rbacv1listers.ClusterRoleBindingLister,
-	request *admissionv1.AdmissionRequest,
-	response *admissionv1.AdmissionResponse,
+	request AdmissionRequest,
+	response AdmissionResponse,
 ) {
-	reqPayload, err := newAdmissionRequestPayload(request, rbLister, crbLister)
+	reqPayload, err := newAdmissionRequestPayload(request)
 	if err != nil {
 		logger.Error(err, "Failed to extract resources")
 	} else {
-		if response != nil {
-			logger = logger.WithValues("AdmissionResponse", *response)
-		}
-		logger.Info("Logging admission request and response payload ", "AdmissionRequest", reqPayload)
+		logger = logger.WithValues("admission.response", response, "admission.request", reqPayload)
+		logger.Info("admission request dump")
 	}
 }
 
@@ -79,11 +67,9 @@ type admissionRequestPayload struct {
 }
 
 func newAdmissionRequestPayload(
-	request *admissionv1.AdmissionRequest,
-	rbLister rbacv1listers.RoleBindingLister,
-	crbLister rbacv1listers.ClusterRoleBindingLister,
+	request AdmissionRequest,
 ) (*admissionRequestPayload, error) {
-	newResource, oldResource, err := admissionutils.ExtractResources(nil, request)
+	newResource, oldResource, err := admissionutils.ExtractResources(nil, request.AdmissionRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -92,15 +78,6 @@ func newAdmissionRequestPayload(
 		options, err = kubeutils.BytesToUnstructured(request.Options.Raw)
 		if err != nil {
 			return nil, err
-		}
-	}
-	var roles, clusterRoles []string
-	if rbLister != nil && crbLister != nil {
-		if r, cr, err := userinfo.GetRoleRef(rbLister, crbLister, request.UserInfo); err != nil {
-			return nil, err
-		} else {
-			roles = r
-			clusterRoles = cr
 		}
 	}
 	return redactPayload(&admissionRequestPayload{
@@ -115,8 +92,8 @@ func newAdmissionRequestPayload(
 		Namespace:          request.Namespace,
 		Operation:          string(request.Operation),
 		UserInfo:           request.UserInfo,
-		Roles:              roles,
-		ClusterRoles:       clusterRoles,
+		Roles:              request.Roles,
+		ClusterRoles:       request.ClusterRoles,
 		Object:             newResource,
 		OldObject:          oldResource,
 		DryRun:             request.DryRun,

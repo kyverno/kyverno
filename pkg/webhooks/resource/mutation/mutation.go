@@ -27,7 +27,7 @@ type MutationHandler interface {
 	// HandleMutation handles validating webhook admission request
 	// If there are no errors in validating rule we apply generation rules
 	// patchedResource is the (resource + patches) after applying mutation rules
-	HandleMutation(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, time.Time) ([]byte, []string, error)
+	HandleMutation(context.Context, admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, time.Time) ([]byte, []string, error)
 }
 
 func NewMutationHandler(
@@ -59,7 +59,7 @@ type mutationHandler struct {
 
 func (h *mutationHandler) HandleMutation(
 	ctx context.Context,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 	admissionRequestTimestamp time.Time,
@@ -76,7 +76,7 @@ func (h *mutationHandler) HandleMutation(
 // return value: generated patches, triggered policies, engine responses correspdonding to the triggered policies
 func (v *mutationHandler) applyMutations(
 	ctx context.Context,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 ) ([]byte, []engineapi.EngineResponse, error) {
@@ -122,11 +122,6 @@ func (v *mutationHandler) applyMutations(
 					engineResponses = append(engineResponses, *engineResponse)
 				}
 
-				// registering the kyverno_policy_results_total metric concurrently
-				go webhookutils.RegisterPolicyResultsMetricMutation(context.TODO(), v.log, v.metrics, string(request.Operation), policy, *engineResponse)
-				// registering the kyverno_policy_execution_duration_seconds metric concurrently
-				go webhookutils.RegisterPolicyExecutionDurationMetricMutate(context.TODO(), v.log, v.metrics, string(request.Operation), policy, *engineResponse)
-
 				return nil
 			},
 		)
@@ -151,7 +146,7 @@ func (v *mutationHandler) applyMutations(
 	return jsonutils.JoinPatches(patches...), engineResponses, nil
 }
 
-func (h *mutationHandler) applyMutation(ctx context.Context, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext) (*engineapi.EngineResponse, [][]byte, error) {
+func (h *mutationHandler) applyMutation(ctx context.Context, request admissionv1.AdmissionRequest, policyContext *engine.PolicyContext) (*engineapi.EngineResponse, [][]byte, error) {
 	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
 		policyContext = policyContext.WithNamespaceLabels(engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
 	}

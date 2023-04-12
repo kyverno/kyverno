@@ -3,7 +3,6 @@ package policy
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -21,6 +20,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	corev1 "k8s.io/api/core/v1"
@@ -75,8 +75,6 @@ type PolicyController struct {
 	// nsLister can list/get namespaces from the shared informer's store
 	nsLister corev1listers.NamespaceLister
 
-	informerCacheResolvers engineapi.ConfigmapResolver
-
 	informersSynced []cache.InformerSynced
 
 	// helpers to validate against current loaded configuration
@@ -100,7 +98,6 @@ func NewPolicyController(
 	configHandler config.Configuration,
 	eventGen event.Interface,
 	namespaces corev1informers.NamespaceInformer,
-	informerCacheResolvers engineapi.ConfigmapResolver,
 	log logr.Logger,
 	reconcilePeriod time.Duration,
 	metricsConfig metrics.MetricsConfigManager,
@@ -112,19 +109,18 @@ func NewPolicyController(
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: eventInterface})
 
 	pc := PolicyController{
-		client:                 client,
-		kyvernoClient:          kyvernoClient,
-		engine:                 engine,
-		pInformer:              pInformer,
-		npInformer:             npInformer,
-		eventGen:               eventGen,
-		eventRecorder:          eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "policy_controller"}),
-		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
-		configHandler:          configHandler,
-		informerCacheResolvers: informerCacheResolvers,
-		reconcilePeriod:        reconcilePeriod,
-		metricsConfig:          metricsConfig,
-		log:                    log,
+		client:          client,
+		kyvernoClient:   kyvernoClient,
+		engine:          engine,
+		pInformer:       pInformer,
+		npInformer:      npInformer,
+		eventGen:        eventGen,
+		eventRecorder:   eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "policy_controller"}),
+		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
+		configHandler:   configHandler,
+		reconcilePeriod: reconcilePeriod,
+		metricsConfig:   metricsConfig,
+		log:             log,
 	}
 
 	pc.pLister = pInformer.Lister()
@@ -203,7 +199,7 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 		return
 	}
 
-	if reflect.DeepEqual(oldP.GetSpec(), curP.GetSpec()) {
+	if datautils.DeepEqual(oldP.GetSpec(), curP.GetSpec()) {
 		return
 	}
 
@@ -416,8 +412,8 @@ func (pc *PolicyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest
 	}
 
 	for _, ruleResponse := range engineResponse.PolicyResponse.Rules {
-		if ruleResponse.Status != engineapi.RuleStatusPass {
-			pc.log.Error(err, "can not create new UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule.Status", ruleResponse.Status)
+		if ruleResponse.Status() != engineapi.RuleStatusPass {
+			pc.log.Error(err, "can not create new UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule.Status", ruleResponse.Status())
 			continue
 		}
 

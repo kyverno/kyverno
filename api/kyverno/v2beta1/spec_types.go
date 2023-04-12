@@ -127,10 +127,10 @@ func (s *Spec) HasGenerate() bool {
 	return false
 }
 
-// HasImagesValidationChecks checks for image verification rules invoked during resource validation
-func (s *Spec) HasImagesValidationChecks() bool {
+// HasVerifyImageChecks checks for image verification rules invoked during resource validation
+func (s *Spec) HasVerifyImageChecks() bool {
 	for _, rule := range s.Rules {
-		if rule.HasImagesValidationChecks() {
+		if rule.HasVerifyImageChecks() {
 			return true
 		}
 	}
@@ -149,10 +149,10 @@ func (s *Spec) HasVerifyImages() bool {
 	return false
 }
 
-// HasYAMLSignatureVerify checks for image verification rules invoked during resource mutation
-func (s *Spec) HasYAMLSignatureVerify() bool {
+// HasVerifyManifests checks for image verification rules invoked during resource mutation
+func (s *Spec) HasVerifyManifests() bool {
 	for _, rule := range s.Rules {
-		if rule.HasYAMLSignatureVerify() {
+		if rule.HasVerifyManifests() {
 			return true
 		}
 	}
@@ -250,6 +250,9 @@ func (s *Spec) ValidateDeprecatedFields(path *field.Path) (errs field.ErrorList)
 func (s *Spec) Validate(path *field.Path, namespaced bool, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if err := s.ValidateDeprecatedFields(path); err != nil {
 		errs = append(errs, err...)
+	}
+	if s.WebhookTimeoutSeconds != nil && (*s.WebhookTimeoutSeconds < 1 || *s.WebhookTimeoutSeconds > 30) {
+		errs = append(errs, field.Invalid(path.Child("webhookTimeoutSeconds"), s.WebhookTimeoutSeconds, "the timeout value must be between 1 and 30 seconds"))
 	}
 	errs = append(errs, s.ValidateRules(path.Child("rules"), namespaced, clusterResources)...)
 	if namespaced && len(s.ValidationFailureActionOverrides) > 0 {

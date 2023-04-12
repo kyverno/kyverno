@@ -2,9 +2,9 @@ package v2beta1
 
 import (
 	"fmt"
-	"reflect"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -64,26 +64,21 @@ type Rule struct {
 
 // HasMutate checks for mutate rule
 func (r *Rule) HasMutate() bool {
-	return !reflect.DeepEqual(r.Mutation, kyvernov1.Mutation{})
+	return !datautils.DeepEqual(r.Mutation, kyvernov1.Mutation{})
 }
 
 // HasVerifyImages checks for verifyImages rule
 func (r *Rule) HasVerifyImages() bool {
 	for _, verifyImage := range r.VerifyImages {
-		if !reflect.DeepEqual(verifyImage, ImageVerification{}) {
+		if !datautils.DeepEqual(verifyImage, ImageVerification{}) {
 			return true
 		}
 	}
 	return false
 }
 
-// HasYAMLSignatureVerify checks for validate.manifests rule
-func (r Rule) HasYAMLSignatureVerify() bool {
-	return r.Validation.Manifests != nil && len(r.Validation.Manifests.Attestors) != 0
-}
-
-// HasImagesValidationChecks checks whether the verifyImages rule has validation checks
-func (r *Rule) HasImagesValidationChecks() bool {
+// HasVerifyImageChecks checks whether the verifyImages rule has validation checks
+func (r *Rule) HasVerifyImageChecks() bool {
 	for _, v := range r.VerifyImages {
 		if v.VerifyDigest || v.Required {
 			return true
@@ -92,24 +87,24 @@ func (r *Rule) HasImagesValidationChecks() bool {
 	return false
 }
 
-// HasYAMLSignatureVerify checks for validate rule
-func (p *ClusterPolicy) HasYAMLSignatureVerify() bool {
-	for _, rule := range p.Spec.Rules {
-		if rule.HasYAMLSignatureVerify() {
-			return true
-		}
-	}
-	return false
+// HasVerifyManifests checks for validate.manifests rule
+func (r Rule) HasVerifyManifests() bool {
+	return r.Validation.Manifests != nil && len(r.Validation.Manifests.Attestors) != 0
+}
+
+// HasValidatePodSecurity checks for validate.podSecurity rule
+func (r Rule) HasValidatePodSecurity() bool {
+	return r.Validation.PodSecurity != nil && !datautils.DeepEqual(r.Validation.PodSecurity, &kyvernov1.PodSecurity{})
 }
 
 // HasValidate checks for validate rule
 func (r *Rule) HasValidate() bool {
-	return !reflect.DeepEqual(r.Validation, Validation{})
+	return !datautils.DeepEqual(r.Validation, Validation{})
 }
 
 // HasGenerate checks for generate rule
 func (r *Rule) HasGenerate() bool {
-	return !reflect.DeepEqual(r.Generation, kyvernov1.Generation{})
+	return !datautils.DeepEqual(r.Generation, kyvernov1.Generation{})
 }
 
 // IsMutateExisting checks if the mutate rule applies to existing resources
@@ -161,17 +156,17 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 	if len(r.MatchResources.Any) > 0 && len(r.ExcludeResources.Any) > 0 {
 		for _, rmr := range r.MatchResources.Any {
 			for _, rer := range r.ExcludeResources.Any {
-				if reflect.DeepEqual(rmr, rer) {
+				if datautils.DeepEqual(rmr, rer) {
 					return append(errs, field.Invalid(path, r, "Rule is matching an empty set"))
 				}
 			}
 		}
 		return errs
 	}
-	if reflect.DeepEqual(r.ExcludeResources.Any, r.MatchResources.Any) {
+	if datautils.DeepEqual(r.ExcludeResources.Any, r.MatchResources.Any) {
 		return errs
 	}
-	if reflect.DeepEqual(r.ExcludeResources.All, r.MatchResources.All) {
+	if datautils.DeepEqual(r.ExcludeResources.All, r.MatchResources.All) {
 		return errs
 	}
 	return append(errs, field.Invalid(path, r, "Rule is matching an empty set"))

@@ -7,3 +7,19 @@ type PolicyResponse struct {
 	// Rules contains policy rules responses
 	Rules []RuleResponse
 }
+
+func (pr *PolicyResponse) Add(stats ExecutionStats, responses ...RuleResponse) {
+	for _, response := range responses {
+		pr.Rules = append(pr.Rules, response.WithStats(stats))
+		status := response.Status()
+		if status == RuleStatusPass || status == RuleStatusFail {
+			pr.Stats.RulesAppliedCount++
+		} else if status == RuleStatusError {
+			pr.Stats.RulesErrorCount++
+		}
+	}
+}
+
+func NewPolicyResponse() PolicyResponse {
+	return PolicyResponse{}
+}

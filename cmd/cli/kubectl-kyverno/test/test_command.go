@@ -11,7 +11,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
@@ -33,7 +32,6 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -189,7 +187,7 @@ func Command() *cobra.Command {
 				manifest.PrintValidate()
 			} else {
 				store.SetRegistryAccess(registryAccess)
-				_, err = testCommandExecute(dirPath, fileName, gitBranch, testCase, failOnly, removeColor)
+				_, err = testCommandExecute(dirPath, fileName, gitBranch, testCase, failOnly, removeColor, false)
 				if err != nil {
 					log.Log.V(3).Info("a directory is required")
 					return err
@@ -232,7 +230,15 @@ type testFilter struct {
 
 var ftable []Table
 
-func testCommandExecute(dirPath []string, fileName string, gitBranch string, testCase string, failOnly bool, removeColor bool) (rc *resultCounts, err error) {
+func testCommandExecute(
+	dirPath []string,
+	fileName string,
+	gitBranch string,
+	testCase string,
+	failOnly bool,
+	removeColor bool,
+	auditWarn bool,
+) (rc *resultCounts, err error) {
 	var errors []error
 	fs := memfs.New()
 	rc = &resultCounts{}
@@ -352,7 +358,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 					errors = append(errors, sanitizederror.NewWithError("failed to convert to JSON", err))
 					continue
 				}
-				if err := applyPoliciesFromPath(fs, policyBytes, true, policyresoucePath, rc, openApiManager, tf, failOnly, removeColor); err != nil {
+				if err := applyPoliciesFromPath(fs, policyBytes, true, policyresoucePath, rc, openApiManager, tf, failOnly, removeColor, auditWarn); err != nil {
 					return rc, sanitizederror.NewWithError("failed to apply test command", err)
 				}
 			}
@@ -364,7 +370,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 	} else {
 		var testFiles int
 		path := filepath.Clean(dirPath[0])
-		errors = getLocalDirTestFiles(fs, path, fileName, rc, &testFiles, openApiManager, tf, failOnly, removeColor)
+		errors = getLocalDirTestFiles(fs, path, fileName, rc, &testFiles, openApiManager, tf, failOnly, removeColor, auditWarn)
 
 		if testFiles == 0 {
 			fmt.Printf("\n No test files found. Please provide test YAML files named kyverno-test.yaml \n")
@@ -393,7 +399,18 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 	return rc, nil
 }
 
-func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *resultCounts, testFiles *int, openApiManager openapi.Manager, tf *testFilter, failOnly, removeColor bool) []error {
+func getLocalDirTestFiles(
+	fs billy.Filesystem,
+	path string,
+	fileName string,
+	rc *resultCounts,
+	testFiles *int,
+	openApiManager openapi.Manager,
+	tf *testFilter,
+	failOnly bool,
+	removeColor bool,
+	auditWarn bool,
+) []error {
 	var errors []error
 
 	files, err := os.ReadDir(path)
@@ -402,7 +419,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *result
 	}
 	for _, file := range files {
 		if file.IsDir() {
-			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, rc, testFiles, openApiManager, tf, failOnly, removeColor)
+			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, rc, testFiles, openApiManager, tf, failOnly, removeColor, auditWarn)
 			continue
 		}
 		if file.Name() == fileName {
@@ -418,7 +435,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *result
 				errors = append(errors, sanitizederror.NewWithError("failed to convert json", err))
 				continue
 			}
-			if err := applyPoliciesFromPath(fs, valuesBytes, false, path, rc, openApiManager, tf, failOnly, removeColor); err != nil {
+			if err := applyPoliciesFromPath(fs, valuesBytes, false, path, rc, openApiManager, tf, failOnly, removeColor, auditWarn); err != nil {
 				errors = append(errors, sanitizederror.NewWithError(fmt.Sprintf("failed to apply test command from file %s", file.Name()), err))
 				continue
 			}
@@ -427,9 +444,15 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *result
 	return errors
 }
 
-func buildPolicyResults(engineResponses []*engineapi.EngineResponse, testResults []api.TestResults, infos []common.Info, policyResourcePath string, fs billy.Filesystem, isGit bool) (map[string]policyreportv1alpha2.PolicyReportResult, []api.TestResults) {
-	results := make(map[string]policyreportv1alpha2.PolicyReportResult)
-	now := metav1.Timestamp{Seconds: time.Now().Unix()}
+func buildPolicyResults(
+	engineResponses []engineapi.EngineResponse,
+	testResults []api.TestResults,
+	policyResourcePath string,
+	fs billy.Filesystem,
+	isGit bool,
+	auditWarn bool,
+) (map[string]policyreportv1alpha2.PolicyReportResult, []api.TestResults) {
+	results := map[string]policyreportv1alpha2.PolicyReportResult{}
 
 	for _, resp := range engineResponses {
 		policyName := resp.Policy.GetName()
@@ -440,7 +463,7 @@ func buildPolicyResults(engineResponses []*engineapi.EngineResponse, testResults
 
 		var rules []string
 		for _, rule := range resp.PolicyResponse.Rules {
-			rules = append(rules, rule.Name)
+			rules = append(rules, rule.Name())
 		}
 
 		result := policyreportv1alpha2.PolicyReportResult{
@@ -542,14 +565,14 @@ func buildPolicyResults(engineResponses []*engineapi.EngineResponse, testResults
 			}
 
 			for _, rule := range resp.PolicyResponse.Rules {
-				if rule.Type != engineapi.Generation || test.Rule != rule.Name {
+				if rule.RuleType() != engineapi.Generation || test.Rule != rule.Name() {
 					continue
 				}
 
 				var resultsKey []string
 				var resultKey string
 				var result policyreportv1alpha2.PolicyReportResult
-				resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.Name, resourceNamespace, resourceKind, resourceName)
+				resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.Name(), resourceNamespace, resourceKind, resourceName)
 				for _, key := range resultsKey {
 					if val, ok := results[key]; ok {
 						result = val
@@ -558,14 +581,14 @@ func buildPolicyResults(engineResponses []*engineapi.EngineResponse, testResults
 						continue
 					}
 
-					if rule.Status == engineapi.RuleStatusSkip {
+					if rule.Status() == engineapi.RuleStatusSkip {
 						result.Result = policyreportv1alpha2.StatusSkip
-					} else if rule.Status == engineapi.RuleStatusError {
+					} else if rule.Status() == engineapi.RuleStatusError {
 						result.Result = policyreportv1alpha2.StatusError
 					} else {
 						var x string
 						result.Result = policyreportv1alpha2.StatusFail
-						x = getAndCompareResource(test.GeneratedResource, rule.GeneratedResource, isGit, policyResourcePath, fs, true)
+						x = getAndCompareResource(test.GeneratedResource, rule.GeneratedResource(), isGit, policyResourcePath, fs, true)
 						if x == "pass" {
 							result.Result = policyreportv1alpha2.StatusPass
 						}
@@ -573,75 +596,85 @@ func buildPolicyResults(engineResponses []*engineapi.EngineResponse, testResults
 					results[resultKey] = result
 				}
 			}
-		}
 
-		for _, rule := range resp.PolicyResponse.Rules {
-			if rule.Type != engineapi.Mutation {
-				continue
-			}
-
-			var resultsKey []string
-			var resultKey string
-			var result policyreportv1alpha2.PolicyReportResult
-			resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.Name, resourceNamespace, resourceKind, resourceName)
-			for _, key := range resultsKey {
-				if val, ok := results[key]; ok {
-					result = val
-					resultKey = key
-				} else {
+			for _, rule := range resp.PolicyResponse.Rules {
+				if rule.RuleType() != engineapi.Mutation || test.Rule != rule.Name() {
 					continue
 				}
 
-				if rule.Status == engineapi.RuleStatusSkip {
-					result.Result = policyreportv1alpha2.StatusSkip
-				} else if rule.Status == engineapi.RuleStatusError {
-					result.Result = policyreportv1alpha2.StatusError
-				} else {
-					var x string
-					for _, path := range patchedResourcePath {
-						result.Result = policyreportv1alpha2.StatusFail
-						x = getAndCompareResource(path, resp.PatchedResource, isGit, policyResourcePath, fs, false)
-						if x == "pass" {
-							result.Result = policyreportv1alpha2.StatusPass
-							break
-						}
-					}
-				}
-
-				results[resultKey] = result
-			}
-		}
-	}
-
-	for _, info := range infos {
-		for _, infoResult := range info.Results {
-			for _, rule := range infoResult.Rules {
-				if rule.Type != string(engineapi.Validation) && rule.Type != string(engineapi.ImageVerify) {
-					continue
-				}
-
-				var result policyreportv1alpha2.PolicyReportResult
-				var resultsKeys []string
+				var resultsKey []string
 				var resultKey string
-				resultsKeys = GetAllPossibleResultsKey("", info.PolicyName, rule.Name, infoResult.Resource.Namespace, infoResult.Resource.Kind, infoResult.Resource.Name)
-				for _, key := range resultsKeys {
+				var result policyreportv1alpha2.PolicyReportResult
+				resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.Name(), resourceNamespace, resourceKind, resourceName)
+				for _, key := range resultsKey {
 					if val, ok := results[key]; ok {
 						result = val
 						resultKey = key
 					} else {
 						continue
 					}
+
+					if rule.Status() == engineapi.RuleStatusSkip {
+						result.Result = policyreportv1alpha2.StatusSkip
+					} else if rule.Status() == engineapi.RuleStatusError {
+						result.Result = policyreportv1alpha2.StatusError
+					} else {
+						var x string
+						for _, path := range patchedResourcePath {
+							result.Result = policyreportv1alpha2.StatusFail
+							x = getAndCompareResource(path, resp.PatchedResource, isGit, policyResourcePath, fs, false)
+							if x == "pass" {
+								result.Result = policyreportv1alpha2.StatusPass
+								break
+							}
+						}
+					}
+
+					results[resultKey] = result
+				}
+			}
+
+			for _, rule := range resp.PolicyResponse.Rules {
+				if rule.RuleType() != engineapi.Validation && rule.RuleType() != engineapi.ImageVerify || test.Rule != rule.Name() {
+					continue
 				}
 
-				result.Rule = rule.Name
-				result.Result = policyreportv1alpha2.PolicyResult(rule.Status)
-				result.Source = kyvernov1.ValueKyvernoApp
-				result.Timestamp = now
-				results[resultKey] = result
+				var resultsKey []string
+				var resultKey string
+				var result policyreportv1alpha2.PolicyReportResult
+				resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.Name(), resourceNamespace, resourceKind, resourceName)
+				for _, key := range resultsKey {
+					if val, ok := results[key]; ok {
+						result = val
+						resultKey = key
+					} else {
+						continue
+					}
+
+					ann := resp.Policy.GetAnnotations()
+					if rule.Status() == engineapi.RuleStatusSkip {
+						result.Result = policyreportv1alpha2.StatusSkip
+					} else if rule.Status() == engineapi.RuleStatusError {
+						result.Result = policyreportv1alpha2.StatusError
+					} else if rule.Status() == engineapi.RuleStatusPass {
+						result.Result = policyreportv1alpha2.StatusPass
+					} else if rule.Status() == engineapi.RuleStatusFail {
+						if scored, ok := ann[kyvernov1.AnnotationPolicyScored]; ok && scored == "false" {
+							result.Result = policyreportv1alpha2.StatusWarn
+						} else if auditWarn && resp.GetValidationFailureAction().Audit() {
+							result.Result = policyreportv1alpha2.StatusWarn
+						} else {
+							result.Result = policyreportv1alpha2.StatusFail
+						}
+					} else {
+						fmt.Println(rule)
+					}
+
+					results[resultKey] = result
+				}
 			}
 		}
 	}
-
 	return results, testResults
 }
 
@@ -707,11 +740,11 @@ func getAndCompareResource(path string, engineResource unstructured.Unstructured
 	return status
 }
 
-func buildMessage(resp *engineapi.EngineResponse) string {
+func buildMessage(resp engineapi.EngineResponse) string {
 	var bldr strings.Builder
 	for _, ruleResp := range resp.PolicyResponse.Rules {
-		fmt.Fprintf(&bldr, "  %s: %s \n", ruleResp.Name, ruleResp.Status)
-		fmt.Fprintf(&bldr, "    %s \n", ruleResp.Message)
+		fmt.Fprintf(&bldr, "  %s: %s \n", ruleResp.Name(), ruleResp.Status())
+		fmt.Fprintf(&bldr, "    %s \n", ruleResp.Message())
 	}
 
 	return bldr.String()
@@ -730,12 +763,22 @@ func getFullPath(paths []string, policyResourcePath string, isGit bool) []string
 	return paths
 }
 
-func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, policyResourcePath string, rc *resultCounts, openApiManager openapi.Manager, tf *testFilter, failOnly, removeColor bool) (err error) {
-	engineResponses := make([]*engineapi.EngineResponse, 0)
+func applyPoliciesFromPath(
+	fs billy.Filesystem,
+	policyBytes []byte,
+	isGit bool,
+	policyResourcePath string,
+	rc *resultCounts,
+	openApiManager openapi.Manager,
+	tf *testFilter,
+	failOnly bool,
+	removeColor bool,
+	auditWarn bool,
+) (err error) {
+	engineResponses := make([]engineapi.EngineResponse, 0)
 	var dClient dclient.Interface
 	values := &api.Test{}
 	var variablesString string
-	var pvInfos []common.Info
 	var resultCounts common.ResultCounts
 
 	store.SetMock(true)
@@ -911,15 +954,14 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 				Client:                    dClient,
 				Subresources:              subresources,
 			}
-			ers, info, err := common.ApplyPolicyOnResource(applyPolicyConfig)
+			ers, err := common.ApplyPolicyOnResource(applyPolicyConfig)
 			if err != nil {
 				return sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}
 			engineResponses = append(engineResponses, ers...)
-			pvInfos = append(pvInfos, info)
 		}
 	}
-	resultsMap, testResults := buildPolicyResults(engineResponses, values.Results, pvInfos, policyResourcePath, fs, isGit)
+	resultsMap, testResults := buildPolicyResults(engineResponses, values.Results, policyResourcePath, fs, isGit, auditWarn)
 	resultErr := printTestResult(resultsMap, testResults, rc, failOnly, removeColor)
 	if resultErr != nil {
 		return sanitizederror.NewWithError("failed to print test result:", resultErr)

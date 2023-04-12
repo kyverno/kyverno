@@ -1050,7 +1050,8 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 	}
 
 	eng := engine.NewEngine(
-		config.NewDefaultConfiguration(),
+		config.NewDefaultConfiguration(false),
+		config.NewDefaultMetricsConfiguration(),
 		nil,
 		registryclient.NewOrDie(),
 		engineapi.DefaultContextLoaderFactory(nil),
@@ -1064,15 +1065,15 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			resourceUnstructured, err := kubeutils.BytesToUnstructured(tc.rawResource)
 			assert.NilError(t, err)
 
-			ctx := engine.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured).WithNamespaceLabels(tc.rawResourceNamespaceLabels)
+			ctx := engine.NewPolicyContext(kyvernov1.Create).WithPolicy(&policy).WithNewResource(*resourceUnstructured).WithNamespaceLabels(tc.rawResourceNamespaceLabels)
 			er := eng.Validate(
 				context.TODO(),
 				ctx,
 			)
 			if tc.blocked && tc.messages != nil {
 				for _, r := range er.PolicyResponse.Rules {
-					msg := tc.messages[r.Name]
-					assert.Equal(t, r.Message, msg)
+					msg := tc.messages[r.Name()]
+					assert.Equal(t, r.Message(), msg)
 				}
 			}
 
@@ -1126,10 +1127,11 @@ func Test_RuleSelector(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Assert(t, resourceUnstructured != nil)
 
-	ctx := engine.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured)
+	ctx := engine.NewPolicyContext(kyvernov1.Create).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
 
 	eng := engine.NewEngine(
-		config.NewDefaultConfiguration(),
+		config.NewDefaultConfiguration(false),
+		config.NewDefaultMetricsConfiguration(),
 		nil,
 		registryclient.NewOrDie(),
 		engineapi.DefaultContextLoaderFactory(nil),
