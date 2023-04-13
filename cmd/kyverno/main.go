@@ -303,6 +303,7 @@ func main() {
 		setup.Logger,
 		setup.Configuration,
 		setup.MetricsConfiguration,
+		setup.Jp,
 		dClient,
 		setup.RegistryClient,
 		setup.KubeClient,
@@ -426,8 +427,6 @@ func main() {
 		setup.MetricsManager,
 		policyCache,
 		kubeInformer.Core().V1().Namespaces().Lister(),
-		kubeInformer.Rbac().V1().RoleBindings().Lister(),
-		kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
@@ -436,6 +435,7 @@ func main() {
 		openApiManager,
 		admissionReports,
 		backgroundServiceAccountName,
+		setup.Jp,
 	)
 	exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
 		Enabled:   internal.PolicyExceptionEnabled(),
