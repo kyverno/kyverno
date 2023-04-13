@@ -1,0 +1,13 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      kubectl apply -f policy.yaml
+      if kubectl apply -f csr.yaml  2>&1 | grep "username""
+      then
+        echo "Test succeeded. x509_decode properly decoded CSR"
+        exit 0
+      else
+        echo "Tested failed. x509_decoding failed."
+        exit 1
+      fi

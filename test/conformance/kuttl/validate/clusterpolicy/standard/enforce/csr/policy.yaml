@@ -18,9 +18,4 @@ spec:
         with ClusterRoles {{ request.clusterRoles | to_string(@) }}
         and Roles {{ request.roles | to_string(@) }}.
         Subjects and groups requested are "{{ x509_decode(base64_decode('{{ request.object.spec.request }}')).Subject | to_string(@) }}"
-      deny:
-        conditions:
-          any:
-            - key: "{{ x509_decode(base64_decode('{{ request.object.spec.request }}')).Subject.CommonName }}"
-              operator: NotEquals
-              value: "angela"
+      deny: {}
