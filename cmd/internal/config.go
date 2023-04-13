@@ -112,6 +112,8 @@ func WithMetadataClient() ConfigurationOption {
 
 func WithDClient() ConfigurationOption {
 	return func(c *configuration) {
+		// requires dynamic client
+		c.usesDynamicClient = true
 		c.usesDClient = true
 	}
 }

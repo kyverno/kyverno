@@ -79,7 +79,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 		dynamicClient = createDynamicClient(logger, dynamicclient.WithMetrics(metricsManager, metrics.DynamicClient), dynamicclient.WithTracing())
 	}
 	var apiServerClient apiserver.Interface
-	if config.UsesDynamicClient() {
+	if config.UsesApiServerClient() {
 		apiServerClient = createApiServerClient(logger, apiserverclient.WithMetrics(metricsManager, metrics.ApiServerClient), apiserverclient.WithTracing())
 	}
 	var dClient dclient.Interface
