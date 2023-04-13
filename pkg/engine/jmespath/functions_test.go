@@ -30,7 +30,7 @@ func Test_Compare(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
-			jp, err := New(tc.jmesPath)
+			jp, err := newJMESPath(tc.jmesPath)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -57,7 +57,7 @@ func Test_ParseJsonSerde(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc, func(t *testing.T) {
-			jp, err := New(fmt.Sprintf(`to_string(parse_json('%s'))`, tc))
+			jp, err := newJMESPath(fmt.Sprintf(`to_string(parse_json('%s'))`, tc))
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -88,7 +88,7 @@ func Test_ParseJsonComplex(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.input, func(t *testing.T) {
-			jp, err := New(tc.input)
+			jp, err := newJMESPath(tc.input)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -165,7 +165,7 @@ bar: null
 	}
 	for _, tc := range testCases {
 		t.Run(tc.input, func(t *testing.T) {
-			jp, err := New(fmt.Sprintf(`parse_yaml('%s')`, tc.input))
+			jp, err := newJMESPath(fmt.Sprintf(`parse_yaml('%s')`, tc.input))
 			assert.NilError(t, err)
 			result, err := jp.Search("")
 			assert.NilError(t, err)
@@ -194,7 +194,7 @@ func Test_EqualFold(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
-			jp, err := New(tc.jmesPath)
+			jp, err := newJMESPath(tc.jmesPath)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -231,7 +231,7 @@ func Test_Replace(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
-			jp, err := New(tc.jmesPath)
+			jp, err := newJMESPath(tc.jmesPath)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -245,7 +245,7 @@ func Test_Replace(t *testing.T) {
 }
 
 func Test_ReplaceAll(t *testing.T) {
-	jp, err := New("replace_all('Lorem ipsum dolor sit amet', 'ipsum', 'muspi')")
+	jp, err := newJMESPath("replace_all('Lorem ipsum dolor sit amet', 'ipsum', 'muspi')")
 	assert.NilError(t, err)
 
 	result, err := jp.Search("")
@@ -276,7 +276,7 @@ func Test_ToUpper(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
-			jp, err := New(tc.jmesPath)
+			jp, err := newJMESPath(tc.jmesPath)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -309,7 +309,7 @@ func Test_ToLower(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
-			jp, err := New(tc.jmesPath)
+			jp, err := newJMESPath(tc.jmesPath)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -323,7 +323,7 @@ func Test_ToLower(t *testing.T) {
 }
 
 func Test_Trim(t *testing.T) {
-	jp, err := New("trim('¡¡¡Hello, Gophers!!!', '!¡')")
+	jp, err := newJMESPath("trim('¡¡¡Hello, Gophers!!!', '!¡')")
 	assert.NilError(t, err)
 
 	result, err := jp.Search("")
@@ -394,7 +394,7 @@ func Test_TrimPrefix(t *testing.T) {
 }
 
 func Test_Split(t *testing.T) {
-	jp, err := New("split('Hello, Gophers', ', ')")
+	jp, err := newJMESPath("split('Hello, Gophers', ', ')")
 	assert.NilError(t, err)
 
 	result, err := jp.Search("")
@@ -407,7 +407,7 @@ func Test_Split(t *testing.T) {
 }
 
 func Test_HasPrefix(t *testing.T) {
-	jp, err := New("starts_with('Gophers', 'Go')")
+	jp, err := newJMESPath("starts_with('Gophers', 'Go')")
 	assert.NilError(t, err)
 
 	result, err := jp.Search("")
@@ -419,7 +419,7 @@ func Test_HasPrefix(t *testing.T) {
 }
 
 func Test_HasSuffix(t *testing.T) {
-	jp, err := New("ends_with('Amigo', 'go')")
+	jp, err := newJMESPath("ends_with('Amigo', 'go')")
 	assert.NilError(t, err)
 
 	result, err := jp.Search("")
@@ -434,7 +434,7 @@ func Test_RegexMatch(t *testing.T) {
 	data := make(map[string]interface{})
 	data["foo"] = "hgf'b1a2r'b12g"
 
-	query, err := New("regex_match('12.*', foo)")
+	query, err := newJMESPath("regex_match('12.*', foo)")
 	assert.NilError(t, err)
 
 	result, err := query.Search(data)
@@ -446,7 +446,7 @@ func Test_RegexMatchWithNumber(t *testing.T) {
 	data := make(map[string]interface{})
 	data["foo"] = -12.0
 
-	query, err := New("regex_match('12.*', abs(foo))")
+	query, err := newJMESPath("regex_match('12.*', abs(foo))")
 	assert.NilError(t, err)
 
 	result, err := query.Search(data)
@@ -458,7 +458,7 @@ func Test_PatternMatch(t *testing.T) {
 	data := make(map[string]interface{})
 	data["foo"] = "prefix-foo"
 
-	query, err := New("pattern_match('prefix-*', foo)")
+	query, err := newJMESPath("pattern_match('prefix-*', foo)")
 	assert.NilError(t, err)
 
 	result, err := query.Search(data)
@@ -470,7 +470,7 @@ func Test_PatternMatchWithNumber(t *testing.T) {
 	data := make(map[string]interface{})
 	data["foo"] = -12.0
 
-	query, err := New("pattern_match('12*', abs(foo))")
+	query, err := newJMESPath("pattern_match('12*', abs(foo))")
 	assert.NilError(t, err)
 
 	result, err := query.Search(data)
@@ -497,7 +497,7 @@ func Test_RegexReplaceAll(t *testing.T) {
 	var resource interface{}
 	err := json.Unmarshal(resourceRaw, &resource)
 	assert.NilError(t, err)
-	query, err := New(`regex_replace_all('([Hh]e|G)l', spec.field, '${2}G')`)
+	query, err := newJMESPath(`regex_replace_all('([Hh]e|G)l', spec.field, '${2}G')`)
 	assert.NilError(t, err)
 
 	res, err := query.Search(resource)
@@ -528,7 +528,7 @@ func Test_RegexReplaceAllLiteral(t *testing.T) {
 	err := json.Unmarshal(resourceRaw, &resource)
 	assert.NilError(t, err)
 
-	query, err := New(`regex_replace_all_literal('[Hh]el?', spec.field, 'G')`)
+	query, err := newJMESPath(`regex_replace_all_literal('[Hh]el?', spec.field, 'G')`)
 	assert.NilError(t, err)
 
 	res, err := query.Search(resource)
@@ -583,7 +583,7 @@ func Test_LabelMatch(t *testing.T) {
 			err := json.Unmarshal(tc.resource, &resource)
 			assert.NilError(t, err)
 
-			query, err := New("label_match(`" + tc.test + "`, metadata.labels)")
+			query, err := newJMESPath("label_match(`" + tc.test + "`, metadata.labels)")
 			assert.NilError(t, err)
 
 			res, err := query.Search(resource)
@@ -627,7 +627,7 @@ func Test_JpToBoolean(t *testing.T) {
 }
 
 func Test_Base64Decode(t *testing.T) {
-	jp, err := New("base64_decode('SGVsbG8sIHdvcmxkIQ==')")
+	jp, err := newJMESPath("base64_decode('SGVsbG8sIHdvcmxkIQ==')")
 	assert.NilError(t, err)
 
 	result, err := jp.Search("")
@@ -639,7 +639,7 @@ func Test_Base64Decode(t *testing.T) {
 }
 
 func Test_Base64Encode(t *testing.T) {
-	jp, err := New("base64_encode('Hello, world!')")
+	jp, err := newJMESPath("base64_encode('Hello, world!')")
 	assert.NilError(t, err)
 
 	result, err := jp.Search("")
@@ -669,7 +669,7 @@ func Test_Base64Decode_Secret(t *testing.T) {
 	err := json.Unmarshal(resourceRaw, &resource)
 	assert.NilError(t, err)
 
-	query, err := New(`base64_decode(data.example1)`)
+	query, err := newJMESPath(`base64_decode(data.example1)`)
 	assert.NilError(t, err)
 
 	res, err := query.Search(resource)
@@ -744,7 +744,7 @@ func Test_PathCanonicalize(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
-			jp, err := New(tc.jmesPath)
+			jp, err := newJMESPath(tc.jmesPath)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -793,7 +793,7 @@ func Test_Truncate(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
-			jp, err := New(tc.jmesPath)
+			jp, err := newJMESPath(tc.jmesPath)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -830,7 +830,7 @@ func Test_SemverCompare(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
-			jp, err := New(tc.jmesPath)
+			jp, err := newJMESPath(tc.jmesPath)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -877,7 +877,7 @@ func Test_Items(t *testing.T) {
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
-			query, err := New("items(`" + tc.object + "`,`" + tc.keyName + "`,`" + tc.valName + "`)")
+			query, err := newJMESPath("items(`" + tc.object + "`,`" + tc.keyName + "`,`" + tc.valName + "`)")
 			assert.NilError(t, err)
 
 			res, err := query.Search("")
@@ -928,7 +928,7 @@ func Test_ObjectFromLists(t *testing.T) {
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
-			query, err := New("object_from_lists(`" + tc.keys + "`,`" + tc.values + "`)")
+			query, err := newJMESPath("object_from_lists(`" + tc.keys + "`,`" + tc.values + "`)")
 			assert.NilError(t, err)
 			res, err := query.Search("")
 			assert.NilError(t, err)
@@ -1022,7 +1022,7 @@ UFOZZVoELaasWS559wy8og39Eq21dDMynb8Bndn/
 	}}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
-			jp, err := New(tc.jmesPath)
+			jp, err := newJMESPath(tc.jmesPath)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
