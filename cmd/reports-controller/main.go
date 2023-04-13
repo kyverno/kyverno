@@ -193,7 +193,11 @@ func main() {
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
-	internal.ParseFlags(appConfig)
+	internal.ParseFlags(
+		appConfig,
+		internal.WithDefaultQps(300),
+		internal.WithDefaultBurst(300),
+	)
 	// setup
 	ctx, setup, sdown := internal.Setup(appConfig, "kyverno-reports-controller", skipResourceFilters)
 	defer sdown()

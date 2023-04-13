@@ -20,42 +20,39 @@ import (
 )
 
 type apiCall struct {
-	log     logr.Logger
+	logger  logr.Logger
 	jp      jmespath.Interface
 	entry   kyvernov1.ContextEntry
-	ctx     context.Context
 	jsonCtx enginecontext.Interface
 	client  dclient.Interface
 }
 
 func New(
-	ctx context.Context,
+	logger logr.Logger,
 	jp jmespath.Interface,
 	entry kyvernov1.ContextEntry,
 	jsonCtx enginecontext.Interface,
 	client dclient.Interface,
-	log logr.Logger,
 ) (*apiCall, error) {
 	if entry.APICall == nil {
 		return nil, fmt.Errorf("missing APICall in context entry %v", entry)
 	}
 	return &apiCall{
-		ctx:     ctx,
+		logger:  logger,
 		jp:      jp,
 		entry:   entry,
 		jsonCtx: jsonCtx,
 		client:  client,
-		log:     log,
 	}, nil
 }
 
-func (a *apiCall) Execute() ([]byte, error) {
-	call, err := variables.SubstituteAllInType(a.log, a.jsonCtx, a.entry.APICall)
+func (a *apiCall) Execute(ctx context.Context) ([]byte, error) {
+	call, err := variables.SubstituteAllInType(a.logger, a.jsonCtx, a.entry.APICall)
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", a.entry.Name, a.entry.APICall.URLPath, err)
 	}
 
-	data, err := a.execute(call)
+	data, err := a.execute(ctx, call)
 	if err != nil {
 		return nil, err
 	}
@@ -68,25 +65,25 @@ func (a *apiCall) Execute() ([]byte, error) {
 	return result, nil
 }
 
-func (a *apiCall) execute(call *kyvernov1.APICall) ([]byte, error) {
+func (a *apiCall) execute(ctx context.Context, call *kyvernov1.APICall) ([]byte, error) {
 	if call.URLPath != "" {
-		return a.executeK8sAPICall(call.URLPath)
+		return a.executeK8sAPICall(ctx, call.URLPath)
 	}
 
-	return a.executeServiceCall(call.Service)
+	return a.executeServiceCall(ctx, call.Service)
 }
 
-func (a *apiCall) executeK8sAPICall(path string) ([]byte, error) {
-	jsonData, err := a.client.RawAbsPath(a.ctx, path)
+func (a *apiCall) executeK8sAPICall(ctx context.Context, path string) ([]byte, error) {
+	jsonData, err := a.client.RawAbsPath(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get resource with raw url\n: %s: %v", path, err)
 	}
 
-	a.log.V(4).Info("executed APICall", "name", a.entry.Name, "len", len(jsonData))
+	a.logger.V(4).Info("executed APICall", "name", a.entry.Name, "len", len(jsonData))
 	return jsonData, nil
 }
 
-func (a *apiCall) executeServiceCall(service *kyvernov1.ServiceCall) ([]byte, error) {
+func (a *apiCall) executeServiceCall(ctx context.Context, service *kyvernov1.ServiceCall) ([]byte, error) {
 	if service == nil {
 		return nil, fmt.Errorf("missing service for APICall %s", a.entry.Name)
 	}
@@ -96,7 +93,7 @@ func (a *apiCall) executeServiceCall(service *kyvernov1.ServiceCall) ([]byte, er
 		return nil, err
 	}
 
-	req, err := a.buildHTTPRequest(service)
+	req, err := a.buildHTTPRequest(ctx, service)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build HTTP request for APICall %s: %w", a.entry.Name, err)
 	}
@@ -121,11 +118,11 @@ func (a *apiCall) executeServiceCall(service *kyvernov1.ServiceCall) ([]byte, er
 		return nil, fmt.Errorf("failed to read data from APICall %s: %w", a.entry.Name, err)
 	}
 
-	a.log.Info("executed service APICall", "name", a.entry.Name, "len", len(body))
+	a.logger.Info("executed service APICall", "name", a.entry.Name, "len", len(body))
 	return body, nil
 }
 
-func (a *apiCall) buildHTTPRequest(service *kyvernov1.ServiceCall) (req *http.Request, err error) {
+func (a *apiCall) buildHTTPRequest(ctx context.Context, service *kyvernov1.ServiceCall) (req *http.Request, err error) {
 	token := a.getToken()
 	defer func() {
 		if token != "" && req != nil {
@@ -134,7 +131,7 @@ func (a *apiCall) buildHTTPRequest(service *kyvernov1.ServiceCall) (req *http.Re
 	}()
 
 	if service.Method == "GET" {
-		req, err = http.NewRequest("GET", service.URL, nil)
+		req, err = http.NewRequestWithContext(ctx, "GET", service.URL, nil)
 		return
 	}
 
@@ -155,7 +152,7 @@ func (a *apiCall) getToken() string {
 	fileName := "/var/run/secrets/kubernetes.io/serviceaccount/token"
 	b, err := os.ReadFile(fileName)
 	if err != nil {
-		a.log.Info("failed to read service account token", "path", fileName)
+		a.logger.Info("failed to read service account token", "path", fileName)
 		return ""
 	}
 
@@ -206,7 +203,7 @@ func (a *apiCall) transformAndStore(jsonData []byte) ([]byte, error) {
 		return jsonData, nil
 	}
 
-	path, err := variables.SubstituteAll(a.log, a.jsonCtx, a.entry.APICall.JMESPath)
+	path, err := variables.SubstituteAll(a.logger, a.jsonCtx, a.entry.APICall.JMESPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s JMESPath %s: %w", a.entry.Name, a.entry.APICall.JMESPath, err)
 	}
@@ -226,7 +223,7 @@ func (a *apiCall) transformAndStore(jsonData []byte) ([]byte, error) {
 		return nil, fmt.Errorf("failed to add APICall results for context entry %s: %w", a.entry.Name, err)
 	}
 
-	a.log.V(4).Info("added context data", "name", a.entry.Name, "len", len(contextData))
+	a.logger.V(4).Info("added context data", "name", a.entry.Name, "len", len(contextData))
 	return contextData, nil
 }
 
