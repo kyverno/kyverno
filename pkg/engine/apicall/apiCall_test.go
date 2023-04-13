@@ -40,7 +40,7 @@ func Test_serviceGetRequest(t *testing.T) {
 	entry := kyvernov1.ContextEntry{}
 	ctx := enginecontext.NewContext()
 
-	_, err := New(context.TODO(), entry, ctx, nil, logr.Discard())
+	_, err := New(logr.Discard(), entry, ctx, nil)
 	assert.ErrorContains(t, err, "missing APICall")
 
 	entry.Name = "test"
@@ -50,22 +50,22 @@ func Test_serviceGetRequest(t *testing.T) {
 		},
 	}
 
-	call, err := New(context.TODO(), entry, ctx, nil, logr.Discard())
+	call, err := New(logr.Discard(), entry, ctx, nil)
 	assert.NilError(t, err)
-	_, err = call.Execute()
+	_, err = call.Execute(context.TODO())
 	assert.ErrorContains(t, err, "invalid request type")
 
 	entry.APICall.Service.Method = "GET"
-	call, err = New(context.TODO(), entry, ctx, nil, logr.Discard())
+	call, err = New(logr.Discard(), entry, ctx, nil)
 	assert.NilError(t, err)
-	_, err = call.Execute()
+	_, err = call.Execute(context.TODO())
 	assert.ErrorContains(t, err, "HTTP 404")
 
 	entry.APICall.Service.URL = s.URL + "/resource"
-	call, err = New(context.TODO(), entry, ctx, nil, logr.Discard())
+	call, err = New(logr.Discard(), entry, ctx, nil)
 	assert.NilError(t, err)
 
-	data, err := call.Execute()
+	data, err := call.Execute(context.TODO())
 	assert.NilError(t, err)
 	assert.Assert(t, data != nil, "nil data")
 	assert.Equal(t, string(serverResponse), string(data))
@@ -87,9 +87,9 @@ func Test_servicePostRequest(t *testing.T) {
 	}
 
 	ctx := enginecontext.NewContext()
-	call, err := New(context.TODO(), entry, ctx, nil, logr.Discard())
+	call, err := New(logr.Discard(), entry, ctx, nil)
 	assert.NilError(t, err)
-	data, err := call.Execute()
+	data, err := call.Execute(context.TODO())
 	assert.NilError(t, err)
 	assert.Equal(t, "{}\n", string(data))
 
@@ -135,9 +135,9 @@ func Test_servicePostRequest(t *testing.T) {
 		},
 	}
 
-	call, err = New(context.TODO(), entry, ctx, nil, logr.Discard())
+	call, err = New(logr.Discard(), entry, ctx, nil)
 	assert.NilError(t, err)
-	data, err = call.Execute()
+	data, err = call.Execute(context.TODO())
 	assert.NilError(t, err)
 
 	expectedResults := `{"images":["https://ghcr.io/tomcat/tomcat:9","https://ghcr.io/vault/vault:v3","https://ghcr.io/busybox/busybox:latest"]}`
