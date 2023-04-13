@@ -1048,8 +1048,8 @@ func jpRandom(arguments []interface{}) (interface{}, error) {
 
 func jpX509Decode(arguments []interface{}) (interface{}, error) {
 	res := make(map[string]interface{})
-	var cert *x509.Certificate = nil
-	var cr *x509.CertificateRequest = nil
+	var cert *x509.Certificate
+	var cr *x509.CertificateRequest
 	input, err := validateArg(x509_decode, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
