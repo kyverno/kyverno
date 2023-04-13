@@ -90,11 +90,11 @@ func LoadImageData(ctx context.Context, rclient registryclient.Client, logger lo
 }
 
 func LoadAPIData(ctx context.Context, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface, client dclient.Interface) error {
-	executor, err := apicall.New(ctx, entry, enginectx, client, logger)
+	executor, err := apicall.New(logger, entry, enginectx, client)
 	if err != nil {
 		return fmt.Errorf("failed to initialize APICall: %w", err)
 	}
-	if _, err := executor.Execute(); err != nil {
+	if _, err := executor.Execute(ctx); err != nil {
 		return fmt.Errorf("failed to execute APICall: %w", err)
 	}
 	return nil
