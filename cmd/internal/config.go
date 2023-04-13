@@ -16,6 +16,8 @@ type Configuration interface {
 	UsesLeaderElection() bool
 	UsesKyvernoClient() bool
 	UsesDynamicClient() bool
+	UsesApiServerClient() bool
+	UsesDClient() bool
 	FlagSets() []*flag.FlagSet
 }
 
@@ -95,6 +97,18 @@ func WithDynamicClient() ConfigurationOption {
 	}
 }
 
+func WithApiServerClient() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesApiServerClient = true
+	}
+}
+
+func WithDClient() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesDClient = true
+	}
+}
+
 func WithFlagSets(flagsets ...*flag.FlagSet) ConfigurationOption {
 	return func(c *configuration) {
 		c.flagSets = append(c.flagSets, flagsets...)
@@ -113,6 +127,8 @@ type configuration struct {
 	usesLeaderElection   bool
 	usesKyvernoClient    bool
 	usesDynamicClient    bool
+	usesApiServerClient  bool
+	usesDClient          bool
 	flagSets             []*flag.FlagSet
 }
 
@@ -158,6 +174,14 @@ func (c *configuration) UsesKyvernoClient() bool {
 
 func (c *configuration) UsesDynamicClient() bool {
 	return c.usesDynamicClient
+}
+
+func (c *configuration) UsesApiServerClient() bool {
+	return c.usesApiServerClient
+}
+
+func (c *configuration) UsesDClient() bool {
+	return c.usesDClient
 }
 
 func (c *configuration) FlagSets() []*flag.FlagSet {

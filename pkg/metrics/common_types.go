@@ -77,5 +77,6 @@ const (
 	KubeDynamicClient  ClientType = "dynamic"
 	KubeClient         ClientType = "kubeclient"
 	KyvernoClient      ClientType = "kyverno"
+	ApiServerClient    ClientType = "apiserver"
 	PolicyReportClient ClientType = "policyreport"
 )

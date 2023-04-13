@@ -68,11 +68,19 @@ func CreateMetadataClient(logger logr.Logger, opts ...meta.NewOption) metadata.I
 	return client
 }
 
-func CreateApiServerClient(logger logr.Logger, opts ...apisrv.NewOption) apiserver.Interface {
+func createApiServerClient(logger logr.Logger, opts ...apisrv.NewOption) apiserver.Interface {
 	logger = logger.WithName("apiserver-client")
 	logger.Info("create apiserver client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
 	client, err := apisrv.NewForConfig(createClientConfig(logger), opts...)
 	checkError(logger, err, "failed to create apiserver client")
+	return client
+}
+
+func createDClient(logger logr.Logger, ctx context.Context, dyn dynamic.Interface, kube kubernetes.Interface, resync time.Duration) dclient.Interface {
+	logger = logger.WithName("d-client")
+	logger.Info("create the kyverno dynamic client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
+	client, err := dclient.NewClient(ctx, dyn, kube, resync)
+	checkError(logger, err, "failed to create d client")
 	return client
 }
 
@@ -81,13 +89,5 @@ func CreateAggregatorClient(logger logr.Logger, opts ...agg.NewOption) aggregato
 	logger.Info("create aggregator client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
 	client, err := agg.NewForConfig(createClientConfig(logger), opts...)
 	checkError(logger, err, "failed to create aggregator client")
-	return client
-}
-
-func CreateDClient(logger logr.Logger, ctx context.Context, dyn dynamic.Interface, kube kubernetes.Interface, resync time.Duration) dclient.Interface {
-	logger = logger.WithName("d-client")
-	logger.Info("create the kyverno dynamic client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
-	client, err := dclient.NewClient(ctx, dyn, kube, resync)
-	checkError(logger, err, "failed to create d client")
 	return client
 }

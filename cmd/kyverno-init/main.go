@@ -7,7 +7,6 @@ import (
 	"context"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/kyverno/kyverno/cmd/internal"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -34,6 +33,7 @@ func main() {
 		internal.WithKubeconfig(),
 		internal.WithKyvernoClient(),
 		internal.WithDynamicClient(),
+		internal.WithDClient(),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
@@ -44,8 +44,6 @@ func main() {
 	// setup maxprocs
 	ctx, setup, sdown := internal.Setup(appConfig, "kyverno-init-controller", false)
 	defer sdown()
-	// create clients
-	client := internal.CreateDClient(setup.Logger, ctx, setup.DynamicClient, setup.KubeClient, 15*time.Minute)
 	// Exit for unsupported version of kubernetes cluster
 	if !kubeutils.HigherThanKubernetesVersion(setup.KubeClient.Discovery(), logging.GlobalLogger(), 1, 16, 0) {
 		os.Exit(1)
@@ -92,8 +90,8 @@ func main() {
 		in := gen(done, ctx.Done(), requests...)
 		// process requests
 		// processing routine count : 2
-		p1 := process(client, setup.KyvernoClient, done, ctx.Done(), in)
-		p2 := process(client, setup.KyvernoClient, done, ctx.Done(), in)
+		p1 := process(setup.DClient, setup.KyvernoClient, done, ctx.Done(), in)
+		p2 := process(setup.DClient, setup.KyvernoClient, done, ctx.Done(), in)
 		// merge results from processing routines
 		for err := range merge(done, ctx.Done(), p1, p2) {
 			if err != nil {

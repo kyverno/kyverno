@@ -2,9 +2,12 @@ package internal
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	apiserverclient "github.com/kyverno/kyverno/pkg/clients/apiserver"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	dynamicclient "github.com/kyverno/kyverno/pkg/clients/dynamic"
 	kubeclient "github.com/kyverno/kyverno/pkg/clients/kube"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
@@ -12,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
@@ -38,6 +42,8 @@ type SetupResult struct {
 	RegistryClient       registryclient.Client
 	KyvernoClient        versioned.Interface
 	DynamicClient        dynamic.Interface
+	ApiServerClient      apiserver.Interface
+	DClient              dclient.Interface
 }
 
 func Setup(config Configuration, name string, skipResourceFilters bool) (context.Context, SetupResult, context.CancelFunc) {
@@ -69,6 +75,14 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	if config.UsesDynamicClient() {
 		dynamicClient = createDynamicClient(logger, dynamicclient.WithMetrics(metricsManager, metrics.KubeDynamicClient), dynamicclient.WithTracing())
 	}
+	var apiServerClient apiserver.Interface
+	if config.UsesDynamicClient() {
+		apiServerClient = createApiServerClient(logger, apiserverclient.WithMetrics(metricsManager, metrics.ApiServerClient), apiserverclient.WithTracing())
+	}
+	var dClient dclient.Interface
+	if config.UsesDClient() {
+		dClient = createDClient(logger, ctx, dynamicClient, client, 15*time.Minute)
+	}
 	return ctx,
 		SetupResult{
 			Logger:               logger,
@@ -81,6 +95,8 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 			RegistryClient:       registryClient,
 			KyvernoClient:        kyvernoClient,
 			DynamicClient:        dynamicClient,
+			ApiServerClient:      apiServerClient,
+			DClient:              dClient,
 		},
 		shutdown(logger.WithName("shutdown"), sdownMaxProcs, sdownMetrics, sdownTracing, sdownSignals)
 }

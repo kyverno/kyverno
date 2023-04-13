@@ -64,6 +64,7 @@ func main() {
 		internal.WithKubeconfig(),
 		internal.WithLeaderElection(),
 		internal.WithKyvernoClient(),
+		internal.WithDClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -165,7 +166,6 @@ func main() {
 		setup.Logger.Error(err, "failed to initialize leader election")
 		os.Exit(1)
 	}
-	dClient := internal.CreateDClient(setup.Logger, ctx, setup.DynamicClient, setup.KubeClient, 15*time.Minute)
 	// informer factories
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
@@ -193,8 +193,8 @@ func main() {
 		os.Exit(1)
 	}
 	// create handlers
-	admissionHandlers := admissionhandlers.New(dClient)
-	cleanupHandlers := cleanuphandlers.New(setup.Logger.WithName("cleanup-handler"), dClient, cpolLister, polLister, nsLister, setup.Jp)
+	admissionHandlers := admissionhandlers.New(setup.DClient)
+	cleanupHandlers := cleanuphandlers.New(setup.Logger.WithName("cleanup-handler"), setup.DClient, cpolLister, polLister, nsLister, setup.Jp)
 	// create server
 	server := NewServer(
 		func() ([]byte, []byte, error) {

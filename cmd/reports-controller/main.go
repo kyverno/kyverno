@@ -190,6 +190,7 @@ func main() {
 		internal.WithLeaderElection(),
 		internal.WithKyvernoClient(),
 		internal.WithDynamicClient(),
+		internal.WithDClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -203,18 +204,13 @@ func main() {
 	defer sdown()
 	// create instrumented clients
 	metadataClient := internal.CreateMetadataClient(setup.Logger, metadataclient.WithMetrics(setup.MetricsManager, metrics.KyvernoClient), metadataclient.WithTracing())
-	dClient, err := dclient.NewClient(ctx, setup.DynamicClient, setup.KubeClient, 15*time.Minute)
-	if err != nil {
-		setup.Logger.Error(err, "failed to create dynamic client")
-		os.Exit(1)
-	}
 	// THIS IS AN UGLY FIX
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
 	// informer factories
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 	eventGenerator := event.NewEventGenerator(
-		dClient,
+		setup.DClient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		maxQueuedEvents,
@@ -227,7 +223,7 @@ func main() {
 		setup.Configuration,
 		setup.MetricsConfiguration,
 		setup.Jp,
-		dClient,
+		setup.DClient,
 		setup.RegistryClient,
 		setup.KubeClient,
 		setup.KyvernoClient,
@@ -266,7 +262,7 @@ func main() {
 				kyvernoInformer,
 				metadataInformer,
 				setup.KyvernoClient,
-				dClient,
+				setup.DClient,
 				setup.RegistryClient,
 				setup.Configuration,
 				setup.Jp,
