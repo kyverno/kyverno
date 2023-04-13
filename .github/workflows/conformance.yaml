@@ -62,6 +62,7 @@ jobs:
           - webhooks
     runs-on: ubuntu-latest
     needs: prepare-images
+    name: Conformance k8s ${{ matrix.k8s-version.name }} - test suite ${{ matrix.tests }}
     steps:
       - name: Checkout
         uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
