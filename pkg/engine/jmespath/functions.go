@@ -1084,25 +1084,14 @@ func jpX509Decode(arguments []interface{}) (interface{}, error) {
 	if cert != nil {
 		if fmt.Sprint(cert.PublicKeyAlgorithm) == "RSA" {
 			spki := cryptobyte.String(cert.RawSubjectPublicKeyInfo)
-			if !spki.ReadASN1(&spki, cryptobyte_asn1.SEQUENCE) {
-				return res, errors.New("writing asn.1 element to 'spki' failed")
-			}
-			var pkAISeq cryptobyte.String
-			if !spki.ReadASN1(&pkAISeq, cryptobyte_asn1.SEQUENCE) {
-				return res, errors.New("writing asn.1 element to 'pkAISeq' failed")
-			}
-			var spk asn1.BitString
-			if !spki.ReadASN1BitString(&spk) {
-				return res, errors.New("writing asn.1 bit string to 'spk' failed")
-			}
-			kk, err := x509.ParsePKCS1PublicKey(spk.Bytes)
+			N, E, err := parseCryptobyte(&spki)
 			if err != nil {
 				return res, err
 			}
 
 			cert.PublicKey = PublicKey{
-				N: kk.N.String(),
-				E: kk.E,
+				N: N,
+				E: E,
 			}
 
 			enc := json.NewEncoder(buf)
@@ -1114,25 +1103,13 @@ func jpX509Decode(arguments []interface{}) (interface{}, error) {
 	} else if cr != nil {
 		if fmt.Sprint(cr.PublicKeyAlgorithm) == "RSA" {
 			spki := cryptobyte.String(cr.RawSubjectPublicKeyInfo)
-			if !spki.ReadASN1(&spki, cryptobyte_asn1.SEQUENCE) {
-				return res, errors.New("writing asn.1 element to 'spki' failed")
-			}
-			var pkAISeq cryptobyte.String
-			if !spki.ReadASN1(&pkAISeq, cryptobyte_asn1.SEQUENCE) {
-				return res, errors.New("writing asn.1 element to 'pkAISeq' failed")
-			}
-			var spk asn1.BitString
-			if !spki.ReadASN1BitString(&spk) {
-				return res, errors.New("writing asn.1 bit string to 'spk' failed")
-			}
-			kk, err := x509.ParsePKCS1PublicKey(spk.Bytes)
+			N, E, err := parseCryptobyte(&spki)
 			if err != nil {
 				return res, err
 			}
-
 			cr.PublicKey = PublicKey{
-				N: kk.N.String(),
-				E: kk.E,
+				N: N,
+				E: E,
 			}
 
 			enc := json.NewEncoder(buf)
@@ -1148,6 +1125,25 @@ func jpX509Decode(arguments []interface{}) (interface{}, error) {
 	}
 
 	return res, nil
+}
+
+func parseCryptobyte(spki *cryptobyte.String) (string, int, error) {
+	if !spki.ReadASN1(spki, cryptobyte_asn1.SEQUENCE) {
+		return "", -1, errors.New("writing asn.1 element to 'spki' failed")
+	}
+	var pkAISeq cryptobyte.String
+	if !spki.ReadASN1(&pkAISeq, cryptobyte_asn1.SEQUENCE) {
+		return "", -1, errors.New("writing asn.1 element to 'pkAISeq' failed")
+	}
+	var spk asn1.BitString
+	if !spki.ReadASN1BitString(&spk) {
+		return "", -1, errors.New("writing asn.1 bit string to 'spk' failed")
+	}
+	kk, err := x509.ParsePKCS1PublicKey(spk.Bytes)
+	if err != nil {
+		return "", -1, err
+	}
+	return kk.N.String(), kk.E, nil
 }
 
 func jpImageNormalize(configuration config.Configuration) gojmespath.JpFunction {
