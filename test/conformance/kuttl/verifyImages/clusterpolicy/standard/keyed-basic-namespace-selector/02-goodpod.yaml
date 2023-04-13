@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: test-secret-pod
+  name: test-signed-pod
   namespace: test-verify-images
 spec:
   containers:

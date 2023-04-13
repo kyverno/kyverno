@@ -10,12 +10,12 @@ kind: Namespace
 metadata:
   name: test-verify-images-unprotected
   labels:
-    signed: "true"
+    signed: "false"
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: keyed-basic-policy
+  name: keyed-basic-ns-selector-policy
 spec:
   validationFailureAction: Enforce
   background: false
