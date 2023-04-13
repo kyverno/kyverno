@@ -20,6 +20,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -55,6 +56,7 @@ type GenerateController struct {
 	eventGen      event.Interface
 
 	log logr.Logger
+	jp  jmespath.Interface
 }
 
 // NewGenerateController returns an instance of the Generate-Request Controller
@@ -70,6 +72,7 @@ func NewGenerateController(
 	dynamicConfig config.Configuration,
 	eventGen event.Interface,
 	log logr.Logger,
+	jp jmespath.Interface,
 ) *GenerateController {
 	c := GenerateController{
 		client:        client,
@@ -83,6 +86,7 @@ func NewGenerateController(
 		configuration: dynamicConfig,
 		eventGen:      eventGen,
 		log:           log,
+		jp:            jp,
 	}
 	return &c
 }
@@ -198,7 +202,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 		return nil, err
 	}
 
-	policyContext, err := common.NewBackgroundContext(c.client, &ur, policy, &resource, c.configuration, namespaceLabels, logger)
+	policyContext, err := common.NewBackgroundContext(logger, c.client, &ur, policy, &resource, c.configuration, c.jp, namespaceLabels)
 	if err != nil {
 		return nil, err
 	}

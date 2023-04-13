@@ -4,7 +4,7 @@ import (
 	gojmespath "github.com/jmespath/go-jmespath"
 )
 
-func New(query string) (*gojmespath.JMESPath, error) {
+func newJMESPath(query string) (*gojmespath.JMESPath, error) {
 	jp, err := gojmespath.Compile(query)
 	if err != nil {
 		return nil, err

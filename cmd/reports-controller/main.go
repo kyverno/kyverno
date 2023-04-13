@@ -21,6 +21,7 @@ import (
 	backgroundscancontroller "github.com/kyverno/kyverno/pkg/controllers/report/background"
 	resourcereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -49,6 +50,7 @@ func createReportControllers(
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 	backgroundScanInterval time.Duration,
 	configuration config.Configuration,
+	jp jmespath.Interface,
 	eventGenerator event.Interface,
 ) ([]internal.Controller, func(context.Context) error) {
 	var ctrls []internal.Controller
@@ -105,6 +107,7 @@ func createReportControllers(
 					resourceReportController,
 					backgroundScanInterval,
 					configuration,
+					jp,
 					eventGenerator,
 				),
 				backgroundScanWorkers,
@@ -134,6 +137,7 @@ func createrLeaderControllers(
 	dynamicClient dclient.Interface,
 	rclient registryclient.Client,
 	configuration config.Configuration,
+	jp jmespath.Interface,
 	eventGenerator event.Interface,
 	backgroundScanInterval time.Duration,
 ) ([]internal.Controller, func(context.Context) error, error) {
@@ -151,6 +155,7 @@ func createrLeaderControllers(
 		kyvernoInformer,
 		backgroundScanInterval,
 		configuration,
+		jp,
 		eventGenerator,
 	)
 	return reportControllers, warmup, nil
@@ -223,6 +228,7 @@ func main() {
 		setup.Logger,
 		setup.Configuration,
 		setup.MetricsConfiguration,
+		setup.Jp,
 		dClient,
 		setup.RegistryClient,
 		setup.KubeClient,
@@ -265,6 +271,7 @@ func main() {
 				dClient,
 				setup.RegistryClient,
 				setup.Configuration,
+				setup.Jp,
 				eventGenerator,
 				backgroundScanInterval,
 			)
