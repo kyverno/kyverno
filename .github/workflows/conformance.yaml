@@ -31,11 +31,14 @@ jobs:
           if-no-files-found: error
 
   # runs conformance test suites with configuration:
-  # - standard
-  run-conformance:
+  standard:
     strategy:
       fail-fast: false
       matrix:
+        config:
+          - name: standard
+            values:
+              - standard
         k8s-version:
           - name: v1.24
             version: v1.24.7
@@ -62,7 +65,7 @@ jobs:
           - webhooks
     runs-on: ubuntu-latest
     needs: prepare-images
-    name: Conformance k8s ${{ matrix.k8s-version.name }} - test suite ${{ matrix.tests }}
+    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
         uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
@@ -81,7 +84,9 @@ jobs:
       - name: Load kyverno images archive in kind cluster
         run: make kind-load-image-archive
       - name: Install kyverno
-        run: make kind-install-kyverno
+        run: |
+          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+          make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Test with kuttl
