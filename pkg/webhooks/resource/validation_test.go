@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	log "github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -1048,10 +1049,12 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			},
 		},
 	}
-
+	cfg := config.NewDefaultConfiguration(false)
+	jp := jmespath.New(cfg)
 	eng := engine.NewEngine(
-		config.NewDefaultConfiguration(false),
+		cfg,
 		config.NewDefaultMetricsConfiguration(),
+		jp,
 		nil,
 		registryclient.NewOrDie(),
 		engineapi.DefaultContextLoaderFactory(nil),
@@ -1065,7 +1068,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			resourceUnstructured, err := kubeutils.BytesToUnstructured(tc.rawResource)
 			assert.NilError(t, err)
 
-			ctx := engine.NewPolicyContext(kyvernov1.Create).WithPolicy(&policy).WithNewResource(*resourceUnstructured).WithNamespaceLabels(tc.rawResourceNamespaceLabels)
+			ctx := engine.NewPolicyContext(jp, kyvernov1.Create).WithPolicy(&policy).WithNewResource(*resourceUnstructured).WithNamespaceLabels(tc.rawResourceNamespaceLabels)
 			er := eng.Validate(
 				context.TODO(),
 				ctx,
@@ -1127,11 +1130,14 @@ func Test_RuleSelector(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Assert(t, resourceUnstructured != nil)
 
-	ctx := engine.NewPolicyContext(kyvernov1.Create).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
+	cfg := config.NewDefaultConfiguration(false)
+	jp := jmespath.New(cfg)
+	ctx := engine.NewPolicyContext(jp, kyvernov1.Create).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
 
 	eng := engine.NewEngine(
-		config.NewDefaultConfiguration(false),
+		cfg,
 		config.NewDefaultMetricsConfiguration(),
+		jp,
 		nil,
 		registryclient.NewOrDie(),
 		engineapi.DefaultContextLoaderFactory(nil),
