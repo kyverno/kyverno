@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+delete:
+- apiVersion: rbac.authorization.k8s.io/v1
+  kind: ClusterRole
+  name: kyverno:background-controller:additional
