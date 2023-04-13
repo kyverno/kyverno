@@ -19,7 +19,6 @@ import (
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"go.opentelemetry.io/otel/trace"
 	admissionv1 "k8s.io/api/admission/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -84,10 +83,6 @@ func (v *mutationHandler) applyMutations(
 		return nil, nil, nil
 	}
 
-	if isResourceDeleted(policyContext) && request.Operation == admissionv1.Update {
-		return nil, nil, nil
-	}
-
 	var patches [][]byte
 	var engineResponses []engineapi.EngineResponse
 
@@ -135,10 +130,8 @@ func (v *mutationHandler) applyMutations(
 		patches = append(patches, annPatches...)
 	}
 
-	if !isResourceDeleted(policyContext) {
-		events := webhookutils.GenerateEvents(engineResponses, false)
-		v.eventGen.Add(events...)
-	}
+	events := webhookutils.GenerateEvents(engineResponses, false)
+	v.eventGen.Add(events...)
 
 	logMutationResponse(patches, engineResponses, v.log)
 
@@ -177,14 +170,4 @@ func logMutationResponse(patches [][]byte, engineResponses []engineapi.EngineRes
 	if !engineutils.IsResponseSuccessful(engineResponses) {
 		logger.Error(fmt.Errorf(webhookutils.GetErrorMsg(engineResponses)), "failed to apply mutation rules on the resource, reporting policy violation")
 	}
-}
-
-func isResourceDeleted(policyContext *engine.PolicyContext) bool {
-	var deletionTimeStamp *metav1.Time
-	if resource := policyContext.NewResource(); resource.Object != nil {
-		deletionTimeStamp = resource.GetDeletionTimestamp()
-	} else if resource := policyContext.OldResource(); resource.Object != nil {
-		deletionTimeStamp = resource.GetDeletionTimestamp()
-	}
-	return deletionTimeStamp != nil
 }
