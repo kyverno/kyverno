@@ -22,7 +22,7 @@ func New(configuration config.Configuration) Interface {
 }
 
 func (i implementation) Query(query string) (Query, error) {
-	return newJMESPath(query)
+	return newJMESPath(i.configuration, query)
 }
 
 func (i implementation) Search(query string, data interface{}) (interface{}, error) {
