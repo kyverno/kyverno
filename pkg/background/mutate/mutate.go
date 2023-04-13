@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/utils"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -28,7 +29,7 @@ import (
 
 var ErrEmptyPatch error = fmt.Errorf("empty resource to patch")
 
-type MutateExistingController struct {
+type mutateExistingController struct {
 	// clients
 	client        dclient.Interface
 	statusControl common.StatusControlInterface
@@ -43,6 +44,7 @@ type MutateExistingController struct {
 	eventGen      event.Interface
 
 	log logr.Logger
+	jp  jmespath.Interface
 }
 
 // NewMutateExistingController returns an instance of the MutateExistingController
@@ -56,8 +58,9 @@ func NewMutateExistingController(
 	dynamicConfig config.Configuration,
 	eventGen event.Interface,
 	log logr.Logger,
-) *MutateExistingController {
-	c := MutateExistingController{
+	jp jmespath.Interface,
+) *mutateExistingController {
+	c := mutateExistingController{
 		client:        client,
 		statusControl: statusControl,
 		engine:        engine,
@@ -67,11 +70,12 @@ func NewMutateExistingController(
 		configuration: dynamicConfig,
 		eventGen:      eventGen,
 		log:           log,
+		jp:            jp,
 	}
 	return &c
 }
 
-func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
+func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey(), "resource", ur.Spec.GetResource().String())
 	var errs []error
 
@@ -130,7 +134,7 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 		}
 
 		namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
-		policyContext, err := common.NewBackgroundContext(c.client, ur, policy, trigger, c.configuration, namespaceLabels, logger)
+		policyContext, err := common.NewBackgroundContext(logger, c.client, ur, policy, trigger, c.configuration, c.jp, namespaceLabels)
 		if err != nil {
 			logger.WithName(rule.Name).Error(err, "failed to build policy context")
 			errs = append(errs, err)
@@ -210,7 +214,7 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 	return updateURStatus(c.statusControl, *ur, err)
 }
 
-func (c *MutateExistingController) getPolicy(key string) (kyvernov1.PolicyInterface, error) {
+func (c *mutateExistingController) getPolicy(key string) (kyvernov1.PolicyInterface, error) {
 	pNamespace, pName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		return nil, err
@@ -223,7 +227,7 @@ func (c *MutateExistingController) getPolicy(key string) (kyvernov1.PolicyInterf
 	return c.policyLister.Get(pName)
 }
 
-func (c *MutateExistingController) report(err error, policy, rule string, target *unstructured.Unstructured) {
+func (c *mutateExistingController) report(err error, policy, rule string, target *unstructured.Unstructured) {
 	var events []event.Info
 
 	if target == nil {
