@@ -196,7 +196,7 @@ func (gen *generator) syncHandler(key Info) error {
 		eventType = corev1.EventTypeNormal
 	}
 
-	logger.V(2).Info("creating the event", "source", key.Source, "type", eventType, "resource", key.Resource())
+	logger.V(3).Info("creating the event", "source", key.Source, "type", eventType, "resource", key.Resource())
 	// based on the source of event generation, use different event recorders
 	switch key.Source {
 	case AdmissionController:
