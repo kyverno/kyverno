@@ -46,7 +46,9 @@ jobs:
           - cleanup
           - events
           - exceptions
-          - generate
+          - generate/clusterpolicy
+          - generate/policy
+          - generate/validation
           - mutate
           - policy-validation
           - rangeoperators
