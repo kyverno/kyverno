@@ -1061,28 +1061,21 @@ func jpRandom(arguments []interface{}) (interface{}, error) {
 
 func jpX509Decode(arguments []interface{}) (interface{}, error) {
 	res := make(map[string]interface{})
-	var cert *x509.Certificate
-	var cr *x509.CertificateRequest
-	input, err := validateArg(x509_decode, arguments, 0, reflect.String)
-	if err != nil {
+	if input, err := validateArg(x509_decode, arguments, 0, reflect.String); err != nil {
 		return nil, err
-	}
-	p, _ := pem.Decode([]byte(input.String()))
-	if p == nil {
-		return res, nil
-	}
-
-	cert, err = x509.ParseCertificate(p.Bytes)
-	if err != nil {
-		cr, err = x509.ParseCertificateRequest(p.Bytes)
-		if err != nil {
-			return res, err
-		}
-	}
-
-	buf := new(bytes.Buffer)
-	if cert != nil {
-		if fmt.Sprint(cert.PublicKeyAlgorithm) == "RSA" {
+	} else if block, _ := pem.Decode([]byte(input.String())); block == nil {
+		return nil, errors.New("failed to decode PEM block")
+	} else {
+		buf := new(bytes.Buffer)
+		switch block.Type {
+		case "CERTIFICATE":
+			var cert *x509.Certificate
+			if cert, err = x509.ParseCertificate(block.Bytes); err != nil {
+				return nil, err
+			}
+			if fmt.Sprint(cert.PublicKeyAlgorithm) != "RSA" {
+				return nil, errors.New("certificate should use rsa algorithm")
+			}
 			spki := cryptobyte.String(cert.RawSubjectPublicKeyInfo)
 			N, E, err := parseCryptobyte(&spki)
 			if err != nil {
@@ -1099,9 +1092,14 @@ func jpX509Decode(arguments []interface{}) (interface{}, error) {
 			if err != nil {
 				return res, err
 			}
-		}
-	} else if cr != nil {
-		if fmt.Sprint(cr.PublicKeyAlgorithm) == "RSA" {
+		case "CERTIFICATE REQUEST":
+			var cr *x509.CertificateRequest
+			if cr, err = x509.ParseCertificateRequest(block.Bytes); err != nil {
+				return nil, err
+			}
+			if fmt.Sprint(cr.PublicKeyAlgorithm) != "RSA" {
+				return nil, errors.New("certificate eequest should use rsa algorithm")
+			}
 			spki := cryptobyte.String(cr.RawSubjectPublicKeyInfo)
 			N, E, err := parseCryptobyte(&spki)
 			if err != nil {
@@ -1117,14 +1115,15 @@ func jpX509Decode(arguments []interface{}) (interface{}, error) {
 			if err != nil {
 				return res, err
 			}
+		default:
+			return nil, errors.New("PEM block neither contains a CERTIFICATE or CERTIFICATE REQUEST")
 		}
-	}
+		if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
+			return res, err
+		}
 
-	if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
-		return res, err
+		return res, nil
 	}
-
-	return res, nil
 }
 
 func parseCryptobyte(spki *cryptobyte.String) (string, int, error) {
