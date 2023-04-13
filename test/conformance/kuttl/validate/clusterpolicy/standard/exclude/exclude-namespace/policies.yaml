@@ -1,0 +1,30 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-label
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: require-label
+      match:
+        any:
+        - resources:
+            kinds:
+              - "*"
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - default
+      preconditions:
+        all:
+          - key: "{{ request.operation }}"
+            operator: NotEquals
+            value: DELETE
+      validate:
+        message: 'Test'
+        pattern:
+          metadata:
+            labels:
+              foo: bar
