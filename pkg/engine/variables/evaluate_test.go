@@ -6,7 +6,9 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -376,7 +378,7 @@ func TestEvaluate(t *testing.T) {
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{1, 5, 7}), Operator: kyverno.ConditionOperators["AnyNotIn"], RawValue: kyverno.ToJSON("0-10")}, false},
 	}
 
-	ctx := context.NewContext()
+	ctx := context.NewContext(jmespath.New(config.NewDefaultConfiguration(false)))
 	for _, tc := range testCases {
 		if Evaluate(logr.Discard(), ctx, tc.Condition) != tc.Result {
 			t.Errorf("%v - expected result to be %v", tc.Condition, tc.Result)
@@ -401,7 +403,7 @@ func Test_Eval_Equal_Var_Pass(t *testing.T) {
 		`)
 
 	// context
-	ctx := context.NewContext()
+	ctx := context.NewContext(jmespath.New(config.NewDefaultConfiguration(false)))
 	err := context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -443,7 +445,7 @@ func Test_Eval_Equal_Var_Fail(t *testing.T) {
 		`)
 
 	// context
-	ctx := context.NewContext()
+	ctx := context.NewContext(jmespath.New(config.NewDefaultConfiguration(false)))
 	err := context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)

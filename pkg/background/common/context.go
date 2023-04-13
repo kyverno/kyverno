@@ -10,18 +10,22 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func NewBackgroundContext(dclient dclient.Interface, ur *kyvernov1beta1.UpdateRequest,
+func NewBackgroundContext(
+	logger logr.Logger,
+	dclient dclient.Interface,
+	ur *kyvernov1beta1.UpdateRequest,
 	policy kyvernov1.PolicyInterface,
 	trigger *unstructured.Unstructured,
 	cfg config.Configuration,
+	jp jmespath.Interface,
 	namespaceLabels map[string]string,
-	logger logr.Logger,
 ) (*engine.PolicyContext, error) {
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	var new, old unstructured.Unstructured
 	var err error
 

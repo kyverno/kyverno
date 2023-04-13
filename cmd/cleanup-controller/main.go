@@ -199,7 +199,7 @@ func main() {
 	}
 	// create handlers
 	admissionHandlers := admissionhandlers.New(dClient)
-	cleanupHandlers := cleanuphandlers.New(dClient, cpolLister, polLister, nsLister, setup.Logger.WithName("cleanup-handler"))
+	cleanupHandlers := cleanuphandlers.New(setup.Logger.WithName("cleanup-handler"), dClient, cpolLister, polLister, nsLister, setup.Jp)
 	// create server
 	server := NewServer(
 		func() ([]byte, []byte, error) {
