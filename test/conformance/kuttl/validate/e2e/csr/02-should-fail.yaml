@@ -1,0 +1,6 @@
+## Checks that the manifests.yaml file CANNOT be successfully created. If it can, fail the test as this is incorrect.
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+- file: bad.yaml
+  shouldFail: true

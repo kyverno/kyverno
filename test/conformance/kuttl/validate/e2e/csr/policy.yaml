@@ -1,0 +1,26 @@
+apiVersion: kyverno.io/v2beta1
+kind: ClusterPolicy
+metadata:
+  name: audit-csr
+spec:
+  background: false
+  validationFailureAction: Audit
+  rules:
+  - name: csr
+    match:
+      any:
+      - resources:
+          kinds:
+          - CertificateSigningRequest
+    validate:
+      message: >-
+        CSR created by {{ request.userInfo | to_string(@) }}
+        with ClusterRoles {{ request.clusterRoles | to_string(@) }}
+        and Roles {{ request.roles | to_string(@) }}.
+        Subjects and groups requested are "{{ base64_decode('{{ request.object.spec.request }}').x509_decode(@).Subject | to_string(@) }}"
+      deny:
+        conditions:
+          any:
+            - key: "{{ base64_decode('{{ request.object.spec.request }}').x509_decode(@).Subject.organizationName }}"
+              operator: NotEquals
+              value: "mygroup"
