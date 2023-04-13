@@ -773,7 +773,7 @@ func jpToBoolean(arguments []interface{}) (interface{}, error) {
 }
 
 func _jpAdd(arguments []interface{}, operator string) (interface{}, error) {
-	op1, op2, err := ParseArithemticOperands(arguments, operator)
+	op1, op2, err := parseArithemticOperands(arguments, operator)
 	if err != nil {
 		return nil, err
 	}
@@ -804,7 +804,7 @@ func jpSum(arguments []interface{}) (interface{}, error) {
 }
 
 func jpSubtract(arguments []interface{}) (interface{}, error) {
-	op1, op2, err := ParseArithemticOperands(arguments, subtract)
+	op1, op2, err := parseArithemticOperands(arguments, subtract)
 	if err != nil {
 		return nil, err
 	}
@@ -813,7 +813,7 @@ func jpSubtract(arguments []interface{}) (interface{}, error) {
 }
 
 func jpMultiply(arguments []interface{}) (interface{}, error) {
-	op1, op2, err := ParseArithemticOperands(arguments, multiply)
+	op1, op2, err := parseArithemticOperands(arguments, multiply)
 	if err != nil {
 		return nil, err
 	}
@@ -822,7 +822,7 @@ func jpMultiply(arguments []interface{}) (interface{}, error) {
 }
 
 func jpDivide(arguments []interface{}) (interface{}, error) {
-	op1, op2, err := ParseArithemticOperands(arguments, divide)
+	op1, op2, err := parseArithemticOperands(arguments, divide)
 	if err != nil {
 		return nil, err
 	}
@@ -831,7 +831,7 @@ func jpDivide(arguments []interface{}) (interface{}, error) {
 }
 
 func jpModulo(arguments []interface{}) (interface{}, error) {
-	op1, op2, err := ParseArithemticOperands(arguments, modulo)
+	op1, op2, err := parseArithemticOperands(arguments, modulo)
 	if err != nil {
 		return nil, err
 	}
