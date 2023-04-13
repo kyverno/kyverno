@@ -25,19 +25,6 @@ jobs:
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         with:
-          build-cache-key: pre-checks
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@08e2f20817b15149a52b5b3ebe7de50aff2ba8c5 # v3.4.0
-        with:
-          version: v1.52.2
-          skip-cache: true
-      - name: go fmt check
-        run: make fmt-check
-      - name: goimports check
-        run: make imports-check
-      - name: Checking unused pkgs using go mod tidy
-        run: make unused-package-check
-      - name: Go vet
-        run: make vet
+          build-cache-key: tests
       - name: Unit test
         run: make test-unit
