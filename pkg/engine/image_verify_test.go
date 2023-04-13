@@ -15,6 +15,7 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
@@ -164,6 +165,7 @@ var signaturePayloads = [][]byte{
 var (
 	cfg        = config.NewDefaultConfiguration(false)
 	metricsCfg = config.NewDefaultMetricsConfiguration()
+	jp         = jmespath.New(cfg)
 )
 
 func testVerifyAndPatchImages(
@@ -176,6 +178,7 @@ func testVerifyAndPatchImages(
 	e := NewEngine(
 		cfg,
 		metricsCfg,
+		jp,
 		nil,
 		rclient,
 		engineapi.DefaultContextLoaderFactory(cmResolver),
@@ -219,7 +222,7 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) *Po
 	resourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(resource))
 	assert.NilError(t, err)
 
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 	err = enginecontext.AddResource(ctx, []byte(resource))
 	assert.NilError(t, err)
 
