@@ -1118,7 +1118,7 @@ func jpImageNormalize(configuration config.Configuration) gojmespath.JpFunction 
 		if image, err := validateArg(imageNormalize, arguments, 0, reflect.String); err != nil {
 			return nil, err
 		} else if infos, err := imageutils.GetImageInfo(image.String(), configuration); err != nil {
-			return nil, err
+			return nil, formatError(genericError, imageNormalize, err)
 		} else {
 			return infos.String(), nil
 		}

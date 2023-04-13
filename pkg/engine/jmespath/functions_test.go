@@ -1399,3 +1399,59 @@ func Test_jpfToLower(t *testing.T) {
 		})
 	}
 }
+
+func Test_ImageNormalize(t *testing.T) {
+	testCases := []struct {
+		jmesPath       string
+		expectedResult string
+		wantErr        bool
+	}{
+		{
+			jmesPath:       "image_normalize('nginx')",
+			expectedResult: "docker.io/nginx:latest",
+		},
+		{
+			jmesPath:       "image_normalize('docker.io/nginx')",
+			expectedResult: "docker.io/nginx:latest",
+		},
+		{
+			jmesPath:       "image_normalize('docker.io/library/nginx')",
+			expectedResult: "docker.io/library/nginx:latest",
+		},
+		{
+			jmesPath:       "image_normalize('ghcr.io/library/nginx')",
+			expectedResult: "ghcr.io/library/nginx:latest",
+		},
+		{
+			jmesPath:       "image_normalize('ghcr.io/nginx')",
+			expectedResult: "ghcr.io/nginx:latest",
+		},
+		{
+			jmesPath:       "image_normalize('ghcr.io/nginx:latest')",
+			expectedResult: "ghcr.io/nginx:latest",
+		},
+		{
+			jmesPath:       "image_normalize('ghcr.io/nginx:1.2')",
+			expectedResult: "ghcr.io/nginx:1.2",
+		},
+		{
+			jmesPath: "image_normalize('')",
+			wantErr:  true,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.jmesPath, func(t *testing.T) {
+			jp, err := newJMESPath(cfg, tc.jmesPath)
+			assert.NilError(t, err)
+			result, err := jp.Search("")
+			if tc.wantErr {
+				assert.Error(t, err, "JMESPath function 'image_normalize': bad image: docker.io/: invalid reference format")
+			} else {
+				assert.NilError(t, err)
+				res, ok := result.(string)
+				assert.Assert(t, ok)
+				assert.Equal(t, res, tc.expectedResult)
+			}
+		})
+	}
+}
