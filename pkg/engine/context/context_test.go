@@ -5,8 +5,12 @@ import (
 	"testing"
 
 	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	authenticationv1 "k8s.io/api/authentication/v1"
 )
+
+var jp = jmespath.New(config.NewDefaultConfiguration(false))
 
 func Test_addResourceAndUserContext(t *testing.T) {
 	var err error
@@ -55,7 +59,7 @@ func Test_addResourceAndUserContext(t *testing.T) {
 	}
 
 	var expectedResult string
-	ctx := NewContext()
+	ctx := NewContext(jp)
 	err = AddResource(ctx, rawResource)
 	if err != nil {
 		t.Error(err)

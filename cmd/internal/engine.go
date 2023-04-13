@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"k8s.io/client-go/kubernetes"
 )
@@ -22,6 +23,7 @@ func NewEngine(
 	logger logr.Logger,
 	configuration config.Configuration,
 	metricsConfiguration config.MetricsConfiguration,
+	jp jmespath.Interface,
 	client dclient.Interface,
 	rclient registryclient.Client,
 	kubeClient kubernetes.Interface,
@@ -34,6 +36,7 @@ func NewEngine(
 	return engine.NewEngine(
 		configuration,
 		metricsConfiguration,
+		jp,
 		client,
 		rclient,
 		engineapi.DefaultContextLoaderFactory(configMapResolver),

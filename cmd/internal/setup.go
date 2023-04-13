@@ -6,6 +6,7 @@ import (
 	"github.com/go-logr/logr"
 	kubeclient "github.com/kyverno/kyverno/pkg/clients/kube"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"k8s.io/client-go/kubernetes"
@@ -27,6 +28,7 @@ type SetupResult struct {
 	Configuration        config.Configuration
 	MetricsConfiguration config.MetricsConfiguration
 	MetricsManager       metrics.MetricsConfigManager
+	Jp                   jmespath.Interface
 	KubeClient           kubernetes.Interface
 	LeaderElectionClient kubernetes.Interface
 	RegistryClient       registryclient.Client
@@ -59,6 +61,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 			Configuration:        configuration,
 			MetricsConfiguration: metricsConfiguration,
 			MetricsManager:       metricsManager,
+			Jp:                   jmespath.New(configuration),
 			KubeClient:           client,
 			LeaderElectionClient: leaderElectionClient,
 			RegistryClient:       registryClient,
