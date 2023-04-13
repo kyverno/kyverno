@@ -20,6 +20,8 @@ import (
 	trunc "github.com/aquilax/truncate"
 	"github.com/blang/semver/v4"
 	gojmespath "github.com/jmespath/go-jmespath"
+	"github.com/kyverno/kyverno/pkg/config"
+	imageutils "github.com/kyverno/kyverno/pkg/utils/image"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	regen "github.com/zach-klippenstein/goregen"
 	"golang.org/x/crypto/cryptobyte"
@@ -66,9 +68,10 @@ var (
 	objectFromLists        = "object_from_lists"
 	random                 = "random"
 	x509_decode            = "x509_decode"
+	imageNormalize         = "image_normalize"
 )
 
-func GetFunctions() []FunctionEntry {
+func GetFunctions(configuration config.Configuration) []FunctionEntry {
 	return []FunctionEntry{{
 		FunctionEntry: gojmespath.FunctionEntry{
 			Name: compare,
@@ -541,6 +544,16 @@ func GetFunctions() []FunctionEntry {
 		},
 		ReturnType: []jpType{jpString},
 		Note:       "returns the result of rounding time down to a multiple of duration",
+	}, {
+		FunctionEntry: gojmespath.FunctionEntry{
+			Name: imageNormalize,
+			Arguments: []argSpec{
+				{Types: []jpType{jpString}},
+			},
+			Handler: jpImageNormalize(configuration),
+		},
+		ReturnType: []jpType{jpString},
+		Note:       "normalizes an image reference",
 	}}
 }
 
@@ -1098,4 +1111,16 @@ func jpX509Decode(arguments []interface{}) (interface{}, error) {
 	}
 
 	return res, nil
+}
+
+func jpImageNormalize(configuration config.Configuration) gojmespath.JpFunction {
+	return func(arguments []interface{}) (interface{}, error) {
+		if image, err := validateArg(imageNormalize, arguments, 0, reflect.String); err != nil {
+			return nil, err
+		} else if infos, err := imageutils.GetImageInfo(image.String(), configuration); err != nil {
+			return nil, err
+		} else {
+			return infos.String(), nil
+		}
+	}
 }
