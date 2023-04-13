@@ -14,6 +14,8 @@ type Configuration interface {
 	UsesCosign() bool
 	UsesRegistryClient() bool
 	UsesLeaderElection() bool
+	UsesKyvernoClient() bool
+	UsesDynamicClient() bool
 	FlagSets() []*flag.FlagSet
 }
 
@@ -81,6 +83,18 @@ func WithLeaderElection() ConfigurationOption {
 	}
 }
 
+func WithKyvernoClient() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesKyvernoClient = true
+	}
+}
+
+func WithDynamicClient() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesDynamicClient = true
+	}
+}
+
 func WithFlagSets(flagsets ...*flag.FlagSet) ConfigurationOption {
 	return func(c *configuration) {
 		c.flagSets = append(c.flagSets, flagsets...)
@@ -97,6 +111,8 @@ type configuration struct {
 	usesCosign           bool
 	usesRegistryClient   bool
 	usesLeaderElection   bool
+	usesKyvernoClient    bool
+	usesDynamicClient    bool
 	flagSets             []*flag.FlagSet
 }
 
@@ -134,6 +150,14 @@ func (c *configuration) UsesRegistryClient() bool {
 
 func (c *configuration) UsesLeaderElection() bool {
 	return c.usesLeaderElection
+}
+
+func (c *configuration) UsesKyvernoClient() bool {
+	return c.usesKyvernoClient
+}
+
+func (c *configuration) UsesDynamicClient() bool {
+	return c.usesDynamicClient
 }
 
 func (c *configuration) FlagSets() []*flag.FlagSet {

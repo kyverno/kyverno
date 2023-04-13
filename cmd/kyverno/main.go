@@ -16,8 +16,6 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	apiserverclient "github.com/kyverno/kyverno/pkg/clients/apiserver"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	dynamicclient "github.com/kyverno/kyverno/pkg/clients/dynamic"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
@@ -218,6 +216,8 @@ func main() {
 		internal.WithCosign(),
 		internal.WithRegistryClient(),
 		internal.WithLeaderElection(),
+		internal.WithKyvernoClient(),
+		internal.WithDynamicClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -228,10 +228,8 @@ func main() {
 	// show version
 	showWarnings(setup.Logger)
 	// create instrumented clients
-	kyvernoClient := internal.CreateKyvernoClient(setup.Logger, kyvernoclient.WithMetrics(setup.MetricsManager, metrics.KyvernoClient), kyvernoclient.WithTracing())
-	dynamicClient := internal.CreateDynamicClient(setup.Logger, dynamicclient.WithMetrics(setup.MetricsManager, metrics.KyvernoClient), dynamicclient.WithTracing())
 	apiserverClient := internal.CreateApiServerClient(setup.Logger, apiserverclient.WithMetrics(setup.MetricsManager, metrics.KubeClient), apiserverclient.WithTracing())
-	dClient, err := dclient.NewClient(signalCtx, dynamicClient, setup.KubeClient, 15*time.Minute)
+	dClient, err := dclient.NewClient(signalCtx, setup.DynamicClient, setup.KubeClient, 15*time.Minute)
 	if err != nil {
 		setup.Logger.Error(err, "failed to create dynamic client")
 		os.Exit(1)
@@ -247,7 +245,7 @@ func main() {
 	// informer factories
 	kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
 	openApiManager, err := openapi.NewManager(setup.Logger.WithName("openapi"))
 	if err != nil {
@@ -307,7 +305,7 @@ func main() {
 		dClient,
 		setup.RegistryClient,
 		setup.KubeClient,
-		kyvernoClient,
+		setup.KyvernoClient,
 	)
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
@@ -316,7 +314,7 @@ func main() {
 		kubeInformer,
 		kyvernoInformer,
 		setup.KubeClient,
-		kyvernoClient,
+		setup.KyvernoClient,
 		dClient,
 		setup.Configuration,
 		policyCache,
@@ -349,7 +347,7 @@ func main() {
 			// create leader factories
 			kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
 			kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 			// create leader controllers
 			leaderControllers, warmup, err := createrLeaderControllers(
 				admissionReports,
@@ -360,7 +358,7 @@ func main() {
 				kubeKyvernoInformer,
 				kyvernoInformer,
 				setup.KubeClient,
-				kyvernoClient,
+				setup.KyvernoClient,
 				dClient,
 				certRenewer,
 				runtime,
@@ -411,7 +409,7 @@ func main() {
 	}()
 	// create webhooks server
 	urgen := webhookgenerate.NewGenerator(
-		kyvernoClient,
+		setup.KyvernoClient,
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
 	)
 	policyHandlers := webhookspolicy.NewHandlers(
@@ -421,7 +419,7 @@ func main() {
 	resourceHandlers := webhooksresource.NewHandlers(
 		engine,
 		dClient,
-		kyvernoClient,
+		setup.KyvernoClient,
 		setup.RegistryClient,
 		setup.Configuration,
 		setup.MetricsManager,

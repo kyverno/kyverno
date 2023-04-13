@@ -4,11 +4,15 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	dynamicclient "github.com/kyverno/kyverno/pkg/clients/dynamic"
 	kubeclient "github.com/kyverno/kyverno/pkg/clients/kube"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -32,6 +36,8 @@ type SetupResult struct {
 	KubeClient           kubernetes.Interface
 	LeaderElectionClient kubernetes.Interface
 	RegistryClient       registryclient.Client
+	KyvernoClient        versioned.Interface
+	DynamicClient        dynamic.Interface
 }
 
 func Setup(config Configuration, name string, skipResourceFilters bool) (context.Context, SetupResult, context.CancelFunc) {
@@ -55,6 +61,14 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	if config.UsesLeaderElection() {
 		leaderElectionClient = createKubernetesClient(logger, kubeclient.WithMetrics(metricsManager, metrics.KubeClient), kubeclient.WithTracing())
 	}
+	var kyvernoClient versioned.Interface
+	if config.UsesKyvernoClient() {
+		kyvernoClient = createKyvernoClient(logger, kyvernoclient.WithMetrics(metricsManager, metrics.KyvernoClient), kyvernoclient.WithTracing())
+	}
+	var dynamicClient dynamic.Interface
+	if config.UsesDynamicClient() {
+		dynamicClient = createDynamicClient(logger, dynamicclient.WithMetrics(metricsManager, metrics.KubeDynamicClient), dynamicclient.WithTracing())
+	}
 	return ctx,
 		SetupResult{
 			Logger:               logger,
@@ -65,6 +79,8 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 			KubeClient:           client,
 			LeaderElectionClient: leaderElectionClient,
 			RegistryClient:       registryClient,
+			KyvernoClient:        kyvernoClient,
+			DynamicClient:        dynamicClient,
 		},
 		shutdown(logger.WithName("shutdown"), sdownMaxProcs, sdownMetrics, sdownTracing, sdownSignals)
 }

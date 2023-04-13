@@ -44,7 +44,7 @@ func createKubernetesClient(logger logr.Logger, opts ...kube.NewOption) kubernet
 	return client
 }
 
-func CreateKyvernoClient(logger logr.Logger, opts ...kyverno.NewOption) versioned.Interface {
+func createKyvernoClient(logger logr.Logger, opts ...kyverno.NewOption) versioned.Interface {
 	logger = logger.WithName("kyverno-client")
 	logger.Info("create kyverno client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
 	client, err := kyverno.NewForConfig(createClientConfig(logger), opts...)
@@ -52,7 +52,7 @@ func CreateKyvernoClient(logger logr.Logger, opts ...kyverno.NewOption) versione
 	return client
 }
 
-func CreateDynamicClient(logger logr.Logger, opts ...dyn.NewOption) dynamic.Interface {
+func createDynamicClient(logger logr.Logger, opts ...dyn.NewOption) dynamic.Interface {
 	logger = logger.WithName("dynamic-client")
 	logger.Info("create dynamic client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
 	client, err := dyn.NewForConfig(createClientConfig(logger), opts...)
