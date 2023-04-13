@@ -3,7 +3,7 @@ kind: TestStep
 commands:
   - script: |
       kubectl apply -f policy.yaml
-      if kubectl apply -f csr.yaml  2>&1 | grep "username""
+      if kubectl apply -f csr.yaml  2>&1 | grep "username"
       then
         echo "Test succeeded. x509_decode properly decoded CSR"
         exit 0
