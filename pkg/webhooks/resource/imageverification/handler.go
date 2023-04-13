@@ -19,7 +19,6 @@ import (
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"go.opentelemetry.io/otel/trace"
 	admissionv1 "k8s.io/api/admission/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -101,10 +100,8 @@ func (h *imageVerificationHandler) handleVerifyImages(
 
 	failurePolicy := policies[0].GetSpec().GetFailurePolicy()
 	blocked := webhookutils.BlockRequest(engineResponses, failurePolicy, logger)
-	if !isResourceDeleted(policyContext) {
-		events := webhookutils.GenerateEvents(engineResponses, blocked)
-		h.eventGen.Add(events...)
-	}
+	events := webhookutils.GenerateEvents(engineResponses, blocked)
+	h.eventGen.Add(events...)
 
 	if blocked {
 		logger.V(4).Info("admission request blocked")
@@ -132,16 +129,6 @@ func hasAnnotations(context *engine.PolicyContext) bool {
 	newResource := context.NewResource()
 	annotations := newResource.GetAnnotations()
 	return len(annotations) != 0
-}
-
-func isResourceDeleted(policyContext *engine.PolicyContext) bool {
-	var deletionTimeStamp *metav1.Time
-	if resource := policyContext.NewResource(); resource.Object != nil {
-		deletionTimeStamp = resource.GetDeletionTimestamp()
-	} else if resource := policyContext.OldResource(); resource.Object != nil {
-		deletionTimeStamp = resource.GetDeletionTimestamp()
-	}
-	return deletionTimeStamp != nil
 }
 
 func (v *imageVerificationHandler) handleAudit(
