@@ -14,7 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (pc *PolicyController) handleGenerate(policyKey string, policy kyvernov1.PolicyInterface) error {
+func (pc *policyController) handleGenerate(policyKey string, policy kyvernov1.PolicyInterface) error {
 	logger := pc.log.WithName("handleGenerate").WithName(policyKey)
 	logger.Info("update URs on policy event")
 
@@ -41,7 +41,7 @@ func (pc *PolicyController) handleGenerate(policyKey string, policy kyvernov1.Po
 	return nil
 }
 
-func (pc *PolicyController) handleGenerateForExisting(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) error {
+func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) error {
 	var errors []error
 	ruleType := kyvernov1beta1.Generate
 	triggers := generateTriggers(pc.client, rule, pc.log)
@@ -65,7 +65,7 @@ func (pc *PolicyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 	return multierr.Combine(errors...)
 }
 
-func (pc *PolicyController) createURForDownstreamDeletion(policy kyvernov1.PolicyInterface) error {
+func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.PolicyInterface) error {
 	var errs []error
 	rules := autogen.ComputeRules(policy)
 	for _, r := range rules {
@@ -79,7 +79,7 @@ func (pc *PolicyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 	return multierr.Combine(errs...)
 }
 
-func (pc *PolicyController) createURForDataRule(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule, deleteDownstream bool) (bool, error) {
+func (pc *policyController) createURForDataRule(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule, deleteDownstream bool) (bool, error) {
 	downstreamExist := false
 	generate := rule.Generation
 	if !generate.Synchronize {

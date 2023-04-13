@@ -20,6 +20,8 @@ import (
 	trunc "github.com/aquilax/truncate"
 	"github.com/blang/semver/v4"
 	gojmespath "github.com/jmespath/go-jmespath"
+	"github.com/kyverno/kyverno/pkg/config"
+	imageutils "github.com/kyverno/kyverno/pkg/utils/image"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	regen "github.com/zach-klippenstein/goregen"
 	"golang.org/x/crypto/cryptobyte"
@@ -66,9 +68,10 @@ var (
 	objectFromLists        = "object_from_lists"
 	random                 = "random"
 	x509_decode            = "x509_decode"
+	imageNormalize         = "image_normalize"
 )
 
-func GetFunctions() []FunctionEntry {
+func GetFunctions(configuration config.Configuration) []FunctionEntry {
 	return []FunctionEntry{{
 		FunctionEntry: gojmespath.FunctionEntry{
 			Name: compare,
@@ -541,6 +544,16 @@ func GetFunctions() []FunctionEntry {
 		},
 		ReturnType: []jpType{jpString},
 		Note:       "returns the result of rounding time down to a multiple of duration",
+	}, {
+		FunctionEntry: gojmespath.FunctionEntry{
+			Name: imageNormalize,
+			Arguments: []argSpec{
+				{Types: []jpType{jpString}},
+			},
+			Handler: jpImageNormalize(configuration),
+		},
+		ReturnType: []jpType{jpString},
+		Note:       "normalizes an image reference",
 	}}
 }
 
@@ -773,7 +786,7 @@ func jpToBoolean(arguments []interface{}) (interface{}, error) {
 }
 
 func _jpAdd(arguments []interface{}, operator string) (interface{}, error) {
-	op1, op2, err := ParseArithemticOperands(arguments, operator)
+	op1, op2, err := parseArithemticOperands(arguments, operator)
 	if err != nil {
 		return nil, err
 	}
@@ -804,7 +817,7 @@ func jpSum(arguments []interface{}) (interface{}, error) {
 }
 
 func jpSubtract(arguments []interface{}) (interface{}, error) {
-	op1, op2, err := ParseArithemticOperands(arguments, subtract)
+	op1, op2, err := parseArithemticOperands(arguments, subtract)
 	if err != nil {
 		return nil, err
 	}
@@ -813,7 +826,7 @@ func jpSubtract(arguments []interface{}) (interface{}, error) {
 }
 
 func jpMultiply(arguments []interface{}) (interface{}, error) {
-	op1, op2, err := ParseArithemticOperands(arguments, multiply)
+	op1, op2, err := parseArithemticOperands(arguments, multiply)
 	if err != nil {
 		return nil, err
 	}
@@ -822,7 +835,7 @@ func jpMultiply(arguments []interface{}) (interface{}, error) {
 }
 
 func jpDivide(arguments []interface{}) (interface{}, error) {
-	op1, op2, err := ParseArithemticOperands(arguments, divide)
+	op1, op2, err := parseArithemticOperands(arguments, divide)
 	if err != nil {
 		return nil, err
 	}
@@ -831,7 +844,7 @@ func jpDivide(arguments []interface{}) (interface{}, error) {
 }
 
 func jpModulo(arguments []interface{}) (interface{}, error) {
-	op1, op2, err := ParseArithemticOperands(arguments, modulo)
+	op1, op2, err := parseArithemticOperands(arguments, modulo)
 	if err != nil {
 		return nil, err
 	}
@@ -1135,4 +1148,16 @@ func jpX509Decode(arguments []interface{}) (interface{}, error) {
 	}
 
 	return res, nil
+}
+
+func jpImageNormalize(configuration config.Configuration) gojmespath.JpFunction {
+	return func(arguments []interface{}) (interface{}, error) {
+		if image, err := validateArg(imageNormalize, arguments, 0, reflect.String); err != nil {
+			return nil, err
+		} else if infos, err := imageutils.GetImageInfo(image.String(), configuration); err != nil {
+			return nil, formatError(genericError, imageNormalize, err)
+		} else {
+			return infos.String(), nil
+		}
+	}
 }

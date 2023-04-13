@@ -10,12 +10,15 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
 	v1 "k8s.io/api/admission/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
+
+var jp = jmespath.New(config.NewDefaultConfiguration(false))
 
 var test_policy = `{}`
 
@@ -785,7 +788,7 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) eng
 	resourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(resource))
 	assert.NilError(t, err)
 
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 	err = enginecontext.AddResource(ctx, []byte(resource))
 	assert.NilError(t, err)
 
