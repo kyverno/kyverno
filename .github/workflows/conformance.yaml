@@ -31,16 +31,23 @@ jobs:
           if-no-files-found: error
 
   # runs conformance test suites with configuration:
-  # - standard
-  run-conformance:
+  standard:
     strategy:
       fail-fast: false
       matrix:
+        config:
+          - name: standard
+            values:
+              - standard
         k8s-version:
-          - v1.24.7
-          - v1.25.3
-          - v1.26.0
-          - v1.27.0
+          - name: v1.24
+            version: v1.24.7
+          - name: v1.25
+            version: v1.25.3
+          - name: v1.26
+            version: v1.26.0
+          - name: v1.27
+            version: v1.27.0
         tests:
           - autogen
           - cleanup
@@ -58,6 +65,7 @@ jobs:
           - webhooks
     runs-on: ubuntu-latest
     needs: prepare-images
+    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
         uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
@@ -67,53 +75,7 @@ jobs:
           build-cache-key: run-conformance
       - name: Create kind cluster
         run: |
-          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version }}
-          make kind-create-cluster
-      - name: Download kyverno images archive
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
-        with:
-          name: kyverno.tar
-      - name: Load kyverno images archive in kind cluster
-        run: make kind-load-image-archive
-      - name: Install kyverno
-        run: make kind-install-kyverno
-      - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
-      - name: Test with kuttl
-        run: |
-          ./.tools/kubectl-kuttl test ./test/conformance/kuttl/${{ matrix.tests }} \
-            --config ./test/conformance/kuttl/_config/common.yaml
-      - name: Debug failure
-        if: failure()
-        uses: ./.github/actions/kyverno-logs
-
-  # runs conformance test suites with configuration:
-  # - standard
-  # - force-failure-policy-ignore
-  force-failure-policy-ignore:
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version:
-          - v1.24.7
-          - v1.25.3
-          - v1.26.0
-          - v1.27.0
-        tests:
-          - force-failure-policy-ignore
-          - rbac
-    runs-on: ubuntu-latest
-    needs: prepare-images
-    steps:
-      - name: Checkout
-        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        with:
-          build-cache-key: run-conformance
-      - name: Create kind cluster
-        run: |
-          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version }}
+          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
           make kind-create-cluster
       - name: Download kyverno images archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
@@ -123,7 +85,7 @@ jobs:
         run: make kind-load-image-archive
       - name: Install kyverno
         run: |
-          export USE_CONFIG=standard,force-failure-policy-ignore
+          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -136,20 +98,30 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   # runs conformance test suites with configuration:
-  # - default
-  default:
+  force-failure-policy-ignore:
     strategy:
       fail-fast: false
       matrix:
+        config:
+          - name: force-failure-policy-ignore
+            values:
+              - standard
+              - force-failure-policy-ignore
         k8s-version:
-          - v1.24.7
-          - v1.25.3
-          - v1.26.0
-          - v1.27.0
+          - name: v1.24
+            version: v1.24.7
+          - name: v1.25
+            version: v1.25.3
+          - name: v1.26
+            version: v1.26.0
+          - name: v1.27
+            version: v1.27.0
         tests:
+          - force-failure-policy-ignore
           - rbac
     runs-on: ubuntu-latest
     needs: prepare-images
+    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
         uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
@@ -159,7 +131,7 @@ jobs:
           build-cache-key: run-conformance
       - name: Create kind cluster
         run: |
-          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version }}
+          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
           make kind-create-cluster
       - name: Download kyverno images archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
@@ -169,7 +141,61 @@ jobs:
         run: make kind-load-image-archive
       - name: Install kyverno
         run: |
-          export USE_CONFIG=default
+          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+          make kind-install-kyverno
+      - name: Wait for kyverno ready
+        uses: ./.github/actions/kyverno-wait-ready
+      - name: Test with kuttl
+        run: |
+          ./.tools/kubectl-kuttl test ./test/conformance/kuttl/${{ matrix.tests }} \
+            --config ./test/conformance/kuttl/_config/common.yaml
+      - name: Debug failure
+        if: failure()
+        uses: ./.github/actions/kyverno-logs
+
+  # runs conformance test suites with configuration:
+  default:
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - name: default
+            values:
+              - default
+        k8s-version:
+          - name: v1.24
+            version: v1.24.7
+          - name: v1.25
+            version: v1.25.3
+          - name: v1.26
+            version: v1.26.0
+          - name: v1.27
+            version: v1.27.0
+        tests:
+          - rbac
+    runs-on: ubuntu-latest
+    needs: prepare-images
+    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        with:
+          build-cache-key: run-conformance
+      - name: Create kind cluster
+        run: |
+          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
+          make kind-create-cluster
+      - name: Download kyverno images archive
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: kyverno.tar
+      - name: Load kyverno images archive in kind cluster
+        run: make kind-load-image-archive
+      - name: Install kyverno
+        run: |
+          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
