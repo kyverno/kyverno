@@ -60,7 +60,7 @@ func createDynamicClient(logger logr.Logger, opts ...dyn.NewOption) dynamic.Inte
 	return client
 }
 
-func CreateMetadataClient(logger logr.Logger, opts ...meta.NewOption) metadata.Interface {
+func createMetadataClient(logger logr.Logger, opts ...meta.NewOption) metadata.Interface {
 	logger = logger.WithName("metadata-client")
 	logger.Info("create metadata client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
 	client, err := meta.NewForConfig(createClientConfig(logger), opts...)

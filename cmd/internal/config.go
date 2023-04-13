@@ -17,6 +17,7 @@ type Configuration interface {
 	UsesKyvernoClient() bool
 	UsesDynamicClient() bool
 	UsesApiServerClient() bool
+	UsesMetadataClient() bool
 	UsesDClient() bool
 	FlagSets() []*flag.FlagSet
 }
@@ -103,6 +104,12 @@ func WithApiServerClient() ConfigurationOption {
 	}
 }
 
+func WithMetadataClient() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesMetadataClient = true
+	}
+}
+
 func WithDClient() ConfigurationOption {
 	return func(c *configuration) {
 		c.usesDClient = true
@@ -128,6 +135,7 @@ type configuration struct {
 	usesKyvernoClient    bool
 	usesDynamicClient    bool
 	usesApiServerClient  bool
+	usesMetadataClient   bool
 	usesDClient          bool
 	flagSets             []*flag.FlagSet
 }
@@ -178,6 +186,10 @@ func (c *configuration) UsesDynamicClient() bool {
 
 func (c *configuration) UsesApiServerClient() bool {
 	return c.usesApiServerClient
+}
+
+func (c *configuration) UsesMetadataClient() bool {
+	return c.usesMetadataClient
 }
 
 func (c *configuration) UsesDClient() bool {
