@@ -4,7 +4,7 @@ metadata:
   name: audit-csr
 spec:
   background: false
-  validationFailureAction: Audit
+  validationFailureAction: Enforce
   rules:
   - name: csr
     match:
@@ -17,10 +17,10 @@ spec:
         CSR created by {{ request.userInfo | to_string(@) }}
         with ClusterRoles {{ request.clusterRoles | to_string(@) }}
         and Roles {{ request.roles | to_string(@) }}.
-        Subjects and groups requested are "{{ base64_decode('{{ request.object.spec.request }}').x509_decode(@).Subject | to_string(@) }}"
+        Subjects and groups requested are "{{ x509_decode(base64_decode('{{ request.object.spec.request }}')).Subject | to_string(@) }}"
       deny:
         conditions:
           any:
-            - key: "{{ base64_decode('{{ request.object.spec.request }}').x509_decode(@).Subject.organizationName }}"
+            - key: "{{ x509_decode(base64_decode('{{ request.object.spec.request }}')).Subject.CommonName }}"
               operator: NotEquals
-              value: "mygroup"
+              value: "angela"
