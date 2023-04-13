@@ -4,6 +4,9 @@ admissionController:
       enablePolicyException: true
 
 backgroundController:
+  extraArgs:
+    enablePolicyException: true
+
   rbac:
     clusterRole:
       extraResources:
