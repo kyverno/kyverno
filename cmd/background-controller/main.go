@@ -18,6 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -43,6 +44,7 @@ func createrLeaderControllers(
 	configuration config.Configuration,
 	metricsConfig metrics.MetricsConfigManager,
 	eventGenerator event.Interface,
+	jp jmespath.Interface,
 ) ([]internal.Controller, error) {
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
@@ -57,6 +59,7 @@ func createrLeaderControllers(
 		logging.WithName("PolicyController"),
 		time.Hour,
 		metricsConfig,
+		jp,
 	)
 	if err != nil {
 		return nil, err
@@ -71,6 +74,7 @@ func createrLeaderControllers(
 		kubeInformer.Core().V1().Namespaces(),
 		eventGenerator,
 		configuration,
+		jp,
 	)
 	return []internal.Controller{
 		internal.NewController("policy-controller", policyCtrl, 2),
@@ -137,6 +141,7 @@ func main() {
 		setup.Logger,
 		setup.Configuration,
 		setup.MetricsConfiguration,
+		setup.Jp,
 		dClient,
 		setup.RegistryClient,
 		setup.KubeClient,
@@ -174,6 +179,7 @@ func main() {
 				setup.Configuration,
 				setup.MetricsManager,
 				eventGenerator,
+				setup.Jp,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create leader controllers")

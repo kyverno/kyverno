@@ -9,10 +9,14 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/config"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"gotest.tools/assert"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
+
+var jp = jmespath.New(config.NewDefaultConfiguration(false))
 
 func buildTestServer(responseData []byte) *httptest.Server {
 	mux := http.NewServeMux()
@@ -38,9 +42,9 @@ func Test_serviceGetRequest(t *testing.T) {
 	defer s.Close()
 
 	entry := kyvernov1.ContextEntry{}
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 
-	_, err := New(logr.Discard(), entry, ctx, nil)
+	_, err := New(logr.Discard(), jp, entry, ctx, nil)
 	assert.ErrorContains(t, err, "missing APICall")
 
 	entry.Name = "test"
@@ -50,19 +54,19 @@ func Test_serviceGetRequest(t *testing.T) {
 		},
 	}
 
-	call, err := New(logr.Discard(), entry, ctx, nil)
+	call, err := New(logr.Discard(), jp, entry, ctx, nil)
 	assert.NilError(t, err)
 	_, err = call.Execute(context.TODO())
 	assert.ErrorContains(t, err, "invalid request type")
 
 	entry.APICall.Service.Method = "GET"
-	call, err = New(logr.Discard(), entry, ctx, nil)
+	call, err = New(logr.Discard(), jp, entry, ctx, nil)
 	assert.NilError(t, err)
 	_, err = call.Execute(context.TODO())
 	assert.ErrorContains(t, err, "HTTP 404")
 
 	entry.APICall.Service.URL = s.URL + "/resource"
-	call, err = New(logr.Discard(), entry, ctx, nil)
+	call, err = New(logr.Discard(), jp, entry, ctx, nil)
 	assert.NilError(t, err)
 
 	data, err := call.Execute(context.TODO())
@@ -86,8 +90,8 @@ func Test_servicePostRequest(t *testing.T) {
 		},
 	}
 
-	ctx := enginecontext.NewContext()
-	call, err := New(logr.Discard(), entry, ctx, nil)
+	ctx := enginecontext.NewContext(jp)
+	call, err := New(logr.Discard(), jp, entry, ctx, nil)
 	assert.NilError(t, err)
 	data, err := call.Execute(context.TODO())
 	assert.NilError(t, err)
@@ -135,7 +139,7 @@ func Test_servicePostRequest(t *testing.T) {
 		},
 	}
 
-	call, err = New(logr.Discard(), entry, ctx, nil)
+	call, err = New(logr.Discard(), jp, entry, ctx, nil)
 	assert.NilError(t, err)
 	data, err = call.Execute(context.TODO())
 	assert.NilError(t, err)

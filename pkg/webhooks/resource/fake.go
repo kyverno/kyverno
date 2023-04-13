@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
@@ -39,6 +40,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 	urLister := kyvernoInformers.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace())
 	peLister := kyvernoInformers.Kyverno().V2alpha1().PolicyExceptions().Lister()
 	rclient := registryclient.NewOrDie()
+	jp := jmespath.New(configuration)
 
 	return &resourceHandlers{
 		client:         dclient,
@@ -51,10 +53,11 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 		urGenerator:    updaterequest.NewFake(),
 		eventGen:       event.NewFake(),
 		openApiManager: openapi.NewFake(),
-		pcBuilder:      webhookutils.NewPolicyContextBuilder(configuration),
+		pcBuilder:      webhookutils.NewPolicyContextBuilder(configuration, jp),
 		engine: engine.NewEngine(
 			configuration,
 			config.NewDefaultMetricsConfiguration(),
+			jp,
 			dclient,
 			rclient,
 			engineapi.DefaultContextLoaderFactory(configMapResolver),
