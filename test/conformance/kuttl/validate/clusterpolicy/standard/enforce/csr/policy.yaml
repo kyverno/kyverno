@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v2beta1
 kind: ClusterPolicy
 metadata:
-  name: audit-csr
+  name: validate-csr
 spec:
   background: false
   validationFailureAction: Enforce
@@ -24,3 +24,23 @@ spec:
             - key: "{{ x509_decode(base64_decode('{{ request.object.spec.request }}')).Subject.CommonName }}"
               operator: NotEquals
               value: "angela"
+---
+apiVersion: kyverno.io/v2beta1
+kind: ClusterPolicy
+metadata:
+  name: mutate-csr
+spec:
+  background: false
+  validationFailureAction: Enforce
+  rules:
+  - name: csr
+    match:
+      any:
+      - resources:
+          kinds:
+          - CertificateSigningRequest
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            name: "{{ x509_decode(base64_decode('{{ request.object.spec.request }}')).Subject.CommonName | to_string(@) }}"

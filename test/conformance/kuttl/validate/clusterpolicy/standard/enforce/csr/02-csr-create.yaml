@@ -3,4 +3,4 @@ kind: TestStep
 apply:
 - csr.yaml
 assert:
-- policy-ready.yaml
+- csr-mutated.yaml
