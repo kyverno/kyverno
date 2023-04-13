@@ -1,7 +1,17 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: test-csr
+  name: validate-csr
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-csr
 status:
   conditions:
   - reason: Succeeded
