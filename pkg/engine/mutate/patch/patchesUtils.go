@@ -16,7 +16,7 @@ func generatePatches(src, dst []byte) ([][]byte, error) {
 		return nil, err
 	}
 
-	sortedPatches := filterAndSortPatches(pp)
+	sortedPatches := FilterAndSortPatches(pp)
 	for _, p := range sortedPatches {
 		pbytes, err := p.MarshalJSON()
 		if err != nil {
@@ -29,13 +29,13 @@ func generatePatches(src, dst []byte) ([][]byte, error) {
 	return patchesBytes, err
 }
 
-// filterAndSortPatches
+// FilterAndSortPatches
 // 1. filters out patches with the certain paths
 // 2. sorts the removal patches(with same path) by the key of index
 // in descending order. The sort is required as when removing multiple
 // elements from an array, the elements must be removed in descending
 // order to preserve each index value.
-func filterAndSortPatches(originalPatches []jsonpatch.JsonPatchOperation) []jsonpatch.JsonPatchOperation {
+func FilterAndSortPatches(originalPatches []jsonpatch.JsonPatchOperation) []jsonpatch.JsonPatchOperation {
 	patches := filterInvalidPatches(originalPatches)
 
 	result := make([]jsonpatch.JsonPatchOperation, len(patches))
