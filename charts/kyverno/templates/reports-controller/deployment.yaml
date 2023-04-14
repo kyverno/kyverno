@@ -102,7 +102,7 @@ spec:
             {{- if or .Values.imagePullSecrets .Values.existingImagePullSecrets }}
             - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
             {{- end }}
-            {{- include "kyverno.features.flags" (pick .Values.features
+            {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.reportsController.featuresOverride)
               "admissionReports"
               "backgroundScan"
               "configMapCaching"
