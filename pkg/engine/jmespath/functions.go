@@ -1077,17 +1077,14 @@ func jpX509Decode(arguments []interface{}) (interface{}, error) {
 			if fmt.Sprint(cert.PublicKeyAlgorithm) != "RSA" {
 				return nil, errors.New("certificate should use rsa algorithm")
 			}
-			kk, err := parseSubjectPublicKeyInfo(cert.RawSubjectPublicKeyInfo)
+			pk, err := parseSubjectPublicKeyInfo(cert.RawSubjectPublicKeyInfo)
 			if err != nil {
 				return res, err
 			}
-
 			cert.PublicKey = PublicKey{
-				N: kk.N.String(),
-				E: kk.E,
+				N: pk.N.String(),
+				E: pk.E,
 			}
-
-			return nil, fmt.Errorf("certificate eequest should use rsa algorithm %v", kk.N.String())
 
 			enc := json.NewEncoder(buf)
 			err = enc.Encode(cert)
@@ -1102,16 +1099,14 @@ func jpX509Decode(arguments []interface{}) (interface{}, error) {
 			if fmt.Sprint(cr.PublicKeyAlgorithm) != "RSA" {
 				return nil, errors.New("certificate eequest should use rsa algorithm")
 			}
-			kk, err := parseSubjectPublicKeyInfo(cr.RawSubjectPublicKeyInfo)
+			pk, err := parseSubjectPublicKeyInfo(cr.RawSubjectPublicKeyInfo)
 			if err != nil {
 				return res, err
 			}
-			cert.PublicKey = PublicKey{
-				N: kk.N.String(),
-				E: kk.E,
+			cr.PublicKey = PublicKey{
+				N: pk.N.String(),
+				E: pk.E,
 			}
-
-			return nil, fmt.Errorf("certificate eequest should use rsa algorithm %v", kk.N.String())
 
 			enc := json.NewEncoder(buf)
 			err = enc.Encode(cr)
@@ -1124,7 +1119,6 @@ func jpX509Decode(arguments []interface{}) (interface{}, error) {
 		if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
 			return res, err
 		}
-
 		return res, nil
 	}
 }
