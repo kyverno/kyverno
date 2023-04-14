@@ -237,6 +237,19 @@ The command removes all the Kubernetes components associated with the chart and 
 | grafana.configMapName | string | `"{{ include \"kyverno.fullname\" . }}-grafana"` | Configmap name template. |
 | grafana.namespace | string | `nil` | Namespace to create the grafana dashboard configmap. If not set, it will be created in the same namespace where the chart is deployed. |
 | grafana.annotations | object | `{}` | Grafana dashboard configmap annotations. |
+| features.admissionReports.enabled | bool | `true` | Enables the feature |
+| features.autoUpdateWebhooks.enabled | bool | `true` | Enables the feature |
+| features.backgroundScan.enabled | bool | `true` | Enables the feature |
+| features.backgroundScan.backgroundScanWorkers | int | `2` | Number of background scan workers |
+| features.backgroundScan.backgroundScanInterval | string | `"1h"` | Background scan interval |
+| features.backgroundScan.skipResourceFilters | bool | `true` | Skips resource filters in background scan |
+| features.configMapCaching.enabled | bool | `true` | Enables the feature |
+| features.dumpPayload.enabled | bool | `false` | Enables the feature |
+| features.forceFailurePolicyIgnore.enabled | bool | `false` | Enables the feature |
+| features.policyExceptions.enabled | bool | `false` | Enables the feature |
+| features.policyExceptions.namespace | string | `""` | Restrict policy exceptions to a single namespace |
+| features.protectManagedResources.enabled | bool | `false` | Enables the feature |
+| features.reports.chunkSize | int | `1000` | Reports chunk size |
 | admissionController.rbac.create | bool | `true` | Create RBAC resources |
 | admissionController.rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |
 | admissionController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
@@ -389,7 +402,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | reportsController.priorityClassName | string | `""` | Optional priority class |
 | reportsController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
 | reportsController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
-| reportsController.extraArgs | object | `{"clientRateLimitBurst":300,"clientRateLimitQPS":300,"skipResourceFilters":true}` | Extra arguments passed to the container on the command line |
+| reportsController.extraArgs | object | `{}` | Extra arguments passed to the container on the command line |
 | reportsController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
 | reportsController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
 | reportsController.nodeSelector | object | `{}` | Node labels for pod assignment |

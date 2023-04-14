@@ -319,6 +319,44 @@ grafana:
   # -- Grafana dashboard configmap annotations.
   annotations: {}
 
+# Features configuration
+features:
+  admissionReports:
+    # -- Enables the feature
+    enabled: true
+  autoUpdateWebhooks:
+    # -- Enables the feature
+    enabled: true
+  backgroundScan:
+    # -- Enables the feature
+    enabled: true
+    # -- Number of background scan workers
+    backgroundScanWorkers: 2
+    # -- Background scan interval
+    backgroundScanInterval: 1h
+    # -- Skips resource filters in background scan
+    skipResourceFilters: true
+  configMapCaching:
+    # -- Enables the feature
+    enabled: true
+  dumpPayload:
+    # -- Enables the feature
+    enabled: false
+  forceFailurePolicyIgnore:
+    # -- Enables the feature
+    enabled: false
+  policyExceptions:
+    # -- Enables the feature
+    enabled: false
+    # -- Restrict policy exceptions to a single namespace
+    namespace: ''
+  protectManagedResources:
+    # -- Enables the feature
+    enabled: false
+  reports:
+    # -- Reports chunk size
+    chunkSize: 1000
+
 # Admission controller configuration
 admissionController:
 
@@ -975,10 +1013,7 @@ reportsController:
   dnsPolicy: ClusterFirst
 
   # -- Extra arguments passed to the container on the command line
-  extraArgs:
-    clientRateLimitQPS: 300
-    clientRateLimitBurst: 300
-    skipResourceFilters: true
+  extraArgs: {}
 
   resources:
     # -- Pod resource limits
