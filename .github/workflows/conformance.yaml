@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         with:
@@ -41,11 +41,11 @@ jobs:
               - standard
         k8s-version:
           - name: v1.24
-            version: v1.24.7
+            version: v1.24.12
           - name: v1.25
-            version: v1.25.3
+            version: v1.25.8
           - name: v1.26
-            version: v1.26.0
+            version: v1.26.3
           - name: v1.27
             version: v1.27.0
         tests:
@@ -53,7 +53,9 @@ jobs:
           - cleanup
           - events
           - exceptions
-          - generate
+          - generate/clusterpolicy
+          - generate/policy
+          - generate/validation
           - mutate
           - policy-validation
           - rangeoperators
@@ -68,7 +70,7 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         with:
@@ -109,11 +111,11 @@ jobs:
               - force-failure-policy-ignore
         k8s-version:
           - name: v1.24
-            version: v1.24.7
+            version: v1.24.12
           - name: v1.25
-            version: v1.25.3
+            version: v1.25.8
           - name: v1.26
-            version: v1.26.0
+            version: v1.26.3
           - name: v1.27
             version: v1.27.0
         tests:
@@ -124,7 +126,7 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         with:
@@ -164,11 +166,11 @@ jobs:
               - default
         k8s-version:
           - name: v1.24
-            version: v1.24.7
+            version: v1.24.12
           - name: v1.25
-            version: v1.25.3
+            version: v1.25.8
           - name: v1.26
-            version: v1.26.0
+            version: v1.26.3
           - name: v1.27
             version: v1.27.0
         tests:
@@ -178,7 +180,7 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         with:

@@ -12,19 +12,16 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	dynamicclient "github.com/kyverno/kyverno/pkg/clients/dynamic"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
-	metadataclient "github.com/kyverno/kyverno/pkg/clients/metadata"
 	"github.com/kyverno/kyverno/pkg/config"
 	admissionreportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/admission"
 	aggregatereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
 	backgroundscancontroller "github.com/kyverno/kyverno/pkg/controllers/report/background"
 	resourcereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeinformers "k8s.io/client-go/informers"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
@@ -49,6 +46,7 @@ func createReportControllers(
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 	backgroundScanInterval time.Duration,
 	configuration config.Configuration,
+	jp jmespath.Interface,
 	eventGenerator event.Interface,
 ) ([]internal.Controller, func(context.Context) error) {
 	var ctrls []internal.Controller
@@ -105,6 +103,7 @@ func createReportControllers(
 					resourceReportController,
 					backgroundScanInterval,
 					configuration,
+					jp,
 					eventGenerator,
 				),
 				backgroundScanWorkers,
@@ -134,6 +133,7 @@ func createrLeaderControllers(
 	dynamicClient dclient.Interface,
 	rclient registryclient.Client,
 	configuration config.Configuration,
+	jp jmespath.Interface,
 	eventGenerator event.Interface,
 	backgroundScanInterval time.Duration,
 ) ([]internal.Controller, func(context.Context) error, error) {
@@ -151,6 +151,7 @@ func createrLeaderControllers(
 		kyvernoInformer,
 		backgroundScanInterval,
 		configuration,
+		jp,
 		eventGenerator,
 	)
 	return reportControllers, warmup, nil
@@ -185,6 +186,10 @@ func main() {
 		internal.WithCosign(),
 		internal.WithRegistryClient(),
 		internal.WithLeaderElection(),
+		internal.WithKyvernoClient(),
+		internal.WithDynamicClient(),
+		internal.WithMetadataClient(),
+		internal.WithKyvernoDynamicClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -196,22 +201,13 @@ func main() {
 	// setup
 	ctx, setup, sdown := internal.Setup(appConfig, "kyverno-reports-controller", skipResourceFilters)
 	defer sdown()
-	// create instrumented clients
-	kyvernoClient := internal.CreateKyvernoClient(setup.Logger, kyvernoclient.WithMetrics(setup.MetricsManager, metrics.KyvernoClient), kyvernoclient.WithTracing())
-	metadataClient := internal.CreateMetadataClient(setup.Logger, metadataclient.WithMetrics(setup.MetricsManager, metrics.KyvernoClient), metadataclient.WithTracing())
-	dynamicClient := internal.CreateDynamicClient(setup.Logger, dynamicclient.WithMetrics(setup.MetricsManager, metrics.KyvernoClient), dynamicclient.WithTracing())
-	dClient, err := dclient.NewClient(ctx, dynamicClient, setup.KubeClient, 15*time.Minute)
-	if err != nil {
-		setup.Logger.Error(err, "failed to create dynamic client")
-		os.Exit(1)
-	}
 	// THIS IS AN UGLY FIX
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
 	// informer factories
-	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 	eventGenerator := event.NewEventGenerator(
-		dClient,
+		setup.KyvernoDynamicClient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		maxQueuedEvents,
@@ -223,10 +219,11 @@ func main() {
 		setup.Logger,
 		setup.Configuration,
 		setup.MetricsConfiguration,
-		dClient,
+		setup.Jp,
+		setup.KyvernoDynamicClient,
 		setup.RegistryClient,
 		setup.KubeClient,
-		kyvernoClient,
+		setup.KyvernoClient,
 	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kyvernoInformer) {
@@ -249,8 +246,8 @@ func main() {
 			// create leader factories
 			kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
 			kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
-			metadataInformer := metadatainformers.NewSharedInformerFactory(metadataClient, 15*time.Minute)
+			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+			metadataInformer := metadatainformers.NewSharedInformerFactory(setup.MetadataClient, 15*time.Minute)
 			// create leader controllers
 			leaderControllers, warmup, err := createrLeaderControllers(
 				engine,
@@ -261,10 +258,11 @@ func main() {
 				kubeInformer,
 				kyvernoInformer,
 				metadataInformer,
-				kyvernoClient,
-				dClient,
+				setup.KyvernoClient,
+				setup.KyvernoDynamicClient,
 				setup.RegistryClient,
 				setup.Configuration,
+				setup.Jp,
 				eventGenerator,
 				backgroundScanInterval,
 			)

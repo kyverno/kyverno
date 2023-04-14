@@ -13,11 +13,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	dynamicclient "github.com/kyverno/kyverno/pkg/clients/dynamic"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -43,6 +42,7 @@ func createrLeaderControllers(
 	configuration config.Configuration,
 	metricsConfig metrics.MetricsConfigManager,
 	eventGenerator event.Interface,
+	jp jmespath.Interface,
 ) ([]internal.Controller, error) {
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
@@ -57,6 +57,7 @@ func createrLeaderControllers(
 		logging.WithName("PolicyController"),
 		time.Hour,
 		metricsConfig,
+		jp,
 	)
 	if err != nil {
 		return nil, err
@@ -71,6 +72,7 @@ func createrLeaderControllers(
 		kubeInformer.Core().V1().Namespaces(),
 		eventGenerator,
 		configuration,
+		jp,
 	)
 	return []internal.Controller{
 		internal.NewController("policy-controller", policyCtrl, 2),
@@ -94,9 +96,11 @@ func main() {
 		internal.WithKubeconfig(),
 		internal.WithPolicyExceptions(),
 		internal.WithConfigMapCaching(),
-		internal.WithCosign(),
 		internal.WithRegistryClient(),
 		internal.WithLeaderElection(),
+		internal.WithKyvernoClient(),
+		internal.WithDynamicClient(),
+		internal.WithKyvernoDynamicClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -104,21 +108,13 @@ func main() {
 	// setup
 	signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-background-controller", false)
 	defer sdown()
-	// create instrumented clients
-	kyvernoClient := internal.CreateKyvernoClient(setup.Logger, kyvernoclient.WithMetrics(setup.MetricsManager, metrics.KyvernoClient), kyvernoclient.WithTracing())
-	dynamicClient := internal.CreateDynamicClient(setup.Logger, dynamicclient.WithMetrics(setup.MetricsManager, metrics.KyvernoClient), dynamicclient.WithTracing())
-	dClient, err := dclient.NewClient(signalCtx, dynamicClient, setup.KubeClient, 15*time.Minute)
-	if err != nil {
-		setup.Logger.Error(err, "failed to create dynamic client")
-		os.Exit(1)
-	}
 	// THIS IS AN UGLY FIX
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
 	// informer factories
-	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 	eventGenerator := event.NewEventGenerator(
-		dClient,
+		setup.KyvernoDynamicClient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		maxQueuedEvents,
@@ -137,10 +133,11 @@ func main() {
 		setup.Logger,
 		setup.Configuration,
 		setup.MetricsConfiguration,
-		dClient,
+		setup.Jp,
+		setup.KyvernoDynamicClient,
 		setup.RegistryClient,
 		setup.KubeClient,
-		kyvernoClient,
+		setup.KyvernoClient,
 	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer) {
@@ -161,19 +158,20 @@ func main() {
 			logger := setup.Logger.WithName("leader")
 			// create leader factories
 			kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
-			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 			// create leader controllers
 			leaderControllers, err := createrLeaderControllers(
 				engine,
 				genWorkers,
 				kubeInformer,
 				kyvernoInformer,
-				kyvernoClient,
-				dClient,
+				setup.KyvernoClient,
+				setup.KyvernoDynamicClient,
 				setup.RegistryClient,
 				setup.Configuration,
 				setup.MetricsManager,
 				eventGenerator,
+				setup.Jp,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create leader controllers")

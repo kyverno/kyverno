@@ -64,7 +64,7 @@ func Test_subVars_success(t *testing.T) {
 		t.Error(err)
 	}
 	// context
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -125,7 +125,7 @@ func Test_subVars_failed(t *testing.T) {
 		t.Error(err)
 	}
 	// context
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -219,7 +219,7 @@ func Test_subVars_with_JMESPath_At(t *testing.T) {
 	err = json.Unmarshal(resourceRaw, &resource)
 	assert.NilError(t, err)
 	// context
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
@@ -278,7 +278,7 @@ func Test_subVars_withRegexMatch(t *testing.T) {
 	err = json.Unmarshal(resourceRaw, &resource)
 	assert.NilError(t, err)
 	// context
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
@@ -308,7 +308,7 @@ func Test_subVars_withMerge(t *testing.T) {
 	err = json.Unmarshal(resourceRaw, &resource)
 	assert.NilError(t, err)
 	// context
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
@@ -351,7 +351,7 @@ func Test_subVars_withRegexReplaceAll(t *testing.T) {
 	err = json.Unmarshal(resourceRaw, &resource)
 	assert.NilError(t, err)
 	// context
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
@@ -396,7 +396,7 @@ func Test_ReplacingPathWhenDeleting(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	ctx := context.NewContextFromRaw(resourceRaw)
+	ctx := context.NewContextFromRaw(jp, resourceRaw)
 	assert.NilError(t, err)
 
 	pattern, err = SubstituteAll(logr.Discard(), ctx, pattern)
@@ -431,7 +431,7 @@ func Test_ReplacingNestedVariableWhenDeleting(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	ctx := context.NewContextFromRaw(resourceRaw)
+	ctx := context.NewContextFromRaw(jp, resourceRaw)
 	assert.NilError(t, err)
 
 	pattern, err = SubstituteAll(logr.Discard(), ctx, pattern)
@@ -457,7 +457,7 @@ var resourceRaw = []byte(`
 `)
 
 func Test_SubstituteSuccess(t *testing.T) {
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	assert.Assert(t, context.AddResource(ctx, resourceRaw))
 
 	var pattern interface{}
@@ -481,7 +481,7 @@ func Test_SubstituteSuccess(t *testing.T) {
 }
 
 func Test_SubstituteRecursiveErrors(t *testing.T) {
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	assert.Assert(t, context.AddResource(ctx, resourceRaw))
 
 	var pattern interface{}
@@ -515,7 +515,7 @@ func Test_SubstituteRecursiveErrors(t *testing.T) {
 }
 
 func Test_SubstituteRecursive(t *testing.T) {
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	assert.Assert(t, context.AddResource(ctx, resourceRaw))
 
 	var pattern interface{}
@@ -633,7 +633,7 @@ func Test_variableSubstitution_array(t *testing.T) {
 	err := json.Unmarshal(ruleRaw, &rule)
 	assert.NilError(t, err)
 
-	ctx := context.NewContextFromRaw(configmapRaw)
+	ctx := context.NewContextFromRaw(jp, configmapRaw)
 	context.AddResource(ctx, resourceRaw)
 
 	vars, err := SubstituteAllInRule(logr.Discard(), ctx, rule)
@@ -679,7 +679,7 @@ func Test_SubstituteNull(t *testing.T) {
 	err = json.Unmarshal(variableObject, &resource)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	context.AddResource(ctx, variableObject)
 
 	resolved, err := SubstituteAll(logr.Discard(), ctx, pattern)
@@ -708,7 +708,7 @@ func Test_SubstituteNullInString(t *testing.T) {
 	err = json.Unmarshal(variableObject, &resource)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	context.AddResource(ctx, variableObject)
 
 	resolved, err := SubstituteAll(logr.Discard(), ctx, pattern)
@@ -737,7 +737,7 @@ func Test_SubstituteArray(t *testing.T) {
 	err = json.Unmarshal(variableObject, &resource)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	context.AddResource(ctx, variableObject)
 
 	resolved, err := SubstituteAll(logr.Discard(), ctx, pattern)
@@ -766,7 +766,7 @@ func Test_SubstituteArrayInString(t *testing.T) {
 	err = json.Unmarshal(variableObject, &resource)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	context.AddResource(ctx, variableObject)
 
 	resolved, err := SubstituteAll(logr.Discard(), ctx, pattern)
@@ -795,7 +795,7 @@ func Test_SubstituteInt(t *testing.T) {
 	err = json.Unmarshal(variableObject, &resource)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	context.AddResource(ctx, variableObject)
 
 	resolved, err := SubstituteAll(logr.Discard(), ctx, pattern)
@@ -824,7 +824,7 @@ func Test_SubstituteIntInString(t *testing.T) {
 	err = json.Unmarshal(variableObject, &resource)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	context.AddResource(ctx, variableObject)
 
 	resolved, err := SubstituteAll(logr.Discard(), ctx, pattern)
@@ -853,7 +853,7 @@ func Test_SubstituteBool(t *testing.T) {
 	err = json.Unmarshal(variableObject, &resource)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	context.AddResource(ctx, variableObject)
 
 	resolved, err := SubstituteAll(logr.Discard(), ctx, pattern)
@@ -882,7 +882,7 @@ func Test_SubstituteBoolInString(t *testing.T) {
 	err = json.Unmarshal(variableObject, &resource)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	context.AddResource(ctx, variableObject)
 
 	resolved, err := SubstituteAll(logr.Discard(), ctx, pattern)
@@ -911,7 +911,7 @@ func Test_SubstituteString(t *testing.T) {
 	err = json.Unmarshal(variableObject, &resource)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	context.AddResource(ctx, variableObject)
 
 	resolved, err := SubstituteAll(logr.Discard(), ctx, pattern)
@@ -940,7 +940,7 @@ func Test_SubstituteStringInString(t *testing.T) {
 	err = json.Unmarshal(variableObject, &resource)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	context.AddResource(ctx, variableObject)
 
 	resolved, err := SubstituteAll(logr.Discard(), ctx, pattern)
@@ -991,7 +991,7 @@ func Test_ReferenceSubstitution(t *testing.T) {
 	err = json.Unmarshal(expectedJSON, &expectedDocument)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, jsonRaw)
 	assert.NilError(t, err)
 
@@ -1135,7 +1135,7 @@ func Test_EscpReferenceSubstitution(t *testing.T) {
 	err = json.Unmarshal(expectedJSON, &expectedDocument)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, jsonRaw)
 	assert.NilError(t, err)
 
@@ -1171,7 +1171,7 @@ func Test_ReplacingEscpNestedVariableWhenDeleting(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	ctx := context.NewContextFromRaw(resourceRaw)
+	ctx := context.NewContextFromRaw(jp, resourceRaw)
 	assert.NilError(t, err)
 
 	pattern, err = SubstituteAll(logr.Discard(), ctx, pattern)

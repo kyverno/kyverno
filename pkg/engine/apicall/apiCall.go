@@ -17,17 +17,21 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/tracing"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 type apiCall struct {
 	logger  logr.Logger
+	jp      jmespath.Interface
 	entry   kyvernov1.ContextEntry
 	jsonCtx enginecontext.Interface
 	client  dclient.Interface
 }
 
 func New(
-	log logr.Logger,
+	logger logr.Logger,
+	jp jmespath.Interface,
 	entry kyvernov1.ContextEntry,
 	jsonCtx enginecontext.Interface,
 	client dclient.Interface,
@@ -36,10 +40,11 @@ func New(
 		return nil, fmt.Errorf("missing APICall in context entry %v", entry)
 	}
 	return &apiCall{
+		logger:  logger,
+		jp:      jp,
 		entry:   entry,
 		jsonCtx: jsonCtx,
 		client:  client,
-		logger:  log,
 	}, nil
 }
 
@@ -160,19 +165,18 @@ func (a *apiCall) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client,
 	if service.CABundle == "" {
 		return http.DefaultClient, nil
 	}
-
 	caCertPool := x509.NewCertPool()
 	if ok := caCertPool.AppendCertsFromPEM([]byte(service.CABundle)); !ok {
 		return nil, fmt.Errorf("failed to parse PEM CA bundle for APICall %s", a.entry.Name)
 	}
-
-	return &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs:    caCertPool,
-				MinVersion: tls.VersionTLS12,
-			},
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			RootCAs:    caCertPool,
+			MinVersion: tls.VersionTLS12,
 		},
+	}
+	return &http.Client{
+		Transport: tracing.Transport(transport, otelhttp.WithFilter(tracing.RequestFilterIsInSpan)),
 	}, nil
 }
 
@@ -205,7 +209,7 @@ func (a *apiCall) transformAndStore(jsonData []byte) ([]byte, error) {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s JMESPath %s: %w", a.entry.Name, a.entry.APICall.JMESPath, err)
 	}
 
-	results, err := applyJMESPathJSON(path.(string), jsonData)
+	results, err := a.applyJMESPathJSON(path.(string), jsonData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply JMESPath %s for context entry %s: %w", path, a.entry.Name, err)
 	}
@@ -224,17 +228,11 @@ func (a *apiCall) transformAndStore(jsonData []byte) ([]byte, error) {
 	return contextData, nil
 }
 
-func applyJMESPathJSON(jmesPath string, jsonData []byte) (interface{}, error) {
+func (a *apiCall) applyJMESPathJSON(jmesPath string, jsonData []byte) (interface{}, error) {
 	var data interface{}
 	err := json.Unmarshal(jsonData, &data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal JSON: %s, error: %w", string(jsonData), err)
 	}
-
-	jp, err := jmespath.New(jmesPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to compile JMESPath: %s, error: %v", jmesPath, err)
-	}
-
-	return jp.Search(data)
+	return a.jp.Search(jmesPath, data)
 }
