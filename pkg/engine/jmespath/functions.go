@@ -3,6 +3,7 @@ package jmespath
 import (
 	"bytes"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/asn1"
 	"encoding/base64"
@@ -1076,16 +1077,17 @@ func jpX509Decode(arguments []interface{}) (interface{}, error) {
 			if fmt.Sprint(cert.PublicKeyAlgorithm) != "RSA" {
 				return nil, errors.New("certificate should use rsa algorithm")
 			}
-			spki := cryptobyte.String(cert.RawSubjectPublicKeyInfo)
-			N, E, err := parseCryptobyte(&spki)
+			kk, err := parseSubjectPublicKeyInfo(cert.RawSubjectPublicKeyInfo)
 			if err != nil {
 				return res, err
 			}
 
 			cert.PublicKey = PublicKey{
-				N: N,
-				E: E,
+				N: kk.N.String(),
+				E: kk.E,
 			}
+
+			return nil, fmt.Errorf("certificate eequest should use rsa algorithm %v", kk.N.String())
 
 			enc := json.NewEncoder(buf)
 			err = enc.Encode(cert)
@@ -1100,15 +1102,16 @@ func jpX509Decode(arguments []interface{}) (interface{}, error) {
 			if fmt.Sprint(cr.PublicKeyAlgorithm) != "RSA" {
 				return nil, errors.New("certificate eequest should use rsa algorithm")
 			}
-			spki := cryptobyte.String(cr.RawSubjectPublicKeyInfo)
-			N, E, err := parseCryptobyte(&spki)
+			kk, err := parseSubjectPublicKeyInfo(cr.RawSubjectPublicKeyInfo)
 			if err != nil {
 				return res, err
 			}
-			cr.PublicKey = PublicKey{
-				N: N,
-				E: E,
+			cert.PublicKey = PublicKey{
+				N: kk.N.String(),
+				E: kk.E,
 			}
+
+			return nil, fmt.Errorf("certificate eequest should use rsa algorithm %v", kk.N.String())
 
 			enc := json.NewEncoder(buf)
 			err = enc.Encode(cr)
@@ -1126,23 +1129,24 @@ func jpX509Decode(arguments []interface{}) (interface{}, error) {
 	}
 }
 
-func parseCryptobyte(spki *cryptobyte.String) (string, int, error) {
-	if !spki.ReadASN1(spki, cryptobyte_asn1.SEQUENCE) {
-		return "", -1, errors.New("writing asn.1 element to 'spki' failed")
+func parseSubjectPublicKeyInfo(data []byte) (*rsa.PublicKey, error) {
+	spki := cryptobyte.String(data)
+	if !spki.ReadASN1(&spki, cryptobyte_asn1.SEQUENCE) {
+		return nil, errors.New("writing asn.1 element to 'spki' failed")
 	}
 	var pkAISeq cryptobyte.String
 	if !spki.ReadASN1(&pkAISeq, cryptobyte_asn1.SEQUENCE) {
-		return "", -1, errors.New("writing asn.1 element to 'pkAISeq' failed")
+		return nil, errors.New("writing asn.1 element to 'pkAISeq' failed")
 	}
 	var spk asn1.BitString
 	if !spki.ReadASN1BitString(&spk) {
-		return "", -1, errors.New("writing asn.1 bit string to 'spk' failed")
+		return nil, errors.New("writing asn.1 bit string to 'spk' failed")
 	}
 	kk, err := x509.ParsePKCS1PublicKey(spk.Bytes)
 	if err != nil {
-		return "", -1, err
+		return nil, err
 	}
-	return kk.N.String(), kk.E, nil
+	return kk, nil
 }
 
 func jpImageNormalize(configuration config.Configuration) gojmespath.JpFunction {
