@@ -34744,7 +34744,7 @@ spec:
             - --dumpPayload=false
             - --forceFailurePolicyIgnore=false
             - --enablePolicyException=false
-            - --exceptionNamespace=""
+            - --exceptionNamespace=
             - --protectManagedResources=false
           resources: 
             limits:
@@ -34886,7 +34886,7 @@ spec:
             - --metricsPort=8000
             - --enableConfigMapCaching=true
             - --enablePolicyException=false
-            - --exceptionNamespace=""
+            - --exceptionNamespace=
           env:
           - name: METRICS_CONFIG
             value: kyverno-metrics
@@ -35100,7 +35100,7 @@ spec:
             - --skipResourceFilters=true
             - --enableConfigMapCaching=true
             - --enablePolicyException=false
-            - --exceptionNamespace=""
+            - --exceptionNamespace=
             - --reportsChunkSize=1000
           env:
           - name: METRICS_CONFIG

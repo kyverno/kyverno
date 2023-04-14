@@ -33,7 +33,7 @@
 {{- end -}}
 {{- with .policyExceptions -}}
   {{- $flags = append $flags (print "--enablePolicyException=" .enabled) -}}
-  {{- $flags = append $flags (print "--exceptionNamespace=" (.namespace | quote)) -}}
+  {{- $flags = append $flags (print "--exceptionNamespace=" .namespace) -}}
 {{- end -}}
 {{- with .protectManagedResources -}}
   {{- $flags = append $flags (print "--protectManagedResources=" .enabled) -}}
