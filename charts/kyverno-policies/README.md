@@ -2,7 +2,7 @@
 
 Kubernetes Pod Security Standards implemented as Kyverno policies
 
-![Version: v3.0.0-alpha.2](https://img.shields.io/badge/Version-v3.0.0--alpha.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.10.0-alpha.2](https://img.shields.io/badge/AppVersion-v1.10.0--alpha.2-informational?style=flat-square)
+![Version: 3.0.0-alpha.2](https://img.shields.io/badge/Version-3.0.0--alpha.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.10.0-alpha.2](https://img.shields.io/badge/AppVersion-v1.10.0--alpha.2-informational?style=flat-square)
 
 ## About
 
