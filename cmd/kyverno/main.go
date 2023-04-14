@@ -14,10 +14,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
-	apiserverclient "github.com/kyverno/kyverno/pkg/clients/apiserver"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	dynamicclient "github.com/kyverno/kyverno/pkg/clients/dynamic"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
@@ -30,7 +27,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/tls"
@@ -218,6 +214,10 @@ func main() {
 		internal.WithCosign(),
 		internal.WithRegistryClient(),
 		internal.WithLeaderElection(),
+		internal.WithKyvernoClient(),
+		internal.WithDynamicClient(),
+		internal.WithKyvernoDynamicClient(),
+		internal.WithApiServerClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -227,27 +227,18 @@ func main() {
 	defer sdown()
 	// show version
 	showWarnings(setup.Logger)
-	// create instrumented clients
-	kyvernoClient := internal.CreateKyvernoClient(setup.Logger, kyvernoclient.WithMetrics(setup.MetricsManager, metrics.KyvernoClient), kyvernoclient.WithTracing())
-	dynamicClient := internal.CreateDynamicClient(setup.Logger, dynamicclient.WithMetrics(setup.MetricsManager, metrics.KyvernoClient), dynamicclient.WithTracing())
-	apiserverClient := internal.CreateApiServerClient(setup.Logger, apiserverclient.WithMetrics(setup.MetricsManager, metrics.KubeClient), apiserverclient.WithTracing())
-	dClient, err := dclient.NewClient(signalCtx, dynamicClient, setup.KubeClient, 15*time.Minute)
-	if err != nil {
-		setup.Logger.Error(err, "failed to create dynamic client")
-		os.Exit(1)
-	}
 	// THIS IS AN UGLY FIX
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
 	// check we can run
-	if err := sanityChecks(apiserverClient); err != nil {
+	if err := sanityChecks(setup.ApiServerClient); err != nil {
 		setup.Logger.Error(err, "sanity checks failed")
 		os.Exit(1)
 	}
 	// informer factories
 	kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
 	openApiManager, err := openapi.NewManager(setup.Logger.WithName("openapi"))
 	if err != nil {
@@ -265,7 +256,7 @@ func main() {
 	)
 	policyCache := policycache.NewCache()
 	eventGenerator := event.NewEventGenerator(
-		dClient,
+		setup.KyvernoDynamicClient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		maxQueuedEvents,
@@ -304,10 +295,10 @@ func main() {
 		setup.Configuration,
 		setup.MetricsConfiguration,
 		setup.Jp,
-		dClient,
+		setup.KyvernoDynamicClient,
 		setup.RegistryClient,
 		setup.KubeClient,
-		kyvernoClient,
+		setup.KyvernoClient,
 	)
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
@@ -316,8 +307,8 @@ func main() {
 		kubeInformer,
 		kyvernoInformer,
 		setup.KubeClient,
-		kyvernoClient,
-		dClient,
+		setup.KyvernoClient,
+		setup.KyvernoDynamicClient,
 		setup.Configuration,
 		policyCache,
 		openApiManager,
@@ -349,7 +340,7 @@ func main() {
 			// create leader factories
 			kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
 			kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 			// create leader controllers
 			leaderControllers, warmup, err := createrLeaderControllers(
 				admissionReports,
@@ -360,8 +351,8 @@ func main() {
 				kubeKyvernoInformer,
 				kyvernoInformer,
 				setup.KubeClient,
-				kyvernoClient,
-				dClient,
+				setup.KyvernoClient,
+				setup.KyvernoDynamicClient,
 				certRenewer,
 				runtime,
 				int32(servicePort),
@@ -411,17 +402,17 @@ func main() {
 	}()
 	// create webhooks server
 	urgen := webhookgenerate.NewGenerator(
-		kyvernoClient,
+		setup.KyvernoClient,
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
 	)
 	policyHandlers := webhookspolicy.NewHandlers(
-		dClient,
+		setup.KyvernoDynamicClient,
 		openApiManager,
 	)
 	resourceHandlers := webhooksresource.NewHandlers(
 		engine,
-		dClient,
-		kyvernoClient,
+		setup.KyvernoDynamicClient,
+		setup.KyvernoClient,
 		setup.RegistryClient,
 		setup.Configuration,
 		setup.MetricsManager,
@@ -463,7 +454,7 @@ func main() {
 		runtime,
 		kubeInformer.Rbac().V1().RoleBindings().Lister(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
-		dClient.Discovery(),
+		setup.KyvernoDynamicClient.Discovery(),
 	)
 	// start informers and wait for cache sync
 	// we need to call start again because we potentially registered new informers
