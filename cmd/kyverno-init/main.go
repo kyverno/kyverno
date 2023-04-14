@@ -33,7 +33,7 @@ func main() {
 		internal.WithKubeconfig(),
 		internal.WithKyvernoClient(),
 		internal.WithDynamicClient(),
-		internal.WithDClient(),
+		internal.WithKyvernoDynamicClient(),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
@@ -90,8 +90,8 @@ func main() {
 		in := gen(done, ctx.Done(), requests...)
 		// process requests
 		// processing routine count : 2
-		p1 := process(setup.DClient, setup.KyvernoClient, done, ctx.Done(), in)
-		p2 := process(setup.DClient, setup.KyvernoClient, done, ctx.Done(), in)
+		p1 := process(setup.KyvernoDynamicClient, setup.KyvernoClient, done, ctx.Done(), in)
+		p2 := process(setup.KyvernoDynamicClient, setup.KyvernoClient, done, ctx.Done(), in)
 		// merge results from processing routines
 		for err := range merge(done, ctx.Done(), p1, p2) {
 			if err != nil {

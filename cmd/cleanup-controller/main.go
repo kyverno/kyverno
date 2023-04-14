@@ -64,7 +64,7 @@ func main() {
 		internal.WithKubeconfig(),
 		internal.WithLeaderElection(),
 		internal.WithKyvernoClient(),
-		internal.WithDClient(),
+		internal.WithKyvernoDynamicClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -193,8 +193,8 @@ func main() {
 		os.Exit(1)
 	}
 	// create handlers
-	admissionHandlers := admissionhandlers.New(setup.DClient)
-	cleanupHandlers := cleanuphandlers.New(setup.Logger.WithName("cleanup-handler"), setup.DClient, cpolLister, polLister, nsLister, setup.Jp)
+	admissionHandlers := admissionhandlers.New(setup.KyvernoDynamicClient)
+	cleanupHandlers := cleanuphandlers.New(setup.Logger.WithName("cleanup-handler"), setup.KyvernoDynamicClient, cpolLister, polLister, nsLister, setup.Jp)
 	// create server
 	server := NewServer(
 		func() ([]byte, []byte, error) {

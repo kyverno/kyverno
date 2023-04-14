@@ -216,7 +216,7 @@ func main() {
 		internal.WithLeaderElection(),
 		internal.WithKyvernoClient(),
 		internal.WithDynamicClient(),
-		internal.WithDClient(),
+		internal.WithKyvernoDynamicClient(),
 		internal.WithApiServerClient(),
 		internal.WithFlagSets(flagset),
 	)
@@ -256,7 +256,7 @@ func main() {
 	)
 	policyCache := policycache.NewCache()
 	eventGenerator := event.NewEventGenerator(
-		setup.DClient,
+		setup.KyvernoDynamicClient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		maxQueuedEvents,
@@ -295,7 +295,7 @@ func main() {
 		setup.Configuration,
 		setup.MetricsConfiguration,
 		setup.Jp,
-		setup.DClient,
+		setup.KyvernoDynamicClient,
 		setup.RegistryClient,
 		setup.KubeClient,
 		setup.KyvernoClient,
@@ -308,7 +308,7 @@ func main() {
 		kyvernoInformer,
 		setup.KubeClient,
 		setup.KyvernoClient,
-		setup.DClient,
+		setup.KyvernoDynamicClient,
 		setup.Configuration,
 		policyCache,
 		openApiManager,
@@ -352,7 +352,7 @@ func main() {
 				kyvernoInformer,
 				setup.KubeClient,
 				setup.KyvernoClient,
-				setup.DClient,
+				setup.KyvernoDynamicClient,
 				certRenewer,
 				runtime,
 				int32(servicePort),
@@ -406,12 +406,12 @@ func main() {
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
 	)
 	policyHandlers := webhookspolicy.NewHandlers(
-		setup.DClient,
+		setup.KyvernoDynamicClient,
 		openApiManager,
 	)
 	resourceHandlers := webhooksresource.NewHandlers(
 		engine,
-		setup.DClient,
+		setup.KyvernoDynamicClient,
 		setup.KyvernoClient,
 		setup.RegistryClient,
 		setup.Configuration,
@@ -454,7 +454,7 @@ func main() {
 		runtime,
 		kubeInformer.Rbac().V1().RoleBindings().Lister(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
-		setup.DClient.Discovery(),
+		setup.KyvernoDynamicClient.Discovery(),
 	)
 	// start informers and wait for cache sync
 	// we need to call start again because we potentially registered new informers

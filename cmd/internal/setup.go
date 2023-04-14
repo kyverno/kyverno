@@ -46,7 +46,7 @@ type SetupResult struct {
 	DynamicClient        dynamic.Interface
 	ApiServerClient      apiserver.Interface
 	MetadataClient       metadata.Interface
-	DClient              dclient.Interface
+	KyvernoDynamicClient dclient.Interface
 }
 
 func Setup(config Configuration, name string, skipResourceFilters bool) (context.Context, SetupResult, context.CancelFunc) {
@@ -83,8 +83,8 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 		apiServerClient = createApiServerClient(logger, apiserverclient.WithMetrics(metricsManager, metrics.ApiServerClient), apiserverclient.WithTracing())
 	}
 	var dClient dclient.Interface
-	if config.UsesDClient() {
-		dClient = createDClient(logger, ctx, dynamicClient, client, 15*time.Minute)
+	if config.UsesKyvernoDynamicClient() {
+		dClient = createKyvernoDynamicClient(logger, ctx, dynamicClient, client, 15*time.Minute)
 	}
 	var metadataClient metadata.Interface
 	if config.UsesMetadataClient() {
@@ -104,7 +104,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 			DynamicClient:        dynamicClient,
 			ApiServerClient:      apiServerClient,
 			MetadataClient:       metadataClient,
-			DClient:              dClient,
+			KyvernoDynamicClient: dClient,
 		},
 		shutdown(logger.WithName("shutdown"), sdownMaxProcs, sdownMetrics, sdownTracing, sdownSignals)
 }

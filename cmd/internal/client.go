@@ -76,7 +76,7 @@ func createApiServerClient(logger logr.Logger, opts ...apisrv.NewOption) apiserv
 	return client
 }
 
-func createDClient(logger logr.Logger, ctx context.Context, dyn dynamic.Interface, kube kubernetes.Interface, resync time.Duration) dclient.Interface {
+func createKyvernoDynamicClient(logger logr.Logger, ctx context.Context, dyn dynamic.Interface, kube kubernetes.Interface, resync time.Duration) dclient.Interface {
 	logger = logger.WithName("d-client")
 	logger.Info("create the kyverno dynamic client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
 	client, err := dclient.NewClient(ctx, dyn, kube, resync)

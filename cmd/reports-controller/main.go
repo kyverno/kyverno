@@ -189,7 +189,7 @@ func main() {
 		internal.WithKyvernoClient(),
 		internal.WithDynamicClient(),
 		internal.WithMetadataClient(),
-		internal.WithDClient(),
+		internal.WithKyvernoDynamicClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -207,7 +207,7 @@ func main() {
 	// informer factories
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 	eventGenerator := event.NewEventGenerator(
-		setup.DClient,
+		setup.KyvernoDynamicClient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		maxQueuedEvents,
@@ -220,7 +220,7 @@ func main() {
 		setup.Configuration,
 		setup.MetricsConfiguration,
 		setup.Jp,
-		setup.DClient,
+		setup.KyvernoDynamicClient,
 		setup.RegistryClient,
 		setup.KubeClient,
 		setup.KyvernoClient,
@@ -259,7 +259,7 @@ func main() {
 				kyvernoInformer,
 				metadataInformer,
 				setup.KyvernoClient,
-				setup.DClient,
+				setup.KyvernoDynamicClient,
 				setup.RegistryClient,
 				setup.Configuration,
 				setup.Jp,

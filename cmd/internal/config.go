@@ -18,7 +18,7 @@ type Configuration interface {
 	UsesDynamicClient() bool
 	UsesApiServerClient() bool
 	UsesMetadataClient() bool
-	UsesDClient() bool
+	UsesKyvernoDynamicClient() bool
 	FlagSets() []*flag.FlagSet
 }
 
@@ -110,11 +110,11 @@ func WithMetadataClient() ConfigurationOption {
 	}
 }
 
-func WithDClient() ConfigurationOption {
+func WithKyvernoDynamicClient() ConfigurationOption {
 	return func(c *configuration) {
 		// requires dynamic client
 		c.usesDynamicClient = true
-		c.usesDClient = true
+		c.usesKyvernoDynamicClient = true
 	}
 }
 
@@ -125,21 +125,21 @@ func WithFlagSets(flagsets ...*flag.FlagSet) ConfigurationOption {
 }
 
 type configuration struct {
-	usesMetrics          bool
-	usesTracing          bool
-	usesProfiling        bool
-	usesKubeconfig       bool
-	usesPolicyExceptions bool
-	usesConfigMapCaching bool
-	usesCosign           bool
-	usesRegistryClient   bool
-	usesLeaderElection   bool
-	usesKyvernoClient    bool
-	usesDynamicClient    bool
-	usesApiServerClient  bool
-	usesMetadataClient   bool
-	usesDClient          bool
-	flagSets             []*flag.FlagSet
+	usesMetrics              bool
+	usesTracing              bool
+	usesProfiling            bool
+	usesKubeconfig           bool
+	usesPolicyExceptions     bool
+	usesConfigMapCaching     bool
+	usesCosign               bool
+	usesRegistryClient       bool
+	usesLeaderElection       bool
+	usesKyvernoClient        bool
+	usesDynamicClient        bool
+	usesApiServerClient      bool
+	usesMetadataClient       bool
+	usesKyvernoDynamicClient bool
+	flagSets                 []*flag.FlagSet
 }
 
 func (c *configuration) UsesMetrics() bool {
@@ -194,8 +194,8 @@ func (c *configuration) UsesMetadataClient() bool {
 	return c.usesMetadataClient
 }
 
-func (c *configuration) UsesDClient() bool {
-	return c.usesDClient
+func (c *configuration) UsesKyvernoDynamicClient() bool {
+	return c.usesKyvernoDynamicClient
 }
 
 func (c *configuration) FlagSets() []*flag.FlagSet {
