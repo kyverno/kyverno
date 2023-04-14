@@ -23,6 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	engineContext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -369,6 +370,8 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 
 // ApplyPolicyOnResource - function to apply policy on resource
 func ApplyPolicyOnResource(c ApplyPolicyConfig) ([]engineapi.EngineResponse, error) {
+	jp := jmespath.New(config.NewDefaultConfiguration(false))
+
 	var engineResponses []engineapi.EngineResponse
 	namespaceLabels := make(map[string]string)
 	operationIsDelete := false
@@ -431,7 +434,7 @@ OuterLoop:
 	if err != nil {
 		log.Log.Error(err, "unable to convert raw resource to unstructured")
 	}
-	ctx := engineContext.NewContext()
+	ctx := engineContext.NewContext(jp)
 
 	if operationIsDelete {
 		err = engineContext.AddOldResource(ctx, resourceRaw)
@@ -478,6 +481,7 @@ OuterLoop:
 	eng := engine.NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
+		jmespath.New(cfg),
 		c.Client,
 		registryclient.NewOrDie(),
 		store.ContextLoaderFactory(nil),
@@ -1025,9 +1029,11 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 	}
 
 	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+	cfg := config.NewDefaultConfiguration(false)
 	c := generate.NewGenerateControllerWithOnlyClient(client, engine.NewEngine(
-		config.NewDefaultConfiguration(false),
+		cfg,
 		config.NewDefaultMetricsConfiguration(),
+		jmespath.New(cfg),
 		client,
 		nil,
 		store.ContextLoaderFactory(nil),
