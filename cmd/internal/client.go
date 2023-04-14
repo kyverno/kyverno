@@ -44,7 +44,7 @@ func createKubernetesClient(logger logr.Logger, opts ...kube.NewOption) kubernet
 	return client
 }
 
-func CreateKyvernoClient(logger logr.Logger, opts ...kyverno.NewOption) versioned.Interface {
+func createKyvernoClient(logger logr.Logger, opts ...kyverno.NewOption) versioned.Interface {
 	logger = logger.WithName("kyverno-client")
 	logger.Info("create kyverno client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
 	client, err := kyverno.NewForConfig(createClientConfig(logger), opts...)
@@ -52,7 +52,7 @@ func CreateKyvernoClient(logger logr.Logger, opts ...kyverno.NewOption) versione
 	return client
 }
 
-func CreateDynamicClient(logger logr.Logger, opts ...dyn.NewOption) dynamic.Interface {
+func createDynamicClient(logger logr.Logger, opts ...dyn.NewOption) dynamic.Interface {
 	logger = logger.WithName("dynamic-client")
 	logger.Info("create dynamic client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
 	client, err := dyn.NewForConfig(createClientConfig(logger), opts...)
@@ -60,7 +60,7 @@ func CreateDynamicClient(logger logr.Logger, opts ...dyn.NewOption) dynamic.Inte
 	return client
 }
 
-func CreateMetadataClient(logger logr.Logger, opts ...meta.NewOption) metadata.Interface {
+func createMetadataClient(logger logr.Logger, opts ...meta.NewOption) metadata.Interface {
 	logger = logger.WithName("metadata-client")
 	logger.Info("create metadata client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
 	client, err := meta.NewForConfig(createClientConfig(logger), opts...)
@@ -68,11 +68,19 @@ func CreateMetadataClient(logger logr.Logger, opts ...meta.NewOption) metadata.I
 	return client
 }
 
-func CreateApiServerClient(logger logr.Logger, opts ...apisrv.NewOption) apiserver.Interface {
+func createApiServerClient(logger logr.Logger, opts ...apisrv.NewOption) apiserver.Interface {
 	logger = logger.WithName("apiserver-client")
 	logger.Info("create apiserver client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
 	client, err := apisrv.NewForConfig(createClientConfig(logger), opts...)
 	checkError(logger, err, "failed to create apiserver client")
+	return client
+}
+
+func createKyvernoDynamicClient(logger logr.Logger, ctx context.Context, dyn dynamic.Interface, kube kubernetes.Interface, resync time.Duration) dclient.Interface {
+	logger = logger.WithName("d-client")
+	logger.Info("create the kyverno dynamic client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
+	client, err := dclient.NewClient(ctx, dyn, kube, resync)
+	checkError(logger, err, "failed to create d client")
 	return client
 }
 
@@ -81,13 +89,5 @@ func CreateAggregatorClient(logger logr.Logger, opts ...agg.NewOption) aggregato
 	logger.Info("create aggregator client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
 	client, err := agg.NewForConfig(createClientConfig(logger), opts...)
 	checkError(logger, err, "failed to create aggregator client")
-	return client
-}
-
-func CreateDClient(logger logr.Logger, ctx context.Context, dyn dynamic.Interface, kube kubernetes.Interface, resync time.Duration) dclient.Interface {
-	logger = logger.WithName("d-client")
-	logger.Info("create the kyverno dynamic client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
-	client, err := dclient.NewClient(ctx, dyn, kube, resync)
-	checkError(logger, err, "failed to create d client")
 	return client
 }
