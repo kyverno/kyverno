@@ -159,13 +159,13 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 	var statements []map[string]interface{}
 
 	for _, referrer := range referrersDescs {
-		match, _, err := matchArtifactType(referrer, opts.PredicateType)
+		match, _, err := matchArtifactType(referrer, opts.Type)
 		if err != nil {
 			return nil, err
 		}
 
 		if !match {
-			v.log.V(2).Info("predicateType doesn't match, continue", "expected", opts.PredicateType, "received", referrer.ArtifactType)
+			v.log.V(2).Info("type doesn't match, continue", "expected", opts.Type, "received", referrer.ArtifactType)
 			continue
 		}
 
@@ -312,8 +312,8 @@ func extractStatement(ctx context.Context, repo *remote.Repository, targetDesc o
 	if err := json.Unmarshal(descData, &data); err != nil {
 		return nil, err
 	}
-	if data["predicateType"] == nil {
-		data["predicateType"] = targetDesc.ArtifactType
+	if data["type"] == nil {
+		data["type"] = targetDesc.ArtifactType
 	}
 	if data["predicate"] == nil {
 		data["predicate"] = predicate

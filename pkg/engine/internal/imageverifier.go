@@ -138,7 +138,7 @@ func buildStatementMap(statements []map[string]interface{}) (map[string][]map[st
 	results := map[string][]map[string]interface{}{}
 	var predicateTypes []string
 	for _, s := range statements {
-		predicateType := s["predicateType"].(string)
+		predicateType := s["type"].(string)
 		if results[predicateType] != nil {
 			results[predicateType] = append(results[predicateType], s)
 		} else {
@@ -325,8 +325,8 @@ func (iv *ImageVerifier) verifyAttestations(
 		var attestationError error
 		path := fmt.Sprintf(".attestations[%d]", i)
 
-		if attestation.PredicateType == "" {
-			return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, path+": missing predicateType"), ""
+		if attestation.Type == "" {
+			return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, path+": missing type"), ""
 		}
 
 		if len(attestation.Attestors) == 0 {
@@ -372,7 +372,7 @@ func (iv *ImageVerifier) verifyAttestations(
 			}
 		}
 
-		iv.logger.V(4).Info("attestation checks passed", "path", path, "image", imageInfo.String(), "predicateType", attestation.PredicateType)
+		iv.logger.V(4).Info("attestation checks passed", "path", path, "image", imageInfo.String(), "type", attestation.Type)
 	}
 
 	msg := fmt.Sprintf("verified image attestations for %s", image)
@@ -437,6 +437,10 @@ func (iv *ImageVerifier) buildVerifier(
 	image string,
 	attestation *kyvernov1.Attestation,
 ) (images.ImageVerifier, *images.Options, string) {
+	if attestation.Type == "" && attestation.PredicateType != "" {
+		iv.logger.Info("predicate type has been deprecated, please use type instead")
+		attestation.Type = attestation.PredicateType
+	}
 	switch imageVerify.Type {
 	case kyvernov1.Notary:
 		return iv.buildNotaryVerifier(attestor, imageVerify, image, attestation)
@@ -468,7 +472,7 @@ func (iv *ImageVerifier) buildCosignVerifier(
 	}
 
 	if attestation != nil {
-		opts.PredicateType = attestation.PredicateType
+		opts.Type = attestation.Type
 		opts.FetchAttestations = true
 	}
 
@@ -530,7 +534,7 @@ func (iv *ImageVerifier) buildNotaryVerifier(
 	}
 
 	if attestation != nil {
-		opts.PredicateType = attestation.PredicateType
+		opts.Type = attestation.Type
 		opts.FetchAttestations = true
 	}
 
@@ -578,16 +582,16 @@ func (iv *ImageVerifier) buildNotaryVerifier(
 }
 
 func (iv *ImageVerifier) verifyAttestation(statements []map[string]interface{}, attestation kyvernov1.Attestation, imageInfo apiutils.ImageInfo) error {
-	if attestation.PredicateType == "" {
-		return fmt.Errorf("a predicateType is required")
+	if attestation.Type == "" {
+		return fmt.Errorf("a type is required")
 	}
 	image := imageInfo.String()
 	statementsByPredicate, types := buildStatementMap(statements)
 	iv.logger.V(4).Info("checking attestations", "predicates", types, "image", image)
-	statements = statementsByPredicate[attestation.PredicateType]
+	statements = statementsByPredicate[attestation.Type]
 	if statements == nil {
-		iv.logger.Info("no attestations found for predicate", "type", attestation.PredicateType, "predicates", types, "image", imageInfo.String())
-		return fmt.Errorf("attestions not found for predicate type %s", attestation.PredicateType)
+		iv.logger.Info("no attestations found for predicate", "type", attestation.Type, "predicates", types, "image", imageInfo.String())
+		return fmt.Errorf("attestions not found for predicate type %s", attestation.Type)
 	}
 	for _, s := range statements {
 		iv.logger.Info("checking attestation", "predicates", types, "image", imageInfo.String())
@@ -596,7 +600,7 @@ func (iv *ImageVerifier) verifyAttestation(statements []map[string]interface{}, 
 			return fmt.Errorf("failed to check attestations: %w", err)
 		}
 		if !val {
-			return fmt.Errorf("attestation checks failed for %s and predicate %s", imageInfo.String(), attestation.PredicateType)
+			return fmt.Errorf("attestation checks failed for %s and predicate %s", imageInfo.String(), attestation.Type)
 		}
 	}
 	return nil

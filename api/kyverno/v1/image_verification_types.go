@@ -236,8 +236,13 @@ type CTLog struct {
 // OCI registry and decodes them into a list of Statements.
 type Attestation struct {
 	// PredicateType defines the type of Predicate contained within the Statement.
+	// Deprecated in favour of 'Type', to be removed soon
 	// +kubebuilder:validation:Required
 	PredicateType string `json:"predicateType" yaml:"predicateType"`
+
+	// Type defines the type of attestation contained within the Statement.
+	// +kubebuilder:validation:Required
+	Type string `json:"type" yaml:"type"`
 
 	// Attestors specify the required attestors (i.e. authorities)
 	// +kubebuilder:validation:Optional
