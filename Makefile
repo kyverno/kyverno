@@ -8,7 +8,7 @@ GIT_SHA              := $(shell git rev-parse HEAD)
 TIMESTAMP            := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 REGISTRY             ?= ghcr.io
 REPO                 ?= kyverno
-KIND_IMAGE           ?= kindest/node:v1.26.2
+KIND_IMAGE           ?= kindest/node:v1.26.3
 KIND_NAME            ?= kind
 GOOS                 ?= $(shell go env GOOS)
 GOARCH               ?= $(shell go env GOARCH)
@@ -789,7 +789,7 @@ kind-load-image-archive: $(KIND) ## Load docker images from archive
 .PHONY: kind-install-kyverno
 kind-install-kyverno: $(HELM) ## Install kyverno helm chart
 	@echo Install kyverno chart... >&2
-	$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
+	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
 		--set admissionController.container.image.registry=$(LOCAL_REGISTRY) \
 		--set admissionController.container.image.repository=$(LOCAL_KYVERNO_REPO) \
 		--set admissionController.container.image.tag=$(GIT_SHA) \
@@ -809,7 +809,7 @@ kind-install-kyverno: $(HELM) ## Install kyverno helm chart
 
 .PHONY: kind-deploy-kyverno
 kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
-	$(MAKE) kind-install-kyverno
+	@$(MAKE) kind-install-kyverno
 
 .PHONY: kind-deploy-kyverno-policies
 kind-deploy-kyverno-policies: $(HELM) ## Deploy kyverno-policies helm chart

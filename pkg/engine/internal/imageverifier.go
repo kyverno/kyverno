@@ -452,9 +452,13 @@ func (iv *ImageVerifier) buildCosignVerifier(
 	attestation *kyvernov1.Attestation,
 ) (images.ImageVerifier, *images.Options, string) {
 	path := ""
+	repository := cosign.ImageSignatureRepository
+	if imageVerify.Repository != "" {
+		repository = imageVerify.Repository
+	}
 	opts := &images.Options{
 		ImageRef:       image,
-		Repository:     imageVerify.Repository,
+		Repository:     repository,
 		Annotations:    imageVerify.Annotations,
 		RegistryClient: iv.rclient,
 	}
