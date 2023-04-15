@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	engineContext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -22,6 +23,8 @@ import (
 type KyvernoPolicies struct{}
 
 func (p *KyvernoPolicies) ApplyPolicyOnResource(c ApplyPolicyConfig) ([]engineapi.EngineResponse, error) {
+	jp := jmespath.New(config.NewDefaultConfiguration(false))
+
 	var engineResponses []engineapi.EngineResponse
 	namespaceLabels := make(map[string]string)
 	operationIsDelete := false
@@ -84,7 +87,7 @@ OuterLoop:
 	if err != nil {
 		log.Log.Error(err, "unable to convert raw resource to unstructured")
 	}
-	ctx := engineContext.NewContext()
+	ctx := engineContext.NewContext(jp)
 
 	if operationIsDelete {
 		err = engineContext.AddOldResource(ctx, resourceRaw)
@@ -131,6 +134,7 @@ OuterLoop:
 	eng := engine.NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
+		jmespath.New(cfg),
 		c.Client,
 		registryclient.NewOrDie(),
 		store.ContextLoaderFactory(nil),
