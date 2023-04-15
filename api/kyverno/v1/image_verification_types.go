@@ -14,8 +14,8 @@ import (
 type ImageVerificationType string
 
 const (
-	Cosign   ImageVerificationType = "Cosign"
-	NotaryV2 ImageVerificationType = "Notary"
+	Cosign ImageVerificationType = "Cosign"
+	Notary ImageVerificationType = "Notary"
 )
 
 // ImageVerification validates that images that match the specified pattern

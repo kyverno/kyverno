@@ -16,7 +16,7 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/images"
-	"github.com/kyverno/kyverno/pkg/notaryv2"
+	"github.com/kyverno/kyverno/pkg/notary"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
@@ -438,8 +438,8 @@ func (iv *ImageVerifier) buildVerifier(
 	attestation *kyvernov1.Attestation,
 ) (images.ImageVerifier, *images.Options, string) {
 	switch imageVerify.Type {
-	case kyvernov1.NotaryV2:
-		return iv.buildNotaryV2Verifier(attestor, imageVerify, image, attestation)
+	case kyvernov1.Notary:
+		return iv.buildNotaryVerifier(attestor, imageVerify, image, attestation)
 	default:
 		return iv.buildCosignVerifier(attestor, imageVerify, image, attestation)
 	}
@@ -515,7 +515,7 @@ func (iv *ImageVerifier) buildCosignVerifier(
 	return cosign.NewVerifier(), opts, path
 }
 
-func (iv *ImageVerifier) buildNotaryV2Verifier(
+func (iv *ImageVerifier) buildNotaryVerifier(
 	attestor kyvernov1.Attestor,
 	imageVerify kyvernov1.ImageVerification,
 	image string,
@@ -574,7 +574,7 @@ func (iv *ImageVerifier) buildNotaryV2Verifier(
 		opts.Annotations = attestor.Annotations
 	}
 
-	return notaryv2.NewVerifier(), opts, path
+	return notary.NewVerifier(), opts, path
 }
 
 func (iv *ImageVerifier) verifyAttestation(statements []map[string]interface{}, attestation kyvernov1.Attestation, imageInfo apiutils.ImageInfo) error {
