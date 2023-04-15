@@ -304,10 +304,10 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 
 func printFailedTestResult(removeColor bool, table Table) {
 	printer := newTablePrinter(removeColor)
-	for i, v := range table.rows {
-		v.ID = i + 1
+	for i := range table.rows {
+		table.rows[i].ID = i + 1
 	}
 	fmt.Printf("Aggregated Failed Test Cases : ")
-	fmt.Printf("\n")
+	fmt.Println()
 	printer.Print(table.rows)
 }
