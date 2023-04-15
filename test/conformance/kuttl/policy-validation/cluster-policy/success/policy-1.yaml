@@ -10,10 +10,12 @@ spec:
   rules:
   - name: inject-vault-sidecar
     match:
-      resources:
-        kinds:
-        - Deployment
+      any:
+      - resources:
+          kinds:
+          - Deployment
     preconditions:
+      all:
       - key: "{{ request.object.spec.template.metadata.annotations.\"vault.k8s.corp.com/inject\"  || ''}}"
         operator: Equals
         value: "true"
