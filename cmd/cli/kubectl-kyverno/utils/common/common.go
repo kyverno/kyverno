@@ -22,6 +22,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -846,9 +847,11 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 	}
 
 	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+	cfg := config.NewDefaultConfiguration(false)
 	c := generate.NewGenerateControllerWithOnlyClient(client, engine.NewEngine(
-		config.NewDefaultConfiguration(false),
+		cfg,
 		config.NewDefaultMetricsConfiguration(),
+		jmespath.New(cfg),
 		client,
 		nil,
 		store.ContextLoaderFactory(nil),

@@ -70,10 +70,10 @@ func initMetricsFlags() {
 	flag.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true' to disable metrics.")
 }
 
-func initKubeconfigFlags() {
+func initKubeconfigFlags(qps float64, burst int) {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 20, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
-	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 50, "Configure the maximum burst for throttle. Uses the client default if zero.")
+	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", qps, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
+	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", burst, "Configure the maximum burst for throttle. Uses the client default if zero.")
 }
 
 func initPolicyExceptionsFlags() {
@@ -98,7 +98,39 @@ func initLeaderElectionFlags() {
 	flag.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
 }
 
-func InitFlags(config Configuration) {
+type options struct {
+	clientRateLimitQPS   float64
+	clientRateLimitBurst int
+}
+
+func newOptions() options {
+	return options{
+		clientRateLimitQPS:   20,
+		clientRateLimitBurst: 50,
+	}
+}
+
+type Option = func(*options)
+
+func WithDefaultQps(qps float64) Option {
+	return func(o *options) {
+		o.clientRateLimitQPS = qps
+	}
+}
+
+func WithDefaultBurst(burst int) Option {
+	return func(o *options) {
+		o.clientRateLimitBurst = burst
+	}
+}
+
+func initFlags(config Configuration, opts ...Option) {
+	options := newOptions()
+	for _, o := range opts {
+		if o != nil {
+			o(&options)
+		}
+	}
 	// logging
 	initLoggingFlags()
 	// profiling
@@ -115,7 +147,7 @@ func InitFlags(config Configuration) {
 	}
 	// kubeconfig
 	if config.UsesKubeconfig() {
-		initKubeconfigFlags()
+		initKubeconfigFlags(options.clientRateLimitQPS, options.clientRateLimitBurst)
 	}
 	// policy exceptions
 	if config.UsesPolicyExceptions() {
@@ -144,8 +176,8 @@ func InitFlags(config Configuration) {
 	}
 }
 
-func ParseFlags(config Configuration) {
-	InitFlags(config)
+func ParseFlags(config Configuration, opts ...Option) {
+	initFlags(config, opts...)
 	flag.Parse()
 }
 
