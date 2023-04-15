@@ -86,5 +86,18 @@ func (iv *ImageVerification) Validate(isAuditFailureAction bool, path *field.Pat
 		errs = append(errs, attestorErrors...)
 	}
 
+	if iv.Type == Notary {
+		for _, attestorSet := range iv.Attestors {
+			for _, attestor := range attestorSet.Entries {
+				if attestor.Keyless != nil {
+					errs = append(errs, field.Invalid(attestorsPath, iv, "Keyless field is not allowed for type notary"))
+				}
+				if attestor.Keys != nil {
+					errs = append(errs, field.Invalid(attestorsPath, iv, "Keys field is not allowed for type notary"))
+				}
+			}
+		}
+	}
+
 	return errs
 }

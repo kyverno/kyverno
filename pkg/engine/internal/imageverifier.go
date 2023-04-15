@@ -527,47 +527,15 @@ func (iv *ImageVerifier) buildNotaryVerifier(
 ) (images.ImageVerifier, *images.Options, string) {
 	path := ""
 	opts := &images.Options{
-		ImageRef: image,
-		// Cert:           attestor.Certificates.Certificate,
-		// CertChain:      attestor.Certificates.CertificateChain,
+		ImageRef:       image,
+		Cert:           attestor.Certificates.Certificate,
+		CertChain:      attestor.Certificates.CertificateChain,
 		RegistryClient: iv.rclient,
 	}
 
 	if attestation != nil {
 		opts.Type = attestation.Type
 		opts.FetchAttestations = true
-	}
-
-	if attestor.Keys != nil {
-		path = path + ".keys"
-		if attestor.Keys.PublicKeys != "" {
-			opts.Key = attestor.Keys.PublicKeys
-		} else if attestor.Keys.Secret != nil {
-			opts.Key = fmt.Sprintf("k8s://%s/%s", attestor.Keys.Secret.Namespace, attestor.Keys.Secret.Name)
-		} else if attestor.Keys.KMS != "" {
-			opts.Key = attestor.Keys.KMS
-		}
-		if attestor.Keys.Rekor != nil {
-			opts.RekorURL = attestor.Keys.Rekor.URL
-		}
-		opts.SignatureAlgorithm = attestor.Keys.SignatureAlgorithm
-	} else if attestor.Certificates != nil {
-		path = path + ".certificates"
-		opts.Cert = attestor.Certificates.Certificate
-		opts.CertChain = attestor.Certificates.CertificateChain
-		if attestor.Certificates.Rekor != nil {
-			opts.RekorURL = attestor.Certificates.Rekor.URL
-		}
-	} else if attestor.Keyless != nil {
-		path = path + ".keyless"
-		if attestor.Keyless.Rekor != nil {
-			opts.RekorURL = attestor.Keyless.Rekor.URL
-		}
-
-		opts.Roots = attestor.Keyless.Roots
-		opts.Issuer = attestor.Keyless.Issuer
-		opts.Subject = attestor.Keyless.Subject
-		opts.AdditionalExtensions = attestor.Keyless.AdditionalExtensions
 	}
 
 	if attestor.Repository != "" {
