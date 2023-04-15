@@ -19,7 +19,7 @@ func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var testCase string
 	var fileName, gitBranch string
-	var registryAccess, failOnly, removeColor, manifestValidate, manifestMutate bool
+	var registryAccess, failOnly, removeColor, manifestValidate, manifestMutate, compact bool
 	cmd = &cobra.Command{
 		Use: "test <path_to_folder_Containing_test.yamls> [flags]\n  kyverno test <path_to_gitRepository_with_dir> --git-branch <branchName>\n  kyverno test --manifest-mutate > kyverno-test.yaml\n  kyverno test --manifest-validate > kyverno-test.yaml",
 		// Args:    cobra.ExactArgs(1),
@@ -42,7 +42,7 @@ func Command() *cobra.Command {
 				manifest.PrintValidate()
 			} else {
 				store.SetRegistryAccess(registryAccess)
-				_, err = testCommandExecute(dirPath, fileName, gitBranch, testCase, failOnly, false)
+				_, err = testCommandExecute(dirPath, fileName, gitBranch, testCase, failOnly, false, compact)
 				if err != nil {
 					log.Log.V(3).Info("a directory is required")
 					return err
@@ -59,11 +59,23 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&registryAccess, "registry", "", false, "If set to true, access the image registry using local docker credentials to populate external data")
 	cmd.Flags().BoolVarP(&failOnly, "fail-only", "", false, "If set to true, display all the failing test only as output for the test command")
 	cmd.Flags().BoolVarP(&removeColor, "remove-color", "", false, "Remove any color from output")
+	cmd.Flags().BoolVarP(&compact, "compact", "", true, "Does not show detailed results")
 	return cmd
 }
 
 type Table struct {
 	rows []Row
+}
+
+func (t *Table) Rows(compact bool) interface{} {
+	if !compact {
+		return t.rows
+	}
+	var rows []CompactRow
+	for _, row := range t.rows {
+		rows = append(rows, row.CompactRow)
+	}
+	return rows
 }
 
 func (t *Table) AddFailed(rows ...Row) {
@@ -74,13 +86,22 @@ func (t *Table) AddFailed(rows ...Row) {
 	}
 }
 
-type Row struct {
+func (t *Table) Add(rows ...Row) {
+	t.rows = append(t.rows, rows...)
+}
+
+type CompactRow struct {
 	isFailure bool
-	ID        int    `header:"#"`
+	ID        int    `header:"id"`
 	Policy    string `header:"policy"`
 	Rule      string `header:"rule"`
 	Resource  string `header:"resource"`
 	Result    string `header:"result"`
+}
+
+type Row struct {
+	CompactRow `header:"inline"`
+	Message    string `header:"message"`
 }
 
 type resultCounts struct {
@@ -96,6 +117,7 @@ func testCommandExecute(
 	testCase string,
 	failOnly bool,
 	auditWarn bool,
+	compact bool,
 ) (rc *resultCounts, err error) {
 	// check input dir
 	if len(dirPath) == 0 {
@@ -127,10 +149,10 @@ func testCommandExecute(
 			auditWarn,
 		); err != nil {
 			return rc, sanitizederror.NewWithError("failed to apply test command", err)
-		} else if rows, err := printTestResult(reports, tests, rc, failOnly); err != nil {
+		} else if t, err := printTestResult(reports, tests, rc, failOnly, compact); err != nil {
 			return rc, sanitizederror.NewWithError("failed to print test result:", err)
 		} else {
-			table.AddFailed(rows...)
+			table.AddFailed(t.rows...)
 		}
 	}
 	if len(errors) > 0 && log.Log.V(1).Enabled() {
@@ -146,17 +168,16 @@ func testCommandExecute(
 	}
 	fmt.Println()
 	if rc.Fail > 0 && !failOnly {
-		printFailedTestResult(table)
+		printFailedTestResult(table, compact)
 		os.Exit(1)
 	}
 	os.Exit(0)
 	return rc, nil
 }
 
-func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, testResults []api.TestResults, rc *resultCounts, failOnly bool) ([]Row, error) {
+func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, testResults []api.TestResults, rc *resultCounts, failOnly bool, compact bool) (Table, error) {
 	printer := newTablePrinter()
-	var rows []Row
-
+	var table Table
 	var countDeprecatedResource int
 	testCount := 1
 	for _, v := range testResults {
@@ -203,10 +224,10 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 					row.Result = boldYellow.Sprint("Not found")
 					rc.Fail++
 					row.isFailure = true
-					rows = append(rows, row)
+					table.Add(row)
 					continue
 				}
-
+				row.Message = testRes.Message
 				if v.Result == "" && v.Status != "" {
 					v.Result = v.Status
 				}
@@ -227,10 +248,10 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 
 				if failOnly {
 					if row.Result == boldRed.Sprintf("Fail") || row.Result == "Fail" {
-						rows = append(rows, row)
+						table.Add(row)
 					}
 				} else {
-					rows = append(rows, row)
+					table.Add(row)
 				}
 			}
 		} else if v.Resource != "" {
@@ -266,9 +287,11 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 				row.Result = boldYellow.Sprint("Not found")
 				rc.Fail++
 				row.isFailure = true
-				rows = append(rows, row)
+				table.Add(row)
 				continue
 			}
+
+			row.Message = testRes.Message
 
 			if v.Result == "" && v.Status != "" {
 				v.Result = v.Status
@@ -290,24 +313,24 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 
 			if failOnly {
 				if row.Result == boldRed.Sprintf("Fail") || row.Result == "Fail" {
-					rows = append(rows, row)
+					table.Add(row)
 				}
 			} else {
-				rows = append(rows, row)
+				table.Add(row)
 			}
 		}
 	}
 	fmt.Printf("\n")
-	printer.Print(rows)
-	return rows, nil
+	printer.Print(table.Rows(compact))
+	return table, nil
 }
 
-func printFailedTestResult(table Table) {
+func printFailedTestResult(table Table, compact bool) {
 	printer := newTablePrinter()
 	for i := range table.rows {
 		table.rows[i].ID = i + 1
 	}
 	fmt.Printf("Aggregated Failed Test Cases : ")
 	fmt.Println()
-	printer.Print(table.rows)
+	printer.Print(table.Rows(compact))
 }

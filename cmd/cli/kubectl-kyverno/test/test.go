@@ -579,13 +579,14 @@ func getAndCompareResource(path string, engineResource unstructured.Unstructured
 }
 
 func buildMessage(resp engineapi.EngineResponse) string {
-	var bldr strings.Builder
+	var messages []string
 	for _, ruleResp := range resp.PolicyResponse.Rules {
-		fmt.Fprintf(&bldr, "  %s: %s \n", ruleResp.Name(), ruleResp.Status())
-		fmt.Fprintf(&bldr, "    %s \n", ruleResp.Message())
+		message := strings.TrimSpace(ruleResp.Message())
+		if message != "" {
+			messages = append(messages, message)
+		}
 	}
-
-	return bldr.String()
+	return strings.Join(messages, ",")
 }
 
 func getUserDefinedPolicyNameAndNamespace(policyName string) (string, string) {
