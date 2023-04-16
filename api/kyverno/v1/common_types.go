@@ -123,11 +123,11 @@ type APICall struct {
 
 	// Method is the HTTP request type (GET or POST).
 	// +kubebuilder:default=GET
-	Method Method `json:"method" yaml:"method"`
+	Method Method `json:"method,omitempty" yaml:"method,omitempty"`
 
 	// Data specifies the POST data sent to the server.
 	// +kubebuilder:validation:Optional
-	Data []RequestData `json:"data" yaml:"data"`
+	Data []RequestData `json:"data,omitempty" yaml:"data,omitempty"`
 
 	// Service is an API call to a JSON web service
 	// +kubebuilder:validation:Optional

@@ -3897,8 +3897,6 @@ spec:
                                   The format required is the same format used by the
                                   `kubectl get --raw` command.
                                 type: string
-                            required:
-                            - method
                             type: object
                           configMap:
                             description: ConfigMap is the ConfigMap reference.
@@ -5560,8 +5558,6 @@ spec:
                                             format required is the same format used
                                             by the `kubectl get --raw` command.
                                           type: string
-                                      required:
-                                      - method
                                       type: object
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
@@ -5841,8 +5837,6 @@ spec:
                                             format required is the same format used
                                             by the `kubectl get --raw` command.
                                           type: string
-                                      required:
-                                      - method
                                       type: object
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
@@ -6045,8 +6039,6 @@ spec:
                                             format required is the same format used
                                             by the `kubectl get --raw` command.
                                           type: string
-                                      required:
-                                      - method
                                       type: object
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
@@ -7374,8 +7366,6 @@ spec:
                                       The format required is the same format used
                                       by the `kubectl get --raw` command.
                                     type: string
-                                required:
-                                - method
                                 type: object
                               configMap:
                                 description: ConfigMap is the ConfigMap reference.
@@ -9113,8 +9103,6 @@ spec:
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
                                               type: string
-                                          required:
-                                          - method
                                           type: object
                                         configMap:
                                           description: ConfigMap is the ConfigMap
@@ -9408,8 +9396,6 @@ spec:
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
                                               type: string
-                                          required:
-                                          - method
                                           type: object
                                         configMap:
                                           description: ConfigMap is the ConfigMap
@@ -9623,8 +9609,6 @@ spec:
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
                                               type: string
-                                          required:
-                                          - method
                                           type: object
                                         configMap:
                                           description: ConfigMap is the ConfigMap
@@ -11102,8 +11086,6 @@ spec:
                                   The format required is the same format used by the
                                   `kubectl get --raw` command.
                                 type: string
-                            required:
-                            - method
                             type: object
                           configMap:
                             description: ConfigMap is the ConfigMap reference.
@@ -12339,8 +12321,6 @@ spec:
                                             format required is the same format used
                                             by the `kubectl get --raw` command.
                                           type: string
-                                      required:
-                                      - method
                                       type: object
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
@@ -12620,8 +12600,6 @@ spec:
                                             format required is the same format used
                                             by the `kubectl get --raw` command.
                                           type: string
-                                      required:
-                                      - method
                                       type: object
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
@@ -12992,8 +12970,6 @@ spec:
                                             format required is the same format used
                                             by the `kubectl get --raw` command.
                                           type: string
-                                      required:
-                                      - method
                                       type: object
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
@@ -14281,8 +14257,6 @@ spec:
                                       The format required is the same format used
                                       by the `kubectl get --raw` command.
                                     type: string
-                                required:
-                                - method
                                 type: object
                               configMap:
                                 description: ConfigMap is the ConfigMap reference.
@@ -16020,8 +15994,6 @@ spec:
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
                                               type: string
-                                          required:
-                                          - method
                                           type: object
                                         configMap:
                                           description: ConfigMap is the ConfigMap
@@ -16315,8 +16287,6 @@ spec:
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
                                               type: string
-                                          required:
-                                          - method
                                           type: object
                                         configMap:
                                           description: ConfigMap is the ConfigMap
@@ -16530,8 +16500,6 @@ spec:
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
                                               type: string
-                                          required:
-                                          - method
                                           type: object
                                         configMap:
                                           description: ConfigMap is the ConfigMap
@@ -18036,8 +18004,6 @@ spec:
                                   The format required is the same format used by the
                                   `kubectl get --raw` command.
                                 type: string
-                            required:
-                            - method
                             type: object
                           configMap:
                             description: ConfigMap is the ConfigMap reference.
@@ -19699,8 +19665,6 @@ spec:
                                             format required is the same format used
                                             by the `kubectl get --raw` command.
                                           type: string
-                                      required:
-                                      - method
                                       type: object
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
@@ -19980,8 +19944,6 @@ spec:
                                             format required is the same format used
                                             by the `kubectl get --raw` command.
                                           type: string
-                                      required:
-                                      - method
                                       type: object
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
@@ -20184,8 +20146,6 @@ spec:
                                             format required is the same format used
                                             by the `kubectl get --raw` command.
                                           type: string
-                                      required:
-                                      - method
                                       type: object
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
@@ -21514,8 +21474,6 @@ spec:
                                       The format required is the same format used
                                       by the `kubectl get --raw` command.
                                     type: string
-                                required:
-                                - method
                                 type: object
                               configMap:
                                 description: ConfigMap is the ConfigMap reference.
@@ -23253,8 +23211,6 @@ spec:
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
                                               type: string
-                                          required:
-                                          - method
                                           type: object
                                         configMap:
                                           description: ConfigMap is the ConfigMap
@@ -23548,8 +23504,6 @@ spec:
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
                                               type: string
-                                          required:
-                                          - method
                                           type: object
                                         configMap:
                                           description: ConfigMap is the ConfigMap
@@ -23763,8 +23717,6 @@ spec:
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
                                               type: string
-                                          required:
-                                          - method
                                           type: object
                                         configMap:
                                           description: ConfigMap is the ConfigMap
@@ -25243,8 +25195,6 @@ spec:
                                   The format required is the same format used by the
                                   `kubectl get --raw` command.
                                 type: string
-                            required:
-                            - method
                             type: object
                           configMap:
                             description: ConfigMap is the ConfigMap reference.
@@ -26480,8 +26430,6 @@ spec:
                                             format required is the same format used
                                             by the `kubectl get --raw` command.
                                           type: string
-                                      required:
-                                      - method
                                       type: object
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
@@ -26761,8 +26709,6 @@ spec:
                                             format required is the same format used
                                             by the `kubectl get --raw` command.
                                           type: string
-                                      required:
-                                      - method
                                       type: object
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
@@ -27133,8 +27079,6 @@ spec:
                                             format required is the same format used
                                             by the `kubectl get --raw` command.
                                           type: string
-                                      required:
-                                      - method
                                       type: object
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
@@ -28422,8 +28366,6 @@ spec:
                                       The format required is the same format used
                                       by the `kubectl get --raw` command.
                                     type: string
-                                required:
-                                - method
                                 type: object
                               configMap:
                                 description: ConfigMap is the ConfigMap reference.
@@ -30161,8 +30103,6 @@ spec:
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
                                               type: string
-                                          required:
-                                          - method
                                           type: object
                                         configMap:
                                           description: ConfigMap is the ConfigMap
@@ -30456,8 +30396,6 @@ spec:
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
                                               type: string
-                                          required:
-                                          - method
                                           type: object
                                         configMap:
                                           description: ConfigMap is the ConfigMap
@@ -30671,8 +30609,6 @@ spec:
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
                                               type: string
-                                          required:
-                                          - method
                                           type: object
                                         configMap:
                                           description: ConfigMap is the ConfigMap
