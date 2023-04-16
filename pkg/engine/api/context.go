@@ -15,7 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/registryclient"
 )
 
-func LoadVariable(logger logr.Logger, entry kyvernov1.ContextEntry, ctx enginecontext.Interface) (err error) {
+func LoadVariable(logger logr.Logger, jp jmespath.Interface, entry kyvernov1.ContextEntry, ctx enginecontext.Interface) (err error) {
 	path := ""
 	if entry.Variable.JMESPath != "" {
 		jp, err := variables.SubstituteAll(logger, ctx, entry.Variable.JMESPath)
@@ -45,7 +45,7 @@ func LoadVariable(logger logr.Logger, entry kyvernov1.ContextEntry, ctx engineco
 			return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.Variable.Value, err)
 		}
 		if path != "" {
-			variable, err := applyJMESPath(path, variable)
+			variable, err := applyJMESPath(jp, path, variable)
 			if err == nil {
 				output = variable
 			} else if defaultValue == nil {
@@ -74,8 +74,8 @@ func LoadVariable(logger logr.Logger, entry kyvernov1.ContextEntry, ctx engineco
 	}
 }
 
-func LoadImageData(ctx context.Context, rclient registryclient.Client, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface) error {
-	imageData, err := fetchImageData(ctx, rclient, logger, entry, enginectx)
+func LoadImageData(ctx context.Context, jp jmespath.Interface, rclient registryclient.Client, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface) error {
+	imageData, err := fetchImageData(ctx, jp, rclient, logger, entry, enginectx)
 	if err != nil {
 		return err
 	}
@@ -89,12 +89,12 @@ func LoadImageData(ctx context.Context, rclient registryclient.Client, logger lo
 	return nil
 }
 
-func LoadAPIData(ctx context.Context, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface, client dclient.Interface) error {
-	executor, err := apicall.New(ctx, entry, enginectx, client, logger)
+func LoadAPIData(ctx context.Context, jp jmespath.Interface, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface, client dclient.Interface) error {
+	executor, err := apicall.New(logger, jp, entry, enginectx, client)
 	if err != nil {
 		return fmt.Errorf("failed to initialize APICall: %w", err)
 	}
-	if _, err := executor.Execute(); err != nil {
+	if _, err := executor.Execute(ctx); err != nil {
 		return fmt.Errorf("failed to execute APICall: %w", err)
 	}
 	return nil
@@ -112,7 +112,7 @@ func LoadConfigMap(ctx context.Context, logger logr.Logger, entry kyvernov1.Cont
 	return nil
 }
 
-func fetchImageData(ctx context.Context, rclient registryclient.Client, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface) (interface{}, error) {
+func fetchImageData(ctx context.Context, jp jmespath.Interface, rclient registryclient.Client, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface) (interface{}, error) {
 	ref, err := variables.SubstituteAll(logger, enginectx, entry.ImageRegistry.Reference)
 	if err != nil {
 		return nil, fmt.Errorf("ailed to substitute variables in context entry %s %s: %v", entry.Name, entry.ImageRegistry.Reference, err)
@@ -130,7 +130,7 @@ func fetchImageData(ctx context.Context, rclient registryclient.Client, logger l
 		return nil, err
 	}
 	if path != "" {
-		imageData, err = applyJMESPath(path.(string), imageData)
+		imageData, err = applyJMESPath(jp, path.(string), imageData)
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply JMESPath (%s) results to context entry %s, error: %v", entry.ImageRegistry.JMESPath, entry.Name, err)
 		}
@@ -193,12 +193,12 @@ func fetchImageDataMap(ctx context.Context, rclient registryclient.Client, ref s
 	return untyped, nil
 }
 
-func applyJMESPath(jmesPath string, data interface{}) (interface{}, error) {
-	jp, err := jmespath.New(jmesPath)
+func applyJMESPath(jp jmespath.Interface, query string, data interface{}) (interface{}, error) {
+	q, err := jp.Query(query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compile JMESPath: %s, error: %v", jmesPath, err)
+		return nil, fmt.Errorf("failed to compile JMESPath: %s, error: %v", query, err)
 	}
-	return jp.Search(data)
+	return q.Search(data)
 }
 
 func fetchConfigMap(ctx context.Context, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface, resolver ConfigmapResolver) ([]byte, error) {
