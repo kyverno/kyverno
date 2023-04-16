@@ -190,10 +190,6 @@ func (a *apiCall) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client,
 }
 
 func (a *apiCall) buildRequestData(data []kyvernov1.RequestData) (io.Reader, error) {
-	if data == nil {
-		return nil, nil
-	}
-
 	dataMap := make(map[string]interface{})
 	for _, d := range data {
 		dataMap[d.Key] = d.Value
