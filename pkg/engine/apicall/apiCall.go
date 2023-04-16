@@ -82,7 +82,6 @@ func (a *apiCall) executeK8sAPICall(ctx context.Context, path string, method kyv
 	}
 
 	jsonData, err := a.client.RawAbsPath(ctx, path, string(method), requestData)
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to get resource with raw url\n: %s: %v", path, err)
 	}
