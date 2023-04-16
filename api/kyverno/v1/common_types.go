@@ -7,7 +7,6 @@ import (
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/pod-security-admission/api"
@@ -116,11 +115,19 @@ type ConfigMapReference struct {
 }
 
 type APICall struct {
-	// URLPath is the URL path to be used in the HTTP GET request to the
+	// URLPath is the URL path to be used in the HTTP GET or POST request to the
 	// Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
 	// The format required is the same format used by the `kubectl get --raw` command.
 	// +kubebuilder:validation:Optional
 	URLPath string `json:"urlPath" yaml:"urlPath"`
+
+	// Method is the HTTP request type (GET or POST).
+	// +kubebuilder:default=GET
+	Method Method `json:"method" yaml:"method"`
+
+	// Data specifies the POST data sent to the server.
+	// +kubebuilder:validation:Optional
+	Data []RequestData `json:"data" yaml:"data"`
 
 	// Service is an API call to a JSON web service
 	// +kubebuilder:validation:Optional
@@ -136,22 +143,14 @@ type APICall struct {
 }
 
 type ServiceCall struct {
-	// URL is the JSON web service URL.
-	// The typical format is `https://{service}.{namespace}:{port}/{path}`.
-	URL string `json:"urlPath" yaml:"urlPath"`
+	// URL is the JSON web service URL. A typical form is
+	// `https://{service}.{namespace}:{port}/{path}`.
+	URL string `json:"url" yaml:"url"`
 
 	// CABundle is a PEM encoded CA bundle which will be used to validate
 	// the server certificate.
 	// +kubebuilder:validation:Optional
 	CABundle string `json:"caBundle" yaml:"caBundle"`
-
-	// Method is the HTTP request type (GET or POST).
-	// +kubebuilder:default=GET
-	Method Method `json:"requestType" yaml:"requestType"`
-
-	// Data specifies the POST data sent to the server.
-	// +kubebuilder:validation:Optional
-	Data []RequestData `json:"data" yaml:"data"`
 }
 
 // Method is a HTTP request type.
@@ -164,7 +163,7 @@ type RequestData struct {
 	Key string `json:"key" yaml:"key"`
 
 	// Value is the data value
-	Value *apiextensionsv1.JSON `json:"value" yaml:"value"`
+	Value *apiextv1.JSON `json:"value" yaml:"value"`
 }
 
 // Condition defines variable-based conditional criteria for rule execution.
