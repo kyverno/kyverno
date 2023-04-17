@@ -48,8 +48,6 @@ rules:
       - create
       - update
       - patch
-      - delete
-      - deletecollection
   - apiGroups:
       - networking.k8s.io
     resources:

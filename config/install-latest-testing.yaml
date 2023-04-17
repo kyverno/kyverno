@@ -33717,14 +33717,12 @@ rules:
       - deletecollection
   - apiGroups:
       - ''
-      - events.k8s.io
     resources:
       - events
     verbs:
       - create
       - update
       - patch
-      - delete
   - apiGroups:
       - '*'
     resources:
@@ -33824,8 +33822,6 @@ rules:
       - create
       - update
       - patch
-      - delete
-      - deletecollection
   - apiGroups:
       - networking.k8s.io
     resources:
@@ -33940,6 +33936,7 @@ rules:
     verbs:
     - create
     - patch
+    - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

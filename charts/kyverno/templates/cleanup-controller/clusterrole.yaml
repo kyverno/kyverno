@@ -71,6 +71,7 @@ rules:
     verbs:
     - create
     - patch
+    - update
 {{- with .Values.cleanupController.rbac.clusterRole.extraResources }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
