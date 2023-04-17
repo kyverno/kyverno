@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	notationregistry "github.com/notaryproject/notation-go/registry"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -110,6 +111,23 @@ func getAuthClient(ctx context.Context, ref registry.Reference, rc registryclien
 
 	authClient.SetUserAgent("kyverno.io")
 	return authClient, false, nil
+}
+
+func getAuthenticator(ctx context.Context, ref string, registryClient registryclient.Client) (*authn.Authenticator, error) {
+	parsedRef, err := registry.ParseReference(ref)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to parse registry reference %s", ref)
+	}
+
+	if err := registryClient.RefreshKeychainPullSecrets(ctx); err != nil {
+		return nil, errors.Wrapf(err, "failed to refresh image pull secrets")
+	}
+
+	authn, err := registryClient.Keychain().Resolve(&imageResource{parsedRef})
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to resolve auth for %s", parsedRef.String())
+	}
+	return &authn, nil
 }
 
 func resolveDigest(repo notationregistry.Repository, ref registry.Reference) (registry.Reference, error) {
