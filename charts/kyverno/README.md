@@ -191,14 +191,19 @@ The command removes all the Kubernetes components associated with the chart and 
 
 ## Values
 
+The chart values are organised per component.
+
+### Custom resource definitions
+
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| nameOverride | string | `nil` | Override the name of the chart |
-| fullnameOverride | string | `nil` | Override the expanded name of the chart |
-| namespaceOverride | string | `nil` | Override the namespace the chart deploys to |
-| apiVersionOverride.podDisruptionBudget | string | `nil` | Override api version used to create `PodDisruptionBudget`` resources. When not specified the chart will check if `policy/v1/PodDisruptionBudget` is available to determine the api version automatically. |
 | crds.install | bool | `true` | Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created |
 | crds.annotations | object | `{}` | Additional CRDs annotations |
+
+### Config
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
 | config.create | bool | `true` | Create the configmap. |
 | config.name | string | `nil` | The configmap name (required if `create` is `false`). |
 | config.annotations | object | `{}` | Additional annotations to add to the configmap. |
@@ -214,29 +219,22 @@ The command removes all the Kubernetes components associated with the chart and 
 | config.webhookAnnotations | object | `{}` | Defines annotations to set on webhook configurations. |
 | config.excludeKyvernoNamespace | bool | `true` | Exclude Kyverno namespace Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters |
 | config.resourceFiltersExcludeNamespaces | list | `[]` | resourceFilter namespace exclude Namespaces to exclude from the default resourceFilters |
+
+### Metrics config
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
 | metricsConfig.create | bool | `true` | Create the configmap. |
 | metricsConfig.name | string | `nil` | The configmap name (required if `create` is `false`). |
 | metricsConfig.annotations | object | `{}` | Additional annotations to add to the configmap. |
 | metricsConfig.namespaces.include | list | `[]` | List of namespaces to capture metrics for. |
 | metricsConfig.namespaces.exclude | list | `[]` | list of namespaces to NOT capture metrics for. |
 | metricsConfig.metricsRefreshInterval | string | `nil` | Rate at which metrics should reset so as to clean up the memory footprint of kyverno metrics, if you might be expecting high memory footprint of Kyverno's metrics. Default: 0, no refresh of metrics |
-| imagePullSecrets | object | `{}` | Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
-| existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
-| test.image.registry | string | `nil` | Image registry |
-| test.image.repository | string | `"busybox"` | Image repository |
-| test.image.tag | string | `"1.35"` | Image tag Defaults to `latest` if omitted |
-| test.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
-| test.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
-| test.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
-| test.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the test containers |
-| customLabels | object | `{}` | Additional labels |
-| webhooksCleanup.enabled | bool | `false` | Create a helm pre-delete hook to cleanup webhooks. |
-| webhooksCleanup.image | string | `"bitnami/kubectl:latest"` | `kubectl` image to run commands for deleting webhooks. |
-| webhooksCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
-| grafana.enabled | bool | `false` | Enable grafana dashboard creation. |
-| grafana.configMapName | string | `"{{ include \"kyverno.fullname\" . }}-grafana"` | Configmap name template. |
-| grafana.namespace | string | `nil` | Namespace to create the grafana dashboard configmap. If not set, it will be created in the same namespace where the chart is deployed. |
-| grafana.annotations | object | `{}` | Grafana dashboard configmap annotations. |
+
+### Features
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
 | features.admissionReports.enabled | bool | `true` | Enables the feature |
 | features.autoUpdateWebhooks.enabled | bool | `true` | Enables the feature |
 | features.backgroundScan.enabled | bool | `true` | Enables the feature |
@@ -250,6 +248,11 @@ The command removes all the Kubernetes components associated with the chart and 
 | features.policyExceptions.namespace | string | `""` | Restrict policy exceptions to a single namespace |
 | features.protectManagedResources.enabled | bool | `false` | Enables the feature |
 | features.reports.chunkSize | int | `1000` | Reports chunk size |
+
+### Admission controller
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
 | admissionController.featuresOverride | object | `{}` | Overrides features defined at the root level |
 | admissionController.rbac.create | bool | `true` | Create RBAC resources |
 | admissionController.rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |
@@ -327,6 +330,11 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.metering.port | int | `8000` | Prometheus endpoint port |
 | admissionController.metering.collector | string | `""` | Otel collector endpoint |
 | admissionController.metering.creds | string | `""` | Otel collector credentials |
+
+### Background controller
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
 | backgroundController.featuresOverride | object | `{}` | Overrides features defined at the root level |
 | backgroundController.enabled | bool | `true` | Enable background controller. |
 | backgroundController.rbac.create | bool | `true` | Create RBAC resources |
@@ -381,6 +389,11 @@ The command removes all the Kubernetes components associated with the chart and 
 | backgroundController.metering.port | int | `8000` | Prometheus endpoint port |
 | backgroundController.metering.collector | string | `""` | Otel collector endpoint |
 | backgroundController.metering.creds | string | `""` | Otel collector credentials |
+
+### Cleanup controller
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
 | cleanupController.featuresOverride | object | `{}` | Overrides features defined at the root level |
 | cleanupController.enabled | bool | `true` | Enable cleanup controller. |
 | cleanupController.rbac.create | bool | `true` | Create RBAC resources |
@@ -443,6 +456,11 @@ The command removes all the Kubernetes components associated with the chart and 
 | cleanupController.metering.port | int | `8000` | Prometheus endpoint port |
 | cleanupController.metering.collector | string | `""` | Otel collector endpoint |
 | cleanupController.metering.creds | string | `""` | Otel collector credentials |
+
+### Reports controller
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
 | reportsController.featuresOverride | object | `{}` | Overrides features defined at the root level |
 | reportsController.enabled | bool | `true` | Enable reports controller. |
 | reportsController.rbac.create | bool | `true` | Create RBAC resources |
@@ -499,6 +517,52 @@ The command removes all the Kubernetes components associated with the chart and 
 | reportsController.metering.port | int | `8000` | Prometheus endpoint port |
 | reportsController.metering.collector | string | `nil` | Otel collector endpoint |
 | reportsController.metering.creds | string | `nil` | Otel collector credentials |
+
+### Grafana
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| grafana.enabled | bool | `false` | Enable grafana dashboard creation. |
+| grafana.configMapName | string | `"{{ include \"kyverno.fullname\" . }}-grafana"` | Configmap name template. |
+| grafana.namespace | string | `nil` | Namespace to create the grafana dashboard configmap. If not set, it will be created in the same namespace where the chart is deployed. |
+| grafana.annotations | object | `{}` | Grafana dashboard configmap annotations. |
+
+### Webhooks cleanup
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| webhooksCleanup.enabled | bool | `false` | Create a helm pre-delete hook to cleanup webhooks. |
+| webhooksCleanup.image | string | `"bitnami/kubectl:latest"` | `kubectl` image to run commands for deleting webhooks. |
+| webhooksCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
+
+### Test
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| test.image.registry | string | `nil` | Image registry |
+| test.image.repository | string | `"busybox"` | Image repository |
+| test.image.tag | string | `"1.35"` | Image tag Defaults to `latest` if omitted |
+| test.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
+| test.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
+| test.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
+| test.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the test containers |
+
+### Api version override
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| apiVersionOverride.podDisruptionBudget | string | `nil` | Override api version used to create `PodDisruptionBudget`` resources. When not specified the chart will check if `policy/v1/PodDisruptionBudget` is available to determine the api version automatically. |
+
+### Other
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| nameOverride | string | `nil` | Override the name of the chart |
+| fullnameOverride | string | `nil` | Override the expanded name of the chart |
+| namespaceOverride | string | `nil` | Override the namespace the chart deploys to |
+| imagePullSecrets | object | `{}` | Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
+| existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
+| customLabels | object | `{}` | Additional labels |
 
 ## TLS Configuration
 
