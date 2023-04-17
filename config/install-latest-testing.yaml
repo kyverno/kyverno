@@ -33717,7 +33717,7 @@ rules:
       - deletecollection
   - apiGroups:
       - ''
-      - events.k8s.io/v1
+      - events.k8s.io
     resources:
       - events
     verbs:
@@ -33817,7 +33817,7 @@ rules:
       - deletecollection
   - apiGroups:
       - ''
-      - events.k8s.io/v1
+      - events.k8s.io
     resources:
       - events
     verbs:
@@ -33933,7 +33933,7 @@ rules:
       - watch
   - apiGroups:
     - ''
-    - events.k8s.io/v1
+    - events.k8s.io
     resources:
     - events
     verbs:
@@ -34199,7 +34199,7 @@ rules:
       - deletecollection
   - apiGroups:
       - ''
-      - events.k8s.io/v1
+      - events.k8s.io
     resources:
       - events
     verbs:
