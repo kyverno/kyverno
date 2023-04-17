@@ -546,6 +546,16 @@ The chart values are organised per component.
 | imagePullSecrets | object | `{}` | Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | customLabels | object | `{}` | Additional labels |
+| cleanupJobs.admissionReports | object | `{"enabled":true,"history":{"failure":1,"success":1},"image":{"pullPolicy":null,"registry":null,"repository":"bitnami/kubectl","tag":"1.26.4"},"schedule":"*/10 * * * *","threshold":10000}` | Cleanup admission reports periodically if there's more than a certain threshold |
+| cleanupJobs.admissionReports.image.registry | string | `nil` | Image registry |
+| cleanupJobs.admissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
+| cleanupJobs.admissionReports.image.tag | string | `"1.26.4"` | Image tag Defaults to `latest` if omitted |
+| cleanupJobs.admissionReports.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
+| cleanupJobs.clusterAdmissionReports | object | `{"enabled":true,"history":{"failure":1,"success":1},"image":{"pullPolicy":null,"registry":null,"repository":"bitnami/kubectl","tag":"1.26.4"},"schedule":"*/10 * * * *","threshold":10000}` | Cleanup cluster admission reports periodically if there's more than a certain threshold |
+| cleanupJobs.clusterAdmissionReports.image.registry | string | `nil` | Image registry |
+| cleanupJobs.clusterAdmissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
+| cleanupJobs.clusterAdmissionReports.image.tag | string | `"1.26.4"` | Image tag Defaults to `latest` if omitted |
+| cleanupJobs.clusterAdmissionReports.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 
 ## TLS Configuration
 

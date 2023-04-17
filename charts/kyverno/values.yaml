@@ -319,6 +319,49 @@ grafana:
   # -- Grafana dashboard configmap annotations.
   annotations: {}
 
+# cleanup cronjobs to prevent internal resources from stacking up in the cluster
+cleanupJobs:
+
+  # -- Cleanup admission reports periodically if there's more than a certain threshold
+  admissionReports:
+    enabled: true
+    image:
+      # -- (string) Image registry
+      registry: ~
+      # -- Image repository
+      repository: bitnami/kubectl
+      # -- Image tag
+      # Defaults to `latest` if omitted
+      tag: '1.26.4'
+      # -- (string) Image pull policy
+      # Defaults to image.pullPolicy if omitted
+      pullPolicy: ~
+    schedule: '*/10 * * * *'
+    threshold: 10000
+    history:
+      success: 1
+      failure: 1
+
+  # -- Cleanup cluster admission reports periodically if there's more than a certain threshold
+  clusterAdmissionReports:
+    enabled: true
+    image:
+      # -- (string) Image registry
+      registry: ~
+      # -- Image repository
+      repository: bitnami/kubectl
+      # -- Image tag
+      # Defaults to `latest` if omitted
+      tag: '1.26.4'
+      # -- (string) Image pull policy
+      # Defaults to image.pullPolicy if omitted
+      pullPolicy: ~
+    schedule: '*/10 * * * *'
+    threshold: 10000
+    history:
+      success: 1
+      failure: 1
+
 # Admission controller configuration
 admissionController:
 
