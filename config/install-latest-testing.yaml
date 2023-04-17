@@ -34697,6 +34697,7 @@ spec:
           imagePullPolicy: IfNotPresent
           args:
             - --loggingFormat=text
+            - --v=2
           resources:
             limits:
               cpu: 100m
@@ -34735,6 +34736,7 @@ spec:
             - --backgroundServiceAccountName='system:serviceaccount:kyverno:kyverno-background-controller'
             - --servicePort=443
             - --loggingFormat=text
+            - --v=2
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
@@ -34873,6 +34875,7 @@ spec:
             protocol: TCP
           args:
             - --loggingFormat=text
+            - --v=2
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
@@ -34961,6 +34964,7 @@ spec:
           args:
             - --servicePort=443
             - --loggingFormat=text
+            - --v=2
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
@@ -35078,6 +35082,7 @@ spec:
             protocol: TCP
           args:
             - --loggingFormat=text
+            - --v=2
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
