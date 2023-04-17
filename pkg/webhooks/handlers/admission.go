@@ -33,26 +33,24 @@ func (inner AdmissionHandler) withAdmission(logger logr.Logger) HttpHandler {
 			HttpError(request.Context(), writer, request, logger, errors.New("invalid Content-Type"), http.StatusUnsupportedMediaType)
 			return
 		}
-		admissionReview := &admissionv1.AdmissionReview{}
+		var admissionReview admissionv1.AdmissionReview
 		if err := json.Unmarshal(body, &admissionReview); err != nil {
 			HttpError(request.Context(), writer, request, logger, err, http.StatusExpectationFailed)
 			return
 		}
 		logger := logger.WithValues(
-			"kind", admissionReview.Request.Kind.Kind,
 			"gvk", admissionReview.Request.Kind,
+			"gvr", admissionReview.Request.Resource,
 			"namespace", admissionReview.Request.Namespace,
 			"name", admissionReview.Request.Name,
 			"operation", admissionReview.Request.Operation,
 			"uid", admissionReview.Request.UID,
 			"user", admissionReview.Request.UserInfo,
 		)
-		admissionReview.Response = &admissionv1.AdmissionResponse{
-			Allowed: true,
-			UID:     admissionReview.Request.UID,
+		admissionRequest := AdmissionRequest{
+			AdmissionRequest: *admissionReview.Request,
 		}
-		// TODO: check request is not nil ?
-		admissionResponse := inner(request.Context(), logger, *admissionReview.Request, startTime)
+		admissionResponse := inner(request.Context(), logger, admissionRequest, startTime)
 		admissionReview.Response = &admissionResponse
 		responseJSON, err := json.Marshal(admissionReview)
 		if err != nil {
@@ -63,11 +61,6 @@ func (inner AdmissionHandler) withAdmission(logger logr.Logger) HttpHandler {
 		if _, err := writer.Write(responseJSON); err != nil {
 			HttpError(request.Context(), writer, request, logger, err, http.StatusInternalServerError)
 			return
-		}
-		if admissionReview.Request.Kind.Kind == "Lease" {
-			logger.V(6).Info("admission review request processed", "time", time.Since(startTime).String())
-		} else {
-			logger.V(4).Info("admission review request processed", "time", time.Since(startTime).String())
 		}
 	}
 }

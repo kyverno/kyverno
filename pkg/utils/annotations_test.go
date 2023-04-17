@@ -2,7 +2,6 @@ package utils
 
 import (
 	"testing"
-	"time"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -20,11 +19,7 @@ func newPolicyResponse(rule string, patchesStr []string, status engineapi.RuleSt
 
 	return engineapi.PolicyResponse{
 		Rules: []engineapi.RuleResponse{
-			{
-				Name:    rule,
-				Patches: patches,
-				Status:  status,
-			},
+			*engineapi.NewRuleResponse(rule, engineapi.Mutation, "", status).WithPatches(patches...),
 		},
 	}
 }
@@ -36,7 +31,7 @@ func newEngineResponse(policy, rule string, patchesStr []string, status engineap
 		},
 	}
 	policyResponse := newPolicyResponse(rule, patchesStr, status)
-	response := engineapi.NewEngineResponse(unstructured.Unstructured{}, p, nil, &policyResponse, time.Now())
+	response := engineapi.NewEngineResponse(unstructured.Unstructured{}, p, nil).WithPolicyResponse(policyResponse)
 	response.PatchedResource = unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"metadata": map[string]interface{}{

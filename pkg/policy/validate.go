@@ -87,27 +87,22 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 
 func validateJSONPatch(patch string, ruleIdx int) error {
 	patch = variables.ReplaceAllVars(patch, func(s string) string { return "kyvernojsonpatchvariable" })
-
 	jsonPatch, err := yaml.ToJSON([]byte(patch))
 	if err != nil {
 		return err
 	}
-
 	decodedPatch, err := jsonpatch.DecodePatch(jsonPatch)
 	if err != nil {
 		return err
 	}
-
 	for _, operation := range decodedPatch {
 		op := operation.Kind()
 		if op != "add" && op != "remove" && op != "replace" {
 			return fmt.Errorf("unexpected kind: spec.rules[%d]: %s", ruleIdx, op)
 		}
-		v, _ := operation.ValueInterface()
-		if v != nil {
-			vs := fmt.Sprintf("%v", v)
-			if strings.ContainsAny(vs, `"`) || strings.ContainsAny(vs, `'`) {
-				return fmt.Errorf("missing quote around value: spec.rules[%d]: %s", ruleIdx, vs)
+		if op != "remove" {
+			if _, err := operation.ValueInterface(); err != nil {
+				return fmt.Errorf("invalid value: spec.rules[%d]: %s", ruleIdx, err)
 			}
 		}
 	}
@@ -1251,7 +1246,7 @@ func validateKinds(kinds []string, mock, backgroundScanningEnabled, isValidation
 			if len(gvrss) == 0 {
 				return fmt.Errorf("unable to convert GVK to GVR for kinds %s", k)
 			}
-			if backgroundScanningEnabled {
+			if isValidationPolicy && backgroundScanningEnabled {
 				for gvrs := range gvrss {
 					if gvrs.SubResource != "" {
 						return fmt.Errorf("background scan enabled with subresource %s", k)

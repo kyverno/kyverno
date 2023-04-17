@@ -10,6 +10,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/logging"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -33,7 +34,7 @@ type EvalInterface interface {
 // Interface to manage context operations
 type Interface interface {
 	// AddRequest marshals and adds the admission request to the context
-	AddRequest(request *admissionv1.AdmissionRequest) error
+	AddRequest(request admissionv1.AdmissionRequest) error
 
 	// AddVariable adds a variable to the context
 	AddVariable(key string, value interface{}) error
@@ -98,6 +99,7 @@ type Interface interface {
 
 // Context stores the data resources as JSON
 type context struct {
+	jp                 jmespath.Interface
 	mutex              sync.RWMutex
 	jsonRaw            []byte
 	jsonRawCheckpoints [][]byte
@@ -105,17 +107,17 @@ type context struct {
 }
 
 // NewContext returns a new context
-func NewContext() Interface {
-	return NewContextFromRaw([]byte(`{}`))
+func NewContext(jp jmespath.Interface) Interface {
+	return NewContextFromRaw(jp, []byte(`{}`))
 }
 
 // NewContextFromRaw returns a new context initialized with raw data
-func NewContextFromRaw(raw []byte) Interface {
-	ctx := context{
+func NewContextFromRaw(jp jmespath.Interface, raw []byte) Interface {
+	return &context{
+		jp:                 jp,
 		jsonRaw:            raw,
 		jsonRawCheckpoints: make([][]byte, 0),
 	}
-	return &ctx
 }
 
 // addJSON merges json data
@@ -131,7 +133,7 @@ func (ctx *context) addJSON(dataRaw []byte) error {
 }
 
 // AddRequest adds an admission request to context
-func (ctx *context) AddRequest(request *admissionv1.AdmissionRequest) error {
+func (ctx *context) AddRequest(request admissionv1.AdmissionRequest) error {
 	return addToContext(ctx, request, "request")
 }
 

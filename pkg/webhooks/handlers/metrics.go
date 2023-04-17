@@ -13,7 +13,6 @@ import (
 	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/metric/instrument"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
-	admissionv1 "k8s.io/api/admission/v1"
 )
 
 func (inner AdmissionHandler) WithMetrics(logger logr.Logger, metricsConfig config.MetricsConfiguration, attrs ...attribute.KeyValue) AdmissionHandler {
@@ -36,7 +35,7 @@ func (inner AdmissionHandler) withMetrics(logger logr.Logger, metricsConfig conf
 	if err != nil {
 		logger.Error(err, "Failed to create instrument, kyverno_admission_review_duration_seconds")
 	}
-	return func(ctx context.Context, logger logr.Logger, request admissionv1.AdmissionRequest, startTime time.Time) admissionv1.AdmissionResponse {
+	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
 		response := inner(ctx, logger, request, startTime)
 		namespace := request.Namespace
 		if metricsConfig.CheckNamespace(namespace) {

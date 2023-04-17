@@ -51,7 +51,16 @@ func (i *imageExtractor) ExtractFromResource(resource interface{}, cfg config.Co
 	return imageInfo, nil
 }
 
-func extract(obj interface{}, path []string, keyPath, valuePath string, fields []string, jmesPath string, imageInfos *map[string]ImageInfo, cfg config.Configuration) error {
+func extract(
+	obj interface{},
+	path []string,
+	keyPath string,
+	valuePath string,
+	fields []string,
+	jmesPath string,
+	imageInfos *map[string]ImageInfo,
+	cfg config.Configuration,
+) error {
 	if obj == nil {
 		return nil
 	}
@@ -94,11 +103,13 @@ func extract(obj interface{}, path []string, keyPath, valuePath string, fields [
 			return nil
 		}
 		if jmesPath != "" {
-			jp, err := jmespath.New(jmesPath)
+			// TODO: should be injected
+			jp := jmespath.New(cfg)
+			q, err := jp.Query(jmesPath)
 			if err != nil {
 				return fmt.Errorf("invalid jmespath %s: %v", jmesPath, err)
 			}
-			result, err := jp.Search(value)
+			result, err := q.Search(value)
 			if err != nil {
 				return fmt.Errorf("failed to apply jmespath %s: %v", jmesPath, err)
 			}
@@ -171,12 +182,10 @@ func lookupImageExtractor(kind string, configs kyvernov1.ImageExtractorConfigs) 
 
 func ExtractImagesFromResource(resource unstructured.Unstructured, configs kyvernov1.ImageExtractorConfigs, cfg config.Configuration) (map[string]map[string]ImageInfo, error) {
 	infos := map[string]map[string]ImageInfo{}
-
 	extractors := lookupImageExtractor(resource.GetKind(), configs)
 	if extractors != nil && len(extractors) == 0 {
 		return nil, fmt.Errorf("no extractors found for %s", resource.GetKind())
 	}
-
 	for _, extractor := range extractors {
 		if infoMap, err := extractor.ExtractFromResource(resource.Object, cfg); err != nil {
 			return nil, err
@@ -184,6 +193,5 @@ func ExtractImagesFromResource(resource unstructured.Unstructured, configs kyver
 			infos[extractor.Name] = infoMap
 		}
 	}
-
 	return infos, nil
 }

@@ -66,8 +66,118 @@ data:
   enableDefaultRegistryMutation: "true"
   defaultRegistry: "docker.io"
   generateSuccessEvents: "false"
-  excludeBackgroundUsernames: system:serviceaccount:kyverno:kyverno-background-controller
-  resourceFilters: "[*,kyverno,*][Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][SelfSubjectAccessReview,*,*][Binding,*,*][ReplicaSet,*,*][AdmissionReport,*,*][ClusterAdmissionReport,*,*][BackgroundScanReport,*,*][ClusterBackgroundScanReport,*,*][ClusterRole,*,kyverno:*][ClusterRoleBinding,*,kyverno:*][ServiceAccount,kyverno,kyverno-admission-controller][ConfigMap,kyverno,kyverno][ConfigMap,kyverno,kyverno-metrics][Deployment,kyverno,kyverno][Job,kyverno,kyverno-hook-pre-delete][NetworkPolicy,kyverno,kyverno][PodDisruptionBudget,kyverno,kyverno][Role,kyverno,kyverno:*][RoleBinding,kyverno,kyverno:*][Secret,kyverno,kyverno-svc.kyverno.svc.*][Service,kyverno,kyverno-svc][Service,kyverno,kyverno-svc-metrics][ServiceMonitor,kyverno,kyverno-svc-service-monitor][Pod,kyverno,kyverno-*]"
+  excludeGroups: "system:serviceaccounts:kube-system,system:nodes"
+  resourceFilters: >-
+    [*/*,kyverno,*]
+    [Event,*,*]
+    [*/*,kube-system,*]
+    [*/*,kube-public,*]
+    [*/*,kube-node-lease,*]
+    [Node,*,*]
+    [Node/*,*,*]
+    [APIService,*,*]
+    [APIService/*,*,*]
+    [TokenReview,*,*]
+    [SubjectAccessReview,*,*]
+    [SelfSubjectAccessReview,*,*]
+    [Binding,*,*]
+    [Pod/binding,*,*]
+    [ReplicaSet,*,*]
+    [ReplicaSet/*,*,*]
+    [AdmissionReport,*,*]
+    [AdmissionReport/*,*,*]
+    [ClusterAdmissionReport,*,*]
+    [ClusterAdmissionReport/*,*,*]
+    [BackgroundScanReport,*,*]
+    [BackgroundScanReport/*,*,*]
+    [ClusterBackgroundScanReport,*,*]
+    [ClusterBackgroundScanReport/*,*,*]
+    [ClusterRole,*,kyverno:admission-controller]
+    [ClusterRole,*,kyverno:admission-controller:core]
+    [ClusterRole,*,kyverno:admission-controller:additional]
+    [ClusterRole,*,kyverno:background-controller]
+    [ClusterRole,*,kyverno:background-controller:core]
+    [ClusterRole,*,kyverno:background-controller:additional]
+    [ClusterRole,*,kyverno:cleanup-controller]
+    [ClusterRole,*,kyverno:cleanup-controller:core]
+    [ClusterRole,*,kyverno:cleanup-controller:additional]
+    [ClusterRole,*,kyverno:reports-controller]
+    [ClusterRole,*,kyverno:reports-controller:core]
+    [ClusterRole,*,kyverno:reports-controller:additional]
+    [ClusterRoleBinding,*,kyverno:admission-controller]
+    [ClusterRoleBinding,*,kyverno:background-controller]
+    [ClusterRoleBinding,*,kyverno:cleanup-controller]
+    [ClusterRoleBinding,*,kyverno:reports-controller]
+    [ServiceAccount,kyverno,kyverno-admission-controller]
+    [ServiceAccount/*,kyverno,kyverno-admission-controller]
+    [ServiceAccount,kyverno,kyverno-background-controller]
+    [ServiceAccount/*,kyverno,kyverno-background-controller]
+    [ServiceAccount,kyverno,kyverno-cleanup-controller]
+    [ServiceAccount/*,kyverno,kyverno-cleanup-controller]
+    [ServiceAccount,kyverno,kyverno-reports-controller]
+    [ServiceAccount/*,kyverno,kyverno-reports-controller]
+    [Role,kyverno,kyverno:admission-controller]
+    [Role,kyverno,kyverno:background-controller]
+    [Role,kyverno,kyverno:cleanup-controller]
+    [Role,kyverno,kyverno:reports-controller]
+    [RoleBinding,kyverno,kyverno:admission-controller]
+    [RoleBinding,kyverno,kyverno:background-controller]
+    [RoleBinding,kyverno,kyverno:cleanup-controller]
+    [RoleBinding,kyverno,kyverno:reports-controller]
+    [ConfigMap,kyverno,kyverno]
+    [ConfigMap,kyverno,kyverno-metrics]
+    [Deployment,kyverno,kyverno-admission-controller]
+    [Deployment/*,kyverno,kyverno-admission-controller]
+    [Deployment,kyverno,kyverno-background-controller]
+    [Deployment/*,kyverno,kyverno-background-controller]
+    [Deployment,kyverno,kyverno-cleanup-controller]
+    [Deployment/*,kyverno,kyverno-cleanup-controller]
+    [Deployment,kyverno,kyverno-reports-controller]
+    [Deployment/*,kyverno,kyverno-reports-controller]
+    [Pod,kyverno,kyverno-admission-controller-*]
+    [Pod/*,kyverno,kyverno-admission-controller-*]
+    [Pod,kyverno,kyverno-background-controller-*]
+    [Pod/*,kyverno,kyverno-background-controller-*]
+    [Pod,kyverno,kyverno-cleanup-controller-*]
+    [Pod/*,kyverno,kyverno-cleanup-controller-*]
+    [Pod,kyverno,kyverno-reports-controller-*]
+    [Pod/*,kyverno,kyverno-reports-controller-*]
+    [Job,kyverno,kyverno-hook-pre-delete]
+    [Job/*,kyverno,kyverno-hook-pre-delete]
+    [NetworkPolicy,kyverno,kyverno-admission-controller]
+    [NetworkPolicy/*,kyverno,kyverno-admission-controller]
+    [NetworkPolicy,kyverno,kyverno-background-controller]
+    [NetworkPolicy/*,kyverno,kyverno-background-controller]
+    [NetworkPolicy,kyverno,kyverno-cleanup-controller]
+    [NetworkPolicy/*,kyverno,kyverno-cleanup-controller]
+    [NetworkPolicy,kyverno,kyverno-reports-controller]
+    [NetworkPolicy/*,kyverno,kyverno-reports-controller]
+    [PodDisruptionBudget,kyverno,kyverno-admission-controller]
+    [PodDisruptionBudget/*,kyverno,kyverno-admission-controller]
+    [PodDisruptionBudget,kyverno,kyverno-background-controller]
+    [PodDisruptionBudget/*,kyverno,kyverno-background-controller]
+    [PodDisruptionBudget,kyverno,kyverno-cleanup-controller]
+    [PodDisruptionBudget/*,kyverno,kyverno-cleanup-controller]
+    [PodDisruptionBudget,kyverno,kyverno-reports-controller]
+    [PodDisruptionBudget/*,kyverno,kyverno-reports-controller]
+    [Service,kyverno,kyverno-svc]
+    [Service/*,kyverno,kyverno-svc]
+    [Service,kyverno,kyverno-svc-metrics]
+    [Service/*,kyverno,kyverno-svc-metrics]
+    [Service,kyverno,kyverno-background-controller-metrics]
+    [Service/*,kyverno,kyverno-background-controller-metrics]
+    [Service,kyverno,kyverno-cleanup-controller]
+    [Service/*,kyverno,kyverno-cleanup-controller]
+    [Service,kyverno,kyverno-cleanup-controller-metrics]
+    [Service/*,kyverno,kyverno-cleanup-controller-metrics]
+    [Service,kyverno,kyverno-reports-controller-metrics]
+    [Service/*,kyverno,kyverno-reports-controller-metrics]
+    [ServiceMonitor,kyverno,kyverno-admission-controller]
+    [ServiceMonitor,kyverno,kyverno-background-controller]
+    [ServiceMonitor,kyverno,kyverno-cleanup-controller]
+    [ServiceMonitor,kyverno,kyverno-reports-controller]
+    [Secret,kyverno,kyverno-svc.kyverno.svc.*]
+    [Secret,kyverno,kyverno-cleanup-controller.kyverno.svc.*]
   webhooks: '[{"namespaceSelector": {"matchExpressions": [{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["kyverno"]}]}}]'
 ---
 apiVersion: v1
@@ -33614,7 +33724,6 @@ rules:
       - create
       - update
       - patch
-      - delete
   - apiGroups:
       - '*'
     resources:
@@ -33708,14 +33817,13 @@ rules:
       - deletecollection
   - apiGroups:
       - ''
+      - events.k8s.io
     resources:
       - events
     verbs:
       - create
       - update
       - patch
-      - delete
-      - deletecollection
   - apiGroups:
       - networking.k8s.io
     resources:
@@ -33824,12 +33932,14 @@ rules:
       - update
       - watch
   - apiGroups:
-    - ""
+    - ''
+    - events.k8s.io
     resources:
     - events
     verbs:
     - create
     - patch
+    - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -34089,6 +34199,7 @@ rules:
       - deletecollection
   - apiGroups:
       - ''
+      - events.k8s.io
     resources:
       - events
     verbs:
@@ -34199,6 +34310,9 @@ rules:
       - get
       - list
       - watch
+    resourceNames:
+      - kyverno
+      - kyverno-metrics
   - apiGroups:
       - coordination.k8s.io
     resources:
@@ -34248,6 +34362,9 @@ rules:
       - get
       - list
       - watch
+    resourceNames:
+      - kyverno
+      - kyverno-metrics
   - apiGroups:
       - coordination.k8s.io
     resources:
@@ -34288,6 +34405,9 @@ rules:
       - get
       - list
       - watch
+    resourceNames:
+      - kyverno
+      - kyverno-metrics
   - apiGroups:
       - coordination.k8s.io
     resources:
@@ -34318,6 +34438,9 @@ rules:
       - get
       - list
       - watch
+    resourceNames:
+      - kyverno
+      - kyverno-metrics
   - apiGroups:
       - coordination.k8s.io
     resources:
@@ -34575,6 +34698,7 @@ spec:
           imagePullPolicy: IfNotPresent
           args:
             - --loggingFormat=text
+            - --v=2
           resources:
             limits:
               cpu: 100m
@@ -34610,8 +34734,10 @@ spec:
           image: "ghcr.io/kyverno/kyverno:latest"
           imagePullPolicy: IfNotPresent
           args:
+            - --backgroundServiceAccountName='system:serviceaccount:kyverno:kyverno-background-controller'
             - --servicePort=443
             - --loggingFormat=text
+            - --v=2
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
@@ -34690,18 +34816,9 @@ spec:
           volumeMounts:
             - mountPath: /.sigstore
               name: sigstore
-            - mountPath: /var/run/secrets/tokens
-              name: api-token
       volumes:
       - name: sigstore
         emptyDir: {}
-      - name: api-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              path: api-token
-              expirationSeconds: 600
-              audience: kyverno-extension
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -34759,6 +34876,7 @@ spec:
             protocol: TCP
           args:
             - --loggingFormat=text
+            - --v=2
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
@@ -34847,6 +34965,7 @@ spec:
           args:
             - --servicePort=443
             - --loggingFormat=text
+            - --v=2
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
@@ -34964,11 +35083,13 @@ spec:
             protocol: TCP
           args:
             - --loggingFormat=text
+            - --v=2
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
             - --clientRateLimitBurst=300
             - --clientRateLimitQPS=300
+            - --skipResourceFilters=true
           env:
           - name: METRICS_CONFIG
             value: kyverno-metrics

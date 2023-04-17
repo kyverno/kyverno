@@ -2,6 +2,7 @@ package mutation
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -9,8 +10,10 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
+	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/utils/api"
+	"github.com/mattbaird/jsonpatch"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -129,20 +132,42 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 			allPatches = append(allPatches, mutateResp.Patches...)
 		}
 	}
-
-	return mutate.NewResponse(engineapi.RuleStatusPass, patchedResource.unstructured, allPatches, "")
+	var sortedPatches []jsonpatch.JsonPatchOperation
+	for _, p := range allPatches {
+		var jp jsonpatch.JsonPatchOperation
+		if err := json.Unmarshal(p, &jp); err != nil {
+			return mutate.NewErrorResponse("failed to convert patch", err)
+		}
+		sortedPatches = append(sortedPatches, jp)
+	}
+	sortedPatches = patch.FilterAndSortPatches(sortedPatches)
+	var finalPatches [][]byte
+	for _, p := range sortedPatches {
+		if data, err := p.MarshalJSON(); err != nil {
+			return mutate.NewErrorResponse("failed to marshal patch", err)
+		} else {
+			finalPatches = append(finalPatches, data)
+		}
+	}
+	return mutate.NewResponse(engineapi.RuleStatusPass, patchedResource.unstructured, finalPatches, "")
 }
 
 func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info resourceInfo) *engineapi.RuleResponse {
-	resp := internal.RuleResponse(*rule, engineapi.Mutation, mutateResp.Message, mutateResp.Status)
-	if resp.Status == engineapi.RuleStatusPass {
-		resp.Patches = mutateResp.Patches
-		resp.Message = buildSuccessMessage(mutateResp.PatchedResource)
+	message := mutateResp.Message
+	if mutateResp.Status == engineapi.RuleStatusPass {
+		message = buildSuccessMessage(mutateResp.PatchedResource)
 	}
-	if len(rule.Mutation.Targets) != 0 {
-		resp.PatchedTarget = &mutateResp.PatchedResource
-		resp.PatchedTargetSubresourceName = info.subresource
-		resp.PatchedTargetParentResourceGVR = info.parentResourceGVR
+	resp := engineapi.NewRuleResponse(
+		rule.Name,
+		engineapi.Mutation,
+		message,
+		mutateResp.Status,
+	)
+	if mutateResp.Status == engineapi.RuleStatusPass {
+		resp = resp.WithPatches(mutateResp.Patches...)
+		if len(rule.Mutation.Targets) != 0 {
+			resp = resp.WithPatchedTarget(&mutateResp.PatchedResource, info.parentResourceGVR, info.subresource)
+		}
 	}
 	return resp
 }

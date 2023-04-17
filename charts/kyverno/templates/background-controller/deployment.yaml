@@ -80,6 +80,7 @@ spec:
             protocol: TCP
           args:
             - --loggingFormat={{ .Values.backgroundController.logging.format }}
+            - --v={{ .Values.backgroundController.logging.verbosity }}
             {{- if .Values.backgroundController.tracing.enabled }}
             - --enableTracing
             - --tracingAddress={{ .Values.backgroundController.tracing.address }}
@@ -98,6 +99,9 @@ spec:
             {{- with .Values.backgroundController.metering.creds }}
             - --transportCreds={{ . }}
             {{- end }}
+            {{- end }}
+            {{- if or .Values.imagePullSecrets .Values.existingImagePullSecrets }}
+            - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
             {{- end }}
             {{- range $key, $value := .Values.backgroundController.extraArgs }}
             {{- if $value }}

@@ -9,6 +9,7 @@ import (
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	client "github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	enginetest "github.com/kyverno/kyverno/pkg/engine/test"
@@ -32,6 +33,8 @@ func testMutate(
 	}
 	e := NewEngine(
 		cfg,
+		config.NewDefaultMetricsConfiguration(),
+		jp,
 		client,
 		rclient,
 		contextLoader,
@@ -102,7 +105,7 @@ func Test_VariableSubstitutionPatchStrategicMerge(t *testing.T) {
 	}
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 	err = enginecontext.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -122,9 +125,9 @@ func Test_VariableSubstitutionPatchStrategicMerge(t *testing.T) {
 	t.Log(string(expectedPatch))
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches), 1)
-	t.Log(string(er.PolicyResponse.Rules[0].Patches[0]))
-	if !reflect.DeepEqual(expectedPatch, er.PolicyResponse.Rules[0].Patches[0]) {
+	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches()), 1)
+	t.Log(string(er.PolicyResponse.Rules[0].Patches()[0]))
+	if !reflect.DeepEqual(expectedPatch, er.PolicyResponse.Rules[0].Patches()[0]) {
 		t.Error("patches dont match")
 	}
 }
@@ -183,7 +186,7 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
@@ -193,7 +196,7 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 
 	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message, "Unknown key \"name1\" in path"))
+	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message(), "Unknown key \"name1\" in path"))
 }
 
 func Test_variableSubstitutionCLI(t *testing.T) {
@@ -260,7 +263,7 @@ func Test_variableSubstitutionCLI(t *testing.T) {
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
@@ -289,10 +292,10 @@ func Test_variableSubstitutionCLI(t *testing.T) {
 		),
 	)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches), 1)
+	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches()), 1)
 	t.Log(string(expectedPatch))
-	t.Log(string(er.PolicyResponse.Rules[0].Patches[0]))
-	if !reflect.DeepEqual(expectedPatch, er.PolicyResponse.Rules[0].Patches[0]) {
+	t.Log(string(er.PolicyResponse.Rules[0].Patches()[0]))
+	if !reflect.DeepEqual(expectedPatch, er.PolicyResponse.Rules[0].Patches()[0]) {
 		t.Error("patches don't match")
 	}
 }
@@ -380,7 +383,7 @@ func Test_chained_rules(t *testing.T) {
 	resource, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
@@ -397,11 +400,11 @@ func Test_chained_rules(t *testing.T) {
 	assert.Equal(t, containers[0].(map[string]interface{})["image"], "otherregistry.corp.com/foo/bash:5.0")
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 2)
-	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches), 1)
-	assert.Equal(t, len(er.PolicyResponse.Rules[1].Patches), 1)
+	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches()), 1)
+	assert.Equal(t, len(er.PolicyResponse.Rules[1].Patches()), 1)
 
-	assert.Equal(t, string(er.PolicyResponse.Rules[0].Patches[0]), `{"op":"replace","path":"/spec/containers/0/image","value":"myregistry.corp.com/foo/bash:5.0"}`)
-	assert.Equal(t, string(er.PolicyResponse.Rules[1].Patches[0]), `{"op":"replace","path":"/spec/containers/0/image","value":"otherregistry.corp.com/foo/bash:5.0"}`)
+	assert.Equal(t, string(er.PolicyResponse.Rules[0].Patches()[0]), `{"op":"replace","path":"/spec/containers/0/image","value":"myregistry.corp.com/foo/bash:5.0"}`)
+	assert.Equal(t, string(er.PolicyResponse.Rules[1].Patches()[0]), `{"op":"replace","path":"/spec/containers/0/image","value":"otherregistry.corp.com/foo/bash:5.0"}`)
 }
 
 func Test_precondition(t *testing.T) {
@@ -468,7 +471,7 @@ func Test_precondition(t *testing.T) {
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
@@ -478,8 +481,8 @@ func Test_precondition(t *testing.T) {
 
 	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, enginetest.ContextLoaderFactory(nil, nil))
 	t.Log(string(expectedPatch))
-	t.Log(string(er.PolicyResponse.Rules[0].Patches[0]))
-	if !reflect.DeepEqual(expectedPatch, er.PolicyResponse.Rules[0].Patches[0]) {
+	t.Log(string(er.PolicyResponse.Rules[0].Patches()[0]))
+	if !reflect.DeepEqual(expectedPatch, er.PolicyResponse.Rules[0].Patches()[0]) {
 		t.Error("patches don't match")
 	}
 }
@@ -562,7 +565,7 @@ func Test_nonZeroIndexNumberPatchesJson6902(t *testing.T) {
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
@@ -572,8 +575,8 @@ func Test_nonZeroIndexNumberPatchesJson6902(t *testing.T) {
 
 	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, enginetest.ContextLoaderFactory(nil, nil))
 	t.Log(string(expectedPatch))
-	t.Log(string(er.PolicyResponse.Rules[0].Patches[0]))
-	if !reflect.DeepEqual(expectedPatch, er.PolicyResponse.Rules[0].Patches[0]) {
+	t.Log(string(er.PolicyResponse.Rules[0].Patches()[0]))
+	if !reflect.DeepEqual(expectedPatch, er.PolicyResponse.Rules[0].Patches()[0]) {
 		t.Error("patches don't match")
 	}
 }
@@ -648,7 +651,7 @@ func Test_foreach(t *testing.T) {
 	resource, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
@@ -662,7 +665,7 @@ func Test_foreach(t *testing.T) {
 	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusPass)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
 
 	containers, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "containers")
 	assert.NilError(t, err)
@@ -750,7 +753,7 @@ func Test_foreach_element_mutation(t *testing.T) {
 	resource, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
@@ -764,7 +767,7 @@ func Test_foreach_element_mutation(t *testing.T) {
 	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusPass)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
 
 	containers, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "containers")
 	assert.NilError(t, err)
@@ -871,7 +874,7 @@ func Test_Container_InitContainer_foreach(t *testing.T) {
 	resource, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
@@ -885,7 +888,7 @@ func Test_Container_InitContainer_foreach(t *testing.T) {
 	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusPass)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
 
 	containers, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "containers")
 	assert.NilError(t, err)
@@ -990,7 +993,7 @@ func Test_foreach_order_mutation_(t *testing.T) {
 	er := testApplyPolicyToResource(t, policyRaw, resourceRaw)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusPass)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
 
 	containers, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "containers")
 	assert.NilError(t, err)
@@ -1016,7 +1019,7 @@ func testApplyPolicyToResource(t *testing.T, policyRaw, resourceRaw []byte) engi
 	resource, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
@@ -1138,8 +1141,8 @@ func Test_mutate_nested_foreach(t *testing.T) {
 
 	er := testApplyPolicyToResource(t, policyRaw, resourceRaw)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusPass)
-	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches), 2)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches()), 2)
 
 	tlsArr, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "tls")
 	assert.NilError(t, err)
@@ -1554,7 +1557,7 @@ func Test_mutate_existing_resources(t *testing.T) {
 			target, err := kubeutils.BytesToUnstructured(target)
 			assert.NilError(t, err)
 
-			ctx := enginecontext.NewContext()
+			ctx := enginecontext.NewContext(jp)
 			err = ctx.AddResource(trigger.Object)
 			assert.NilError(t, err)
 
@@ -1578,9 +1581,9 @@ func Test_mutate_existing_resources(t *testing.T) {
 			er := testMutate(context.TODO(), dclient, registryclient.NewOrDie(), policyContext, nil)
 
 			for _, rr := range er.PolicyResponse.Rules {
-				for i, p := range rr.Patches {
-					assert.Equal(t, test.patches[i], string(p), "test %s failed:\nGot %s\nExpected: %s", test.name, rr.Patches[i], test.patches[i])
-					assert.Equal(t, rr.Status, engineapi.RuleStatusPass, rr.Status)
+				for i, p := range rr.Patches() {
+					assert.Equal(t, test.patches[i], string(p), "test %s failed:\nGot %s\nExpected: %s", test.name, rr.Patches()[i], test.patches[i])
+					assert.Equal(t, rr.Status(), engineapi.RuleStatusPass, rr.Status())
 				}
 			}
 		}
@@ -1669,7 +1672,7 @@ func Test_RuleSelectorMutate(t *testing.T) {
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 	err = enginecontext.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -1684,13 +1687,13 @@ func Test_RuleSelectorMutate(t *testing.T) {
 
 	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 2)
-	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches), 1)
-	assert.Equal(t, len(er.PolicyResponse.Rules[1].Patches), 1)
+	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches()), 1)
+	assert.Equal(t, len(er.PolicyResponse.Rules[1].Patches()), 1)
 
-	if !reflect.DeepEqual(expectedPatch1, er.PolicyResponse.Rules[0].Patches[0]) {
+	if !reflect.DeepEqual(expectedPatch1, er.PolicyResponse.Rules[0].Patches()[0]) {
 		t.Error("rule 1 patches dont match")
 	}
-	if !reflect.DeepEqual(expectedPatch2, er.PolicyResponse.Rules[1].Patches[0]) {
+	if !reflect.DeepEqual(expectedPatch2, er.PolicyResponse.Rules[1].Patches()[0]) {
 		t.Errorf("rule 2 patches dont match")
 	}
 
@@ -1699,9 +1702,9 @@ func Test_RuleSelectorMutate(t *testing.T) {
 
 	er = testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches), 1)
+	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches()), 1)
 
-	if !reflect.DeepEqual(expectedPatch1, er.PolicyResponse.Rules[0].Patches[0]) {
+	if !reflect.DeepEqual(expectedPatch1, er.PolicyResponse.Rules[0].Patches()[0]) {
 		t.Error("rule 1 patches dont match")
 	}
 }
@@ -2050,7 +2053,7 @@ func Test_SpecialCharacters(t *testing.T) {
 			}
 
 			// Create JSON context and add the resource.
-			ctx := enginecontext.NewContext()
+			ctx := enginecontext.NewContext(jp)
 			err = ctx.AddResource(resource.Object)
 			if err != nil {
 				t.Fatalf("ctx.AddResource() error = %v", err)
