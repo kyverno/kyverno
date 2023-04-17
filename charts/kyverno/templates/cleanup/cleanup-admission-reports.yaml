@@ -7,7 +7,7 @@ metadata:
   labels:
     {{- include "kyverno.labels.merge" (list (include "kyverno.labels.common" .) (include "kyverno.matchLabels.common" .)) | nindent 4 }}
 spec:
-  schedule: {{ .Values.cleanupJobs.admissionReports.schedule }}
+  schedule: {{ .Values.cleanupJobs.admissionReports.schedule | quote }}
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: {{ .Values.cleanupJobs.admissionReports.history.success }}
   failedJobsHistoryLimit: {{ .Values.cleanupJobs.admissionReports.history.failure }}

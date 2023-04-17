@@ -35175,7 +35175,7 @@ metadata:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
 spec:
-  schedule: map[enabled:true history:map[failure:1 success:1] image:map[pullPolicy:<nil> registry:<nil> repository:bitnami/kubectl tag:1.26.4] schedule:*/10 * * * * threshold:10000]
+  schedule: "*/10 * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 1
@@ -35211,7 +35211,7 @@ metadata:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
 spec:
-  schedule: map[enabled:true history:map[failure:1 success:1] image:map[pullPolicy:<nil> registry:<nil> repository:bitnami/kubectl tag:1.26.4] schedule:*/10 * * * * threshold:10000]
+  schedule: "*/10 * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 1
