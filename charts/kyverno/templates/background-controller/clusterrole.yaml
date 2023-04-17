@@ -42,6 +42,7 @@ rules:
       - deletecollection
   - apiGroups:
       - ''
+      - events.k8s.io/v1
     resources:
       - events
     verbs:
