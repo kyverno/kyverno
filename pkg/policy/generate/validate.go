@@ -122,7 +122,7 @@ func (g *Generate) validateClone(c kyvernov1.CloneFrom, cl kyvernov1.CloneList, 
 			return "", err
 		}
 		if !ok {
-			return "", fmt.Errorf("kyverno does not have permissions to 'get' resource %s/%s. Update permissions in ClusterRole 'kyverno:background-controller:additional'", kind, namespace)
+			return "", fmt.Errorf("kyverno does not have permissions to 'get' resource %s/%s. Grant proper permissions to the background controller", kind, namespace)
 		}
 	} else {
 		g.log.V(2).Info("resource Kind uses variables, so cannot be resolved. Skipping Auth Checks.")
@@ -145,7 +145,7 @@ func (g *Generate) canIGenerate(ctx context.Context, kind, namespace string) err
 			return err
 		}
 		if !ok {
-			return fmt.Errorf("kyverno does not have permissions to 'create' resource %s/%s. Update permissions in ClusterRole 'kyverno:background-controller:additional'", kind, namespace)
+			return fmt.Errorf("kyverno does not have permissions to 'create' resource %s/%s. Grant proper permissions to the background controller", kind, namespace)
 		}
 		// UPDATE
 		ok, err = authCheck.CanIUpdate(ctx, kind, namespace)
@@ -154,7 +154,7 @@ func (g *Generate) canIGenerate(ctx context.Context, kind, namespace string) err
 			return err
 		}
 		if !ok {
-			return fmt.Errorf("kyverno does not have permissions to 'update' resource %s/%s. Update permissions in ClusterRole 'kyverno:background-controller:additional'", kind, namespace)
+			return fmt.Errorf("kyverno does not have permissions to 'update' resource %s/%s. Grant proper permissions to the background controller", kind, namespace)
 		}
 		// GET
 		ok, err = authCheck.CanIGet(ctx, kind, namespace)
@@ -163,7 +163,7 @@ func (g *Generate) canIGenerate(ctx context.Context, kind, namespace string) err
 			return err
 		}
 		if !ok {
-			return fmt.Errorf("kyverno does not have permissions to 'get' resource %s/%s. Update permissions in ClusterRole 'kyverno:background-controller:additional'", kind, namespace)
+			return fmt.Errorf("kyverno does not have permissions to 'get' resource %s/%s. Grant proper permissions to the background controller", kind, namespace)
 		}
 
 		// DELETE
@@ -173,7 +173,7 @@ func (g *Generate) canIGenerate(ctx context.Context, kind, namespace string) err
 			return err
 		}
 		if !ok {
-			return fmt.Errorf("kyverno does not have permissions to 'delete' resource %s/%s. Update permissions in ClusterRole 'kyverno:background-controller:additional'", kind, namespace)
+			return fmt.Errorf("kyverno does not have permissions to 'delete' resource %s/%s. Grant proper permissions to the background controller", kind, namespace)
 		}
 	} else {
 		g.log.V(2).Info("resource Kind uses variables, so cannot be resolved. Skipping Auth Checks.")
