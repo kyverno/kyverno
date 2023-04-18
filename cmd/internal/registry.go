@@ -31,6 +31,9 @@ func setupRegistryClient(ctx context.Context, logger logr.Logger, client kuberne
 	if allowInsecureRegistry {
 		registryOptions = append(registryOptions, registryclient.WithAllowInsecureRegistry())
 	}
+	if len(enableHelpers) > 0 {
+		registryOptions = append(registryOptions, registryclient.WithCredentialHelpers(strings.Split(enableHelpers, ",")...))
+	}
 	registryClient, err := registryclient.New(registryOptions...)
 	checkError(logger, err, "failed to create registry client")
 	return registryClient
