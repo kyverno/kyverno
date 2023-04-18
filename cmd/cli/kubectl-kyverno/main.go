@@ -10,10 +10,8 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/oci"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/version"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
-	"k8s.io/klog/v2/klogr"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const EnableExperimentalEnv = "KYVERNO_EXPERIMENTAL"
@@ -21,28 +19,25 @@ const EnableExperimentalEnv = "KYVERNO_EXPERIMENTAL"
 func main() {
 	cli := &cobra.Command{
 		Use:   "kyverno",
-		Long:  `To enable experimental commands, KYVERNO_EXPERIMENTAL should be configured with true or 1.`,
+		Long:  "To enable experimental commands, KYVERNO_EXPERIMENTAL should be configured with true or 1.",
 		Short: "Kubernetes Native Policy Management",
 	}
-
-	configurelog(cli)
-
-	commands := []*cobra.Command{
-		version.Command(),
-		apply.Command(),
-		test.Command(),
-		jp.Command(),
-	}
-
-	if enableExperimental() {
-		commands = append(commands, oci.Command())
-	}
-
-	cli.AddCommand(commands...)
-
+	configureLogs(cli)
+	registerCommands(cli)
 	if err := cli.Execute(); err != nil {
 		os.Exit(1)
 	}
+}
+
+func configureLogs(cli *cobra.Command) {
+	logging.InitFlags(nil)
+	cli.PersistentFlags().AddGoFlagSet(flag.CommandLine)
+	_ = cli.PersistentFlags().MarkHidden("alsologtostderr")
+	_ = cli.PersistentFlags().MarkHidden("logtostderr")
+	_ = cli.PersistentFlags().MarkHidden("log_dir")
+	_ = cli.PersistentFlags().MarkHidden("log_backtrace_at")
+	_ = cli.PersistentFlags().MarkHidden("stderrthreshold")
+	_ = cli.PersistentFlags().MarkHidden("vmodule")
 }
 
 func enableExperimental() bool {
@@ -52,20 +47,9 @@ func enableExperimental() bool {
 	return false
 }
 
-func configurelog(cli *cobra.Command) {
-	// clear flags initialized in static dependencies
-	if flag.CommandLine.Lookup("log_dir") != nil {
-		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+func registerCommands(cli *cobra.Command) {
+	cli.AddCommand(version.Command(), apply.Command(), test.Command(), jp.Command())
+	if enableExperimental() {
+		cli.AddCommand(oci.Command())
 	}
-
-	klog.InitFlags(nil)
-	cli.PersistentFlags().AddGoFlagSet(flag.CommandLine)
-	log.SetLogger(klogr.New())
-
-	_ = cli.PersistentFlags().MarkHidden("alsologtostderr")
-	_ = cli.PersistentFlags().MarkHidden("logtostderr")
-	_ = cli.PersistentFlags().MarkHidden("log_dir")
-	_ = cli.PersistentFlags().MarkHidden("log_backtrace_at")
-	_ = cli.PersistentFlags().MarkHidden("stderrthreshold")
-	_ = cli.PersistentFlags().MarkHidden("vmodule")
 }
