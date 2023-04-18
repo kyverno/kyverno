@@ -238,10 +238,12 @@ type Attestation struct {
 	// PredicateType defines the type of Predicate contained within the Statement.
 	// Deprecated in favour of 'Type', to be removed soon
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:Default:=""
 	PredicateType string `json:"predicateType" yaml:"predicateType"`
 
 	// Type defines the type of attestation contained within the Statement.
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:Default:=""
 	Type string `json:"type" yaml:"type"`
 
 	// Attestors specify the required attestors (i.e. authorities)

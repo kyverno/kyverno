@@ -250,6 +250,11 @@ func (iv *ImageVerifier) verifyImage(
 		return nil, ""
 	}
 	image := imageInfo.String()
+	for _, att := range imageVerify.Attestations {
+		if att.Type == "" {
+			att.Type = att.PredicateType
+		}
+	}
 	iv.logger.V(2).Info("verifying image signatures", "image", image, "attestors", len(imageVerify.Attestors), "attestations", len(imageVerify.Attestations))
 	if err := iv.policyContext.JSONContext().AddImageInfo(imageInfo, cfg); err != nil {
 		iv.logger.Error(err, "failed to add image to context")

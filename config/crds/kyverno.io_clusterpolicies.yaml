@@ -3224,10 +3224,13 @@ spec:
                                   type: array
                                 predicateType:
                                   description: PredicateType defines the type of Predicate
+                                    contained within the Statement. Deprecated in
+                                    favour of 'Type', to be removed soon
+                                  type: string
+                                type:
+                                  description: Type defines the type of attestation
                                     contained within the Statement.
                                   type: string
-                              required:
-                              - predicateType
                               type: object
                             type: array
                           attestors:
@@ -6843,9 +6846,13 @@ spec:
                                     predicateType:
                                       description: PredicateType defines the type
                                         of Predicate contained within the Statement.
+                                        Deprecated in favour of 'Type', to be removed
+                                        soon
                                       type: string
-                                  required:
-                                  - predicateType
+                                    type:
+                                      description: Type defines the type of attestation
+                                        contained within the Statement.
+                                      type: string
                                   type: object
                                 type: array
                               attestors:
@@ -10154,10 +10161,13 @@ spec:
                                   type: array
                                 predicateType:
                                   description: PredicateType defines the type of Predicate
+                                    contained within the Statement. Deprecated in
+                                    favour of 'Type', to be removed soon
+                                  type: string
+                                type:
+                                  description: Type defines the type of attestation
                                     contained within the Statement.
                                   type: string
-                              required:
-                              - predicateType
                               type: object
                             type: array
                           attestors:
@@ -13748,9 +13758,13 @@ spec:
                                     predicateType:
                                       description: PredicateType defines the type
                                         of Predicate contained within the Statement.
+                                        Deprecated in favour of 'Type', to be removed
+                                        soon
                                       type: string
-                                  required:
-                                  - predicateType
+                                    type:
+                                      description: Type defines the type of attestation
+                                        contained within the Statement.
+                                      type: string
                                   type: object
                                 type: array
                               attestors:
