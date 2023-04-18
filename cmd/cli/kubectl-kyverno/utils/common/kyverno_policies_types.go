@@ -17,7 +17,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type KyvernoPolicies struct{}
@@ -76,16 +75,16 @@ OuterLoop:
 	}
 
 	resPath := fmt.Sprintf("%s/%s/%s", c.Resource.GetNamespace(), c.Resource.GetKind(), c.Resource.GetName())
-	log.Log.V(3).Info("applying policy on resource", "policy", c.Policy.GetName(), "resource", resPath)
+	log.V(3).Info("applying policy on resource", "policy", c.Policy.GetName(), "resource", resPath)
 
 	resourceRaw, err := c.Resource.MarshalJSON()
 	if err != nil {
-		log.Log.Error(err, "failed to marshal resource")
+		log.Error(err, "failed to marshal resource")
 	}
 
 	updatedResource, err := kubeutils.BytesToUnstructured(resourceRaw)
 	if err != nil {
-		log.Log.Error(err, "unable to convert raw resource to unstructured")
+		log.Error(err, "unable to convert raw resource to unstructured")
 	}
 	ctx := engineContext.NewContext(jp)
 
@@ -96,19 +95,19 @@ OuterLoop:
 	}
 
 	if err != nil {
-		log.Log.Error(err, "failed to load resource in context")
+		log.Error(err, "failed to load resource in context")
 	}
 
 	for key, value := range c.Variables {
 		err = ctx.AddVariable(key, value)
 		if err != nil {
-			log.Log.Error(err, "failed to add variable to context")
+			log.Error(err, "failed to add variable to context")
 		}
 	}
 
 	cfg := config.NewDefaultConfiguration(false)
 	if err := ctx.AddImageInfos(c.Resource, cfg); err != nil {
-		log.Log.Error(err, "failed to add image variables to context")
+		log.Error(err, "failed to add image variables to context")
 	}
 
 	gvk, subresource := updatedResource.GroupVersionKind(), ""
@@ -194,7 +193,7 @@ OuterLoop:
 		if !generateResponse.IsEmpty() {
 			newRuleResponse, err := handleGeneratePolicy(&generateResponse, *policyContext, c.RuleToCloneSourceResource)
 			if err != nil {
-				log.Log.Error(err, "failed to apply generate policy")
+				log.Error(err, "failed to apply generate policy")
 			} else {
 				generateResponse.PolicyResponse.Rules = newRuleResponse
 			}

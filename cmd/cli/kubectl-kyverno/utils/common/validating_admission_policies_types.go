@@ -15,7 +15,6 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type ValidatingAdmissionPolicies struct{}
@@ -24,7 +23,7 @@ func (p *ValidatingAdmissionPolicies) ApplyPolicyOnResource(c ApplyPolicyConfig)
 	var engineResponses []engineapi.EngineResponse
 
 	resPath := fmt.Sprintf("%s/%s/%s", c.Resource.GetNamespace(), c.Resource.GetKind(), c.Resource.GetName())
-	log.Log.V(3).Info("applying policy on resource", "policy", c.ValidatingAdmissionPolicy.GetName(), "resource", resPath)
+	log.V(3).Info("applying policy on resource", "policy", c.ValidatingAdmissionPolicy.GetName(), "resource", resPath)
 
 	startTime := time.Now()
 
