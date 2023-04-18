@@ -80,6 +80,7 @@ spec:
             protocol: TCP
           args:
             - --loggingFormat={{ .Values.reportsController.logging.format }}
+            - --v={{ .Values.reportsController.logging.verbosity }}
             {{- if .Values.reportsController.tracing.enabled }}
             - --enableTracing
             - --tracingAddress={{ .Values.reportsController.tracing.address }}
