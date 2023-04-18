@@ -24,6 +24,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
+	"github.com/kyverno/kyverno/pkg/logging"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
@@ -34,8 +35,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+var log = logging.WithName("kubectl-kyverno")
 
 type ResultCounts struct {
 	Pass  int
@@ -107,7 +109,7 @@ func HasVariables(policy kyvernov1.PolicyInterface) [][]string {
 // GetPolicies - Extracting the policies from multiple YAML
 func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, errors []error) {
 	for _, path := range paths {
-		log.Log.V(5).Info("reading policies", "path", path)
+		log.V(5).Info("reading policies", "path", path)
 
 		var (
 			fileDesc os.FileInfo
@@ -201,7 +203,7 @@ func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, validati
 		}
 	}
 
-	log.Log.V(3).Info("read policies", "policies", len(policies), "errors", len(errors))
+	log.V(3).Info("read policies", "policies", len(policies), "errors", len(errors))
 	return policies, validatingAdmissionPolicies, errors
 }
 
@@ -288,12 +290,12 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		if values.GlobalValues == nil {
 			values.GlobalValues = make(map[string]string)
 			values.GlobalValues["request.operation"] = "CREATE"
-			log.Log.V(3).Info("Defaulting request.operation to CREATE")
+			log.V(3).Info("Defaulting request.operation to CREATE")
 		} else {
 			if val, ok := values.GlobalValues["request.operation"]; ok {
 				if val == "" {
 					values.GlobalValues["request.operation"] = "CREATE"
-					log.Log.V(3).Info("Globally request.operation value provided by the user is empty, defaulting it to CREATE", "request.opearation: ", values.GlobalValues)
+					log.V(3).Info("Globally request.operation value provided by the user is empty, defaulting it to CREATE", "request.opearation: ", values.GlobalValues)
 				}
 			}
 		}
@@ -306,7 +308,7 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 				if val, ok := r.Values["request.operation"]; ok {
 					if val == "" {
 						r.Values["request.operation"] = "CREATE"
-						log.Log.V(3).Info("No request.operation found, defaulting it to CREATE", "policy", p.Name)
+						log.V(3).Info("No request.operation found, defaulting it to CREATE", "policy", p.Name)
 					}
 				}
 				for variableInFile := range r.Values {
@@ -345,7 +347,7 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 	if globalValMap != nil {
 		if _, ok := globalValMap["request.operation"]; !ok {
 			globalValMap["request.operation"] = "CREATE"
-			log.Log.V(3).Info("Defaulting request.operation to CREATE")
+			log.V(3).Info("Defaulting request.operation to CREATE")
 		}
 	}
 
@@ -444,7 +446,7 @@ func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml stri
 	if _, err := f.Write([]byte(yaml)); err != nil {
 		closeErr := f.Close()
 		if closeErr != nil {
-			log.Log.Error(closeErr, "failed to close file")
+			log.Error(closeErr, "failed to close file")
 		}
 		return err
 	}
@@ -505,7 +507,7 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 				}
 				return nil, nil, sanitizederror.New(fmt.Sprintf("no file found in paths %v", dirPath))
 			}
-			if len(errors) > 0 && log.Log.V(1).Enabled() {
+			if len(errors) > 0 && log.V(1).Enabled() {
 				fmt.Printf("ignoring errors: \n")
 				for _, e := range errors {
 					fmt.Printf("    %v \n", e.Error())
@@ -711,7 +713,7 @@ func PrintMutatedPolicy(mutatedPolicies []kyvernov1.PolicyInterface) error {
 		if err != nil {
 			return sanitizederror.NewWithError("failed to marsal mutated policy", err)
 		}
-		log.Log.V(5).Info("mutated Policy:", string(p))
+		log.V(5).Info("mutated Policy:", string(p))
 	}
 	return nil
 }
@@ -905,7 +907,7 @@ func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyCont
 	var newRuleResponse []engineapi.RuleResponse
 
 	for _, rule := range generateResponse.PolicyResponse.Rules {
-		genResource, err := c.ApplyGeneratePolicy(log.Log, &policyContext, gr, []string{rule.Name()})
+		genResource, err := c.ApplyGeneratePolicy(log.V(2), &policyContext, gr, []string{rule.Name()})
 		if err != nil {
 			return nil, err
 		}
@@ -955,7 +957,7 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 		if err := json.Unmarshal(userInfoBytes, userInfo); err != nil {
 			errors = append(errors, sanitizederror.NewWithError("failed to decode yaml", err))
 		}
-		if len(errors) > 0 && log.Log.V(1).Enabled() {
+		if len(errors) > 0 && log.V(1).Enabled() {
 			fmt.Printf("ignoring errors: \n")
 			for _, e := range errors {
 				fmt.Printf("    %v \n", e.Error())
