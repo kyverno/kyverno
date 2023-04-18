@@ -124,7 +124,7 @@ func checkValidationFailureAction(spec *kyvernov1.Spec) []string {
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager openapi.Manager) ([]string, error) {
+func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager openapi.Manager, username string) ([]string, error) {
 	var warnings []string
 	namespaced := policy.IsNamespaced()
 	spec := policy.GetSpec()
@@ -328,7 +328,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			}
 		}
 
-		if err := validateActions(i, &rules[i], client, mock); err != nil {
+		if err := validateActions(i, &rules[i], client, mock, username); err != nil {
 			return warnings, err
 		}
 

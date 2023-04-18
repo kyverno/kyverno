@@ -89,9 +89,7 @@ var (
 	// kyvernoNamespace is the Kyverno namespace
 	kyvernoNamespace = osutils.GetEnvWithFallback("KYVERNO_NAMESPACE", "kyverno")
 	// kyvernoServiceAccountName is the Kyverno service account name
-	kyvernoServiceAccountName           = osutils.GetEnvWithFallback("KYVERNO_SERVICEACCOUNT_NAME", "kyverno")
-	kyvernoBackgroundServiceAccountName = osutils.GetEnvWithFallback("KYVERNO_BACKGROUND_SERVICEACCOUNT_NAME", "kyverno-background-controller")
-	kyvernoCleanupServiceAccountName    = osutils.GetEnvWithFallback("KYVERNO_CLEANUP_SERVICEACCOUNT_NAME", "kyverno-cleanup-controller")
+	kyvernoServiceAccountName = osutils.GetEnvWithFallback("KYVERNO_SERVICEACCOUNT_NAME", "kyverno")
 	// kyvernoDeploymentName is the Kyverno deployment name
 	kyvernoDeploymentName = osutils.GetEnvWithFallback("KYVERNO_DEPLOYMENT", "kyverno")
 	// kyvernoServiceName is the Kyverno service name
@@ -116,14 +114,6 @@ func KyvernoDryRunNamespace() string {
 
 func KyvernoServiceAccountName() string {
 	return kyvernoServiceAccountName
-}
-
-func KyvernoBackgroundServiceAccountName() string {
-	return kyvernoBackgroundServiceAccountName
-}
-
-func KyvernoCleanupServiceAccountName() string {
-	return kyvernoCleanupServiceAccountName
 }
 
 func KyvernoDeploymentName() string {

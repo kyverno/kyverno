@@ -23,8 +23,8 @@ type CanIOptions interface {
 	// - can only evaluate a single verb
 	// - group version resource is determined from the kind using the discovery client REST mapper
 	// - If disallowed, the reason and evaluationError is available in the logs
-	// - each can generates a SelfSubjectAccessReview resource and response is evaluated for permissions
-	RunAccessCheck(context.Context, string) (bool, error)
+	// - each can generates a SubjectAccessReview resource and response is evaluated for permissions
+	RunAccessCheck(context.Context) (bool, error)
 }
 
 type canIOptions struct {
@@ -32,17 +32,19 @@ type canIOptions struct {
 	verb        string
 	kind        string
 	subresource string
+	user        string
 	discovery   Discovery
 	sarClient   authorizationv1client.SubjectAccessReviewInterface
 }
 
 // NewCanI returns a new instance of operation access controller evaluator
-func NewCanI(discovery Discovery, sarClient authorizationv1client.SubjectAccessReviewInterface, kind, namespace, verb, subresource string) CanIOptions {
+func NewCanI(discovery Discovery, sarClient authorizationv1client.SubjectAccessReviewInterface, kind, namespace, verb, subresource string, user string) CanIOptions {
 	return &canIOptions{
 		namespace:   namespace,
 		verb:        verb,
 		kind:        kind,
 		subresource: subresource,
+		user:        user,
 		discovery:   discovery,
 		sarClient:   sarClient,
 	}
@@ -54,7 +56,7 @@ func NewCanI(discovery Discovery, sarClient authorizationv1client.SubjectAccessR
 // - group version resource is determined from the kind using the discovery client REST mapper
 // - If disallowed, the reason and evaluationError is available in the logs
 // - each can generates a SelfSubjectAccessReview resource and response is evaluated for permissions
-func (o *canIOptions) RunAccessCheck(ctx context.Context, user string) (bool, error) {
+func (o *canIOptions) RunAccessCheck(ctx context.Context) (bool, error) {
 	// get GroupVersionResource from RESTMapper
 	// get GVR from kind
 	apiVersion, kind := kubeutils.GetKindFromGVK(o.kind)
@@ -81,7 +83,7 @@ func (o *canIOptions) RunAccessCheck(ctx context.Context, user string) (bool, er
 				Resource:    gvr.Resource,
 				Subresource: o.subresource,
 			},
-			User: user,
+			User: o.user,
 		},
 	}
 	// Set self subject access review

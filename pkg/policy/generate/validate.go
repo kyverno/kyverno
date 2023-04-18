@@ -25,10 +25,10 @@ type Generate struct {
 }
 
 // NewGenerateFactory returns a new instance of Generate validation checker
-func NewGenerateFactory(client dclient.Interface, rule kyvernov1.Generation, log logr.Logger) *Generate {
+func NewGenerateFactory(client dclient.Interface, rule kyvernov1.Generation, user string, log logr.Logger) *Generate {
 	g := Generate{
 		rule:      rule,
-		authCheck: NewAuth(client, log),
+		authCheck: NewAuth(client, user, log),
 		log:       log,
 	}
 

@@ -34,7 +34,7 @@ func TestNewCanI(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewCanI(tt.args.client.Discovery(), tt.args.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), tt.args.kind, tt.args.namespace, tt.args.verb, "")
+			got := NewCanI(tt.args.client.Discovery(), tt.args.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), tt.args.kind, tt.args.namespace, tt.args.verb, "", "admin")
 			assert.NotNil(t, got)
 		})
 	}
@@ -71,8 +71,8 @@ func TestCanIOptions_DiscoveryError(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			o := NewCanI(tt.fields.discovery, nil, tt.fields.kind, tt.fields.namespace, tt.fields.verb, "")
-			got, err := o.RunAccessCheck(context.TODO(), "admin")
+			o := NewCanI(tt.fields.discovery, nil, tt.fields.kind, tt.fields.namespace, tt.fields.verb, "", "admin")
+			got, err := o.RunAccessCheck(context.TODO())
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -116,8 +116,8 @@ func TestCanIOptions_SsarError(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			o := NewCanI(tt.fields.discovery, tt.fields.sarClient, tt.fields.kind, tt.fields.namespace, tt.fields.verb, "")
-			got, err := o.RunAccessCheck(context.TODO(), "admin")
+			o := NewCanI(tt.fields.discovery, tt.fields.sarClient, tt.fields.kind, tt.fields.namespace, tt.fields.verb, "", "admin")
+			got, err := o.RunAccessCheck(context.TODO())
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -173,8 +173,8 @@ func TestCanIOptions_RunAccessCheck(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			o := NewCanI(tt.fields.client.Discovery(), tt.fields.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), tt.fields.kind, tt.fields.namespace, tt.fields.verb, "")
-			got, err := o.RunAccessCheck(context.TODO(), "admin")
+			o := NewCanI(tt.fields.client.Discovery(), tt.fields.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), tt.fields.kind, tt.fields.namespace, tt.fields.verb, "", "admin")
+			got, err := o.RunAccessCheck(context.TODO())
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
