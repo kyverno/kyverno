@@ -1,5 +1,47 @@
+# # dockerhub
+# docker run -d --name proxy-docker-hub --restart=always \
+#   --net=kind \
+#   -e REGISTRY_PROXY_REMOTEURL=https://registry-1.docker.io \
+#   registry:2
+# # quay.io
+# docker run -d --name proxy-quay --restart=always \
+#   --net=kind \
+#   -e REGISTRY_PROXY_REMOTEURL=https://quay.io \
+#   registry:2
+# # gcr.io
+# docker run -d --name proxy-gcr --restart=always \
+#   --net=kind \
+#   -e REGISTRY_PROXY_REMOTEURL=https://gcr.io \
+#   registry:2
+# # k8s.gcr.io
+# docker run -d --name proxy-k8s-gcr --restart=always \
+#   --net=kind \
+#   -e REGISTRY_PROXY_REMOTEURL=https://k8s.gcr.io \
+#   registry:2
+# # registry.k8s.io
+# docker run -d --name proxy-registry-k8s --restart=always \
+#   --net=kind \
+#   -e REGISTRY_PROXY_REMOTEURL=https://registry.k8s.io \
+#   registry:2
+
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
+      endpoint = ["http://proxy-docker-hub:5000"]
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."quay.io"]
+      endpoint = ["http://proxy-quay:5000"]
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."k8s.gcr.io"]
+      endpoint = ["http://proxy-k8s-gcr:5000"]
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."gcr.io"]
+      endpoint = ["http://proxy-gcr:5000"]
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry.k8s.io"]
+      endpoint = ["http://proxy-registry-k8s:5000"]
 kubeadmConfigPatches:
   - |-
     kind: ClusterConfiguration
