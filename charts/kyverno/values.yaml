@@ -51,7 +51,7 @@ config:
 
   # -- Exclude groups
   excludeGroups:
-    - system:serviceaccounts:kube-system
+    - system:serviceaccount:kube-system
     - system:nodes
 
   # -- Exclude usernames
