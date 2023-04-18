@@ -34782,6 +34782,10 @@ spec:
                 fieldPath: metadata.name
           - name: KYVERNO_SERVICEACCOUNT_NAME
             value: kyverno-admission-controller
+          - name: KYVERNO_BACKGROUND_SERVICEACCOUNT_NAME
+            value: kyverno-background-controller
+          - name: KYVERNO_CLEANUP_SERVICEACCOUNT_NAME
+            value: kyverno-cleanup-controller
           - name: KYVERNO_SVC
             value: kyverno-svc
           - name: TUF_ROOT
