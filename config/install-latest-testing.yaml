@@ -33726,6 +33726,12 @@ rules:
       - patch
       - delete
   - apiGroups:
+      - authorization.k8s.io
+    resources:
+      - subjectaccessreviews
+    verbs:
+      - create
+  - apiGroups:
       - '*'
     resources:
       - '*'
@@ -34239,9 +34245,6 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kyverno-background-controller
-  namespace: kyverno
-- kind: ServiceAccount
-  name: kyverno-admission-controller
   namespace: kyverno
 ---
 kind: ClusterRoleBinding
