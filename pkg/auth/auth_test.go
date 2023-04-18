@@ -85,7 +85,7 @@ func TestCanIOptions_DiscoveryError(t *testing.T) {
 
 type sar struct{}
 
-func (d *sar) Create(_ context.Context, _ *v1.SubjectAccessReview, _ metav1.CreateOptions) (*v1.SelfSubjectAccessReview, error) {
+func (d *sar) Create(_ context.Context, _ *v1.SubjectAccessReview, _ metav1.CreateOptions) (*v1.SubjectAccessReview, error) {
 	return nil, errors.New("dummy")
 }
 
