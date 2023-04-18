@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kyverno/kyverno/pkg/config"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -81,8 +82,7 @@ func (o *canIOptions) RunAccessCheck(ctx context.Context) (bool, error) {
 				Resource:    gvr.Resource,
 				Subresource: o.subresource,
 			},
-			// TODO(shuting): pass it in
-			User: "system:serviceaccount:kyverno:kyverno-background-controller",
+			User: config.KyvernoUserName(),
 		},
 	}
 	// Set self subject access review

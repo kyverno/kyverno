@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"sync"
 
@@ -133,6 +134,10 @@ func KyvernoConfigMapName() string {
 
 func KyvernoMetricsConfigMapName() string {
 	return kyvernoMetricsConfigMapName
+}
+
+func KyvernoUserName() string {
+	return fmt.Sprintf("system:serviceaccounts:%s:%s", kyvernoNamespace, kyvernoServiceAccountName)
 }
 
 // Configuration to be used by consumer to check filters
