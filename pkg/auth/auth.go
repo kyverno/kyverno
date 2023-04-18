@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kyverno/kyverno/pkg/config"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,7 +24,7 @@ type CanIOptions interface {
 	// - group version resource is determined from the kind using the discovery client REST mapper
 	// - If disallowed, the reason and evaluationError is available in the logs
 	// - each can generates a SelfSubjectAccessReview resource and response is evaluated for permissions
-	RunAccessCheck(context.Context) (bool, error)
+	RunAccessCheck(context.Context, string) (bool, error)
 }
 
 type canIOptions struct {
@@ -55,7 +54,7 @@ func NewCanI(discovery Discovery, sarClient authorizationv1client.SubjectAccessR
 // - group version resource is determined from the kind using the discovery client REST mapper
 // - If disallowed, the reason and evaluationError is available in the logs
 // - each can generates a SelfSubjectAccessReview resource and response is evaluated for permissions
-func (o *canIOptions) RunAccessCheck(ctx context.Context) (bool, error) {
+func (o *canIOptions) RunAccessCheck(ctx context.Context, user string) (bool, error) {
 	// get GroupVersionResource from RESTMapper
 	// get GVR from kind
 	apiVersion, kind := kubeutils.GetKindFromGVK(o.kind)
@@ -82,7 +81,7 @@ func (o *canIOptions) RunAccessCheck(ctx context.Context) (bool, error) {
 				Resource:    gvr.Resource,
 				Subresource: o.subresource,
 			},
-			User: config.KyvernoUserName(),
+			User: user,
 		},
 	}
 	// Set self subject access review

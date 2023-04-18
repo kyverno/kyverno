@@ -174,7 +174,7 @@ func (h validateManifestHandler) verifyManifest(
 
 func (h validateManifestHandler) checkDryRunPermission(ctx context.Context, kind, namespace string) (bool, error) {
 	canI := auth.NewCanI(h.client.Discovery(), h.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, "create", "")
-	ok, err := canI.RunAccessCheck(ctx)
+	ok, err := canI.RunAccessCheck(ctx, config.KyvernoUserName(config.KyvernoServiceAccountName()))
 	if err != nil {
 		return false, err
 	}

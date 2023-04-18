@@ -9,6 +9,7 @@ import (
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/auth"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -71,7 +72,7 @@ func validateAuth(ctx context.Context, client dclient.Interface, policy kyvernov
 	kinds := sets.New(spec.MatchResources.GetKinds()...)
 	for kind := range kinds {
 		checker := auth.NewCanI(client.Discovery(), client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, "delete", "")
-		allowedDeletion, err := checker.RunAccessCheck(ctx)
+		allowedDeletion, err := checker.RunAccessCheck(ctx, config.KyvernoUserName(config.KyvernoCleanupServiceAccountName()))
 		if err != nil {
 			return err
 		}
@@ -80,7 +81,7 @@ func validateAuth(ctx context.Context, client dclient.Interface, policy kyvernov
 		}
 
 		checker = auth.NewCanI(client.Discovery(), client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, "list", "")
-		allowedList, err := checker.RunAccessCheck(ctx)
+		allowedList, err := checker.RunAccessCheck(ctx, config.KyvernoUserName(config.KyvernoCleanupServiceAccountName()))
 		if err != nil {
 			return err
 		}
