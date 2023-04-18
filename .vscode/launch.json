@@ -9,7 +9,7 @@
             "program": "${workspaceFolder}/cmd/kyverno",
             "args": [
                 "--kubeconfig=${userHome}/.kube/config",
-                "--serverIP=172.20.10.2:9443",
+                "--serverIP=<SERVER-IP>:9443",
                 "-v=2",
             ],
         },
