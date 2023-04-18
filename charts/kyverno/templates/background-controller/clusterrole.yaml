@@ -42,14 +42,13 @@ rules:
       - deletecollection
   - apiGroups:
       - ''
+      - events.k8s.io
     resources:
       - events
     verbs:
       - create
       - update
       - patch
-      - delete
-      - deletecollection
   - apiGroups:
       - networking.k8s.io
     resources:

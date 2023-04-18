@@ -60,7 +60,7 @@ var (
 	ignore       = admissionregistrationv1.Ignore
 	fail         = admissionregistrationv1.Fail
 	policyRule   = admissionregistrationv1.Rule{
-		Resources:   []string{"clusterpolicies/*", "policies/*"},
+		Resources:   []string{"clusterpolicies", "policies"},
 		APIGroups:   []string{"kyverno.io"},
 		APIVersions: []string{"v1", "v2beta1"},
 	}
