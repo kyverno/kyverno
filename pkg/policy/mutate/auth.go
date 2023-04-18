@@ -22,16 +22,16 @@ func newAuthChecker(client dclient.Interface) AuthChecker {
 }
 
 func (a *authChecker) CanICreate(ctx context.Context, kind, namespace, subresource string) (bool, error) {
-	checker := auth.NewCanI(a.client.Discovery(), a.client.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews(), kind, namespace, "create", subresource)
+	checker := auth.NewCanI(a.client.Discovery(), a.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, "create", subresource)
 	return checker.RunAccessCheck(ctx)
 }
 
 func (a *authChecker) CanIUpdate(ctx context.Context, kind, namespace, subresource string) (bool, error) {
-	checker := auth.NewCanI(a.client.Discovery(), a.client.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews(), kind, namespace, "update", subresource)
+	checker := auth.NewCanI(a.client.Discovery(), a.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, "update", subresource)
 	return checker.RunAccessCheck(ctx)
 }
 
 func (a *authChecker) CanIGet(ctx context.Context, kind, namespace, subresource string) (bool, error) {
-	checker := auth.NewCanI(a.client.Discovery(), a.client.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews(), kind, namespace, "get", subresource)
+	checker := auth.NewCanI(a.client.Discovery(), a.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, "get", subresource)
 	return checker.RunAccessCheck(ctx)
 }
