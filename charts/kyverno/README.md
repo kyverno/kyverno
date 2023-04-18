@@ -209,7 +209,7 @@ The chart values are organised per component.
 | config.annotations | object | `{}` | Additional annotations to add to the configmap. |
 | config.enableDefaultRegistryMutation | bool | `true` | Enable registry mutation for container images. Enabled by default. |
 | config.defaultRegistry | string | `"docker.io"` | The registry hostname used for the image mutation. |
-| config.excludeGroups | list | `["system:serviceaccounts:kube-system","system:nodes"]` | Exclude groups |
+| config.excludeGroups | list | `["system:serviceaccount:kube-system","system:nodes"]` | Exclude groups |
 | config.excludeUsernames | list | `[]` | Exclude usernames |
 | config.excludeRoles | list | `[]` | Exclude roles |
 | config.excludeClusterRoles | list | `[]` | Exclude roles |

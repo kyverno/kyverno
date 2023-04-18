@@ -1973,7 +1973,7 @@ func TestResourceDescriptionMatch_ExcludeDefaultGroups(t *testing.T) {
 			UID:      "8f36cad4-eb68-4931-bea8-8a42dd1fee4c",
 			Groups: []string{
 				"system:serviceaccounts",
-				"system:serviceaccounts:kube-system",
+				"system:serviceaccount:kube-system",
 				"system:authenticated",
 			},
 		},
