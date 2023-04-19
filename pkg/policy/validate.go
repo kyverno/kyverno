@@ -513,8 +513,10 @@ func hasVariables(policy kyvernov1.PolicyInterface) [][]string {
 
 func cleanup(policy kyvernov1.PolicyInterface) kyvernov1.PolicyInterface {
 	ann := policy.GetAnnotations()
-	ann["kubectl.kubernetes.io/last-applied-configuration"] = ""
-	policy.SetAnnotations(ann)
+	if ann != nil {
+		ann["kubectl.kubernetes.io/last-applied-configuration"] = ""
+		policy.SetAnnotations(ann)
+	}
 	if policy.GetNamespace() == "" {
 		pol := policy.(*kyvernov1.ClusterPolicy)
 		pol.Status.Autogen.Rules = nil
