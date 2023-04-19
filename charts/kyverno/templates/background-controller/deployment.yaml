@@ -125,6 +125,10 @@ spec:
           {{- with .Values.backgroundController.resources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
+          {{- with .Values.admissionController.livenessProbe }}
+          livenessProbe:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
           {{- with .Values.backgroundController.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}

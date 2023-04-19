@@ -775,6 +775,21 @@ backgroundController:
       cpu: 100m
       memory: 64Mi
 
+  # -- Liveness probe.
+  # The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want.
+  # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+  # @default -- See [values.yaml](values.yaml)
+  livenessProbe:
+    httpGet:
+      path: /health/liveness
+      port: 9443
+      scheme: HTTPS
+    initialDelaySeconds: 15
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 2
+    successThreshold: 1
+    
   # -- Node labels for pod assignment
   nodeSelector: {}
 
