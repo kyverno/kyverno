@@ -39,6 +39,7 @@ var (
 	// registry client
 	imagePullSecrets      string
 	allowInsecureRegistry bool
+	enableHelpers         string
 	// leader election
 	leaderElectionRetryPeriod time.Duration
 )
@@ -92,6 +93,7 @@ func initCosignFlags() {
 func initRegistryClientFlags() {
 	flag.BoolVar(&allowInsecureRegistry, "allowInsecureRegistry", false, "Whether to allow insecure connections to registries. Don't use this for anything but testing.")
 	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
+	flag.StringVar(&enableHelpers, "enableHelpers", "", "Credential helpers to enable (default,google,amazon,azure,github), all will be enabled if empty.")
 }
 
 func initLeaderElectionFlags() {
