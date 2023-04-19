@@ -6,7 +6,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policyvalidate "github.com/kyverno/kyverno/pkg/policy"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -34,7 +33,7 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 		logger.Error(err, "failed to unmarshal policies from admission request")
 		return admissionutils.Response(request.UID, err)
 	}
-	warnings, err := policyvalidate.Validate(policy, oldPolicy, h.client, false, h.openApiManager, config.KyvernoUserName(h.backgroungServiceAccountName))
+	warnings, err := policyvalidate.Validate(policy, oldPolicy, h.client, false, h.openApiManager, h.backgroungServiceAccountName)
 	if err != nil {
 		logger.Error(err, "policy validation errors")
 	}
