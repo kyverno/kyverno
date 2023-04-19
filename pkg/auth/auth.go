@@ -86,14 +86,8 @@ func (o *canIOptions) RunAccessCheck(ctx context.Context) (bool, error) {
 			User: o.user,
 		},
 	}
-	// Set self subject access review
-	// - namespace
-	// - verb
-	// - resource
-	// - subresource
-	logger := logger.WithValues("kind", sar.Kind, "namespace", sar.Namespace, "name", sar.Name)
 
-	// Create the Resource
+	logger := logger.WithValues("kind", sar.Kind, "namespace", sar.Namespace, "name", sar.Name, "gvr", gvr.String())
 	resp, err := o.sarClient.Create(ctx, sar, metav1.CreateOptions{})
 	if err != nil {
 		logger.Error(err, "failed to create resource")
@@ -103,7 +97,6 @@ func (o *canIOptions) RunAccessCheck(ctx context.Context) (bool, error) {
 	if !resp.Status.Allowed {
 		reason := resp.Status.Reason
 		evaluationError := resp.Status.EvaluationError
-		// Reporting ? (just logs)
 		logger.Info("disallowed operation", "reason", reason, "evaluationError", evaluationError)
 	}
 
