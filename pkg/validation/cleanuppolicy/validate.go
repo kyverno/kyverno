@@ -71,7 +71,7 @@ func validateAuth(ctx context.Context, client dclient.Interface, policy kyvernov
 	spec := policy.GetSpec()
 	kinds := sets.New(spec.MatchResources.GetKinds()...)
 	for kind := range kinds {
-		checker := auth.NewCanI(client.Discovery(), client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, "delete", "", config.KyvernoServiceName())
+		checker := auth.NewCanI(client.Discovery(), client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, "delete", "", config.KyvernoUserName(config.KyvernoServiceAccountName()))
 		allowedDeletion, err := checker.RunAccessCheck(ctx)
 		if err != nil {
 			return err
@@ -80,7 +80,7 @@ func validateAuth(ctx context.Context, client dclient.Interface, policy kyvernov
 			return fmt.Errorf("cleanup controller has no permission to delete kind %s", kind)
 		}
 
-		checker = auth.NewCanI(client.Discovery(), client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, "list", "", config.KyvernoServiceName())
+		checker = auth.NewCanI(client.Discovery(), client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, "list", "", config.KyvernoUserName(config.KyvernoServiceAccountName()))
 		allowedList, err := checker.RunAccessCheck(ctx)
 		if err != nil {
 			return err
