@@ -505,9 +505,25 @@ func ruleForbiddenSectionsHaveVariables(rule *kyvernov1.Rule) error {
 
 // hasVariables - check for variables in the policy
 func hasVariables(policy kyvernov1.PolicyInterface) [][]string {
+	policy = cleanup(policy)
 	policyRaw, _ := json.Marshal(policy)
 	matches := regex.RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
 	return matches
+}
+
+func cleanup(policy kyvernov1.PolicyInterface) kyvernov1.PolicyInterface {
+	ann := policy.GetAnnotations()
+	ann["kubectl.kubernetes.io/last-applied-configuration"] = ""
+	policy.SetAnnotations(ann)
+	if policy.GetNamespace() == "" {
+		pol := policy.(*kyvernov1.ClusterPolicy)
+		pol.Status.Autogen.Rules = nil
+		return pol
+	} else {
+		pol := policy.(*kyvernov1.Policy)
+		pol.Status.Autogen.Rules = nil
+		return pol
+	}
 }
 
 func jsonPatchPathHasVariables(patch string) error {
