@@ -34986,7 +34986,7 @@ spec:
               fieldRef:
                 fieldPath: metadata.name
           - name: KYVERNO_SERVICEACCOUNT_NAME
-            value: kyverno-admission-controller
+            value: kyverno-cleanup-controller
           - name: KYVERNO_NAMESPACE
             valueFrom:
               fieldRef:
