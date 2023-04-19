@@ -114,7 +114,7 @@ spec:
               fieldRef:
                 fieldPath: metadata.name
           - name: KYVERNO_SERVICEACCOUNT_NAME
-            value: {{ template "kyverno.admission-controller.serviceAccountName" . }}
+            value: {{ template "kyverno.cleanup-controller.serviceAccountName" . }}
           - name: KYVERNO_NAMESPACE
             valueFrom:
               fieldRef:
