@@ -251,7 +251,7 @@ func (iv *ImageVerifier) verifyImage(
 	}
 	image := imageInfo.String()
 	for _, att := range imageVerify.Attestations {
-		if att.Type == "" {
+		if att.Type == "" && att.PredicateType != "" {
 			att.Type = att.PredicateType
 		}
 	}
@@ -330,8 +330,13 @@ func (iv *ImageVerifier) verifyAttestations(
 		var attestationError error
 		path := fmt.Sprintf(".attestations[%d]", i)
 
-		if attestation.Type == "" {
+		iv.logger.V(2).Info(fmt.Sprintf("attestation %+v", attestation))
+		if attestation.Type == "" && attestation.PredicateType == "" {
 			return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, path+": missing type"), ""
+		}
+
+		if attestation.Type == "" && attestation.PredicateType != "" {
+			attestation.Type = attestation.PredicateType
 		}
 
 		if len(attestation.Attestors) == 0 {
@@ -442,10 +447,6 @@ func (iv *ImageVerifier) buildVerifier(
 	image string,
 	attestation *kyvernov1.Attestation,
 ) (images.ImageVerifier, *images.Options, string) {
-	if attestation.Type == "" && attestation.PredicateType != "" {
-		iv.logger.Info("predicate type has been deprecated, please use type instead")
-		attestation.Type = attestation.PredicateType
-	}
 	switch imageVerify.Type {
 	case kyvernov1.Notary:
 		return iv.buildNotaryVerifier(attestor, imageVerify, image, attestation)
@@ -477,7 +478,12 @@ func (iv *ImageVerifier) buildCosignVerifier(
 	}
 
 	if attestation != nil {
+		opts.PredicateType = attestation.PredicateType
 		opts.Type = attestation.Type
+		if attestation.PredicateType != "" && attestation.Type == "" {
+			iv.logger.Info("predicate type has been deprecated, please use type instead")
+			opts.Type = attestation.PredicateType
+		}
 		opts.FetchAttestations = true
 	}
 
@@ -540,6 +546,11 @@ func (iv *ImageVerifier) buildNotaryVerifier(
 
 	if attestation != nil {
 		opts.Type = attestation.Type
+		opts.PredicateType = attestation.PredicateType
+		if attestation.PredicateType != "" && attestation.Type == "" {
+			iv.logger.Info("predicate type has been deprecated, please use type instead")
+			opts.Type = attestation.PredicateType
+		}
 		opts.FetchAttestations = true
 	}
 
@@ -555,7 +566,7 @@ func (iv *ImageVerifier) buildNotaryVerifier(
 }
 
 func (iv *ImageVerifier) verifyAttestation(statements []map[string]interface{}, attestation kyvernov1.Attestation, imageInfo apiutils.ImageInfo) error {
-	if attestation.Type == "" {
+	if attestation.Type == "" && attestation.PredicateType == "" {
 		return fmt.Errorf("a type is required")
 	}
 	image := imageInfo.String()
