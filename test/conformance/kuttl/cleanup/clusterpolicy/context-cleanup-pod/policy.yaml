@@ -3,6 +3,14 @@ kind: ClusterCleanupPolicy
 metadata:
   name: cleanup-pod
 spec:
+  context:
+    - name: varNamespace
+      apiCall:
+        urlPath: "/api/v1/namespaces/default"
+        jmesPath: metadata.name
+    - name: varname
+      variable:
+        value: "example"
   match:
     any:
       - resources:
@@ -12,9 +20,9 @@ spec:
     all:
       - key: "{{ target.metadata.name }}"
         operator: Equals
-        value: example
+        value: "{{ varname }}"
       - key: "{{ target.metadata.namespace }}"
         operator: Equals
-        value: default
+        value: "{{ varNamespace }}"
   ## execute every minute
   schedule: "*/1 * * * *"
