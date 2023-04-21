@@ -343,30 +343,63 @@ func GetKindsFromRule(rule kyvernov1.Rule, client dclient.Interface) (map[schema
 	return resourceTypesMap, subresourceMap
 }
 
-func getKindsFromValidatingAdmissionRule(rule admissionregistrationv1.Rule, client dclient.Interface) (map[schema.GroupVersionKind]bool, map[schema.GroupVersionKind]Subresource) {
+func getKindsFromValidatingAdmissionRule(rule admissionregistrationv1.Rule, client dclient.Interface) (map[schema.GroupVersionKind]bool, map[schema.GroupVersionKind]Subresource, error) {
 	resourceTypesMap := make(map[schema.GroupVersionKind]bool)
 	subresourceMap := make(map[schema.GroupVersionKind]Subresource)
 
-	for _, group := range rule.APIGroups {
-		for _, version := range rule.APIVersions {
-			for _, resource := range rule.Resources {
-				resource = cases.Title(language.English, cases.NoLower).String(resource)
-				resource, _ = strings.CutSuffix(resource, "s")
-				var kind string
-				if group == "*" && version == "*" {
-					kind = resource
-				} else if group == "*" {
-					kind = strings.Join([]string{version, resource}, "/")
-				} else if version == "*" {
-					kind = strings.Join([]string{group, resource}, "/")
-				} else {
-					kind = strings.Join([]string{group, version, resource}, "/")
+	group := rule.APIGroups[0]
+	if group == "" {
+		group = "*"
+	}
+	version := rule.APIVersions[0]
+
+	for _, resource := range rule.Resources {
+		var kind, subresource string
+
+		isSubresource := kubeutils.IsSubresource(resource)
+		if isSubresource {
+			parts := strings.Split(resource, "/")
+			kind = cases.Title(language.English, cases.NoLower).String(parts[0])
+			kind, _ = strings.CutSuffix(kind, "s")
+
+			subresource = parts[1]
+
+		} else {
+			resource = cases.Title(language.English, cases.NoLower).String(resource)
+			resource, _ = strings.CutSuffix(resource, "s")
+
+			kind = resource
+			subresource = ""
+		}
+
+		gvrss, err := client.Discovery().FindResources(group, version, kind, subresource)
+		if err != nil {
+			log.Info("failed to find resource", "kind", kind, "error", err)
+			return resourceTypesMap, subresourceMap, err
+		}
+
+		for parent, child := range gvrss {
+			// The resource is not a subresource
+			if parent.SubResource == "" {
+				resourceTypesMap[parent.GroupVersionKind()] = true
+			} else {
+				gvk := schema.GroupVersionKind{
+					Group: child.Group, Version: child.Version, Kind: child.Kind,
 				}
-				addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client)
+				subresourceMap[gvk] = Subresource{
+					APIResource: child,
+					ParentResource: metav1.APIResource{
+						Group:   parent.Group,
+						Version: parent.Version,
+						Kind:    parent.Kind,
+						Name:    parent.Resource,
+					},
+				}
 			}
 		}
 	}
-	return resourceTypesMap, subresourceMap
+
+	return resourceTypesMap, subresourceMap, nil
 }
 
 func addGVKToResourceTypesMap(kind string, resourceTypesMap map[schema.GroupVersionKind]bool, subresourceMap map[schema.GroupVersionKind]Subresource, client dclient.Interface) {

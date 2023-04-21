@@ -22,7 +22,10 @@ func (r *ValidatingAdmissionResources) FetchResourcesFromPolicy(resourcePaths []
 	for _, policy := range r.policies {
 		for _, rule := range policy.Spec.MatchConstraints.ResourceRules {
 			var resourceTypesInRule map[schema.GroupVersionKind]bool
-			resourceTypesInRule, subresourceMap = getKindsFromValidatingAdmissionRule(rule.RuleWithOperations.Rule, dClient)
+			resourceTypesInRule, subresourceMap, err = getKindsFromValidatingAdmissionRule(rule.RuleWithOperations.Rule, dClient)
+			if err != nil {
+				return resources, err
+			}
 			for resourceKind := range resourceTypesInRule {
 				resourceTypesMap[resourceKind] = true
 			}

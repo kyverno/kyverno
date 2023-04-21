@@ -115,24 +115,29 @@ func (p *ValidatingAdmissionPolicies) ApplyPolicyOnResource(c ApplyPolicyConfig)
 
 	engineResponse := engineapi.NewEngineResponseWithValidatingAdmissionPolicy(*c.Resource, c.ValidatingAdmissionPolicy, nil)
 	policyResp := engineapi.NewPolicyResponse()
-	var ruleResponses []engineapi.RuleResponse
+	var ruleResp *engineapi.RuleResponse
+	isPass := true
 
-	for i, policyDecision := range validateResult.Decisions {
-		var resp *engineapi.RuleResponse
+	for _, policyDecision := range validateResult.Decisions {
 		if policyDecision.Evaluation == validatingadmissionpolicy.EvalError {
+			isPass = false
 			c.Rc.Error++
-			resp = engineapi.RuleError(c.ValidatingAdmissionPolicy.Spec.Validations[i].Expression, engineapi.Validation, policyDecision.Message, nil)
-		} else if policyDecision.Action == validatingadmissionpolicy.ActionAdmit {
-			c.Rc.Pass++
-			resp = engineapi.RulePass(c.ValidatingAdmissionPolicy.Spec.Validations[i].Expression, engineapi.Validation, policyDecision.Message)
+			ruleResp = engineapi.RuleError(c.ValidatingAdmissionPolicy.GetName(), engineapi.Validation, policyDecision.Message, nil)
+			break
 		} else if policyDecision.Action == validatingadmissionpolicy.ActionDeny {
+			isPass = false
 			c.Rc.Fail++
-			resp = engineapi.RuleFail(c.ValidatingAdmissionPolicy.Spec.Validations[i].Expression, engineapi.Validation, policyDecision.Message)
+			ruleResp = engineapi.RuleFail(c.ValidatingAdmissionPolicy.GetName(), engineapi.Validation, policyDecision.Message)
+			break
 		}
-
-		ruleResponses = append(ruleResponses, *resp)
 	}
-	policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), ruleResponses...)
+
+	if isPass {
+		c.Rc.Pass++
+		ruleResp = engineapi.RulePass(c.ValidatingAdmissionPolicy.GetName(), engineapi.Validation, "")
+	}
+
+	policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
 
 	engineResponse = engineResponse.WithPolicyResponse(policyResp)
 	engineResponses = append(engineResponses, engineResponse)

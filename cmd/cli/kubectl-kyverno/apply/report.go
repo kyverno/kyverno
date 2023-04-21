@@ -80,7 +80,9 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 		var ns, policyName string
 		var ann map[string]string
 
-		if engineResponse.IsValidatingAdmissionPolicy() {
+		isVAP := engineResponse.IsValidatingAdmissionPolicy()
+
+		if isVAP {
 			validatingAdmissionPolicy := engineResponse.ValidatingAdmissionPolicy
 			ns = validatingAdmissionPolicy.GetNamespace()
 			policyName = validatingAdmissionPolicy.GetName()
@@ -136,7 +138,9 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 				fmt.Println(ruleResponse)
 			}
 
-			result.Rule = ruleResponse.Name()
+			if !isVAP {
+				result.Rule = ruleResponse.Name()
+			}
 			result.Message = ruleResponse.Message()
 			result.Source = kyvernov1.ValueKyvernoApp
 			result.Timestamp = now
