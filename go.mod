@@ -66,17 +66,17 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	gotest.tools v2.2.0+incompatible
-	k8s.io/api v0.27.0-rc.0
-	k8s.io/apiextensions-apiserver v0.27.0-rc.0
-	k8s.io/apimachinery v0.27.0-rc.0
-	k8s.io/apiserver v0.27.0-rc.0
-	k8s.io/cli-runtime v0.27.0-rc.0
-	k8s.io/client-go v0.27.0-rc.0
+	k8s.io/api v0.27.1
+	k8s.io/apiextensions-apiserver v0.27.1
+	k8s.io/apimachinery v0.27.1
+	k8s.io/apiserver v0.27.1
+	k8s.io/cli-runtime v0.27.1
+	k8s.io/client-go v0.27.1
 	k8s.io/klog/v2 v2.90.1
-	k8s.io/kube-aggregator v0.27.0-rc.0
+	k8s.io/kube-aggregator v0.27.1
 	k8s.io/kube-openapi v0.0.0-20230308215209-15aac26d736a
-	k8s.io/pod-security-admission v0.27.0-rc.0
-	k8s.io/utils v0.0.0-20230313181309-38a27ef9d749
+	k8s.io/pod-security-admission v0.27.1
+	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
 	oras.land/oras-go/v2 v2.0.2
 	sigs.k8s.io/controller-runtime v0.14.5
 	sigs.k8s.io/kustomize/api v0.13.2
@@ -325,7 +325,7 @@ require (
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	k8s.io/component-base v0.27.0-rc.0 // indirect
+	k8s.io/component-base v0.27.1 // indirect
 	k8s.io/kubectl v0.27.0-rc.0 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/release-utils v0.7.3 // indirect
