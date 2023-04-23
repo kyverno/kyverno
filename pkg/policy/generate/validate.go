@@ -69,10 +69,10 @@ func (g *Generate) Validate(ctx context.Context) (string, error) {
 		}
 	} else {
 		if name != "" {
-			return "name", fmt.Errorf("with cloneList, generate.name. should not be specified.")
+			return "name", fmt.Errorf("with cloneList, generate.name. should not be specified")
 		}
 		if kind != "" {
-			return "kind", fmt.Errorf("with cloneList, generate.kind. should not be specified.")
+			return "kind", fmt.Errorf("with cloneList, generate.kind. should not be specified")
 		}
 	}
 
@@ -123,8 +123,11 @@ func (g *Generate) validateClone(c kyvernov1.CloneFrom, cl kyvernov1.CloneList, 
 	}
 
 	namespace := c.Namespace
+	if !regex.IsVariable(namespace) {
+		namespace = ""
+	}
 	// Skip if there is variable defined
-	if !regex.IsVariable(kind) && !regex.IsVariable(namespace) {
+	if !regex.IsVariable(kind) {
 		// GET
 		ok, err := g.authCheck.CanIGet(context.TODO(), kind, namespace)
 		if err != nil {
@@ -134,7 +137,7 @@ func (g *Generate) validateClone(c kyvernov1.CloneFrom, cl kyvernov1.CloneList, 
 			return "", fmt.Errorf("kyverno does not have permissions to 'get' resource %s/%s. Update permissions in ClusterRole 'kyverno:background-controller:additional'", kind, namespace)
 		}
 	} else {
-		g.log.V(4).Info("name & namespace uses variables, so cannot be resolved. Skipping Auth Checks.")
+		g.log.V(2).Info("resource Kind uses variables, so cannot be resolved. Skipping Auth Checks.")
 	}
 	return "", nil
 }
@@ -143,7 +146,10 @@ func (g *Generate) validateClone(c kyvernov1.CloneFrom, cl kyvernov1.CloneList, 
 func (g *Generate) canIGenerate(ctx context.Context, kind, namespace string) error {
 	// Skip if there is variable defined
 	authCheck := g.authCheck
-	if !regex.IsVariable(kind) && !regex.IsVariable(namespace) {
+	if !regex.IsVariable(namespace) {
+		namespace = ""
+	}
+	if !regex.IsVariable(kind) {
 		// CREATE
 		ok, err := authCheck.CanICreate(ctx, kind, namespace)
 		if err != nil {
@@ -182,7 +188,7 @@ func (g *Generate) canIGenerate(ctx context.Context, kind, namespace string) err
 			return fmt.Errorf("kyverno does not have permissions to 'delete' resource %s/%s. Update permissions in ClusterRole 'kyverno:background-controller:additional'", kind, namespace)
 		}
 	} else {
-		g.log.V(4).Info("name & namespace uses variables, so cannot be resolved. Skipping Auth Checks.")
+		g.log.V(2).Info("resource Kind uses variables, so cannot be resolved. Skipping Auth Checks.")
 	}
 
 	return nil

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 )
 
@@ -16,7 +15,7 @@ func (ctx *context) Query(query string) (interface{}, error) {
 		return nil, fmt.Errorf("invalid query (nil)")
 	}
 	// compile the query
-	queryPath, err := jmespath.New(query)
+	queryPath, err := ctx.jp.Query(query)
 	if err != nil {
 		logger.Error(err, "incorrect query", "query", query)
 		return nil, fmt.Errorf("incorrect query %s: %v", query, err)

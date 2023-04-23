@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -184,17 +185,18 @@ func NewPolicyContextWithJsonContext(operation kyvernov1.AdmissionOperation, jso
 	}
 }
 
-func NewPolicyContext(operation kyvernov1.AdmissionOperation) *PolicyContext {
-	return NewPolicyContextWithJsonContext(operation, enginectx.NewContext())
+func NewPolicyContext(jp jmespath.Interface, operation kyvernov1.AdmissionOperation) *PolicyContext {
+	return NewPolicyContextWithJsonContext(operation, enginectx.NewContext(jp))
 }
 
 func NewPolicyContextFromAdmissionRequest(
+	jp jmespath.Interface,
 	request admissionv1.AdmissionRequest,
 	admissionInfo kyvernov1beta1.RequestInfo,
 	gvk schema.GroupVersionKind,
 	configuration config.Configuration,
 ) (*PolicyContext, error) {
-	ctx, err := newVariablesContext(request, &admissionInfo)
+	ctx, err := newVariablesContext(jp, request, &admissionInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create policy rule context: %w", err)
 	}
@@ -215,8 +217,12 @@ func NewPolicyContextFromAdmissionRequest(
 	return policyContext, nil
 }
 
-func newVariablesContext(request admissionv1.AdmissionRequest, userRequestInfo *kyvernov1beta1.RequestInfo) (enginectx.Interface, error) {
-	ctx := enginectx.NewContext()
+func newVariablesContext(
+	jp jmespath.Interface,
+	request admissionv1.AdmissionRequest,
+	userRequestInfo *kyvernov1beta1.RequestInfo,
+) (enginectx.Interface, error) {
+	ctx := enginectx.NewContext(jp)
 	if err := ctx.AddRequest(request); err != nil {
 		return nil, fmt.Errorf("failed to load incoming request in context: %w", err)
 	}

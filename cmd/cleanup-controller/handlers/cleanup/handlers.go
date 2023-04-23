@@ -10,7 +10,9 @@ import (
 	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -34,6 +36,7 @@ type handlers struct {
 	polLister  kyvernov2alpha1listers.CleanupPolicyLister
 	nsLister   corev1listers.NamespaceLister
 	recorder   record.EventRecorder
+	jp         jmespath.Interface
 	metrics    cleanupMetrics
 }
 
@@ -65,11 +68,12 @@ func newCleanupMetrics(logger logr.Logger) cleanupMetrics {
 }
 
 func New(
+	logger logr.Logger,
 	client dclient.Interface,
 	cpolLister kyvernov2alpha1listers.ClusterCleanupPolicyLister,
 	polLister kyvernov2alpha1listers.CleanupPolicyLister,
 	nsLister corev1listers.NamespaceLister,
-	logger logr.Logger,
+	jp jmespath.Interface,
 ) *handlers {
 	return &handlers{
 		client:     client,
@@ -78,6 +82,7 @@ func New(
 		nsLister:   nsLister,
 		recorder:   event.NewRecorder(event.CleanupController, client.GetEventsInterface()),
 		metrics:    newCleanupMetrics(logger),
+		jp:         jp,
 	}
 }
 
@@ -108,6 +113,22 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 	kinds := sets.New(spec.MatchResources.GetKinds()...)
 	debug := logger.V(4)
 	var errs []error
+	enginectx := enginecontext.NewContext(h.jp)
+
+	if spec.Context != nil {
+		for _, entry := range spec.Context {
+			if entry.APICall != nil {
+				if err := engineapi.LoadAPIData(ctx, h.jp, logger, entry, enginectx, h.client); err != nil {
+					return err
+				}
+			} else if entry.Variable != nil {
+				if err := engineapi.LoadVariable(logger, h.jp, entry, enginectx); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
 	for kind := range kinds {
 		commonLabels := []attribute.KeyValue{
 			attribute.String("policy_type", policy.GetKind()),
@@ -181,7 +202,7 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 					}
 					// check conditions
 					if spec.Conditions != nil {
-						enginectx := enginecontext.NewContext()
+						enginectx.Reset()
 						if err := enginectx.AddTargetResource(resource.Object); err != nil {
 							debug.Error(err, "failed to add resource in context")
 							errs = append(errs, err)

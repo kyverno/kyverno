@@ -34,6 +34,7 @@ func testMutate(
 	e := NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
+		jp,
 		client,
 		rclient,
 		contextLoader,
@@ -104,7 +105,7 @@ func Test_VariableSubstitutionPatchStrategicMerge(t *testing.T) {
 	}
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 	err = enginecontext.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -185,7 +186,7 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
@@ -262,7 +263,7 @@ func Test_variableSubstitutionCLI(t *testing.T) {
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
@@ -382,7 +383,7 @@ func Test_chained_rules(t *testing.T) {
 	resource, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
@@ -470,7 +471,7 @@ func Test_precondition(t *testing.T) {
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
@@ -564,7 +565,7 @@ func Test_nonZeroIndexNumberPatchesJson6902(t *testing.T) {
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
@@ -650,7 +651,7 @@ func Test_foreach(t *testing.T) {
 	resource, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
@@ -752,7 +753,7 @@ func Test_foreach_element_mutation(t *testing.T) {
 	resource, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
@@ -873,7 +874,7 @@ func Test_Container_InitContainer_foreach(t *testing.T) {
 	resource, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
@@ -1018,7 +1019,7 @@ func testApplyPolicyToResource(t *testing.T, policyRaw, resourceRaw []byte) engi
 	resource, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
@@ -1556,7 +1557,7 @@ func Test_mutate_existing_resources(t *testing.T) {
 			target, err := kubeutils.BytesToUnstructured(target)
 			assert.NilError(t, err)
 
-			ctx := enginecontext.NewContext()
+			ctx := enginecontext.NewContext(jp)
 			err = ctx.AddResource(trigger.Object)
 			assert.NilError(t, err)
 
@@ -1671,7 +1672,7 @@ func Test_RuleSelectorMutate(t *testing.T) {
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 	err = enginecontext.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -2052,7 +2053,7 @@ func Test_SpecialCharacters(t *testing.T) {
 			}
 
 			// Create JSON context and add the resource.
-			ctx := enginecontext.NewContext()
+			ctx := enginecontext.NewContext(jp)
 			err = ctx.AddResource(resource.Object)
 			if err != nil {
 				t.Fatalf("ctx.AddResource() error = %v", err)
