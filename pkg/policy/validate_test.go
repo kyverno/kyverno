@@ -1085,7 +1085,7 @@ func Test_Namespced_Policy(t *testing.T) {
 	  }
 	`)
 
-	var policy *kyverno.ClusterPolicy
+	var policy *kyverno.Policy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
