@@ -325,6 +325,7 @@ The chart values are organised per component.
 | admissionController.tracing.port | string | `nil` | Traces receiver port |
 | admissionController.tracing.creds | string | `""` | Traces receiver credentials |
 | admissionController.logging.format | string | `"text"` | Logging format |
+| admissionController.logging.verbosity | int | `2` | Logging verbosity |
 | admissionController.metering.disabled | bool | `false` | Disable metrics export |
 | admissionController.metering.config | string | `"prometheus"` | Otel configuration, can be `prometheus` or `grpc` |
 | admissionController.metering.port | int | `8000` | Prometheus endpoint port |
@@ -385,6 +386,7 @@ The chart values are organised per component.
 | backgroundController.tracing.port | string | `nil` | Traces receiver port |
 | backgroundController.tracing.creds | string | `""` | Traces receiver credentials |
 | backgroundController.logging.format | string | `"text"` | Logging format |
+| backgroundController.logging.verbosity | int | `2` | Logging verbosity |
 | backgroundController.metering.disabled | bool | `false` | Disable metrics export |
 | backgroundController.metering.config | string | `"prometheus"` | Otel configuration, can be `prometheus` or `grpc` |
 | backgroundController.metering.port | int | `8000` | Prometheus endpoint port |
@@ -452,6 +454,7 @@ The chart values are organised per component.
 | cleanupController.tracing.port | string | `nil` | Traces receiver port |
 | cleanupController.tracing.creds | string | `""` | Traces receiver credentials |
 | cleanupController.logging.format | string | `"text"` | Logging format |
+| cleanupController.logging.verbosity | int | `2` | Logging verbosity |
 | cleanupController.metering.disabled | bool | `false` | Disable metrics export |
 | cleanupController.metering.config | string | `"prometheus"` | Otel configuration, can be `prometheus` or `grpc` |
 | cleanupController.metering.port | int | `8000` | Prometheus endpoint port |
@@ -513,6 +516,7 @@ The chart values are organised per component.
 | reportsController.tracing.port | string | `nil` | Traces receiver port |
 | reportsController.tracing.creds | string | `nil` | Traces receiver credentials |
 | reportsController.logging.format | string | `"text"` | Logging format |
+| reportsController.logging.verbosity | int | `2` | Logging verbosity |
 | reportsController.metering.disabled | bool | `false` | Disable metrics export |
 | reportsController.metering.config | string | `"prometheus"` | Otel configuration, can be `prometheus` or `grpc` |
 | reportsController.metering.port | int | `8000` | Prometheus endpoint port |

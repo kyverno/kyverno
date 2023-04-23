@@ -678,6 +678,8 @@ admissionController:
   logging:
     # -- Logging format
     format: text
+    # -- Logging verbosity
+    verbosity: 2
 
   metering:
     # -- Disable metrics export
@@ -899,6 +901,8 @@ backgroundController:
   logging:
     # -- Logging format
     format: text
+    # -- Logging verbosity
+    verbosity: 2
 
   metering:
     # -- Disable metrics export
@@ -1160,6 +1164,8 @@ cleanupController:
   logging:
     # -- Logging format
     format: text
+    # -- Logging verbosity
+    verbosity: 2
 
   metering:
     # -- Disable metrics export
@@ -1414,6 +1420,8 @@ reportsController:
   logging:
     # -- Logging format
     format: text
+    # -- Logging verbosity
+    verbosity: 2
 
   metering:
     # -- Disable metrics export
