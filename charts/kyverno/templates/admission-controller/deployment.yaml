@@ -82,6 +82,7 @@ spec:
           imagePullPolicy: {{ default .Values.admissionController.container.image.pullPolicy .Values.admissionController.initContainer.image.pullPolicy }}
           args:
             - --loggingFormat={{ .Values.admissionController.logging.format }}
+            - --v={{ .Values.admissionController.logging.verbosity }}
             {{- range $key, $value := .Values.admissionController.initContainer.extraArgs }}
             {{- if $value }}
             - --{{ $key }}={{ $value }}
@@ -122,6 +123,7 @@ spec:
             - --backgroundServiceAccountName='system:serviceaccount:{{ include "kyverno.namespace" . }}:{{ include "kyverno.background-controller.serviceAccountName" . }}'
             - --servicePort={{ .Values.admissionController.service.port }}
             - --loggingFormat={{ .Values.admissionController.logging.format }}
+            - --v={{ .Values.admissionController.logging.verbosity }}
             {{- if .Values.admissionController.tracing.enabled }}
             - --enableTracing
             - --tracingAddress={{ .Values.admissionController.tracing.address }}

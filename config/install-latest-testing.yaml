@@ -33962,7 +33962,6 @@ rules:
       - create
       - update
       - patch
-      - delete
   - apiGroups:
       - '*'
     resources:
@@ -34056,14 +34055,13 @@ rules:
       - deletecollection
   - apiGroups:
       - ''
+      - events.k8s.io
     resources:
       - events
     verbs:
       - create
       - update
       - patch
-      - delete
-      - deletecollection
   - apiGroups:
       - networking.k8s.io
     resources:
@@ -34172,12 +34170,14 @@ rules:
       - update
       - watch
   - apiGroups:
-    - ""
+    - ''
+    - events.k8s.io
     resources:
     - events
     verbs:
     - create
     - patch
+    - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -34437,6 +34437,7 @@ rules:
       - deletecollection
   - apiGroups:
       - ''
+      - events.k8s.io
     resources:
       - events
     verbs:
@@ -34935,6 +34936,7 @@ spec:
           imagePullPolicy: IfNotPresent
           args:
             - --loggingFormat=text
+            - --v=2
           resources:
             limits:
               cpu: 100m
@@ -34973,6 +34975,7 @@ spec:
             - --backgroundServiceAccountName='system:serviceaccount:kyverno:kyverno-background-controller'
             - --servicePort=443
             - --loggingFormat=text
+            - --v=2
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
@@ -35111,6 +35114,7 @@ spec:
             protocol: TCP
           args:
             - --loggingFormat=text
+            - --v=2
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
@@ -35199,6 +35203,7 @@ spec:
           args:
             - --servicePort=443
             - --loggingFormat=text
+            - --v=2
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
@@ -35316,6 +35321,7 @@ spec:
             protocol: TCP
           args:
             - --loggingFormat=text
+            - --v=2
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000

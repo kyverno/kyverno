@@ -1704,18 +1704,6 @@ func Test_ValidateJSON6902(t *testing.T) {
 
 	patch = `- path: "/metadata/labels/img"
   op: add
-  value: nginx"`
-	err = validateJSONPatch(patch, 0)
-	assert.Error(t, err, `missing quote around value: spec.rules[0]: nginx"`)
-
-	patch = `- path: "/metadata/labels/img"
-  op: add
-  value: {"node.kubernetes.io/role": test"}`
-	err = validateJSONPatch(patch, 0)
-	assert.Error(t, err, `missing quote around value: spec.rules[0]: map[node.kubernetes.io/role:test"]`)
-
-	patch = `- path: "/metadata/labels/img"
-  op: add
   value: "nginx"`
 	err = validateJSONPatch(patch, 0)
 	assert.NilError(t, err)

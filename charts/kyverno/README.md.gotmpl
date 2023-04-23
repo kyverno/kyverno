@@ -189,7 +189,104 @@ $ helm delete -n kyverno kyverno
 
 The command removes all the Kubernetes components associated with the chart and deletes the release.
 
-{{ template "chart.valuesSection" . }}
+## Values
+
+The chart values are organised per component.
+
+{{- $other := list -}}
+{{- $crds := list -}}
+{{- $config := list -}}
+{{- $metricsConfig := list -}}
+{{- $features := list -}}
+{{- $admissionController := list -}}
+{{- $backgroundController := list -}}
+{{- $cleanupController := list -}}
+{{- $reportsController := list -}}
+{{- $grafana := list -}}
+{{- $test := list -}}
+{{- $apiVersionOverride := list -}}
+{{- $webhooksCleanup := list -}}
+{{- range .Values -}}
+  {{- if (hasPrefix "admissionController." .Key) -}}
+    {{- $admissionController = append $admissionController . -}}
+  {{- else if (hasPrefix "backgroundController." .Key) -}}
+    {{- $backgroundController = append $backgroundController . -}}
+  {{- else if (hasPrefix "cleanupController." .Key) -}}
+    {{- $cleanupController = append $cleanupController . -}}
+  {{- else if (hasPrefix "reportsController." .Key) -}}
+    {{- $reportsController = append $reportsController . -}}
+  {{- else if (hasPrefix "crds." .Key) -}}
+    {{- $crds = append $crds . -}}
+  {{- else if (hasPrefix "config." .Key) -}}
+    {{- $config = append $config . -}}
+  {{- else if (hasPrefix "metricsConfig." .Key) -}}
+    {{- $metricsConfig = append $metricsConfig . -}}
+  {{- else if (hasPrefix "webhooksCleanup." .Key) -}}
+    {{- $webhooksCleanup = append $webhooksCleanup . -}}
+  {{- else if (hasPrefix "grafana." .Key) -}}
+    {{- $grafana = append $grafana . -}}
+  {{- else if (hasPrefix "features." .Key) -}}
+    {{- $features = append $features . -}}
+  {{- else if (hasPrefix "test." .Key) -}}
+    {{- $test = append $test . -}}
+  {{- else if (hasPrefix "apiVersionOverride." .Key) -}}
+    {{- $apiVersionOverride = append $apiVersionOverride . -}}
+  {{- else -}}
+    {{- $other = append $other . -}}
+  {{- end -}}
+{{- end }}
+
+### Custom resource definitions
+
+{{ template "chart.valuesTable" (dict "Values" $crds) }}
+
+### Config
+
+{{ template "chart.valuesTable" (dict "Values" $config) }}
+
+### Metrics config
+
+{{ template "chart.valuesTable" (dict "Values" $metricsConfig) }}
+
+### Features
+
+{{ template "chart.valuesTable" (dict "Values" $features) }}
+
+### Admission controller
+
+{{ template "chart.valuesTable" (dict "Values" $admissionController) }}
+
+### Background controller
+
+{{ template "chart.valuesTable" (dict "Values" $backgroundController) }}
+
+### Cleanup controller
+
+{{ template "chart.valuesTable" (dict "Values" $cleanupController) }}
+
+### Reports controller
+
+{{ template "chart.valuesTable" (dict "Values" $reportsController) }}
+
+### Grafana
+
+{{ template "chart.valuesTable" (dict "Values" $grafana) }}
+
+### Webhooks cleanup
+
+{{ template "chart.valuesTable" (dict "Values" $webhooksCleanup) }}
+
+### Test
+
+{{ template "chart.valuesTable" (dict "Values" $test) }}
+
+### Api version override
+
+{{ template "chart.valuesTable" (dict "Values" $apiVersionOverride) }}
+
+### Other
+
+{{ template "chart.valuesTable" (dict "Values" $other) }}
 
 ## TLS Configuration
 
