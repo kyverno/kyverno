@@ -20,10 +20,10 @@ type Mutate struct {
 }
 
 // NewMutateFactory returns a new instance of Mutate validation checker
-func NewMutateFactory(m kyvernov1.Mutation, client dclient.Interface) *Mutate {
+func NewMutateFactory(m kyvernov1.Mutation, client dclient.Interface, user string) *Mutate {
 	return &Mutate{
 		mutation:    m,
-		authChecker: newAuthChecker(client),
+		authChecker: newAuthChecker(client, user),
 	}
 }
 

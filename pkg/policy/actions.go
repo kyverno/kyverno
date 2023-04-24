@@ -22,7 +22,7 @@ type Validation interface {
 // - Mutate
 // - Validation
 // - Generate
-func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mock bool) error {
+func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mock bool, username string) error {
 	if rule == nil {
 		return nil
 	}
@@ -30,7 +30,7 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 	var checker Validation
 	// Mutate
 	if rule.HasMutate() {
-		checker = mutate.NewMutateFactory(rule.Mutation, client)
+		checker = mutate.NewMutateFactory(rule.Mutation, client, username)
 		if path, err := checker.Validate(context.TODO()); err != nil {
 			return fmt.Errorf("path: spec.rules[%d].mutate.%s.: %v", idx, path, err)
 		}
@@ -55,7 +55,7 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 				return fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
 			}
 		} else {
-			checker = generate.NewGenerateFactory(client, rule.Generation, logging.GlobalLogger())
+			checker = generate.NewGenerateFactory(client, rule.Generation, username, logging.GlobalLogger())
 			if path, err := checker.Validate(context.TODO()); err != nil {
 				return fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
 			}
