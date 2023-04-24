@@ -3,6 +3,11 @@ kind: ClusterCleanupPolicy
 metadata:
   name: cleanup-pod
 spec:
+  context:
+    - name: configData
+      configMap:
+        name: some-config-map
+        namespace: default
   match:
     any:
       - resources:
