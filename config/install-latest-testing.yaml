@@ -33991,6 +33991,12 @@ rules:
       - update
       - patch
   - apiGroups:
+      - authorization.k8s.io
+    resources:
+      - subjectaccessreviews
+    verbs:
+      - create
+  - apiGroups:
       - '*'
     resources:
       - '*'
@@ -34171,6 +34177,12 @@ rules:
     - create
     - patch
     - update
+  - apiGroups:
+      - authorization.k8s.io
+    resources:
+      - subjectaccessreviews
+    verbs:
+      - create
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -34471,9 +34483,6 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kyverno-background-controller
-  namespace: kyverno
-- kind: ServiceAccount
-  name: kyverno-admission-controller
   namespace: kyverno
 ---
 kind: ClusterRoleBinding
@@ -34965,7 +34974,7 @@ spec:
           image: "ghcr.io/kyverno/kyverno:latest"
           imagePullPolicy: IfNotPresent
           args:
-            - --backgroundServiceAccountName='system:serviceaccount:kyverno:kyverno-background-controller'
+            - --backgroundServiceAccountName=system:serviceaccount:kyverno:kyverno-background-controller
             - --servicePort=443
             - --loggingFormat=text
             - --v=2
@@ -35207,6 +35216,8 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name
+          - name: KYVERNO_SERVICEACCOUNT_NAME
+            value: kyverno-cleanup-controller
           - name: KYVERNO_NAMESPACE
             valueFrom:
               fieldRef:
