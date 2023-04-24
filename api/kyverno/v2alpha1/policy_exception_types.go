@@ -209,10 +209,6 @@ func (p *PolicyExceptionSpec) GetAnyAllConditions() apiextensions.JSON {
 	return kyvernov1.FromJSON(p.RawAnyAllConditions)
 }
 
-func (p *PolicyExceptionSpec) SetAnyAllConditions(in apiextensions.JSON) {
-	p.RawAnyAllConditions = kyvernov1.ToJSON(in)
-}
-
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
