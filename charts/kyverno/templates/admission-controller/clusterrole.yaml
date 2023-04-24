@@ -89,6 +89,12 @@ rules:
       - update
       - patch
   - apiGroups:
+      - authorization.k8s.io
+    resources:
+      - subjectaccessreviews
+    verbs:
+      - create
+  - apiGroups:
       - '*'
     resources:
       - '*'
