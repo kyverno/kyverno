@@ -1,12 +1,3 @@
-admissionController:
-  container:
-    extraArgs:
-      enablePolicyException: false
-
-backgroundController:
-  extraArgs:
-    enablePolicyException: false
-
-reportsController:
-  extraArgs:
-    enablePolicyException: false
+features:
+  policyExceptions:
+    enabled: false
