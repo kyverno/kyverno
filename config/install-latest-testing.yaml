@@ -35419,6 +35419,16 @@ spec:
               else
                 echo "($COUNT) reports found, no clean up needed"
               fi
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - ALL
+              privileged: false
+              readOnlyRootFilesystem: true
+              runAsNonRoot: true
+              seccompProfile:
+                type: RuntimeDefault
           restartPolicy: OnFailure
 ---
 apiVersion: batch/v1
@@ -35455,4 +35465,14 @@ spec:
               else
                 echo "($COUNT) reports found, no clean up needed"
               fi
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - ALL
+              privileged: false
+              readOnlyRootFilesystem: true
+              runAsNonRoot: true
+              seccompProfile:
+                type: RuntimeDefault
           restartPolicy: OnFailure
