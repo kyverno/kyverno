@@ -35006,6 +35006,8 @@ spec:
             - --enablePolicyException=false
             - --exceptionNamespace=
             - --protectManagedResources=false
+            - --allowInsecureRegistry=false
+            - --registryCredentialHelpers=default,google,amazon,azure,github
           resources: 
             limits:
               memory: 384Mi
@@ -35367,6 +35369,8 @@ spec:
             - --enablePolicyException=false
             - --exceptionNamespace=
             - --reportsChunkSize=1000
+            - --allowInsecureRegistry=false
+            - --registryCredentialHelpers=default,google,amazon,azure,github
           env:
           - name: METRICS_CONFIG
             value: kyverno-metrics

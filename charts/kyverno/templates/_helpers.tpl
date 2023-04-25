@@ -41,6 +41,10 @@
 {{- with .reports -}}
   {{- $flags = append $flags (print "--reportsChunkSize=" .chunkSize) -}}
 {{- end -}}
+{{- with .registryClient -}}
+  {{- $flags = append $flags (print "--allowInsecureRegistry=" .allowInsecure) -}}
+  {{- $flags = append $flags (print "--registryCredentialHelpers=" (join "," .credentialHelpers)) -}}
+{{- end -}}
 {{- with $flags -}}
   {{- toYaml . -}}
 {{- end -}}
