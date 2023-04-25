@@ -10,32 +10,32 @@ import (
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
-	k8s_io_api_extensions_v1beta1 "k8s.io/api/extensions/v1beta1"
+	k8s_io_api_certificates_v1alpha1 "k8s.io/api/certificates/v1alpha1"
 	k8s_io_apimachinery_pkg_apis_meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_io_apimachinery_pkg_types "k8s.io/apimachinery/pkg/types"
 	k8s_io_apimachinery_pkg_watch "k8s.io/apimachinery/pkg/watch"
-	k8s_io_client_go_applyconfigurations_extensions_v1beta1 "k8s.io/client-go/applyconfigurations/extensions/v1beta1"
-	k8s_io_client_go_kubernetes_typed_extensions_v1beta1 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
+	k8s_io_client_go_applyconfigurations_certificates_v1alpha1 "k8s.io/client-go/applyconfigurations/certificates/v1alpha1"
+	k8s_io_client_go_kubernetes_typed_certificates_v1alpha1 "k8s.io/client-go/kubernetes/typed/certificates/v1alpha1"
 )
 
-func WithLogging(inner k8s_io_client_go_kubernetes_typed_extensions_v1beta1.PodSecurityPolicyInterface, logger logr.Logger) k8s_io_client_go_kubernetes_typed_extensions_v1beta1.PodSecurityPolicyInterface {
+func WithLogging(inner k8s_io_client_go_kubernetes_typed_certificates_v1alpha1.ClusterTrustBundleInterface, logger logr.Logger) k8s_io_client_go_kubernetes_typed_certificates_v1alpha1.ClusterTrustBundleInterface {
 	return &withLogging{inner, logger}
 }
 
-func WithMetrics(inner k8s_io_client_go_kubernetes_typed_extensions_v1beta1.PodSecurityPolicyInterface, recorder metrics.Recorder) k8s_io_client_go_kubernetes_typed_extensions_v1beta1.PodSecurityPolicyInterface {
+func WithMetrics(inner k8s_io_client_go_kubernetes_typed_certificates_v1alpha1.ClusterTrustBundleInterface, recorder metrics.Recorder) k8s_io_client_go_kubernetes_typed_certificates_v1alpha1.ClusterTrustBundleInterface {
 	return &withMetrics{inner, recorder}
 }
 
-func WithTracing(inner k8s_io_client_go_kubernetes_typed_extensions_v1beta1.PodSecurityPolicyInterface, client, kind string) k8s_io_client_go_kubernetes_typed_extensions_v1beta1.PodSecurityPolicyInterface {
+func WithTracing(inner k8s_io_client_go_kubernetes_typed_certificates_v1alpha1.ClusterTrustBundleInterface, client, kind string) k8s_io_client_go_kubernetes_typed_certificates_v1alpha1.ClusterTrustBundleInterface {
 	return &withTracing{inner, client, kind}
 }
 
 type withLogging struct {
-	inner  k8s_io_client_go_kubernetes_typed_extensions_v1beta1.PodSecurityPolicyInterface
+	inner  k8s_io_client_go_kubernetes_typed_certificates_v1alpha1.ClusterTrustBundleInterface
 	logger logr.Logger
 }
 
-func (c *withLogging) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_extensions_v1beta1.PodSecurityPolicyApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_extensions_v1beta1.PodSecurityPolicy, error) {
+func (c *withLogging) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_certificates_v1alpha1.ClusterTrustBundleApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_certificates_v1alpha1.ClusterTrustBundle, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "Apply")
 	ret0, ret1 := c.inner.Apply(arg0, arg1, arg2)
@@ -46,7 +46,7 @@ func (c *withLogging) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyco
 	}
 	return ret0, ret1
 }
-func (c *withLogging) Create(arg0 context.Context, arg1 *k8s_io_api_extensions_v1beta1.PodSecurityPolicy, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_extensions_v1beta1.PodSecurityPolicy, error) {
+func (c *withLogging) Create(arg0 context.Context, arg1 *k8s_io_api_certificates_v1alpha1.ClusterTrustBundle, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_certificates_v1alpha1.ClusterTrustBundle, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "Create")
 	ret0, ret1 := c.inner.Create(arg0, arg1, arg2)
@@ -79,7 +79,7 @@ func (c *withLogging) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimach
 	}
 	return ret0
 }
-func (c *withLogging) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_extensions_v1beta1.PodSecurityPolicy, error) {
+func (c *withLogging) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_certificates_v1alpha1.ClusterTrustBundle, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "Get")
 	ret0, ret1 := c.inner.Get(arg0, arg1, arg2)
@@ -90,7 +90,7 @@ func (c *withLogging) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimach
 	}
 	return ret0, ret1
 }
-func (c *withLogging) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_extensions_v1beta1.PodSecurityPolicyList, error) {
+func (c *withLogging) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_certificates_v1alpha1.ClusterTrustBundleList, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "List")
 	ret0, ret1 := c.inner.List(arg0, arg1)
@@ -101,7 +101,7 @@ func (c *withLogging) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_ap
 	}
 	return ret0, ret1
 }
-func (c *withLogging) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_extensions_v1beta1.PodSecurityPolicy, error) {
+func (c *withLogging) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_certificates_v1alpha1.ClusterTrustBundle, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "Patch")
 	ret0, ret1 := c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
@@ -112,7 +112,7 @@ func (c *withLogging) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apima
 	}
 	return ret0, ret1
 }
-func (c *withLogging) Update(arg0 context.Context, arg1 *k8s_io_api_extensions_v1beta1.PodSecurityPolicy, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_extensions_v1beta1.PodSecurityPolicy, error) {
+func (c *withLogging) Update(arg0 context.Context, arg1 *k8s_io_api_certificates_v1alpha1.ClusterTrustBundle, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_certificates_v1alpha1.ClusterTrustBundle, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "Update")
 	ret0, ret1 := c.inner.Update(arg0, arg1, arg2)
@@ -136,15 +136,15 @@ func (c *withLogging) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_a
 }
 
 type withMetrics struct {
-	inner    k8s_io_client_go_kubernetes_typed_extensions_v1beta1.PodSecurityPolicyInterface
+	inner    k8s_io_client_go_kubernetes_typed_certificates_v1alpha1.ClusterTrustBundleInterface
 	recorder metrics.Recorder
 }
 
-func (c *withMetrics) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_extensions_v1beta1.PodSecurityPolicyApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_extensions_v1beta1.PodSecurityPolicy, error) {
+func (c *withMetrics) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_certificates_v1alpha1.ClusterTrustBundleApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_certificates_v1alpha1.ClusterTrustBundle, error) {
 	defer c.recorder.RecordWithContext(arg0, "apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
-func (c *withMetrics) Create(arg0 context.Context, arg1 *k8s_io_api_extensions_v1beta1.PodSecurityPolicy, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_extensions_v1beta1.PodSecurityPolicy, error) {
+func (c *withMetrics) Create(arg0 context.Context, arg1 *k8s_io_api_certificates_v1alpha1.ClusterTrustBundle, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_certificates_v1alpha1.ClusterTrustBundle, error) {
 	defer c.recorder.RecordWithContext(arg0, "create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
@@ -156,19 +156,19 @@ func (c *withMetrics) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimach
 	defer c.recorder.RecordWithContext(arg0, "delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
-func (c *withMetrics) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_extensions_v1beta1.PodSecurityPolicy, error) {
+func (c *withMetrics) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_certificates_v1alpha1.ClusterTrustBundle, error) {
 	defer c.recorder.RecordWithContext(arg0, "get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
-func (c *withMetrics) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_extensions_v1beta1.PodSecurityPolicyList, error) {
+func (c *withMetrics) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_certificates_v1alpha1.ClusterTrustBundleList, error) {
 	defer c.recorder.RecordWithContext(arg0, "list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *withMetrics) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_extensions_v1beta1.PodSecurityPolicy, error) {
+func (c *withMetrics) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_certificates_v1alpha1.ClusterTrustBundle, error) {
 	defer c.recorder.RecordWithContext(arg0, "patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
-func (c *withMetrics) Update(arg0 context.Context, arg1 *k8s_io_api_extensions_v1beta1.PodSecurityPolicy, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_extensions_v1beta1.PodSecurityPolicy, error) {
+func (c *withMetrics) Update(arg0 context.Context, arg1 *k8s_io_api_certificates_v1alpha1.ClusterTrustBundle, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_certificates_v1alpha1.ClusterTrustBundle, error) {
 	defer c.recorder.RecordWithContext(arg0, "update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
@@ -178,12 +178,12 @@ func (c *withMetrics) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_a
 }
 
 type withTracing struct {
-	inner  k8s_io_client_go_kubernetes_typed_extensions_v1beta1.PodSecurityPolicyInterface
+	inner  k8s_io_client_go_kubernetes_typed_certificates_v1alpha1.ClusterTrustBundleInterface
 	client string
 	kind   string
 }
 
-func (c *withTracing) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_extensions_v1beta1.PodSecurityPolicyApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_extensions_v1beta1.PodSecurityPolicy, error) {
+func (c *withTracing) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_certificates_v1alpha1.ClusterTrustBundleApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_certificates_v1alpha1.ClusterTrustBundle, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
 		arg0, span = tracing.StartChildSpan(
@@ -204,7 +204,7 @@ func (c *withTracing) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyco
 	}
 	return ret0, ret1
 }
-func (c *withTracing) Create(arg0 context.Context, arg1 *k8s_io_api_extensions_v1beta1.PodSecurityPolicy, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_extensions_v1beta1.PodSecurityPolicy, error) {
+func (c *withTracing) Create(arg0 context.Context, arg1 *k8s_io_api_certificates_v1alpha1.ClusterTrustBundle, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_certificates_v1alpha1.ClusterTrustBundle, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
 		arg0, span = tracing.StartChildSpan(
@@ -267,7 +267,7 @@ func (c *withTracing) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimach
 	}
 	return ret0
 }
-func (c *withTracing) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_extensions_v1beta1.PodSecurityPolicy, error) {
+func (c *withTracing) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_certificates_v1alpha1.ClusterTrustBundle, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
 		arg0, span = tracing.StartChildSpan(
@@ -288,7 +288,7 @@ func (c *withTracing) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimach
 	}
 	return ret0, ret1
 }
-func (c *withTracing) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_extensions_v1beta1.PodSecurityPolicyList, error) {
+func (c *withTracing) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_certificates_v1alpha1.ClusterTrustBundleList, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
 		arg0, span = tracing.StartChildSpan(
@@ -309,7 +309,7 @@ func (c *withTracing) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_ap
 	}
 	return ret0, ret1
 }
-func (c *withTracing) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_extensions_v1beta1.PodSecurityPolicy, error) {
+func (c *withTracing) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_certificates_v1alpha1.ClusterTrustBundle, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
 		arg0, span = tracing.StartChildSpan(
@@ -330,7 +330,7 @@ func (c *withTracing) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apima
 	}
 	return ret0, ret1
 }
-func (c *withTracing) Update(arg0 context.Context, arg1 *k8s_io_api_extensions_v1beta1.PodSecurityPolicy, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_extensions_v1beta1.PodSecurityPolicy, error) {
+func (c *withTracing) Update(arg0 context.Context, arg1 *k8s_io_api_certificates_v1alpha1.ClusterTrustBundle, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_certificates_v1alpha1.ClusterTrustBundle, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
 		arg0, span = tracing.StartChildSpan(
