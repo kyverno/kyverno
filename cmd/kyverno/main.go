@@ -408,6 +408,7 @@ func main() {
 	policyHandlers := webhookspolicy.NewHandlers(
 		setup.KyvernoDynamicClient,
 		openApiManager,
+		backgroundServiceAccountName,
 	)
 	resourceHandlers := webhooksresource.NewHandlers(
 		engine,

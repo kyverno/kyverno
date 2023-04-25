@@ -47,7 +47,7 @@ jobs:
           - name: v1.26
             version: v1.26.3
           - name: v1.27
-            version: v1.27.0
+            version: v1.27.1
         tests:
           - autogen
           - cleanup
@@ -117,7 +117,7 @@ jobs:
           - name: v1.26
             version: v1.26.3
           - name: v1.27
-            version: v1.27.0
+            version: v1.27.1
         tests:
           - force-failure-policy-ignore
           - rbac
@@ -172,7 +172,7 @@ jobs:
           - name: v1.26
             version: v1.26.3
           - name: v1.27
-            version: v1.27.0
+            version: v1.27.1
         tests:
           - rbac
     runs-on: ubuntu-latest
