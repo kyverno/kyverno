@@ -353,9 +353,108 @@ features:
   protectManagedResources:
     # -- Enables the feature
     enabled: false
+  registryClient:
+    # -- Allow insecure registry
+    allowInsecure: false
+    # -- Enable registry client helpers
+    credentialHelpers:
+    - default
+    - google
+    - amazon
+    - azure
+    - github
   reports:
     # -- Reports chunk size
     chunkSize: 1000
+
+# Cleanup cronjobs to prevent internal resources from stacking up in the cluster
+cleanupJobs:
+
+  admissionReports:
+
+    # -- Enable cleanup cronjob
+    enabled: true
+
+    image:
+      # -- (string) Image registry
+      registry: ~
+      # -- Image repository
+      repository: bitnami/kubectl
+      # -- Image tag
+      # Defaults to `latest` if omitted
+      tag: '1.26.4'
+      # -- (string) Image pull policy
+      # Defaults to image.pullPolicy if omitted
+      pullPolicy: ~
+
+    # -- Cronjob schedule
+    schedule: '*/10 * * * *'
+
+    # -- Reports threshold, if number of reports are above this value the cronjob will start deleting them
+    threshold: 10000
+
+    # -- Cronjob history
+    history:
+      success: 1
+      failure: 1
+
+    # -- Security context for the pod
+    podSecurityContext: {}
+
+    # -- Security context for the containers
+    securityContext:
+      runAsNonRoot: true
+      privileged: false
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
+
+  clusterAdmissionReports:
+
+    # -- Enable cleanup cronjob
+    enabled: true
+
+    image:
+      # -- (string) Image registry
+      registry: ~
+      # -- Image repository
+      repository: bitnami/kubectl
+      # -- Image tag
+      # Defaults to `latest` if omitted
+      tag: '1.26.4'
+      # -- (string) Image pull policy
+      # Defaults to image.pullPolicy if omitted
+      pullPolicy: ~
+
+    # -- Cronjob schedule
+    schedule: '*/10 * * * *'
+
+    # -- Reports threshold, if number of reports are above this value the cronjob will start deleting them
+    threshold: 10000
+
+    # -- Cronjob history
+    history:
+      success: 1
+      failure: 1
+
+    # -- Security context for the pod
+    podSecurityContext: {}
+
+    # -- Security context for the containers
+    securityContext:
+      runAsNonRoot: true
+      privileged: false
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
 
 # Admission controller configuration
 admissionController:
