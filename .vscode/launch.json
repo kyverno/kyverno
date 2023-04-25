@@ -34,6 +34,17 @@
             ],
         },
         {
+            "name": "Launch Cleanup Controller",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/cleanup-controller",
+            "args": [
+                "--kubeconfig=${userHome}/.kube/config",
+                "--serverIP=<SERVER-IP>:9443",
+            ],
+        },
+        {
             "name": "Launch CLI",
             "type": "go",
             "request": "launch",
