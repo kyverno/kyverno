@@ -235,11 +235,25 @@ The chart values are organised per component.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| features.admissionReports.enabled | bool | `true` | Enables the feature |
+| features.autoUpdateWebhooks.enabled | bool | `true` | Enables the feature |
+| features.backgroundScan.enabled | bool | `true` | Enables the feature |
+| features.backgroundScan.backgroundScanWorkers | int | `2` | Number of background scan workers |
+| features.backgroundScan.backgroundScanInterval | string | `"1h"` | Background scan interval |
+| features.backgroundScan.skipResourceFilters | bool | `true` | Skips resource filters in background scan |
+| features.configMapCaching.enabled | bool | `true` | Enables the feature |
+| features.dumpPayload.enabled | bool | `false` | Enables the feature |
+| features.forceFailurePolicyIgnore.enabled | bool | `false` | Enables the feature |
+| features.policyExceptions.enabled | bool | `false` | Enables the feature |
+| features.policyExceptions.namespace | string | `""` | Restrict policy exceptions to a single namespace |
+| features.protectManagedResources.enabled | bool | `false` | Enables the feature |
+| features.reports.chunkSize | int | `1000` | Reports chunk size |
 
 ### Admission controller
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| admissionController.featuresOverride | object | `{}` | Overrides features defined at the root level |
 | admissionController.rbac.create | bool | `true` | Create RBAC resources |
 | admissionController.rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |
 | admissionController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
@@ -322,6 +336,7 @@ The chart values are organised per component.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| backgroundController.featuresOverride | object | `{}` | Overrides features defined at the root level |
 | backgroundController.enabled | bool | `true` | Enable background controller. |
 | backgroundController.rbac.create | bool | `true` | Create RBAC resources |
 | backgroundController.rbac.serviceAccount.name | string | `nil` | Service account name |
@@ -381,6 +396,7 @@ The chart values are organised per component.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| cleanupController.featuresOverride | object | `{}` | Overrides features defined at the root level |
 | cleanupController.enabled | bool | `true` | Enable cleanup controller. |
 | cleanupController.rbac.create | bool | `true` | Create RBAC resources |
 | cleanupController.rbac.serviceAccount.name | string | `nil` | Service account name |
@@ -448,6 +464,7 @@ The chart values are organised per component.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| reportsController.featuresOverride | object | `{}` | Overrides features defined at the root level |
 | reportsController.enabled | bool | `true` | Enable reports controller. |
 | reportsController.rbac.create | bool | `true` | Create RBAC resources |
 | reportsController.rbac.serviceAccount.name | string | `nil` | Service account name |
@@ -463,7 +480,7 @@ The chart values are organised per component.
 | reportsController.priorityClassName | string | `""` | Optional priority class |
 | reportsController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
 | reportsController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
-| reportsController.extraArgs | object | `{"clientRateLimitBurst":300,"clientRateLimitQPS":300,"skipResourceFilters":true}` | Extra arguments passed to the container on the command line |
+| reportsController.extraArgs | object | `{}` | Extra arguments passed to the container on the command line |
 | reportsController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
 | reportsController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
 | reportsController.nodeSelector | object | `{}` | Node labels for pod assignment |
