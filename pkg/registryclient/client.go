@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/sigstore/cosign/pkg/oci/remote"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"k8s.io/apimachinery/pkg/util/sets"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -115,18 +116,43 @@ func NewOrDie(options ...Option) Client {
 
 // WithKeychainPullSecrets provides initialize registry client option that allows to use pull secrets.
 func WithKeychainPullSecrets(ctx context.Context, lister corev1listers.SecretNamespaceLister, imagePullSecrets ...string) Option {
-	return func(c *config) error {
-		c.pullSecretRefresher = func(ctx context.Context, c *client) error {
+	return func(conf *config) error {
+		conf.pullSecretRefresher = func(ctx context.Context, c *client) error {
 			freshKeychain, err := generateKeychainForPullSecrets(ctx, lister, imagePullSecrets...)
 			if err != nil {
 				return err
 			}
 			c.keychain = authn.NewMultiKeychain(
-				baseKeychain,
+				conf.keychain,
 				freshKeychain,
 			)
 			return nil
 		}
+		return nil
+	}
+}
+
+// WithKeychainPullSecrets provides initialize registry client option that allows to use insecure registries.
+func WithCredentialHelpers(credentialHelpers ...string) Option {
+	return func(c *config) error {
+		var chains []authn.Keychain
+		helpers := sets.New(credentialHelpers...)
+		if helpers.Has("default") {
+			chains = append(chains, authn.DefaultKeychain)
+		}
+		if helpers.Has("google") {
+			chains = append(chains, google.Keychain)
+		}
+		if helpers.Has("amazon") {
+			chains = append(chains, authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard))))
+		}
+		if helpers.Has("azure") {
+			chains = append(chains, authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()))
+		}
+		if helpers.Has("github") {
+			chains = append(chains, github.Keychain)
+		}
+		c.keychain = authn.NewMultiKeychain(chains...)
 		return nil
 	}
 }
