@@ -44,6 +44,16 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
+  name: kyverno-cleanup-jobs
+  namespace: kyverno
+  labels:
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
   name: kyverno-reports-controller
   namespace: kyverno
   labels:
@@ -34159,6 +34169,24 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  name: kyverno-cleanup-jobs
+  labels:
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+rules:
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - admissionreports
+      - clusteradmissionreports
+    verbs:
+      - list
+      - deletecollection
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
   name: kyverno:rbac:admin:policies
   labels:
     app.kubernetes.io/component: rbac
@@ -34474,6 +34502,23 @@ subjects:
 - kind: ServiceAccount
   name: kyverno-cleanup-controller
   namespace: kyverno
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kyverno-cleanup-jobs
+  labels:
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno-cleanup-jobs
+subjects:
+  - kind: ServiceAccount
+    name: kyverno-cleanup-jobs
+    namespace: kyverno
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -35361,3 +35406,95 @@ spec:
       volumes:
       - name: sigstore
         emptyDir: {}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kyverno-cleanup-admission-reports
+  namespace: kyverno
+  labels:
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: kyverno-cleanup-jobs
+          containers:
+          - name: cleanup
+            image: bitnami/kubectl:1.26.4
+            imagePullPolicy: 
+            command:
+            - /bin/sh
+            - -c
+            - |
+              COUNT=$(kubectl get admissionreports.kyverno.io -A | wc -l)
+              if [ "$COUNT" -gt 10000 ]; then
+                echo "too many reports found ($COUNT), cleaning up..."
+                kubectl delete admissionreports.kyverno.io -A -l='!audit.kyverno.io/report.aggregate'
+              else
+                echo "($COUNT) reports found, no clean up needed"
+              fi
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - ALL
+              privileged: false
+              readOnlyRootFilesystem: true
+              runAsNonRoot: true
+              seccompProfile:
+                type: RuntimeDefault
+          restartPolicy: OnFailure
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kyverno-cleanup-cluster-admission-reports
+  namespace: kyverno
+  labels:
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: kyverno-cleanup-jobs
+          containers:
+          - name: cleanup
+            image: bitnami/kubectl:1.26.4
+            imagePullPolicy: 
+            command:
+            - /bin/sh
+            - -c
+            - |
+              COUNT=$(kubectl get clusteradmissionreports.kyverno.io -A | wc -l)
+              if [ "$COUNT" -gt 10000 ]; then
+                echo "too many reports found ($COUNT), cleaning up..."
+                kubectl delete clusteradmissionreports.kyverno.io -A -l='!audit.kyverno.io/report.aggregate'
+              else
+                echo "($COUNT) reports found, no clean up needed"
+              fi
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - ALL
+              privileged: false
+              readOnlyRootFilesystem: true
+              runAsNonRoot: true
+              seccompProfile:
+                type: RuntimeDefault
+          restartPolicy: OnFailure
