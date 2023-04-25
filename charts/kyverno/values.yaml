@@ -353,6 +353,16 @@ features:
   protectManagedResources:
     # -- Enables the feature
     enabled: false
+  registryClient:
+    # -- Allow insecure registry
+    allowInsecure: false
+    # -- Enable registry client helpers
+    credentialHelpers:
+    - default
+    - google
+    - amazon
+    - azure
+    - github
   reports:
     # -- Reports chunk size
     chunkSize: 1000
