@@ -95,7 +95,7 @@ func main() {
 				tls.CertRenewalInterval,
 				tls.CAValidityDuration,
 				tls.TLSValidityDuration,
-				"",
+				serverIP,
 			)
 			certController := internal.NewController(
 				certmanager.ControllerName,
