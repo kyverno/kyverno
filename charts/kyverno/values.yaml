@@ -319,12 +319,14 @@ grafana:
   # -- Grafana dashboard configmap annotations.
   annotations: {}
 
-# cleanup cronjobs to prevent internal resources from stacking up in the cluster
+# Cleanup cronjobs to prevent internal resources from stacking up in the cluster
 cleanupJobs:
 
-  # -- Cleanup admission reports periodically if there's more than a certain threshold
   admissionReports:
+
+    # -- Enable cleanup cronjob
     enabled: true
+
     image:
       # -- (string) Image registry
       registry: ~
@@ -336,15 +338,38 @@ cleanupJobs:
       # -- (string) Image pull policy
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~
+
+    # -- Cronjob schedule
     schedule: '*/10 * * * *'
+
+    # -- Reports threshold, if number of reports are above this value the cronjob will start deleting them
     threshold: 10000
+
+    # -- Cronjob history
     history:
       success: 1
       failure: 1
 
-  # -- Cleanup cluster admission reports periodically if there's more than a certain threshold
+    # -- Security context for the pod
+    podSecurityContext: {}
+
+    # -- Security context for the containers
+    securityContext:
+      runAsNonRoot: true
+      privileged: false
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
+
   clusterAdmissionReports:
+
+    # -- Enable cleanup cronjob
     enabled: true
+
     image:
       # -- (string) Image registry
       registry: ~
@@ -356,11 +381,32 @@ cleanupJobs:
       # -- (string) Image pull policy
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~
+
+    # -- Cronjob schedule
     schedule: '*/10 * * * *'
+
+    # -- Reports threshold, if number of reports are above this value the cronjob will start deleting them
     threshold: 10000
+
+    # -- Cronjob history
     history:
       success: 1
       failure: 1
+
+    # -- Security context for the pod
+    podSecurityContext: {}
+
+    # -- Security context for the containers
+    securityContext:
+      runAsNonRoot: true
+      privileged: false
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
 
 # Admission controller configuration
 admissionController:

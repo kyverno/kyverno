@@ -16,6 +16,10 @@ spec:
       template:
         spec:
           serviceAccountName: {{ template "kyverno.name" . }}-cleanup-jobs
+          {{- with .Values.cleanupJobs.admissionReports.podSecurityContext }}
+          securityContext:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
           containers:
           - name: cleanup
             image: {{ template "kyverno.image" .Values.cleanupJobs.admissionReports }}
@@ -31,5 +35,9 @@ spec:
               else
                 echo "($COUNT) reports found, no clean up needed"
               fi
+            {{- with .Values.cleanupJobs.admissionReports.securityContext }}
+            securityContext:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
           restartPolicy: OnFailure
 {{- end -}}
