@@ -1,0 +1,28 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-pod-require-non-root-user
+spec:
+  schemaValidation: false
+  rules:
+    - name: require-non-root-user
+      match:
+        all:
+          - resources:
+              kinds:
+                - Pod
+      mutate:
+        foreach:
+          - list: request.object.spec.containers
+            preconditions:
+              all:
+                # skip images that are exempt (allowed to run as a root user);
+                # escape quotes where the replaced value may contain hyphens
+                - key: "{{images.containers.\"{{element.name}}\".path}}"
+                  operator: AnyNotIn
+                  value:
+                    - myorg/exempt-image-name
+            patchesJson6902: |-
+              - path: /spec/containers/{{elementIndex}}/securityContext/runAsNonRoot
+                op: add
+                value: true
