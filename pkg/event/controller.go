@@ -102,7 +102,7 @@ func (gen *generator) Add(infos ...Info) {
 		}
 		for _, event := range gen.eventsApplied {
 			if info.Reason == Reason(event) {
-				logger.V(3).Info("skipping policy event applied event creation", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace)
+				logger.V(3).Info("skipping policy event applied event creation", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace, "reason", info.Reason)
 				continue
 			}
 		}
