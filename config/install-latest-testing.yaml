@@ -34706,6 +34706,14 @@ spec:
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
+            - --admissionReports=true
+            - --autoUpdateWebhooks=true
+            - --enableConfigMapCaching=true
+            - --dumpPayload=false
+            - --forceFailurePolicyIgnore=false
+            - --enablePolicyException=false
+            - --exceptionNamespace=
+            - --protectManagedResources=false
           resources: 
             limits:
               memory: 384Mi
@@ -34845,6 +34853,9 @@ spec:
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
+            - --enableConfigMapCaching=true
+            - --enablePolicyException=false
+            - --exceptionNamespace=
           env:
           - name: METRICS_CONFIG
             value: kyverno-metrics
@@ -34934,6 +34945,7 @@ spec:
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
+            - --dumpPayload=false
           env:
           - name: METRICS_CONFIG
             value: kyverno-metrics
@@ -35052,9 +35064,15 @@ spec:
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
-            - --clientRateLimitBurst=300
-            - --clientRateLimitQPS=300
+            - --admissionReports=true
+            - --backgroundScan=true
+            - --backgroundScanWorkers=2
+            - --backgroundScanInterval=1h
             - --skipResourceFilters=true
+            - --enableConfigMapCaching=true
+            - --enablePolicyException=false
+            - --exceptionNamespace=
+            - --reportsChunkSize=1000
           env:
           - name: METRICS_CONFIG
             value: kyverno-metrics
