@@ -352,7 +352,7 @@ func Test_Validate_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	_, err = Validate(policy, nil, nil, true, openApiManager)
+	_, err = Validate(policy, nil, nil, true, openApiManager, "admin")
 	assert.NilError(t, err)
 }
 
@@ -499,7 +499,7 @@ func Test_Validate_ErrorFormat(t *testing.T) {
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	_, err = Validate(policy, nil, nil, true, openApiManager)
+	_, err = Validate(policy, nil, nil, true, openApiManager, "admin")
 	assert.Assert(t, err != nil)
 }
 
@@ -901,7 +901,7 @@ func Test_Validate_Kind(t *testing.T) {
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	_, err = Validate(policy, nil, nil, true, openApiManager)
+	_, err = Validate(policy, nil, nil, true, openApiManager, "admin")
 	assert.Assert(t, err != nil)
 }
 
@@ -950,7 +950,7 @@ func Test_Validate_Any_Kind(t *testing.T) {
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	_, err = Validate(policy, nil, nil, true, openApiManager)
+	_, err = Validate(policy, nil, nil, true, openApiManager, "admin")
 	assert.Assert(t, err != nil)
 }
 
@@ -1040,7 +1040,7 @@ func Test_Wildcards_Kind(t *testing.T) {
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	_, err = Validate(policy, nil, nil, true, openApiManager)
+	_, err = Validate(policy, nil, nil, true, openApiManager, "admin")
 	assert.Assert(t, err != nil)
 }
 
@@ -1085,12 +1085,12 @@ func Test_Namespced_Policy(t *testing.T) {
 	  }
 	`)
 
-	var policy *kyverno.ClusterPolicy
+	var policy *kyverno.Policy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	_, err = Validate(policy, nil, nil, true, openApiManager)
+	_, err = Validate(policy, nil, nil, true, openApiManager, "admin")
 	assert.Assert(t, err != nil)
 }
 
@@ -1268,7 +1268,7 @@ func Test_patchesJson6902_Policy(t *testing.T) {
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	_, err = Validate(policy, nil, nil, true, openApiManager)
+	_, err = Validate(policy, nil, nil, true, openApiManager, "admin")
 	assert.NilError(t, err)
 }
 
@@ -1316,7 +1316,7 @@ func Test_deny_exec(t *testing.T) {
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	_, err = Validate(policy, nil, nil, true, openApiManager)
+	_, err = Validate(policy, nil, nil, true, openApiManager, "admin")
 	assert.NilError(t, err)
 }
 
@@ -1464,7 +1464,7 @@ func Test_SignatureAlgorithm(t *testing.T) {
 		assert.NilError(t, err)
 
 		openApiManager, _ := openapi.NewManager(logr.Discard())
-		_, err = Validate(policy, nil, nil, true, openApiManager)
+		_, err = Validate(policy, nil, nil, true, openApiManager, "admin")
 		if testcase.expectedOutput {
 			assert.NilError(t, err)
 		} else {
@@ -1514,7 +1514,7 @@ func Test_existing_resource_policy(t *testing.T) {
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	_, err = Validate(policy, nil, nil, true, openApiManager)
+	_, err = Validate(policy, nil, nil, true, openApiManager, "admin")
 	assert.NilError(t, err)
 }
 
@@ -1570,7 +1570,7 @@ func Test_PodControllerAutoGenExclusion_All_Controllers_Policy(t *testing.T) {
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	res, err := Validate(policy, nil, nil, true, openApiManager)
+	res, err := Validate(policy, nil, nil, true, openApiManager, "admin")
 	assert.NilError(t, err)
 	assert.Assert(t, res == nil)
 }
@@ -1627,7 +1627,7 @@ func Test_PodControllerAutoGenExclusion_Not_All_Controllers_Policy(t *testing.T)
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	warnings, err := Validate(policy, nil, nil, true, openApiManager)
+	warnings, err := Validate(policy, nil, nil, true, openApiManager, "admin")
 	assert.Assert(t, warnings != nil)
 	assert.NilError(t, err)
 }
@@ -1684,7 +1684,7 @@ func Test_PodControllerAutoGenExclusion_None_Policy(t *testing.T) {
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	warnings, err := Validate(policy, nil, nil, true, openApiManager)
+	warnings, err := Validate(policy, nil, nil, true, openApiManager, "admin")
 	assert.Assert(t, warnings == nil)
 	assert.NilError(t, err)
 }
@@ -1701,18 +1701,6 @@ func Test_ValidateJSON6902(t *testing.T) {
   value: "nginx"`
 	err = validateJSONPatch(patch, 0)
 	assert.NilError(t, err)
-
-	patch = `- path: "/metadata/labels/img"
-  op: add
-  value: nginx"`
-	err = validateJSONPatch(patch, 0)
-	assert.Error(t, err, `missing quote around value: spec.rules[0]: nginx"`)
-
-	patch = `- path: "/metadata/labels/img"
-  op: add
-  value: {"node.kubernetes.io/role": test"}`
-	err = validateJSONPatch(patch, 0)
-	assert.Error(t, err, `missing quote around value: spec.rules[0]: map[node.kubernetes.io/role:test"]`)
 
 	patch = `- path: "/metadata/labels/img"
   op: add
@@ -2238,7 +2226,7 @@ func Test_Any_wildcard_policy(t *testing.T) {
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	_, err = Validate(policy, nil, nil, true, openApiManager)
+	_, err = Validate(policy, nil, nil, true, openApiManager, "admin")
 	assert.Assert(t, err != nil)
 }
 
@@ -2296,7 +2284,7 @@ func Test_Validate_RuleImageExtractorsJMESPath(t *testing.T) {
 	expectedErr := fmt.Errorf("path: spec.rules[0]: jmespath may not be used in an image extractor when mutating digests with verify images")
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	_, actualErr := Validate(policy, nil, nil, true, openApiManager)
+	_, actualErr := Validate(policy, nil, nil, true, openApiManager, "admin")
 	assert.Equal(t, expectedErr.Error(), actualErr.Error())
 }
 

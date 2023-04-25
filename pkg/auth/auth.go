@@ -23,7 +23,7 @@ type CanIOptions interface {
 	// - can only evaluate a single verb
 	// - group version resource is determined from the kind using the discovery client REST mapper
 	// - If disallowed, the reason and evaluationError is available in the logs
-	// - each can generates a SelfSubjectAccessReview resource and response is evaluated for permissions
+	// - each can generates a SubjectAccessReview resource and response is evaluated for permissions
 	RunAccessCheck(context.Context) (bool, error)
 }
 
@@ -32,19 +32,21 @@ type canIOptions struct {
 	verb        string
 	kind        string
 	subresource string
+	user        string
 	discovery   Discovery
-	ssarClient  authorizationv1client.SelfSubjectAccessReviewInterface
+	sarClient   authorizationv1client.SubjectAccessReviewInterface
 }
 
 // NewCanI returns a new instance of operation access controller evaluator
-func NewCanI(discovery Discovery, ssarClient authorizationv1client.SelfSubjectAccessReviewInterface, kind, namespace, verb, subresource string) CanIOptions {
+func NewCanI(discovery Discovery, sarClient authorizationv1client.SubjectAccessReviewInterface, kind, namespace, verb, subresource string, user string) CanIOptions {
 	return &canIOptions{
 		namespace:   namespace,
 		verb:        verb,
 		kind:        kind,
 		subresource: subresource,
+		user:        user,
 		discovery:   discovery,
-		ssarClient:  ssarClient,
+		sarClient:   sarClient,
 	}
 }
 
@@ -72,8 +74,8 @@ func (o *canIOptions) RunAccessCheck(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("failed to get the Group Version Resource for kind %s", o.kind)
 	}
 
-	sar := &authorizationv1.SelfSubjectAccessReview{
-		Spec: authorizationv1.SelfSubjectAccessReviewSpec{
+	sar := &authorizationv1.SubjectAccessReview{
+		Spec: authorizationv1.SubjectAccessReviewSpec{
 			ResourceAttributes: &authorizationv1.ResourceAttributes{
 				Namespace:   o.namespace,
 				Verb:        o.verb,
@@ -81,17 +83,12 @@ func (o *canIOptions) RunAccessCheck(ctx context.Context) (bool, error) {
 				Resource:    gvr.Resource,
 				Subresource: o.subresource,
 			},
+			User: o.user,
 		},
 	}
-	// Set self subject access review
-	// - namespace
-	// - verb
-	// - resource
-	// - subresource
-	logger := logger.WithValues("kind", sar.Kind, "namespace", sar.Namespace, "name", sar.Name)
 
-	// Create the Resource
-	resp, err := o.ssarClient.Create(ctx, sar, metav1.CreateOptions{})
+	logger := logger.WithValues("kind", sar.Kind, "namespace", sar.Namespace, "name", sar.Name, "gvr", gvr.String())
+	resp, err := o.sarClient.Create(ctx, sar, metav1.CreateOptions{})
 	if err != nil {
 		logger.Error(err, "failed to create resource")
 		return false, err
@@ -100,7 +97,6 @@ func (o *canIOptions) RunAccessCheck(ctx context.Context) (bool, error) {
 	if !resp.Status.Allowed {
 		reason := resp.Status.Reason
 		evaluationError := resp.Status.EvaluationError
-		// Reporting ? (just logs)
 		logger.Info("disallowed operation", "reason", reason, "evaluationError", evaluationError)
 	}
 

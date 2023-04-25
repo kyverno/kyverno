@@ -81,6 +81,7 @@ spec:
           args:
             - --servicePort={{ .Values.cleanupController.service.port }}
             - --loggingFormat={{ .Values.cleanupController.logging.format }}
+            - --v={{ .Values.cleanupController.logging.verbosity }}
             {{- if .Values.cleanupController.tracing.enabled }}
             - --enableTracing
             - --tracingAddress={{ .Values.cleanupController.tracing.address }}
@@ -100,6 +101,9 @@ spec:
             - --transportCreds={{ . }}
             {{- end }}
             {{- end }}
+            {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.cleanupController.featuresOverride)
+              "dumpPayload"
+            ) | nindent 12 }}
             {{- range $key, $value := .Values.cleanupController.extraArgs }}
             {{- if $value }}
             - --{{ $key }}={{ $value }}
@@ -112,6 +116,8 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name
+          - name: KYVERNO_SERVICEACCOUNT_NAME
+            value: {{ template "kyverno.cleanup-controller.serviceAccountName" . }}
           - name: KYVERNO_NAMESPACE
             valueFrom:
               fieldRef:

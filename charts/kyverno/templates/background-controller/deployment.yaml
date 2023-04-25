@@ -80,6 +80,7 @@ spec:
             protocol: TCP
           args:
             - --loggingFormat={{ .Values.backgroundController.logging.format }}
+            - --v={{ .Values.backgroundController.logging.verbosity }}
             {{- if .Values.backgroundController.tracing.enabled }}
             - --enableTracing
             - --tracingAddress={{ .Values.backgroundController.tracing.address }}
@@ -102,6 +103,10 @@ spec:
             {{- if or .Values.imagePullSecrets .Values.existingImagePullSecrets }}
             - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
             {{- end }}
+            {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.backgroundController.featuresOverride)
+              "configMapCaching"
+              "policyExceptions"
+            ) | nindent 12 }}
             {{- range $key, $value := .Values.backgroundController.extraArgs }}
             {{- if $value }}
             - --{{ $key }}={{ $value }}

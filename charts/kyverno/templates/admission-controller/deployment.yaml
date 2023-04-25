@@ -82,6 +82,7 @@ spec:
           imagePullPolicy: {{ default .Values.admissionController.container.image.pullPolicy .Values.admissionController.initContainer.image.pullPolicy }}
           args:
             - --loggingFormat={{ .Values.admissionController.logging.format }}
+            - --v={{ .Values.admissionController.logging.verbosity }}
             {{- range $key, $value := .Values.admissionController.initContainer.extraArgs }}
             {{- if $value }}
             - --{{ $key }}={{ $value }}
@@ -119,9 +120,10 @@ spec:
           image: {{ include "kyverno.image" (dict "image" .Values.admissionController.container.image "defaultTag" .Chart.AppVersion) | quote }}
           imagePullPolicy: {{ .Values.admissionController.container.image.pullPolicy }}
           args:
-            - --backgroundServiceAccountName='system:serviceaccount:{{ include "kyverno.namespace" . }}:{{ include "kyverno.background-controller.serviceAccountName" . }}'
+            - --backgroundServiceAccountName=system:serviceaccount:{{ include "kyverno.namespace" . }}:{{ include "kyverno.background-controller.serviceAccountName" . }}
             - --servicePort={{ .Values.admissionController.service.port }}
             - --loggingFormat={{ .Values.admissionController.logging.format }}
+            - --v={{ .Values.admissionController.logging.verbosity }}
             {{- if .Values.admissionController.tracing.enabled }}
             - --enableTracing
             - --tracingAddress={{ .Values.admissionController.tracing.address }}
@@ -144,6 +146,15 @@ spec:
             {{- if or .Values.imagePullSecrets .Values.existingImagePullSecrets }}
             - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
             {{- end }}
+            {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.admissionController.featuresOverride)
+              "admissionReports"
+              "autoUpdateWebhooks"
+              "configMapCaching"
+              "dumpPayload"
+              "forceFailurePolicyIgnore"
+              "policyExceptions"
+              "protectManagedResources"
+            ) | nindent 12 }}
             {{- range $key, $value := .Values.admissionController.container.extraArgs }}
             {{- if $value }}
             - --{{ $key }}={{ $value }}

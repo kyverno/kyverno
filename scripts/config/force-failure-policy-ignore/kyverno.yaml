@@ -1,4 +1,3 @@
-admissionController:
-  container:
-    extraArgs:
-      forceFailurePolicyIgnore: true
+features:
+  forceFailurePolicyIgnore:
+    enabled: true
