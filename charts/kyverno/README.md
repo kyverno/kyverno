@@ -557,6 +557,31 @@ The chart values are organised per component.
 |-----|------|---------|-------------|
 | apiVersionOverride.podDisruptionBudget | string | `nil` | Override api version used to create `PodDisruptionBudget`` resources. When not specified the chart will check if `policy/v1/PodDisruptionBudget` is available to determine the api version automatically. |
 
+### Cleanup jobs
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| cleanupJobs.admissionReports.enabled | bool | `true` | Enable cleanup cronjob |
+| cleanupJobs.admissionReports.image.registry | string | `nil` | Image registry |
+| cleanupJobs.admissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
+| cleanupJobs.admissionReports.image.tag | string | `"1.26.4"` | Image tag Defaults to `latest` if omitted |
+| cleanupJobs.admissionReports.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
+| cleanupJobs.admissionReports.schedule | string | `"*/10 * * * *"` | Cronjob schedule |
+| cleanupJobs.admissionReports.threshold | int | `10000` | Reports threshold, if number of reports are above this value the cronjob will start deleting them |
+| cleanupJobs.admissionReports.history | object | `{"failure":1,"success":1}` | Cronjob history |
+| cleanupJobs.admissionReports.podSecurityContext | object | `{}` | Security context for the pod |
+| cleanupJobs.admissionReports.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
+| cleanupJobs.clusterAdmissionReports.enabled | bool | `true` | Enable cleanup cronjob |
+| cleanupJobs.clusterAdmissionReports.image.registry | string | `nil` | Image registry |
+| cleanupJobs.clusterAdmissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
+| cleanupJobs.clusterAdmissionReports.image.tag | string | `"1.26.4"` | Image tag Defaults to `latest` if omitted |
+| cleanupJobs.clusterAdmissionReports.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
+| cleanupJobs.clusterAdmissionReports.schedule | string | `"*/10 * * * *"` | Cronjob schedule |
+| cleanupJobs.clusterAdmissionReports.threshold | int | `10000` | Reports threshold, if number of reports are above this value the cronjob will start deleting them |
+| cleanupJobs.clusterAdmissionReports.history | object | `{"failure":1,"success":1}` | Cronjob history |
+| cleanupJobs.clusterAdmissionReports.podSecurityContext | object | `{}` | Security context for the pod |
+| cleanupJobs.clusterAdmissionReports.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
+
 ### Other
 
 | Key | Type | Default | Description |
