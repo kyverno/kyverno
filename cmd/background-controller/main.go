@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -84,10 +85,12 @@ func main() {
 	var (
 		genWorkers      int
 		maxQueuedEvents int
+		eventsApplied   string
 	)
 	flagset := flag.NewFlagSet("updaterequest-controller", flag.ExitOnError)
 	flagset.IntVar(&genWorkers, "genWorkers", 10, "Workers for the background controller.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
+	flagset.StringVar(&eventsApplied, "eventsApplied", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --emit-events=PolicyApplied,PolicyViolation")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -113,11 +116,16 @@ func main() {
 	kyamlopenapi.Schema()
 	// informer factories
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+	eventsAppliedValues := strings.Split(eventsApplied, ",")
+	if eventsApplied == "" {
+		eventsAppliedValues = []string{}
+	}
 	eventGenerator := event.NewEventGenerator(
 		setup.KyvernoDynamicClient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		maxQueuedEvents,
+		eventsAppliedValues,
 		logging.WithName("EventGenerator"),
 	)
 	// this controller only subscribe to events, nothing is returned...
