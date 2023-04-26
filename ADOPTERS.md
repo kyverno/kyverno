@@ -29,6 +29,8 @@ The list of organizations that have publicly shared the usage of Kyverno:
 | [Wayfair](https://wayfair.com)                                                                                | Policy enforcement on managed clusters. Replacement of some in-house mutating webhooks.                                                                                                                                      |
 | [Yahoo](https://www.yahoo.com/)                                                                               | Use Kyverno for mutation, to replace image tags to digest and also for validation for checking freshness of images.                                                                                                          |
 | [T-Systems](https://www.t-systems.com)                                                                        |                                                                                                                                                                                                                              |
+| [Red Hat](https://www.redhat.com)                                                                             | Learn more about Red Hat Advanced Cluster Management for Kubernetes for [Generating Governance Policies Using Kustomize and GitOps](https://cloud.redhat.com/blog/generating-governance-policies-using-kustomize-and-gitops).|
+
 <!-- append the line below to the table
 | [name](URL) | brief description of how you are using Kyverno | 
 -->
