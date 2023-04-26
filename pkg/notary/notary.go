@@ -147,6 +147,12 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 		return nil, errors.Wrapf(err, "failed to parse authenticator: %s", opts.ImageRef)
 	}
 	craneOpts := crane.WithAuth(*authenticator)
+
+	remoteOpts, err := getRemoteOpts(*authenticator)
+	if err != nil {
+		return nil, err
+	}
+
 	v.log.V(2).Info("client setup done", "repo", ref)
 
 	repoDesc, err := crane.Head(opts.ImageRef, craneOpts)
@@ -155,10 +161,15 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 	}
 	v.log.V(2).Info("fetched repository", "repoDesc", repoDesc)
 
-	referrersDescs, err := remote.Referrers(ref.Context().Digest(repoDesc.Digest.String()), remote.WithAuth(*authenticator))
+	referrers, err := remote.Referrers(ref.Context().Digest(repoDesc.Digest.String()), remoteOpts...)
 	if err != nil {
 		return nil, err
 	}
+	referrersDescs, err := referrers.IndexManifest()
+	if err != nil {
+		return nil, err
+	}
+
 	v.log.V(2).Info("fetched referrers", "referrers", referrersDescs)
 
 	var statements []map[string]interface{}

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/authn"
+	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	notationregistry "github.com/notaryproject/notation-go/registry"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -162,4 +163,23 @@ func getManifestDescriptorFromReference(repo notationregistry.Repository, refere
 	}
 
 	return repo.Resolve(context.Background(), ref.ReferenceOrDefault())
+}
+
+func getRemoteOpts(authenticator authn.Authenticator) ([]gcrremote.Option, error) {
+	remoteOpts := []gcrremote.Option{}
+	remoteOpts = append(remoteOpts, gcrremote.WithAuth(authenticator))
+
+	pusher, err := gcrremote.NewPusher(remoteOpts...)
+	if err != nil {
+		return nil, err
+	}
+	remoteOpts = append(remoteOpts, gcrremote.Reuse(pusher))
+
+	puller, err := gcrremote.NewPuller(remoteOpts...)
+	if err != nil {
+		return nil, err
+	}
+	remoteOpts = append(remoteOpts, gcrremote.Reuse(puller))
+
+	return remoteOpts, nil
 }
