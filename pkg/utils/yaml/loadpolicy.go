@@ -49,26 +49,31 @@ func GetPolicy(bytes []byte) (policies []kyvernov1.PolicyInterface, err error) {
 }
 
 func addPolicy(policies []kyvernov1.PolicyInterface, us *unstructured.Unstructured) ([]kyvernov1.PolicyInterface, error) {
-	policy := &kyvernov1.ClusterPolicy{}
+	var policy kyvernov1.PolicyInterface
+	if us.GetKind() == "ClusterPolicy" {
+		policy = &kyvernov1.ClusterPolicy{}
+	} else {
+		policy = &kyvernov1.Policy{}
+	}
 
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(us.Object, policy); err != nil {
 		return nil, fmt.Errorf("failed to decode policy: %v", err)
 	}
 
-	if policy.TypeMeta.Kind == "" {
+	if policy.GetKind() == "" {
 		log.V(3).Info("skipping file as policy.TypeMeta.Kind not found")
 		return policies, nil
 	}
-	if policy.TypeMeta.Kind != "ClusterPolicy" && policy.TypeMeta.Kind != "Policy" {
-		return nil, fmt.Errorf("resource %s/%s is not a Policy or a ClusterPolicy", policy.Kind, policy.Name)
+	if policy.GetKind() != "ClusterPolicy" && policy.GetKind() != "Policy" {
+		return nil, fmt.Errorf("resource %s/%s is not a Policy or a ClusterPolicy", policy.GetKind(), policy.GetName())
 	}
 
-	if policy.Kind == "Policy" {
-		if policy.Namespace == "" {
-			policy.Namespace = "default"
+	if policy.GetKind() == "Policy" {
+		if policy.GetNamespace() == "" {
+			policy.SetNamespace("default")
 		}
 	} else {
-		policy.Namespace = ""
+		policy.SetNamespace("")
 	}
 	policies = append(policies, policy)
 	return policies, nil

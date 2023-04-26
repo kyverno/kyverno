@@ -87,27 +87,22 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 
 func validateJSONPatch(patch string, ruleIdx int) error {
 	patch = variables.ReplaceAllVars(patch, func(s string) string { return "kyvernojsonpatchvariable" })
-
 	jsonPatch, err := yaml.ToJSON([]byte(patch))
 	if err != nil {
 		return err
 	}
-
 	decodedPatch, err := jsonpatch.DecodePatch(jsonPatch)
 	if err != nil {
 		return err
 	}
-
 	for _, operation := range decodedPatch {
 		op := operation.Kind()
 		if op != "add" && op != "remove" && op != "replace" {
 			return fmt.Errorf("unexpected kind: spec.rules[%d]: %s", ruleIdx, op)
 		}
-		v, _ := operation.ValueInterface()
-		if v != nil {
-			vs := fmt.Sprintf("%v", v)
-			if strings.ContainsAny(vs, `"`) || strings.ContainsAny(vs, `'`) {
-				return fmt.Errorf("missing quote around value: spec.rules[%d]: %s", ruleIdx, vs)
+		if op != "remove" {
+			if _, err := operation.ValueInterface(); err != nil {
+				return fmt.Errorf("invalid value: spec.rules[%d]: %s", ruleIdx, err)
 			}
 		}
 	}
@@ -129,7 +124,7 @@ func checkValidationFailureAction(spec *kyvernov1.Spec) []string {
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager openapi.Manager) ([]string, error) {
+func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager openapi.Manager, username string) ([]string, error) {
 	var warnings []string
 	namespaced := policy.IsNamespaced()
 	spec := policy.GetSpec()
@@ -333,7 +328,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			}
 		}
 
-		if err := validateActions(i, &rules[i], client, mock); err != nil {
+		if err := validateActions(i, &rules[i], client, mock, username); err != nil {
 			return warnings, err
 		}
 
@@ -514,9 +509,27 @@ func ruleForbiddenSectionsHaveVariables(rule *kyvernov1.Rule) error {
 
 // hasVariables - check for variables in the policy
 func hasVariables(policy kyvernov1.PolicyInterface) [][]string {
+	policy = cleanup(policy)
 	policyRaw, _ := json.Marshal(policy)
 	matches := regex.RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
 	return matches
+}
+
+func cleanup(policy kyvernov1.PolicyInterface) kyvernov1.PolicyInterface {
+	ann := policy.GetAnnotations()
+	if ann != nil {
+		ann["kubectl.kubernetes.io/last-applied-configuration"] = ""
+		policy.SetAnnotations(ann)
+	}
+	if policy.GetNamespace() == "" {
+		pol := policy.(*kyvernov1.ClusterPolicy)
+		pol.Status.Autogen.Rules = nil
+		return pol
+	} else {
+		pol := policy.(*kyvernov1.Policy)
+		pol.Status.Autogen.Rules = nil
+		return pol
+	}
 }
 
 func jsonPatchPathHasVariables(patch string) error {

@@ -25,6 +25,7 @@ import (
 	engineContext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -35,8 +36,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+var log = logging.WithName("kubectl-kyverno")
 
 type ResultCounts struct {
 	Pass  int
@@ -107,7 +109,7 @@ func HasVariables(policy kyvernov1.PolicyInterface) [][]string {
 // GetPolicies - Extracting the policies from multiple YAML
 func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, errors []error) {
 	for _, path := range paths {
-		log.Log.V(5).Info("reading policies", "path", path)
+		log.V(5).Info("reading policies", "path", path)
 
 		var (
 			fileDesc os.FileInfo
@@ -199,7 +201,7 @@ func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, errors [
 		}
 	}
 
-	log.Log.V(3).Info("read policies", "policies", len(policies), "errors", len(errors))
+	log.V(3).Info("read policies", "policies", len(policies), "errors", len(errors))
 	return policies, errors
 }
 
@@ -286,12 +288,12 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		if values.GlobalValues == nil {
 			values.GlobalValues = make(map[string]string)
 			values.GlobalValues["request.operation"] = "CREATE"
-			log.Log.V(3).Info("Defaulting request.operation to CREATE")
+			log.V(3).Info("Defaulting request.operation to CREATE")
 		} else {
 			if val, ok := values.GlobalValues["request.operation"]; ok {
 				if val == "" {
 					values.GlobalValues["request.operation"] = "CREATE"
-					log.Log.V(3).Info("Globally request.operation value provided by the user is empty, defaulting it to CREATE", "request.opearation: ", values.GlobalValues)
+					log.V(3).Info("Globally request.operation value provided by the user is empty, defaulting it to CREATE", "request.opearation: ", values.GlobalValues)
 				}
 			}
 		}
@@ -304,7 +306,7 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 				if val, ok := r.Values["request.operation"]; ok {
 					if val == "" {
 						r.Values["request.operation"] = "CREATE"
-						log.Log.V(3).Info("No request.operation found, defaulting it to CREATE", "policy", p.Name)
+						log.V(3).Info("No request.operation found, defaulting it to CREATE", "policy", p.Name)
 					}
 				}
 				for variableInFile := range r.Values {
@@ -343,7 +345,7 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 	if globalValMap != nil {
 		if _, ok := globalValMap["request.operation"]; !ok {
 			globalValMap["request.operation"] = "CREATE"
-			log.Log.V(3).Info("Defaulting request.operation to CREATE")
+			log.V(3).Info("Defaulting request.operation to CREATE")
 		}
 	}
 
@@ -423,16 +425,16 @@ OuterLoop:
 	}
 
 	resPath := fmt.Sprintf("%s/%s/%s", c.Resource.GetNamespace(), c.Resource.GetKind(), c.Resource.GetName())
-	log.Log.V(3).Info("applying policy on resource", "policy", c.Policy.GetName(), "resource", resPath)
+	log.V(3).Info("applying policy on resource", "policy", c.Policy.GetName(), "resource", resPath)
 
 	resourceRaw, err := c.Resource.MarshalJSON()
 	if err != nil {
-		log.Log.Error(err, "failed to marshal resource")
+		log.Error(err, "failed to marshal resource")
 	}
 
 	updatedResource, err := kubeutils.BytesToUnstructured(resourceRaw)
 	if err != nil {
-		log.Log.Error(err, "unable to convert raw resource to unstructured")
+		log.Error(err, "unable to convert raw resource to unstructured")
 	}
 	ctx := engineContext.NewContext(jp)
 
@@ -443,19 +445,19 @@ OuterLoop:
 	}
 
 	if err != nil {
-		log.Log.Error(err, "failed to load resource in context")
+		log.Error(err, "failed to load resource in context")
 	}
 
 	for key, value := range c.Variables {
 		err = ctx.AddVariable(key, value)
 		if err != nil {
-			log.Log.Error(err, "failed to add variable to context")
+			log.Error(err, "failed to add variable to context")
 		}
 	}
 
 	cfg := config.NewDefaultConfiguration(false)
 	if err := ctx.AddImageInfos(c.Resource, cfg); err != nil {
-		log.Log.Error(err, "failed to add image variables to context")
+		log.Error(err, "failed to add image variables to context")
 	}
 
 	gvk, subresource := updatedResource.GroupVersionKind(), ""
@@ -541,7 +543,7 @@ OuterLoop:
 		if !generateResponse.IsEmpty() {
 			newRuleResponse, err := handleGeneratePolicy(&generateResponse, *policyContext, c.RuleToCloneSourceResource)
 			if err != nil {
-				log.Log.Error(err, "failed to apply generate policy")
+				log.Error(err, "failed to apply generate policy")
 			} else {
 				generateResponse.PolicyResponse.Rules = newRuleResponse
 			}
@@ -627,7 +629,7 @@ func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml stri
 	if _, err := f.Write([]byte(yaml)); err != nil {
 		closeErr := f.Close()
 		if closeErr != nil {
-			log.Log.Error(closeErr, "failed to close file")
+			log.Error(closeErr, "failed to close file")
 		}
 		return err
 	}
@@ -687,7 +689,7 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 				}
 				return nil, sanitizederror.New(fmt.Sprintf("no file found in paths %v", dirPath))
 			}
-			if len(errors) > 0 && log.Log.V(1).Enabled() {
+			if len(errors) > 0 && log.V(1).Enabled() {
 				fmt.Printf("ignoring errors: \n")
 				for _, e := range errors {
 					fmt.Printf("    %v \n", e.Error())
@@ -893,7 +895,7 @@ func PrintMutatedPolicy(mutatedPolicies []kyvernov1.PolicyInterface) error {
 		if err != nil {
 			return sanitizederror.NewWithError("failed to marsal mutated policy", err)
 		}
-		log.Log.V(5).Info("mutated Policy:", string(p))
+		log.V(5).Info("mutated Policy:", string(p))
 	}
 	return nil
 }
@@ -1087,7 +1089,7 @@ func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyCont
 	var newRuleResponse []engineapi.RuleResponse
 
 	for _, rule := range generateResponse.PolicyResponse.Rules {
-		genResource, err := c.ApplyGeneratePolicy(log.Log, &policyContext, gr, []string{rule.Name()})
+		genResource, err := c.ApplyGeneratePolicy(log.V(2), &policyContext, gr, []string{rule.Name()})
 		if err != nil {
 			return nil, err
 		}
@@ -1137,7 +1139,7 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 		if err := json.Unmarshal(userInfoBytes, userInfo); err != nil {
 			errors = append(errors, sanitizederror.NewWithError("failed to decode yaml", err))
 		}
-		if len(errors) > 0 && log.Log.V(1).Enabled() {
+		if len(errors) > 0 && log.V(1).Enabled() {
 			fmt.Printf("ignoring errors: \n")
 			for _, e := range errors {
 				fmt.Printf("    %v \n", e.Error())
