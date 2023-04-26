@@ -545,9 +545,37 @@ string
 </em>
 </td>
 <td>
-<p>URLPath is the URL path to be used in the HTTP GET request to the
+<p>URLPath is the URL path to be used in the HTTP GET or POST request to the
 Kubernetes API server (e.g. &ldquo;/api/v1/namespaces&rdquo; or  &ldquo;/apis/apps/v1/deployments&rdquo;).
-The format required is the same format used by the <code>kubectl get --raw</code> command.</p>
+The format required is the same format used by the <code>kubectl get --raw</code> command.
+See <a href="https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls">https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls</a>
+for details.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>method</code><br/>
+<em>
+<a href="#kyverno.io/v1.Method">
+Method
+</a>
+</em>
+</td>
+<td>
+<p>Method is the HTTP request type (GET or POST).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>data</code><br/>
+<em>
+<a href="#kyverno.io/v1.RequestData">
+[]RequestData
+</a>
+</em>
+</td>
+<td>
+<p>Data specifies the POST data sent to the server.</p>
 </td>
 </tr>
 <tr>
@@ -2273,7 +2301,7 @@ Please specify under &ldquo;any&rdquo; or &ldquo;all&rdquo; instead.</p>
 (<code>string</code> alias)</p></h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ServiceCall">ServiceCall</a>)
+<a href="#kyverno.io/v1.APICall">APICall</a>)
 </p>
 <p>
 <p>Method is a HTTP request type.</p>
@@ -2586,7 +2614,7 @@ RuleCountStatus
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ServiceCall">ServiceCall</a>)
+<a href="#kyverno.io/v1.APICall">APICall</a>)
 </p>
 <p>
 <p>RequestData contains the HTTP POST data</p>
@@ -3177,14 +3205,14 @@ string
 <tbody>
 <tr>
 <td>
-<code>urlPath</code><br/>
+<code>url</code><br/>
 <em>
 string
 </em>
 </td>
 <td>
-<p>URL is the JSON web service URL.
-The typical format is <code>https://{service}.{namespace}:{port}/{path}</code>.</p>
+<p>URL is the JSON web service URL. A typical form is
+<code>https://{service}.{namespace}:{port}/{path}</code>.</p>
 </td>
 </tr>
 <tr>
@@ -3197,32 +3225,6 @@ string
 <td>
 <p>CABundle is a PEM encoded CA bundle which will be used to validate
 the server certificate.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>requestType</code><br/>
-<em>
-<a href="#kyverno.io/v1.Method">
-Method
-</a>
-</em>
-</td>
-<td>
-<p>Method is the HTTP request type (GET or POST).</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>data</code><br/>
-<em>
-<a href="#kyverno.io/v1.RequestData">
-[]RequestData
-</a>
-</em>
-</td>
-<td>
-<p>Data specifies the POST data sent to the server.</p>
 </td>
 </tr>
 </tbody>
