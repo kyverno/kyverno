@@ -15,6 +15,29 @@ rules:
   verbs:
   - '*'
 ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+  name: kyverno:namespace-delete
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - delete
+  resourceNames: 
+  - test-sar
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-sar
+---
 apiVersion: kyverno.io/v2beta1
 kind: ClusterPolicy
 metadata:
@@ -41,9 +64,9 @@ spec:
             value: authorization.k8s.io/v1
           - key: spec
             value:
-              resource: "namespace"
               resourceAttributes:
-                namespace: "{{ request.namespace }}"
+                resource: namespaces
+                name: "{{ request.namespace }}"
                 verb: "delete"
                 group: ""
               #user: "{{ request.userInfo.username }}"

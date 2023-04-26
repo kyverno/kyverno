@@ -197,7 +197,8 @@ spec:
                                   the HTTP GET or POST request to the Kubernetes API
                                   server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                   The format required is the same format used by the
-                                  `kubectl get --raw` command.
+                                  `kubectl get --raw` command. See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                  for details.
                                 type: string
                             type: object
                           configMap:
@@ -1858,7 +1859,9 @@ spec:
                                             to the Kubernetes API server (e.g. "/api/v1/namespaces"
                                             or  "/apis/apps/v1/deployments"). The
                                             format required is the same format used
-                                            by the `kubectl get --raw` command.
+                                            by the `kubectl get --raw` command. See
+                                            https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                            for details.
                                           type: string
                                       type: object
                                     configMap:
@@ -2137,7 +2140,9 @@ spec:
                                             to the Kubernetes API server (e.g. "/api/v1/namespaces"
                                             or  "/apis/apps/v1/deployments"). The
                                             format required is the same format used
-                                            by the `kubectl get --raw` command.
+                                            by the `kubectl get --raw` command. See
+                                            https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                            for details.
                                           type: string
                                       type: object
                                     configMap:
@@ -2339,7 +2344,9 @@ spec:
                                             to the Kubernetes API server (e.g. "/api/v1/namespaces"
                                             or  "/apis/apps/v1/deployments"). The
                                             format required is the same format used
-                                            by the `kubectl get --raw` command.
+                                            by the `kubectl get --raw` command. See
+                                            https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                            for details.
                                           type: string
                                       type: object
                                     configMap:
@@ -3667,7 +3674,8 @@ spec:
                                       in the HTTP GET or POST request to the Kubernetes
                                       API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                       The format required is the same format used
-                                      by the `kubectl get --raw` command.
+                                      by the `kubectl get --raw` command. See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                      for details.
                                     type: string
                                 type: object
                               configMap:
@@ -5405,6 +5413,8 @@ spec:
                                                 (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
+                                                See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                                for details.
                                               type: string
                                           type: object
                                         configMap:
@@ -5698,6 +5708,8 @@ spec:
                                                 (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
+                                                See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                                for details.
                                               type: string
                                           type: object
                                         configMap:
@@ -5911,6 +5923,8 @@ spec:
                                                 (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
+                                                See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                                for details.
                                               type: string
                                           type: object
                                         configMap:
@@ -7388,7 +7402,8 @@ spec:
                                   the HTTP GET or POST request to the Kubernetes API
                                   server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                   The format required is the same format used by the
-                                  `kubectl get --raw` command.
+                                  `kubectl get --raw` command. See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                  for details.
                                 type: string
                             type: object
                           configMap:
@@ -8623,7 +8638,9 @@ spec:
                                             to the Kubernetes API server (e.g. "/api/v1/namespaces"
                                             or  "/apis/apps/v1/deployments"). The
                                             format required is the same format used
-                                            by the `kubectl get --raw` command.
+                                            by the `kubectl get --raw` command. See
+                                            https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                            for details.
                                           type: string
                                       type: object
                                     configMap:
@@ -8902,7 +8919,9 @@ spec:
                                             to the Kubernetes API server (e.g. "/api/v1/namespaces"
                                             or  "/apis/apps/v1/deployments"). The
                                             format required is the same format used
-                                            by the `kubectl get --raw` command.
+                                            by the `kubectl get --raw` command. See
+                                            https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                            for details.
                                           type: string
                                       type: object
                                     configMap:
@@ -9272,7 +9291,9 @@ spec:
                                             to the Kubernetes API server (e.g. "/api/v1/namespaces"
                                             or  "/apis/apps/v1/deployments"). The
                                             format required is the same format used
-                                            by the `kubectl get --raw` command.
+                                            by the `kubectl get --raw` command. See
+                                            https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                            for details.
                                           type: string
                                       type: object
                                     configMap:
@@ -10559,7 +10580,8 @@ spec:
                                       in the HTTP GET or POST request to the Kubernetes
                                       API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                       The format required is the same format used
-                                      by the `kubectl get --raw` command.
+                                      by the `kubectl get --raw` command. See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                      for details.
                                     type: string
                                 type: object
                               configMap:
@@ -12297,6 +12319,8 @@ spec:
                                                 (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
+                                                See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                                for details.
                                               type: string
                                           type: object
                                         configMap:
@@ -12590,6 +12614,8 @@ spec:
                                                 (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
+                                                See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                                for details.
                                               type: string
                                           type: object
                                         configMap:
@@ -12803,6 +12829,8 @@ spec:
                                                 (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
+                                                See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                                for details.
                                               type: string
                                           type: object
                                         configMap:
