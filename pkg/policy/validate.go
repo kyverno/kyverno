@@ -379,7 +379,11 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		allKinds = append(allKinds, matchKinds...)
 		allKinds = append(allKinds, excludeKinds...)
 		if rule.HasValidate() {
-			validationJson, err := json.Marshal(rule.Validation)
+			validationElem := rule.Validation.DeepCopy()
+			if validationElem.Deny != nil {
+				validationElem.Deny.RawAnyAllConditions = nil
+			}
+			validationJson, err := json.Marshal(validationElem)
 			if err != nil {
 				return nil, err
 			}
@@ -1062,8 +1066,18 @@ func validateConfigMap(entry kyvernov1.ContextEntry) error {
 }
 
 func validateAPICall(entry kyvernov1.ContextEntry) error {
-	// If JMESPath contains variables, the validation will fail because it's not possible to infer which value
-	// will be inserted by the variable
+	if entry.APICall == nil {
+		return nil
+	}
+
+	if entry.APICall.URLPath != "" {
+		if entry.APICall.Service != nil {
+			return fmt.Errorf("a URLPath cannot be used for service API calls")
+		}
+	}
+
+	// If JMESPath contains variables, the validation will fail because it's not
+	// possible to infer which value will be inserted by the variable
 	// Skip validation if a variable is detected
 
 	jmesPath := variables.ReplaceAllVars(entry.APICall.JMESPath, func(s string) string { return "kyvernojmespathvariable" })
