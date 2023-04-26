@@ -17,6 +17,7 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
+	"github.com/mattbaird/jsonpatch"
 	"go.opentelemetry.io/otel/trace"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -83,9 +84,9 @@ func (v *mutationHandler) applyMutations(
 		return nil, nil, nil
 	}
 
-	var patches [][]byte
 	var engineResponses []engineapi.EngineResponse
-
+	before := policyContext.NewResource()
+	after := policyContext.NewResource()
 	for _, policy := range policies {
 		spec := policy.GetSpec()
 		if !spec.HasMutate() {
@@ -105,7 +106,7 @@ func (v *mutationHandler) applyMutations(
 				}
 
 				if len(policyPatches) > 0 {
-					patches = append(patches, policyPatches...)
+					// patches = append(patches, policyPatches...)
 					rules := engineResponse.GetSuccessRules()
 					if len(rules) != 0 {
 						v.log.Info("mutation rules from policy applied successfully", "policy", policy.GetName(), "rules", rules)
@@ -115,6 +116,7 @@ func (v *mutationHandler) applyMutations(
 				if engineResponse != nil {
 					policyContext = currentContext.WithNewResource(engineResponse.PatchedResource)
 					engineResponses = append(engineResponses, *engineResponse)
+					after = policyContext.NewResource()
 				}
 
 				return nil
@@ -126,6 +128,14 @@ func (v *mutationHandler) applyMutations(
 	}
 
 	// generate annotations
+	b, _ := before.MarshalJSON()
+	a, _ := after.MarshalJSON()
+	p, _ := jsonpatch.CreatePatch(b, a)
+	var patches [][]byte
+	for _, patch := range p {
+		p, _ := patch.MarshalJSON()
+		patches = append(patches, p)
+	}
 	if annPatches := utils.GenerateAnnotationPatches(engineResponses, v.log); annPatches != nil {
 		patches = append(patches, annPatches...)
 	}
