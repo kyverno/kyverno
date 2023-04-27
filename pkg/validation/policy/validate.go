@@ -1,7 +1,7 @@
 package policy
 
 import (
-	"context" //nolint:gosec
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
