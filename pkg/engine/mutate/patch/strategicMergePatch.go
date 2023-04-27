@@ -27,7 +27,7 @@ func ProcessStrategicMergePatch(logger logr.Logger, overlay interface{}, resourc
 	if err != nil {
 		return nil, nil, err
 	}
-	return overlayBytes, patches, nil
+	return patchedBytes, patches, nil
 }
 
 func strategicMergePatch(logger logr.Logger, base, overlay string) ([]byte, error) {
