@@ -2,7 +2,6 @@ package mutation
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -10,10 +9,8 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
-	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/utils/api"
-	"github.com/mattbaird/jsonpatch"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -49,10 +46,10 @@ func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 				f.resource.unstructured = mutateResp.PatchedResource
 				allPatches = append(allPatches, mutateResp.Patches...)
 			}
-			f.logger.Info("mutateResp.PatchedResource", "resource", mutateResp.PatchedResource)
-			if err := f.policyContext.JSONContext().AddResource(mutateResp.PatchedResource.Object); err != nil {
-				f.logger.Error(err, "failed to update resource in context")
-			}
+			// f.logger.Info("mutateResp.PatchedResource", "resource", mutateResp.PatchedResource)
+			// if err := f.policyContext.JSONContext().AddResource(mutateResp.PatchedResource.Object); err != nil {
+			// 	f.logger.Error(err, "failed to update resource in context")
+			// }
 		}
 	}
 
@@ -128,28 +125,11 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 		}
 
 		if len(mutateResp.Patches) > 0 {
-			patchedResource.unstructured = mutateResp.PatchedResource
+			// patchedResource.unstructured = mutateResp.PatchedResource
 			allPatches = append(allPatches, mutateResp.Patches...)
 		}
 	}
-	var sortedPatches []jsonpatch.JsonPatchOperation
-	for _, p := range allPatches {
-		var jp jsonpatch.JsonPatchOperation
-		if err := json.Unmarshal(p, &jp); err != nil {
-			return mutate.NewErrorResponse("failed to convert patch", err)
-		}
-		sortedPatches = append(sortedPatches, jp)
-	}
-	sortedPatches = patch.FilterAndSortPatches(sortedPatches)
-	var finalPatches [][]byte
-	for _, p := range sortedPatches {
-		if data, err := p.MarshalJSON(); err != nil {
-			return mutate.NewErrorResponse("failed to marshal patch", err)
-		} else {
-			finalPatches = append(finalPatches, data)
-		}
-	}
-	return mutate.NewResponse(engineapi.RuleStatusPass, patchedResource.unstructured, finalPatches, "")
+	return mutate.NewResponse(engineapi.RuleStatusPass, patchedResource.unstructured, allPatches, "")
 }
 
 func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info resourceInfo) *engineapi.RuleResponse {

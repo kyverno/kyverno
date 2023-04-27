@@ -56,15 +56,15 @@ func Mutate(rule *kyvernov1.Rule, ctx context.Interface, resource unstructured.U
 		return NewResponse(engineapi.RuleStatusSkip, resource, nil, "no patches applied")
 	}
 
-	if rule.IsMutateExisting() {
-		if err := ctx.AddTargetResource(patchedResource.Object); err != nil {
-			return NewErrorResponse("failed to update patched resource in the JSON context", err)
-		}
-	} else {
-		if err := ctx.AddResource(patchedResource.Object); err != nil {
-			return NewErrorResponse("failed to update patched resource in the JSON context", err)
-		}
-	}
+	// if rule.IsMutateExisting() {
+	// 	if err := ctx.AddTargetResource(patchedResource.Object); err != nil {
+	// 		return NewErrorResponse("failed to update patched resource in the JSON context", err)
+	// 	}
+	// } else {
+	// 	if err := ctx.AddResource(patchedResource.Object); err != nil {
+	// 		return NewErrorResponse("failed to update patched resource in the JSON context", err)
+	// 	}
+	// }
 
 	return NewResponse(engineapi.RuleStatusPass, patchedResource, resp.Patches(), resp.Message())
 }
@@ -90,9 +90,9 @@ func ForEach(name string, foreach kyvernov1.ForEachMutation, policyContext engin
 		return NewResponse(engineapi.RuleStatusSkip, unstructured.Unstructured{}, nil, "no patches applied")
 	}
 
-	if err := ctx.AddResource(patchedResource.Object); err != nil {
-		return NewErrorResponse("failed to update patched resource in the JSON context", err)
-	}
+	// if err := ctx.AddResource(patchedResource.Object); err != nil {
+	// 	return NewErrorResponse("failed to update patched resource in the JSON context", err)
+	// }
 
 	return NewResponse(engineapi.RuleStatusPass, patchedResource, resp.Patches(), resp.Message())
 }
