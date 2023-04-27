@@ -23,10 +23,6 @@ type Response struct {
 	Message         string
 }
 
-func NewErrorResponse(msg string, err error) *Response {
-	return NewResponse(engineapi.RuleStatusError, unstructured.Unstructured{}, nil, fmt.Sprintf("%s: %v", msg, err))
-}
-
 func NewResponse(status engineapi.RuleStatus, resource unstructured.Unstructured, patches []jsonpatch.JsonPatchOperation, msg string) *Response {
 	return &Response{
 		Status:          status,
@@ -34,6 +30,13 @@ func NewResponse(status engineapi.RuleStatus, resource unstructured.Unstructured
 		Patches:         patches,
 		Message:         msg,
 	}
+}
+
+func NewErrorResponse(msg string, err error) *Response {
+	if err != nil {
+		msg = fmt.Sprintf("%s: %v", msg, err)
+	}
+	return NewResponse(engineapi.RuleStatusError, unstructured.Unstructured{}, nil, msg)
 }
 
 func Mutate(rule *kyvernov1.Rule, ctx context.Interface, resource unstructured.Unstructured, logger logr.Logger) *Response {
@@ -44,7 +47,7 @@ func Mutate(rule *kyvernov1.Rule, ctx context.Interface, resource unstructured.U
 	m := updatedRule.Mutation
 	patcher := NewPatcher(m.GetPatchStrategicMerge(), m.PatchesJSON6902)
 	if patcher == nil {
-		return NewResponse(engineapi.RuleStatusError, resource, nil, "empty mutate rule")
+		return NewErrorResponse("empty mutate rule", nil)
 	}
 	resourceBytes, err := resource.MarshalJSON()
 	if err != nil {
@@ -55,7 +58,7 @@ func Mutate(rule *kyvernov1.Rule, ctx context.Interface, resource unstructured.U
 		return NewErrorResponse("failed to patch resource", err)
 	}
 	if len(patches) == 0 {
-		return NewResponse(engineapi.RuleStatusSkip, unstructured.Unstructured{}, nil, "no patches applied")
+		return NewResponse(engineapi.RuleStatusSkip, resource, nil, "no patches applied")
 	}
 	if err := resource.UnmarshalJSON(resourceBytes); err != nil {
 		return NewErrorResponse("failed to unmarshal patched resource", err)
@@ -80,7 +83,7 @@ func ForEach(name string, foreach kyvernov1.ForEachMutation, policyContext engin
 	}
 	patcher := NewPatcher(fe.GetPatchStrategicMerge(), fe.PatchesJSON6902)
 	if patcher == nil {
-		return NewResponse(engineapi.RuleStatusError, unstructured.Unstructured{}, nil, "no patches found")
+		return NewErrorResponse("empty mutate rule", nil)
 	}
 	resourceBytes, err := resource.MarshalJSON()
 	if err != nil {
@@ -91,7 +94,7 @@ func ForEach(name string, foreach kyvernov1.ForEachMutation, policyContext engin
 		return NewErrorResponse("failed to patch resource", err)
 	}
 	if len(patches) == 0 {
-		return NewResponse(engineapi.RuleStatusSkip, unstructured.Unstructured{}, nil, "no patches applied")
+		return NewResponse(engineapi.RuleStatusSkip, resource, nil, "no patches applied")
 	}
 	if err := resource.UnmarshalJSON(resourceBytes); err != nil {
 		return NewErrorResponse("failed to unmarshal patched resource", err)
