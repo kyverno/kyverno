@@ -3,13 +3,18 @@ package patch
 import (
 	"github.com/go-logr/logr"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/mattbaird/jsonpatch"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+type resource = []byte
+type patches = []jsonpatch.JsonPatchOperation
+
 // Patcher patches the resource
 type Patcher interface {
 	Patch() (resp engineapi.RuleResponse, newPatchedResource unstructured.Unstructured)
+	Patch2(resource) (resource, patches, error)
 }
 
 // patchStrategicMergeHandler
@@ -63,4 +68,12 @@ func (h patchesJSON6902Handler) Patch() (engineapi.RuleResponse, unstructured.Un
 	}
 
 	return ProcessPatchJSON6902(h.ruleName, patchesJSON6902, h.patchedResource, h.logger)
+}
+
+func (h patchesJSON6902Handler) Patch2(resource resource) (resource, patches, error) {
+	patchesJSON6902, err := ConvertPatchesToJSON(h.patches)
+	if err != nil {
+		return nil, nil, err
+	}
+	return ProcessPatchJSON6902_New(resource, patchesJSON6902)
 }

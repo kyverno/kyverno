@@ -11,6 +11,18 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+func ProcessPatchJSON6902_New(resource resource, patch []byte) (resource, patches, error) {
+	patchedResourceRaw, err := applyPatchesWithOptions(resource, patch)
+	if err != nil {
+		return nil, nil, err
+	}
+	patchesBytes, err := generatePatches_New(resource, patchedResourceRaw)
+	if err != nil {
+		return nil, nil, err
+	}
+	return patchedResourceRaw, patchesBytes, nil
+}
+
 // ProcessPatchJSON6902 ...
 func ProcessPatchJSON6902(ruleName string, patchesJSON6902 []byte, resource unstructured.Unstructured, log logr.Logger) (engineapi.RuleResponse, unstructured.Unstructured) {
 	logger := log.WithValues("rule", ruleName)
@@ -69,7 +81,6 @@ func ConvertPatchesToJSON(patchesJSON6902 string) ([]byte, error) {
 	if len(patchesJSON6902) == 0 {
 		return []byte(patchesJSON6902), nil
 	}
-
 	if patchesJSON6902[0] != '[' {
 		// If the patch doesn't look like a JSON6902 patch, we
 		// try to parse it to json.
@@ -79,6 +90,5 @@ func ConvertPatchesToJSON(patchesJSON6902 string) ([]byte, error) {
 		}
 		return op, nil
 	}
-
 	return []byte(patchesJSON6902), nil
 }

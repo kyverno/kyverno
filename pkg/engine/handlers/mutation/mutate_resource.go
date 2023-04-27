@@ -62,16 +62,20 @@ func (h mutateResourceHandler) Process(
 		logger.Error(err, "failed to marshal resource")
 		// return *engineapi.RuleFail(ruleName, engineapi.Mutation, fmt.Sprintf("failed to marshal resource: %v", err)), resource
 	}
-	patch, err := jsonpatch.DecodePatch(jsonutils.JoinPatches(mutateResp.Patches...))
-	if err != nil {
-		// return resource, fmt.Errorf("failed to decode patches: %v", err)
-	}
-	patchedResourceRaw, err := patch.Apply(resourceRaw)
-	if err != nil {
-		// return resource, err
+	for _, p := range mutateResp.Patches {
+		patch, err := jsonpatch.DecodePatch(jsonutils.JoinPatches(p))
+		if err != nil {
+			// return resource, fmt.Errorf("failed to decode patches: %v", err)
+		}
+		options := &jsonpatch.ApplyOptions{SupportNegativeIndices: true, AllowMissingPathOnRemove: true, EnsurePathExistsOnAdd: true}
+		patchedResourceRaw, err := patch.ApplyWithOptions(resourceRaw, options)
+		if err != nil {
+			// return resource, err
+		}
+		resourceRaw = patchedResourceRaw
 	}
 	var patchedResource unstructured.Unstructured
-	err = patchedResource.UnmarshalJSON(patchedResourceRaw)
+	err = patchedResource.UnmarshalJSON(resourceRaw)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal resource")
 		// return *engineapi.RuleFail(ruleName, engineapi.Mutation, fmt.Sprintf("failed to unmarshal resource: %v", err)), resource
