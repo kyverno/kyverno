@@ -10,6 +10,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -58,7 +59,7 @@ func applyPatches(rule *types.Rule, resource unstructured.Unstructured) (*engine
 		engineapi.Mutation,
 		mutateResp.Message,
 	).WithPatches(
-		ConvertPatches(mutateResp.Patches...)...,
+		patch.ConvertPatches(mutateResp.Patches...)...,
 	), mutateResp.PatchedResource
 }
 

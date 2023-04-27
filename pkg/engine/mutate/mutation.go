@@ -135,13 +135,3 @@ func NewPatcher(strategicMergePatch apiextensions.JSON, jsonPatch string) patch.
 	}
 	return nil
 }
-
-func ConvertPatches(in ...jsonpatch.JsonPatchOperation) [][]byte {
-	var out [][]byte
-	for _, patch := range in {
-		if patch, err := patch.MarshalJSON(); err == nil {
-			out = append(out, patch)
-		}
-	}
-	return out
-}
