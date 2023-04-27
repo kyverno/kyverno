@@ -54,7 +54,7 @@ func Mutate(rule *kyvernov1.Rule, ctx context.Interface, resource unstructured.U
 	if err != nil {
 		return NewErrorResponse("failed to patch resource", err)
 	}
-	if patches == nil {
+	if len(patches) == 0 {
 		return NewResponse(engineapi.RuleStatusSkip, unstructured.Unstructured{}, nil, "no patches applied")
 	}
 	if err := resource.UnmarshalJSON(resourceBytes); err != nil {
@@ -90,7 +90,7 @@ func ForEach(name string, foreach kyvernov1.ForEachMutation, policyContext engin
 	if err != nil {
 		return NewErrorResponse("failed to patch resource", err)
 	}
-	if patches == nil {
+	if len(patches) == 0 {
 		return NewResponse(engineapi.RuleStatusSkip, unstructured.Unstructured{}, nil, "no patches applied")
 	}
 	if err := resource.UnmarshalJSON(resourceBytes); err != nil {
@@ -134,4 +134,14 @@ func NewPatcher(strategicMergePatch apiextensions.JSON, jsonPatch string) patch.
 		return patch.NewPatchesJSON6902(jsonPatch)
 	}
 	return nil
+}
+
+func ConvertPatches(in ...jsonpatch.JsonPatchOperation) [][]byte {
+	var out [][]byte
+	for _, patch := range in {
+		if patch, err := patch.MarshalJSON(); err == nil {
+			out = append(out, patch)
+		}
+	}
+	return out
 }

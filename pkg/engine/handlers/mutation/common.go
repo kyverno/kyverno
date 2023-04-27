@@ -147,22 +147,12 @@ func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info r
 		mutateResp.Status,
 	)
 	if mutateResp.Status == engineapi.RuleStatusPass {
-		resp = resp.WithPatches(convertPatches(mutateResp.Patches...)...)
+		resp = resp.WithPatches(mutate.ConvertPatches(mutateResp.Patches...)...)
 		if len(rule.Mutation.Targets) != 0 {
 			resp = resp.WithPatchedTarget(&mutateResp.PatchedResource, info.parentResourceGVR, info.subresource)
 		}
 	}
 	return resp
-}
-
-func convertPatches(in ...jsonpatch.JsonPatchOperation) [][]byte {
-	var out [][]byte
-	for _, patch := range in {
-		if patch, err := patch.MarshalJSON(); err == nil {
-			out = append(out, patch)
-		}
-	}
-	return out
 }
 
 func buildSuccessMessage(r unstructured.Unstructured) string {
