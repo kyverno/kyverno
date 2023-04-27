@@ -59,7 +59,7 @@ func Test_serviceGetRequest(t *testing.T) {
 	_, err = call.Execute(context.TODO())
 	assert.ErrorContains(t, err, "invalid request type")
 
-	entry.APICall.Service.Method = "GET"
+	entry.APICall.Method = "GET"
 	call, err = New(logr.Discard(), jp, entry, ctx, nil)
 	assert.NilError(t, err)
 	_, err = call.Execute(context.TODO())
@@ -83,9 +83,9 @@ func Test_servicePostRequest(t *testing.T) {
 	entry := kyvernov1.ContextEntry{
 		Name: "test",
 		APICall: &kyvernov1.APICall{
+			Method: "POST",
 			Service: &kyvernov1.ServiceCall{
-				URL:    s.URL + "/resource",
-				Method: "POST",
+				URL: s.URL + "/resource",
 			},
 		},
 	}
@@ -130,7 +130,7 @@ func Test_servicePostRequest(t *testing.T) {
 	err = ctx.AddContextEntry("images", []byte(imageData))
 	assert.NilError(t, err)
 
-	entry.APICall.Service.Data = []kyvernov1.RequestData{
+	entry.APICall.Data = []kyvernov1.RequestData{
 		{
 			Key: "images",
 			Value: &apiextensionsv1.JSON{
