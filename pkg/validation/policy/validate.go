@@ -316,10 +316,12 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			}
 		}
 
+		// TODO(shuting): generate
 		if err := immutableGenerateFields(policy, oldPolicy); err != nil {
 			return warnings, err
 		}
 
+		// TODO(shuting): generate
 		// validate Cluster Resources in namespaced policy
 		// For namespaced policy, ClusterResource type field and values are not allowed in match and exclude
 		if namespaced {
