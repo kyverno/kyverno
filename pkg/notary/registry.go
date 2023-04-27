@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/crane"
+	"github.com/google/go-containerregistry/pkg/name"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	notationregistry "github.com/notaryproject/notation-go/registry"
@@ -43,26 +45,31 @@ func parseReference(ctx context.Context, ref string, registryClient registryclie
 	return repository, parsedRef, nil
 }
 
-func parseReferenceToRemoteRepo(ctx context.Context, ref string, registryClient registryclient.Client) (*remote.Repository, registry.Reference, error) {
-	parsedRef, err := registry.ParseReference(ref)
+func parseReferenceCrane(ctx context.Context, ref string, registryClient registryclient.Client) (notationregistry.Repository, crane.Option, []gcrremote.Option, error) {
+	nameRef, err := name.ParseReference(ref)
 	if err != nil {
-		return nil, registry.Reference{}, errors.Wrapf(err, "failed to parse registry reference %s", ref)
+		return nil, nil, nil, err
 	}
 
-	authClient, plainHTTP, err := getAuthClient(ctx, parsedRef, registryClient)
+	authenticator, err := getAuthenticator(ctx, ref, registryClient)
 	if err != nil {
-		return nil, registry.Reference{}, err
+		return nil, nil, nil, err
+	}
+	craneOpts := crane.WithAuth(*authenticator)
+
+	remoteOpts, err := getRemoteOpts(*authenticator)
+	if err != nil {
+		return nil, nil, nil, err
 	}
 
-	repo, err := remote.NewRepository(ref)
+	repository := NewRepository(craneOpts, remoteOpts, nameRef)
+
+	err = resolveDigestCrane(repository, craneOpts, remoteOpts, nameRef)
 	if err != nil {
-		return nil, registry.Reference{}, errors.Wrapf(err, "failed to initialize repository")
+		return nil, nil, nil, errors.Wrapf(err, "failed to resolve digest")
 	}
 
-	repo.PlainHTTP = plainHTTP
-	repo.Client = authClient
-
-	return repo, parsedRef, nil
+	return repository, craneOpts, remoteOpts, nil
 }
 
 type imageResource struct {
@@ -182,4 +189,12 @@ func getRemoteOpts(authenticator authn.Authenticator) ([]gcrremote.Option, error
 	remoteOpts = append(remoteOpts, gcrremote.Reuse(puller))
 
 	return remoteOpts, nil
+}
+
+func resolveDigestCrane(repo notationregistry.Repository, craneOpts crane.Option, remoteOpts []gcrremote.Option, ref name.Reference) error {
+	_, err := repo.Resolve(context.Background(), ref.Name())
+	if err != nil {
+		return err
+	}
+	return nil
 }
