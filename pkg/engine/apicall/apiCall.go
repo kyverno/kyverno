@@ -69,33 +69,38 @@ func (a *apiCall) Execute(ctx context.Context) ([]byte, error) {
 
 func (a *apiCall) execute(ctx context.Context, call *kyvernov1.APICall) ([]byte, error) {
 	if call.URLPath != "" {
-		return a.executeK8sAPICall(ctx, call.URLPath)
+		return a.executeK8sAPICall(ctx, call.URLPath, call.Method, call.Data)
 	}
 
-	return a.executeServiceCall(ctx, call.Service)
+	return a.executeServiceCall(ctx, call)
 }
 
-func (a *apiCall) executeK8sAPICall(ctx context.Context, path string) ([]byte, error) {
-	jsonData, err := a.client.RawAbsPath(ctx, path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get resource with raw url\n: %s: %v", path, err)
-	}
-
-	a.logger.V(4).Info("executed APICall", "name", a.entry.Name, "len", len(jsonData))
-	return jsonData, nil
-}
-
-func (a *apiCall) executeServiceCall(ctx context.Context, service *kyvernov1.ServiceCall) ([]byte, error) {
-	if service == nil {
-		return nil, fmt.Errorf("missing service for APICall %s", a.entry.Name)
-	}
-
-	client, err := a.buildHTTPClient(service)
+func (a *apiCall) executeK8sAPICall(ctx context.Context, path string, method kyvernov1.Method, data []kyvernov1.RequestData) ([]byte, error) {
+	requestData, err := a.buildRequestData(data)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := a.buildHTTPRequest(ctx, service)
+	jsonData, err := a.client.RawAbsPath(ctx, path, string(method), requestData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to %v resource with raw url\n: %s: %v", method, path, err)
+	}
+
+	a.logger.V(4).Info("executed APICall", "name", a.entry.Name, "path", path, "method", method, "len", len(jsonData))
+	return jsonData, nil
+}
+
+func (a *apiCall) executeServiceCall(ctx context.Context, apiCall *kyvernov1.APICall) ([]byte, error) {
+	if apiCall.Service == nil {
+		return nil, fmt.Errorf("missing service for APICall %s", a.entry.Name)
+	}
+
+	client, err := a.buildHTTPClient(apiCall.Service)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := a.buildHTTPRequest(ctx, apiCall)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build HTTP request for APICall %s: %w", a.entry.Name, err)
 	}
@@ -124,7 +129,11 @@ func (a *apiCall) executeServiceCall(ctx context.Context, service *kyvernov1.Ser
 	return body, nil
 }
 
-func (a *apiCall) buildHTTPRequest(ctx context.Context, service *kyvernov1.ServiceCall) (req *http.Request, err error) {
+func (a *apiCall) buildHTTPRequest(ctx context.Context, apiCall *kyvernov1.APICall) (req *http.Request, err error) {
+	if apiCall.Service == nil {
+		return nil, fmt.Errorf("missing service")
+	}
+
 	token := a.getToken()
 	defer func() {
 		if token != "" && req != nil {
@@ -132,22 +141,22 @@ func (a *apiCall) buildHTTPRequest(ctx context.Context, service *kyvernov1.Servi
 		}
 	}()
 
-	if service.Method == "GET" {
-		req, err = http.NewRequestWithContext(ctx, "GET", service.URL, nil)
+	if apiCall.Method == "GET" {
+		req, err = http.NewRequestWithContext(ctx, "GET", apiCall.Service.URL, nil)
 		return
 	}
 
-	if service.Method == "POST" {
-		data, dataErr := a.buildPostData(service.Data)
+	if apiCall.Method == "POST" {
+		data, dataErr := a.buildRequestData(apiCall.Data)
 		if dataErr != nil {
 			return nil, dataErr
 		}
 
-		req, err = http.NewRequest("POST", service.URL, data)
+		req, err = http.NewRequest("POST", apiCall.Service.URL, data)
 		return
 	}
 
-	return nil, fmt.Errorf("invalid request type %s for APICall %s", service.Method, a.entry.Name)
+	return nil, fmt.Errorf("invalid request type %s for APICall %s", apiCall.Method, a.entry.Name)
 }
 
 func (a *apiCall) getToken() string {
@@ -162,7 +171,7 @@ func (a *apiCall) getToken() string {
 }
 
 func (a *apiCall) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client, error) {
-	if service.CABundle == "" {
+	if service == nil || service.CABundle == "" {
 		return http.DefaultClient, nil
 	}
 	caCertPool := x509.NewCertPool()
@@ -180,7 +189,7 @@ func (a *apiCall) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client,
 	}, nil
 }
 
-func (a *apiCall) buildPostData(data []kyvernov1.RequestData) (io.Reader, error) {
+func (a *apiCall) buildRequestData(data []kyvernov1.RequestData) (io.Reader, error) {
 	dataMap := make(map[string]interface{})
 	for _, d := range data {
 		dataMap[d.Key] = d.Value
