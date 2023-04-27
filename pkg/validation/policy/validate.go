@@ -1123,17 +1123,6 @@ func podControllerAutoGenExclusion(policy kyvernov1.PolicyInterface) bool {
 	return false
 }
 
-func forbiddenWildcard(kinds []string, background bool) error {
-	if slices.Contains(kinds, "*") && background {
-		return fmt.Errorf("wildcard policy not allowed in background mode. Set spec.background=false to disable background mode for this policy rule ")
-	}
-
-	if slices.Contains(kinds, "*") && len(kinds) > 1 {
-		return fmt.Errorf("wildcard policy can not deal with more than one kind")
-	}
-	return nil
-}
-
 func validateKinds(kinds []string, rule kyvernov1.Rule, mock, background bool, client dclient.Interface) error {
 	if err := validateWildcard(kinds, background, rule); err != nil {
 		return err
