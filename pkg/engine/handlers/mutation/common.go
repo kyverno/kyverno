@@ -62,7 +62,13 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 
 	patchedResource := f.resource
 	var allPatches [][]byte
+	reverse := false
 	if foreach.RawPatchStrategicMerge != nil {
+		reverse = true
+	} else if foreach.Order != nil && *foreach.Order == kyvernov1.Descending {
+		reverse = true
+	}
+	if reverse {
 		engineutils.InvertedElement(elements)
 	}
 
@@ -70,7 +76,9 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 		if element == nil {
 			continue
 		}
-
+		if reverse {
+			index = len(elements) - 1 - index
+		}
 		f.policyContext.JSONContext().Reset()
 		policyContext := f.policyContext.Copy()
 
