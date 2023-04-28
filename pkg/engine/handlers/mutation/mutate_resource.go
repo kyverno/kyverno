@@ -67,39 +67,31 @@ func (h mutateResourceHandler) Process(
 		patchers = append(patchers, p)
 	}
 	if len(patchers) == 0 {
-		return resource, nil
+		return resource, handlers.WithSkip(rule, engineapi.Mutation, "no patches")
 	}
 	// apply patchers
 	resourceBytes, err := resource.MarshalJSON()
 	if err != nil {
 		logger.Error(err, "failed to marshal resource")
-		// return *engineapi.RuleFail(ruleName, engineapi.Mutation, fmt.Sprintf("failed to marshal resource: %v", err)), resource
+		return resource, handlers.WithError(rule, engineapi.Mutation, "failed to marshal resource", err)
 	}
 	var allPatches []jsonpatch.JsonPatchOperation
 	for _, patcher := range patchers {
 		patchedBytes, patches, err := patcher.Patch(logger, resourceBytes)
 		if err != nil {
-			// return resource, fmt.Errorf("failed to decode patches: %v", err)
+			logger.Error(err, "failed to patch resource")
+			return resource, handlers.WithError(rule, engineapi.Mutation, "failed to patch resource", err)
 		}
 		resourceBytes = patchedBytes
 		allPatches = append(allPatches, patches...)
 	}
-	// 	patch, err := jsonpatch.DecodePatch(jsonutils.JoinPatches([]byte(p.Json())))
-	// 	if err != nil {
-	// 		// return resource, fmt.Errorf("failed to decode patches: %v", err)
-	// 	}
-	// 	options := &jsonpatch.ApplyOptions{SupportNegativeIndices: true, AllowMissingPathOnRemove: true, EnsurePathExistsOnAdd: true}
-	// 	patchedResourceRaw, err := patch.ApplyWithOptions(resourceRaw, options)
-	// 	if err != nil {
-	// 		// return resource, err
-	// 	}
-	// 	resourceRaw = patchedResourceRaw
-	// }
-	// var patchedResource unstructured.Unstructured
+	if len(allPatches) == 0 {
+		return resource, handlers.WithSkip(rule, engineapi.Mutation, "no patches")
+	}
 	err = resource.UnmarshalJSON(resourceBytes)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal resource")
-		// return *engineapi.RuleFail(ruleName, engineapi.Mutation, fmt.Sprintf("failed to unmarshal resource: %v", err)), resource
+		return resource, handlers.WithError(rule, engineapi.Mutation, "failed to unmarshal resource", err)
 	}
 	resp := engineapi.RulePass(rule.Name, engineapi.Mutation, "TODO").WithPatches(patch.ConvertPatches(allPatches...)...)
 	// if mutateResp.Status == engineapi.RuleStatusPass {
@@ -109,5 +101,6 @@ func (h mutateResourceHandler) Process(
 	// 	// 	resp = resp.WithPatchedTarget(&mutateResp.PatchedResource, info.parentResourceGVR, info.subresource)
 	// 	// }
 	// }
+	logger.Info("pass", "resp", resp)
 	return resource, handlers.WithResponses(resp)
 }
