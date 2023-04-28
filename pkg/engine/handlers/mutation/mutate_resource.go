@@ -9,7 +9,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
-	"github.com/mattbaird/jsonpatch"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -66,41 +65,6 @@ func (h mutateResourceHandler) Process(
 		}
 		patchers = append(patchers, p)
 	}
-	if len(patchers) == 0 {
-		return resource, handlers.WithSkip(rule, engineapi.Mutation, "no patches")
-	}
-	// apply patchers
-	resourceBytes, err := resource.MarshalJSON()
-	if err != nil {
-		logger.Error(err, "failed to marshal resource")
-		return resource, handlers.WithError(rule, engineapi.Mutation, "failed to marshal resource", err)
-	}
-	var allPatches []jsonpatch.JsonPatchOperation
-	for _, patcher := range patchers {
-		patchedBytes, patches, err := patcher.Patch(logger, resourceBytes)
-		if err != nil {
-			logger.Error(err, "failed to patch resource")
-			return resource, handlers.WithError(rule, engineapi.Mutation, "failed to patch resource", err)
-		}
-		resourceBytes = patchedBytes
-		allPatches = append(allPatches, patches...)
-	}
-	if len(allPatches) == 0 {
-		return resource, handlers.WithSkip(rule, engineapi.Mutation, "no patches")
-	}
-	err = resource.UnmarshalJSON(resourceBytes)
-	if err != nil {
-		logger.Error(err, "failed to unmarshal resource")
-		return resource, handlers.WithError(rule, engineapi.Mutation, "failed to unmarshal resource", err)
-	}
-	resp := engineapi.RulePass(rule.Name, engineapi.Mutation, "TODO").WithPatches(patch.ConvertPatches(allPatches...)...)
-	// if mutateResp.Status == engineapi.RuleStatusPass {
-	// 	resp = resp
-	// 	// TODO
-	// 	// if len(rule.Mutation.Targets) != 0 {
-	// 	// 	resp = resp.WithPatchedTarget(&mutateResp.PatchedResource, info.parentResourceGVR, info.subresource)
-	// 	// }
-	// }
-	logger.Info("pass", "resp", resp)
-	return resource, handlers.WithResponses(resp)
+	resource, response := applyPatchers(logger, resource, rule, patchers...)
+	return resource, handlers.WithResponses(response)
 }
