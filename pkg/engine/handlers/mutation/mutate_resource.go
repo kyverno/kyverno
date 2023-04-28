@@ -66,5 +66,11 @@ func (h mutateResourceHandler) Process(
 		patchers = append(patchers, p)
 	}
 	resource, response := applyPatchers(logger, resource, rule, patchers...)
+	err := policyContext.JSONContext().AddResource(resource.Object)
+	if err != nil {
+		return resource, handlers.WithResponses(
+			engineapi.RuleError(rule.Name, engineapi.Mutation, "failed to update patched resource in the JSON context", err),
+		)
+	}
 	return resource, handlers.WithResponses(response)
 }

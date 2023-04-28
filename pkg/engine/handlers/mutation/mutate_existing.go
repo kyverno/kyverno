@@ -98,6 +98,12 @@ func (h mutateExistingHandler) Process(
 		}
 		resource, response := applyPatchers(logger, target.unstructured, rule, patchers...)
 		if response != nil {
+			err := policyContext.JSONContext().AddTargetResource(resource.Object)
+			if err != nil {
+				rr := engineapi.RuleError(rule.Name, engineapi.Mutation, "failed to update patched resource in the JSON context", err)
+				responses = append(responses, *rr)
+				continue
+			}
 			response = response.WithPatchedTarget(&resource, target.parentResourceGVR, target.subresource)
 			responses = append(responses, *response)
 		}
