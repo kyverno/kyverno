@@ -1,0 +1,9 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: foreach-remove-elements
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready

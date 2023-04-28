@@ -1,6 +1,6 @@
 ## Description
 
-This test removes multiple elements from an array but iterates in ascending order.
+This test removes multiple elements from an array iterating in ascending order.
 
 ## Expected Behavior
 
