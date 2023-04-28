@@ -7,8 +7,8 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/openapi"
-	policyvalidate "github.com/kyverno/kyverno/pkg/policy"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	policyvalidate "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 )

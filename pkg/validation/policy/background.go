@@ -16,7 +16,7 @@ var forbidden = []*regexp.Regexp{
 	regexp.MustCompile(`[^\.](request.clusterRoles)\b`),
 }
 
-// ContainsUserVariables returns error if variable that does not start from request.object
+// containsUserVariables returns error if variable that does not start from request.object
 func containsUserVariables(policy kyvernov1.PolicyInterface, vars [][]string) error {
 	rules := autogen.ComputeRules(policy)
 	for idx := range rules {
