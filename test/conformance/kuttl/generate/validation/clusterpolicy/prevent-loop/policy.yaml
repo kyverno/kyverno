@@ -1,0 +1,23 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-generate-prevent-loop
+spec:
+  rules:
+  - name: cpol-generate-prevent-loop
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+          operations:
+          - CREATE
+    generate:
+      apiVersion: v1
+      kind: ConfigMap
+      name: corp-{{ random('[0-9a-z]{8}') }}
+      namespace: "{{request.namespace}}"
+      synchronize: false
+      data:
+        data:
+          foo: bar
