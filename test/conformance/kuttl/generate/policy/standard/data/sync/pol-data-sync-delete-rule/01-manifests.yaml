@@ -33,7 +33,7 @@ spec:
         data:
           ZK_ADDRESS: "192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181"
           KAFKA_ADDRESS: "192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092"
-  - name: super-secret
+  - name: super-configmap
     match:
       any:
       - resources:
@@ -44,14 +44,13 @@ spec:
     generate:
       synchronize: true
       apiVersion: v1
-      kind: Secret
-      name: supersecret
+      kind: ConfigMap
+      name: superconfigmap
       namespace: pol-data-sync-delete-rule
       data:
-        kind: Secret
-        type: Opaque
+        kind: ConfigMap
         metadata:
           labels:
-            somekey: somesecretvalue
+            somekey: somevalue
         data:
-          mysupersecretkey: bXlzdXBlcnNlY3JldHZhbHVl
+          key: superconfigmap
