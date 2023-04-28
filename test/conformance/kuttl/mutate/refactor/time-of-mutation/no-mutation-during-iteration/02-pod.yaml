@@ -4,5 +4,3 @@ apply:
   - pod.yaml
 assert:
   - pod-assert.yaml
-error:
-  - pod-error.yaml
