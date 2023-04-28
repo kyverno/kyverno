@@ -23,7 +23,7 @@ func generatePatches(src, dst []byte) ([]jsonpatch.JsonPatchOperation, error) {
 	if pp, err := jsonpatch.CreatePatch(src, dst); err != nil {
 		return nil, err
 	} else {
-		return FilterAndSortPatches(pp), err
+		return filterAndSortPatches(pp), err
 	}
 }
 

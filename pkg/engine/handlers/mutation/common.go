@@ -9,9 +9,10 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
+	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/utils/api"
-	"gomodules.xyz/jsonpatch/v2"
+	"github.com/mattbaird/jsonpatch"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -62,7 +63,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 	defer f.policyContext.JSONContext().Restore()
 
 	patchedResource := f.resource
-	var allPatches [][]byte
+	var allPatches []jsonpatch.JsonPatchOperation
 	reverse := false
 	if foreach.RawPatchStrategicMerge != nil {
 		reverse = true
@@ -129,7 +130,6 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 		}
 
 		if len(mutateResp.Patches) > 0 {
-			// patchedResource.unstructured = mutateResp.PatchedResource
 			allPatches = append(allPatches, mutateResp.Patches...)
 		}
 	}
@@ -148,7 +148,7 @@ func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info r
 		mutateResp.Status,
 	)
 	if mutateResp.Status == engineapi.RuleStatusPass {
-		resp = resp.WithPatches(mutateResp.Patches...)
+		resp = resp.WithPatches(patch.ConvertPatches(mutateResp.Patches...)...)
 		// TODO
 		// if len(rule.Mutation.Targets) != 0 {
 		// 	resp = resp.WithPatchedTarget(&mutateResp.PatchedResource, info.parentResourceGVR, info.subresource)

@@ -11,9 +11,6 @@ type (
 	patches  = []jsonpatch.JsonPatchOperation
 )
 
-type resource = []byte
-type patches = []jsonpatch.JsonPatchOperation
-
 // Patcher patches the resource
 type Patcher interface {
 	Patch(logr.Logger, resource) (resource, patches, error)
@@ -52,12 +49,4 @@ func (h patchesJSON6902Handler) Patch(logger logr.Logger, resource resource) (re
 		return nil, nil, err
 	}
 	return ProcessPatchJSON6902(logger, patchesJSON6902, resource)
-}
-
-func (h patchesJSON6902Handler) Patch2(resource resource) (resource, patches, error) {
-	patchesJSON6902, err := ConvertPatchesToJSON(h.patches)
-	if err != nil {
-		return nil, nil, err
-	}
-	return ProcessPatchJSON6902_New(resource, patchesJSON6902)
 }

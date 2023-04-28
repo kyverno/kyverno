@@ -63,7 +63,7 @@ func (h mutateResourceHandler) Process(
 		// return *engineapi.RuleFail(ruleName, engineapi.Mutation, fmt.Sprintf("failed to marshal resource: %v", err)), resource
 	}
 	for _, p := range mutateResp.Patches {
-		patch, err := jsonpatch.DecodePatch(jsonutils.JoinPatches(p))
+		patch, err := jsonpatch.DecodePatch(jsonutils.JoinPatches([]byte(p.Json())))
 		if err != nil {
 			// return resource, fmt.Errorf("failed to decode patches: %v", err)
 		}

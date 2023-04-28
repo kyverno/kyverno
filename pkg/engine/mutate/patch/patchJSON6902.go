@@ -8,18 +8,6 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-func ProcessPatchJSON6902_New(resource resource, patch []byte) (resource, patches, error) {
-	patchedResourceRaw, err := applyPatchesWithOptions(resource, patch)
-	if err != nil {
-		return nil, nil, err
-	}
-	patchesBytes, err := generatePatches_New(resource, patchedResourceRaw)
-	if err != nil {
-		return nil, nil, err
-	}
-	return patchedResourceRaw, patchesBytes, nil
-}
-
 // ProcessPatchJSON6902 ...
 func ProcessPatchJSON6902(logger logr.Logger, patchesJSON6902 []byte, resource resource) (resource, patches, error) {
 	if patchedResourceRaw, err := applyPatchesWithOptions(resource, patchesJSON6902); err != nil {

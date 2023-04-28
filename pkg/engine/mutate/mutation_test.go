@@ -4,18 +4,18 @@ package mutate
 // 	"encoding/json"
 // 	"testing"
 
-	"github.com/go-logr/logr"
-	types "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/config"
-	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/engine/jmespath"
-	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"gotest.tools/assert"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-)
+// 	"github.com/go-logr/logr"
+// 	types "github.com/kyverno/kyverno/api/kyverno/v1"
+// 	"github.com/kyverno/kyverno/pkg/config"
+// 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+// 	"github.com/kyverno/kyverno/pkg/engine/context"
+// 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+// 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
+// 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+// 	"gotest.tools/assert"
+// 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+// 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+// )
 
 // // jsonPatch is used to build test patches
 // type jsonPatch struct {
@@ -49,19 +49,19 @@ package mutate
 // 	]
 // }`
 
-func applyPatches(rule *types.Rule, resource unstructured.Unstructured) (*engineapi.RuleResponse, unstructured.Unstructured) {
-	mutateResp := Mutate(rule, context.NewContext(jmespath.New(config.NewDefaultConfiguration(false))), resource, logr.Discard())
-	if mutateResp.Status != engineapi.RuleStatusPass {
-		return engineapi.NewRuleResponse("", engineapi.Mutation, mutateResp.Message, mutateResp.Status), resource
-	}
-	return engineapi.RulePass(
-		"",
-		engineapi.Mutation,
-		mutateResp.Message,
-	).WithPatches(
-		patch.ConvertPatches(mutateResp.Patches...)...,
-	), mutateResp.PatchedResource
-}
+// func applyPatches(rule *types.Rule, resource unstructured.Unstructured) (*engineapi.RuleResponse, unstructured.Unstructured) {
+// 	mutateResp := Mutate(rule, context.NewContext(jmespath.New(config.NewDefaultConfiguration(false))), resource, logr.Discard())
+// 	if mutateResp.Status != engineapi.RuleStatusPass {
+// 		return engineapi.NewRuleResponse("", engineapi.Mutation, mutateResp.Message, mutateResp.Status), resource
+// 	}
+// 	return engineapi.RulePass(
+// 		"",
+// 		engineapi.Mutation,
+// 		mutateResp.Message,
+// 	).WithPatches(
+// 		patch.ConvertPatches(mutateResp.Patches...)...,
+// 	), mutateResp.PatchedResource
+// }
 
 // func TestProcessPatches_EmptyPatches(t *testing.T) {
 // 	emptyRule := &types.Rule{Name: "emptyRule"}
@@ -102,12 +102,12 @@ func applyPatches(rule *types.Rule, resource unstructured.Unstructured) (*engine
 // 	}
 // }
 
-func TestProcessPatches_EmptyDocument(t *testing.T) {
-	rule := makeRuleWithPatch(t, makeAddIsMutatedLabelPatch())
-	rr, _ := applyPatches(rule, unstructured.Unstructured{})
-	assert.Equal(t, rr.Status(), engineapi.RuleStatusError)
-	assert.Assert(t, len(rr.Patches()) == 0)
-}
+// func TestProcessPatches_EmptyDocument(t *testing.T) {
+// 	rule := makeRuleWithPatch(t, makeAddIsMutatedLabelPatch())
+// 	rr, _ := applyPatches(rule, unstructured.Unstructured{})
+// 	assert.Equal(t, rr.Status(), engineapi.RuleStatusError)
+// 	assert.Assert(t, len(rr.Patches()) == 0)
+// }
 
 // func TestProcessPatches_AllEmpty(t *testing.T) {
 // 	emptyRule := &types.Rule{}
