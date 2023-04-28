@@ -2,7 +2,6 @@ package mutation
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -12,8 +11,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/utils/api"
-	"github.com/mattbaird/jsonpatch"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type forEachMutator struct {
@@ -26,44 +23,29 @@ type forEachMutator struct {
 	contextLoader engineapi.EngineContextLoader
 }
 
-func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
-	var applyCount int
-	var allPatches []jsonpatch.JsonPatchOperation
+func (f *forEachMutator) mutateForEach(ctx context.Context) ([]patch.Patcher, error) {
+	var patchers []patch.Patcher
 
 	for _, foreach := range f.foreach {
 		elements, err := engineutils.EvaluateList(foreach.List, f.policyContext.JSONContext())
 		if err != nil {
-			msg := fmt.Sprintf("failed to evaluate list %s: %v", foreach.List, err)
-			return mutate.NewErrorResponse(msg, err)
+			return nil, err
 		}
-
-		mutateResp := f.mutateElements(ctx, foreach, elements)
-		if mutateResp.Status == engineapi.RuleStatusError {
-			return mutate.NewErrorResponse("failed to mutate elements", err)
+		p, err := f.mutateElements(ctx, foreach, elements)
+		if err != nil {
+			return nil, err
 		}
-
-		if mutateResp.Status != engineapi.RuleStatusSkip {
-			applyCount++
-			if len(mutateResp.Patches) > 0 {
-				allPatches = append(allPatches, mutateResp.Patches...)
-			}
-		}
+		patchers = append(patchers, p...)
 	}
-
-	msg := fmt.Sprintf("%d elements processed", applyCount)
-	if applyCount == 0 {
-		return mutate.NewResponse(engineapi.RuleStatusSkip, allPatches, msg)
-	}
-
-	return mutate.NewResponse(engineapi.RuleStatusPass, allPatches, msg)
+	return patchers, nil
 }
 
-func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.ForEachMutation, elements []interface{}) *mutate.Response {
+func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.ForEachMutation, elements []interface{}) ([]patch.Patcher, error) {
 	f.policyContext.JSONContext().Checkpoint()
 	defer f.policyContext.JSONContext().Restore()
 
 	patchedResource := f.resource
-	var allPatches []jsonpatch.JsonPatchOperation
+	var patchers []patch.Patcher
 	reverse := false
 	if foreach.RawPatchStrategicMerge != nil {
 		reverse = true
@@ -86,16 +68,16 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 
 		falseVar := false
 		if err := engineutils.AddElementToContext(policyContext, element, index, f.nesting, &falseVar); err != nil {
-			return mutate.NewErrorResponse(fmt.Sprintf("failed to add element to mutate.foreach[%d].context", index), err)
+			return nil, err
 		}
 
 		if err := f.contextLoader(ctx, foreach.Context, policyContext.JSONContext()); err != nil {
-			return mutate.NewErrorResponse(fmt.Sprintf("failed to load to mutate.foreach[%d].context", index), err)
+			return nil, err
 		}
 
 		preconditionsPassed, err := internal.CheckPreconditions(f.logger, policyContext.JSONContext(), foreach.AnyAllConditions)
 		if err != nil {
-			return mutate.NewErrorResponse(fmt.Sprintf("failed to evaluate mutate.foreach[%d].preconditions", index), err)
+			return nil, err
 		}
 
 		if !preconditionsPassed {
@@ -103,11 +85,10 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 			continue
 		}
 
-		var mutateResp *mutate.Response
 		if foreach.ForEachMutation != nil {
 			nestedForEach, err := api.DeserializeJSONArray[kyvernov1.ForEachMutation](foreach.ForEachMutation)
 			if err != nil {
-				return mutate.NewErrorResponse("failed to deserialize foreach", err)
+				return nil, err
 			}
 
 			m := &forEachMutator{
@@ -120,49 +101,49 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 				contextLoader: f.contextLoader,
 			}
 
-			mutateResp = m.mutateForEach(ctx)
+			p, err := m.mutateForEach(ctx)
+			if err != nil {
+				return nil, err
+			}
+			patchers = append(patchers, p...)
 		} else {
-			mutateResp = mutate.ForEach(f.rule.Name, foreach, policyContext, patchedResource.unstructured, element, f.logger)
-		}
-
-		if mutateResp.Status == engineapi.RuleStatusFail || mutateResp.Status == engineapi.RuleStatusError {
-			return mutateResp
-		}
-
-		if len(mutateResp.Patches) > 0 {
-			allPatches = append(allPatches, mutateResp.Patches...)
+			p, err := mutate.ForEach(f.logger, foreach, policyContext)
+			if err != nil {
+				return nil, err
+			}
+			patchers = append(patchers, p)
 		}
 	}
-	return mutate.NewResponse(engineapi.RuleStatusPass, allPatches, "")
+	return patchers, nil
 }
 
-func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info resourceInfo) *engineapi.RuleResponse {
-	message := mutateResp.Message
-	if mutateResp.Status == engineapi.RuleStatusPass {
-		message = buildSuccessMessage(info.unstructured)
-	}
-	resp := engineapi.NewRuleResponse(
-		rule.Name,
-		engineapi.Mutation,
-		message,
-		mutateResp.Status,
-	)
-	if mutateResp.Status == engineapi.RuleStatusPass {
-		resp = resp.WithPatches(patch.ConvertPatches(mutateResp.Patches...)...)
-		// TODO
-		// if len(rule.Mutation.Targets) != 0 {
-		// 	resp = resp.WithPatchedTarget(&mutateResp.PatchedResource, info.parentResourceGVR, info.subresource)
-		// }
-	}
-	return resp
-}
+// func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info resourceInfo) *engineapi.RuleResponse {
+// 	message := mutateResp.Message
+// 	if mutateResp.Status == engineapi.RuleStatusPass {
+// 		message = buildSuccessMessage(info.unstructured)
+// 	}
+// 	resp := engineapi.NewRuleResponse(
+// 		rule.Name,
+// 		engineapi.Mutation,
+// 		message,
+// 		mutateResp.Status,
+// 	)
+// 	if mutateResp.Status == engineapi.RuleStatusPass {
+// 		resp = resp.WithPatches(patch.ConvertPatches(mutateResp.Patches...)...)
+// 		// TODO
+// 		// if len(rule.Mutation.Targets) != 0 {
+// 		// 	resp = resp.WithPatchedTarget(&mutateResp.PatchedResource, info.parentResourceGVR, info.subresource)
+// 		// }
+// 	}
+// 	return resp
+// }
 
-func buildSuccessMessage(r unstructured.Unstructured) string {
-	if r.Object == nil {
-		return "mutated resource"
-	}
-	if r.GetNamespace() == "" {
-		return fmt.Sprintf("mutated %s/%s", r.GetKind(), r.GetName())
-	}
-	return fmt.Sprintf("mutated %s/%s in namespace %s", r.GetKind(), r.GetName(), r.GetNamespace())
-}
+// func buildSuccessMessage(r unstructured.Unstructured) string {
+// 	if r.Object == nil {
+// 		return "mutated resource"
+// 	}
+// 	if r.GetNamespace() == "" {
+// 		return fmt.Sprintf("mutated %s/%s", r.GetKind(), r.GetName())
+// 	}
+// 	return fmt.Sprintf("mutated %s/%s in namespace %s", r.GetKind(), r.GetName(), r.GetNamespace())
+// }
