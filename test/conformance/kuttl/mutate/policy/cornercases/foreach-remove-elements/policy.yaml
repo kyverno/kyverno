@@ -15,6 +15,7 @@ spec:
       mutate:
         foreach:
           - list: request.object.spec.volumes[]
+            order: Descending
             preconditions:
               all:
               - key: hostPath
