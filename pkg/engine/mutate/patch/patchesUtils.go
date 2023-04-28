@@ -9,28 +9,22 @@ import (
 	"github.com/mattbaird/jsonpatch"
 )
 
-func generatePatches_New(src, dst []byte) (patches, error) {
-	pp, err := jsonpatch.CreatePatch(src, dst)
-	if err != nil {
-		return nil, err
+func ConvertPatches(in ...jsonpatch.JsonPatchOperation) [][]byte {
+	var out [][]byte
+	for _, patch := range in {
+		if patch, err := patch.MarshalJSON(); err == nil {
+			out = append(out, patch)
+		}
 	}
-	return filterAndSortPatches(pp), err
+	return out
 }
 
-func generatePatches(src, dst []byte) ([][]byte, error) {
-	var patchesBytes [][]byte
-	pp, err := generatePatches_New(src, dst)
-	if err != nil {
+func generatePatches(src, dst []byte) ([]jsonpatch.JsonPatchOperation, error) {
+	if pp, err := jsonpatch.CreatePatch(src, dst); err != nil {
 		return nil, err
+	} else {
+		return FilterAndSortPatches(pp), err
 	}
-	for _, p := range pp {
-		pbytes, err := p.MarshalJSON()
-		if err != nil {
-			return patchesBytes, err
-		}
-		patchesBytes = append(patchesBytes, pbytes)
-	}
-	return patchesBytes, err
 }
 
 // filterAndSortPatches
