@@ -363,7 +363,6 @@ func getKindsFromValidatingAdmissionRule(rule admissionregistrationv1.Rule, clie
 			kind, _ = strings.CutSuffix(kind, "s")
 
 			subresource = parts[1]
-
 		} else {
 			resource = cases.Title(language.English, cases.NoLower).String(resource)
 			resource, _ = strings.CutSuffix(resource, "s")
