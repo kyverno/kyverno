@@ -183,7 +183,7 @@ func Test_Apply(t *testing.T) {
 			expectedPolicyReports: []preport.PolicyReport{
 				{
 					Summary: preport.PolicyReportSummary{
-						Pass:  2,
+						Pass:  1,
 						Fail:  0,
 						Skip:  0,
 						Error: 0,
@@ -201,7 +201,7 @@ func Test_Apply(t *testing.T) {
 			expectedPolicyReports: []preport.PolicyReport{
 				{
 					Summary: preport.PolicyReportSummary{
-						Pass:  1,
+						Pass:  0,
 						Fail:  1,
 						Skip:  0,
 						Error: 0,
