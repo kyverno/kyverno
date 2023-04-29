@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: addpod02
+  namespace: add-tolerations
+spec:
+  containers:
+  - name: container01
+    image: containerimage01
+  tolerations:
+  - key: org.com/test
+    operator: Exists
+    effect: NoSchedule
