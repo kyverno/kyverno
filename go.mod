@@ -84,6 +84,12 @@ require (
 )
 
 require (
+	github.com/antlr/antlr4/runtime/Go/antlr v1.4.10 // indirect
+	github.com/google/cel-go v0.12.6 // indirect
+	github.com/stoewer/go-strcase v1.2.0 // indirect
+)
+
+require (
 	cloud.google.com/go/compute v1.19.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	cloud.google.com/go/iam v1.0.0 // indirect
@@ -326,6 +332,7 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	k8s.io/component-base v0.27.2 // indirect
+	k8s.io/apiserver v0.27.1
 	k8s.io/kubectl v0.26.3 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/release-utils v0.7.3 // indirect

@@ -68,17 +68,37 @@ func (v *Validate) Validate(ctx context.Context) (string, error) {
 		}
 	}
 
+	if v.rule.CEL != nil {
+		for _, cel := range v.rule.CEL {
+			if cel.Expression == "" {
+				return "", fmt.Errorf("cel.expression is required")
+			}
+
+			if cel.AuditAnnotations != nil {
+				for _, auditAnnotation := range cel.AuditAnnotations {
+					if auditAnnotation.Key == "" {
+						return "", fmt.Errorf("auditAnnotation.key is required")
+					}
+
+					if auditAnnotation.ValueExpression == "" {
+						return "", fmt.Errorf("auditAnnotation.valueExpression is required")
+					}
+				}
+			}
+		}
+	}
+
 	return "", nil
 }
 
 func (v *Validate) validateElements() error {
 	count := validationElemCount(v.rule)
 	if count == 0 {
-		return fmt.Errorf("one of pattern, anyPattern, deny, foreach must be specified")
+		return fmt.Errorf("one of pattern, anyPattern, deny, foreach, cel must be specified")
 	}
 
 	if count > 1 {
-		return fmt.Errorf("only one of pattern, anyPattern, deny, foreach can be specified")
+		return fmt.Errorf("only one of pattern, anyPattern, deny, foreach, cel can be specified")
 	}
 
 	return nil
@@ -107,6 +127,10 @@ func validationElemCount(v *kyvernov1.Validation) int {
 	}
 
 	if v.PodSecurity != nil {
+		count++
+	}
+
+	if v.CEL != nil {
 		count++
 	}
 

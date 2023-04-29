@@ -24,7 +24,6 @@ import (
 	v1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -35,9 +34,9 @@ type FakeClusterAdmissionReports struct {
 	Fake *FakeKyvernoV1alpha2
 }
 
-var clusteradmissionreportsResource = schema.GroupVersionResource{Group: "kyverno.io", Version: "v1alpha2", Resource: "clusteradmissionreports"}
+var clusteradmissionreportsResource = v1alpha2.SchemeGroupVersion.WithResource("clusteradmissionreports")
 
-var clusteradmissionreportsKind = schema.GroupVersionKind{Group: "kyverno.io", Version: "v1alpha2", Kind: "ClusterAdmissionReport"}
+var clusteradmissionreportsKind = v1alpha2.SchemeGroupVersion.WithKind("ClusterAdmissionReport")
 
 // Get takes name of the clusterAdmissionReport, and returns the corresponding clusterAdmissionReport object, and an error if there is any.
 func (c *FakeClusterAdmissionReports) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha2.ClusterAdmissionReport, err error) {

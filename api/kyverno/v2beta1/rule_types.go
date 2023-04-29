@@ -97,6 +97,17 @@ func (r Rule) HasValidatePodSecurity() bool {
 	return r.Validation.PodSecurity != nil && !datautils.DeepEqual(r.Validation.PodSecurity, &kyvernov1.PodSecurity{})
 }
 
+// HasValidateCEL checks for validate.cel rule
+func (r *Rule) HasValidateCEL() bool {
+	for _, cel := range r.Validation.CEL {
+		if !datautils.DeepEqual(cel, kyvernov1.CEL{}) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // HasValidate checks for validate rule
 func (r *Rule) HasValidate() bool {
 	return !datautils.DeepEqual(r.Validation, Validation{})

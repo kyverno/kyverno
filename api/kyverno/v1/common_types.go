@@ -387,6 +387,10 @@ type Validation struct {
 	// by specifying exclusions for Pod Security Standards controls.
 	// +optional
 	PodSecurity *PodSecurity `json:"podSecurity,omitempty" yaml:"podSecurity,omitempty"`
+
+	// CEL specifies CEL expressions which is used to apply the validation.
+	// +optional
+	CEL []CEL `json:"cel,omitempty" yaml:"cel,omitempty"`
 }
 
 // PodSecurity applies exemptions for Kubernetes Pod Security admission
@@ -420,6 +424,46 @@ type PodSecurityStandard struct {
 	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
 	// +optional
 	Images []string `json:"images,omitempty" yaml:"images,omitempty"`
+}
+
+// CEL defines the CEL expression which is used to apply the validation.
+type CEL struct {
+	// Expression represents the expression which will be evaluated by CEL.
+	// ref: https://github.com/google/cel-spec
+	// Required.
+	Expression string `json:"expression" yaml:"expression"`
+
+	// Message represents the message displayed when cel validation fails.
+	// If unset, the message is "failed Expression: {Expression}".
+	// +optional
+	Message string `json:"message,omitempty" yaml:"message,omitempty"`
+
+	// messageExpression declares a CEL expression that evaluates to the validation failure message that is returned when this rule fails.
+	// Since messageExpression is used as a failure message, it must evaluate to a string.
+	// If both message and messageExpression are present on a validation, then messageExpression will be used if validation fails.
+	// ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation
+	// +optional
+	MessageExpression string `json:"messageExpression,omitempty" yaml:"messageExpression,omitempty"`
+
+	// auditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the API request.
+	// +optional
+	AuditAnnotations []AuditAnnotation `json:"auditAnnotations,omitempty" yaml:"auditAnnotations,omitempty"`
+}
+
+// AuditAnnotation describes how to produce an audit annotation for an API request.
+type AuditAnnotation struct {
+	// key specifies the audit annotation key.
+	// ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#AuditAnnotation
+	// Required.
+	Key string `json:"key" yaml:"key"`
+
+	// valueExpression represents the expression which is evaluated by CEL to
+	// produce an audit annotation value. The expression must evaluate to either
+	// a string or null value. If the expression evaluates to a string, the
+	// audit annotation is included with the string value. If the expression
+	// evaluates to null or empty string the audit annotation will be omitted.
+	// Required.
+	ValueExpression string `json:"valueExpression" yaml:"valueExpression"`
 }
 
 // DeserializeAnyPattern deserialize apiextensions.JSON to []interface{}

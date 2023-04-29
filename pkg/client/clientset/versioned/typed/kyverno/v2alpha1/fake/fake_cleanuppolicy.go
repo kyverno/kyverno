@@ -24,7 +24,6 @@ import (
 	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -36,9 +35,9 @@ type FakeCleanupPolicies struct {
 	ns   string
 }
 
-var cleanuppoliciesResource = schema.GroupVersionResource{Group: "kyverno.io", Version: "v2alpha1", Resource: "cleanuppolicies"}
+var cleanuppoliciesResource = v2alpha1.SchemeGroupVersion.WithResource("cleanuppolicies")
 
-var cleanuppoliciesKind = schema.GroupVersionKind{Group: "kyverno.io", Version: "v2alpha1", Kind: "CleanupPolicy"}
+var cleanuppoliciesKind = v2alpha1.SchemeGroupVersion.WithKind("CleanupPolicy")
 
 // Get takes name of the cleanupPolicy, and returns the corresponding cleanupPolicy object, and an error if there is any.
 func (c *FakeCleanupPolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.CleanupPolicy, err error) {

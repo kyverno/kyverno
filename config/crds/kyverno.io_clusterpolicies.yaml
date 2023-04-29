@@ -2260,6 +2260,65 @@ spec:
                             At least one of the patterns must be satisfied for the
                             validation rule to succeed.
                           x-kubernetes-preserve-unknown-fields: true
+                        cel:
+                          description: CEL specifies CEL expressions which is used
+                            to apply the validation.
+                          items:
+                            description: CEL defines the CEL expression which is used
+                              to apply the validation.
+                            properties:
+                              auditAnnotations:
+                                description: auditAnnotations contains CEL expressions
+                                  which are used to produce audit annotations for
+                                  the audit event of the API request.
+                                items:
+                                  description: AuditAnnotation describes how to produce
+                                    an audit annotation for an API request.
+                                  properties:
+                                    key:
+                                      description: 'key specifies the audit annotation
+                                        key. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#AuditAnnotation
+                                        Required.'
+                                      type: string
+                                    valueExpression:
+                                      description: valueExpression represents the
+                                        expression which is evaluated by CEL to produce
+                                        an audit annotation value. The expression
+                                        must evaluate to either a string or null value.
+                                        If the expression evaluates to a string, the
+                                        audit annotation is included with the string
+                                        value. If the expression evaluates to null
+                                        or empty string the audit annotation will
+                                        be omitted. Required.
+                                      type: string
+                                  required:
+                                  - key
+                                  - valueExpression
+                                  type: object
+                                type: array
+                              expression:
+                                description: 'Expression represents the expression
+                                  which will be evaluated by CEL. ref: https://github.com/google/cel-spec
+                                  Required.'
+                                type: string
+                              message:
+                                description: 'Message represents the message displayed
+                                  when cel validation fails. If unset, the message
+                                  is "failed Expression: {Expression}".'
+                                type: string
+                              messageExpression:
+                                description: 'messageExpression declares a CEL expression
+                                  that evaluates to the validation failure message
+                                  that is returned when this rule fails. Since messageExpression
+                                  is used as a failure message, it must evaluate to
+                                  a string. If both message and messageExpression
+                                  are present on a validation, then messageExpression
+                                  will be used if validation fails. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation'
+                                type: string
+                            required:
+                            - expression
+                            type: object
+                          type: array
                         deny:
                           description: Deny defines conditions used to pass or fail
                             a validation rule.
@@ -5864,6 +5923,67 @@ spec:
                                 patterns. At least one of the patterns must be satisfied
                                 for the validation rule to succeed.
                               x-kubernetes-preserve-unknown-fields: true
+                            cel:
+                              description: CEL specifies CEL expressions which is
+                                used to apply the validation.
+                              items:
+                                description: CEL defines the CEL expression which
+                                  is used to apply the validation.
+                                properties:
+                                  auditAnnotations:
+                                    description: auditAnnotations contains CEL expressions
+                                      which are used to produce audit annotations
+                                      for the audit event of the API request.
+                                    items:
+                                      description: AuditAnnotation describes how to
+                                        produce an audit annotation for an API request.
+                                      properties:
+                                        key:
+                                          description: 'key specifies the audit annotation
+                                            key. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#AuditAnnotation
+                                            Required.'
+                                          type: string
+                                        valueExpression:
+                                          description: valueExpression represents
+                                            the expression which is evaluated by CEL
+                                            to produce an audit annotation value.
+                                            The expression must evaluate to either
+                                            a string or null value. If the expression
+                                            evaluates to a string, the audit annotation
+                                            is included with the string value. If
+                                            the expression evaluates to null or empty
+                                            string the audit annotation will be omitted.
+                                            Required.
+                                          type: string
+                                      required:
+                                      - key
+                                      - valueExpression
+                                      type: object
+                                    type: array
+                                  expression:
+                                    description: 'Expression represents the expression
+                                      which will be evaluated by CEL. ref: https://github.com/google/cel-spec
+                                      Required.'
+                                    type: string
+                                  message:
+                                    description: 'Message represents the message displayed
+                                      when cel validation fails. If unset, the message
+                                      is "failed Expression: {Expression}".'
+                                    type: string
+                                  messageExpression:
+                                    description: 'messageExpression declares a CEL
+                                      expression that evaluates to the validation
+                                      failure message that is returned when this rule
+                                      fails. Since messageExpression is used as a
+                                      failure message, it must evaluate to a string.
+                                      If both message and messageExpression are present
+                                      on a validation, then messageExpression will
+                                      be used if validation fails. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation'
+                                    type: string
+                                required:
+                                - expression
+                                type: object
+                              type: array
                             deny:
                               description: Deny defines conditions used to pass or
                                 fail a validation rule.
@@ -9191,6 +9311,65 @@ spec:
                             At least one of the patterns must be satisfied for the
                             validation rule to succeed.
                           x-kubernetes-preserve-unknown-fields: true
+                        cel:
+                          description: CEL specifies CEL expressions which is used
+                            to apply the validation.
+                          items:
+                            description: CEL defines the CEL expression which is used
+                              to apply the validation.
+                            properties:
+                              auditAnnotations:
+                                description: auditAnnotations contains CEL expressions
+                                  which are used to produce audit annotations for
+                                  the audit event of the API request.
+                                items:
+                                  description: AuditAnnotation describes how to produce
+                                    an audit annotation for an API request.
+                                  properties:
+                                    key:
+                                      description: 'key specifies the audit annotation
+                                        key. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#AuditAnnotation
+                                        Required.'
+                                      type: string
+                                    valueExpression:
+                                      description: valueExpression represents the
+                                        expression which is evaluated by CEL to produce
+                                        an audit annotation value. The expression
+                                        must evaluate to either a string or null value.
+                                        If the expression evaluates to a string, the
+                                        audit annotation is included with the string
+                                        value. If the expression evaluates to null
+                                        or empty string the audit annotation will
+                                        be omitted. Required.
+                                      type: string
+                                  required:
+                                  - key
+                                  - valueExpression
+                                  type: object
+                                type: array
+                              expression:
+                                description: 'Expression represents the expression
+                                  which will be evaluated by CEL. ref: https://github.com/google/cel-spec
+                                  Required.'
+                                type: string
+                              message:
+                                description: 'Message represents the message displayed
+                                  when cel validation fails. If unset, the message
+                                  is "failed Expression: {Expression}".'
+                                type: string
+                              messageExpression:
+                                description: 'messageExpression declares a CEL expression
+                                  that evaluates to the validation failure message
+                                  that is returned when this rule fails. Since messageExpression
+                                  is used as a failure message, it must evaluate to
+                                  a string. If both message and messageExpression
+                                  are present on a validation, then messageExpression
+                                  will be used if validation fails. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation'
+                                type: string
+                            required:
+                            - expression
+                            type: object
+                          type: array
                         deny:
                           description: Deny defines conditions used to pass or fail
                             a validation rule.
@@ -12849,6 +13028,67 @@ spec:
                                 patterns. At least one of the patterns must be satisfied
                                 for the validation rule to succeed.
                               x-kubernetes-preserve-unknown-fields: true
+                            cel:
+                              description: CEL specifies CEL expressions which is
+                                used to apply the validation.
+                              items:
+                                description: CEL defines the CEL expression which
+                                  is used to apply the validation.
+                                properties:
+                                  auditAnnotations:
+                                    description: auditAnnotations contains CEL expressions
+                                      which are used to produce audit annotations
+                                      for the audit event of the API request.
+                                    items:
+                                      description: AuditAnnotation describes how to
+                                        produce an audit annotation for an API request.
+                                      properties:
+                                        key:
+                                          description: 'key specifies the audit annotation
+                                            key. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#AuditAnnotation
+                                            Required.'
+                                          type: string
+                                        valueExpression:
+                                          description: valueExpression represents
+                                            the expression which is evaluated by CEL
+                                            to produce an audit annotation value.
+                                            The expression must evaluate to either
+                                            a string or null value. If the expression
+                                            evaluates to a string, the audit annotation
+                                            is included with the string value. If
+                                            the expression evaluates to null or empty
+                                            string the audit annotation will be omitted.
+                                            Required.
+                                          type: string
+                                      required:
+                                      - key
+                                      - valueExpression
+                                      type: object
+                                    type: array
+                                  expression:
+                                    description: 'Expression represents the expression
+                                      which will be evaluated by CEL. ref: https://github.com/google/cel-spec
+                                      Required.'
+                                    type: string
+                                  message:
+                                    description: 'Message represents the message displayed
+                                      when cel validation fails. If unset, the message
+                                      is "failed Expression: {Expression}".'
+                                    type: string
+                                  messageExpression:
+                                    description: 'messageExpression declares a CEL
+                                      expression that evaluates to the validation
+                                      failure message that is returned when this rule
+                                      fails. Since messageExpression is used as a
+                                      failure message, it must evaluate to a string.
+                                      If both message and messageExpression are present
+                                      on a validation, then messageExpression will
+                                      be used if validation fails. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation'
+                                    type: string
+                                required:
+                                - expression
+                                type: object
+                              type: array
                             deny:
                               description: Deny defines conditions used to pass or
                                 fail a validation rule.

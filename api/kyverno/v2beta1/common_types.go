@@ -37,6 +37,10 @@ type Validation struct {
 	// by specifying exclusions for Pod Security Standards controls.
 	// +optional
 	PodSecurity *kyvernov1.PodSecurity `json:"podSecurity,omitempty" yaml:"podSecurity,omitempty"`
+
+	// CEL specifies CEL expressions which is used to apply the validation.
+	// +optional
+	CEL []kyvernov1.CEL `json:"cel,omitempty" yaml:"cel,omitempty"`
 }
 
 // ConditionOperator is the operation performed on condition key and value.
