@@ -19,9 +19,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openapi"
-	policy2 "github.com/kyverno/kyverno/pkg/policy"
+	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"golang.org/x/exp/slices"
 	"k8s.io/api/admissionregistration/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -195,7 +196,7 @@ func applyPoliciesFromPath(
 
 	kyvernoPolicy := common.KyvernoPolicies{}
 	for _, policy := range policies {
-		_, err := policy2.Validate(policy, nil, nil, true, openApiManager)
+		_, err := policyvalidation.Validate(policy, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
 		if err != nil {
 			log.Log.Error(err, "skipping invalid policy", "name", policy.GetName())
 			continue

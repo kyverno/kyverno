@@ -40,10 +40,11 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 
 	// config
-	controllerName string
-	logger         logr.Logger
-	name           string
-	callback       callback
+	controllerName  string
+	logger          logr.Logger
+	name            string
+	callback        callback
+	resourceVersion string
 }
 
 type callback func(context.Context, *corev1.ConfigMap) error
@@ -104,5 +105,13 @@ func (c *controller) doReconcile(ctx context.Context, logger logr.Logger) error 
 		}
 		return c.callback(ctx, nil)
 	}
-	return c.callback(ctx, observed)
+	if c.resourceVersion == observed.ResourceVersion {
+		return nil
+	}
+	if err := c.callback(ctx, observed); err != nil {
+		return err
+	}
+	// record resource version
+	c.resourceVersion = observed.ResourceVersion
+	return nil
 }

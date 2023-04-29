@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	apiserverclient "github.com/kyverno/kyverno/pkg/clients/apiserver"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	dynamicclient "github.com/kyverno/kyverno/pkg/clients/dynamic"
@@ -16,10 +15,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/metadata"
 )
 
 func shutdown(logger logr.Logger, sdowns ...context.CancelFunc) context.CancelFunc {
@@ -39,13 +34,13 @@ type SetupResult struct {
 	MetricsConfiguration config.MetricsConfiguration
 	MetricsManager       metrics.MetricsConfigManager
 	Jp                   jmespath.Interface
-	KubeClient           kubernetes.Interface
-	LeaderElectionClient kubernetes.Interface
+	KubeClient           kubeclient.UpstreamInterface
+	LeaderElectionClient kubeclient.UpstreamInterface
 	RegistryClient       registryclient.Client
-	KyvernoClient        versioned.Interface
-	DynamicClient        dynamic.Interface
-	ApiServerClient      apiserver.Interface
-	MetadataClient       metadata.Interface
+	KyvernoClient        kyvernoclient.UpstreamInterface
+	DynamicClient        dynamicclient.UpstreamInterface
+	ApiServerClient      apiserverclient.UpstreamInterface
+	MetadataClient       metadataclient.UpstreamInterface
 	KyvernoDynamicClient dclient.Interface
 }
 
@@ -66,19 +61,19 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	if config.UsesRegistryClient() {
 		registryClient = setupRegistryClient(ctx, logger, client)
 	}
-	var leaderElectionClient kubernetes.Interface
+	var leaderElectionClient kubeclient.UpstreamInterface
 	if config.UsesLeaderElection() {
 		leaderElectionClient = createKubernetesClient(logger, kubeclient.WithMetrics(metricsManager, metrics.KubeClient), kubeclient.WithTracing())
 	}
-	var kyvernoClient versioned.Interface
+	var kyvernoClient kyvernoclient.UpstreamInterface
 	if config.UsesKyvernoClient() {
 		kyvernoClient = createKyvernoClient(logger, kyvernoclient.WithMetrics(metricsManager, metrics.KyvernoClient), kyvernoclient.WithTracing())
 	}
-	var dynamicClient dynamic.Interface
+	var dynamicClient dynamicclient.UpstreamInterface
 	if config.UsesDynamicClient() {
 		dynamicClient = createDynamicClient(logger, dynamicclient.WithMetrics(metricsManager, metrics.DynamicClient), dynamicclient.WithTracing())
 	}
-	var apiServerClient apiserver.Interface
+	var apiServerClient apiserverclient.UpstreamInterface
 	if config.UsesApiServerClient() {
 		apiServerClient = createApiServerClient(logger, apiserverclient.WithMetrics(metricsManager, metrics.ApiServerClient), apiserverclient.WithTracing())
 	}
@@ -86,7 +81,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	if config.UsesKyvernoDynamicClient() {
 		dClient = createKyvernoDynamicClient(logger, ctx, dynamicClient, client, 15*time.Minute)
 	}
-	var metadataClient metadata.Interface
+	var metadataClient metadataclient.UpstreamInterface
 	if config.UsesMetadataClient() {
 		metadataClient = createMetadataClient(logger, metadataclient.WithMetrics(metricsManager, metrics.MetadataClient), metadataclient.WithTracing())
 	}

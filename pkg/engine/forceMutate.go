@@ -5,7 +5,6 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
@@ -84,13 +83,19 @@ func applyForEachMutate(name string, foreach []kyvernov1.ForEachMutation, resour
 }
 
 func applyPatches(name string, mergePatch apiextensions.JSON, jsonPatch string, resource unstructured.Unstructured, logger logr.Logger) (unstructured.Unstructured, error) {
-	patcher := mutate.NewPatcher(name, mergePatch, jsonPatch, resource, logger)
-	resp, mutatedResource := patcher.Patch()
-	if resp.Status() != engineapi.RuleStatusPass {
-		return mutatedResource, fmt.Errorf("mutate status %q: %s", resp.Status(), resp.Message())
+	patcher := mutate.NewPatcher(mergePatch, jsonPatch)
+	resourceBytes, err := resource.MarshalJSON()
+	if err != nil {
+		return resource, err
 	}
-
-	return mutatedResource, nil
+	resourceBytes, _, err = patcher.Patch(logger, resourceBytes)
+	if err != nil {
+		return resource, err
+	}
+	if err := resource.UnmarshalJSON(resourceBytes); err != nil {
+		return resource, err
+	}
+	return resource, err
 }
 
 // removeConditions mutates the rule to remove AnyAllConditions
