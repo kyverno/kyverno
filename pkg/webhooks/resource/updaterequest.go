@@ -29,12 +29,6 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 		policyContext = policyContext.WithNewResource(policyContext.OldResource())
 	}
 
-	resource := policyContext.NewResource()
-	if request.Operation == admissionv1.Update && resource.GetDeletionTimestamp() != nil {
-		logger.V(4).Info("skip creating UR for the trigger resource that is in termination")
-		return
-	}
-
 	var engineResponses []*engineapi.EngineResponse
 	for _, policy := range policies {
 		if !policy.GetSpec().IsMutateExisting() {
