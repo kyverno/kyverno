@@ -68,22 +68,3 @@ spec:
     served: true
     storage: true
     subresources: {}
-status:
-  acceptedNames:
-    kind: Policy
-    listKind: PolicyList
-    plural: policies
-    singular: policy
-  conditions:
-  - lastTransitionTime: "2023-04-29T13:49:21Z"
-    message: no conflicts found
-    reason: NoConflicts
-    status: "True"
-    type: NamesAccepted
-  - lastTransitionTime: "2023-04-29T13:49:21Z"
-    message: the initial names have been accepted
-    reason: InitialNamesAccepted
-    status: "True"
-    type: Established
-  storedVersions:
-  - v1alpha1
