@@ -4,4 +4,5 @@ apply:
 - crd.yaml
 - policy.yaml
 assert:
+- crd-assert.yaml
 - policy-ready.yaml
