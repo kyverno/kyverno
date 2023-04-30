@@ -51,33 +51,28 @@ func (v *notaryVerifier) VerifySignature(ctx context.Context, opts images.Option
 		return nil, errors.Wrapf(err, "failed to created verifier")
 	}
 
-	repo, parsedRef, err := parseReference(ctx, opts.ImageRef, opts.RegistryClient)
+	v.log.V(2).Info("creating notation repo", "reference", opts.ImageRef)
+	parsedRef, err := parseReferenceCrane(ctx, opts.ImageRef, opts.RegistryClient)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
 	}
+	v.log.V(2).Info("created notation repo", "reference", opts.ImageRef)
 
-	digest, err := parsedRef.Digest()
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to fetch digest")
-	}
+	v.log.V(2).Info("created parsedRef", "reference", opts.ImageRef)
 
-	ref := parsedRef.String()
+	ref := parsedRef.Ref.Name()
 	remoteVerifyOptions := notation.RemoteVerifyOptions{
 		ArtifactReference:    ref,
 		MaxSignatureAttempts: 10,
 	}
 
-	targetDesc, outcomes, err := notation.Verify(context.TODO(), notationVerifier, repo, remoteVerifyOptions)
+	targetDesc, outcomes, err := notation.Verify(context.TODO(), notationVerifier, parsedRef.Repo, remoteVerifyOptions)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to verify %s", ref)
 	}
 
 	if err := v.verifyOutcomes(outcomes); err != nil {
 		return nil, err
-	}
-
-	if targetDesc.Digest != digest {
-		return nil, errors.Errorf("digest mismatch")
 	}
 
 	v.log.V(2).Info("verified image", "type", targetDesc.MediaType, "digest", targetDesc.Digest, "size", targetDesc.Size)

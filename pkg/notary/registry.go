@@ -17,6 +17,14 @@ import (
 	"oras.land/oras-go/v2/registry/remote/auth"
 )
 
+type parsedReference struct {
+	Repo       notationregistry.Repository
+	CraneOpts  crane.Option
+	RemoteOpts []gcrremote.Option
+	Ref        name.Reference
+	Desc       ocispec.Descriptor
+}
+
 func parseReference(ctx context.Context, ref string, registryClient registryclient.Client) (notationregistry.Repository, registry.Reference, error) {
 	parsedRef, err := registry.ParseReference(ref)
 	if err != nil {
@@ -45,31 +53,48 @@ func parseReference(ctx context.Context, ref string, registryClient registryclie
 	return repository, parsedRef, nil
 }
 
-func parseReferenceCrane(ctx context.Context, ref string, registryClient registryclient.Client) (notationregistry.Repository, crane.Option, []gcrremote.Option, error) {
+func parseReferenceCrane(ctx context.Context, ref string, registryClient registryclient.Client) (*parsedReference, error) {
 	nameRef, err := name.ParseReference(ref)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	authenticator, err := getAuthenticator(ctx, ref, registryClient)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
-	craneOpts := crane.WithAuth(*authenticator)
 
+	craneOpts := crane.WithAuth(*authenticator)
 	remoteOpts, err := getRemoteOpts(*authenticator)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
+	}
+
+	desc, err := crane.Head(ref, craneOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	if !isDigestReference(ref) {
+		nameRef, err = name.ParseReference(GetReferenceFromDescriptor(v1ToOciSpecDescriptor(*desc), nameRef))
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	repository := NewRepository(craneOpts, remoteOpts, nameRef)
-
 	err = resolveDigestCrane(repository, craneOpts, remoteOpts, nameRef)
 	if err != nil {
-		return nil, nil, nil, errors.Wrapf(err, "failed to resolve digest")
+		return nil, errors.Wrapf(err, "failed to resolve digest")
 	}
 
-	return repository, craneOpts, remoteOpts, nil
+	return &parsedReference{
+		Repo:       repository,
+		CraneOpts:  craneOpts,
+		RemoteOpts: remoteOpts,
+		Ref:        nameRef,
+		Desc:       v1ToOciSpecDescriptor(*desc),
+	}, nil
 }
 
 type imageResource struct {

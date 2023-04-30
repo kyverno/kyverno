@@ -56,8 +56,7 @@ func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Desc
 		}
 	}
 
-	fn(descList)
-	return nil
+	return fn(descList)
 }
 
 func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.Descriptor) ([]byte, ocispec.Descriptor, error) {
@@ -95,26 +94,34 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 }
 
 func (c *repositoryClient) PushSignature(ctx context.Context, mediaType string, blob []byte, subject ocispec.Descriptor, annotations map[string]string) (blobDesc, manifestDesc ocispec.Descriptor, err error) {
-	return ocispec.Descriptor{}, ocispec.Descriptor{}, fmt.Errorf("push signature is not implimented")
+	return ocispec.Descriptor{}, ocispec.Descriptor{}, fmt.Errorf("push signature is not implemented")
 }
 
 func v1ToOciSpecDescriptor(v1desc v1.Descriptor) ocispec.Descriptor {
-	return ocispec.Descriptor{
+	ociDesc := ocispec.Descriptor{
 		MediaType:   string(v1desc.MediaType),
 		Digest:      digest.Digest(v1desc.Digest.String()),
 		Size:        v1desc.Size,
 		URLs:        v1desc.URLs,
 		Annotations: v1desc.Annotations,
 		Data:        v1desc.Data,
-		Platform: &ocispec.Platform{
+
+		ArtifactType: v1desc.ArtifactType,
+	}
+	if v1desc.Platform != nil {
+		ociDesc.Platform = &ocispec.Platform{
 			Architecture: v1desc.Platform.Architecture,
 			OS:           v1desc.Platform.OS,
 			OSVersion:    v1desc.Platform.OSVersion,
-		},
-		ArtifactType: v1desc.ArtifactType,
+		}
 	}
+	return ociDesc
 }
 
 func (c *repositoryClient) getReferenceFromDescriptor(desc ocispec.Descriptor) string {
-	return c.ref.Context().RegistryStr() + "/" + c.ref.Context().RepositoryStr() + "@" + desc.Digest.String()
+	return GetReferenceFromDescriptor(desc, c.ref)
+}
+
+func GetReferenceFromDescriptor(desc ocispec.Descriptor, ref name.Reference) string {
+	return ref.Context().RegistryStr() + "/" + ref.Context().RepositoryStr() + "@" + desc.Digest.String()
 }
