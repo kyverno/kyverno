@@ -238,28 +238,30 @@ func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Referenc
 	}
 
 	v.log.V(2).Info("created verifier")
-	reference := ref.Context().RegistryStr() + "/" + ref.Context().RepositoryStr() + "@" + desc.Digest.String()
-	repo, parsedRef, err := parseReference(ctx, reference, opts.RegistryClient)
+	parsedRef, err := parseReferenceCrane(ctx, opts.ImageRef, opts.RegistryClient)
 	if err != nil {
-		v.log.V(2).Info("failed to parse image reference", "ref", opts.ImageRef, "err", err)
 		return ocispec.Descriptor{}, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
 	}
+	v.log.V(2).Info("created notation repo", "reference", opts.ImageRef)
 
-	refer := parsedRef.String()
+	v.log.V(2).Info("created parsedRef", "reference", opts.ImageRef)
+
+	reference := parsedRef.Ref.Name()
 	remoteVerifyOptions := notation.RemoteVerifyOptions{
-		ArtifactReference:    refer,
+		ArtifactReference:    reference,
 		MaxSignatureAttempts: 10,
 	}
 
 	v.log.V(2).Info("verification started")
-	targetDesc, outcomes, err := notation.Verify(ctx, notationVerifier, repo, remoteVerifyOptions)
+	targetDesc, outcomes, err := notation.Verify(context.TODO(), notationVerifier, parsedRef.Repo, remoteVerifyOptions)
 	if err != nil {
-		v.log.V(2).Info("failed to vefify attestator", "remoteVerifyOptions", remoteVerifyOptions, "repo", repo)
+		v.log.V(2).Info("failed to vefify attestator", "remoteVerifyOptions", remoteVerifyOptions, "repo", parsedRef.Repo)
 		return targetDesc, err
 	}
 	if err := v.verifyOutcomes(outcomes); err != nil {
 		return targetDesc, err
 	}
+
 	if targetDesc.Digest.String() != desc.Digest.String() {
 		v.log.V(2).Info("digest mismatch", "expected", desc.Digest.String(), "found", targetDesc.Digest.String())
 		return targetDesc, errors.Errorf("digest mismatch")
