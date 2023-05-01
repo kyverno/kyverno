@@ -4,7 +4,6 @@ metadata:
   labels:
     app: myapp
   name: mydeploy
-  namespace: add-volume
 spec:
   replicas: 1
   selector:
