@@ -166,7 +166,7 @@ func main() {
 		backgroundScanWorkers  int
 		backgroundScanInterval time.Duration
 		maxQueuedEvents        int
-		eventsApplied          string
+		emitEvents             string
 		skipResourceFilters    bool
 	)
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
@@ -176,7 +176,7 @@ func main() {
 	flagset.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
 	flagset.DurationVar(&backgroundScanInterval, "backgroundScanInterval", time.Hour, "Configure background scan interval.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
-	flagset.StringVar(&eventsApplied, "eventsApplied", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --emit-events=PolicyApplied,PolicyViolation")
+	flagset.StringVar(&emitEvents, "emit-events", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --emit-events=PolicyApplied,PolicyViolation")
 	flagset.BoolVar(&skipResourceFilters, "skipResourceFilters", true, "If true, resource filters wont be considered.")
 	// config
 	appConfig := internal.NewConfiguration(
@@ -209,16 +209,16 @@ func main() {
 	kyamlopenapi.Schema()
 	// informer factories
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
-	eventsAppliedValues := strings.Split(eventsApplied, ",")
-	if eventsApplied == "" {
-		eventsAppliedValues = []string{}
+	emitEventsValues := strings.Split(emitEvents, ",")
+	if emitEvents == "" {
+		emitEventsValues = []string{}
 	}
 	eventGenerator := event.NewEventGenerator(
 		setup.KyvernoDynamicClient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		maxQueuedEvents,
-		eventsAppliedValues,
+		emitEventsValues,
 		logging.WithName("EventGenerator"),
 	)
 	// engine

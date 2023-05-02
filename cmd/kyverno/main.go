@@ -184,7 +184,7 @@ func main() {
 		webhookTimeout               int
 		genWorkers                   int
 		maxQueuedEvents              int
-		eventsApplied                string
+		emitEvents                   string
 		autoUpdateWebhooks           bool
 		webhookRegistrationTimeout   time.Duration
 		admissionReports             bool
@@ -197,7 +197,7 @@ func main() {
 	flagset.IntVar(&webhookTimeout, "webhookTimeout", webhookcontroller.DefaultWebhookTimeout, "Timeout for webhook configurations.")
 	flagset.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
-	flagset.StringVar(&eventsApplied, "eventsApplied", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --emit-events=PolicyApplied,PolicyViolation")
+	flagset.StringVar(&emitEvents, "emit-events", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --emit-events=PolicyApplied,PolicyViolation")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flagset.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
 	flagset.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
@@ -258,16 +258,16 @@ func main() {
 		serverIP,
 	)
 	policyCache := policycache.NewCache()
-	eventsAppliedValues := strings.Split(eventsApplied, ",")
-	if eventsApplied == "" {
-		eventsAppliedValues = []string{}
+	emitEventsValues := strings.Split(emitEvents, ",")
+	if emitEvents == "" {
+		emitEventsValues = []string{}
 	}
 	eventGenerator := event.NewEventGenerator(
 		setup.KyvernoDynamicClient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		maxQueuedEvents,
-		eventsAppliedValues,
+		emitEventsValues,
 		logging.WithName("EventGenerator"),
 	)
 	// this controller only subscribe to events, nothing is returned...
