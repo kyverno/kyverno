@@ -65,7 +65,7 @@ func (h mutateResourceHandler) Process(
 		}
 		patchers = append(patchers, p)
 	}
-	resource, response := applyPatchers(logger, resource, rule, patchers...)
+	resource, response := mutate.ApplyPatchers(logger, resource, rule, patchers...)
 	err := policyContext.JSONContext().AddResource(resource.Object)
 	if err != nil {
 		return resource, handlers.WithResponses(

@@ -11,8 +11,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/utils/api"
-	"github.com/mattbaird/jsonpatch"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type forEachMutator struct {
@@ -117,66 +115,4 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 		}
 	}
 	return patchers, nil
-}
-
-// func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info resourceInfo) *engineapi.RuleResponse {
-// 	message := mutateResp.Message
-// 	if mutateResp.Status == engineapi.RuleStatusPass {
-// 		message = buildSuccessMessage(info.unstructured)
-// 	}
-// 	resp := engineapi.NewRuleResponse(
-// 		rule.Name,
-// 		engineapi.Mutation,
-// 		message,
-// 		mutateResp.Status,
-// 	)
-// 	if mutateResp.Status == engineapi.RuleStatusPass {
-// 		resp = resp.WithPatches(patch.ConvertPatches(mutateResp.Patches...)...)
-// 		// TODO
-// 		// if len(rule.Mutation.Targets) != 0 {
-// 		// 	resp = resp.WithPatchedTarget(&mutateResp.PatchedResource, info.parentResourceGVR, info.subresource)
-// 		// }
-// 	}
-// 	return resp
-// }
-
-// func buildSuccessMessage(r unstructured.Unstructured) string {
-// 	if r.Object == nil {
-// 		return "mutated resource"
-// 	}
-// 	if r.GetNamespace() == "" {
-// 		return fmt.Sprintf("mutated %s/%s", r.GetKind(), r.GetName())
-// 	}
-// 	return fmt.Sprintf("mutated %s/%s in namespace %s", r.GetKind(), r.GetName(), r.GetNamespace())
-// }
-
-func applyPatchers(logger logr.Logger, resource unstructured.Unstructured, rule kyvernov1.Rule, patchers ...patch.Patcher) (unstructured.Unstructured, *engineapi.RuleResponse) {
-	if len(patchers) == 0 {
-		return resource, engineapi.RuleSkip(rule.Name, engineapi.Mutation, "no patches")
-	}
-	// apply patchers
-	resourceBytes, err := resource.MarshalJSON()
-	if err != nil {
-		logger.Error(err, "failed to marshal resource")
-		return resource, engineapi.RuleError(rule.Name, engineapi.Mutation, "failed to marshal resource", err)
-	}
-	var allPatches []jsonpatch.JsonPatchOperation
-	for _, patcher := range patchers {
-		patchedBytes, patches, err := patcher.Patch(logger, resourceBytes)
-		if err != nil {
-			logger.Error(err, "failed to patch resource")
-			return resource, engineapi.RuleError(rule.Name, engineapi.Mutation, "failed to patch resource", err)
-		}
-		resourceBytes = patchedBytes
-		allPatches = append(allPatches, patches...)
-	}
-	if len(allPatches) == 0 {
-		return resource, engineapi.RuleSkip(rule.Name, engineapi.Mutation, "no patches")
-	}
-	err = resource.UnmarshalJSON(resourceBytes)
-	if err != nil {
-		logger.Error(err, "failed to unmarshal resource")
-		return resource, engineapi.RuleError(rule.Name, engineapi.Mutation, "failed to unmarshal resource", err)
-	}
-	return resource, engineapi.RulePass(rule.Name, engineapi.Mutation, "TODO").WithPatches(patch.ConvertPatches(allPatches...)...)
 }

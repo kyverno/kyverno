@@ -2,6 +2,7 @@ package mutate
 
 import (
 	"encoding/json"
+	"errors"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -10,29 +11,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	"github.com/mattbaird/jsonpatch"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
-
-// type Response struct {
-// 	Status  engineapi.RuleStatus
-// 	Patches []jsonpatch.JsonPatchOperation
-// 	Message string
-// }
-
-// func NewResponse(status engineapi.RuleStatus, patches []jsonpatch.JsonPatchOperation, msg string) *Response {
-// 	return &Response{
-// 		Status:  status,
-// 		Patches: patches,
-// 		Message: msg,
-// 	}
-// }
-
-// func NewErrorResponse(msg string, err error) *Response {
-// 	if err != nil {
-// 		msg = fmt.Sprintf("%s: %v", msg, err)
-// 	}
-// 	return NewResponse(engineapi.RuleStatusError, nil, msg)
-// }
 
 func Mutate(logger logr.Logger, rule *kyvernov1.Rule, ctx context.Interface) (patch.Patcher, error) {
 	updatedRule, err := variables.SubstituteAllInRule(logger, ctx, *rule)
@@ -40,6 +22,9 @@ func Mutate(logger logr.Logger, rule *kyvernov1.Rule, ctx context.Interface) (pa
 		return nil, err
 	}
 	patcher := NewPatcher(updatedRule.Mutation.GetPatchStrategicMerge(), updatedRule.Mutation.PatchesJSON6902)
+	if patcher == nil {
+		return nil, errors.New("failed to create patcher")
+	}
 	return patcher, nil
 }
 
@@ -85,4 +70,35 @@ func NewPatcher(strategicMergePatch apiextensions.JSON, jsonPatch string) patch.
 		return patch.NewPatchesJSON6902(jsonPatch)
 	}
 	return nil
+}
+
+func ApplyPatchers(logger logr.Logger, resource unstructured.Unstructured, rule kyvernov1.Rule, patchers ...patch.Patcher) (unstructured.Unstructured, *engineapi.RuleResponse) {
+	if len(patchers) == 0 {
+		return resource, engineapi.RuleSkip(rule.Name, engineapi.Mutation, "no patches")
+	}
+	// apply patchers
+	resourceBytes, err := resource.MarshalJSON()
+	if err != nil {
+		logger.Error(err, "failed to marshal resource")
+		return resource, engineapi.RuleError(rule.Name, engineapi.Mutation, "failed to marshal resource", err)
+	}
+	var allPatches []jsonpatch.JsonPatchOperation
+	for _, patcher := range patchers {
+		patchedBytes, patches, err := patcher.Patch(logger, resourceBytes)
+		if err != nil {
+			logger.Error(err, "failed to patch resource")
+			return resource, engineapi.RuleError(rule.Name, engineapi.Mutation, "failed to patch resource", err)
+		}
+		resourceBytes = patchedBytes
+		allPatches = append(allPatches, patches...)
+	}
+	if len(allPatches) == 0 {
+		return resource, engineapi.RuleSkip(rule.Name, engineapi.Mutation, "no patches")
+	}
+	err = resource.UnmarshalJSON(resourceBytes)
+	if err != nil {
+		logger.Error(err, "failed to unmarshal resource")
+		return resource, engineapi.RuleError(rule.Name, engineapi.Mutation, "failed to unmarshal resource", err)
+	}
+	return resource, engineapi.RulePass(rule.Name, engineapi.Mutation, "TODO").WithPatches(patch.ConvertPatches(allPatches...)...)
 }

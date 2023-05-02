@@ -96,7 +96,7 @@ func (h mutateExistingHandler) Process(
 			}
 			patchers = append(patchers, p)
 		}
-		resource, response := applyPatchers(logger, target.unstructured, rule, patchers...)
+		resource, response := mutate.ApplyPatchers(logger, target.unstructured, rule, patchers...)
 		if response != nil {
 			err := policyContext.JSONContext().AddTargetResource(resource.Object)
 			if err != nil {
