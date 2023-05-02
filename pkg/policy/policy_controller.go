@@ -24,6 +24,7 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -147,7 +148,7 @@ func (pc *policyController) canBackgroundProcess(p kyvernov1.PolicyInterface) bo
 		}
 	}
 
-	if err := ValidateVariables(p, true); err != nil {
+	if err := policyvalidation.ValidateVariables(p, true); err != nil {
 		logger.V(4).Info("policy cannot be processed in the background")
 		return false
 	}
