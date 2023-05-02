@@ -15,6 +15,16 @@
 {{- if not .Values.upgrade.fromV2 -}}
   {{- $v2 := lookup "apps/v1" "Deployment" (include "kyverno.namespace" .) (include "kyverno.fullname" .) -}}
   {{- if $v2 -}}
-    {{- fail "We detected an earlier version of Kyverno is installed, given the new chart has significant breaking chances we blocked the upgrade. Please review the documentation first and set `upgrade.fromV2: true` once ready." -}}
+    {{- fail (join "\n" (list
+      ""
+      ""
+      "  +--------------------------------------------------------------------------------------------------------------------------------------+"
+      "  | An earlier Helm installation of Kyverno was detected.                                                                                |"
+      "  | Given this chart version has significant breaking changes, the upgrade has been blocked.                                             |"
+      "  | Please review the release notes and caveats section above and then, once prepared, set `upgrade.fromV2`: true once ready to proceed. |"
+      "  +--------------------------------------------------------------------------------------------------------------------------------------+"
+      ""
+      ))
+    -}}
   {{- end -}}
 {{- end -}}
