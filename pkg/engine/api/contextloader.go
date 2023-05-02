@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -52,23 +53,54 @@ func (l *contextLoader) Load(
 	jsonContext enginecontext.Interface,
 ) error {
 	for _, entry := range contextEntries {
-		if entry.ConfigMap != nil {
+		deferredLoader := l.newDeferredLoader(ctx, jp, client, rclient, entry, jsonContext)
+		if deferredLoader == nil {
+			return fmt.Errorf("invalid context entry %s", entry.Name)
+		}
+
+		jsonContext.AddDeferredLoader(entry.Name, deferredLoader)
+	}
+	return nil
+}
+
+func (l *contextLoader) newDeferredLoader(
+	ctx context.Context,
+	jp jmespath.Interface,
+	client dclient.Interface,
+	rclient registryclient.Client,
+	entry kyvernov1.ContextEntry,
+	jsonContext enginecontext.Interface,
+) enginecontext.DeferredLoader {
+
+	if entry.ConfigMap != nil {
+		return func() error {
 			if err := LoadConfigMap(ctx, l.logger, entry, jsonContext, l.cmResolver); err != nil {
 				return err
 			}
-		} else if entry.APICall != nil {
+			return nil
+		}
+	} else if entry.APICall != nil {
+		return func() error {
 			if err := LoadAPIData(ctx, jp, l.logger, entry, jsonContext, client); err != nil {
 				return err
 			}
-		} else if entry.ImageRegistry != nil {
+			return nil
+		}
+	} else if entry.ImageRegistry != nil {
+		return func() error {
 			if err := LoadImageData(ctx, jp, rclient, l.logger, entry, jsonContext); err != nil {
 				return err
 			}
-		} else if entry.Variable != nil {
+			return nil
+		}
+	} else if entry.Variable != nil {
+		return func() error {
 			if err := LoadVariable(l.logger, jp, entry, jsonContext); err != nil {
 				return err
 			}
+			return nil
 		}
 	}
+
 	return nil
 }

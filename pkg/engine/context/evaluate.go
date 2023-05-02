@@ -10,6 +10,10 @@ import (
 
 // Query the JSON context with JMESPATH search path
 func (ctx *context) Query(query string) (interface{}, error) {
+	if err := ctx.loadDeferred(query); err != nil {
+		return nil, err
+	}
+
 	query = strings.TrimSpace(query)
 	if query == "" {
 		return nil, fmt.Errorf("invalid query (nil)")
@@ -32,6 +36,23 @@ func (ctx *context) Query(query string) (interface{}, error) {
 		return nil, fmt.Errorf("JMESPath query failed: %w", err)
 	}
 	return result, nil
+}
+
+func (ctx *context) loadDeferred(query string) error {
+	ctx.deferred.mutex.RLock()
+	defer ctx.deferred.mutex.RUnlock()
+
+	for name, deferredLoader := range ctx.deferred.loaders {
+		if strings.Contains(query, name) {
+			if err := deferredLoader(); err != nil {
+				return err
+			}
+
+			delete(ctx.deferred.loaders, name)
+		}
+	}
+
+	return nil
 }
 
 func (ctx *context) HasChanged(jmespath string) (bool, error) {
