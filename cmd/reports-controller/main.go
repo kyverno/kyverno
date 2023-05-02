@@ -204,6 +204,7 @@ func main() {
 	// THIS IS AN UGLY FIX
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
+	setup.Logger.Info("background scan interval", "duration", backgroundScanInterval.String())
 	// informer factories
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 	eventGenerator := event.NewEventGenerator(
