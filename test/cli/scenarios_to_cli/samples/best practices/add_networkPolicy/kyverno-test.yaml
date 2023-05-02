@@ -1,0 +1,11 @@
+name: add-networkpolicy
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: add-networkpolicy
+    rule: default-deny-ingress
+    resource: devtest
+    kind: Namespace
+    result: pass

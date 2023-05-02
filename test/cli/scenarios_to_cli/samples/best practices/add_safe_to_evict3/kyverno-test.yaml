@@ -1,0 +1,16 @@
+name: add-safe-to-evict
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: add-safe-to-evict
+    rule: annotate-empty-dir
+    resource: pod-with-default-volume
+    kind: Pod
+    result: skip
+  - policy: add-safe-to-evict
+    rule: annotate-host-path
+    resource: pod-with-default-volume
+    kind: Pod
+    result: skip

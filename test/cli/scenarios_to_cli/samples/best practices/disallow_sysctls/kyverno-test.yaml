@@ -1,0 +1,11 @@
+name: disallow-sysctls
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: disallow-sysctls
+    rule: validate-sysctls
+    resource: nginx
+    kind: Pod
+    result: fail

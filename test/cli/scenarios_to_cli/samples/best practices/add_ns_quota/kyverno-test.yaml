@@ -1,0 +1,16 @@
+name: add-ns-quota
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: add-ns-quota
+    rule: generate-resourcequota
+    resource: test-namespace-quota
+    kind: Namespace
+    result: pass
+  - policy: add-ns-quota
+    rule: generate-limitrange
+    resource: test-namespace-quota
+    kind: Namespace
+    result: pass

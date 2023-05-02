@@ -1,0 +1,16 @@
+name: disallow-privileged
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: disallow-privileged
+    rule: validate-privileged
+    resource: check-privileged-cfg
+    kind: Pod
+    result: fail
+  - policy: disallow-privileged
+    rule: validate-allowPrivilegeEscalation
+    resource: check-privileged-cfg
+    kind: Pod
+    result: fail

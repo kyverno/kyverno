@@ -1,0 +1,11 @@
+name: disallow-bind-mounts
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: disallow-bind-mounts
+    rule: validate-hostPath
+    resource: image-with-hostpath
+    kind: Pod
+    result: pass

@@ -1,0 +1,11 @@
+name: validate-disallow-default-serviceaccount
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: validate-disallow-default-serviceaccount
+    rule: prevent-mounting-default-serviceaccount
+    resource: pod-with-default-sa
+    kind: Pod
+    result: fail

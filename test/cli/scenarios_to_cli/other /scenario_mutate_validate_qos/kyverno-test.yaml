@@ -1,0 +1,16 @@
+name: policy-qos
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: policy-qos
+    rule: add-memory-limit
+    resource: qos-demo
+    kind: Deployment
+    result: pass
+  - policy: policy-qos
+    rule: check-cpu-memory-limits
+    resource: qos-demo
+    kind: Deployment
+    result: pass

@@ -1,0 +1,11 @@
+name: disallow-host-pid-ipc
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: disallow-host-pid-ipc
+    rule: validate-hostPID-hostIPC
+    resource: nginx-with-hostpid
+    kind: Pod
+    result: fail
