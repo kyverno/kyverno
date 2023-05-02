@@ -85,7 +85,7 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []policyre
 	key, _ := cache.MetaNamespaceKeyFunc(response.Policy)
 	var results []policyreportv1alpha2.PolicyReportResult
 	for _, ruleResult := range response.PolicyResponse.Rules {
-		annotations := response.Policy.GetAnnotations()
+		annotations := response.Policy().GetAnnotations()
 		result := policyreportv1alpha2.PolicyReportResult{
 			Source:  kyvernov1.ValueKyvernoApp,
 			Policy:  key,
@@ -157,7 +157,7 @@ func SetResults(report kyvernov1alpha2.ReportInterface, results ...policyreportv
 func SetResponses(report kyvernov1alpha2.ReportInterface, engineResponses ...engineapi.EngineResponse) {
 	var ruleResults []policyreportv1alpha2.PolicyReportResult
 	for _, result := range engineResponses {
-		SetPolicyLabel(report, result.Policy)
+		SetPolicyLabel(report, result.Policy())
 		ruleResults = append(ruleResults, EngineResponseToReportResults(result)...)
 	}
 	SetResults(report, ruleResults...)

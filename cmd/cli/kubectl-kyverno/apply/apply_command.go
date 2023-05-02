@@ -441,7 +441,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 			}
 			for _, response := range ers {
 				if !response.IsEmpty() {
-					for _, rule := range autogen.ComputeRules(response.Policy) {
+					for _, rule := range autogen.ComputeRules(response.Policy()) {
 						if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
 							ruleFoundInEngineResponse := false
 							for _, valResponseRule := range response.PolicyResponse.Rules {
