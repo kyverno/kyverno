@@ -82,7 +82,7 @@ func severityFromString(severity string) policyreportv1alpha2.PolicySeverity {
 }
 
 func EngineResponseToReportResults(response engineapi.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
-	key, _ := cache.MetaNamespaceKeyFunc(response.Policy)
+	key, _ := cache.MetaNamespaceKeyFunc(response.Policy())
 	var results []policyreportv1alpha2.PolicyReportResult
 	for _, ruleResult := range response.PolicyResponse.Rules {
 		annotations := response.Policy().GetAnnotations()
