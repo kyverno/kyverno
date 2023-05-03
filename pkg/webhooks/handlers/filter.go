@@ -33,6 +33,7 @@ func filtered(ctx context.Context, logger logr.Logger, request AdmissionRequest,
 
 func (inner AdmissionHandler) withFilter(c config.Configuration) AdmissionHandler {
 	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
+		// filter by exclusions/inclusions
 		if c.IsExcluded(request.UserInfo.Username, request.UserInfo.Groups, request.Roles, request.ClusterRoles) {
 			return filtered(ctx, logger, request, "admission request filtered")
 		}

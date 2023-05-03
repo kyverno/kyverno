@@ -189,7 +189,6 @@ func (c match) matches(username string, groups []string, roles []string, cluster
 	for _, pattern := range c.usernames {
 		if wildcard.Match(pattern, username) {
 			return true
-			// return filtered(ctx, logger, request, "admission request filtered because user is excluded", "config.exlude.usernames", excludeUsernames)
 		}
 	}
 	// filter by groups
@@ -197,7 +196,6 @@ func (c match) matches(username string, groups []string, roles []string, cluster
 		for _, candidate := range groups {
 			if wildcard.Match(pattern, candidate) {
 				return true
-				// return filtered(ctx, logger, request, "admission request filtered because group is excluded", "config.exlude.groups", excludeGroups)
 			}
 		}
 	}
@@ -206,7 +204,6 @@ func (c match) matches(username string, groups []string, roles []string, cluster
 		for _, candidate := range roles {
 			if wildcard.Match(pattern, candidate) {
 				return true
-				// return filtered(ctx, logger, request, "admission request filtered because role is excluded", "config.exlude.roles", excludeRoles)
 			}
 		}
 	}
@@ -215,7 +212,6 @@ func (c match) matches(username string, groups []string, roles []string, cluster
 		for _, candidate := range clusterroles {
 			if wildcard.Match(pattern, candidate) {
 				return true
-				// return filtered(ctx, logger, request, "admission request filtered because role is excluded", "config.exlude.cluster-roles", excludeClusterRoles)
 			}
 		}
 	}

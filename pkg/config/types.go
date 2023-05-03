@@ -25,12 +25,20 @@ func parseWebhooks(in string) ([]WebhookConfig, error) {
 func parseExclusions(in string) (exclusions, inclusions []string) {
 	for _, in := range strings.Split(in, ",") {
 		in := strings.TrimSpace(in)
-		if in != "" {
-			if strings.HasPrefix(in, "!") {
-				inclusions = append(inclusions, in[1:])
-			} else {
-				exclusions = append(exclusions, in)
+		if in == "" {
+			continue
+		}
+		inclusion := strings.HasPrefix(in, "!")
+		if inclusion {
+			in = strings.TrimSpace(in[1:])
+			if in == "" {
+				continue
 			}
+		}
+		if inclusion {
+			inclusions = append(inclusions, in)
+		} else {
+			exclusions = append(exclusions, in)
 		}
 	}
 	return

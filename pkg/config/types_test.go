@@ -35,6 +35,21 @@ func Test_parseExclusions(t *testing.T) {
 	}, {
 		args:           args{"abc ,def "},
 		wantExclusions: []string{"abc", "def"},
+	}, {
+		args:           args{"abc,!def"},
+		wantExclusions: []string{"abc"},
+		wantInclusions: []string{"def"},
+	}, {
+		args:           args{"!def,abc"},
+		wantExclusions: []string{"abc"},
+		wantInclusions: []string{"def"},
+	}, {
+		args:           args{"!,abc"},
+		wantExclusions: []string{"abc"},
+	}, {
+		args:           args{"  ! def ,abc"},
+		wantExclusions: []string{"abc"},
+		wantInclusions: []string{"def"},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
