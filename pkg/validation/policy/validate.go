@@ -471,8 +471,8 @@ func ruleForbiddenSectionsHaveVariables(rule *kyvernov1.Rule) error {
 
 // hasVariables - check for variables in the policy
 func hasVariables(policy kyvernov1.PolicyInterface) [][]string {
-	policy = cleanup(policy)
-	policyRaw, _ := json.Marshal(policy)
+	polCopy := cleanup(policy.CreateDeepCopy())
+	policyRaw, _ := json.Marshal(polCopy)
 	matches := regex.RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
 	return matches
 }
