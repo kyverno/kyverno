@@ -6,7 +6,6 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
-	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	matched "github.com/kyverno/kyverno/pkg/utils/match"
 	"k8s.io/apimachinery/pkg/labels"
@@ -43,7 +42,6 @@ func matchesException(
 	selector engineapi.PolicyExceptionSelector,
 	policyContext engineapi.PolicyContext,
 	rule kyvernov1.Rule,
-	cfg config.Configuration,
 ) (*kyvernov2alpha1.PolicyException, error) {
 	candidates, err := findExceptions(selector, policyContext.Policy(), rule.Name)
 	if err != nil {
@@ -56,7 +54,6 @@ func matchesException(
 			candidate.Spec.Match,
 			policyContext.NamespaceLabels(),
 			policyContext.AdmissionInfo(),
-			cfg.GetExcludedGroups(),
 			gvk,
 			subresource,
 		)
@@ -77,7 +74,7 @@ func (e *engine) hasPolicyExceptions(
 	rule kyvernov1.Rule,
 ) *engineapi.RuleResponse {
 	// if matches, check if there is a corresponding policy exception
-	exception, err := matchesException(e.exceptionSelector, ctx, rule, e.configuration)
+	exception, err := matchesException(e.exceptionSelector, ctx, rule)
 	if err != nil {
 		logger.Error(err, "failed to match exceptions")
 		return nil
