@@ -12,7 +12,6 @@ require (
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20230304212654-82a0ddb27589
 	github.com/cyphar/filepath-securejoin v0.2.3
 	github.com/distribution/distribution v2.8.1+incompatible
-	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/evanphx/json-patch/v5 v5.6.0
 	github.com/fatih/color v1.15.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
@@ -70,7 +69,7 @@ require (
 	k8s.io/apimachinery v0.27.1
 	k8s.io/cli-runtime v0.27.1
 	k8s.io/client-go v0.27.1
-	k8s.io/klog/v2 v2.90.1
+	k8s.io/klog/v2 v2.100.1
 	k8s.io/kube-aggregator v0.27.1
 	k8s.io/kube-openapi v0.0.0-20230327201221-f5883ff37f0c
 	k8s.io/pod-security-admission v0.27.1
@@ -157,6 +156,7 @@ require (
 	github.com/emicklei/go-restful/v3 v3.10.2 // indirect
 	github.com/emicklei/proto v1.11.1 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
+	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.4.0 // indirect

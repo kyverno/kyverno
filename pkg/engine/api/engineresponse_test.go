@@ -41,10 +41,9 @@ func TestEngineResponse_IsEmpty(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			er := EngineResponse{
 				PatchedResource: tt.fields.PatchedResource,
-				Policy:          tt.fields.Policy,
 				PolicyResponse:  tt.fields.PolicyResponse,
 				namespaceLabels: tt.fields.namespaceLabels,
-			}
+			}.WithPolicy(tt.fields.Policy)
 			if got := er.IsEmpty(); got != tt.want {
 				t.Errorf("EngineResponse.IsEmpty() = %v, want %v", got, tt.want)
 			}
@@ -84,10 +83,9 @@ func TestEngineResponse_IsNil(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			er := EngineResponse{
 				PatchedResource: tt.fields.PatchedResource,
-				Policy:          tt.fields.Policy,
 				PolicyResponse:  tt.fields.PolicyResponse,
 				namespaceLabels: tt.fields.namespaceLabels,
-			}
+			}.WithPolicy(tt.fields.Policy)
 			if got := er.IsNil(); got != tt.want {
 				t.Errorf("EngineResponse.IsNil() = %v, want %v", got, tt.want)
 			}
@@ -172,10 +170,9 @@ func TestEngineResponse_IsOneOf(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			er := EngineResponse{
 				PatchedResource: tt.fields.PatchedResource,
-				Policy:          tt.fields.Policy,
 				PolicyResponse:  tt.fields.PolicyResponse,
 				namespaceLabels: tt.fields.namespaceLabels,
-			}
+			}.WithPolicy(tt.fields.Policy)
 			if got := er.IsOneOf(tt.args.status...); got != tt.want {
 				t.Errorf("EngineResponse.IsOneOf() = %v, want %v", got, tt.want)
 			}
@@ -246,10 +243,9 @@ func TestEngineResponse_IsSuccessful(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			er := EngineResponse{
 				PatchedResource: tt.fields.PatchedResource,
-				Policy:          tt.fields.Policy,
 				PolicyResponse:  tt.fields.PolicyResponse,
 				namespaceLabels: tt.fields.namespaceLabels,
-			}
+			}.WithPolicy(tt.fields.Policy)
 			if got := er.IsSuccessful(); got != tt.want {
 				t.Errorf("EngineResponse.IsSuccessful() = %v, want %v", got, tt.want)
 			}
@@ -320,10 +316,9 @@ func TestEngineResponse_IsSkipped(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			er := EngineResponse{
 				PatchedResource: tt.fields.PatchedResource,
-				Policy:          tt.fields.Policy,
 				PolicyResponse:  tt.fields.PolicyResponse,
 				namespaceLabels: tt.fields.namespaceLabels,
-			}
+			}.WithPolicy(tt.fields.Policy)
 			if got := er.IsSkipped(); got != tt.want {
 				t.Errorf("EngineResponse.IsSkipped() = %v, want %v", got, tt.want)
 			}
@@ -394,10 +389,9 @@ func TestEngineResponse_IsFailed(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			er := EngineResponse{
 				PatchedResource: tt.fields.PatchedResource,
-				Policy:          tt.fields.Policy,
 				PolicyResponse:  tt.fields.PolicyResponse,
 				namespaceLabels: tt.fields.namespaceLabels,
-			}
+			}.WithPolicy(tt.fields.Policy)
 			if got := er.IsFailed(); got != tt.want {
 				t.Errorf("EngineResponse.IsFailed() = %v, want %v", got, tt.want)
 			}
@@ -468,10 +462,9 @@ func TestEngineResponse_IsError(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			er := EngineResponse{
 				PatchedResource: tt.fields.PatchedResource,
-				Policy:          tt.fields.Policy,
 				PolicyResponse:  tt.fields.PolicyResponse,
 				namespaceLabels: tt.fields.namespaceLabels,
-			}
+			}.WithPolicy(tt.fields.Policy)
 			if got := er.IsError(); got != tt.want {
 				t.Errorf("EngineResponse.IsError() = %v, want %v", got, tt.want)
 			}
@@ -558,10 +551,9 @@ func TestEngineResponse_GetFailedRules(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			er := EngineResponse{
 				PatchedResource: tt.fields.PatchedResource,
-				Policy:          tt.fields.Policy,
 				PolicyResponse:  tt.fields.PolicyResponse,
 				namespaceLabels: tt.fields.namespaceLabels,
-			}
+			}.WithPolicy(tt.fields.Policy)
 			if got := er.GetFailedRules(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("EngineResponse.GetFailedRules() = %v, want %v", got, tt.want)
 			}
@@ -675,10 +667,9 @@ func TestEngineResponse_GetSuccessRules(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			er := EngineResponse{
 				PatchedResource: tt.fields.PatchedResource,
-				Policy:          tt.fields.Policy,
 				PolicyResponse:  tt.fields.PolicyResponse,
 				namespaceLabels: tt.fields.namespaceLabels,
-			}
+			}.WithPolicy(tt.fields.Policy)
 			if got := er.GetSuccessRules(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("EngineResponse.GetSuccessRules() = %v, want %v", got, tt.want)
 			}
@@ -904,12 +895,11 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			er := &EngineResponse{
+			er := EngineResponse{
 				PatchedResource: tt.fields.PatchedResource,
-				Policy:          tt.fields.Policy,
 				PolicyResponse:  tt.fields.PolicyResponse,
 				namespaceLabels: tt.fields.namespaceLabels,
-			}
+			}.WithPolicy(tt.fields.Policy)
 			if got := er.GetValidationFailureAction(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("EngineResponse.GetValidationFailureAction() = %v, want %v", got, tt.want)
 			}
@@ -972,10 +962,9 @@ func TestEngineResponse_GetPatches(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			er := EngineResponse{
 				PatchedResource: tt.fields.PatchedResource,
-				Policy:          tt.fields.Policy,
 				PolicyResponse:  tt.fields.PolicyResponse,
 				namespaceLabels: tt.fields.namespaceLabels,
-			}
+			}.WithPolicy(tt.fields.Policy)
 			if got := er.GetPatches(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("EngineResponse.GetPatches() = %v, want %v", got, tt.want)
 			}
@@ -1031,10 +1020,9 @@ func TestEngineResponse_GetResourceSpec(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			er := EngineResponse{
 				PatchedResource: tt.fields.PatchedResource,
-				Policy:          tt.fields.Policy,
 				PolicyResponse:  tt.fields.PolicyResponse,
 				namespaceLabels: tt.fields.namespaceLabels,
-			}
+			}.WithPolicy(tt.fields.Policy)
 			if got := er.GetResourceSpec(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("EngineResponse.GetResourceSpec() = %v, want %v", got, tt.want)
 			}

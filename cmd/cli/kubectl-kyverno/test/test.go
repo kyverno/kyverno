@@ -22,7 +22,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openapi"
-	policy2 "github.com/kyverno/kyverno/pkg/policy"
+	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -179,7 +179,7 @@ func applyPoliciesFromPath(
 	}
 
 	for _, policy := range policies {
-		_, err := policy2.Validate(policy, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
+		_, err := policyvalidation.Validate(policy, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
 		if err != nil {
 			log.Log.Error(err, "skipping invalid policy", "name", policy.GetName())
 			continue
@@ -304,11 +304,11 @@ func buildPolicyResults(
 	results := map[string]policyreportv1alpha2.PolicyReportResult{}
 
 	for _, resp := range engineResponses {
-		policyName := resp.Policy.GetName()
+		policyName := resp.Policy().GetName()
 		resourceName := resp.Resource.GetName()
 		resourceKind := resp.Resource.GetKind()
 		resourceNamespace := resp.Resource.GetNamespace()
-		policyNamespace := resp.Policy.GetNamespace()
+		policyNamespace := resp.Policy().GetNamespace()
 
 		var rules []string
 		for _, rule := range resp.PolicyResponse.Rules {
@@ -500,7 +500,7 @@ func buildPolicyResults(
 						continue
 					}
 
-					ann := resp.Policy.GetAnnotations()
+					ann := resp.Policy().GetAnnotations()
 					if rule.Status() == engineapi.RuleStatusSkip {
 						result.Result = policyreportv1alpha2.StatusSkip
 					} else if rule.Status() == engineapi.RuleStatusError {

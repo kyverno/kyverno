@@ -417,10 +417,11 @@ You can run Kyverno locally or in your IDE of choice with a few steps:
 1. To run Kyverno locally against the remote cluster you will need to provide `--kubeconfig` and `--serverIP` arguments:
     - `--kubeconfig` must point to your kubeconfig file (usually `~/.kube/config`)
     - `--serverIP` must be set to `<local ip>:9443` (`<local ip>` is the private ip adress of your local machine)
+    - `--backgroundServiceAccountName` must be set to `system:serviceaccount:kyverno:kyverno-background-controller`
 
 Once you are ready with the steps above, Kyverno can be started locally with:
 ```console
-go run ./cmd/kyverno/ --kubeconfig ~/.kube/config --serverIP=<local-ip>:9443
+go run ./cmd/kyverno/ --kubeconfig ~/.kube/config --serverIP=<local-ip>:9443 --backgroundServiceAccountName=system:serviceaccount:kyverno:kyverno-background-controller
 ```
 
 You will need to adapt those steps to run debug sessions in your IDE of choice, but the general idea remains the same.
