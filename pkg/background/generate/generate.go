@@ -230,7 +230,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 		if r.Status() != engineapi.RuleStatusPass {
 			logger.V(4).Info("querying all update requests")
 			selector := labels.SelectorFromSet(labels.Set(map[string]string{
-				kyvernov1beta1.URGeneratePolicyLabel:       engineResponse.Policy.GetName(),
+				kyvernov1beta1.URGeneratePolicyLabel:       engineResponse.Policy().GetName(),
 				kyvernov1beta1.URGenerateResourceNameLabel: engineResponse.Resource.GetName(),
 				kyvernov1beta1.URGenerateResourceKindLabel: engineResponse.Resource.GetKind(),
 				kyvernov1beta1.URGenerateResourceNSLabel:   engineResponse.Resource.GetNamespace(),
