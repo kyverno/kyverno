@@ -46,7 +46,7 @@ func (g *Generate) Validate(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("only one of clone or cloneList can be specified")
 	}
 
-	kind, name, namespace := rule.Kind, rule.Name, rule.Namespace
+	apiVersion, kind, name, namespace := rule.ResourceSpec.GetAPIVersion(), rule.ResourceSpec.GetKind(), rule.ResourceSpec.GetName(), rule.ResourceSpec.GetNamespace()
 
 	if len(rule.CloneList.Kinds) == 0 {
 		if name == "" {
@@ -54,6 +54,9 @@ func (g *Generate) Validate(ctx context.Context) (string, error) {
 		}
 		if kind == "" {
 			return "kind", fmt.Errorf("kind cannot be empty")
+		}
+		if apiVersion == "" {
+			return "apiVersion", fmt.Errorf("apiVersion cannot be empty")
 		}
 	} else {
 		if name != "" {

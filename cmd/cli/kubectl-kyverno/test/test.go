@@ -304,11 +304,11 @@ func buildPolicyResults(
 	results := map[string]policyreportv1alpha2.PolicyReportResult{}
 
 	for _, resp := range engineResponses {
-		policyName := resp.Policy.GetName()
+		policyName := resp.Policy().GetName()
 		resourceName := resp.Resource.GetName()
 		resourceKind := resp.Resource.GetKind()
 		resourceNamespace := resp.Resource.GetNamespace()
-		policyNamespace := resp.Policy.GetNamespace()
+		policyNamespace := resp.Policy().GetNamespace()
 
 		var rules []string
 		for _, rule := range resp.PolicyResponse.Rules {
@@ -500,7 +500,7 @@ func buildPolicyResults(
 						continue
 					}
 
-					ann := resp.Policy.GetAnnotations()
+					ann := resp.Policy().GetAnnotations()
 					if rule.Status() == engineapi.RuleStatusSkip {
 						result.Result = policyreportv1alpha2.StatusSkip
 					} else if rule.Status() == engineapi.RuleStatusError {
