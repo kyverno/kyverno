@@ -21,7 +21,7 @@ func (e *engine) reportMetrics(
 	if e.resultCounter == nil && e.durationHistogram == nil {
 		return
 	}
-	policy := response.Policy
+	policy := response.Policy()
 	if name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy); err != nil {
 		logger.Error(err, "failed to get policy infos for metrics reporting")
 	} else {
