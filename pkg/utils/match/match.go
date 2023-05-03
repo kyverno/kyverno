@@ -107,9 +107,6 @@ func checkUserInfo(
 	admissionInfo kyvernov1beta1.RequestInfo,
 ) []error {
 	var errs []error
-	var excludeKeys []string
-	excludeKeys = append(excludeKeys, admissionInfo.AdmissionUserInfo.Groups...)
-	excludeKeys = append(excludeKeys, admissionInfo.AdmissionUserInfo.Username)
 	if len(userInfo.Roles) > 0 {
 		if !datautils.SliceContains(userInfo.Roles, admissionInfo.Roles...) {
 			errs = append(errs, fmt.Errorf("user info does not match roles for the given conditionBlock"))
