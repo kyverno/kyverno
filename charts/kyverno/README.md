@@ -210,7 +210,7 @@ The chart values are organised per component.
 | config.enableDefaultRegistryMutation | bool | `true` | Enable registry mutation for container images. Enabled by default. |
 | config.defaultRegistry | string | `"docker.io"` | The registry hostname used for the image mutation. |
 | config.excludeGroups | list | `["system:serviceaccounts:kube-system","system:nodes"]` | Exclude groups |
-| config.excludeUsernames | list | `[]` | Exclude usernames |
+| config.excludeUsernames | list | `["!system:kube-scheduler"]` | Exclude usernames |
 | config.excludeRoles | list | `[]` | Exclude roles |
 | config.excludeClusterRoles | list | `[]` | Exclude roles |
 | config.generateSuccessEvents | bool | `false` | Generate success events. |
