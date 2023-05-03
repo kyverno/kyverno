@@ -14,6 +14,7 @@ spec:
     generate:
         kind: Role
         name: ns-role
+        apiVersion: rbac.authorization.k8s.io/v1
         namespace: "{{request.object.metadata.name}}"
         synchronize: true
         data:
