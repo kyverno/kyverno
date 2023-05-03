@@ -22,15 +22,18 @@ func parseWebhooks(in string) ([]WebhookConfig, error) {
 	return webhookCfgs, nil
 }
 
-func parseStrings(in string) []string {
-	var out []string
+func parseExclusions(in string) (exclusions, inclusions []string) {
 	for _, in := range strings.Split(in, ",") {
 		in := strings.TrimSpace(in)
 		if in != "" {
-			out = append(out, in)
+			if strings.HasPrefix(in, "!") {
+				inclusions = append(inclusions, in[1:])
+			} else {
+				exclusions = append(exclusions, in)
+			}
 		}
 	}
-	return out
+	return
 }
 
 func parseWebhookAnnotations(in string) (map[string]string, error) {
