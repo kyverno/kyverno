@@ -173,7 +173,6 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 						// TODO(eddycharly): we don't have user info here, we should check that
 						// we don't have user conditions in the policy rule
 						kyvernov1beta1.RequestInfo{},
-						nil,
 						resource.GroupVersionKind(),
 						"",
 					)
@@ -189,7 +188,6 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 							// TODO(eddycharly): we don't have user info here, we should check that
 							// we don't have user conditions in the policy rule
 							kyvernov1beta1.RequestInfo{},
-							nil,
 							resource.GroupVersionKind(),
 							"",
 						)
