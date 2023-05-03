@@ -148,17 +148,8 @@ type Configuration interface {
 	GetEnableDefaultRegistryMutation() bool
 	// IsExcluded checks exlusions/inclusions to determine if the admission request should be excluded or not
 	IsExcluded(username string, groups []string, roles []string, clusterroles []string) bool
-
 	// ToFilter checks if the given resource is set to be filtered in the configuration
 	ToFilter(kind schema.GroupVersionKind, subresource, namespace, name string) bool
-	// GetExcludedGroups return excluded groups
-	GetExcludedGroups() []string
-	// // GetExcludedUsernames return excluded usernames
-	// GetExcludedUsernames() []string
-	// // GetExcludedRoles return excluded roles
-	// GetExcludedRoles() []string
-	// // GetExcludedClusterRoles return excluded roles
-	// GetExcludedClusterRoles() []string
 	// GetGenerateSuccessEvents return if should generate success events
 	GetGenerateSuccessEvents() bool
 	// GetWebhooks returns the webhook configs
@@ -284,30 +275,6 @@ func (cd *configuration) GetEnableDefaultRegistryMutation() bool {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
 	return cd.enableDefaultRegistryMutation
-}
-
-// func (cd *configuration) GetExcludedUsernames() []string {
-// 	cd.mux.RLock()
-// 	defer cd.mux.RUnlock()
-// 	return cd.excludedUsernames
-// }
-
-// func (cd *configuration) GetExcludedRoles() []string {
-// 	cd.mux.RLock()
-// 	defer cd.mux.RUnlock()
-// 	return cd.excludedRoles
-// }
-
-// func (cd *configuration) GetExcludedClusterRoles() []string {
-// 	cd.mux.RLock()
-// 	defer cd.mux.RUnlock()
-// 	return cd.excludedClusterRoles
-// }
-
-func (cd *configuration) GetExcludedGroups() []string {
-	cd.mux.RLock()
-	defer cd.mux.RUnlock()
-	return cd.exclusions.groups
 }
 
 func (cd *configuration) GetGenerateSuccessEvents() bool {
