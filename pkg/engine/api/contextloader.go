@@ -71,7 +71,6 @@ func (l *contextLoader) newDeferredLoader(
 	entry kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
 ) enginecontext.DeferredLoader {
-
 	if entry.ConfigMap != nil {
 		return func() error {
 			if err := LoadConfigMap(ctx, l.logger, entry, jsonContext, l.cmResolver); err != nil {
