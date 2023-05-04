@@ -65,6 +65,7 @@ var (
 	semverCompare          = "semver_compare"
 	parseJson              = "parse_json"
 	parseYAML              = "parse_yaml"
+	lookup                 = "lookup"
 	items                  = "items"
 	objectFromLists        = "object_from_lists"
 	random                 = "random"
@@ -404,6 +405,17 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		},
 		ReturnType: []jpType{jpAny},
 		Note:       "decodes a valid YAML encoded string to the appropriate type provided it can be represented as JSON",
+	}, {
+		FunctionEntry: gojmespath.FunctionEntry{
+			Name: lookup,
+			Arguments: []argSpec{
+				{Types: []jpType{jpObject, jpArray}},
+				{Types: []jpType{jpString, jpNumber}},
+			},
+			Handler: jpLookup,
+		},
+		ReturnType: []jpType{jpAny},
+		Note:       "returns the value corresponding to the given key/index in the given object/array",
 	}, {
 		FunctionEntry: gojmespath.FunctionEntry{
 			Name: items,
@@ -955,6 +967,35 @@ func jpParseYAML(arguments []interface{}) (interface{}, error) {
 	var output interface{}
 	err = json.Unmarshal(jsonData, &output)
 	return output, err
+}
+
+func jpLookup(arguments []interface{}) (interface{}, error) {
+	switch input := arguments[0].(type) {
+	case map[string]interface{}:
+		key, ok := arguments[1].(string)
+		if !ok {
+			return nil, formatError(invalidArgumentTypeError, lookup, 2, "String")
+		}
+		return input[key], nil
+	case []interface{}:
+		key, ok := arguments[1].(float64)
+		if !ok {
+			return nil, formatError(invalidArgumentTypeError, lookup, 2, "Number")
+		}
+		keyInt, err := intNumber(key)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"JMESPath function '%s': argument #2: %s",
+				lookup, err.Error(),
+			)
+		}
+		if keyInt < 0 || keyInt > len(input)-1 {
+			return nil, nil
+		}
+		return input[keyInt], nil
+	default:
+		return nil, formatError(invalidArgumentTypeError, lookup, 1, "Object or Array")
+	}
 }
 
 func jpItems(arguments []interface{}) (interface{}, error) {
