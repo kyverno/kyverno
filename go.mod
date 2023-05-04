@@ -36,7 +36,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.0-rc2
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.15.0
+	github.com/prometheus/client_golang v1.15.1
 	github.com/robfig/cron v1.2.0
 	github.com/sigstore/cosign v1.13.1
 	github.com/sigstore/k8s-manifest-sigstore v0.4.4
