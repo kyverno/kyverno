@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -23,6 +24,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	kubeinformers "k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+)
+
+const (
+	resyncPeriod = 15 * time.Minute
 )
 
 type ImageVerifier struct {
@@ -582,4 +589,36 @@ func (iv *ImageVerifier) handleMutateDigest(ctx context.Context, digest string, 
 	}
 	iv.logger.V(4).Info("adding digest patch", "image", imageInfo.String(), "patch", string(patch))
 	return patch, digest, nil
+}
+
+func (iv *ImageVerifier) setupRegistryClient(ctx context.Context, client kubernetes.Interface, imageVerify kyvernov1.ImageVerification) (registryclient.Client, error) {
+	iv.logger.Info("setup registry client...")
+	registryOptions := []registryclient.Option{
+		registryclient.WithTracing(),
+	}
+	secrets, err := getSecretsFromImageVerification(imageVerify)
+	if err != nil {
+		return nil, err
+	}
+	if len(secrets) > 0 {
+		factory := kubeinformers.NewSharedInformerFactoryWithOptions(client, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
+		secretLister := factory.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
+		registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(ctx, secretLister, secrets...))
+	}
+	if len(imageVerify.ImageRegistryCredentials.Helpers) > 0 {
+		registryOptions = append(registryOptions, registryclient.WithCredentialHelpers(imageVerify.ImageRegistryCredentials.Helpers...)...)
+	}
+	registryClient, err := registryclient.New(registryOptions...)
+	return registryClient, nil
+}
+
+func getSecretsFromImageVerification(imageVerify kyvernov1.ImageVerification) ([]string, error) {
+	var secrets []string
+	if len(imageVerify.ImageRegistryCredentials.Secrets) == 0 {
+		return secrets, errors.New("secrets not found")
+	}
+	for _, secret := range imageVerify.ImageRegistryCredentials.Secrets {
+		secrets = append(secrets, secret.Name)
+	}
+	return secrets, nil
 }

@@ -12,10 +12,16 @@ import (
 // +kubebuilder:validation:Enum=Cosign;NotaryV2
 // +kubebuilder:default=Cosign
 type ImageVerificationType string
+type ImageRegistryCredentialsHelpersType string
 
 const (
 	Cosign   ImageVerificationType = "Cosign"
 	NotaryV2 ImageVerificationType = "NotaryV2"
+
+	AWS   ImageRegistryCredentialsHelpersType = "AWS"
+	Azure ImageRegistryCredentialsHelpersType = "Azure"
+	GCP   ImageRegistryCredentialsHelpersType = "GCP"
+	GHCR  ImageRegistryCredentialsHelpersType = "GHCR"
 )
 
 // ImageVerification validates that images that match the specified pattern
@@ -95,6 +101,10 @@ type ImageVerification struct {
 	// +kubebuilder:default=true
 	// +kubebuilder:validation:Optional
 	Required bool `json:"required" yaml:"required"`
+
+	// ImageRegistryCredentials provides credentials that will be used for authentication with registry
+	// +kubebuilder:validation:Optional
+	ImageRegistryCredentials ImageRegistryCredentials `json:"imageRegistryCredentials,omitempty" yaml:"imageRegistryCredentials,omitempty"`
 }
 
 type AttestorSet struct {
@@ -247,6 +257,23 @@ type Attestation struct {
 	// the attestation check is satisfied as long there are predicates that match the predicate type.
 	// +kubebuilder:validation:Optional
 	Conditions []AnyAllConditions `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+}
+
+type ImageRegistryCredentials struct {
+	// Helpers specifies a list of OCI Registry names, whose authentication helpers are provided
+	// It can be of one of these values: AWS, Azure, GCP, GHCR
+	// +kubebuilder:validation:Optional
+	Helpers []ImageRegistryCredentialsHelpersType `json:"helpers,omitempty" yaml:"helpers,omitempty"`
+
+	// Secrets specifies a list of secrets that are provided for credentials
+	// +kubebuilder:validation:Optional
+	Secrets []Secret `json:"secrets,omitempty" yaml:"secrets,omitempty"`
+}
+
+type Secret struct {
+	// Specifies the name of the secret to be used for getting credentials
+	// +kubebuilder:validation:Optional
+	Name string `json:"helpers,omitempty" yaml:"helpers,omitempty"`
 }
 
 func (iv *ImageVerification) GetType() ImageVerificationType {
