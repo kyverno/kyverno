@@ -894,6 +894,10 @@ dev-lab-policy-reporter: $(HELM) ## Deploy policy-reporter helm chart
 		--repo https://kyverno.github.io/policy-reporter policy-reporter \
 		--values ./scripts/config/dev/policy-reporter.yaml
 
+.PHONY: dev-lab-kwok
+dev-lab-kwok:
+	@kubectl apply -k ./scripts/config/kwok
+
 .PHONY: dev-lab-all
 dev-lab-all: dev-lab-ingress-ngingx dev-lab-metrics-server dev-lab-prometheus dev-lab-loki dev-lab-tempo dev-lab-policy-reporter ## Deploy all dev lab components
 
