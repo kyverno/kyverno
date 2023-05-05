@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod01
+  namespace: add-image-as-env-var
+spec:
+  containers:
+  - env:
+    - name: FOO
+      value: bar
+    - name: K8S_IMAGE
+      value: aiboelckajdow:1.35
+    image: aiboelckajdow:1.35
+    name: busybox
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod02
+  namespace: add-image-as-env-var
+spec:
+  containers:
+  - env:
+    - name: K8S_IMAGE
+      value: bicoapeibsjasjdhb:1.35
+    image: bicoapeibsjasjdhb:1.35
+    name: busybox
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod03
+  namespace: add-image-as-env-var
+spec:
+  containers:
+  - env:
+    - name: COLOR
+      value: red
+    - name: K8S_IMAGE
+      value: pqmbjduzivyyaiv:1.35
+    image: pqmbjduzivyyaiv:1.35
+    name: busybox
+  - env:
+    - name: K8S_IMAGE
+      value: yqkbmzydleyds:1.1.0
+    image: yqkbmzydleyds:1.1.0
+    name: nginx
