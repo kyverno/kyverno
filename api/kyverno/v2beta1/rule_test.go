@@ -534,7 +534,7 @@ func Test_Validate_ClusterPolicy_Generate_Variables(t *testing.T) {
 		var rule *Rule
 		err := json.Unmarshal(testcase.rule, &rule)
 		assert.NilError(t, err, testcase.name)
-		errs := rule.ValidateGenerateVariables(path)
+		errs := rule.ValidateGenerate(path, nil)
 		assert.Equal(t, len(errs) != 0, testcase.shouldFail, testcase.name)
 	}
 }
