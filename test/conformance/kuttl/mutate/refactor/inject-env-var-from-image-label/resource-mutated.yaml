@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: testpodlabel
+  namespace: inject-env-var-from-image-label
+spec:
+  containers:
+  - env:
+    - name: MAINTAINER
+      value: NGINX Docker Maintainers <docker-maint@nginx.com>
+    image: docker.io/nginx@sha256:63b44e8ddb83d5dd8020327c1f40436e37a6fffd3ef2498a6204df23be6e7e94
+    name: nginx

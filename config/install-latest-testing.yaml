@@ -5638,6 +5638,15 @@ spec:
                                   that results in one or more elements to which the
                                   validation logic is applied.
                                 type: string
+                              order:
+                                description: Order defines the iteration order on
+                                  the list. Can be Ascending to iterate from first
+                                  to last element or Descending to iterate in from
+                                  last to first element.
+                                enum:
+                                - Ascending
+                                - Descending
+                                type: string
                               patchStrategicMerge:
                                 description: PatchStrategicMerge is a strategic merge
                                   patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
@@ -9195,6 +9204,15 @@ spec:
                                       that results in one or more elements to which
                                       the validation logic is applied.
                                     type: string
+                                  order:
+                                    description: Order defines the iteration order
+                                      on the list. Can be Ascending to iterate from
+                                      first to last element or Descending to iterate
+                                      in from last to first element.
+                                    enum:
+                                    - Ascending
+                                    - Descending
+                                    type: string
                                   patchStrategicMerge:
                                     description: PatchStrategicMerge is a strategic
                                       merge patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
@@ -12414,6 +12432,15 @@ spec:
                                 description: List specifies a JMESPath expression
                                   that results in one or more elements to which the
                                   validation logic is applied.
+                                type: string
+                              order:
+                                description: Order defines the iteration order on
+                                  the list. Can be Ascending to iterate from first
+                                  to last element or Descending to iterate in from
+                                  last to first element.
+                                enum:
+                                - Ascending
+                                - Descending
                                 type: string
                               patchStrategicMerge:
                                 description: PatchStrategicMerge is a strategic merge
@@ -16099,6 +16126,15 @@ spec:
                                     description: List specifies a JMESPath expression
                                       that results in one or more elements to which
                                       the validation logic is applied.
+                                    type: string
+                                  order:
+                                    description: Order defines the iteration order
+                                      on the list. Can be Ascending to iterate from
+                                      first to last element or Descending to iterate
+                                      in from last to first element.
+                                    enum:
+                                    - Ascending
+                                    - Descending
                                     type: string
                                   patchStrategicMerge:
                                     description: PatchStrategicMerge is a strategic
@@ -19773,6 +19809,15 @@ spec:
                                   that results in one or more elements to which the
                                   validation logic is applied.
                                 type: string
+                              order:
+                                description: Order defines the iteration order on
+                                  the list. Can be Ascending to iterate from first
+                                  to last element or Descending to iterate in from
+                                  last to first element.
+                                enum:
+                                - Ascending
+                                - Descending
+                                type: string
                               patchStrategicMerge:
                                 description: PatchStrategicMerge is a strategic merge
                                   patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
@@ -23331,6 +23376,15 @@ spec:
                                       that results in one or more elements to which
                                       the validation logic is applied.
                                     type: string
+                                  order:
+                                    description: Order defines the iteration order
+                                      on the list. Can be Ascending to iterate from
+                                      first to last element or Descending to iterate
+                                      in from last to first element.
+                                    enum:
+                                    - Ascending
+                                    - Descending
+                                    type: string
                                   patchStrategicMerge:
                                     description: PatchStrategicMerge is a strategic
                                       merge patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
@@ -26551,6 +26605,15 @@ spec:
                                 description: List specifies a JMESPath expression
                                   that results in one or more elements to which the
                                   validation logic is applied.
+                                type: string
+                              order:
+                                description: Order defines the iteration order on
+                                  the list. Can be Ascending to iterate from first
+                                  to last element or Descending to iterate in from
+                                  last to first element.
+                                enum:
+                                - Ascending
+                                - Descending
                                 type: string
                               patchStrategicMerge:
                                 description: PatchStrategicMerge is a strategic merge
@@ -30236,6 +30299,15 @@ spec:
                                     description: List specifies a JMESPath expression
                                       that results in one or more elements to which
                                       the validation logic is applied.
+                                    type: string
+                                  order:
+                                    description: Order defines the iteration order
+                                      on the list. Can be Ascending to iterate from
+                                      first to last element or Descending to iterate
+                                      in from last to first element.
+                                    enum:
+                                    - Ascending
+                                    - Descending
                                     type: string
                                   patchStrategicMerge:
                                     description: PatchStrategicMerge is a strategic
