@@ -380,7 +380,7 @@ func TestEvaluate(t *testing.T) {
 
 	ctx := context.NewContext(jmespath.New(config.NewDefaultConfiguration(false)))
 	for _, tc := range testCases {
-		if Evaluate(logr.Discard(), ctx, tc.Condition) != tc.Result {
+		if val, _ := Evaluate(logr.Discard(), ctx, tc.Condition); val != tc.Result {
 			t.Errorf("%v - expected result to be %v", tc.Condition, tc.Result)
 		}
 	}
@@ -427,7 +427,9 @@ func Test_Eval_Equal_Var_Pass(t *testing.T) {
 
 	err = json.Unmarshal(conditionJSON, &condition)
 	assert.Nil(t, err)
-	assert.True(t, Evaluate(logr.Discard(), ctx, condition))
+
+	val, _ := Evaluate(logr.Discard(), ctx, condition)
+	assert.True(t, val)
 }
 
 func Test_Eval_Equal_Var_Fail(t *testing.T) {
@@ -456,7 +458,7 @@ func Test_Eval_Equal_Var_Fail(t *testing.T) {
 		RawValue: kyverno.ToJSON("temp1"),
 	}
 
-	if Evaluate(logr.Discard(), ctx, condition) {
+	if val, _ := Evaluate(logr.Discard(), ctx, condition); val {
 		t.Error("expected to fail")
 	}
 }
