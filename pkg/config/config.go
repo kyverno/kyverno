@@ -150,14 +150,13 @@ type Configuration interface {
 
 // configuration stores the configuration
 type configuration struct {
-	mux                   sync.RWMutex
 	filters               []filter
 	excludeGroupRole      []string
 	excludeUsername       []string
 	webhooks              []WebhookConfig
 	generateSuccessEvents bool
-	webhookAnnotations            map[string]string
-	mux                           sync.RWMutex
+	webhookAnnotations    map[string]string
+	mux                   sync.RWMutex
 }
 
 // NewDefaultConfiguration ...
@@ -305,11 +304,6 @@ func (cd *configuration) unload() {
 	cd.excludeUsername = []string{}
 	cd.generateSuccessEvents = false
 	cd.webhooks = nil
-<<<<<<< HEAD
 	cd.excludeGroupRole = append(cd.excludeGroupRole, defaultExcludeGroupRole...)
-=======
 	cd.webhookAnnotations = nil
-	cd.excludedGroups = append(cd.excludedGroups, defaultExcludedGroups...)
-	cd.excludedUsernames = append(cd.excludedUsernames, defaultExcludedUsernames...)
->>>>>>> a08d0b874 (feat: add webhook annotations support in config map (#6579))
 }
