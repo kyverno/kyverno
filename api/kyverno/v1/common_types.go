@@ -37,6 +37,17 @@ const (
 	ApplyOne ApplyRulesType = "One"
 )
 
+// ForeachOrder specifies the iteration order in foreach statements.
+// +kubebuilder:validation:Enum=Ascending;Descending
+type ForeachOrder string
+
+const (
+	// Ascending means iterating from first to last element.
+	Ascending ForeachOrder = "Ascending"
+	// Descending means iterating from last to first element.
+	Descending ForeachOrder = "Descending"
+)
+
 // AnyAllConditions consists of conditions wrapped denoting a logical criteria to be fulfilled.
 // AnyConditions get fulfilled when at least one of its sub-conditions passes.
 // AllConditions get fulfilled only when all of its sub-conditions pass.
@@ -301,6 +312,11 @@ type ForEachMutation struct {
 	// List specifies a JMESPath expression that results in one or more elements
 	// to which the validation logic is applied.
 	List string `json:"list,omitempty" yaml:"list,omitempty"`
+
+	// Order defines the iteration order on the list.
+	// Can be Ascending to iterate from first to last element or Descending to iterate in from last to first element.
+	// +optional
+	Order *ForeachOrder `json:"order,omitempty" yaml:"order,omitempty"`
 
 	// Context defines variables and data sources that can be used during rule execution.
 	// +optional
