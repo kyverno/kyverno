@@ -1,0 +1,37 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  labels:
+    app: kuard
+  name: kuard
+  namespace: replace-ingress-hosts
+spec:
+  rules:
+  - host: kuard.new.com
+    http:
+      paths:
+      - backend:
+          service:
+            name: kuard
+            port:
+              number: 8080
+        path: /
+        pathType: ImplementationSpecific
+  - host: hr.new.com
+    http:
+      paths:
+      - backend:
+          service:
+            name: kuard
+            port:
+              number: 8090
+        path: /myhr
+        pathType: ImplementationSpecific
+  tls:
+  - hosts:
+    - kuard.new.com
+    - kuard-foo.new.com
+    secretName: foosecret.new.com
+  - hosts:
+    - hr.new.com
+    secretName: hr.new.com
