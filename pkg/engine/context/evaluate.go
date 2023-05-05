@@ -39,8 +39,8 @@ func (ctx *context) Query(query string) (interface{}, error) {
 }
 
 func (ctx *context) loadDeferred(query string) error {
-	ctx.deferred.mutex.RLock()
-	defer ctx.deferred.mutex.RUnlock()
+	ctx.deferred.mutex.Lock()
+	defer ctx.deferred.mutex.Unlock()
 
 	for name, deferredLoader := range ctx.deferred.loaders {
 		if strings.Contains(query, name) {

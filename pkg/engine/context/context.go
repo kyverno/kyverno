@@ -114,7 +114,7 @@ type context struct {
 }
 
 type deferredLoaders struct {
-	mutex   sync.RWMutex
+	mutex   sync.Mutex
 	loaders map[string]DeferredLoader
 }
 
