@@ -586,7 +586,7 @@ func (g *Generation) Validate(path *field.Path, clusterResources sets.Set[string
 	}
 
 	if err := regex.ObjectHasVariables(newGeneration); err != nil {
-		errs = append(errs, field.Forbidden(path.Child("generate").Child("clone/cloneList"), fmt.Sprint("Generation Rule Clone/CloneList should not have variables")))
+		errs = append(errs, field.Forbidden(path.Child("generate").Child("clone/cloneList"), "Generation Rule Clone/CloneList should not have variables"))
 	}
 
 	return errs
