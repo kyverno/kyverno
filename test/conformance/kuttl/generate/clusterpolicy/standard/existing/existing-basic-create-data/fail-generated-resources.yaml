@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    created-by: kyverno
+  name: default-deny
+  namespace: green-ns
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    created-by: kyverno
+  name: default-deny
+  namespace: winter-ns
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress

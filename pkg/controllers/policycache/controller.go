@@ -124,7 +124,11 @@ func getSubresourceGVKToKindMap(policy kyvernov1.PolicyInterface, client dclient
 			gv, k := kubeutils.GetKindFromGVK(gvk)
 			_, subresource := kubeutils.SplitSubresource(k)
 			if subresource != "" {
-				apiResource, _, _, _ := client.Discovery().FindResource(gv, k)
+				apiResource, _, _, err := client.Discovery().FindResource(gv, k)
+				if err != nil {
+					logger.Error(err, "failed to fetch resource group versions", "gv", gv, "kind", k)
+					continue
+				}
 				subresourceGVKToKind[gvk] = apiResource.Kind
 			}
 		}
