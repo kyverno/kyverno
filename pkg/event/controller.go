@@ -100,11 +100,19 @@ func (gen *generator) Add(infos ...Info) {
 			logger.V(3).Info("skipping event creation for resource without a name", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace)
 			continue
 		}
-		for _, event := range gen.emitEvents {
-			if info.Reason == Reason(event) {
+		// if the `emit-event` flag is not set
+		// directly add the event to the queue
+		if len(gen.emitEvents) == 0 {
+			gen.queue.Add(info)
+		}
+		// flag is set
+		// only add the event when the reason of event is specified in "emit-events" flag
+		for _, eventReason := range gen.emitEvents {
+			if info.Reason == Reason(eventReason) {
+				logger.V(6).Info("creating event", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace, "reason", info.Reason, "event reason", eventReason)
 				gen.queue.Add(info)
 			} else {
-				logger.V(6).Info("skipping policy event applied event creation", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace, "reason", info.Reason)
+				logger.V(6).Info("event reason not matched", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace, "reason", info.Reason, "event reason", eventReason)
 			}
 		}
 	}
