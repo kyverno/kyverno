@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod01
+  namespace: add-emptydir-sizelimit
+spec:
+  automountServiceAccountToken: false
+  containers:
+  - name: busybox
+    image: aiboelckajdow:1.35
+    volumeMounts:
+      - mountPath: /foo
+        name: foo
+  volumes:
+  - name: foo
+    emptyDir: {}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod02
+  namespace: add-emptydir-sizelimit
+spec:
+  automountServiceAccountToken: false
+  containers:
+  - name: busybox
+    image: iopybmeyffhjq:1.35
+    volumeMounts:
+      - mountPath: /foo
+        name: foo
+  volumes:
+  - name: foo
+    emptyDir:
+      sizeLimit: 50Mi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod03
+  namespace: add-emptydir-sizelimit
+spec:
+  automountServiceAccountToken: false
+  containers:
+  - name: busybox
+    image: flfmfioapzhdts:1.35
+    volumeMounts:
+      - mountPath: /foo
+        name: foo
+      - mountPath: /bar
+        name: bar
+  volumes:
+  - name: foo
+    emptyDir:
+      sizeLimit: 50Mi
+  - name: bar
+    emptyDir: {}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod04
+  namespace: add-emptydir-sizelimit
+spec:
+  automountServiceAccountToken: false
+  containers:
+  - name: busybox
+    image: imvplaiskduqnf:1.35
+    volumeMounts:
+      - mountPath: /foo
+        name: foo
+      - mountPath: /bar
+        name: bar
+      - mountPath: /baz
+        name: baz
+  volumes:
+  - name: foo
+    emptyDir:
+      sizeLimit: 50Mi
+  - name: baz
+    hostPath:
+      path: /opt/baz
+  - name: bar
+    emptyDir: {}
