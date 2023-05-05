@@ -2,6 +2,7 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
@@ -9,6 +10,8 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/pod-security-admission/api"
 )
 
@@ -579,10 +582,14 @@ type CloneList struct {
 	Selector *metav1.LabelSelector `json:"selector,omitempty" yaml:"selector,omitempty"`
 }
 
-func (g *Generation) Validate() error {
+func (g *Generation) Validate(path *field.Path, clusterResources sets.Set[string]) (errs field.ErrorList) {
+	if err := g.validateTargetsScope(clusterResources); err != nil {
+		errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
+	}
+
 	generateType, _ := g.GetTypeAndSync()
 	if generateType == Data {
-		return nil
+		return errs
 	}
 
 	newGeneration := Generation{
@@ -594,7 +601,11 @@ func (g *Generation) Validate() error {
 		CloneList: g.CloneList,
 	}
 
-	return regex.ObjectHasVariables(newGeneration)
+	if err := regex.ObjectHasVariables(newGeneration); err != nil {
+		errs = append(errs, field.Forbidden(path.Child("generate").Child("clone/cloneList"), "Generation Rule Clone/CloneList should not have variables"))
+	}
+
+	return errs
 }
 
 func (g *Generation) GetData() apiextensions.JSON {
@@ -603,6 +614,21 @@ func (g *Generation) GetData() apiextensions.JSON {
 
 func (g *Generation) SetData(in apiextensions.JSON) {
 	g.RawData = ToJSON(in)
+}
+
+func (g *Generation) validateTargetsScope(clusterResources sets.Set[string]) error {
+	target := g.ResourceSpec
+	if clusterResources.Has(target.GetKind()) {
+		if target.GetNamespace() != "" {
+			return fmt.Errorf("the target namespace must not be set for cluster-wide resource: %v", target.GetKind())
+		}
+	} else {
+		if target.GetNamespace() == "" {
+			return fmt.Errorf("the target namespace must be set for namespaced resource: %v", target.GetKind())
+		}
+	}
+
+	return nil
 }
 
 type GenerateType string
