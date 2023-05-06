@@ -1,0 +1,10 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+- script: |
+    if kubectl apply -f resource-fail.yaml 2>&1 | grep -q 'Error from server' 
+    then 
+        exit 0
+    else 
+        exit 1
+    fi
