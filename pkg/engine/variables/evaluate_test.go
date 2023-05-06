@@ -490,7 +490,7 @@ func Test_Condition_Messages(t *testing.T) {
 					RawKey:   kyverno.ToJSON("{{request.object.metadata.name}}"),
 					Operator: kyverno.ConditionOperators["Equal"],
 					RawValue: kyverno.ToJSON("temp"),
-					Message:  "invalid namespace",
+					Message:  "invalid name",
 				},
 				{
 					RawKey:   kyverno.ToJSON("{{request.object.spec.foo}}"),
@@ -504,8 +504,7 @@ func Test_Condition_Messages(t *testing.T) {
 
 	val, msg := EvaluateAnyAllConditions(logr.Discard(), ctx, conditions)
 	assert.Equal(t, false, val)
-	assert.Contains(t, msg, "invalid namespace")
-	assert.Contains(t, msg, "invalid foo")
+	assert.Contains(t, msg, "invalid name; invalid foo")
 
 	conditions[0].AnyConditions[1].RawValue = kyverno.ToJSON("bar")
 	conditions, err = SubstituteAllInConditions(logr.Discard(), ctx, conditions)
@@ -522,4 +521,11 @@ func Test_Condition_Messages(t *testing.T) {
 	val, msg = EvaluateAnyAllConditions(logr.Discard(), ctx, conditions)
 	assert.Equal(t, false, val)
 	assert.Contains(t, msg, "invalid foo")
+
+	conditions[0].AnyConditions[0].RawValue = kyverno.ToJSON("temp1")
+	conditions[0].AnyConditions[1].RawValue = kyverno.ToJSON("bar2")
+	conditions[0].AllConditions[1].Message = "invalid foo2"
+	val, msg = EvaluateAnyAllConditions(logr.Discard(), ctx, conditions)
+	assert.Equal(t, false, val)
+	assert.Contains(t, msg, "invalid name; invalid foo; invalid foo2")
 }
