@@ -462,3 +462,64 @@ func Test_Eval_Equal_Var_Fail(t *testing.T) {
 		t.Error("expected to fail")
 	}
 }
+
+func Test_Condition_Messages(t *testing.T) {
+	resourceRaw := []byte(`
+	{
+		"metadata": {
+			"name": "temp",
+			"namespace": "n1"
+		},
+		"spec": {
+			"foo": "bar",
+			"foo2": "bar2"
+		}
+	}
+	`)
+
+	ctx := context.NewContext(jmespath.New(config.NewDefaultConfiguration(false)))
+	err := context.AddResource(ctx, resourceRaw)
+	if err != nil {
+		t.Error(err)
+	}
+
+	conditions := []kyverno.AnyAllConditions{
+		{
+			AnyConditions: []kyverno.Condition{
+				{
+					RawKey:   kyverno.ToJSON("{{request.object.metadata.name}}"),
+					Operator: kyverno.ConditionOperators["Equal"],
+					RawValue: kyverno.ToJSON("temp"),
+					Message:  "invalid namespace",
+				},
+				{
+					RawKey:   kyverno.ToJSON("{{request.object.spec.foo}}"),
+					Operator: kyverno.ConditionOperators["Equal"],
+					RawValue: kyverno.ToJSON("bar2"),
+					Message:  "invalid foo",
+				},
+			},
+		},
+	}
+
+	val, msg := EvaluateAnyAllConditions(logr.Discard(), ctx, conditions)
+	assert.Equal(t, false, val)
+	assert.Contains(t, msg, "invalid namespace")
+	assert.Contains(t, msg, "invalid foo")
+
+	conditions[0].AnyConditions[1].RawValue = kyverno.ToJSON("bar")
+	conditions, err = SubstituteAllInConditions(logr.Discard(), ctx, conditions)
+	assert.Nil(t, err)
+
+	val, msg = EvaluateAnyAllConditions(logr.Discard(), ctx, conditions)
+	assert.Equal(t, true, val)
+	assert.Equal(t, msg, "")
+
+	conditions[0].AllConditions = append(conditions[0].AllConditions, conditions[0].AnyConditions[0])
+	conditions[0].AllConditions = append(conditions[0].AllConditions, conditions[0].AnyConditions[1])
+	conditions[0].AllConditions[1].RawValue = kyverno.ToJSON("bar2")
+
+	val, msg = EvaluateAnyAllConditions(logr.Discard(), ctx, conditions)
+	assert.Equal(t, false, val)
+	assert.Contains(t, msg, "invalid foo")
+}
