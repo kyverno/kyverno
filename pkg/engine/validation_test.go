@@ -37,6 +37,7 @@ func testValidate(
 		rclient,
 		contextLoader,
 		nil,
+		nil,
 	)
 	return e.Validate(
 		ctx,
