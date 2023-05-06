@@ -7177,6 +7177,30 @@ spec:
                             items:
                               type: string
                             type: array
+                          imageRegistryCredentials:
+                            description: ImageRegistryCredentials provides credentials
+                              that will be used for authentication with registry
+                            properties:
+                              helpers:
+                                description: 'Helpers specifies a list of OCI Registry
+                                  names, whose authentication helpers are provided
+                                  It can be of one of these values: AWS, Azure, GCP,
+                                  GHCR'
+                                items:
+                                  type: string
+                                type: array
+                              secrets:
+                                description: Secrets specifies a list of secrets that
+                                  are provided for credentials
+                                items:
+                                  properties:
+                                    helpers:
+                                      description: Specifies the name of the secret
+                                        to be used for getting credentials
+                                      type: string
+                                  type: object
+                                type: array
+                            type: object
                           issuer:
                             description: Issuer is the certificate issuer used for
                               keyless signing. Deprecated. Use KeylessAttestor instead.
@@ -10803,6 +10827,30 @@ spec:
                                 items:
                                   type: string
                                 type: array
+                              imageRegistryCredentials:
+                                description: ImageRegistryCredentials provides credentials
+                                  that will be used for authentication with registry
+                                properties:
+                                  helpers:
+                                    description: 'Helpers specifies a list of OCI
+                                      Registry names, whose authentication helpers
+                                      are provided It can be of one of these values:
+                                      AWS, Azure, GCP, GHCR'
+                                    items:
+                                      type: string
+                                    type: array
+                                  secrets:
+                                    description: Secrets specifies a list of secrets
+                                      that are provided for credentials
+                                    items:
+                                      properties:
+                                        helpers:
+                                          description: Specifies the name of the secret
+                                            to be used for getting credentials
+                                          type: string
+                                      type: object
+                                    type: array
+                                type: object
                               issuer:
                                 description: Issuer is the certificate issuer used
                                   for keyless signing. Deprecated. Use KeylessAttestor
@@ -17708,6 +17756,30 @@ spec:
                                 items:
                                   type: string
                                 type: array
+                              imageRegistryCredentials:
+                                description: ImageRegistryCredentials provides credentials
+                                  that will be used for authentication with registry
+                                properties:
+                                  helpers:
+                                    description: 'Helpers specifies a list of OCI
+                                      Registry names, whose authentication helpers
+                                      are provided It can be of one of these values:
+                                      AWS, Azure, GCP, GHCR'
+                                    items:
+                                      type: string
+                                    type: array
+                                  secrets:
+                                    description: Secrets specifies a list of secrets
+                                      that are provided for credentials
+                                    items:
+                                      properties:
+                                        helpers:
+                                          description: Specifies the name of the secret
+                                            to be used for getting credentials
+                                          type: string
+                                      type: object
+                                    type: array
+                                type: object
                               issuer:
                                 description: Issuer is the certificate issuer used
                                   for keyless signing. Deprecated. Use KeylessAttestor
@@ -21312,6 +21384,30 @@ spec:
                             items:
                               type: string
                             type: array
+                          imageRegistryCredentials:
+                            description: ImageRegistryCredentials provides credentials
+                              that will be used for authentication with registry
+                            properties:
+                              helpers:
+                                description: 'Helpers specifies a list of OCI Registry
+                                  names, whose authentication helpers are provided
+                                  It can be of one of these values: AWS, Azure, GCP,
+                                  GHCR'
+                                items:
+                                  type: string
+                                type: array
+                              secrets:
+                                description: Secrets specifies a list of secrets that
+                                  are provided for credentials
+                                items:
+                                  properties:
+                                    helpers:
+                                      description: Specifies the name of the secret
+                                        to be used for getting credentials
+                                      type: string
+                                  type: object
+                                type: array
+                            type: object
                           issuer:
                             description: Issuer is the certificate issuer used for
                               keyless signing. Deprecated. Use KeylessAttestor instead.
@@ -24939,6 +25035,30 @@ spec:
                                 items:
                                   type: string
                                 type: array
+                              imageRegistryCredentials:
+                                description: ImageRegistryCredentials provides credentials
+                                  that will be used for authentication with registry
+                                properties:
+                                  helpers:
+                                    description: 'Helpers specifies a list of OCI
+                                      Registry names, whose authentication helpers
+                                      are provided It can be of one of these values:
+                                      AWS, Azure, GCP, GHCR'
+                                    items:
+                                      type: string
+                                    type: array
+                                  secrets:
+                                    description: Secrets specifies a list of secrets
+                                      that are provided for credentials
+                                    items:
+                                      properties:
+                                        helpers:
+                                          description: Specifies the name of the secret
+                                            to be used for getting credentials
+                                          type: string
+                                      type: object
+                                    type: array
+                                type: object
                               issuer:
                                 description: Issuer is the certificate issuer used
                                   for keyless signing. Deprecated. Use KeylessAttestor
@@ -31845,6 +31965,30 @@ spec:
                                 items:
                                   type: string
                                 type: array
+                              imageRegistryCredentials:
+                                description: ImageRegistryCredentials provides credentials
+                                  that will be used for authentication with registry
+                                properties:
+                                  helpers:
+                                    description: 'Helpers specifies a list of OCI
+                                      Registry names, whose authentication helpers
+                                      are provided It can be of one of these values:
+                                      AWS, Azure, GCP, GHCR'
+                                    items:
+                                      type: string
+                                    type: array
+                                  secrets:
+                                    description: Secrets specifies a list of secrets
+                                      that are provided for credentials
+                                    items:
+                                      properties:
+                                        helpers:
+                                          description: Specifies the name of the secret
+                                            to be used for getting credentials
+                                          type: string
+                                      type: object
+                                    type: array
+                                type: object
                               issuer:
                                 description: Issuer is the certificate issuer used
                                   for keyless signing. Deprecated. Use KeylessAttestor

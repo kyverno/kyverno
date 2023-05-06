@@ -1831,6 +1831,60 @@ the image reference.</p>
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.ImageRegistryCredentials">ImageRegistryCredentials
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>helpers</code><br/>
+<em>
+<a href="#kyverno.io/v1.ImageRegistryCredentialsHelpersType">
+[]ImageRegistryCredentialsHelpersType
+</a>
+</em>
+</td>
+<td>
+<p>Helpers specifies a list of OCI Registry names, whose authentication helpers are provided
+It can be of one of these values: AWS, Azure, GCP, GHCR</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>secrets</code><br/>
+<em>
+<a href="#kyverno.io/v1.Secret">
+[]Secret
+</a>
+</em>
+</td>
+<td>
+<p>Secrets specifies a list of secrets that are provided for credentials</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.ImageRegistryCredentialsHelpersType">ImageRegistryCredentialsHelpersType
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ImageRegistryCredentials">ImageRegistryCredentials</a>)
+</p>
+<p>
+</p>
 <h3 id="kyverno.io/v1.ImageVerification">ImageVerification
 </h3>
 <p>
@@ -2038,6 +2092,19 @@ bool
 </td>
 <td>
 <p>Required validates that images are verified i.e. have matched passed a signature or attestation check.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>imageRegistryCredentials</code><br/>
+<em>
+<a href="#kyverno.io/v1.ImageRegistryCredentials">
+ImageRegistryCredentials
+</a>
+</em>
+</td>
+<td>
+<p>ImageRegistryCredentials provides credentials that will be used for authentication with registry</p>
 </td>
 </tr>
 </tbody>
@@ -3142,6 +3209,36 @@ int
 </td>
 <td>
 <p>Count for verify image rules in policy</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.Secret">Secret
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ImageRegistryCredentials">ImageRegistryCredentials</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>helpers</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Specifies the name of the secret to be used for getting credentials</p>
 </td>
 </tr>
 </tbody>
