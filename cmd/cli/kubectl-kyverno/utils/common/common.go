@@ -488,6 +488,7 @@ OuterLoop:
 		registryclient.NewOrDie(),
 		store.ContextLoaderFactory(nil),
 		nil,
+		nil,
 	)
 	policyContext := engine.NewPolicyContextWithJsonContext(kyvernov1.Create, ctx).
 		WithPolicy(c.Policy).
@@ -1039,6 +1040,7 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 		client,
 		nil,
 		store.ContextLoaderFactory(nil),
+		nil,
 		nil,
 	))
 	return c, nil

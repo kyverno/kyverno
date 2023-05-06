@@ -137,19 +137,19 @@ func WithCredentialHelpers(credentialHelpers ...string) Option {
 	return func(c *config) error {
 		var chains []authn.Keychain
 		helpers := sets.New(credentialHelpers...)
-		if helpers.Has("default") {
+		if helpers.Has("DEFAULT") {
 			chains = append(chains, authn.DefaultKeychain)
 		}
-		if helpers.Has("google") {
+		if helpers.Has("GCR") {
 			chains = append(chains, google.Keychain)
 		}
-		if helpers.Has("amazon") {
+		if helpers.Has("AWS") {
 			chains = append(chains, authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard))))
 		}
-		if helpers.Has("azure") {
+		if helpers.Has("ACR") {
 			chains = append(chains, authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()))
 		}
-		if helpers.Has("github") {
+		if helpers.Has("GHCR") {
 			chains = append(chains, github.Keychain)
 		}
 		c.keychain = authn.NewMultiKeychain(chains...)

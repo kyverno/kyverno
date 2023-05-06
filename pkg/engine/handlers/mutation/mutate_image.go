@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8s "k8s.io/client-go/kubernetes"
 )
 
 type mutateImageHandler struct {
@@ -22,6 +23,7 @@ type mutateImageHandler struct {
 	rclient       registryclient.Client
 	ivm           *engineapi.ImageVerificationMetadata
 	images        []apiutils.ImageInfo
+	kubeClient    k8s.Interface
 }
 
 func NewMutateImageHandler(
@@ -31,6 +33,7 @@ func NewMutateImageHandler(
 	configuration config.Configuration,
 	rclient registryclient.Client,
 	ivm *engineapi.ImageVerificationMetadata,
+	kubeClient k8s.Interface,
 ) (handlers.Handler, error) {
 	if len(rule.VerifyImages) == 0 {
 		return nil, nil
@@ -47,6 +50,7 @@ func NewMutateImageHandler(
 		rclient:       rclient,
 		ivm:           ivm,
 		images:        ruleImages,
+		kubeClient:    kubeClient,
 	}, nil
 }
 
@@ -65,7 +69,7 @@ func (h mutateImageHandler) Process(
 			engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to substitute variables", err),
 		)
 	}
-	iv := internal.NewImageVerifier(logger, h.rclient, policyContext, *ruleCopy, h.ivm)
+	iv := internal.NewImageVerifier(logger, h.rclient, policyContext, *ruleCopy, h.ivm, h.kubeClient)
 	var engineResponses []*engineapi.RuleResponse
 	for _, imageVerify := range ruleCopy.VerifyImages {
 		engineResponses = append(engineResponses, iv.Verify(ctx, imageVerify, h.images, h.configuration)...)

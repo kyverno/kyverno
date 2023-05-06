@@ -41,6 +41,7 @@ func (e *engine) verifyAndPatchImages(
 				e.configuration,
 				e.rclient,
 				&ivm,
+				e.kubeClient,
 			)
 		}
 		resource, ruleResp := e.invokeRuleHandler(
