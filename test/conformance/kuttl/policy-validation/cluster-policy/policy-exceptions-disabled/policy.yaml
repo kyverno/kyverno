@@ -8,9 +8,11 @@ spec:
   rules:
     - name: require-app-label
       match:
-        resources:
-          kinds:
-            - Pod
+        any:
+        - resources:
+           kinds:
+           - Pod
+           - Deployment
       validate:
         message: Pod must include the 'app=my-app' label
         pattern:
