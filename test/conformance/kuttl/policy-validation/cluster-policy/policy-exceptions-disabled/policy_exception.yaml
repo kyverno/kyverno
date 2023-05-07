@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v2alpha1
+kind: PolicyException
+metadata:
+  name: label-exception
+  namespace: default
+spec:
+  exceptions:
+  - policyName: require-app-label
+    ruleNames:
+    - require-app-label
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+        - Deployment
+        namespaces:
+        - default
+        selector:
+         matchLabels:
+           app: my-test-app

@@ -1,0 +1,9 @@
+apiVersion: kyverno.io/v1
+kind: PolicyException
+metadata:
+  name: label-exception
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready
