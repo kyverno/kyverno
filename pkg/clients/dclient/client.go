@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -31,7 +32,7 @@ type Interface interface {
 	// SetDiscovery sets the discovery client implementation
 	SetDiscovery(discoveryClient IDiscovery)
 	// RawAbsPath performs a raw call to the kubernetes API
-	RawAbsPath(ctx context.Context, path string) ([]byte, error)
+	RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error)
 	// GetResource returns the resource in unstructured/json format
 	GetResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error)
 	// PatchResource patches the resource
@@ -141,11 +142,20 @@ func (c *client) GetResource(ctx context.Context, apiVersion string, kind string
 }
 
 // RawAbsPath performs a raw call to the kubernetes API
-func (c *client) RawAbsPath(ctx context.Context, path string) ([]byte, error) {
+func (c *client) RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error) {
 	if c.rest == nil {
 		return nil, errors.New("rest client not supported")
 	}
-	return c.rest.Get().RequestURI(path).DoRaw(ctx)
+
+	switch method {
+	case "GET":
+		return c.rest.Get().RequestURI(path).DoRaw(ctx)
+	case "POST":
+		return c.rest.Post().Body(dataReader).RequestURI(path).DoRaw(ctx)
+
+	default:
+		return nil, fmt.Errorf("method not supported: %s", method)
+	}
 }
 
 // PatchResource patches the resource

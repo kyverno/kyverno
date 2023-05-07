@@ -1,0 +1,9 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: k10-minimum-retention
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready

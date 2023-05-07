@@ -10,6 +10,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -53,7 +54,13 @@ func applyPatches(rule *types.Rule, resource unstructured.Unstructured) (*engine
 	if mutateResp.Status != engineapi.RuleStatusPass {
 		return engineapi.NewRuleResponse("", engineapi.Mutation, mutateResp.Message, mutateResp.Status), resource
 	}
-	return engineapi.RulePass("", engineapi.Mutation, mutateResp.Message).WithPatches(mutateResp.Patches...), mutateResp.PatchedResource
+	return engineapi.RulePass(
+		"",
+		engineapi.Mutation,
+		mutateResp.Message,
+	).WithPatches(
+		patch.ConvertPatches(mutateResp.Patches...)...,
+	), mutateResp.PatchedResource
 }
 
 func TestProcessPatches_EmptyPatches(t *testing.T) {
@@ -98,7 +105,7 @@ func makeRuleWithPatches(t *testing.T, patches []jsonPatch) *types.Rule {
 func TestProcessPatches_EmptyDocument(t *testing.T) {
 	rule := makeRuleWithPatch(t, makeAddIsMutatedLabelPatch())
 	rr, _ := applyPatches(rule, unstructured.Unstructured{})
-	assert.Equal(t, rr.Status(), engineapi.RuleStatusFail)
+	assert.Equal(t, rr.Status(), engineapi.RuleStatusError)
 	assert.Assert(t, len(rr.Patches()) == 0)
 }
 

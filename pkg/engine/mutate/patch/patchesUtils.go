@@ -9,33 +9,31 @@ import (
 	"github.com/mattbaird/jsonpatch"
 )
 
-func generatePatches(src, dst []byte) ([][]byte, error) {
-	var patchesBytes [][]byte
-	pp, err := jsonpatch.CreatePatch(src, dst)
-	if err != nil {
-		return nil, err
-	}
-
-	sortedPatches := FilterAndSortPatches(pp)
-	for _, p := range sortedPatches {
-		pbytes, err := p.MarshalJSON()
-		if err != nil {
-			return patchesBytes, err
+func ConvertPatches(in ...jsonpatch.JsonPatchOperation) [][]byte {
+	var out [][]byte
+	for _, patch := range in {
+		if patch, err := patch.MarshalJSON(); err == nil {
+			out = append(out, patch)
 		}
-
-		patchesBytes = append(patchesBytes, pbytes)
 	}
-
-	return patchesBytes, err
+	return out
 }
 
-// FilterAndSortPatches
+func generatePatches(src, dst []byte) ([]jsonpatch.JsonPatchOperation, error) {
+	if pp, err := jsonpatch.CreatePatch(src, dst); err != nil {
+		return nil, err
+	} else {
+		return filterAndSortPatches(pp), err
+	}
+}
+
+// filterAndSortPatches
 // 1. filters out patches with the certain paths
 // 2. sorts the removal patches(with same path) by the key of index
 // in descending order. The sort is required as when removing multiple
 // elements from an array, the elements must be removed in descending
 // order to preserve each index value.
-func FilterAndSortPatches(originalPatches []jsonpatch.JsonPatchOperation) []jsonpatch.JsonPatchOperation {
+func filterAndSortPatches(originalPatches []jsonpatch.JsonPatchOperation) []jsonpatch.JsonPatchOperation {
 	patches := filterInvalidPatches(originalPatches)
 
 	result := make([]jsonpatch.JsonPatchOperation, len(patches))

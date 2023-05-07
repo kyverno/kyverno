@@ -2,14 +2,16 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/pod-security-admission/api"
 )
 
@@ -33,6 +35,17 @@ const (
 	ApplyAll ApplyRulesType = "All"
 	// ApplyOne applies only the first matching rule in the policy.
 	ApplyOne ApplyRulesType = "One"
+)
+
+// ForeachOrder specifies the iteration order in foreach statements.
+// +kubebuilder:validation:Enum=Ascending;Descending
+type ForeachOrder string
+
+const (
+	// Ascending means iterating from first to last element.
+	Ascending ForeachOrder = "Ascending"
+	// Descending means iterating from last to first element.
+	Descending ForeachOrder = "Descending"
 )
 
 // AnyAllConditions consists of conditions wrapped denoting a logical criteria to be fulfilled.
@@ -116,11 +129,21 @@ type ConfigMapReference struct {
 }
 
 type APICall struct {
-	// URLPath is the URL path to be used in the HTTP GET request to the
+	// URLPath is the URL path to be used in the HTTP GET or POST request to the
 	// Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
 	// The format required is the same format used by the `kubectl get --raw` command.
+	// See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+	// for details.
 	// +kubebuilder:validation:Optional
 	URLPath string `json:"urlPath" yaml:"urlPath"`
+
+	// Method is the HTTP request type (GET or POST).
+	// +kubebuilder:default=GET
+	Method Method `json:"method,omitempty" yaml:"method,omitempty"`
+
+	// Data specifies the POST data sent to the server.
+	// +kubebuilder:validation:Optional
+	Data []RequestData `json:"data,omitempty" yaml:"data,omitempty"`
 
 	// Service is an API call to a JSON web service
 	// +kubebuilder:validation:Optional
@@ -136,22 +159,14 @@ type APICall struct {
 }
 
 type ServiceCall struct {
-	// URL is the JSON web service URL.
-	// The typical format is `https://{service}.{namespace}:{port}/{path}`.
-	URL string `json:"urlPath" yaml:"urlPath"`
+	// URL is the JSON web service URL. A typical form is
+	// `https://{service}.{namespace}:{port}/{path}`.
+	URL string `json:"url" yaml:"url"`
 
 	// CABundle is a PEM encoded CA bundle which will be used to validate
 	// the server certificate.
 	// +kubebuilder:validation:Optional
 	CABundle string `json:"caBundle" yaml:"caBundle"`
-
-	// Method is the HTTP request type (GET or POST).
-	// +kubebuilder:default=GET
-	Method Method `json:"requestType" yaml:"requestType"`
-
-	// Data specifies the POST data sent to the server.
-	// +kubebuilder:validation:Optional
-	Data []RequestData `json:"data" yaml:"data"`
 }
 
 // Method is a HTTP request type.
@@ -164,7 +179,7 @@ type RequestData struct {
 	Key string `json:"key" yaml:"key"`
 
 	// Value is the data value
-	Value *apiextensionsv1.JSON `json:"value" yaml:"value"`
+	Value *apiextv1.JSON `json:"value" yaml:"value"`
 }
 
 // Condition defines variable-based conditional criteria for rule execution.
@@ -297,6 +312,11 @@ type ForEachMutation struct {
 	// List specifies a JMESPath expression that results in one or more elements
 	// to which the validation logic is applied.
 	List string `json:"list,omitempty" yaml:"list,omitempty"`
+
+	// Order defines the iteration order on the list.
+	// Can be Ascending to iterate from first to last element or Descending to iterate in from last to first element.
+	// +optional
+	Order *ForeachOrder `json:"order,omitempty" yaml:"order,omitempty"`
 
 	// Context defines variables and data sources that can be used during rule execution.
 	// +optional
@@ -562,10 +582,14 @@ type CloneList struct {
 	Selector *metav1.LabelSelector `json:"selector,omitempty" yaml:"selector,omitempty"`
 }
 
-func (g *Generation) Validate() error {
+func (g *Generation) Validate(path *field.Path, clusterResources sets.Set[string]) (errs field.ErrorList) {
+	if err := g.validateTargetsScope(clusterResources); err != nil {
+		errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
+	}
+
 	generateType, _ := g.GetTypeAndSync()
 	if generateType == Data {
-		return nil
+		return errs
 	}
 
 	newGeneration := Generation{
@@ -577,7 +601,11 @@ func (g *Generation) Validate() error {
 		CloneList: g.CloneList,
 	}
 
-	return regex.ObjectHasVariables(newGeneration)
+	if err := regex.ObjectHasVariables(newGeneration); err != nil {
+		errs = append(errs, field.Forbidden(path.Child("generate").Child("clone/cloneList"), "Generation Rule Clone/CloneList should not have variables"))
+	}
+
+	return errs
 }
 
 func (g *Generation) GetData() apiextensions.JSON {
@@ -586,6 +614,21 @@ func (g *Generation) GetData() apiextensions.JSON {
 
 func (g *Generation) SetData(in apiextensions.JSON) {
 	g.RawData = ToJSON(in)
+}
+
+func (g *Generation) validateTargetsScope(clusterResources sets.Set[string]) error {
+	target := g.ResourceSpec
+	if clusterResources.Has(target.GetKind()) {
+		if target.GetNamespace() != "" {
+			return fmt.Errorf("the target namespace must not be set for cluster-wide resource: %v", target.GetKind())
+		}
+	} else {
+		if target.GetNamespace() == "" {
+			return fmt.Errorf("the target namespace must be set for namespaced resource: %v", target.GetKind())
+		}
+	}
+
+	return nil
 }
 
 type GenerateType string

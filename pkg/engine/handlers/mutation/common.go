@@ -2,7 +2,6 @@ package mutation
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -29,7 +28,7 @@ type forEachMutator struct {
 
 func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 	var applyCount int
-	allPatches := make([][]byte, 0)
+	var allPatches []jsonpatch.JsonPatchOperation
 
 	for _, foreach := range f.foreach {
 		elements, err := engineutils.EvaluateList(foreach.List, f.policyContext.JSONContext())
@@ -69,16 +68,23 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 	defer f.policyContext.JSONContext().Restore()
 
 	patchedResource := f.resource
-	var allPatches [][]byte
+	var allPatches []jsonpatch.JsonPatchOperation
+	reverse := false
 	if foreach.RawPatchStrategicMerge != nil {
+		reverse = true
+	} else if foreach.Order != nil && *foreach.Order == kyvernov1.Descending {
+		reverse = true
+	}
+	if reverse {
 		engineutils.InvertedElement(elements)
 	}
-
 	for index, element := range elements {
 		if element == nil {
 			continue
 		}
-
+		if reverse {
+			index = len(elements) - 1 - index
+		}
 		f.policyContext.JSONContext().Reset()
 		policyContext := f.policyContext.Copy()
 
@@ -132,24 +138,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 			allPatches = append(allPatches, mutateResp.Patches...)
 		}
 	}
-	var sortedPatches []jsonpatch.JsonPatchOperation
-	for _, p := range allPatches {
-		var jp jsonpatch.JsonPatchOperation
-		if err := json.Unmarshal(p, &jp); err != nil {
-			return mutate.NewErrorResponse("failed to convert patch", err)
-		}
-		sortedPatches = append(sortedPatches, jp)
-	}
-	sortedPatches = patch.FilterAndSortPatches(sortedPatches)
-	var finalPatches [][]byte
-	for _, p := range sortedPatches {
-		if data, err := p.MarshalJSON(); err != nil {
-			return mutate.NewErrorResponse("failed to marshal patch", err)
-		} else {
-			finalPatches = append(finalPatches, data)
-		}
-	}
-	return mutate.NewResponse(engineapi.RuleStatusPass, patchedResource.unstructured, finalPatches, "")
+	return mutate.NewResponse(engineapi.RuleStatusPass, patchedResource.unstructured, allPatches, "")
 }
 
 func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info resourceInfo) *engineapi.RuleResponse {
@@ -164,7 +153,7 @@ func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info r
 		mutateResp.Status,
 	)
 	if mutateResp.Status == engineapi.RuleStatusPass {
-		resp = resp.WithPatches(mutateResp.Patches...)
+		resp = resp.WithPatches(patch.ConvertPatches(mutateResp.Patches...)...)
 		if len(rule.Mutation.Targets) != 0 {
 			resp = resp.WithPatchedTarget(&mutateResp.PatchedResource, info.parentResourceGVR, info.subresource)
 		}

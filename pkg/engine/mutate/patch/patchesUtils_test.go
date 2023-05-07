@@ -24,7 +24,7 @@ func Test_GeneratePatches(t *testing.T) {
 	assert.NilError(t, err)
 
 	for _, p := range patches {
-		assertnew.Equal(t, expectedPatches[string(p)], true)
+		assertnew.Equal(t, expectedPatches[p.Json()], true)
 	}
 }
 
@@ -223,7 +223,7 @@ func Test_GeneratePatches_sortRemovalPatches(t *testing.T) {
 	patches, err := generatePatches(base, patchedResource)
 	fmt.Println(patches)
 	assertnew.Nil(t, err)
-	assertnew.Equal(t, expectedPatches, patches)
+	assertnew.Equal(t, expectedPatches, ConvertPatches(patches...))
 }
 
 func Test_sortRemovalPatches(t *testing.T) {
@@ -320,7 +320,7 @@ func Test_sortRemovalPatches(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		sortedPatches := FilterAndSortPatches(test.patches)
+		sortedPatches := filterAndSortPatches(test.patches)
 		assertnew.Equal(t, test.expected, sortedPatches, fmt.Sprintf("%dth test fails", i))
 	}
 }
