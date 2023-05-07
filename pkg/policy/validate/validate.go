@@ -69,20 +69,34 @@ func (v *Validate) Validate(ctx context.Context) (string, error) {
 	}
 
 	if v.rule.CEL != nil {
-		for _, cel := range v.rule.CEL {
-			if cel.Expression == "" {
-				return "", fmt.Errorf("cel.expression is required")
+		for _, expression := range v.rule.CEL.Expressions {
+			if expression.Expression == "" {
+				return "", fmt.Errorf("cel.expressions.expression is required")
+			}
+		}
+
+		if v.rule.CEL.ParamKind != nil {
+			if v.rule.CEL.ParamKind.APIVersion == "" {
+				return "", fmt.Errorf("cel.paramKind.apiVersion is required")
 			}
 
-			if cel.AuditAnnotations != nil {
-				for _, auditAnnotation := range cel.AuditAnnotations {
-					if auditAnnotation.Key == "" {
-						return "", fmt.Errorf("auditAnnotation.key is required")
-					}
+			if v.rule.CEL.ParamKind.Kind == "" {
+				return "", fmt.Errorf("cel.paramKind.kind is required")
+			}
 
-					if auditAnnotation.ValueExpression == "" {
-						return "", fmt.Errorf("auditAnnotation.valueExpression is required")
-					}
+			if v.rule.CEL.ParamKind.Name == "" {
+				return "", fmt.Errorf("cel.paramKind.name is required")
+			}
+		}
+
+		if v.rule.CEL.AuditAnnotations != nil {
+			for _, auditAnnotation := range v.rule.CEL.AuditAnnotations {
+				if auditAnnotation.Key == "" {
+					return "", fmt.Errorf("cel.auditAnnotation.key is required")
+				}
+
+				if auditAnnotation.ValueExpression == "" {
+					return "", fmt.Errorf("cel.auditAnnotation.valueExpression is required")
 				}
 			}
 		}

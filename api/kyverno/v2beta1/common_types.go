@@ -40,7 +40,7 @@ type Validation struct {
 
 	// CEL specifies CEL expressions which is used to apply the validation.
 	// +optional
-	CEL []kyvernov1.CEL `json:"cel,omitempty" yaml:"cel,omitempty"`
+	CEL *kyvernov1.CEL `json:"cel,omitempty" yaml:"cel,omitempty"`
 }
 
 // ConditionOperator is the operation performed on condition key and value.

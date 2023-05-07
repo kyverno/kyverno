@@ -51,15 +51,15 @@ func createRule(rule *kyvernov1.Rule) *kyvernoRule {
 	if !datautils.DeepEqual(rule.Validation, kyvernov1.Validation{}) {
 		jsonFriendlyStruct.Validation = rule.Validation.DeepCopy()
 	}
-	kyvernoAnyAllConditions, _ := apiutils.ApiextensionsJsonToKyvernoConditions(rule.GetAnyAllConditions())
+	kyvernoAnyAllConditions, _ := apiutils.ApiextensionsJsonToKyvernoConditions(rule.Preconditions.GetAnyAllConditions())
 	switch typedAnyAllConditions := kyvernoAnyAllConditions.(type) {
 	case kyvernov1.AnyAllConditions:
 		if !datautils.DeepEqual(typedAnyAllConditions, kyvernov1.AnyAllConditions{}) {
-			jsonFriendlyStruct.AnyAllConditions = rule.DeepCopy().RawAnyAllConditions
+			jsonFriendlyStruct.AnyAllConditions = rule.DeepCopy().Preconditions.RawAnyAllConditions
 		}
 	case []kyvernov1.Condition:
 		if len(typedAnyAllConditions) > 0 {
-			jsonFriendlyStruct.AnyAllConditions = rule.DeepCopy().RawAnyAllConditions
+			jsonFriendlyStruct.AnyAllConditions = rule.DeepCopy().Preconditions.RawAnyAllConditions
 		}
 	}
 	if len(rule.Context) > 0 {

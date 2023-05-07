@@ -43,7 +43,7 @@ type Rule struct {
 	// of conditions (without `any` or `all` statements is supported for backwards compatibility but
 	// See: https://kyverno.io/docs/writing-policies/preconditions/
 	// +optional
-	RawAnyAllConditions *AnyAllConditions `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+	Preconditions *kyvernov1.Precondition `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
 
 	// Mutation is used to modify matching resources.
 	// +optional
@@ -99,13 +99,7 @@ func (r Rule) HasValidatePodSecurity() bool {
 
 // HasValidateCEL checks for validate.cel rule
 func (r *Rule) HasValidateCEL() bool {
-	for _, cel := range r.Validation.CEL {
-		if !datautils.DeepEqual(cel, kyvernov1.CEL{}) {
-			return true
-		}
-	}
-
-	return false
+	return r.Validation.CEL != nil && !datautils.DeepEqual(r.Validation.CEL, &kyvernov1.CEL{})
 }
 
 // HasValidate checks for validate rule

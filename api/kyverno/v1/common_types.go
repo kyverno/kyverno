@@ -7,6 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	admissionv1 "k8s.io/api/admission/v1"
+	v1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -390,7 +391,7 @@ type Validation struct {
 
 	// CEL specifies CEL expressions which is used to apply the validation.
 	// +optional
-	CEL []CEL `json:"cel,omitempty" yaml:"cel,omitempty"`
+	CEL *CEL `json:"cel,omitempty" yaml:"cel,omitempty"`
 }
 
 // PodSecurity applies exemptions for Kubernetes Pod Security admission
@@ -428,6 +429,22 @@ type PodSecurityStandard struct {
 
 // CEL defines the CEL expression which is used to apply the validation.
 type CEL struct {
+	// Expressions contain CEL expressions which is used to apply the validation.
+	Expressions []CELExpression `json:"expressions,omitempty" yaml:"expressions,omitempty"`
+
+	// ParamKind specifies the kind of resources used to parameterize this policy.
+	// If absent, there are no parameters for this policy and the param CEL variable will not be provided to validation expressions.
+	// If ParamKind refers to a non-existent kind, this policy definition is mis-configured and the FailurePolicy is applied.
+	// +optional
+	ParamKind *ParamKind `json:"paramKind,omitempty" yaml:"paramKind,omitempty"`
+
+	// AuditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the API request.
+	// +optional
+	AuditAnnotations []AuditAnnotation `json:"auditAnnotations,omitempty" yaml:"auditAnnotations,omitempty"`
+}
+
+// CELExpression specifies the CEL expression which is used to apply the validation.
+type CELExpression struct {
 	// Expression represents the expression which will be evaluated by CEL.
 	// ref: https://github.com/google/cel-spec
 	// Required.
@@ -444,10 +461,28 @@ type CEL struct {
 	// ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation
 	// +optional
 	MessageExpression string `json:"messageExpression,omitempty" yaml:"messageExpression,omitempty"`
+}
 
-	// auditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the API request.
+// ParamKind specifies the kind of resources used to parameterize this policy.
+// It is a tuple of Group Kind, Version, Name and Namespace
+type ParamKind struct {
+	// APIVersion is the API group version the resources belong to.
+	// In format of "group/version".
+	// Required.
+	APIVersion string `json:"apiVersion,omitempty" yaml:"apiVersion,omitempty"`
+
+	// Kind is the API kind the resources belong to.
+	// Required.
+	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
+
+	// Name of the resource.
+	// Required.
+	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+
+	// Namespace of the resource.
+	// Should be empty for the cluster-scoped resources
 	// +optional
-	AuditAnnotations []AuditAnnotation `json:"auditAnnotations,omitempty" yaml:"auditAnnotations,omitempty"`
+	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 }
 
 // AuditAnnotation describes how to produce an audit annotation for an API request.
@@ -529,6 +564,31 @@ func (d *Deny) GetAnyAllConditions() apiextensions.JSON {
 func (d *Deny) SetAnyAllConditions(in apiextensions.JSON) {
 	d.RawAnyAllConditions = ToJSON(in)
 }
+
+// Preconditions are used to determine if a policy rule should be applied by evaluating a
+// set of conditions.
+type Precondition struct {
+	// Multiple conditions can be declared under an `any` or `all` statement. A direct list
+	// of conditions (without `any` or `all` statements) is also supported for backwards compatibility
+	// but will be deprecated in the next major release.
+	// See: https://kyverno.io/docs/writing-policies/preconditions/
+	// +optional
+	RawAnyAllConditions *apiextv1.JSON `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+
+	// CELConditions is a list of conditions written as CEL expressions. It can only be used with the validate.cel subrule
+	// +optional
+	CELConditions []CELCondition `json:"celConditions,omitempty" yaml:"celConditions,omitempty"`
+}
+
+func (p *Precondition) GetAnyAllConditions() apiextensions.JSON {
+	return FromJSON(p.RawAnyAllConditions)
+}
+
+func (p *Precondition) SetAnyAllConditions(in apiextensions.JSON) {
+	p.RawAnyAllConditions = ToJSON(in)
+}
+
+type CELCondition v1.MatchCondition
 
 // ForEachValidation applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 type ForEachValidation struct {

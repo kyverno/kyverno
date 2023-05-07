@@ -806,7 +806,7 @@ func validateResources(path *field.Path, rule kyvernov1.Rule) (string, error) {
 	}
 
 	// validating the values present under validate.preconditions, if they exist
-	if target := rule.GetAnyAllConditions(); target != nil {
+	if target := rule.Preconditions.GetAnyAllConditions(); target != nil {
 		if path, err := validateConditions(target, "preconditions"); err != nil {
 			return fmt.Sprintf("validate.%s", path), err
 		}

@@ -15,6 +15,7 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/cel"
 	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy"
+	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 )
 
@@ -30,14 +31,13 @@ func (h validateCELHandler) Process(
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
-	contextLoader engineapi.EngineContextLoader,
+	_ engineapi.EngineContextLoader,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	if engineutils.IsDeleteRequest(policyContext) {
 		logger.V(3).Info("skipping validation on deleted resource")
 		return resource, nil
 	}
 
-	celValidations := rule.Validation.CEL
 	oldResource := policyContext.OldResource()
 
 	var object, oldObject runtime.Object
@@ -48,7 +48,13 @@ func (h validateCELHandler) Process(
 		oldObject = oldResource.DeepCopyObject()
 	}
 
-	var expressions, messageExpressions, auditExpressions []cel.ExpressionAccessor
+	var expressions, messageExpressions, matchExpressions, auditExpressions []cel.ExpressionAccessor
+
+	celValidations := rule.Validation.CEL.Expressions
+	celAuditAnnotations := rule.Validation.CEL.AuditAnnotations
+	celConditions := rule.Preconditions.CELConditions
+
+	hasParam := rule.Validation.CEL.ParamKind != nil
 
 	for _, cel := range celValidations {
 		condition := &validatingadmissionpolicy.ValidationCondition{
@@ -62,23 +68,35 @@ func (h validateCELHandler) Process(
 
 		expressions = append(expressions, condition)
 		messageExpressions = append(messageExpressions, messageCondition)
+	}
 
-		for _, auditAnnotation := range cel.AuditAnnotations {
-			auditCondition := &validatingadmissionpolicy.AuditAnnotationCondition{
-				Key:             auditAnnotation.Key,
-				ValueExpression: auditAnnotation.ValueExpression,
-			}
-
-			auditExpressions = append(auditExpressions, auditCondition)
+	for _, condition := range celConditions {
+		matchCondition := &matchconditions.MatchCondition{
+			Name:       condition.Name,
+			Expression: condition.Expression,
 		}
+
+		matchExpressions = append(matchExpressions, matchCondition)
+	}
+
+	for _, auditAnnotation := range celAuditAnnotations {
+		auditCondition := &validatingadmissionpolicy.AuditAnnotationCondition{
+			Key:             auditAnnotation.Key,
+			ValueExpression: auditAnnotation.ValueExpression,
+		}
+
+		auditExpressions = append(auditExpressions, auditCondition)
 	}
 
 	filterCompiler := cel.NewFilterCompiler()
-	filter := filterCompiler.Compile(expressions, cel.OptionalVariableDeclarations{HasParams: false, HasAuthorizer: false}, celconfig.PerCallLimit)
-	messageExpressionfilter := filterCompiler.Compile(messageExpressions, cel.OptionalVariableDeclarations{HasParams: false, HasAuthorizer: false}, celconfig.PerCallLimit)
-	auditAnnotationFilter := filterCompiler.Compile(auditExpressions, cel.OptionalVariableDeclarations{HasParams: false, HasAuthorizer: false}, celconfig.PerCallLimit)
+	filter := filterCompiler.Compile(expressions, cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}, celconfig.PerCallLimit)
+	messageExpressionfilter := filterCompiler.Compile(messageExpressions, cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}, celconfig.PerCallLimit)
+	auditAnnotationFilter := filterCompiler.Compile(auditExpressions, cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}, celconfig.PerCallLimit)
+	matchConditionFilter := filterCompiler.Compile(matchExpressions, cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}, celconfig.PerCallLimit)
 
-	validator := validatingadmissionpolicy.NewValidator(filter, nil, auditAnnotationFilter, messageExpressionfilter, nil, nil)
+	newMatcher := matchconditions.NewMatcher(matchConditionFilter, nil, nil, "", "")
+
+	validator := validatingadmissionpolicy.NewValidator(filter, newMatcher, auditAnnotationFilter, messageExpressionfilter, nil, nil)
 
 	admissionAttributes := admission.NewAttributesRecord(
 		object,

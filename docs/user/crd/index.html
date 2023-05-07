@@ -996,6 +996,127 @@ Required.</p>
 <tbody>
 <tr>
 <td>
+<code>expressions</code><br/>
+<em>
+<a href="#kyverno.io/v1.CELExpression">
+[]CELExpression
+</a>
+</em>
+</td>
+<td>
+<p>Expressions contain CEL expressions which is used to apply the validation.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>paramKind</code><br/>
+<em>
+<a href="#kyverno.io/v1.ParamKind">
+ParamKind
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ParamKind specifies the kind of resources used to parameterize this policy.
+If absent, there are no parameters for this policy and the param CEL variable will not be provided to validation expressions.
+If ParamKind refers to a non-existent kind, this policy definition is mis-configured and the FailurePolicy is applied.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>auditAnnotations</code><br/>
+<em>
+<a href="#kyverno.io/v1.AuditAnnotation">
+[]AuditAnnotation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AuditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the API request.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.CELCondition">CELCondition
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Precondition">Precondition</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+as well as providing an identifier for logging purposes. A good name should be descriptive of
+the associated expression.
+Name must be a qualified name consisting of alphanumeric characters, &lsquo;-&rsquo;, &lsquo;<em>&rsquo; or &lsquo;.&rsquo;, and
+must start and end with an alphanumeric character (e.g. &lsquo;MyName&rsquo;,  or &lsquo;my.name&rsquo;,  or
+&lsquo;123-abc&rsquo;, regex used for validation is &lsquo;([A-Za-z0-9][-A-Za-z0-9</em>.]*)?[A-Za-z0-9]&rsquo;) with an
+optional DNS subdomain prefix and &lsquo;/&rsquo; (e.g. &lsquo;example.com/MyName&rsquo;)</p>
+<p>Required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>expression</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:</p>
+<p>&lsquo;object&rsquo; - The object from the incoming request. The value is null for DELETE requests.
+&lsquo;oldObject&rsquo; - The existing object. The value is null for CREATE requests.
+&lsquo;request&rsquo; - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
+&lsquo;authorizer&rsquo; - A CEL Authorizer. May be used to perform authorization checks for the principal (user or service account) of the request.
+See <a href="https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz">https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz</a>
+&lsquo;authorizer.requestResource&rsquo; - A CEL ResourceCheck constructed from the &lsquo;authorizer&rsquo; and configured with the
+request resource.
+Documentation on CEL: <a href="https://kubernetes.io/docs/reference/using-api/cel/">https://kubernetes.io/docs/reference/using-api/cel/</a></p>
+<p>Required.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.CELExpression">CELExpression
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.CEL">CEL</a>)
+</p>
+<p>
+<p>CELExpression specifies the CEL expression which is used to apply the validation.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
 <code>expression</code><br/>
 <em>
 string
@@ -1033,20 +1154,6 @@ string
 Since messageExpression is used as a failure message, it must evaluate to a string.
 If both message and messageExpression are present on a validation, then messageExpression will be used if validation fails.
 ref: <a href="https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation">https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation</a></p>
-</td>
-</tr>
-<tr>
-<td>
-<code>auditAnnotations</code><br/>
-<em>
-<a href="#kyverno.io/v1.AuditAnnotation">
-[]AuditAnnotation
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>auditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the API request.</p>
 </td>
 </tr>
 </tbody>
@@ -2580,6 +2687,77 @@ github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest.ObjectReferenceList
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.ParamKind">ParamKind
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.CEL">CEL</a>)
+</p>
+<p>
+<p>ParamKind specifies the kind of resources used to parameterize this policy.
+It is a tuple of Group Kind, Version, Name and Namespace</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>APIVersion is the API group version the resources belong to.
+In format of &ldquo;group/version&rdquo;.
+Required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Kind is the API kind the resources belong to.
+Required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>name</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Name of the resource.
+Required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>namespace</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Namespace of the resource.
+Should be empty for the cluster-scoped resources</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v1.PodSecurity">PodSecurity
 </h3>
 <p>
@@ -2766,6 +2944,59 @@ RuleCountStatus
 <td>
 <em>(Optional)</em>
 <p>RuleCount describes total number of rules in a policy</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.Precondition">Precondition
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Rule">Rule</a>, 
+<a href="#kyverno.io/v2beta1.Rule">Rule</a>)
+</p>
+<p>
+<p>Preconditions are used to determine if a policy rule should be applied by evaluating a
+set of conditions.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Multiple conditions can be declared under an <code>any</code> or <code>all</code> statement. A direct list
+of conditions (without <code>any</code> or <code>all</code> statements) is also supported for backwards compatibility
+but will be deprecated in the next major release.
+See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>celConditions</code><br/>
+<em>
+<a href="#kyverno.io/v1.CELCondition">
+[]CELCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CELConditions is a list of conditions written as CEL expressions. It can only be used with the validate.cel subrule</p>
 </td>
 </tr>
 </tbody>
@@ -3169,15 +3400,15 @@ This config is only valid for verifyImages rules.</p>
 <td>
 <code>preconditions</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
-Kubernetes apiextensions/v1.JSON
+<a href="#kyverno.io/v1.Precondition">
+Precondition
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
 <p>Preconditions are used to determine if a policy rule should be applied by evaluating a
-set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements. A direct list
+set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> or <code>cel</code> statements. A direct list
 of conditions (without <code>any</code> or <code>all</code> statements is supported for backwards compatibility but
 will be deprecated in the next major release.
 See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
@@ -3904,7 +4135,7 @@ by specifying exclusions for Pod Security Standards controls.</p>
 <code>cel</code><br/>
 <em>
 <a href="#kyverno.io/v1.CEL">
-[]CEL
+CEL
 </a>
 </em>
 </td>
@@ -6208,8 +6439,7 @@ PolicyStatus
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v2alpha1.CleanupPolicySpec">CleanupPolicySpec</a>, 
-<a href="#kyverno.io/v2beta1.Deny">Deny</a>, 
-<a href="#kyverno.io/v2beta1.Rule">Rule</a>)
+<a href="#kyverno.io/v2beta1.Deny">Deny</a>)
 </p>
 <p>
 </p>
@@ -6825,8 +7055,8 @@ This config is only valid for verifyImages rules.</p>
 <td>
 <code>preconditions</code><br/>
 <em>
-<a href="#kyverno.io/v2beta1.AnyAllConditions">
-AnyAllConditions
+<a href="#kyverno.io/v1.Precondition">
+Precondition
 </a>
 </em>
 </td>
@@ -7196,7 +7426,7 @@ by specifying exclusions for Pod Security Standards controls.</p>
 <code>cel</code><br/>
 <em>
 <a href="#kyverno.io/v1.CEL">
-[]CEL
+CEL
 </a>
 </em>
 </td>

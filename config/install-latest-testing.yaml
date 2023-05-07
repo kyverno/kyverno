@@ -6204,11 +6204,64 @@ spec:
                     preconditions:
                       description: 'Preconditions are used to determine if a policy
                         rule should be applied by evaluating a set of conditions.
-                        The declaration can contain nested `any` or `all` statements.
-                        A direct list of conditions (without `any` or `all` statements
-                        is supported for backwards compatibility but will be deprecated
-                        in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
-                      x-kubernetes-preserve-unknown-fields: true
+                        The declaration can contain nested `any` or `all` or `cel`
+                        statements. A direct list of conditions (without `any` or
+                        `all` statements is supported for backwards compatibility
+                        but will be deprecated in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
+                      properties:
+                        celConditions:
+                          description: CELConditions is a list of conditions written
+                            as CEL expressions. It can only be used with the validate.cel
+                            subrule
+                          items:
+                            description: MatchCondition represents a condition which
+                              must by fulfilled for a request to be sent to a webhook.
+                            properties:
+                              expression:
+                                description: "Expression represents the expression
+                                  which will be evaluated by CEL. Must evaluate to
+                                  bool. CEL expressions have access to the contents
+                                  of the AdmissionRequest and Authorizer, organized
+                                  into CEL variables: \n 'object' - The object from
+                                  the incoming request. The value is null for DELETE
+                                  requests. 'oldObject' - The existing object. The
+                                  value is null for CREATE requests. 'request' - Attributes
+                                  of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
+                                  'authorizer' - A CEL Authorizer. May be used to
+                                  perform authorization checks for the principal (user
+                                  or service account) of the request. See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz
+                                  'authorizer.requestResource' - A CEL ResourceCheck
+                                  constructed from the 'authorizer' and configured
+                                  with the request resource. Documentation on CEL:
+                                  https://kubernetes.io/docs/reference/using-api/cel/
+                                  \n Required."
+                                type: string
+                              name:
+                                description: "Name is an identifier for this match
+                                  condition, used for strategic merging of MatchConditions,
+                                  as well as providing an identifier for logging purposes.
+                                  A good name should be descriptive of the associated
+                                  expression. Name must be a qualified name consisting
+                                  of alphanumeric characters, '-', '_' or '.', and
+                                  must start and end with an alphanumeric character
+                                  (e.g. 'MyName',  or 'my.name',  or '123-abc', regex
+                                  used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')
+                                  with an optional DNS subdomain prefix and '/' (e.g.
+                                  'example.com/MyName') \n Required."
+                                type: string
+                            required:
+                            - expression
+                            - name
+                            type: object
+                          type: array
+                        conditions:
+                          description: 'Multiple conditions can be declared under
+                            an `any` or `all` statement. A direct list of conditions
+                            (without `any` or `all` statements) is also supported
+                            for backwards compatibility but will be deprecated in
+                            the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
+                          x-kubernetes-preserve-unknown-fields: true
+                      type: object
                     validate:
                       description: Validation is used to validate matching resources.
                       properties:
@@ -6220,62 +6273,93 @@ spec:
                         cel:
                           description: CEL specifies CEL expressions which is used
                             to apply the validation.
-                          items:
-                            description: CEL defines the CEL expression which is used
-                              to apply the validation.
-                            properties:
-                              auditAnnotations:
-                                description: auditAnnotations contains CEL expressions
-                                  which are used to produce audit annotations for
-                                  the audit event of the API request.
-                                items:
-                                  description: AuditAnnotation describes how to produce
-                                    an audit annotation for an API request.
-                                  properties:
-                                    key:
-                                      description: 'key specifies the audit annotation
-                                        key. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#AuditAnnotation
-                                        Required.'
-                                      type: string
-                                    valueExpression:
-                                      description: valueExpression represents the
-                                        expression which is evaluated by CEL to produce
-                                        an audit annotation value. The expression
-                                        must evaluate to either a string or null value.
-                                        If the expression evaluates to a string, the
-                                        audit annotation is included with the string
-                                        value. If the expression evaluates to null
-                                        or empty string the audit annotation will
-                                        be omitted. Required.
-                                      type: string
-                                  required:
-                                  - key
-                                  - valueExpression
-                                  type: object
-                                type: array
-                              expression:
-                                description: 'Expression represents the expression
-                                  which will be evaluated by CEL. ref: https://github.com/google/cel-spec
-                                  Required.'
-                                type: string
-                              message:
-                                description: 'Message represents the message displayed
-                                  when cel validation fails. If unset, the message
-                                  is "failed Expression: {Expression}".'
-                                type: string
-                              messageExpression:
-                                description: 'messageExpression declares a CEL expression
-                                  that evaluates to the validation failure message
-                                  that is returned when this rule fails. Since messageExpression
-                                  is used as a failure message, it must evaluate to
-                                  a string. If both message and messageExpression
-                                  are present on a validation, then messageExpression
-                                  will be used if validation fails. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation'
-                                type: string
-                            required:
-                            - expression
-                            type: object
-                          type: array
+                          properties:
+                            auditAnnotations:
+                              description: AuditAnnotations contains CEL expressions
+                                which are used to produce audit annotations for the
+                                audit event of the API request.
+                              items:
+                                description: AuditAnnotation describes how to produce
+                                  an audit annotation for an API request.
+                                properties:
+                                  key:
+                                    description: 'key specifies the audit annotation
+                                      key. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#AuditAnnotation
+                                      Required.'
+                                    type: string
+                                  valueExpression:
+                                    description: valueExpression represents the expression
+                                      which is evaluated by CEL to produce an audit
+                                      annotation value. The expression must evaluate
+                                      to either a string or null value. If the expression
+                                      evaluates to a string, the audit annotation
+                                      is included with the string value. If the expression
+                                      evaluates to null or empty string the audit
+                                      annotation will be omitted. Required.
+                                    type: string
+                                required:
+                                - key
+                                - valueExpression
+                                type: object
+                              type: array
+                            expressions:
+                              description: Expressions contain CEL expressions which
+                                is used to apply the validation.
+                              items:
+                                description: CELExpression specifies the CEL expression
+                                  which is used to apply the validation.
+                                properties:
+                                  expression:
+                                    description: 'Expression represents the expression
+                                      which will be evaluated by CEL. ref: https://github.com/google/cel-spec
+                                      Required.'
+                                    type: string
+                                  message:
+                                    description: 'Message represents the message displayed
+                                      when cel validation fails. If unset, the message
+                                      is "failed Expression: {Expression}".'
+                                    type: string
+                                  messageExpression:
+                                    description: 'messageExpression declares a CEL
+                                      expression that evaluates to the validation
+                                      failure message that is returned when this rule
+                                      fails. Since messageExpression is used as a
+                                      failure message, it must evaluate to a string.
+                                      If both message and messageExpression are present
+                                      on a validation, then messageExpression will
+                                      be used if validation fails. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation'
+                                    type: string
+                                required:
+                                - expression
+                                type: object
+                              type: array
+                            paramKind:
+                              description: ParamKind specifies the kind of resources
+                                used to parameterize this policy. If absent, there
+                                are no parameters for this policy and the param CEL
+                                variable will not be provided to validation expressions.
+                                If ParamKind refers to a non-existent kind, this policy
+                                definition is mis-configured and the FailurePolicy
+                                is applied.
+                              properties:
+                                apiVersion:
+                                  description: APIVersion is the API group version
+                                    the resources belong to. In format of "group/version".
+                                    Required.
+                                  type: string
+                                kind:
+                                  description: Kind is the API kind the resources
+                                    belong to. Required.
+                                  type: string
+                                name:
+                                  description: Name of the resource. Required.
+                                  type: string
+                                namespace:
+                                  description: Namespace of the resource. Should be
+                                    empty for the cluster-scoped resources
+                                  type: string
+                              type: object
+                          type: object
                         deny:
                           description: Deny defines conditions used to pass or fail
                             a validation rule.
@@ -9867,11 +9951,69 @@ spec:
                         preconditions:
                           description: 'Preconditions are used to determine if a policy
                             rule should be applied by evaluating a set of conditions.
-                            The declaration can contain nested `any` or `all` statements.
-                            A direct list of conditions (without `any` or `all` statements
-                            is supported for backwards compatibility but will be deprecated
-                            in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
-                          x-kubernetes-preserve-unknown-fields: true
+                            The declaration can contain nested `any` or `all` or `cel`
+                            statements. A direct list of conditions (without `any`
+                            or `all` statements is supported for backwards compatibility
+                            but will be deprecated in the next major release. See:
+                            https://kyverno.io/docs/writing-policies/preconditions/'
+                          properties:
+                            celConditions:
+                              description: CELConditions is a list of conditions written
+                                as CEL expressions. It can only be used with the validate.cel
+                                subrule
+                              items:
+                                description: MatchCondition represents a condition
+                                  which must by fulfilled for a request to be sent
+                                  to a webhook.
+                                properties:
+                                  expression:
+                                    description: "Expression represents the expression
+                                      which will be evaluated by CEL. Must evaluate
+                                      to bool. CEL expressions have access to the
+                                      contents of the AdmissionRequest and Authorizer,
+                                      organized into CEL variables: \n 'object' -
+                                      The object from the incoming request. The value
+                                      is null for DELETE requests. 'oldObject' - The
+                                      existing object. The value is null for CREATE
+                                      requests. 'request' - Attributes of the admission
+                                      request(/pkg/apis/admission/types.go#AdmissionRequest).
+                                      'authorizer' - A CEL Authorizer. May be used
+                                      to perform authorization checks for the principal
+                                      (user or service account) of the request. See
+                                      https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz
+                                      'authorizer.requestResource' - A CEL ResourceCheck
+                                      constructed from the 'authorizer' and configured
+                                      with the request resource. Documentation on
+                                      CEL: https://kubernetes.io/docs/reference/using-api/cel/
+                                      \n Required."
+                                    type: string
+                                  name:
+                                    description: "Name is an identifier for this match
+                                      condition, used for strategic merging of MatchConditions,
+                                      as well as providing an identifier for logging
+                                      purposes. A good name should be descriptive
+                                      of the associated expression. Name must be a
+                                      qualified name consisting of alphanumeric characters,
+                                      '-', '_' or '.', and must start and end with
+                                      an alphanumeric character (e.g. 'MyName',  or
+                                      'my.name',  or '123-abc', regex used for validation
+                                      is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')
+                                      with an optional DNS subdomain prefix and '/'
+                                      (e.g. 'example.com/MyName') \n Required."
+                                    type: string
+                                required:
+                                - expression
+                                - name
+                                type: object
+                              type: array
+                            conditions:
+                              description: 'Multiple conditions can be declared under
+                                an `any` or `all` statement. A direct list of conditions
+                                (without `any` or `all` statements) is also supported
+                                for backwards compatibility but will be deprecated
+                                in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
+                              x-kubernetes-preserve-unknown-fields: true
+                          type: object
                         validate:
                           description: Validation is used to validate matching resources.
                           properties:
@@ -9883,64 +10025,95 @@ spec:
                             cel:
                               description: CEL specifies CEL expressions which is
                                 used to apply the validation.
-                              items:
-                                description: CEL defines the CEL expression which
-                                  is used to apply the validation.
-                                properties:
-                                  auditAnnotations:
-                                    description: auditAnnotations contains CEL expressions
-                                      which are used to produce audit annotations
-                                      for the audit event of the API request.
-                                    items:
-                                      description: AuditAnnotation describes how to
-                                        produce an audit annotation for an API request.
-                                      properties:
-                                        key:
-                                          description: 'key specifies the audit annotation
-                                            key. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#AuditAnnotation
-                                            Required.'
-                                          type: string
-                                        valueExpression:
-                                          description: valueExpression represents
-                                            the expression which is evaluated by CEL
-                                            to produce an audit annotation value.
-                                            The expression must evaluate to either
-                                            a string or null value. If the expression
-                                            evaluates to a string, the audit annotation
-                                            is included with the string value. If
-                                            the expression evaluates to null or empty
-                                            string the audit annotation will be omitted.
-                                            Required.
-                                          type: string
-                                      required:
-                                      - key
-                                      - valueExpression
-                                      type: object
-                                    type: array
-                                  expression:
-                                    description: 'Expression represents the expression
-                                      which will be evaluated by CEL. ref: https://github.com/google/cel-spec
-                                      Required.'
-                                    type: string
-                                  message:
-                                    description: 'Message represents the message displayed
-                                      when cel validation fails. If unset, the message
-                                      is "failed Expression: {Expression}".'
-                                    type: string
-                                  messageExpression:
-                                    description: 'messageExpression declares a CEL
-                                      expression that evaluates to the validation
-                                      failure message that is returned when this rule
-                                      fails. Since messageExpression is used as a
-                                      failure message, it must evaluate to a string.
-                                      If both message and messageExpression are present
-                                      on a validation, then messageExpression will
-                                      be used if validation fails. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation'
-                                    type: string
-                                required:
-                                - expression
-                                type: object
-                              type: array
+                              properties:
+                                auditAnnotations:
+                                  description: AuditAnnotations contains CEL expressions
+                                    which are used to produce audit annotations for
+                                    the audit event of the API request.
+                                  items:
+                                    description: AuditAnnotation describes how to
+                                      produce an audit annotation for an API request.
+                                    properties:
+                                      key:
+                                        description: 'key specifies the audit annotation
+                                          key. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#AuditAnnotation
+                                          Required.'
+                                        type: string
+                                      valueExpression:
+                                        description: valueExpression represents the
+                                          expression which is evaluated by CEL to
+                                          produce an audit annotation value. The expression
+                                          must evaluate to either a string or null
+                                          value. If the expression evaluates to a
+                                          string, the audit annotation is included
+                                          with the string value. If the expression
+                                          evaluates to null or empty string the audit
+                                          annotation will be omitted. Required.
+                                        type: string
+                                    required:
+                                    - key
+                                    - valueExpression
+                                    type: object
+                                  type: array
+                                expressions:
+                                  description: Expressions contain CEL expressions
+                                    which is used to apply the validation.
+                                  items:
+                                    description: CELExpression specifies the CEL expression
+                                      which is used to apply the validation.
+                                    properties:
+                                      expression:
+                                        description: 'Expression represents the expression
+                                          which will be evaluated by CEL. ref: https://github.com/google/cel-spec
+                                          Required.'
+                                        type: string
+                                      message:
+                                        description: 'Message represents the message
+                                          displayed when cel validation fails. If
+                                          unset, the message is "failed Expression:
+                                          {Expression}".'
+                                        type: string
+                                      messageExpression:
+                                        description: 'messageExpression declares a
+                                          CEL expression that evaluates to the validation
+                                          failure message that is returned when this
+                                          rule fails. Since messageExpression is used
+                                          as a failure message, it must evaluate to
+                                          a string. If both message and messageExpression
+                                          are present on a validation, then messageExpression
+                                          will be used if validation fails. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation'
+                                        type: string
+                                    required:
+                                    - expression
+                                    type: object
+                                  type: array
+                                paramKind:
+                                  description: ParamKind specifies the kind of resources
+                                    used to parameterize this policy. If absent, there
+                                    are no parameters for this policy and the param
+                                    CEL variable will not be provided to validation
+                                    expressions. If ParamKind refers to a non-existent
+                                    kind, this policy definition is mis-configured
+                                    and the FailurePolicy is applied.
+                                  properties:
+                                    apiVersion:
+                                      description: APIVersion is the API group version
+                                        the resources belong to. In format of "group/version".
+                                        Required.
+                                      type: string
+                                    kind:
+                                      description: Kind is the API kind the resources
+                                        belong to. Required.
+                                      type: string
+                                    name:
+                                      description: Name of the resource. Required.
+                                      type: string
+                                    namespace:
+                                      description: Namespace of the resource. Should
+                                        be empty for the cluster-scoped resources
+                                      type: string
+                                  type: object
+                              type: object
                             deny:
                               description: Deny defines conditions used to pass or
                                 fail a validation rule.
@@ -13171,94 +13344,58 @@ spec:
                         A direct list of conditions (without `any` or `all` statements
                         is supported for backwards compatibility but See: https://kyverno.io/docs/writing-policies/preconditions/'
                       properties:
-                        all:
-                          description: AllConditions enable variable-based conditional
-                            rule execution. This is useful for finer control of when
-                            an rule is applied. A condition can reference object data
-                            using JMESPath notation. Here, all of the conditions need
-                            to pass.
+                        celConditions:
+                          description: CELConditions is a list of conditions written
+                            as CEL expressions. It can only be used with the validate.cel
+                            subrule
                           items:
+                            description: MatchCondition represents a condition which
+                              must by fulfilled for a request to be sent to a webhook.
                             properties:
-                              key:
-                                description: Key is the context entry (using JMESPath)
-                                  for conditional rule evaluation.
-                                x-kubernetes-preserve-unknown-fields: true
-                              message:
-                                description: Message is an optional display message
+                              expression:
+                                description: "Expression represents the expression
+                                  which will be evaluated by CEL. Must evaluate to
+                                  bool. CEL expressions have access to the contents
+                                  of the AdmissionRequest and Authorizer, organized
+                                  into CEL variables: \n 'object' - The object from
+                                  the incoming request. The value is null for DELETE
+                                  requests. 'oldObject' - The existing object. The
+                                  value is null for CREATE requests. 'request' - Attributes
+                                  of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
+                                  'authorizer' - A CEL Authorizer. May be used to
+                                  perform authorization checks for the principal (user
+                                  or service account) of the request. See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz
+                                  'authorizer.requestResource' - A CEL ResourceCheck
+                                  constructed from the 'authorizer' and configured
+                                  with the request resource. Documentation on CEL:
+                                  https://kubernetes.io/docs/reference/using-api/cel/
+                                  \n Required."
                                 type: string
-                              operator:
-                                description: 'Operator is the conditional operation
-                                  to perform. Valid operators are: Equals, NotEquals,
-                                  In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
-                                  GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals,
-                                  DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan'
-                                enum:
-                                - Equals
-                                - NotEquals
-                                - AnyIn
-                                - AllIn
-                                - AnyNotIn
-                                - AllNotIn
-                                - GreaterThanOrEquals
-                                - GreaterThan
-                                - LessThanOrEquals
-                                - LessThan
-                                - DurationGreaterThanOrEquals
-                                - DurationGreaterThan
-                                - DurationLessThanOrEquals
-                                - DurationLessThan
+                              name:
+                                description: "Name is an identifier for this match
+                                  condition, used for strategic merging of MatchConditions,
+                                  as well as providing an identifier for logging purposes.
+                                  A good name should be descriptive of the associated
+                                  expression. Name must be a qualified name consisting
+                                  of alphanumeric characters, '-', '_' or '.', and
+                                  must start and end with an alphanumeric character
+                                  (e.g. 'MyName',  or 'my.name',  or '123-abc', regex
+                                  used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')
+                                  with an optional DNS subdomain prefix and '/' (e.g.
+                                  'example.com/MyName') \n Required."
                                 type: string
-                              value:
-                                description: Value is the conditional value, or set
-                                  of values. The values can be fixed set or can be
-                                  variables declared using JMESPath.
-                                x-kubernetes-preserve-unknown-fields: true
+                            required:
+                            - expression
+                            - name
                             type: object
                           type: array
-                        any:
-                          description: AnyConditions enable variable-based conditional
-                            rule execution. This is useful for finer control of when
-                            an rule is applied. A condition can reference object data
-                            using JMESPath notation. Here, at least one of the conditions
-                            need to pass.
-                          items:
-                            properties:
-                              key:
-                                description: Key is the context entry (using JMESPath)
-                                  for conditional rule evaluation.
-                                x-kubernetes-preserve-unknown-fields: true
-                              message:
-                                description: Message is an optional display message
-                                type: string
-                              operator:
-                                description: 'Operator is the conditional operation
-                                  to perform. Valid operators are: Equals, NotEquals,
-                                  In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
-                                  GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals,
-                                  DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan'
-                                enum:
-                                - Equals
-                                - NotEquals
-                                - AnyIn
-                                - AllIn
-                                - AnyNotIn
-                                - AllNotIn
-                                - GreaterThanOrEquals
-                                - GreaterThan
-                                - LessThanOrEquals
-                                - LessThan
-                                - DurationGreaterThanOrEquals
-                                - DurationGreaterThan
-                                - DurationLessThanOrEquals
-                                - DurationLessThan
-                                type: string
-                              value:
-                                description: Value is the conditional value, or set
-                                  of values. The values can be fixed set or can be
-                                  variables declared using JMESPath.
-                                x-kubernetes-preserve-unknown-fields: true
-                            type: object
-                          type: array
+                        conditions:
+                          description: 'Multiple conditions can be declared under
+                            an `any` or `all` statement. A direct list of conditions
+                            (without `any` or `all` statements) is also supported
+                            for backwards compatibility but will be deprecated in
+                            the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
+                          x-kubernetes-preserve-unknown-fields: true
                       type: object
                     validate:
                       description: Validation is used to validate matching resources.
@@ -13271,62 +13408,93 @@ spec:
                         cel:
                           description: CEL specifies CEL expressions which is used
                             to apply the validation.
-                          items:
-                            description: CEL defines the CEL expression which is used
-                              to apply the validation.
-                            properties:
-                              auditAnnotations:
-                                description: auditAnnotations contains CEL expressions
-                                  which are used to produce audit annotations for
-                                  the audit event of the API request.
-                                items:
-                                  description: AuditAnnotation describes how to produce
-                                    an audit annotation for an API request.
-                                  properties:
-                                    key:
-                                      description: 'key specifies the audit annotation
-                                        key. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#AuditAnnotation
-                                        Required.'
-                                      type: string
-                                    valueExpression:
-                                      description: valueExpression represents the
-                                        expression which is evaluated by CEL to produce
-                                        an audit annotation value. The expression
-                                        must evaluate to either a string or null value.
-                                        If the expression evaluates to a string, the
-                                        audit annotation is included with the string
-                                        value. If the expression evaluates to null
-                                        or empty string the audit annotation will
-                                        be omitted. Required.
-                                      type: string
-                                  required:
-                                  - key
-                                  - valueExpression
-                                  type: object
-                                type: array
-                              expression:
-                                description: 'Expression represents the expression
-                                  which will be evaluated by CEL. ref: https://github.com/google/cel-spec
-                                  Required.'
-                                type: string
-                              message:
-                                description: 'Message represents the message displayed
-                                  when cel validation fails. If unset, the message
-                                  is "failed Expression: {Expression}".'
-                                type: string
-                              messageExpression:
-                                description: 'messageExpression declares a CEL expression
-                                  that evaluates to the validation failure message
-                                  that is returned when this rule fails. Since messageExpression
-                                  is used as a failure message, it must evaluate to
-                                  a string. If both message and messageExpression
-                                  are present on a validation, then messageExpression
-                                  will be used if validation fails. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation'
-                                type: string
-                            required:
-                            - expression
-                            type: object
-                          type: array
+                          properties:
+                            auditAnnotations:
+                              description: AuditAnnotations contains CEL expressions
+                                which are used to produce audit annotations for the
+                                audit event of the API request.
+                              items:
+                                description: AuditAnnotation describes how to produce
+                                  an audit annotation for an API request.
+                                properties:
+                                  key:
+                                    description: 'key specifies the audit annotation
+                                      key. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#AuditAnnotation
+                                      Required.'
+                                    type: string
+                                  valueExpression:
+                                    description: valueExpression represents the expression
+                                      which is evaluated by CEL to produce an audit
+                                      annotation value. The expression must evaluate
+                                      to either a string or null value. If the expression
+                                      evaluates to a string, the audit annotation
+                                      is included with the string value. If the expression
+                                      evaluates to null or empty string the audit
+                                      annotation will be omitted. Required.
+                                    type: string
+                                required:
+                                - key
+                                - valueExpression
+                                type: object
+                              type: array
+                            expressions:
+                              description: Expressions contain CEL expressions which
+                                is used to apply the validation.
+                              items:
+                                description: CELExpression specifies the CEL expression
+                                  which is used to apply the validation.
+                                properties:
+                                  expression:
+                                    description: 'Expression represents the expression
+                                      which will be evaluated by CEL. ref: https://github.com/google/cel-spec
+                                      Required.'
+                                    type: string
+                                  message:
+                                    description: 'Message represents the message displayed
+                                      when cel validation fails. If unset, the message
+                                      is "failed Expression: {Expression}".'
+                                    type: string
+                                  messageExpression:
+                                    description: 'messageExpression declares a CEL
+                                      expression that evaluates to the validation
+                                      failure message that is returned when this rule
+                                      fails. Since messageExpression is used as a
+                                      failure message, it must evaluate to a string.
+                                      If both message and messageExpression are present
+                                      on a validation, then messageExpression will
+                                      be used if validation fails. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation'
+                                    type: string
+                                required:
+                                - expression
+                                type: object
+                              type: array
+                            paramKind:
+                              description: ParamKind specifies the kind of resources
+                                used to parameterize this policy. If absent, there
+                                are no parameters for this policy and the param CEL
+                                variable will not be provided to validation expressions.
+                                If ParamKind refers to a non-existent kind, this policy
+                                definition is mis-configured and the FailurePolicy
+                                is applied.
+                              properties:
+                                apiVersion:
+                                  description: APIVersion is the API group version
+                                    the resources belong to. In format of "group/version".
+                                    Required.
+                                  type: string
+                                kind:
+                                  description: Kind is the API kind the resources
+                                    belong to. Required.
+                                  type: string
+                                name:
+                                  description: Name of the resource. Required.
+                                  type: string
+                                namespace:
+                                  description: Namespace of the resource. Should be
+                                    empty for the cluster-scoped resources
+                                  type: string
+                              type: object
+                          type: object
                         deny:
                           description: Deny defines conditions used to pass or fail
                             a validation rule.
@@ -16972,11 +17140,69 @@ spec:
                         preconditions:
                           description: 'Preconditions are used to determine if a policy
                             rule should be applied by evaluating a set of conditions.
-                            The declaration can contain nested `any` or `all` statements.
-                            A direct list of conditions (without `any` or `all` statements
-                            is supported for backwards compatibility but will be deprecated
-                            in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
-                          x-kubernetes-preserve-unknown-fields: true
+                            The declaration can contain nested `any` or `all` or `cel`
+                            statements. A direct list of conditions (without `any`
+                            or `all` statements is supported for backwards compatibility
+                            but will be deprecated in the next major release. See:
+                            https://kyverno.io/docs/writing-policies/preconditions/'
+                          properties:
+                            celConditions:
+                              description: CELConditions is a list of conditions written
+                                as CEL expressions. It can only be used with the validate.cel
+                                subrule
+                              items:
+                                description: MatchCondition represents a condition
+                                  which must by fulfilled for a request to be sent
+                                  to a webhook.
+                                properties:
+                                  expression:
+                                    description: "Expression represents the expression
+                                      which will be evaluated by CEL. Must evaluate
+                                      to bool. CEL expressions have access to the
+                                      contents of the AdmissionRequest and Authorizer,
+                                      organized into CEL variables: \n 'object' -
+                                      The object from the incoming request. The value
+                                      is null for DELETE requests. 'oldObject' - The
+                                      existing object. The value is null for CREATE
+                                      requests. 'request' - Attributes of the admission
+                                      request(/pkg/apis/admission/types.go#AdmissionRequest).
+                                      'authorizer' - A CEL Authorizer. May be used
+                                      to perform authorization checks for the principal
+                                      (user or service account) of the request. See
+                                      https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz
+                                      'authorizer.requestResource' - A CEL ResourceCheck
+                                      constructed from the 'authorizer' and configured
+                                      with the request resource. Documentation on
+                                      CEL: https://kubernetes.io/docs/reference/using-api/cel/
+                                      \n Required."
+                                    type: string
+                                  name:
+                                    description: "Name is an identifier for this match
+                                      condition, used for strategic merging of MatchConditions,
+                                      as well as providing an identifier for logging
+                                      purposes. A good name should be descriptive
+                                      of the associated expression. Name must be a
+                                      qualified name consisting of alphanumeric characters,
+                                      '-', '_' or '.', and must start and end with
+                                      an alphanumeric character (e.g. 'MyName',  or
+                                      'my.name',  or '123-abc', regex used for validation
+                                      is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')
+                                      with an optional DNS subdomain prefix and '/'
+                                      (e.g. 'example.com/MyName') \n Required."
+                                    type: string
+                                required:
+                                - expression
+                                - name
+                                type: object
+                              type: array
+                            conditions:
+                              description: 'Multiple conditions can be declared under
+                                an `any` or `all` statement. A direct list of conditions
+                                (without `any` or `all` statements) is also supported
+                                for backwards compatibility but will be deprecated
+                                in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
+                              x-kubernetes-preserve-unknown-fields: true
+                          type: object
                         validate:
                           description: Validation is used to validate matching resources.
                           properties:
@@ -16988,64 +17214,95 @@ spec:
                             cel:
                               description: CEL specifies CEL expressions which is
                                 used to apply the validation.
-                              items:
-                                description: CEL defines the CEL expression which
-                                  is used to apply the validation.
-                                properties:
-                                  auditAnnotations:
-                                    description: auditAnnotations contains CEL expressions
-                                      which are used to produce audit annotations
-                                      for the audit event of the API request.
-                                    items:
-                                      description: AuditAnnotation describes how to
-                                        produce an audit annotation for an API request.
-                                      properties:
-                                        key:
-                                          description: 'key specifies the audit annotation
-                                            key. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#AuditAnnotation
-                                            Required.'
-                                          type: string
-                                        valueExpression:
-                                          description: valueExpression represents
-                                            the expression which is evaluated by CEL
-                                            to produce an audit annotation value.
-                                            The expression must evaluate to either
-                                            a string or null value. If the expression
-                                            evaluates to a string, the audit annotation
-                                            is included with the string value. If
-                                            the expression evaluates to null or empty
-                                            string the audit annotation will be omitted.
-                                            Required.
-                                          type: string
-                                      required:
-                                      - key
-                                      - valueExpression
-                                      type: object
-                                    type: array
-                                  expression:
-                                    description: 'Expression represents the expression
-                                      which will be evaluated by CEL. ref: https://github.com/google/cel-spec
-                                      Required.'
-                                    type: string
-                                  message:
-                                    description: 'Message represents the message displayed
-                                      when cel validation fails. If unset, the message
-                                      is "failed Expression: {Expression}".'
-                                    type: string
-                                  messageExpression:
-                                    description: 'messageExpression declares a CEL
-                                      expression that evaluates to the validation
-                                      failure message that is returned when this rule
-                                      fails. Since messageExpression is used as a
-                                      failure message, it must evaluate to a string.
-                                      If both message and messageExpression are present
-                                      on a validation, then messageExpression will
-                                      be used if validation fails. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation'
-                                    type: string
-                                required:
-                                - expression
-                                type: object
-                              type: array
+                              properties:
+                                auditAnnotations:
+                                  description: AuditAnnotations contains CEL expressions
+                                    which are used to produce audit annotations for
+                                    the audit event of the API request.
+                                  items:
+                                    description: AuditAnnotation describes how to
+                                      produce an audit annotation for an API request.
+                                    properties:
+                                      key:
+                                        description: 'key specifies the audit annotation
+                                          key. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#AuditAnnotation
+                                          Required.'
+                                        type: string
+                                      valueExpression:
+                                        description: valueExpression represents the
+                                          expression which is evaluated by CEL to
+                                          produce an audit annotation value. The expression
+                                          must evaluate to either a string or null
+                                          value. If the expression evaluates to a
+                                          string, the audit annotation is included
+                                          with the string value. If the expression
+                                          evaluates to null or empty string the audit
+                                          annotation will be omitted. Required.
+                                        type: string
+                                    required:
+                                    - key
+                                    - valueExpression
+                                    type: object
+                                  type: array
+                                expressions:
+                                  description: Expressions contain CEL expressions
+                                    which is used to apply the validation.
+                                  items:
+                                    description: CELExpression specifies the CEL expression
+                                      which is used to apply the validation.
+                                    properties:
+                                      expression:
+                                        description: 'Expression represents the expression
+                                          which will be evaluated by CEL. ref: https://github.com/google/cel-spec
+                                          Required.'
+                                        type: string
+                                      message:
+                                        description: 'Message represents the message
+                                          displayed when cel validation fails. If
+                                          unset, the message is "failed Expression:
+                                          {Expression}".'
+                                        type: string
+                                      messageExpression:
+                                        description: 'messageExpression declares a
+                                          CEL expression that evaluates to the validation
+                                          failure message that is returned when this
+                                          rule fails. Since messageExpression is used
+                                          as a failure message, it must evaluate to
+                                          a string. If both message and messageExpression
+                                          are present on a validation, then messageExpression
+                                          will be used if validation fails. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation'
+                                        type: string
+                                    required:
+                                    - expression
+                                    type: object
+                                  type: array
+                                paramKind:
+                                  description: ParamKind specifies the kind of resources
+                                    used to parameterize this policy. If absent, there
+                                    are no parameters for this policy and the param
+                                    CEL variable will not be provided to validation
+                                    expressions. If ParamKind refers to a non-existent
+                                    kind, this policy definition is mis-configured
+                                    and the FailurePolicy is applied.
+                                  properties:
+                                    apiVersion:
+                                      description: APIVersion is the API group version
+                                        the resources belong to. In format of "group/version".
+                                        Required.
+                                      type: string
+                                    kind:
+                                      description: Kind is the API kind the resources
+                                        belong to. Required.
+                                      type: string
+                                    name:
+                                      description: Name of the resource. Required.
+                                      type: string
+                                    namespace:
+                                      description: Namespace of the resource. Should
+                                        be empty for the cluster-scoped resources
+                                      type: string
+                                  type: object
+                              type: object
                             deny:
                               description: Deny defines conditions used to pass or
                                 fail a validation rule.
@@ -20725,11 +20982,64 @@ spec:
                     preconditions:
                       description: 'Preconditions are used to determine if a policy
                         rule should be applied by evaluating a set of conditions.
-                        The declaration can contain nested `any` or `all` statements.
-                        A direct list of conditions (without `any` or `all` statements
-                        is supported for backwards compatibility but will be deprecated
-                        in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
-                      x-kubernetes-preserve-unknown-fields: true
+                        The declaration can contain nested `any` or `all` or `cel`
+                        statements. A direct list of conditions (without `any` or
+                        `all` statements is supported for backwards compatibility
+                        but will be deprecated in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
+                      properties:
+                        celConditions:
+                          description: CELConditions is a list of conditions written
+                            as CEL expressions. It can only be used with the validate.cel
+                            subrule
+                          items:
+                            description: MatchCondition represents a condition which
+                              must by fulfilled for a request to be sent to a webhook.
+                            properties:
+                              expression:
+                                description: "Expression represents the expression
+                                  which will be evaluated by CEL. Must evaluate to
+                                  bool. CEL expressions have access to the contents
+                                  of the AdmissionRequest and Authorizer, organized
+                                  into CEL variables: \n 'object' - The object from
+                                  the incoming request. The value is null for DELETE
+                                  requests. 'oldObject' - The existing object. The
+                                  value is null for CREATE requests. 'request' - Attributes
+                                  of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
+                                  'authorizer' - A CEL Authorizer. May be used to
+                                  perform authorization checks for the principal (user
+                                  or service account) of the request. See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz
+                                  'authorizer.requestResource' - A CEL ResourceCheck
+                                  constructed from the 'authorizer' and configured
+                                  with the request resource. Documentation on CEL:
+                                  https://kubernetes.io/docs/reference/using-api/cel/
+                                  \n Required."
+                                type: string
+                              name:
+                                description: "Name is an identifier for this match
+                                  condition, used for strategic merging of MatchConditions,
+                                  as well as providing an identifier for logging purposes.
+                                  A good name should be descriptive of the associated
+                                  expression. Name must be a qualified name consisting
+                                  of alphanumeric characters, '-', '_' or '.', and
+                                  must start and end with an alphanumeric character
+                                  (e.g. 'MyName',  or 'my.name',  or '123-abc', regex
+                                  used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')
+                                  with an optional DNS subdomain prefix and '/' (e.g.
+                                  'example.com/MyName') \n Required."
+                                type: string
+                            required:
+                            - expression
+                            - name
+                            type: object
+                          type: array
+                        conditions:
+                          description: 'Multiple conditions can be declared under
+                            an `any` or `all` statement. A direct list of conditions
+                            (without `any` or `all` statements) is also supported
+                            for backwards compatibility but will be deprecated in
+                            the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
+                          x-kubernetes-preserve-unknown-fields: true
+                      type: object
                     validate:
                       description: Validation is used to validate matching resources.
                       properties:
@@ -20741,62 +21051,93 @@ spec:
                         cel:
                           description: CEL specifies CEL expressions which is used
                             to apply the validation.
-                          items:
-                            description: CEL defines the CEL expression which is used
-                              to apply the validation.
-                            properties:
-                              auditAnnotations:
-                                description: auditAnnotations contains CEL expressions
-                                  which are used to produce audit annotations for
-                                  the audit event of the API request.
-                                items:
-                                  description: AuditAnnotation describes how to produce
-                                    an audit annotation for an API request.
-                                  properties:
-                                    key:
-                                      description: 'key specifies the audit annotation
-                                        key. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#AuditAnnotation
-                                        Required.'
-                                      type: string
-                                    valueExpression:
-                                      description: valueExpression represents the
-                                        expression which is evaluated by CEL to produce
-                                        an audit annotation value. The expression
-                                        must evaluate to either a string or null value.
-                                        If the expression evaluates to a string, the
-                                        audit annotation is included with the string
-                                        value. If the expression evaluates to null
-                                        or empty string the audit annotation will
-                                        be omitted. Required.
-                                      type: string
-                                  required:
-                                  - key
-                                  - valueExpression
-                                  type: object
-                                type: array
-                              expression:
-                                description: 'Expression represents the expression
-                                  which will be evaluated by CEL. ref: https://github.com/google/cel-spec
-                                  Required.'
-                                type: string
-                              message:
-                                description: 'Message represents the message displayed
-                                  when cel validation fails. If unset, the message
-                                  is "failed Expression: {Expression}".'
-                                type: string
-                              messageExpression:
-                                description: 'messageExpression declares a CEL expression
-                                  that evaluates to the validation failure message
-                                  that is returned when this rule fails. Since messageExpression
-                                  is used as a failure message, it must evaluate to
-                                  a string. If both message and messageExpression
-                                  are present on a validation, then messageExpression
-                                  will be used if validation fails. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation'
-                                type: string
-                            required:
-                            - expression
-                            type: object
-                          type: array
+                          properties:
+                            auditAnnotations:
+                              description: AuditAnnotations contains CEL expressions
+                                which are used to produce audit annotations for the
+                                audit event of the API request.
+                              items:
+                                description: AuditAnnotation describes how to produce
+                                  an audit annotation for an API request.
+                                properties:
+                                  key:
+                                    description: 'key specifies the audit annotation
+                                      key. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#AuditAnnotation
+                                      Required.'
+                                    type: string
+                                  valueExpression:
+                                    description: valueExpression represents the expression
+                                      which is evaluated by CEL to produce an audit
+                                      annotation value. The expression must evaluate
+                                      to either a string or null value. If the expression
+                                      evaluates to a string, the audit annotation
+                                      is included with the string value. If the expression
+                                      evaluates to null or empty string the audit
+                                      annotation will be omitted. Required.
+                                    type: string
+                                required:
+                                - key
+                                - valueExpression
+                                type: object
+                              type: array
+                            expressions:
+                              description: Expressions contain CEL expressions which
+                                is used to apply the validation.
+                              items:
+                                description: CELExpression specifies the CEL expression
+                                  which is used to apply the validation.
+                                properties:
+                                  expression:
+                                    description: 'Expression represents the expression
+                                      which will be evaluated by CEL. ref: https://github.com/google/cel-spec
+                                      Required.'
+                                    type: string
+                                  message:
+                                    description: 'Message represents the message displayed
+                                      when cel validation fails. If unset, the message
+                                      is "failed Expression: {Expression}".'
+                                    type: string
+                                  messageExpression:
+                                    description: 'messageExpression declares a CEL
+                                      expression that evaluates to the validation
+                                      failure message that is returned when this rule
+                                      fails. Since messageExpression is used as a
+                                      failure message, it must evaluate to a string.
+                                      If both message and messageExpression are present
+                                      on a validation, then messageExpression will
+                                      be used if validation fails. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation'
+                                    type: string
+                                required:
+                                - expression
+                                type: object
+                              type: array
+                            paramKind:
+                              description: ParamKind specifies the kind of resources
+                                used to parameterize this policy. If absent, there
+                                are no parameters for this policy and the param CEL
+                                variable will not be provided to validation expressions.
+                                If ParamKind refers to a non-existent kind, this policy
+                                definition is mis-configured and the FailurePolicy
+                                is applied.
+                              properties:
+                                apiVersion:
+                                  description: APIVersion is the API group version
+                                    the resources belong to. In format of "group/version".
+                                    Required.
+                                  type: string
+                                kind:
+                                  description: Kind is the API kind the resources
+                                    belong to. Required.
+                                  type: string
+                                name:
+                                  description: Name of the resource. Required.
+                                  type: string
+                                namespace:
+                                  description: Namespace of the resource. Should be
+                                    empty for the cluster-scoped resources
+                                  type: string
+                              type: object
+                          type: object
                         deny:
                           description: Deny defines conditions used to pass or fail
                             a validation rule.
@@ -24389,11 +24730,69 @@ spec:
                         preconditions:
                           description: 'Preconditions are used to determine if a policy
                             rule should be applied by evaluating a set of conditions.
-                            The declaration can contain nested `any` or `all` statements.
-                            A direct list of conditions (without `any` or `all` statements
-                            is supported for backwards compatibility but will be deprecated
-                            in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
-                          x-kubernetes-preserve-unknown-fields: true
+                            The declaration can contain nested `any` or `all` or `cel`
+                            statements. A direct list of conditions (without `any`
+                            or `all` statements is supported for backwards compatibility
+                            but will be deprecated in the next major release. See:
+                            https://kyverno.io/docs/writing-policies/preconditions/'
+                          properties:
+                            celConditions:
+                              description: CELConditions is a list of conditions written
+                                as CEL expressions. It can only be used with the validate.cel
+                                subrule
+                              items:
+                                description: MatchCondition represents a condition
+                                  which must by fulfilled for a request to be sent
+                                  to a webhook.
+                                properties:
+                                  expression:
+                                    description: "Expression represents the expression
+                                      which will be evaluated by CEL. Must evaluate
+                                      to bool. CEL expressions have access to the
+                                      contents of the AdmissionRequest and Authorizer,
+                                      organized into CEL variables: \n 'object' -
+                                      The object from the incoming request. The value
+                                      is null for DELETE requests. 'oldObject' - The
+                                      existing object. The value is null for CREATE
+                                      requests. 'request' - Attributes of the admission
+                                      request(/pkg/apis/admission/types.go#AdmissionRequest).
+                                      'authorizer' - A CEL Authorizer. May be used
+                                      to perform authorization checks for the principal
+                                      (user or service account) of the request. See
+                                      https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz
+                                      'authorizer.requestResource' - A CEL ResourceCheck
+                                      constructed from the 'authorizer' and configured
+                                      with the request resource. Documentation on
+                                      CEL: https://kubernetes.io/docs/reference/using-api/cel/
+                                      \n Required."
+                                    type: string
+                                  name:
+                                    description: "Name is an identifier for this match
+                                      condition, used for strategic merging of MatchConditions,
+                                      as well as providing an identifier for logging
+                                      purposes. A good name should be descriptive
+                                      of the associated expression. Name must be a
+                                      qualified name consisting of alphanumeric characters,
+                                      '-', '_' or '.', and must start and end with
+                                      an alphanumeric character (e.g. 'MyName',  or
+                                      'my.name',  or '123-abc', regex used for validation
+                                      is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')
+                                      with an optional DNS subdomain prefix and '/'
+                                      (e.g. 'example.com/MyName') \n Required."
+                                    type: string
+                                required:
+                                - expression
+                                - name
+                                type: object
+                              type: array
+                            conditions:
+                              description: 'Multiple conditions can be declared under
+                                an `any` or `all` statement. A direct list of conditions
+                                (without `any` or `all` statements) is also supported
+                                for backwards compatibility but will be deprecated
+                                in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
+                              x-kubernetes-preserve-unknown-fields: true
+                          type: object
                         validate:
                           description: Validation is used to validate matching resources.
                           properties:
@@ -24405,64 +24804,95 @@ spec:
                             cel:
                               description: CEL specifies CEL expressions which is
                                 used to apply the validation.
-                              items:
-                                description: CEL defines the CEL expression which
-                                  is used to apply the validation.
-                                properties:
-                                  auditAnnotations:
-                                    description: auditAnnotations contains CEL expressions
-                                      which are used to produce audit annotations
-                                      for the audit event of the API request.
-                                    items:
-                                      description: AuditAnnotation describes how to
-                                        produce an audit annotation for an API request.
-                                      properties:
-                                        key:
-                                          description: 'key specifies the audit annotation
-                                            key. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#AuditAnnotation
-                                            Required.'
-                                          type: string
-                                        valueExpression:
-                                          description: valueExpression represents
-                                            the expression which is evaluated by CEL
-                                            to produce an audit annotation value.
-                                            The expression must evaluate to either
-                                            a string or null value. If the expression
-                                            evaluates to a string, the audit annotation
-                                            is included with the string value. If
-                                            the expression evaluates to null or empty
-                                            string the audit annotation will be omitted.
-                                            Required.
-                                          type: string
-                                      required:
-                                      - key
-                                      - valueExpression
-                                      type: object
-                                    type: array
-                                  expression:
-                                    description: 'Expression represents the expression
-                                      which will be evaluated by CEL. ref: https://github.com/google/cel-spec
-                                      Required.'
-                                    type: string
-                                  message:
-                                    description: 'Message represents the message displayed
-                                      when cel validation fails. If unset, the message
-                                      is "failed Expression: {Expression}".'
-                                    type: string
-                                  messageExpression:
-                                    description: 'messageExpression declares a CEL
-                                      expression that evaluates to the validation
-                                      failure message that is returned when this rule
-                                      fails. Since messageExpression is used as a
-                                      failure message, it must evaluate to a string.
-                                      If both message and messageExpression are present
-                                      on a validation, then messageExpression will
-                                      be used if validation fails. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation'
-                                    type: string
-                                required:
-                                - expression
-                                type: object
-                              type: array
+                              properties:
+                                auditAnnotations:
+                                  description: AuditAnnotations contains CEL expressions
+                                    which are used to produce audit annotations for
+                                    the audit event of the API request.
+                                  items:
+                                    description: AuditAnnotation describes how to
+                                      produce an audit annotation for an API request.
+                                    properties:
+                                      key:
+                                        description: 'key specifies the audit annotation
+                                          key. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#AuditAnnotation
+                                          Required.'
+                                        type: string
+                                      valueExpression:
+                                        description: valueExpression represents the
+                                          expression which is evaluated by CEL to
+                                          produce an audit annotation value. The expression
+                                          must evaluate to either a string or null
+                                          value. If the expression evaluates to a
+                                          string, the audit annotation is included
+                                          with the string value. If the expression
+                                          evaluates to null or empty string the audit
+                                          annotation will be omitted. Required.
+                                        type: string
+                                    required:
+                                    - key
+                                    - valueExpression
+                                    type: object
+                                  type: array
+                                expressions:
+                                  description: Expressions contain CEL expressions
+                                    which is used to apply the validation.
+                                  items:
+                                    description: CELExpression specifies the CEL expression
+                                      which is used to apply the validation.
+                                    properties:
+                                      expression:
+                                        description: 'Expression represents the expression
+                                          which will be evaluated by CEL. ref: https://github.com/google/cel-spec
+                                          Required.'
+                                        type: string
+                                      message:
+                                        description: 'Message represents the message
+                                          displayed when cel validation fails. If
+                                          unset, the message is "failed Expression:
+                                          {Expression}".'
+                                        type: string
+                                      messageExpression:
+                                        description: 'messageExpression declares a
+                                          CEL expression that evaluates to the validation
+                                          failure message that is returned when this
+                                          rule fails. Since messageExpression is used
+                                          as a failure message, it must evaluate to
+                                          a string. If both message and messageExpression
+                                          are present on a validation, then messageExpression
+                                          will be used if validation fails. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation'
+                                        type: string
+                                    required:
+                                    - expression
+                                    type: object
+                                  type: array
+                                paramKind:
+                                  description: ParamKind specifies the kind of resources
+                                    used to parameterize this policy. If absent, there
+                                    are no parameters for this policy and the param
+                                    CEL variable will not be provided to validation
+                                    expressions. If ParamKind refers to a non-existent
+                                    kind, this policy definition is mis-configured
+                                    and the FailurePolicy is applied.
+                                  properties:
+                                    apiVersion:
+                                      description: APIVersion is the API group version
+                                        the resources belong to. In format of "group/version".
+                                        Required.
+                                      type: string
+                                    kind:
+                                      description: Kind is the API kind the resources
+                                        belong to. Required.
+                                      type: string
+                                    name:
+                                      description: Name of the resource. Required.
+                                      type: string
+                                    namespace:
+                                      description: Namespace of the resource. Should
+                                        be empty for the cluster-scoped resources
+                                      type: string
+                                  type: object
+                              type: object
                             deny:
                               description: Deny defines conditions used to pass or
                                 fail a validation rule.
@@ -27694,94 +28124,58 @@ spec:
                         A direct list of conditions (without `any` or `all` statements
                         is supported for backwards compatibility but See: https://kyverno.io/docs/writing-policies/preconditions/'
                       properties:
-                        all:
-                          description: AllConditions enable variable-based conditional
-                            rule execution. This is useful for finer control of when
-                            an rule is applied. A condition can reference object data
-                            using JMESPath notation. Here, all of the conditions need
-                            to pass.
+                        celConditions:
+                          description: CELConditions is a list of conditions written
+                            as CEL expressions. It can only be used with the validate.cel
+                            subrule
                           items:
+                            description: MatchCondition represents a condition which
+                              must by fulfilled for a request to be sent to a webhook.
                             properties:
-                              key:
-                                description: Key is the context entry (using JMESPath)
-                                  for conditional rule evaluation.
-                                x-kubernetes-preserve-unknown-fields: true
-                              message:
-                                description: Message is an optional display message
+                              expression:
+                                description: "Expression represents the expression
+                                  which will be evaluated by CEL. Must evaluate to
+                                  bool. CEL expressions have access to the contents
+                                  of the AdmissionRequest and Authorizer, organized
+                                  into CEL variables: \n 'object' - The object from
+                                  the incoming request. The value is null for DELETE
+                                  requests. 'oldObject' - The existing object. The
+                                  value is null for CREATE requests. 'request' - Attributes
+                                  of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
+                                  'authorizer' - A CEL Authorizer. May be used to
+                                  perform authorization checks for the principal (user
+                                  or service account) of the request. See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz
+                                  'authorizer.requestResource' - A CEL ResourceCheck
+                                  constructed from the 'authorizer' and configured
+                                  with the request resource. Documentation on CEL:
+                                  https://kubernetes.io/docs/reference/using-api/cel/
+                                  \n Required."
                                 type: string
-                              operator:
-                                description: 'Operator is the conditional operation
-                                  to perform. Valid operators are: Equals, NotEquals,
-                                  In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
-                                  GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals,
-                                  DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan'
-                                enum:
-                                - Equals
-                                - NotEquals
-                                - AnyIn
-                                - AllIn
-                                - AnyNotIn
-                                - AllNotIn
-                                - GreaterThanOrEquals
-                                - GreaterThan
-                                - LessThanOrEquals
-                                - LessThan
-                                - DurationGreaterThanOrEquals
-                                - DurationGreaterThan
-                                - DurationLessThanOrEquals
-                                - DurationLessThan
+                              name:
+                                description: "Name is an identifier for this match
+                                  condition, used for strategic merging of MatchConditions,
+                                  as well as providing an identifier for logging purposes.
+                                  A good name should be descriptive of the associated
+                                  expression. Name must be a qualified name consisting
+                                  of alphanumeric characters, '-', '_' or '.', and
+                                  must start and end with an alphanumeric character
+                                  (e.g. 'MyName',  or 'my.name',  or '123-abc', regex
+                                  used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')
+                                  with an optional DNS subdomain prefix and '/' (e.g.
+                                  'example.com/MyName') \n Required."
                                 type: string
-                              value:
-                                description: Value is the conditional value, or set
-                                  of values. The values can be fixed set or can be
-                                  variables declared using JMESPath.
-                                x-kubernetes-preserve-unknown-fields: true
+                            required:
+                            - expression
+                            - name
                             type: object
                           type: array
-                        any:
-                          description: AnyConditions enable variable-based conditional
-                            rule execution. This is useful for finer control of when
-                            an rule is applied. A condition can reference object data
-                            using JMESPath notation. Here, at least one of the conditions
-                            need to pass.
-                          items:
-                            properties:
-                              key:
-                                description: Key is the context entry (using JMESPath)
-                                  for conditional rule evaluation.
-                                x-kubernetes-preserve-unknown-fields: true
-                              message:
-                                description: Message is an optional display message
-                                type: string
-                              operator:
-                                description: 'Operator is the conditional operation
-                                  to perform. Valid operators are: Equals, NotEquals,
-                                  In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
-                                  GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals,
-                                  DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan'
-                                enum:
-                                - Equals
-                                - NotEquals
-                                - AnyIn
-                                - AllIn
-                                - AnyNotIn
-                                - AllNotIn
-                                - GreaterThanOrEquals
-                                - GreaterThan
-                                - LessThanOrEquals
-                                - LessThan
-                                - DurationGreaterThanOrEquals
-                                - DurationGreaterThan
-                                - DurationLessThanOrEquals
-                                - DurationLessThan
-                                type: string
-                              value:
-                                description: Value is the conditional value, or set
-                                  of values. The values can be fixed set or can be
-                                  variables declared using JMESPath.
-                                x-kubernetes-preserve-unknown-fields: true
-                            type: object
-                          type: array
+                        conditions:
+                          description: 'Multiple conditions can be declared under
+                            an `any` or `all` statement. A direct list of conditions
+                            (without `any` or `all` statements) is also supported
+                            for backwards compatibility but will be deprecated in
+                            the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
+                          x-kubernetes-preserve-unknown-fields: true
                       type: object
                     validate:
                       description: Validation is used to validate matching resources.
@@ -27794,62 +28188,93 @@ spec:
                         cel:
                           description: CEL specifies CEL expressions which is used
                             to apply the validation.
-                          items:
-                            description: CEL defines the CEL expression which is used
-                              to apply the validation.
-                            properties:
-                              auditAnnotations:
-                                description: auditAnnotations contains CEL expressions
-                                  which are used to produce audit annotations for
-                                  the audit event of the API request.
-                                items:
-                                  description: AuditAnnotation describes how to produce
-                                    an audit annotation for an API request.
-                                  properties:
-                                    key:
-                                      description: 'key specifies the audit annotation
-                                        key. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#AuditAnnotation
-                                        Required.'
-                                      type: string
-                                    valueExpression:
-                                      description: valueExpression represents the
-                                        expression which is evaluated by CEL to produce
-                                        an audit annotation value. The expression
-                                        must evaluate to either a string or null value.
-                                        If the expression evaluates to a string, the
-                                        audit annotation is included with the string
-                                        value. If the expression evaluates to null
-                                        or empty string the audit annotation will
-                                        be omitted. Required.
-                                      type: string
-                                  required:
-                                  - key
-                                  - valueExpression
-                                  type: object
-                                type: array
-                              expression:
-                                description: 'Expression represents the expression
-                                  which will be evaluated by CEL. ref: https://github.com/google/cel-spec
-                                  Required.'
-                                type: string
-                              message:
-                                description: 'Message represents the message displayed
-                                  when cel validation fails. If unset, the message
-                                  is "failed Expression: {Expression}".'
-                                type: string
-                              messageExpression:
-                                description: 'messageExpression declares a CEL expression
-                                  that evaluates to the validation failure message
-                                  that is returned when this rule fails. Since messageExpression
-                                  is used as a failure message, it must evaluate to
-                                  a string. If both message and messageExpression
-                                  are present on a validation, then messageExpression
-                                  will be used if validation fails. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation'
-                                type: string
-                            required:
-                            - expression
-                            type: object
-                          type: array
+                          properties:
+                            auditAnnotations:
+                              description: AuditAnnotations contains CEL expressions
+                                which are used to produce audit annotations for the
+                                audit event of the API request.
+                              items:
+                                description: AuditAnnotation describes how to produce
+                                  an audit annotation for an API request.
+                                properties:
+                                  key:
+                                    description: 'key specifies the audit annotation
+                                      key. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#AuditAnnotation
+                                      Required.'
+                                    type: string
+                                  valueExpression:
+                                    description: valueExpression represents the expression
+                                      which is evaluated by CEL to produce an audit
+                                      annotation value. The expression must evaluate
+                                      to either a string or null value. If the expression
+                                      evaluates to a string, the audit annotation
+                                      is included with the string value. If the expression
+                                      evaluates to null or empty string the audit
+                                      annotation will be omitted. Required.
+                                    type: string
+                                required:
+                                - key
+                                - valueExpression
+                                type: object
+                              type: array
+                            expressions:
+                              description: Expressions contain CEL expressions which
+                                is used to apply the validation.
+                              items:
+                                description: CELExpression specifies the CEL expression
+                                  which is used to apply the validation.
+                                properties:
+                                  expression:
+                                    description: 'Expression represents the expression
+                                      which will be evaluated by CEL. ref: https://github.com/google/cel-spec
+                                      Required.'
+                                    type: string
+                                  message:
+                                    description: 'Message represents the message displayed
+                                      when cel validation fails. If unset, the message
+                                      is "failed Expression: {Expression}".'
+                                    type: string
+                                  messageExpression:
+                                    description: 'messageExpression declares a CEL
+                                      expression that evaluates to the validation
+                                      failure message that is returned when this rule
+                                      fails. Since messageExpression is used as a
+                                      failure message, it must evaluate to a string.
+                                      If both message and messageExpression are present
+                                      on a validation, then messageExpression will
+                                      be used if validation fails. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation'
+                                    type: string
+                                required:
+                                - expression
+                                type: object
+                              type: array
+                            paramKind:
+                              description: ParamKind specifies the kind of resources
+                                used to parameterize this policy. If absent, there
+                                are no parameters for this policy and the param CEL
+                                variable will not be provided to validation expressions.
+                                If ParamKind refers to a non-existent kind, this policy
+                                definition is mis-configured and the FailurePolicy
+                                is applied.
+                              properties:
+                                apiVersion:
+                                  description: APIVersion is the API group version
+                                    the resources belong to. In format of "group/version".
+                                    Required.
+                                  type: string
+                                kind:
+                                  description: Kind is the API kind the resources
+                                    belong to. Required.
+                                  type: string
+                                name:
+                                  description: Name of the resource. Required.
+                                  type: string
+                                namespace:
+                                  description: Namespace of the resource. Should be
+                                    empty for the cluster-scoped resources
+                                  type: string
+                              type: object
+                          type: object
                         deny:
                           description: Deny defines conditions used to pass or fail
                             a validation rule.
@@ -31495,11 +31920,69 @@ spec:
                         preconditions:
                           description: 'Preconditions are used to determine if a policy
                             rule should be applied by evaluating a set of conditions.
-                            The declaration can contain nested `any` or `all` statements.
-                            A direct list of conditions (without `any` or `all` statements
-                            is supported for backwards compatibility but will be deprecated
-                            in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
-                          x-kubernetes-preserve-unknown-fields: true
+                            The declaration can contain nested `any` or `all` or `cel`
+                            statements. A direct list of conditions (without `any`
+                            or `all` statements is supported for backwards compatibility
+                            but will be deprecated in the next major release. See:
+                            https://kyverno.io/docs/writing-policies/preconditions/'
+                          properties:
+                            celConditions:
+                              description: CELConditions is a list of conditions written
+                                as CEL expressions. It can only be used with the validate.cel
+                                subrule
+                              items:
+                                description: MatchCondition represents a condition
+                                  which must by fulfilled for a request to be sent
+                                  to a webhook.
+                                properties:
+                                  expression:
+                                    description: "Expression represents the expression
+                                      which will be evaluated by CEL. Must evaluate
+                                      to bool. CEL expressions have access to the
+                                      contents of the AdmissionRequest and Authorizer,
+                                      organized into CEL variables: \n 'object' -
+                                      The object from the incoming request. The value
+                                      is null for DELETE requests. 'oldObject' - The
+                                      existing object. The value is null for CREATE
+                                      requests. 'request' - Attributes of the admission
+                                      request(/pkg/apis/admission/types.go#AdmissionRequest).
+                                      'authorizer' - A CEL Authorizer. May be used
+                                      to perform authorization checks for the principal
+                                      (user or service account) of the request. See
+                                      https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz
+                                      'authorizer.requestResource' - A CEL ResourceCheck
+                                      constructed from the 'authorizer' and configured
+                                      with the request resource. Documentation on
+                                      CEL: https://kubernetes.io/docs/reference/using-api/cel/
+                                      \n Required."
+                                    type: string
+                                  name:
+                                    description: "Name is an identifier for this match
+                                      condition, used for strategic merging of MatchConditions,
+                                      as well as providing an identifier for logging
+                                      purposes. A good name should be descriptive
+                                      of the associated expression. Name must be a
+                                      qualified name consisting of alphanumeric characters,
+                                      '-', '_' or '.', and must start and end with
+                                      an alphanumeric character (e.g. 'MyName',  or
+                                      'my.name',  or '123-abc', regex used for validation
+                                      is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')
+                                      with an optional DNS subdomain prefix and '/'
+                                      (e.g. 'example.com/MyName') \n Required."
+                                    type: string
+                                required:
+                                - expression
+                                - name
+                                type: object
+                              type: array
+                            conditions:
+                              description: 'Multiple conditions can be declared under
+                                an `any` or `all` statement. A direct list of conditions
+                                (without `any` or `all` statements) is also supported
+                                for backwards compatibility but will be deprecated
+                                in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
+                              x-kubernetes-preserve-unknown-fields: true
+                          type: object
                         validate:
                           description: Validation is used to validate matching resources.
                           properties:
@@ -31511,64 +31994,95 @@ spec:
                             cel:
                               description: CEL specifies CEL expressions which is
                                 used to apply the validation.
-                              items:
-                                description: CEL defines the CEL expression which
-                                  is used to apply the validation.
-                                properties:
-                                  auditAnnotations:
-                                    description: auditAnnotations contains CEL expressions
-                                      which are used to produce audit annotations
-                                      for the audit event of the API request.
-                                    items:
-                                      description: AuditAnnotation describes how to
-                                        produce an audit annotation for an API request.
-                                      properties:
-                                        key:
-                                          description: 'key specifies the audit annotation
-                                            key. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#AuditAnnotation
-                                            Required.'
-                                          type: string
-                                        valueExpression:
-                                          description: valueExpression represents
-                                            the expression which is evaluated by CEL
-                                            to produce an audit annotation value.
-                                            The expression must evaluate to either
-                                            a string or null value. If the expression
-                                            evaluates to a string, the audit annotation
-                                            is included with the string value. If
-                                            the expression evaluates to null or empty
-                                            string the audit annotation will be omitted.
-                                            Required.
-                                          type: string
-                                      required:
-                                      - key
-                                      - valueExpression
-                                      type: object
-                                    type: array
-                                  expression:
-                                    description: 'Expression represents the expression
-                                      which will be evaluated by CEL. ref: https://github.com/google/cel-spec
-                                      Required.'
-                                    type: string
-                                  message:
-                                    description: 'Message represents the message displayed
-                                      when cel validation fails. If unset, the message
-                                      is "failed Expression: {Expression}".'
-                                    type: string
-                                  messageExpression:
-                                    description: 'messageExpression declares a CEL
-                                      expression that evaluates to the validation
-                                      failure message that is returned when this rule
-                                      fails. Since messageExpression is used as a
-                                      failure message, it must evaluate to a string.
-                                      If both message and messageExpression are present
-                                      on a validation, then messageExpression will
-                                      be used if validation fails. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation'
-                                    type: string
-                                required:
-                                - expression
-                                type: object
-                              type: array
+                              properties:
+                                auditAnnotations:
+                                  description: AuditAnnotations contains CEL expressions
+                                    which are used to produce audit annotations for
+                                    the audit event of the API request.
+                                  items:
+                                    description: AuditAnnotation describes how to
+                                      produce an audit annotation for an API request.
+                                    properties:
+                                      key:
+                                        description: 'key specifies the audit annotation
+                                          key. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#AuditAnnotation
+                                          Required.'
+                                        type: string
+                                      valueExpression:
+                                        description: valueExpression represents the
+                                          expression which is evaluated by CEL to
+                                          produce an audit annotation value. The expression
+                                          must evaluate to either a string or null
+                                          value. If the expression evaluates to a
+                                          string, the audit annotation is included
+                                          with the string value. If the expression
+                                          evaluates to null or empty string the audit
+                                          annotation will be omitted. Required.
+                                        type: string
+                                    required:
+                                    - key
+                                    - valueExpression
+                                    type: object
+                                  type: array
+                                expressions:
+                                  description: Expressions contain CEL expressions
+                                    which is used to apply the validation.
+                                  items:
+                                    description: CELExpression specifies the CEL expression
+                                      which is used to apply the validation.
+                                    properties:
+                                      expression:
+                                        description: 'Expression represents the expression
+                                          which will be evaluated by CEL. ref: https://github.com/google/cel-spec
+                                          Required.'
+                                        type: string
+                                      message:
+                                        description: 'Message represents the message
+                                          displayed when cel validation fails. If
+                                          unset, the message is "failed Expression:
+                                          {Expression}".'
+                                        type: string
+                                      messageExpression:
+                                        description: 'messageExpression declares a
+                                          CEL expression that evaluates to the validation
+                                          failure message that is returned when this
+                                          rule fails. Since messageExpression is used
+                                          as a failure message, it must evaluate to
+                                          a string. If both message and messageExpression
+                                          are present on a validation, then messageExpression
+                                          will be used if validation fails. ref: https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation'
+                                        type: string
+                                    required:
+                                    - expression
+                                    type: object
+                                  type: array
+                                paramKind:
+                                  description: ParamKind specifies the kind of resources
+                                    used to parameterize this policy. If absent, there
+                                    are no parameters for this policy and the param
+                                    CEL variable will not be provided to validation
+                                    expressions. If ParamKind refers to a non-existent
+                                    kind, this policy definition is mis-configured
+                                    and the FailurePolicy is applied.
+                                  properties:
+                                    apiVersion:
+                                      description: APIVersion is the API group version
+                                        the resources belong to. In format of "group/version".
+                                        Required.
+                                      type: string
+                                    kind:
+                                      description: Kind is the API kind the resources
+                                        belong to. Required.
+                                      type: string
+                                    name:
+                                      description: Name of the resource. Required.
+                                      type: string
+                                    namespace:
+                                      description: Namespace of the resource. Should
+                                        be empty for the cluster-scoped resources
+                                      type: string
+                                  type: object
+                              type: object
                             deny:
                               description: Deny defines conditions used to pass or
                                 fail a validation rule.

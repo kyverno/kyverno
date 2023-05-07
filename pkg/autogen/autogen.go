@@ -271,7 +271,7 @@ func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
 		out.Context = *rule.Context
 	}
 	if rule.AnyAllConditions != nil {
-		out.SetAnyAllConditions(*rule.AnyAllConditions)
+		out.Preconditions.SetAnyAllConditions(*rule.AnyAllConditions)
 	}
 	if rule.Mutation != nil {
 		out.Mutation = *rule.Mutation

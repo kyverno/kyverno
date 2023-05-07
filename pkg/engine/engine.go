@@ -257,7 +257,7 @@ func (e *engine) invokeRuleHandler(
 					return resource, handlers.WithError(rule, ruleType, "failed to load context", err)
 				}
 				// check preconditions
-				preconditionsPassed, msg, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), rule.GetAnyAllConditions())
+				preconditionsPassed, msg, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), rule.Preconditions.GetAnyAllConditions())
 				if err != nil {
 					return resource, handlers.WithError(rule, ruleType, "failed to evaluate preconditions", err)
 				}

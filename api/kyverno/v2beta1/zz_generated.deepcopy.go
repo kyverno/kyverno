@@ -400,9 +400,9 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 			(*out)[key] = outVal
 		}
 	}
-	if in.RawAnyAllConditions != nil {
-		in, out := &in.RawAnyAllConditions, &out.RawAnyAllConditions
-		*out = new(AnyAllConditions)
+	if in.Preconditions != nil {
+		in, out := &in.Preconditions, &out.Preconditions
+		*out = new(v1.Precondition)
 		(*in).DeepCopyInto(*out)
 	}
 	in.Mutation.DeepCopyInto(&out.Mutation)
@@ -523,10 +523,8 @@ func (in *Validation) DeepCopyInto(out *Validation) {
 	}
 	if in.CEL != nil {
 		in, out := &in.CEL, &out.CEL
-		*out = make([]v1.CEL, len(*in))
-		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
-		}
+		*out = new(v1.CEL)
+		(*in).DeepCopyInto(*out)
 	}
 }
 

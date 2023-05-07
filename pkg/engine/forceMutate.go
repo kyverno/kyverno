@@ -100,8 +100,8 @@ func applyPatches(name string, mergePatch apiextensions.JSON, jsonPatch string, 
 
 // removeConditions mutates the rule to remove AnyAllConditions
 func removeConditions(rule *kyvernov1.Rule) {
-	if rule.GetAnyAllConditions() != nil {
-		rule.SetAnyAllConditions(nil)
+	if rule.Preconditions.GetAnyAllConditions() != nil {
+		rule.Preconditions.SetAnyAllConditions(nil)
 	}
 
 	for i, fem := range rule.Mutation.ForEachMutation {
