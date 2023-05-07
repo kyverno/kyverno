@@ -4,4 +4,4 @@ This test is attempting to create a resource with the label "app: my-test-app", 
 
 ## Expected Behavior
 
-Resources should be rejected.
+The Pod should be blocked.
