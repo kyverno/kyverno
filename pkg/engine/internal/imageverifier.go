@@ -162,20 +162,20 @@ func EvaluateConditions(
 	ctx enginecontext.Interface,
 	s map[string]interface{},
 	log logr.Logger,
-) (bool, error) {
+) (bool, string, error) {
 	predicate, ok := s["predicate"].(map[string]interface{})
 	if !ok {
-		return false, fmt.Errorf("failed to extract predicate from statement: %v", s)
+		return false, "", fmt.Errorf("failed to extract predicate from statement: %v", s)
 	}
 	if err := enginecontext.AddJSONObject(ctx, predicate); err != nil {
-		return false, fmt.Errorf("failed to add Statement to the context %v: %w", s, err)
+		return false, "", fmt.Errorf("failed to add Statement to the context %v: %w", s, err)
 	}
 	c, err := variables.SubstituteAllInConditions(log, ctx, conditions)
 	if err != nil {
-		return false, fmt.Errorf("failed to substitute variables in attestation conditions: %w", err)
+		return false, "", fmt.Errorf("failed to substitute variables in attestation conditions: %w", err)
 	}
-	pass := variables.EvaluateAnyAllConditions(log, ctx, c)
-	return pass, nil
+	pass, msg := variables.EvaluateAnyAllConditions(log, ctx, c)
+	return pass, msg, nil
 }
 
 // verify applies policy rules to each matching image. The policy rule results and annotation patches are
@@ -579,20 +579,20 @@ func (iv *ImageVerifier) verifyAttestation(statements []map[string]interface{}, 
 	}
 	for _, s := range statements {
 		iv.logger.Info("checking attestation", "predicates", types, "image", imageInfo.String())
-		val, err := iv.checkAttestations(attestation, s)
+		val, msg, err := iv.checkAttestations(attestation, s)
 		if err != nil {
 			return fmt.Errorf("failed to check attestations: %w", err)
 		}
 		if !val {
-			return fmt.Errorf("attestation checks failed for %s and predicate %s", imageInfo.String(), attestation.Type)
+			return fmt.Errorf("attestation checks failed for %s and predicate %s: %s", imageInfo.String(), attestation.Type, msg)
 		}
 	}
 	return nil
 }
 
-func (iv *ImageVerifier) checkAttestations(a kyvernov1.Attestation, s map[string]interface{}) (bool, error) {
+func (iv *ImageVerifier) checkAttestations(a kyvernov1.Attestation, s map[string]interface{}) (bool, string, error) {
 	if len(a.Conditions) == 0 {
-		return true, nil
+		return true, "", nil
 	}
 	iv.policyContext.JSONContext().Checkpoint()
 	defer iv.policyContext.JSONContext().Restore()
