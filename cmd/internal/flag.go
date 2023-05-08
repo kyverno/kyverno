@@ -4,6 +4,7 @@ import (
 	"flag"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 )
@@ -193,4 +194,11 @@ func PolicyExceptionEnabled() bool {
 
 func LeaderElectionRetryPeriod() time.Duration {
 	return leaderElectionRetryPeriod
+}
+
+func printFlagSettings(logger logr.Logger) {
+	logger = logger.WithName("flag")
+	flag.VisitAll(func(f *flag.Flag) {
+		logger.V(2).Info("", f.Name, f.Value)
+	})
 }
