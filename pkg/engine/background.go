@@ -9,7 +9,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 )
@@ -104,15 +103,15 @@ func (e *engine) filterRule(
 	}
 
 	// operate on the copy of the conditions, as we perform variable substitution
-	copyConditions, err := utils.TransformConditions(ruleCopy.GetAnyAllConditions())
+	copyConditions, err := engineutils.TransformConditions(ruleCopy.GetAnyAllConditions())
 	if err != nil {
 		logger.V(4).Info("cannot copy AnyAllConditions", "reason", err.Error())
 		return nil
 	}
 
 	// evaluate pre-conditions
-	if !variables.EvaluateConditions(logger, ctx, copyConditions) {
-		logger.V(4).Info("skip rule as preconditions are not met", "rule", ruleCopy.Name)
+	if val, msg := variables.EvaluateConditions(logger, ctx, copyConditions); !val {
+		logger.V(4).Info("skip rule as preconditions are not met", "rule", ruleCopy.Name, "message", msg)
 		return engineapi.RuleSkip(ruleCopy.Name, ruleType, "")
 	}
 
