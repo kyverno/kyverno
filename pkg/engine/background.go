@@ -110,8 +110,8 @@ func (e *engine) filterRule(
 	}
 
 	// evaluate pre-conditions
-	if !variables.EvaluateConditions(logger, ctx, copyConditions) {
-		logger.V(4).Info("skip rule as preconditions are not met", "rule", ruleCopy.Name)
+	if val, msg := variables.EvaluateConditions(logger, ctx, copyConditions); !val {
+		logger.V(4).Info("skip rule as preconditions are not met", "rule", ruleCopy.Name, "message", msg)
 		return engineapi.RuleSkip(ruleCopy.Name, ruleType, "")
 	}
 
