@@ -97,6 +97,9 @@ type Condition struct {
 	// or can be variables declared using JMESPath.
 	// +optional
 	RawValue *apiextv1.JSON `json:"value,omitempty" yaml:"value,omitempty"`
+
+	// Message is an optional display message
+	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 }
 
 func (c *Condition) GetKey() apiextensions.JSON {
