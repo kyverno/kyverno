@@ -182,7 +182,6 @@ func testVerifyAndPatchImages(
 		rclient,
 		engineapi.DefaultContextLoaderFactory(cmResolver),
 		nil,
-		nil,
 	)
 	return e.VerifyAndPatchImages(
 		ctx,

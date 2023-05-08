@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes"
 )
 
 // PolicyContext contains the contexts for engine to process
@@ -47,6 +48,9 @@ type PolicyContext struct {
 
 	// jsonContext is the variable context
 	jsonContext enginectx.Interface
+
+	// kubeclient adds Kubernetes Interface
+	kubeClient kubernetes.Interface
 
 	// namespaceLabels stores the label of namespace to be processed by namespace selector
 	namespaceLabels map[string]string
@@ -113,6 +117,10 @@ func (c *PolicyContext) JSONContext() enginectx.Interface {
 	return c.jsonContext
 }
 
+func (c *PolicyContext) KubeClient() kubernetes.Interface {
+	return c.kubeClient
+}
+
 func (c PolicyContext) Copy() engineapi.PolicyContext {
 	return c.copy()
 }
@@ -174,6 +182,12 @@ func (c *PolicyContext) withAdmissionOperation(admissionOperation bool) *PolicyC
 
 func (c PolicyContext) copy() *PolicyContext {
 	return &c
+}
+
+func (c *PolicyContext) WithKubeClient(kubeclient kubernetes.Interface) *PolicyContext {
+	copy := c.copy()
+	copy.kubeClient = kubeclient
+	return copy
 }
 
 // Constructors

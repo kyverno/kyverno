@@ -24,7 +24,6 @@ import (
 	"go.opentelemetry.io/otel/metric/instrument"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/kubernetes"
 )
 
 type engine struct {
@@ -33,7 +32,6 @@ type engine struct {
 	jp                   jmespath.Interface
 	client               dclient.Interface
 	rclient              registryclient.Client
-	kubeClient           kubernetes.Interface
 	contextLoader        engineapi.ContextLoaderFactory
 	exceptionSelector    engineapi.PolicyExceptionSelector
 	// metrics
@@ -51,7 +49,6 @@ func NewEngine(
 	rclient registryclient.Client,
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,
-	kubeClient kubernetes.Interface,
 ) engineapi.Engine {
 	meter := global.MeterProvider().Meter(metrics.MeterName)
 	resultCounter, err := meter.Int64Counter(
@@ -78,7 +75,6 @@ func NewEngine(
 		exceptionSelector:    exceptionSelector,
 		resultCounter:        resultCounter,
 		durationHistogram:    durationHistogram,
-		kubeClient:           kubeClient,
 	}
 }
 

@@ -25,7 +25,6 @@ import (
 	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -38,7 +37,6 @@ type ImageVerifier struct {
 	policyContext engineapi.PolicyContext
 	rule          kyvernov1.Rule
 	ivm           *engineapi.ImageVerificationMetadata
-	kubeClient    kubernetes.Interface
 }
 
 func NewImageVerifier(
@@ -47,7 +45,6 @@ func NewImageVerifier(
 	policyContext engineapi.PolicyContext,
 	rule kyvernov1.Rule,
 	ivm *engineapi.ImageVerificationMetadata,
-	kubeClient kubernetes.Interface,
 ) *ImageVerifier {
 	return &ImageVerifier{
 		logger:        logger,
@@ -55,7 +52,6 @@ func NewImageVerifier(
 		policyContext: policyContext,
 		rule:          rule,
 		ivm:           ivm,
-		kubeClient:    kubeClient,
 	}
 }
 
@@ -622,7 +618,7 @@ func (iv *ImageVerifier) setupRegistryClient(ctx context.Context, imageVerify ky
 		return nil, err
 	}
 	if len(secrets) > 0 {
-		factory := kubeinformers.NewSharedInformerFactoryWithOptions(iv.kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
+		factory := kubeinformers.NewSharedInformerFactoryWithOptions(iv.policyContext.KubeClient(), resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 		secretLister := factory.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
 		// start informers and wait for cache sync
 		factory.Start(ctx.Done())
