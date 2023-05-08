@@ -894,7 +894,7 @@ func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyCont
 	gr := kyvernov1beta1.UpdateRequest{
 		Spec: kyvernov1beta1.UpdateRequestSpec{
 			Type:   kyvernov1beta1.Generate,
-			Policy: generateResponse.Policy.GetName(),
+			Policy: generateResponse.Policy().GetName(),
 			Resource: kyvernov1.ResourceSpec{
 				Kind:       generateResponse.Resource.GetKind(),
 				Namespace:  generateResponse.Resource.GetNamespace(),

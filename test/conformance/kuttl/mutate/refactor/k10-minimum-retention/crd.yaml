@@ -1,0 +1,70 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.0
+  generation: 1
+  name: policies.config.kio.kasten.io
+spec:
+  conversion:
+    strategy: None
+  group: config.kio.kasten.io
+  names:
+    kind: Policy
+    listKind: PolicyList
+    plural: policies
+    singular: policy
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.validation
+      name: Status
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Policy is the Schema for the policies API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+          status:
+            description: PolicyStatus defines the observed state of Policy
+            properties:
+              error:
+                description: List of errors with the policy (for example, due to validation
+                  failures)
+                items:
+                  type: string
+                type: array
+              hash:
+                description: Hash of Spec
+                format: int32
+                type: integer
+              specModifiedTime:
+                description: Timestamp when spec last changed
+                format: date-time
+                type: string
+              validation:
+                description: Validation status
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources: {}
