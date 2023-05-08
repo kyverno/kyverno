@@ -18,7 +18,7 @@ type EngineResponse struct {
 	// Policy is the original policy
 	policy kyvernov1.PolicyInterface
 	// Policy is the validating admission policy
-	ValidatingAdmissionPolicy v1alpha1.ValidatingAdmissionPolicy
+	validatingAdmissionPolicy v1alpha1.ValidatingAdmissionPolicy
 	// namespaceLabels given by policy context
 	namespaceLabels map[string]string
 	// PatchedResource is the resource patched with the engine action changes
@@ -85,7 +85,7 @@ func NewEngineResponseWithValidatingAdmissionPolicy(
 ) EngineResponse {
 	response := EngineResponse{
 		Resource:                  resource,
-		ValidatingAdmissionPolicy: policy,
+		validatingAdmissionPolicy: policy,
 		namespaceLabels:           namespaceLabels,
 	}
 	return response
@@ -102,6 +102,10 @@ func (er *EngineResponse) NamespaceLabels() map[string]string {
 
 func (er *EngineResponse) Policy() kyvernov1.PolicyInterface {
 	return er.policy
+}
+
+func (er *EngineResponse) ValidatingAdmissionPolicy() v1alpha1.ValidatingAdmissionPolicy {
+	return er.validatingAdmissionPolicy
 }
 
 // IsOneOf checks if any rule has status in a given list
@@ -145,7 +149,7 @@ func (er EngineResponse) IsNil() bool {
 }
 
 func (er EngineResponse) IsValidatingAdmissionPolicy() bool {
-	return !datautils.DeepEqual(er.ValidatingAdmissionPolicy, v1alpha1.ValidatingAdmissionPolicy{})
+	return !datautils.DeepEqual(er.validatingAdmissionPolicy, v1alpha1.ValidatingAdmissionPolicy{})
 }
 
 // GetPatches returns all the patches joined

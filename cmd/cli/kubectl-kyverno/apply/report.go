@@ -83,12 +83,12 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 		isVAP := engineResponse.IsValidatingAdmissionPolicy()
 
 		if isVAP {
-			validatingAdmissionPolicy := engineResponse.ValidatingAdmissionPolicy
+			validatingAdmissionPolicy := engineResponse.ValidatingAdmissionPolicy()
 			ns = validatingAdmissionPolicy.GetNamespace()
 			policyName = validatingAdmissionPolicy.GetName()
 			ann = validatingAdmissionPolicy.GetAnnotations()
 		} else {
-			kyvernoPolicy := engineResponse.Policy
+			kyvernoPolicy := engineResponse.Policy()
 			ns = kyvernoPolicy.GetNamespace()
 			policyName = kyvernoPolicy.GetName()
 			ann = kyvernoPolicy.GetAnnotations()

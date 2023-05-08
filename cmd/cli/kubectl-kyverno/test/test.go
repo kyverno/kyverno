@@ -346,12 +346,12 @@ func buildPolicyResults(
 		isVAP := resp.IsValidatingAdmissionPolicy()
 
 		if isVAP {
-			validatingAdmissionPolicy := resp.ValidatingAdmissionPolicy
+			validatingAdmissionPolicy := resp.ValidatingAdmissionPolicy()
 			ns = validatingAdmissionPolicy.GetNamespace()
 			name = validatingAdmissionPolicy.GetName()
 			ann = validatingAdmissionPolicy.GetAnnotations()
 		} else {
-			kyvernoPolicy := resp.Policy
+			kyvernoPolicy := resp.Policy()
 			ns = kyvernoPolicy.GetNamespace()
 			name = kyvernoPolicy.GetName()
 			ann = kyvernoPolicy.GetAnnotations()
