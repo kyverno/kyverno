@@ -97,13 +97,13 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 			return mutate.NewErrorResponse(fmt.Sprintf("failed to load to mutate.foreach[%d].context", index), err)
 		}
 
-		preconditionsPassed, err := internal.CheckPreconditions(f.logger, policyContext.JSONContext(), foreach.AnyAllConditions)
+		preconditionsPassed, msg, err := internal.CheckPreconditions(f.logger, policyContext.JSONContext(), foreach.AnyAllConditions)
 		if err != nil {
 			return mutate.NewErrorResponse(fmt.Sprintf("failed to evaluate mutate.foreach[%d].preconditions", index), err)
 		}
 
 		if !preconditionsPassed {
-			f.logger.Info("mutate.foreach.preconditions not met", "elementIndex", index)
+			f.logger.Info("mutate.foreach.preconditions not met", "elementIndex", index, "message", msg)
 			continue
 		}
 
