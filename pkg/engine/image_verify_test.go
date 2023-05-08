@@ -17,7 +17,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -799,7 +798,7 @@ func Test_MarkImageVerified(t *testing.T) {
 }
 
 func testApplyPatches(t *testing.T, patches [][]byte) unstructured.Unstructured {
-	patchedResource, err := utils.ApplyPatches([]byte(testResource), patches)
+	patchedResource, err := engineutils.ApplyPatches([]byte(testResource), patches)
 	assert.NilError(t, err)
 	assert.Assert(t, patchedResource != nil)
 

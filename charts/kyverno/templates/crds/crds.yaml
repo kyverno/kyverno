@@ -5710,6 +5710,10 @@ spec:
                                           description: Key is the context entry (using
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
+                                        message:
+                                          description: Message is an optional display
+                                            message
+                                          type: string
                                         operator:
                                           description: 'Operator is the conditional
                                             operation to perform. Valid operators
@@ -5759,6 +5763,10 @@ spec:
                                           description: Key is the context entry (using
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
+                                        message:
+                                          description: Message is an optional display
+                                            message
+                                          type: string
                                         operator:
                                           description: 'Operator is the conditional
                                             operation to perform. Valid operators
@@ -6210,6 +6218,10 @@ spec:
                                           description: Key is the context entry (using
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
+                                        message:
+                                          description: Message is an optional display
+                                            message
+                                          type: string
                                         operator:
                                           description: 'Operator is the conditional
                                             operation to perform. Valid operators
@@ -6259,6 +6271,10 @@ spec:
                                           description: Key is the context entry (using
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
+                                        message:
+                                          description: Message is an optional display
+                                            message
+                                          type: string
                                         operator:
                                           description: 'Operator is the conditional
                                             operation to perform. Valid operators
@@ -6885,6 +6901,10 @@ spec:
                                                 (using JMESPath) for conditional rule
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
                                             operator:
                                               description: 'Operator is the conditional
                                                 operation to perform. Valid operators
@@ -6936,6 +6956,10 @@ spec:
                                                 (using JMESPath) for conditional rule
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
                                             operator:
                                               description: 'Operator is the conditional
                                                 operation to perform. Valid operators
@@ -9278,6 +9302,10 @@ spec:
                                                 (using JMESPath) for conditional rule
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
                                             operator:
                                               description: 'Operator is the conditional
                                                 operation to perform. Valid operators
@@ -9329,6 +9357,10 @@ spec:
                                                 (using JMESPath) for conditional rule
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
                                             operator:
                                               description: 'Operator is the conditional
                                                 operation to perform. Valid operators
@@ -9802,6 +9834,10 @@ spec:
                                                 (using JMESPath) for conditional rule
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
                                             operator:
                                               description: 'Operator is the conditional
                                                 operation to perform. Valid operators
@@ -9853,6 +9889,10 @@ spec:
                                                 (using JMESPath) for conditional rule
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
                                             operator:
                                               description: 'Operator is the conditional
                                                 operation to perform. Valid operators
@@ -10511,6 +10551,10 @@ spec:
                                                     entry (using JMESPath) for conditional
                                                     rule evaluation.
                                                   x-kubernetes-preserve-unknown-fields: true
+                                                message:
+                                                  description: Message is an optional
+                                                    display message
+                                                  type: string
                                                 operator:
                                                   description: 'Operator is the conditional
                                                     operation to perform. Valid operators
@@ -10563,6 +10607,10 @@ spec:
                                                     entry (using JMESPath) for conditional
                                                     rule evaluation.
                                                   x-kubernetes-preserve-unknown-fields: true
+                                                message:
+                                                  description: Message is an optional
+                                                    display message
+                                                  type: string
                                                 operator:
                                                   description: 'Operator is the conditional
                                                     operation to perform. Valid operators
@@ -12505,6 +12553,10 @@ spec:
                                           description: Key is the context entry (using
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
+                                        message:
+                                          description: Message is an optional display
+                                            message
+                                          type: string
                                         operator:
                                           description: 'Operator is the conditional
                                             operation to perform. Valid operators
@@ -12554,6 +12606,10 @@ spec:
                                           description: Key is the context entry (using
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
+                                        message:
+                                          description: Message is an optional display
+                                            message
+                                          type: string
                                         operator:
                                           description: 'Operator is the conditional
                                             operation to perform. Valid operators
@@ -13173,6 +13229,10 @@ spec:
                                           description: Key is the context entry (using
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
+                                        message:
+                                          description: Message is an optional display
+                                            message
+                                          type: string
                                         operator:
                                           description: 'Operator is the conditional
                                             operation to perform. Valid operators
@@ -13222,6 +13282,10 @@ spec:
                                           description: Key is the context entry (using
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
+                                        message:
+                                          description: Message is an optional display
+                                            message
+                                          type: string
                                         operator:
                                           description: 'Operator is the conditional
                                             operation to perform. Valid operators
@@ -13833,6 +13897,10 @@ spec:
                                                 (using JMESPath) for conditional rule
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
                                             operator:
                                               description: 'Operator is the conditional
                                                 operation to perform. Valid operators
@@ -13884,6 +13952,10 @@ spec:
                                                 (using JMESPath) for conditional rule
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
                                             operator:
                                               description: 'Operator is the conditional
                                                 operation to perform. Valid operators
@@ -16201,6 +16273,10 @@ spec:
                                                 (using JMESPath) for conditional rule
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
                                             operator:
                                               description: 'Operator is the conditional
                                                 operation to perform. Valid operators
@@ -16252,6 +16328,10 @@ spec:
                                                 (using JMESPath) for conditional rule
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
                                             operator:
                                               description: 'Operator is the conditional
                                                 operation to perform. Valid operators
@@ -16725,6 +16805,10 @@ spec:
                                                 (using JMESPath) for conditional rule
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
                                             operator:
                                               description: 'Operator is the conditional
                                                 operation to perform. Valid operators
@@ -16776,6 +16860,10 @@ spec:
                                                 (using JMESPath) for conditional rule
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
                                             operator:
                                               description: 'Operator is the conditional
                                                 operation to perform. Valid operators
@@ -17434,6 +17522,10 @@ spec:
                                                     entry (using JMESPath) for conditional
                                                     rule evaluation.
                                                   x-kubernetes-preserve-unknown-fields: true
+                                                message:
+                                                  description: Message is an optional
+                                                    display message
+                                                  type: string
                                                 operator:
                                                   description: 'Operator is the conditional
                                                     operation to perform. Valid operators
@@ -17486,6 +17578,10 @@ spec:
                                                     entry (using JMESPath) for conditional
                                                     rule evaluation.
                                                   x-kubernetes-preserve-unknown-fields: true
+                                                message:
+                                                  description: Message is an optional
+                                                    display message
+                                                  type: string
                                                 operator:
                                                   description: 'Operator is the conditional
                                                     operation to perform. Valid operators
@@ -19881,6 +19977,10 @@ spec:
                                           description: Key is the context entry (using
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
+                                        message:
+                                          description: Message is an optional display
+                                            message
+                                          type: string
                                         operator:
                                           description: 'Operator is the conditional
                                             operation to perform. Valid operators
@@ -19930,6 +20030,10 @@ spec:
                                           description: Key is the context entry (using
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
+                                        message:
+                                          description: Message is an optional display
+                                            message
+                                          type: string
                                         operator:
                                           description: 'Operator is the conditional
                                             operation to perform. Valid operators
@@ -20381,6 +20485,10 @@ spec:
                                           description: Key is the context entry (using
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
+                                        message:
+                                          description: Message is an optional display
+                                            message
+                                          type: string
                                         operator:
                                           description: 'Operator is the conditional
                                             operation to perform. Valid operators
@@ -20430,6 +20538,10 @@ spec:
                                           description: Key is the context entry (using
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
+                                        message:
+                                          description: Message is an optional display
+                                            message
+                                          type: string
                                         operator:
                                           description: 'Operator is the conditional
                                             operation to perform. Valid operators
@@ -21056,6 +21168,10 @@ spec:
                                                 (using JMESPath) for conditional rule
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
                                             operator:
                                               description: 'Operator is the conditional
                                                 operation to perform. Valid operators
@@ -21107,6 +21223,10 @@ spec:
                                                 (using JMESPath) for conditional rule
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
                                             operator:
                                               description: 'Operator is the conditional
                                                 operation to perform. Valid operators
@@ -23450,6 +23570,10 @@ spec:
                                                 (using JMESPath) for conditional rule
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
                                             operator:
                                               description: 'Operator is the conditional
                                                 operation to perform. Valid operators
@@ -23501,6 +23625,10 @@ spec:
                                                 (using JMESPath) for conditional rule
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
                                             operator:
                                               description: 'Operator is the conditional
                                                 operation to perform. Valid operators
@@ -23974,6 +24102,10 @@ spec:
                                                 (using JMESPath) for conditional rule
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
                                             operator:
                                               description: 'Operator is the conditional
                                                 operation to perform. Valid operators
@@ -24025,6 +24157,10 @@ spec:
                                                 (using JMESPath) for conditional rule
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
                                             operator:
                                               description: 'Operator is the conditional
                                                 operation to perform. Valid operators
@@ -24683,6 +24819,10 @@ spec:
                                                     entry (using JMESPath) for conditional
                                                     rule evaluation.
                                                   x-kubernetes-preserve-unknown-fields: true
+                                                message:
+                                                  description: Message is an optional
+                                                    display message
+                                                  type: string
                                                 operator:
                                                   description: 'Operator is the conditional
                                                     operation to perform. Valid operators
@@ -24735,6 +24875,10 @@ spec:
                                                     entry (using JMESPath) for conditional
                                                     rule evaluation.
                                                   x-kubernetes-preserve-unknown-fields: true
+                                                message:
+                                                  description: Message is an optional
+                                                    display message
+                                                  type: string
                                                 operator:
                                                   description: 'Operator is the conditional
                                                     operation to perform. Valid operators
@@ -26678,6 +26822,10 @@ spec:
                                           description: Key is the context entry (using
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
+                                        message:
+                                          description: Message is an optional display
+                                            message
+                                          type: string
                                         operator:
                                           description: 'Operator is the conditional
                                             operation to perform. Valid operators
@@ -26727,6 +26875,10 @@ spec:
                                           description: Key is the context entry (using
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
+                                        message:
+                                          description: Message is an optional display
+                                            message
+                                          type: string
                                         operator:
                                           description: 'Operator is the conditional
                                             operation to perform. Valid operators
@@ -27346,6 +27498,10 @@ spec:
                                           description: Key is the context entry (using
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
+                                        message:
+                                          description: Message is an optional display
+                                            message
+                                          type: string
                                         operator:
                                           description: 'Operator is the conditional
                                             operation to perform. Valid operators
@@ -27395,6 +27551,10 @@ spec:
                                           description: Key is the context entry (using
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
+                                        message:
+                                          description: Message is an optional display
+                                            message
+                                          type: string
                                         operator:
                                           description: 'Operator is the conditional
                                             operation to perform. Valid operators
@@ -28006,6 +28166,10 @@ spec:
                                                 (using JMESPath) for conditional rule
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
                                             operator:
                                               description: 'Operator is the conditional
                                                 operation to perform. Valid operators
@@ -28057,6 +28221,10 @@ spec:
                                                 (using JMESPath) for conditional rule
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
                                             operator:
                                               description: 'Operator is the conditional
                                                 operation to perform. Valid operators
@@ -30374,6 +30542,10 @@ spec:
                                                 (using JMESPath) for conditional rule
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
                                             operator:
                                               description: 'Operator is the conditional
                                                 operation to perform. Valid operators
@@ -30425,6 +30597,10 @@ spec:
                                                 (using JMESPath) for conditional rule
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
                                             operator:
                                               description: 'Operator is the conditional
                                                 operation to perform. Valid operators
@@ -30898,6 +31074,10 @@ spec:
                                                 (using JMESPath) for conditional rule
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
                                             operator:
                                               description: 'Operator is the conditional
                                                 operation to perform. Valid operators
@@ -30949,6 +31129,10 @@ spec:
                                                 (using JMESPath) for conditional rule
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
                                             operator:
                                               description: 'Operator is the conditional
                                                 operation to perform. Valid operators
@@ -31607,6 +31791,10 @@ spec:
                                                     entry (using JMESPath) for conditional
                                                     rule evaluation.
                                                   x-kubernetes-preserve-unknown-fields: true
+                                                message:
+                                                  description: Message is an optional
+                                                    display message
+                                                  type: string
                                                 operator:
                                                   description: 'Operator is the conditional
                                                     operation to perform. Valid operators
@@ -31659,6 +31847,10 @@ spec:
                                                     entry (using JMESPath) for conditional
                                                     rule evaluation.
                                                   x-kubernetes-preserve-unknown-fields: true
+                                                message:
+                                                  description: Message is an optional
+                                                    display message
+                                                  type: string
                                                 operator:
                                                   description: 'Operator is the conditional
                                                     operation to perform. Valid operators
