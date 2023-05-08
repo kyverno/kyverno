@@ -1120,6 +1120,17 @@ Kubernetes apiextensions/v1.JSON
 or can be variables declared using JMESPath.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>message</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Message is an optional display message</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -1386,6 +1397,21 @@ to which the validation logic is applied.</p>
 </tr>
 <tr>
 <td>
+<code>order</code><br/>
+<em>
+<a href="#kyverno.io/v1.ForeachOrder">
+ForeachOrder
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Order defines the iteration order on the list.
+Can be Ascending to iterate from first to last element or Descending to iterate in from last to first element.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>context</code><br/>
 <em>
 <a href="#kyverno.io/v1.ContextEntry">
@@ -1594,6 +1620,15 @@ Kubernetes apiextensions/v1.JSON
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.ForeachOrder">ForeachOrder
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ForEachMutation">ForEachMutation</a>)
+</p>
+<p>
+<p>ForeachOrder specifies the iteration order in foreach statements.</p>
+</p>
 <h3 id="kyverno.io/v1.GenerateType">GenerateType
 (<code>string</code> alias)</p></h3>
 <p>
