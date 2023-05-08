@@ -69,7 +69,6 @@ func sanityChecks(apiserverClient apiserver.Interface) error {
 
 func createNonLeaderControllers(
 	eng engineapi.Engine,
-	genWorkers int,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 	kubeClient kubernetes.Interface,
@@ -181,7 +180,6 @@ func main() {
 		// will be removed in future and the configuration will be set only via configmaps
 		serverIP                     string
 		webhookTimeout               int
-		genWorkers                   int
 		maxQueuedEvents              int
 		autoUpdateWebhooks           bool
 		webhookRegistrationTimeout   time.Duration
@@ -193,7 +191,6 @@ func main() {
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
 	flagset.IntVar(&webhookTimeout, "webhookTimeout", webhookcontroller.DefaultWebhookTimeout, "Timeout for webhook configurations.")
-	flagset.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flagset.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
@@ -303,7 +300,6 @@ func main() {
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
 		engine,
-		genWorkers,
 		kubeInformer,
 		kyvernoInformer,
 		setup.KubeClient,
