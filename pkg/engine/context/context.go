@@ -75,6 +75,9 @@ type Interface interface {
 	// AddImageInfos adds image infos to the context
 	AddImageInfos(resource *unstructured.Unstructured, cfg config.Configuration) error
 
+	// AddDeferredLoader adds a loader that is executed on first use (query)
+	AddDeferredLoader(name string, loader DeferredLoader)
+
 	// ImageInfo returns image infos present in the context
 	ImageInfo() map[string]map[string]apiutils.ImageInfo
 
@@ -97,6 +100,9 @@ type Interface interface {
 	addJSON(dataRaw []byte) error
 }
 
+// DeferredLoader loads the context data on first use (query)
+type DeferredLoader func() error
+
 // Context stores the data resources as JSON
 type context struct {
 	jp                 jmespath.Interface
@@ -104,6 +110,12 @@ type context struct {
 	jsonRaw            []byte
 	jsonRawCheckpoints [][]byte
 	images             map[string]map[string]apiutils.ImageInfo
+	deferred           deferredLoaders
+}
+
+type deferredLoaders struct {
+	mutex   sync.Mutex
+	loaders map[string]DeferredLoader
 }
 
 // NewContext returns a new context
@@ -117,6 +129,9 @@ func NewContextFromRaw(jp jmespath.Interface, raw []byte) Interface {
 		jp:                 jp,
 		jsonRaw:            raw,
 		jsonRawCheckpoints: make([][]byte, 0),
+		deferred: deferredLoaders{
+			loaders: make(map[string]DeferredLoader),
+		},
 	}
 }
 
@@ -332,4 +347,10 @@ func (ctx *context) reset(remove bool) {
 	if remove {
 		ctx.jsonRawCheckpoints = ctx.jsonRawCheckpoints[:n]
 	}
+}
+
+func (ctx *context) AddDeferredLoader(name string, loader DeferredLoader) {
+	ctx.deferred.mutex.Lock()
+	defer ctx.deferred.mutex.Unlock()
+	ctx.deferred.loaders[name] = loader
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
+	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -57,14 +58,15 @@ func (h mutateExistingHandler) Process(
 			continue
 		}
 		// load target specific preconditions
-		preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), target.preconditions)
+		preconditionsPassed, msg, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), target.preconditions)
 		if err != nil {
 			rr := engineapi.RuleError(rule.Name, engineapi.Mutation, "failed to evaluate preconditions", err)
 			responses = append(responses, *rr)
 			continue
 		}
 		if !preconditionsPassed {
-			rr := engineapi.RuleSkip(rule.Name, engineapi.Mutation, "preconditions not met")
+			s := stringutils.JoinNonEmpty([]string{"preconditions not met", msg}, "; ")
+			rr := engineapi.RuleSkip(rule.Name, engineapi.Mutation, s)
 			responses = append(responses, *rr)
 			continue
 		}
