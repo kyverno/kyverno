@@ -47,6 +47,7 @@ type SetupResult struct {
 func Setup(config Configuration, name string, skipResourceFilters bool) (context.Context, SetupResult, context.CancelFunc) {
 	logger := setupLogger()
 	showVersion(logger)
+	printFlagSettings(logger)
 	sdownMaxProcs := setupMaxProcs(logger)
 	setupProfiling(logger)
 	ctx, sdownSignals := setupSignals(logger)
