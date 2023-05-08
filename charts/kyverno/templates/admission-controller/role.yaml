@@ -38,16 +38,6 @@ rules:
       - get
       - patch
       - update
-  - apiGroups:
-      - coordination.k8s.io
-    resources:
-      - leases
-    verbs:
-      - create
-      - delete
-      - get
-      - patch
-      - update
   # Allow update of Kyverno deployment annotations
   - apiGroups:
       - apps
