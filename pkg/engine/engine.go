@@ -20,6 +20,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
+	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
 	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/metric/instrument"
 	"go.opentelemetry.io/otel/trace"
@@ -256,12 +257,13 @@ func (e *engine) invokeRuleHandler(
 					return resource, handlers.WithError(rule, ruleType, "failed to load context", err)
 				}
 				// check preconditions
-				preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), rule.GetAnyAllConditions())
+				preconditionsPassed, msg, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), rule.GetAnyAllConditions())
 				if err != nil {
 					return resource, handlers.WithError(rule, ruleType, "failed to evaluate preconditions", err)
 				}
 				if !preconditionsPassed {
-					return resource, handlers.WithSkip(rule, ruleType, "preconditions not met")
+					s := stringutils.JoinNonEmpty([]string{"preconditions not met", msg}, "; ")
+					return resource, handlers.WithSkip(rule, ruleType, s)
 				}
 				// process handler
 				return handler.Process(ctx, logger, policyContext, resource, rule, contextLoader)
