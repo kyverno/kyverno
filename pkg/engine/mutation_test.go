@@ -39,7 +39,6 @@ func testMutate(
 		rclient,
 		contextLoader,
 		nil,
-		nil,
 	)
 	return e.Mutate(
 		ctx,
