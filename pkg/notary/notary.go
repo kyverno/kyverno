@@ -271,9 +271,9 @@ func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Referenc
 	return targetDesc, nil
 }
 
-func extractStatements(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, craneOpts crane.Option) ([]map[string]interface{}, error) {
+func extractStatements(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, craneOpts ...crane.Option) ([]map[string]interface{}, error) {
 	statements := make([]map[string]interface{}, 0)
-	data, err := extractStatement(ctx, repoRef, desc, craneOpts)
+	data, err := extractStatement(ctx, repoRef, desc, craneOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -285,14 +285,14 @@ func extractStatements(ctx context.Context, repoRef name.Reference, desc v1.Desc
 	return statements, nil
 }
 
-func extractStatement(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, craneOpts crane.Option) (map[string]interface{}, error) {
+func extractStatement(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, craneOpts ...crane.Option) (map[string]interface{}, error) {
 	refStr := repoRef.Context().RegistryStr() + "/" + repoRef.Context().RepositoryStr() + "@" + desc.Digest.String()
 	ref, err := name.ParseReference(refStr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse image reference: %s", refStr)
 	}
 
-	manifestBytes, err := crane.Manifest(refStr, craneOpts)
+	manifestBytes, err := crane.Manifest(refStr, craneOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("error in fetching statement: %w", err)
 	}
@@ -310,7 +310,7 @@ func extractStatement(ctx context.Context, repoRef name.Reference, desc v1.Descr
 	predicateDesc := manifest.Layers[0]
 	predicateRef := ref.Context().RegistryStr() + "/" + ref.Context().RepositoryStr() + "@" + predicateDesc.Digest.String()
 
-	layer, err := crane.PullLayer(predicateRef, craneOpts)
+	layer, err := crane.PullLayer(predicateRef, craneOpts...)
 	if err != nil {
 		return nil, err
 	}
