@@ -97,6 +97,39 @@ entries:
     version: v3.0.0-alpha.1
   - annotations:
       artifacthub.io/changes: |
+        - kind: added
+          description: support for webhook annotations in config map
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://kyverno.io/docs
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
+    appVersion: v1.9.3
+    created: "2023-05-09T14:57:48.949624817Z"
+    description: Kubernetes Native Policy Management
+    digest: 48c998a3b36d3b9559e58abd4cdab6b54fb1a68733ec97e7d384ff9c38e2f68e
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.16.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-2.7.3.tgz
+    version: 2.7.3
+  - annotations:
+      artifacthub.io/changes: |
         - kind: changed
           description: Syntax change for webhooksCleanup switch to match with the rest of the file
         - kind: fixed
@@ -6602,4 +6635,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2023-04-14T13:39:31.591921822Z"
+generated: "2023-05-09T14:57:48.935672071Z"
