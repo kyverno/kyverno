@@ -72,8 +72,12 @@ func NewBackgroundContext(
 		WithPolicy(policy).
 		WithNewResource(*trigger).
 		WithOldResource(old).
-		WithNamespaceLabels(namespaceLabels)
+		WithNamespaceLabels(namespaceLabels).
+		WithAdmissionOperation(false)
 	if err = policyContext.JSONContext().AddResource(trigger.Object); err != nil {
+		return nil, fmt.Errorf("failed to load resource in context: %w", err)
+	}
+	if err = policyContext.JSONContext().AddOldResource(old.Object); err != nil {
 		return nil, fmt.Errorf("failed to load resource in context: %w", err)
 	}
 	return policyContext, nil
