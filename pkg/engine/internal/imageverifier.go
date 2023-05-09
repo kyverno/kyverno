@@ -585,6 +585,7 @@ func (iv *ImageVerifier) verifyAttestation(statements []map[string]interface{}, 
 		}
 		if !val {
 			return fmt.Errorf("attestation checks failed for %s and predicate %s: %s", imageInfo.String(), attestation.Type, msg)
+			return fmt.Errorf("attestation checks failed for %s and predicate %s: %s", imageInfo.String(), attestation.PredicateType, msg)
 		}
 	}
 	return nil
