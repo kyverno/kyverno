@@ -43,7 +43,7 @@ type generator struct {
 
 	maxQueuedEvents int
 
-	emitEvents []string
+	omitEvents []string
 
 	log logr.Logger
 }
@@ -66,7 +66,7 @@ func NewEventGenerator(
 	cpInformer kyvernov1informers.ClusterPolicyInformer,
 	pInformer kyvernov1informers.PolicyInformer,
 	maxQueuedEvents int,
-	emitEvents []string,
+	omitEvents []string,
 	log logr.Logger,
 ) Controller {
 	gen := generator{
@@ -79,7 +79,7 @@ func NewEventGenerator(
 		genPolicyRecorder:      NewRecorder(GeneratePolicyController, client.GetEventsInterface()),
 		mutateExistingRecorder: NewRecorder(MutateExistingController, client.GetEventsInterface()),
 		maxQueuedEvents:        maxQueuedEvents,
-		emitEvents:             emitEvents,
+		omitEvents:             omitEvents,
 		log:                    log,
 	}
 	return &gen
@@ -100,20 +100,18 @@ func (gen *generator) Add(infos ...Info) {
 			logger.V(3).Info("skipping event creation for resource without a name", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace)
 			continue
 		}
-		// if the `emit-event` flag is not set
-		// directly add the event to the queue
-		if len(gen.emitEvents) == 0 {
-			gen.queue.Add(info)
-		}
-		// flag is set
-		// only add the event when the reason of event is specified in "emit-events" flag
-		for _, eventReason := range gen.emitEvents {
+
+		shouldEmitEvent := true
+		for _, eventReason := range gen.omitEvents {
 			if info.Reason == Reason(eventReason) {
-				logger.V(6).Info("creating event", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace, "reason", info.Reason, "event reason", eventReason)
-				gen.queue.Add(info)
-			} else {
-				logger.V(6).Info("event reason not matched", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace, "reason", info.Reason, "event reason", eventReason)
+				shouldEmitEvent = false
+				logger.V(6).Info("omitting event", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace, "reason", info.Reason)
 			}
+		}
+
+		if shouldEmitEvent {
+			gen.queue.Add(info)
+			logger.V(6).Info("creating event", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace, "reason", info.Reason)
 		}
 	}
 }

@@ -182,7 +182,7 @@ func main() {
 		serverIP                     string
 		webhookTimeout               int
 		maxQueuedEvents              int
-		emitEvents                   string
+		omitEvents                   string
 		autoUpdateWebhooks           bool
 		webhookRegistrationTimeout   time.Duration
 		admissionReports             bool
@@ -194,7 +194,7 @@ func main() {
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
 	flagset.IntVar(&webhookTimeout, "webhookTimeout", webhookcontroller.DefaultWebhookTimeout, "Timeout for webhook configurations.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
-	flagset.StringVar(&emitEvents, "emit-events", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --emit-events=PolicyApplied,PolicyViolation")
+	flagset.StringVar(&omitEvents, "omit-events", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omit-events=PolicyApplied,PolicyViolation")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flagset.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
 	flagset.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
@@ -255,16 +255,16 @@ func main() {
 		serverIP,
 	)
 	policyCache := policycache.NewCache()
-	emitEventsValues := strings.Split(emitEvents, ",")
-	if emitEvents == "" {
-		emitEventsValues = []string{}
+	omitEventsValues := strings.Split(omitEvents, ",")
+	if omitEvents == "" {
+		omitEventsValues = []string{}
 	}
 	eventGenerator := event.NewEventGenerator(
 		setup.KyvernoDynamicClient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		maxQueuedEvents,
-		emitEventsValues,
+		omitEventsValues,
 		logging.WithName("EventGenerator"),
 	)
 	// this controller only subscribe to events, nothing is returned...
