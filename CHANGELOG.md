@@ -1,3 +1,9 @@
+## v1.9.3
+
+### Note
+
+- Added support for configuring webhook annotations in the config map through `webhookAnnotations` stanza.
+
 ## v1.9.0-rc.1
 
 ### Note

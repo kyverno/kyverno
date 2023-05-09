@@ -392,6 +392,12 @@ config:
 
   # Or provide an existing metrics config-map by uncommenting the below line
   # existingMetricsConfig: sample-metrics-configmap. Refer to the ./templates/metricsconfigmap.yaml for the structure of metrics configmap.
+
+  # -- Defines annotations to set on webhook configurations.
+  webhookAnnotations: {}
+    # Example to disable admission enforcer on AKS:
+    # 'admissions.enforcer/disabled': 'true'
+
 # -- Deployment update strategy.
 # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
 # @default -- See [values.yaml](values.yaml)
