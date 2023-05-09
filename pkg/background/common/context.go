@@ -24,6 +24,7 @@ func NewBackgroundContext(
 	jp jmespath.Interface,
 	namespaceLabels map[string]string,
 ) (*engine.PolicyContext, error) {
+	// ctx := context.NewContext(jp)
 	var new, old unstructured.Unstructured
 	var err error
 
@@ -32,7 +33,6 @@ func NewBackgroundContext(
 		if err != nil {
 			return nil, fmt.Errorf("failed to load request in context: %w", err)
 		}
-
 		if new.Object != nil {
 			if !check(&new, trigger) {
 				err := fmt.Errorf("resources don't match")
@@ -40,35 +40,42 @@ func NewBackgroundContext(
 			}
 		}
 	}
-
 	if trigger == nil {
 		trigger = &old
 	}
-
 	if trigger == nil {
 		return nil, fmt.Errorf("trigger resource does not exist")
 	}
 
-	policyContext, err := engine.NewPolicyContextFromAdmissionRequest(
-		jp,
-		*ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest,
-		ur.Spec.Context.UserRequestInfo,
-		trigger.GroupVersionKind(),
-		cfg,
-	)
+	var policyContext *engine.PolicyContext
+	if ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest == nil {
+		policyContext, err = engine.NewPolicyContext(
+			jp,
+			*trigger,
+			kyvernov1.AdmissionOperation(ur.Spec.Context.AdmissionRequestInfo.Operation),
+			&ur.Spec.Context.UserRequestInfo,
+			cfg,
+		)
+	} else {
+		policyContext, err = engine.NewPolicyContextFromAdmissionRequest(
+			jp,
+			*ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest,
+			ur.Spec.Context.UserRequestInfo,
+			trigger.GroupVersionKind(),
+			cfg,
+		)
+	}
 	if err != nil {
 		return nil, err
 	}
 	policyContext = policyContext.
 		WithPolicy(policy).
-		WithAdmissionOperation(false).
 		WithNewResource(*trigger).
+		WithOldResource(old).
 		WithNamespaceLabels(namespaceLabels)
-
 	if err = policyContext.JSONContext().AddResource(trigger.Object); err != nil {
 		return nil, fmt.Errorf("failed to load resource in context: %w", err)
 	}
-
 	return policyContext, nil
 }
 
