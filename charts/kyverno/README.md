@@ -210,7 +210,7 @@ The chart values are organised per component.
 | config.enableDefaultRegistryMutation | bool | `true` | Enable registry mutation for container images. Enabled by default. |
 | config.defaultRegistry | string | `"docker.io"` | The registry hostname used for the image mutation. |
 | config.excludeGroups | list | `["system:serviceaccounts:kube-system","system:nodes"]` | Exclude groups |
-| config.excludeUsernames | list | `[]` | Exclude usernames |
+| config.excludeUsernames | list | `["!system:kube-scheduler"]` | Exclude usernames |
 | config.excludeRoles | list | `[]` | Exclude roles |
 | config.excludeClusterRoles | list | `[]` | Exclude roles |
 | config.generateSuccessEvents | bool | `false` | Generate success events. |
@@ -591,6 +591,7 @@ The chart values are organised per component.
 | nameOverride | string | `nil` | Override the name of the chart |
 | fullnameOverride | string | `nil` | Override the expanded name of the chart |
 | namespaceOverride | string | `nil` | Override the namespace the chart deploys to |
+| upgrade.fromV2 | bool | `false` | Upgrading from v2 to v3 is not allowed by default, set this to true once changes have been reviewed. |
 | imagePullSecrets | object | `{}` | Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | customLabels | object | `{}` | Additional labels |

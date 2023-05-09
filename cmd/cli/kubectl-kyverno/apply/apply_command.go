@@ -21,8 +21,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openapi"
-	policy2 "github.com/kyverno/kyverno/pkg/policy"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
+	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
@@ -388,7 +388,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 	skipInvalidPolicies.invalid = make([]string, 0)
 
 	for _, policy := range policies {
-		_, err := policy2.Validate(policy, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
+		_, err := policyvalidation.Validate(policy, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
 		if err != nil {
 			log.Log.Error(err, "policy validation error")
 			if strings.HasPrefix(err.Error(), "variable 'element.name'") {
@@ -441,7 +441,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 			}
 			for _, response := range ers {
 				if !response.IsEmpty() {
-					for _, rule := range autogen.ComputeRules(response.Policy) {
+					for _, rule := range autogen.ComputeRules(response.Policy()) {
 						if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
 							ruleFoundInEngineResponse := false
 							for _, valResponseRule := range response.PolicyResponse.Rules {

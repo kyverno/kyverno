@@ -11,7 +11,7 @@ spec:
       any:
       - resources:
           kinds:
-          - ConfigMap
+          - Secret
     generate:
       synchronize: true
       apiVersion: v1

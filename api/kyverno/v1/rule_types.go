@@ -393,15 +393,12 @@ func (r *Rule) ValidatePSaControlNames(path *field.Path) (errs field.ErrorList) 
 	return errs
 }
 
-func (r *Rule) ValidateGenerateVariables(path *field.Path) (errs field.ErrorList) {
+func (r *Rule) ValidateGenerate(path *field.Path, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if !r.HasGenerate() {
 		return nil
 	}
 
-	if err := r.Generation.Validate(); err != nil {
-		errs = append(errs, field.Forbidden(path.Child("generate").Child("clone/cloneList"), fmt.Sprintf("Generation Rule Clone/CloneList \"%s\" should not have variables", r.Name)))
-	}
-	return errs
+	return r.Generation.Validate(path, clusterResources)
 }
 
 // Validate implements programmatic validation
@@ -412,6 +409,6 @@ func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace strin
 	errs = append(errs, r.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
 	errs = append(errs, r.ValidateMutationRuleTargetNamespace(path, namespaced, policyNamespace)...)
 	errs = append(errs, r.ValidatePSaControlNames(path)...)
-	errs = append(errs, r.ValidateGenerateVariables(path)...)
+	errs = append(errs, r.ValidateGenerate(path, clusterResources)...)
 	return errs
 }
