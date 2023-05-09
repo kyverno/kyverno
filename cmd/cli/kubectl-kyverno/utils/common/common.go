@@ -440,13 +440,6 @@ OuterLoop:
 		log.Error(err, "failed to load resource in context")
 	}
 
-	// for key, value := range c.Variables {
-	// 	err = ctx.AddVariable(key, value)
-	// 	if err != nil {
-	// 		log.Error(err, "failed to add variable to context")
-	// 	}
-	// }
-
 	cfg := config.NewDefaultConfiguration(false)
 	gvk, subresource := updatedResource.GroupVersionKind(), ""
 	// If --cluster flag is not set, then we need to find the top level resource GVK and subresource
@@ -486,12 +479,19 @@ OuterLoop:
 	)
 	if err != nil {
 		log.Error(err, "failed to create policy context")
-
 	}
+
 	policyContext = policyContext.
 		WithPolicy(c.Policy).
 		WithNamespaceLabels(namespaceLabels).
 		WithResourceKind(gvk, subresource)
+
+	for key, value := range c.Variables {
+		err = policyContext.JSONContext().AddVariable(key, value)
+		if err != nil {
+			log.Error(err, "failed to add variable to context")
+		}
+	}
 
 	mutateResponse := eng.Mutate(context.Background(), policyContext)
 	engineResponses = append(engineResponses, mutateResponse)

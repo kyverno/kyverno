@@ -166,7 +166,7 @@ func (c *PolicyContext) WithResources(newResource unstructured.Unstructured, old
 	return c.WithNewResource(newResource).WithOldResource(oldResource)
 }
 
-func (c *PolicyContext) withAdmissionOperation(admissionOperation bool) *PolicyContext {
+func (c *PolicyContext) WithAdmissionOperation(admissionOperation bool) *PolicyContext {
 	copy := c.copy()
 	copy.admissionOperation = admissionOperation
 	return copy
@@ -188,7 +188,6 @@ func newPolicyContextWithJsonContext(operation kyvernov1.AdmissionOperation, jso
 func NewPolicyContext(
 	jp jmespath.Interface,
 	resource unstructured.Unstructured,
-	// oldResource unstructured.Unstructured,
 	operation kyvernov1.AdmissionOperation,
 	admissionInfo *kyvernov1beta1.RequestInfo,
 	configuration config.Configuration,
@@ -248,7 +247,7 @@ func NewPolicyContextFromAdmissionRequest(
 		WithNewResource(newResource).
 		WithOldResource(oldResource).
 		WithAdmissionInfo(admissionInfo).
-		withAdmissionOperation(true).
+		WithAdmissionOperation(true).
 		WithResourceKind(gvk, request.SubResource).
 		WithRequestResource(request.Resource)
 	return policyContext, nil

@@ -9,7 +9,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -25,15 +24,10 @@ func NewBackgroundContext(
 	jp jmespath.Interface,
 	namespaceLabels map[string]string,
 ) (*engine.PolicyContext, error) {
-	ctx := context.NewContext(jp)
 	var new, old unstructured.Unstructured
 	var err error
 
 	if ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest != nil {
-		if err := ctx.AddRequest(*ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest); err != nil {
-			return nil, fmt.Errorf("failed to load request in context: %w", err)
-		}
-
 		new, old, err = admissionutils.ExtractResources(nil, *ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load request in context: %w", err)
@@ -55,36 +49,11 @@ func NewBackgroundContext(
 		return nil, fmt.Errorf("trigger resource does not exist")
 	}
 
-	err = ctx.AddResource(trigger.Object)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load resource in context: %w", err)
-	}
-
-	err = ctx.AddOldResource(old.Object)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load resource in context: %w", err)
-	}
-
-	err = ctx.AddUserInfo(ur.Spec.Context.UserRequestInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load SA in context: %w", err)
-	}
-
-	err = ctx.AddServiceAccount(ur.Spec.Context.UserRequestInfo.AdmissionUserInfo.Username)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load UserInfo in context: %w", err)
-	}
-
-	if err := ctx.AddImageInfos(trigger, cfg); err != nil {
-		logger.Error(err, "unable to add image info to variables context")
-	}
-
-	policyContext, err := engine.NewPolicyContext(
+	policyContext, err := engine.NewPolicyContextFromAdmissionRequest(
 		jp,
-		*trigger,
-		// old,
-		kyvernov1.AdmissionOperation(ur.Spec.Context.AdmissionRequestInfo.Operation),
-		&ur.Spec.Context.UserRequestInfo,
+		*ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest,
+		ur.Spec.Context.UserRequestInfo,
+		trigger.GroupVersionKind(),
 		cfg,
 	)
 	if err != nil {
@@ -92,10 +61,13 @@ func NewBackgroundContext(
 	}
 	policyContext = policyContext.
 		WithPolicy(policy).
+		WithAdmissionOperation(false).
 		WithNewResource(*trigger).
-		WithOldResource(old).
-		WithAdmissionInfo(ur.Spec.Context.UserRequestInfo).
 		WithNamespaceLabels(namespaceLabels)
+
+	if err = policyContext.JSONContext().AddResource(trigger.Object); err != nil {
+		return nil, fmt.Errorf("failed to load resource in context: %w", err)
+	}
 
 	return policyContext, nil
 }
