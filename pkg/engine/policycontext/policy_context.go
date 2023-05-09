@@ -178,15 +178,52 @@ func (c PolicyContext) copy() *PolicyContext {
 
 // Constructors
 
-func NewPolicyContextWithJsonContext(operation kyvernov1.AdmissionOperation, jsonContext enginectx.Interface) *PolicyContext {
+func newPolicyContextWithJsonContext(operation kyvernov1.AdmissionOperation, jsonContext enginectx.Interface) *PolicyContext {
 	return &PolicyContext{
 		operation:   operation,
 		jsonContext: jsonContext,
 	}
 }
 
-func NewPolicyContext(jp jmespath.Interface, operation kyvernov1.AdmissionOperation) *PolicyContext {
-	return NewPolicyContextWithJsonContext(operation, enginectx.NewContext(jp))
+func NewPolicyContext(
+	jp jmespath.Interface,
+	resource unstructured.Unstructured,
+	// oldResource unstructured.Unstructured,
+	operation kyvernov1.AdmissionOperation,
+	admissionInfo *kyvernov1beta1.RequestInfo,
+	configuration config.Configuration,
+) (*PolicyContext, error) {
+	enginectx := enginectx.NewContext(jp)
+	if err := enginectx.AddResource(resource.Object); err != nil {
+		return nil, err
+	}
+	if err := enginectx.AddNamespace(resource.GetNamespace()); err != nil {
+		return nil, err
+	}
+	if err := enginectx.AddImageInfos(&resource, configuration); err != nil {
+		return nil, err
+	}
+	if admissionInfo != nil {
+		if err := enginectx.AddUserInfo(*admissionInfo); err != nil {
+			return nil, err
+		}
+		if err := enginectx.AddServiceAccount(admissionInfo.AdmissionUserInfo.Username); err != nil {
+			return nil, err
+		}
+	}
+	if err := enginectx.AddOperation(string(operation)); err != nil {
+		return nil, err
+	}
+	policyContext := newPolicyContextWithJsonContext(operation, enginectx)
+	if operation != kyvernov1.Delete {
+		policyContext = policyContext.WithNewResource(resource)
+	} else {
+		policyContext = policyContext.WithOldResource(resource)
+	}
+	if admissionInfo != nil {
+		policyContext = policyContext.WithAdmissionInfo(*admissionInfo)
+	}
+	return policyContext, nil
 }
 
 func NewPolicyContextFromAdmissionRequest(
@@ -207,7 +244,7 @@ func NewPolicyContextFromAdmissionRequest(
 	if err := ctx.AddImageInfos(&newResource, configuration); err != nil {
 		return nil, fmt.Errorf("failed to add image information to the policy rule context: %w", err)
 	}
-	policyContext := NewPolicyContextWithJsonContext(kyvernov1.AdmissionOperation(request.Operation), ctx).
+	policyContext := newPolicyContextWithJsonContext(kyvernov1.AdmissionOperation(request.Operation), ctx).
 		WithNewResource(newResource).
 		WithOldResource(oldResource).
 		WithAdmissionInfo(admissionInfo).

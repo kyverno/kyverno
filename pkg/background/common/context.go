@@ -79,7 +79,18 @@ func NewBackgroundContext(
 		logger.Error(err, "unable to add image info to variables context")
 	}
 
-	policyContext := engine.NewPolicyContextWithJsonContext(kyvernov1.AdmissionOperation(ur.Spec.Context.AdmissionRequestInfo.Operation), ctx).
+	policyContext, err := engine.NewPolicyContext(
+		jp,
+		*trigger,
+		// old,
+		kyvernov1.AdmissionOperation(ur.Spec.Context.AdmissionRequestInfo.Operation),
+		&ur.Spec.Context.UserRequestInfo,
+		cfg,
+	)
+	if err != nil {
+		return nil, err
+	}
+	policyContext = policyContext.
 		WithPolicy(policy).
 		WithNewResource(*trigger).
 		WithOldResource(old).

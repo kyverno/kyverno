@@ -22,7 +22,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	engineContext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -376,10 +375,10 @@ func ApplyPolicyOnResource(c ApplyPolicyConfig) ([]engineapi.EngineResponse, err
 
 	var engineResponses []engineapi.EngineResponse
 	namespaceLabels := make(map[string]string)
-	operationIsDelete := false
+	operation := kyvernov1.Create
 
 	if c.Variables["request.operation"] == "DELETE" {
-		operationIsDelete = true
+		operation = kyvernov1.Delete
 	}
 
 	policyWithNamespaceSelector := false
@@ -436,30 +435,19 @@ OuterLoop:
 	if err != nil {
 		log.Error(err, "unable to convert raw resource to unstructured")
 	}
-	ctx := engineContext.NewContext(jp)
-
-	if operationIsDelete {
-		err = engineContext.AddOldResource(ctx, resourceRaw)
-	} else {
-		err = engineContext.AddResource(ctx, resourceRaw)
-	}
 
 	if err != nil {
 		log.Error(err, "failed to load resource in context")
 	}
 
-	for key, value := range c.Variables {
-		err = ctx.AddVariable(key, value)
-		if err != nil {
-			log.Error(err, "failed to add variable to context")
-		}
-	}
+	// for key, value := range c.Variables {
+	// 	err = ctx.AddVariable(key, value)
+	// 	if err != nil {
+	// 		log.Error(err, "failed to add variable to context")
+	// 	}
+	// }
 
 	cfg := config.NewDefaultConfiguration(false)
-	if err := ctx.AddImageInfos(c.Resource, cfg); err != nil {
-		log.Error(err, "failed to add image variables to context")
-	}
-
 	gvk, subresource := updatedResource.GroupVersionKind(), ""
 	// If --cluster flag is not set, then we need to find the top level resource GVK and subresource
 	if c.Client == nil {
@@ -489,11 +477,20 @@ OuterLoop:
 		store.ContextLoaderFactory(nil),
 		nil,
 	)
-	policyContext := engine.NewPolicyContextWithJsonContext(kyvernov1.Create, ctx).
+	policyContext, err := engine.NewPolicyContext(
+		jp,
+		*updatedResource,
+		operation,
+		&c.UserInfo,
+		cfg,
+	)
+	if err != nil {
+		log.Error(err, "failed to create policy context")
+
+	}
+	policyContext = policyContext.
 		WithPolicy(c.Policy).
-		WithNewResource(*updatedResource).
 		WithNamespaceLabels(namespaceLabels).
-		WithAdmissionInfo(c.UserInfo).
 		WithResourceKind(gvk, subresource)
 
 	mutateResponse := eng.Mutate(context.Background(), policyContext)
