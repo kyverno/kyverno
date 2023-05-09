@@ -111,6 +111,55 @@ spec:
 
 ## Migrating from v2 to v3
 
+Direct upgrades from v2 of the Helm chart to v3 are not supported due to the number of breaking changes and manual intervention is required. Review and select an option after carefully reading below. Because either method requires down time, an upgrade should only be performed during a maintenance window. Regardless of the chosen option, please read all release notes very carefully to understand the full extent of changes brought by Kyverno 1.10. Release notes can be found at https://github.com/kyverno/kyverno/releases.
+
+### Option 1 - Uninstallation and Reinstallation
+
+The first option for upgrading, which is the recommended option, involves backing up Kyverno policy resources, uninstalling Kyverno, and reinstalling with v3 of the chart. Policy Reports for policies which have background mode enabled will be regenerated upon the next scan interval.
+
+**Pros**
+
+* Reduced complexity with minimal effort
+* Allows re-checking older policies against new validation webhooks in 1.10
+
+**Cons**
+
+* Policy Reports which contained results only from admission mode and from policies/rules where background scans were disabled will be lost.
+
+Follow the procedure below.
+
+1. READ THE COMPLETE RELEASE NOTES FIRST
+2. Backup and export all Kyverno policy resources to a YAML manifest. Use the command `kubectl get pol,cpol,cleanpol,ccleanpol,polex -A > kyvernobackup.yaml`.
+3. Uninstall your current version of Kyverno.
+4. Review the [New Chart Values](#new-chart-values) section and translate your desired features and configurations to the new format.
+5. Install the v3 chart with Kyverno 1.10.
+6. Restore your Kyverno policies. Use the command `kubectl create -f kyvernobackup.yaml`.
+
+### Option 2 - Scale to Zero
+
+In the second option, Kyverno policies do not have to be backed up however you perform more manual work in order to prepare for the upgrade to chart v3.
+
+**Pros**
+
+* Policy Reports which contained results from admission mode will be preserved
+* Kyverno policies do not need to be backed up first
+
+**Cons**
+
+* More manual effort is required
+* Older policies will not be revalidated for correctness according to the breaking schema changes. Some policies may not work as they did before.
+
+Follow the procedure below.
+
+1. READ THE COMPLETE RELEASE NOTES FIRST
+2. Scale the `kyverno` Deployment to zero replicas.
+3. If coming from 1.9 and you have install the cleanup controller, scale the `kyverno-cleanup-controller` Deployment to zero replicas.
+4. If step 2 applied to you, now delete the cleanup Deployment.
+5. Review the [New Chart Values](#new-chart-values) section and translate your desired features and configurations to the new format.
+6. Upgrade to the v3 chart by passing the mandatory flag `upgrade.fromV2=true`.
+
+### New Chart Values
+
 In `v3` chart values changed significantly, please read the instructions below to migrate your values:
 
 - `config.metricsConfig` is now `metricsConfig`
