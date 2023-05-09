@@ -53,7 +53,7 @@ func newPolicyContext(
 	admissionInfo *kyvernov1beta1.RequestInfo,
 ) *PolicyContext {
 	t.Helper()
-	p, err := NewPolicyContext(jp, resource, operation, nil, cfg)
+	p, err := NewPolicyContext(jp, resource, operation, admissionInfo, cfg)
 	assert.NilError(t, err)
 	return p
 }
@@ -2087,7 +2087,7 @@ func executeTest(t *testing.T, test testCase) {
 		t.Fatal(err)
 	}
 
-	pc := newPolicyContext(t, newR, kyverno.Create, &userInfo).
+	pc := newPolicyContext(t, newR, kyvernov1.AdmissionOperation(request.Operation), &userInfo).
 		WithPolicy(&policy).
 		WithOldResource(oldR)
 
@@ -3103,7 +3103,7 @@ func Test_delete_ignore_pattern(t *testing.T) {
 	assert.Equal(t, len(engineResponseCreate.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResponseCreate.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusFail)
 
-	policyContextDelete := newPolicyContext(t, *resourceUnstructured, kyverno.Create, nil).
+	policyContextDelete := newPolicyContext(t, *resourceUnstructured, kyverno.Delete, nil).
 		WithPolicy(&policy)
 
 	engineResponseDelete := testValidate(context.TODO(), registryclient.NewOrDie(), policyContextDelete, cfg, nil)

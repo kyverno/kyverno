@@ -21,7 +21,7 @@
       "  +--------------------------------------------------------------------------------------------------------------------------------------+"
       "  | An earlier Helm installation of Kyverno was detected.                                                                                |"
       "  | Given this chart version has significant breaking changes, the upgrade has been blocked.                                             |"
-      "  | Please review the release notes and caveats section above and then, once prepared, set `upgrade.fromV2: true` once ready to proceed. |"
+      "  | Please review the release notes and chart README section and then, once prepared, set `upgrade.fromV2: true` once ready to proceed.  |"
       "  +--------------------------------------------------------------------------------------------------------------------------------------+"
       ""
       ))
