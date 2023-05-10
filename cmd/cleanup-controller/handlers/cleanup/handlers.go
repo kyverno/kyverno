@@ -20,7 +20,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/global"
-	"go.opentelemetry.io/otel/metric/instrument"
 	"go.uber.org/multierr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -42,22 +41,22 @@ type handlers struct {
 }
 
 type cleanupMetrics struct {
-	deletedObjectsTotal  instrument.Int64Counter
-	cleanupFailuresTotal instrument.Int64Counter
+	deletedObjectsTotal  metric.Int64Counter
+	cleanupFailuresTotal metric.Int64Counter
 }
 
 func newCleanupMetrics(logger logr.Logger) cleanupMetrics {
 	meter := global.MeterProvider().Meter(metrics.MeterName)
 	deletedObjectsTotal, err := meter.Int64Counter(
 		"cleanup_controller_deletedobjects",
-		instrument.WithDescription("can be used to track number of deleted objects."),
+		metric.WithDescription("can be used to track number of deleted objects."),
 	)
 	if err != nil {
 		logger.Error(err, "Failed to create instrument, cleanup_controller_deletedobjects_total")
 	}
 	cleanupFailuresTotal, err := meter.Int64Counter(
 		"cleanup_controller_errors",
-		instrument.WithDescription("can be used to track number of cleanup failures."),
+		metric.WithDescription("can be used to track number of cleanup failures."),
 	)
 	if err != nil {
 		logger.Error(err, "Failed to create instrument, cleanup_controller_errors_total")

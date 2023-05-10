@@ -14,14 +14,13 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/global"
-	"go.opentelemetry.io/otel/metric/instrument"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
 type controller struct {
 	metricsConfig metrics.MetricsConfigManager
-	ruleInfo      instrument.Float64ObservableGauge
+	ruleInfo      metric.Float64ObservableGauge
 
 	// listers
 	cpolLister kyvernov1listers.ClusterPolicyLister
@@ -41,7 +40,7 @@ func NewController(
 	meter := meterProvider.Meter(metrics.MeterName)
 	policyRuleInfoMetric, err := meter.Float64ObservableGauge(
 		"kyverno_policy_rule_info_total",
-		instrument.WithDescription("can be used to track the info of the rules or/and policies present in the cluster. 0 means the rule doesn't exist and has been deleted, 1 means the rule is currently existent in the cluster"),
+		metric.WithDescription("can be used to track the info of the rules or/and policies present in the cluster. 0 means the rule doesn't exist and has been deleted, 1 means the rule is currently existent in the cluster"),
 	)
 	if err != nil {
 		logger.Error(err, "Failed to create instrument, kyverno_policy_rule_info_total")
