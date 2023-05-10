@@ -114,7 +114,7 @@ func (c *controller) reportPolicy(ctx context.Context, policy kyvernov1.PolicyIn
 				attribute.String("rule_name", rule.Name),
 				attribute.String("rule_type", string(ruleType)),
 			}
-			observer.ObserveFloat64(c.ruleInfo, 1, append(ruleAttributes, policyAttributes...)...)
+			observer.ObserveFloat64(c.ruleInfo, 1, metric.WithAttributes(append(ruleAttributes, policyAttributes...)...))
 		}
 	}
 	return nil

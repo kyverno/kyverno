@@ -194,7 +194,7 @@ func (m *MetricsConfig) RecordPolicyChanges(ctx context.Context, policyValidatio
 		attribute.String("policy_name", policyName),
 		attribute.String("policy_change_type", policyChangeType),
 	}
-	m.policyChangesMetric.Add(ctx, 1, commonLabels...)
+	m.policyChangesMetric.Add(ctx, 1, metric.WithAttributes(commonLabels...))
 }
 
 func (m *MetricsConfig) RecordClientQueries(ctx context.Context, clientQueryOperation ClientQueryOperation, clientType ClientType, resourceKind string, resourceNamespace string) {
@@ -204,5 +204,5 @@ func (m *MetricsConfig) RecordClientQueries(ctx context.Context, clientQueryOper
 		attribute.String("resource_kind", resourceKind),
 		attribute.String("resource_namespace", resourceNamespace),
 	}
-	m.clientQueriesMetric.Add(ctx, 1, commonLabels...)
+	m.clientQueriesMetric.Add(ctx, 1, metric.WithAttributes(commonLabels...))
 }

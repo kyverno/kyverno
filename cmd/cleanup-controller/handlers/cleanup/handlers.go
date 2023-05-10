@@ -18,6 +18,7 @@ import (
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"github.com/kyverno/kyverno/pkg/utils/match"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/metric/instrument"
 	"go.uber.org/multierr"
@@ -143,7 +144,7 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 			debug.Error(err, "failed to list resources")
 			errs = append(errs, err)
 			if h.metrics.cleanupFailuresTotal != nil {
-				h.metrics.cleanupFailuresTotal.Add(ctx, 1, commonLabels...)
+				h.metrics.cleanupFailuresTotal.Add(ctx, 1, metric.WithAttributes(commonLabels...))
 			}
 		} else {
 			for i := range list.Items {
@@ -233,14 +234,14 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 					logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
 					if err := h.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false); err != nil {
 						if h.metrics.cleanupFailuresTotal != nil {
-							h.metrics.cleanupFailuresTotal.Add(ctx, 1, labels...)
+							h.metrics.cleanupFailuresTotal.Add(ctx, 1, metric.WithAttributes(labels...))
 						}
 						debug.Error(err, "failed to delete resource")
 						errs = append(errs, err)
 						h.createEvent(policy, resource, err)
 					} else {
 						if h.metrics.deletedObjectsTotal != nil {
-							h.metrics.deletedObjectsTotal.Add(ctx, 1, labels...)
+							h.metrics.deletedObjectsTotal.Add(ctx, 1, metric.WithAttributes(labels...))
 						}
 						debug.Info("deleted")
 						h.createEvent(policy, resource, nil)

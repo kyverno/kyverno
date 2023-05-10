@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/metric/instrument"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
@@ -51,11 +52,11 @@ func (inner AdmissionHandler) withMetrics(logger logr.Logger, metricsConfig conf
 				defer func() {
 					latency := int64(time.Since(startTime))
 					durationInSeconds := float64(latency) / float64(1000*1000*1000)
-					durationMetric.Record(ctx, durationInSeconds, attributes...)
+					durationMetric.Record(ctx, durationInSeconds, metric.WithAttributes(attributes...))
 				}()
 			}
 			if requestsMetric != nil {
-				requestsMetric.Add(ctx, 1, attributes...)
+				requestsMetric.Add(ctx, 1, metric.WithAttributes(attributes...))
 			}
 		}
 		return response
@@ -92,13 +93,13 @@ func (inner HttpHandler) withMetrics(logger logr.Logger, attrs ...attribute.KeyV
 		}
 		attributes = append(attributes, attrs...)
 		if requestsMetric != nil {
-			requestsMetric.Add(request.Context(), 1, attributes...)
+			requestsMetric.Add(request.Context(), 1, metric.WithAttributes(attributes...))
 		}
 		if durationMetric != nil {
 			defer func() {
 				latency := int64(time.Since(startTime))
 				durationInSeconds := float64(latency) / float64(1000*1000*1000)
-				durationMetric.Record(request.Context(), durationInSeconds, attributes...)
+				durationMetric.Record(request.Context(), durationInSeconds, metric.WithAttributes(attributes...))
 			}()
 		}
 		inner(writer, request)
