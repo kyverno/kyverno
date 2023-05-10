@@ -300,5 +300,6 @@ func main() {
 		os.Exit(1)
 	}
 	le.Run(ctx)
+	sdown()
 	wg.Wait()
 }
