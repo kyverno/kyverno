@@ -96,8 +96,9 @@ func Test_NamespaceSelector(t *testing.T) {
 		},
 	}
 	rc := &ResultCounts{}
+	kyvernoPolicy := KyvernoPolicies{}
 	for _, tc := range testcases {
-		policyArray, _ := yamlutils.GetPolicy(tc.policy)
+		policyArray, _, _ := yamlutils.GetPolicy(tc.policy)
 		resourceArray, _ := GetResource(tc.resource)
 		applyPolicyConfig := ApplyPolicyConfig{
 			Policy:               policyArray[0],
@@ -107,7 +108,7 @@ func Test_NamespaceSelector(t *testing.T) {
 			NamespaceSelectorMap: tc.namespaceSelectorMap,
 			Rc:                   rc,
 		}
-		ApplyPolicyOnResource(applyPolicyConfig)
+		kyvernoPolicy.ApplyPolicyOnResource(applyPolicyConfig)
 		assert.Equal(t, int64(rc.Pass), int64(tc.result.Pass))
 		assert.Equal(t, int64(rc.Fail), int64(tc.result.Fail))
 		// TODO: autogen rules seem to not be present when autogen internals is disabled
