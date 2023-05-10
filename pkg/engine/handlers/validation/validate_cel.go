@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
@@ -19,10 +20,14 @@ import (
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 )
 
-type validateCELHandler struct{}
+type validateCELHandler struct {
+	client dclient.Interface
+}
 
-func NewValidateCELHandler() (handlers.Handler, error) {
-	return validateCELHandler{}, nil
+func NewValidateCELHandler(client dclient.Interface) (handlers.Handler, error) {
+	return validateCELHandler{
+		client: client,
+	}, nil
 }
 
 func (h validateCELHandler) Process(
@@ -40,7 +45,7 @@ func (h validateCELHandler) Process(
 
 	oldResource := policyContext.OldResource()
 
-	var object, oldObject runtime.Object
+	var object, oldObject, versionedParams runtime.Object
 	object = resource.DeepCopyObject()
 	if oldResource.Object == nil {
 		oldObject = nil
@@ -50,13 +55,37 @@ func (h validateCELHandler) Process(
 
 	var expressions, messageExpressions, matchExpressions, auditExpressions []cel.ExpressionAccessor
 
-	celValidations := rule.Validation.CEL.Expressions
-	celAuditAnnotations := rule.Validation.CEL.AuditAnnotations
-	celConditions := rule.Preconditions.CELConditions
+	validations := rule.Validation.CEL.Expressions
+	auditAnnotations := rule.Validation.CEL.AuditAnnotations
 
+	// Get CEL preconditions if exist
+	var conditions []kyvernov1.CELCondition
+	if rule.Preconditions != nil {
+		conditions = rule.Preconditions.CELConditions
+	}
+
+	// Get the parameter resource
 	hasParam := rule.Validation.CEL.ParamKind != nil
 
-	for _, cel := range celValidations {
+	if hasParam {
+		apiVersion := rule.Validation.CEL.ParamKind.APIVersion
+		kind := rule.Validation.CEL.ParamKind.Kind
+		name := rule.Validation.CEL.ParamKind.Name
+		namespace := rule.Validation.CEL.ParamKind.Namespace
+
+		if namespace == "" {
+			namespace = "default"
+		}
+
+		paramResource, err := h.client.GetResource(ctx, apiVersion, kind, namespace, name, "")
+		if err != nil {
+			return resource, handlers.WithError(rule, engineapi.Validation, "Error while getting the parameterized resource", err)
+		}
+
+		versionedParams = paramResource.DeepCopyObject()
+	}
+
+	for _, cel := range validations {
 		condition := &validatingadmissionpolicy.ValidationCondition{
 			Expression: cel.Expression,
 			Message:    cel.Message,
@@ -70,7 +99,7 @@ func (h validateCELHandler) Process(
 		messageExpressions = append(messageExpressions, messageCondition)
 	}
 
-	for _, condition := range celConditions {
+	for _, condition := range conditions {
 		matchCondition := &matchconditions.MatchCondition{
 			Name:       condition.Name,
 			Expression: condition.Expression,
@@ -79,7 +108,7 @@ func (h validateCELHandler) Process(
 		matchExpressions = append(matchExpressions, matchCondition)
 	}
 
-	for _, auditAnnotation := range celAuditAnnotations {
+	for _, auditAnnotation := range auditAnnotations {
 		auditCondition := &validatingadmissionpolicy.AuditAnnotationCondition{
 			Key:             auditAnnotation.Key,
 			ValueExpression: auditAnnotation.ValueExpression,
@@ -112,13 +141,12 @@ func (h validateCELHandler) Process(
 		nil,
 	)
 	versionedAttr, _ := admission.NewVersionedAttributes(admissionAttributes, admissionAttributes.GetKind(), nil)
-	validateResult := validator.Validate(ctx, versionedAttr, nil, celconfig.RuntimeCELCostBudget)
+	validateResult := validator.Validate(ctx, versionedAttr, versionedParams, celconfig.RuntimeCELCostBudget)
 
 	for _, decision := range validateResult.Decisions {
 		switch decision.Action {
 		case validatingadmissionpolicy.ActionAdmit:
 			if decision.Evaluation == validatingadmissionpolicy.EvalError {
-				fmt.Println("error")
 				return resource, handlers.WithResponses(
 					engineapi.RuleError(rule.Name, engineapi.Validation, decision.Message, nil),
 				)
