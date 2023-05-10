@@ -38,7 +38,7 @@ kyverno oci push -p policies. -i <imgref>`,
 				return errors.New("image reference is required")
 			}
 
-			policies, errs := common.GetPolicies([]string{policyRef})
+			policies, _, errs := common.GetPolicies([]string{policyRef})
 			if len(errs) != 0 {
 				return fmt.Errorf("unable to read policy file or directory %s: %w", policyRef, multierr.Combine(errs...))
 			}
