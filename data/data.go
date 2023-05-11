@@ -1,7 +1,7 @@
 package data
 
 import (
-	_ "embed"
+	"embed"
 )
 
 //go:embed swagger.json
@@ -12,3 +12,6 @@ var PreferredAPIResourceLists string
 
 //go:embed api-resources.json
 var APIResourceLists string
+
+//go:embed crds
+var Crds embed.FS

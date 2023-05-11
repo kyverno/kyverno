@@ -10,6 +10,7 @@ import (
 	"github.com/google/gnostic/compiler"
 	openapiv2 "github.com/google/gnostic/openapiv2"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/data"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -94,7 +95,7 @@ func NewManager(logger logr.Logger) (*manager, error) {
 	}
 	factory, err := validatorfactory.New(
 		openapiclient.NewComposite(
-			// openapiclient.NewLocalFiles("../schemas/openapi/v3"),
+			openapiclient.NewLocalCRDFiles(data.Crds, "/crds"),
 			openapiclient.NewHardcodedBuiltins("1.27"),
 		),
 	)

@@ -434,6 +434,7 @@ codegen-crds-report: $(CONTROLLER_GEN) ## Generate policy reports CRDs
 
 .PHONY: codegen-crds-all
 codegen-crds-all: codegen-crds-kyverno codegen-crds-report ## Generate all CRDs
+	@mkdir -p ./data/crds && rm -rf ./data/crds && cp -rf $(CRDS_PATH) ./data/crds
 
 .PHONY: codegen-deepcopy-kyverno
 codegen-deepcopy-kyverno: $(CONTROLLER_GEN) $(GOIMPORTS) ## Generate kyverno deep copy functions
