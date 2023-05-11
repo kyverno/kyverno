@@ -1,6 +1,7 @@
 package openapi
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -13,11 +14,18 @@ import (
 	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	"github.com/kyverno/kyverno/pkg/engine"
 	cmap "github.com/orcaman/concurrent-map/v2"
+	_ "go.etcd.io/etcd/client/pkg/v3/logutil"
 	"gopkg.in/yaml.v3"
+	_ "k8s.io/apiextensions-apiserver/pkg/apiserver/conversion"
+	apiextensionsschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
+	"k8s.io/apiextensions-apiserver/pkg/registry/customresource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/kube-openapi/pkg/util/proto"
-	"k8s.io/kube-openapi/pkg/util/proto/validation"
+	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
+	"sigs.k8s.io/kubectl-validate/pkg/validatorfactory"
 )
 
 type ValidateInterface interface {
@@ -47,6 +55,8 @@ type manager struct {
 
 	// kindToAPIVersions stores the Kind and all its available apiVersions, {kind: apiVersions}
 	kindToAPIVersions cmap.ConcurrentMap[string, apiVersions]
+
+	factory *validatorfactory.ValidatorFactory
 
 	logger logr.Logger
 }
@@ -82,40 +92,57 @@ func NewManager(logger logr.Logger) (*manager, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	factory, err := validatorfactory.New(
+		openapiclient.NewComposite(
+			// openapiclient.NewLocalFiles("../schemas/openapi/v3"),
+			openapiclient.NewHardcodedBuiltins("1.27"),
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+	mgr.factory = factory
 	return mgr, nil
 }
 
 // ValidateResource ...
 func (o *manager) ValidateResource(patchedResource unstructured.Unstructured, apiVersion, kind string) error {
-	var err error
-
-	gvk := kind
-	if apiVersion != "" {
-		gvk = apiVersion + "/" + kind
+	gvk := patchedResource.GroupVersionKind()
+	if gvk.Empty() {
+		return fmt.Errorf("GVK cannot be empty")
 	}
 
-	kind, _ = o.gvkToDefinitionName.Get(gvk)
-	schema := o.models.LookupModel(kind)
-	if schema == nil {
-		// Check if kind is a CRD
-		schema, err = o.getCRDSchema(kind)
-		if err != nil || schema == nil {
-			return fmt.Errorf("pre-validation: couldn't find model %s, err: %v", kind, err)
-		}
-		delete(patchedResource.Object, "kind")
+	validators, err := o.factory.ValidatorsForGVK(gvk)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve validator: %w", err)
 	}
 
-	if errs := validation.ValidateModel(patchedResource.UnstructuredContent(), schema, kind); len(errs) > 0 {
-		var errorMessages []string
-		for i := range errs {
-			errorMessages = append(errorMessages, errs[i].Error())
-		}
-
-		return fmt.Errorf(strings.Join(errorMessages, "\n\n"))
+	// Grab structural schema for use in several of the validation functions.
+	// The validators use a weird mix of structural schema and openapi
+	ss, err := validators.StructuralSchema()
+	if err != nil || ss == nil {
+		return err
+	}
+	crdIsNamespaceScoped := true
+	if n := patchedResource.GetNamespace(); len(n) == 0 {
+		crdIsNamespaceScoped = false
 	}
 
-	return nil
+	strategy := customresource.NewStrategy(
+		validators.ObjectTyper(gvk),
+		crdIsNamespaceScoped,
+		gvk,
+		validators.SchemaValidator(),
+		nil,
+		map[string]*apiextensionsschema.Structural{
+			gvk.Version: ss,
+		},
+		nil,
+		nil,
+	)
+
+	// rest.FillObjectMetaSystemFields(obj)
+	return rest.BeforeCreate(strategy, request.WithNamespace(context.TODO(), patchedResource.GetNamespace()), &patchedResource)
 }
 
 // ValidatePolicyMutation ...
@@ -246,26 +273,26 @@ func (c *manager) UpdateKindToAPIVersions(apiResourceLists, preferredAPIResource
 	}
 }
 
-// For crd, we do not store definition in document
-func (o *manager) getCRDSchema(kind string) (proto.Schema, error) {
-	if kind == "" {
-		return nil, fmt.Errorf("invalid kind")
-	}
+// // For crd, we do not store definition in document
+// func (o *manager) getCRDSchema(kind string) (proto.Schema, error) {
+// 	if kind == "" {
+// 		return nil, fmt.Errorf("invalid kind")
+// 	}
 
-	path := proto.NewPath(kind)
-	definition, _ := o.definitions.Get(kind)
-	if definition == nil {
-		return nil, fmt.Errorf("could not find definition")
-	}
+// 	path := proto.NewPath(kind)
+// 	definition, _ := o.definitions.Get(kind)
+// 	if definition == nil {
+// 		return nil, fmt.Errorf("could not find definition")
+// 	}
 
-	// This was added so crd's can access
-	// normal definitions from existing schema such as
-	// `metadata` - this maybe a breaking change.
-	// Removing this may cause policy validate to stop working
-	existingDefinitions, _ := o.models.(*proto.Definitions)
+// 	// This was added so crd's can access
+// 	// normal definitions from existing schema such as
+// 	// `metadata` - this maybe a breaking change.
+// 	// Removing this may cause policy validate to stop working
+// 	existingDefinitions, _ := o.models.(*proto.Definitions)
 
-	return (existingDefinitions).ParseSchema(definition, &path)
-}
+// 	return (existingDefinitions).ParseSchema(definition, &path)
+// }
 
 func (o *manager) generateEmptyResource(kindSchema *openapiv2.Schema) interface{} {
 	types := kindSchema.GetType().GetValue()
