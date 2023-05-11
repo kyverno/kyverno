@@ -18,7 +18,6 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/metric/instrument"
@@ -31,7 +30,7 @@ type engine struct {
 	metricsConfiguration config.MetricsConfiguration
 	jp                   jmespath.Interface
 	client               dclient.Interface
-	rclient              registryclient.Client
+	rclientLoader        engineapi.RegistryClientLoader
 	contextLoader        engineapi.ContextLoaderFactory
 	exceptionSelector    engineapi.PolicyExceptionSelector
 	// metrics
@@ -46,7 +45,7 @@ func NewEngine(
 	metricsConfiguration config.MetricsConfiguration,
 	jp jmespath.Interface,
 	client dclient.Interface,
-	rclient registryclient.Client,
+	rclientLoader engineapi.RegistryClientLoader,
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,
 ) engineapi.Engine {
@@ -70,7 +69,7 @@ func NewEngine(
 		metricsConfiguration: metricsConfiguration,
 		jp:                   jp,
 		client:               client,
-		rclient:              rclient,
+		rclientLoader:        rclientLoader,
 		contextLoader:        contextLoader,
 		exceptionSelector:    exceptionSelector,
 		resultCounter:        resultCounter,
@@ -171,7 +170,7 @@ func (e *engine) ContextLoader(
 			ctx,
 			e.jp,
 			e.client,
-			e.rclient,
+			e.rclientLoader.GetGlobalRegistryClient(),
 			contextEntries,
 			jsonContext,
 		)

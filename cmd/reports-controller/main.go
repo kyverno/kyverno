@@ -222,7 +222,7 @@ func main() {
 		setup.MetricsConfiguration,
 		setup.Jp,
 		setup.KyvernoDynamicClient,
-		setup.RegistryClient,
+		setup.RegistryClientLoader,
 		setup.KubeClient,
 		setup.KyvernoClient,
 	)
@@ -261,7 +261,7 @@ func main() {
 				metadataInformer,
 				setup.KyvernoClient,
 				setup.KyvernoDynamicClient,
-				setup.RegistryClient,
+				setup.RegistryClientLoader.GetGlobalRegistryClient(),
 				setup.Configuration,
 				setup.Jp,
 				eventGenerator,

@@ -19,7 +19,7 @@ import (
 
 type mutateImageHandler struct {
 	configuration config.Configuration
-	rclient       registryclient.Client
+	rclientLoader engineapi.RegistryClientLoader
 	ivm           *engineapi.ImageVerificationMetadata
 	images        []apiutils.ImageInfo
 }
@@ -29,7 +29,7 @@ func NewMutateImageHandler(
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
 	configuration config.Configuration,
-	rclient registryclient.Client,
+	rclientLoader engineapi.RegistryClientLoader,
 	ivm *engineapi.ImageVerificationMetadata,
 ) (handlers.Handler, error) {
 	if len(rule.VerifyImages) == 0 {
@@ -44,7 +44,7 @@ func NewMutateImageHandler(
 	}
 	return mutateImageHandler{
 		configuration: configuration,
-		rclient:       rclient,
+		rclientLoader: rclientLoader,
 		ivm:           ivm,
 		images:        ruleImages,
 	}, nil
@@ -65,9 +65,15 @@ func (h mutateImageHandler) Process(
 			engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to substitute variables", err),
 		)
 	}
-	iv := internal.NewImageVerifier(logger, h.rclient, policyContext, *ruleCopy, h.ivm)
 	var engineResponses []*engineapi.RuleResponse
 	for _, imageVerify := range ruleCopy.VerifyImages {
+		var rclient registryclient.Client
+		if len(imageVerify.ImageRegistryCredentials.Secrets) != 0 {
+			rclient = h.rclientLoader.Load(ctx, imageVerify)
+		} else {
+			rclient = h.rclientLoader.GetGlobalRegistryClient()
+		}
+		iv := internal.NewImageVerifier(logger, rclient, policyContext, *ruleCopy, h.ivm)
 		engineResponses = append(engineResponses, iv.Verify(ctx, imageVerify, h.images, h.configuration)...)
 	}
 	return resource, handlers.WithResponses(engineResponses...)

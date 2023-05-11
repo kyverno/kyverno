@@ -7,7 +7,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/kubernetes"
 )
 
 // ExcludeFunc is a function used to determine if a resource is excluded
@@ -27,6 +26,5 @@ type PolicyContext interface {
 	SetElement(element unstructured.Unstructured)
 
 	JSONContext() enginecontext.Interface
-	KubeClient() kubernetes.Interface
 	Copy() PolicyContext
 }

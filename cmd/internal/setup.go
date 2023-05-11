@@ -12,9 +12,9 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	metadataclient "github.com/kyverno/kyverno/pkg/clients/metadata"
 	"github.com/kyverno/kyverno/pkg/config"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 )
 
 func shutdown(logger logr.Logger, sdowns ...context.CancelFunc) context.CancelFunc {
@@ -36,7 +36,8 @@ type SetupResult struct {
 	Jp                   jmespath.Interface
 	KubeClient           kubeclient.UpstreamInterface
 	LeaderElectionClient kubeclient.UpstreamInterface
-	RegistryClient       registryclient.Client
+	// RegistryClient       registryclient.Client
+	RegistryClientLoader engineapi.RegistryClientLoader
 	KyvernoClient        kyvernoclient.UpstreamInterface
 	DynamicClient        dynamicclient.UpstreamInterface
 	ApiServerClient      apiserverclient.UpstreamInterface
@@ -57,9 +58,13 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	configuration := startConfigController(ctx, logger, client, skipResourceFilters)
 	sdownTracing := SetupTracing(logger, name, client)
 	setupCosign(logger)
-	var registryClient registryclient.Client
+	// var registryClient registryclient.Client
+	var registryClientLoader engineapi.RegistryClientLoader
 	if config.UsesRegistryClient() {
-		registryClient = setupRegistryClient(ctx, logger, client)
+		registryClientLoaderFactory := engineapi.DefaultRegistryClientLoaderFactory(ctx, client)
+		registryClientLoader = registryClientLoaderFactory(imagePullSecrets, allowInsecureRegistry, registryCredentialHelpers)
+		// registryClient = setupRegistryClient(ctx, logger, client)
+		// registryClientLoader.SetGlobalRegistryClient(registryClient)
 	}
 	var leaderElectionClient kubeclient.UpstreamInterface
 	if config.UsesLeaderElection() {
@@ -94,7 +99,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 			Jp:                   jmespath.New(configuration),
 			KubeClient:           client,
 			LeaderElectionClient: leaderElectionClient,
-			RegistryClient:       registryClient,
+			RegistryClientLoader: registryClientLoader,
 			KyvernoClient:        kyvernoClient,
 			DynamicClient:        dynamicClient,
 			ApiServerClient:      apiServerClient,

@@ -169,7 +169,7 @@ var (
 
 func testVerifyAndPatchImages(
 	ctx context.Context,
-	rclient registryclient.Client,
+	rclientLoader engineapi.RegistryClientLoader,
 	cmResolver engineapi.ConfigmapResolver,
 	pContext engineapi.PolicyContext,
 	cfg config.Configuration,
@@ -179,7 +179,7 @@ func testVerifyAndPatchImages(
 		metricsCfg,
 		jp,
 		nil,
-		rclient,
+		rclientLoader,
 		engineapi.DefaultContextLoaderFactory(cmResolver),
 		nil,
 	)

@@ -296,7 +296,7 @@ func main() {
 		setup.MetricsConfiguration,
 		setup.Jp,
 		setup.KyvernoDynamicClient,
-		setup.RegistryClient,
+		setup.RegistryClientLoader,
 		setup.KubeClient,
 		setup.KyvernoClient,
 	)
@@ -414,7 +414,7 @@ func main() {
 		engine,
 		setup.KyvernoDynamicClient,
 		setup.KyvernoClient,
-		setup.RegistryClient,
+		setup.RegistryClientLoader.GetGlobalRegistryClient(),
 		setup.Configuration,
 		setup.MetricsManager,
 		policyCache,
