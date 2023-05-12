@@ -106,6 +106,7 @@ spec:
               "backgroundScan"
               "configMapCaching"
               "logging"
+              "omitEvents"
               "policyExceptions"
               "reports"
               "registryClient"
