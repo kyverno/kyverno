@@ -194,7 +194,6 @@ func applyPoliciesFromPath(
 		fmt.Printf("applying %s to %s... \n", msgPolicies, msgResources)
 	}
 
-	kyvernoPolicy := common.KyvernoPolicies{}
 	for _, policy := range policies {
 		_, err := policyvalidation.Validate(policy, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
 		if err != nil {
@@ -234,7 +233,7 @@ func applyPoliciesFromPath(
 				Client:                    dClient,
 				Subresources:              subresources,
 			}
-			ers, err := kyvernoPolicy.ApplyPolicyOnResource(applyPolicyConfig)
+			ers, err := common.ApplyPolicyOnResource(applyPolicyConfig)
 			if err != nil {
 				return nil, nil, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}
