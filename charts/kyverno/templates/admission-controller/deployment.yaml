@@ -152,6 +152,7 @@ spec:
               "dumpPayload"
               "forceFailurePolicyIgnore"
               "logging"
+              "omitEvents"
               "policyExceptions"
               "protectManagedResources"
               "registryClient"
