@@ -354,6 +354,13 @@ features:
     format: text
     # -- Logging verbosity
     verbosity: 2
+  omitEvents:
+    # -- Events which should not be emitted (possible values `PolicyViolation`, `PolicyApplied`, `PolicyError`, and `PolicySkipped`)
+    eventTypes: []
+      # - PolicyViolation
+      # - PolicyApplied
+      # - PolicyError
+      # - PolicySkipped
   policyExceptions:
     # -- Enables the feature
     enabled: false
