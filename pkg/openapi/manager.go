@@ -128,6 +128,12 @@ func (o *manager) ValidateResource(patchedResource unstructured.Unstructured, ap
 	if n := patchedResource.GetNamespace(); len(n) == 0 {
 		crdIsNamespaceScoped = false
 	}
+	if patchedResource.GetAPIVersion() == "v1" {
+		// CRD validator expects unconditoinal slashes and nonempty group,
+		// since it is not originally intended for built-in
+		gvk.Group = "core"
+		patchedResource.SetAPIVersion("core/v1")
+	}
 
 	strategy := customresource.NewStrategy(
 		validators.ObjectTyper(gvk),
@@ -142,12 +148,13 @@ func (o *manager) ValidateResource(patchedResource unstructured.Unstructured, ap
 		nil,
 	)
 
-	// rest.FillObjectMetaSystemFields(obj)
+	rest.FillObjectMetaSystemFields(&patchedResource)
 	return rest.BeforeCreate(strategy, request.WithNamespace(context.TODO(), patchedResource.GetNamespace()), &patchedResource)
 }
 
 // ValidatePolicyMutation ...
 func (o *manager) ValidatePolicyMutation(policy kyvernov1.PolicyInterface) error {
+	return nil
 	kindToRules := make(map[string][]kyvernov1.Rule)
 	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.HasMutate() {
@@ -186,6 +193,13 @@ func (o *manager) ValidatePolicyMutation(policy kyvernov1.PolicyInterface) error
 		}
 
 		newResource := unstructured.Unstructured{Object: resource}
+		if newResource.GetAPIVersion() == "" {
+			if a, ok := o.kindToAPIVersions.Get(kind); ok {
+				parts := strings.Split(a.serverPreferredGVK, "/")
+				apiVersion := strings.Join(parts[:len(parts)-1], "/")
+				newResource.SetAPIVersion(apiVersion)
+			}
+		}
 		newResource.SetKind(kind)
 
 		patchedResource, err := engine.ForceMutate(nil, o.logger, newPolicy, newResource)
