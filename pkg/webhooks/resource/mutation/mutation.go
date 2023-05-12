@@ -9,6 +9,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
@@ -17,6 +18,7 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
+	"github.com/mattbaird/jsonpatch"
 	"go.opentelemetry.io/otel/trace"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -83,7 +85,7 @@ func (v *mutationHandler) applyMutations(
 		return nil, nil, nil
 	}
 
-	var patches [][]byte
+	var patches []jsonpatch.JsonPatchOperation
 	var engineResponses []engineapi.EngineResponse
 
 	for _, policy := range policies {
@@ -136,10 +138,10 @@ func (v *mutationHandler) applyMutations(
 	logMutationResponse(patches, engineResponses, v.log)
 
 	// patches holds all the successful patches, if no patch is created, it returns nil
-	return jsonutils.JoinPatches(patches...), engineResponses, nil
+	return jsonutils.JoinPatches(patch.ConvertPatches(patches...)...), engineResponses, nil
 }
 
-func (h *mutationHandler) applyMutation(ctx context.Context, request admissionv1.AdmissionRequest, policyContext *engine.PolicyContext) (*engineapi.EngineResponse, [][]byte, error) {
+func (h *mutationHandler) applyMutation(ctx context.Context, request admissionv1.AdmissionRequest, policyContext *engine.PolicyContext) (*engineapi.EngineResponse, []jsonpatch.JsonPatchOperation, error) {
 	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
 		policyContext = policyContext.WithNamespaceLabels(engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
 	}
@@ -161,7 +163,7 @@ func (h *mutationHandler) applyMutation(ctx context.Context, request admissionv1
 	return &engineResponse, policyPatches, nil
 }
 
-func logMutationResponse(patches [][]byte, engineResponses []engineapi.EngineResponse, logger logr.Logger) {
+func logMutationResponse(patches []jsonpatch.JsonPatchOperation, engineResponses []engineapi.EngineResponse, logger logr.Logger) {
 	if len(patches) != 0 {
 		logger.V(4).Info("created patches", "count", len(patches))
 	}
