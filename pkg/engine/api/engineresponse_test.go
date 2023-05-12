@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/mattbaird/jsonpatch"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -907,70 +908,110 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 	}
 }
 
-// func TestEngineResponse_GetPatches(t *testing.T) {
-// 	type fields struct {
-// 		PatchedResource unstructured.Unstructured
-// 		Policy          kyvernov1.PolicyInterface
-// 		PolicyResponse  PolicyResponse
-// 		namespaceLabels map[string]string
-// 	}
-// 	tests := []struct {
-// 		name   string
-// 		fields fields
-// 		want   [][]byte
-// 	}{{}, {
-// 		fields: fields{
-// 			PolicyResponse: PolicyResponse{
-// 				Rules: nil,
-// 			},
-// 		},
-// 	}, {
-// 		fields: fields{
-// 			PolicyResponse: PolicyResponse{
-// 				Rules: []RuleResponse{},
-// 			},
-// 		},
-// 	}, {
-// 		fields: fields{
-// 			PolicyResponse: PolicyResponse{
-// 				Rules: []RuleResponse{{}},
-// 			},
-// 		},
-// 	}, {
-// 		fields: fields{
-// 			PolicyResponse: PolicyResponse{
-// 				Rules: []RuleResponse{
-// 					{},
-// 					*RuleResponse{}.WithPatches([][]byte{{0, 1, 2}, {3, 4, 5}}...),
-// 				},
-// 			},
-// 		},
-// 		want: [][]byte{{0, 1, 2}, {3, 4, 5}},
-// 	}, {
-// 		fields: fields{
-// 			PolicyResponse: PolicyResponse{
-// 				Rules: []RuleResponse{
-// 					{},
-// 					*RuleResponse{}.WithPatches([][]byte{{0, 1, 2}, {3, 4, 5}}...),
-// 					*RuleResponse{}.WithPatches([][]byte{{7, 8, 9}}...),
-// 				},
-// 			},
-// 		},
-// 		want: [][]byte{{0, 1, 2}, {3, 4, 5}, {7, 8, 9}},
-// 	}}
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			er := EngineResponse{
-// 				PatchedResource: tt.fields.PatchedResource,
-// 				PolicyResponse:  tt.fields.PolicyResponse,
-// 				namespaceLabels: tt.fields.namespaceLabels,
-// 			}.WithPolicy(tt.fields.Policy)
-// 			if got := er.GetPatches(); !reflect.DeepEqual(got, tt.want) {
-// 				t.Errorf("EngineResponse.GetPatches() = %v, want %v", got, tt.want)
-// 			}
-// 		})
-// 	}
-// }
+func TestEngineResponse_GetPatches(t *testing.T) {
+	type fields struct {
+		PatchedResource unstructured.Unstructured
+		Policy          kyvernov1.PolicyInterface
+		PolicyResponse  PolicyResponse
+		namespaceLabels map[string]string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   []jsonpatch.JsonPatchOperation
+	}{{}, {
+		fields: fields{
+			PolicyResponse: PolicyResponse{
+				Rules: nil,
+			},
+		},
+	}, {
+		fields: fields{
+			PolicyResponse: PolicyResponse{
+				Rules: []RuleResponse{},
+			},
+		},
+	}, {
+		fields: fields{
+			PolicyResponse: PolicyResponse{
+				Rules: []RuleResponse{{}},
+			},
+		},
+	}, {
+		fields: fields{
+			PolicyResponse: PolicyResponse{
+				Rules: []RuleResponse{
+					{},
+					*RuleResponse{}.WithPatches([]jsonpatch.JsonPatchOperation{{
+						Operation: "add",
+						Path:      "/1",
+						Value:     0,
+					}, {
+						Operation: "add",
+						Path:      "/2",
+						Value:     1,
+					}}...),
+				},
+			},
+		},
+		want: []jsonpatch.JsonPatchOperation{{
+			Operation: "add",
+			Path:      "/1",
+			Value:     0,
+		}, {
+			Operation: "add",
+			Path:      "/2",
+			Value:     1,
+		}},
+	}, {
+		fields: fields{
+			PolicyResponse: PolicyResponse{
+				Rules: []RuleResponse{
+					{},
+					*RuleResponse{}.WithPatches([]jsonpatch.JsonPatchOperation{{
+						Operation: "add",
+						Path:      "/1",
+						Value:     0,
+					}, {
+						Operation: "add",
+						Path:      "/2",
+						Value:     1,
+					}}...),
+					*RuleResponse{}.WithPatches([]jsonpatch.JsonPatchOperation{{
+						Operation: "add",
+						Path:      "/3",
+						Value:     2,
+					}}...),
+				},
+			},
+		},
+		want: []jsonpatch.JsonPatchOperation{{
+			Operation: "add",
+			Path:      "/1",
+			Value:     0,
+		}, {
+			Operation: "add",
+			Path:      "/2",
+			Value:     1,
+		}, {
+			Operation: "add",
+			Path:      "/3",
+			Value:     2,
+		}},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			er := EngineResponse{
+				PatchedResource: tt.fields.PatchedResource,
+				PolicyResponse:  tt.fields.PolicyResponse,
+				namespaceLabels: tt.fields.namespaceLabels,
+			}.WithPolicy(tt.fields.Policy)
+			if got := er.GetPatches(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("EngineResponse.GetPatches() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 
 func TestEngineResponse_GetResourceSpec(t *testing.T) {
 	namespacedResource := unstructured.Unstructured{}
