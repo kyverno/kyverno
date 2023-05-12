@@ -24,7 +24,6 @@ func NewBackgroundContext(
 	jp jmespath.Interface,
 	namespaceLabels map[string]string,
 ) (*engine.PolicyContext, error) {
-	// ctx := context.NewContext(jp)
 	var new, old unstructured.Unstructured
 	var err error
 
