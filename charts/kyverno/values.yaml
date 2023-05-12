@@ -349,6 +349,11 @@ features:
   forceFailurePolicyIgnore:
     # -- Enables the feature
     enabled: false
+  logging:
+    # -- Logging format
+    format: text
+    # -- Logging verbosity
+    verbosity: 2
   policyExceptions:
     # -- Enables the feature
     enabled: false
@@ -778,12 +783,6 @@ admissionController:
     # -- Traces receiver credentials
     creds: ''
 
-  logging:
-    # -- Logging format
-    format: text
-    # -- Logging verbosity
-    verbosity: 2
-
   metering:
     # -- Disable metrics export
     disabled: false
@@ -985,12 +984,6 @@ backgroundController:
     port:
     # -- Traces receiver credentials
     creds: ''
-
-  logging:
-    # -- Logging format
-    format: text
-    # -- Logging verbosity
-    verbosity: 2
 
   metering:
     # -- Disable metrics export
@@ -1249,12 +1242,6 @@ cleanupController:
     # -- Traces receiver credentials
     creds: ''
 
-  logging:
-    # -- Logging format
-    format: text
-    # -- Logging verbosity
-    verbosity: 2
-
   metering:
     # -- Disable metrics export
     disabled: false
@@ -1460,12 +1447,6 @@ reportsController:
     port: ~
     # -- (string) Traces receiver credentials
     creds: ~
-
-  logging:
-    # -- Logging format
-    format: text
-    # -- Logging verbosity
-    verbosity: 2
 
   metering:
     # -- Disable metrics export
