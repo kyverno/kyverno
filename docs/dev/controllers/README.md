@@ -61,11 +61,11 @@ The Background Controller handles generate and mutate rules only for existing re
 
 #### UpdateRequest Controller
 
-This controller reconciles the UpdateRequests created by the Admission Controller into their final form, whether that is a generated resource or a mutated existing resource.
+This controller reconciles the UpdateRequests created by the Admission Controller and the Policy Controller into their final form, whether that is a generated resource or a mutated existing resource.
 
 #### Policy Controller
 
-The policy controller processes all adds, deletes, and updates to all installed policies.
+The policy controller processes all adds, deletes, and updates to all installed policies, and creates UpdateRequests upon policy events.
 
 ### Reports Controller
 
