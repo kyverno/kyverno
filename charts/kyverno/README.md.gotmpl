@@ -154,7 +154,7 @@ Follow the procedure below.
 1. READ THE COMPLETE RELEASE NOTES FIRST
 2. Scale the `kyverno` Deployment to zero replicas.
 3. If coming from 1.9 and you have install the cleanup controller, scale the `kyverno-cleanup-controller` Deployment to zero replicas.
-4. If step 2 applied to you, now delete the cleanup Deployment.
+4. If step 3 applied to you, now delete the cleanup Deployment.
 5. Review the [New Chart Values](#new-chart-values) section and translate your desired features and configurations to the new format.
 6. Upgrade to the v3 chart by passing the mandatory flag `upgrade.fromV2=true`.
 
