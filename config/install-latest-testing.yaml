@@ -35441,7 +35441,6 @@ spec:
             - --loggingFormat=text
             - --v=2
             - --enablePolicyException=false
-            - --exceptionNamespace=
             - --protectManagedResources=false
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
@@ -35586,7 +35585,6 @@ spec:
             - --loggingFormat=text
             - --v=2
             - --enablePolicyException=false
-            - --exceptionNamespace=
           env:
           - name: METRICS_CONFIG
             value: kyverno-metrics
@@ -35804,7 +35802,6 @@ spec:
             - --loggingFormat=text
             - --v=2
             - --enablePolicyException=false
-            - --exceptionNamespace=
             - --reportsChunkSize=1000
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
