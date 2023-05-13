@@ -12,16 +12,21 @@ import (
 // +kubebuilder:validation:Enum=Cosign;NotaryV2
 // +kubebuilder:default=Cosign
 type ImageVerificationType string
+
+// ImageVerificationType selects the type of verification algorithm
+// +kubebuilder:validation:Enum=DEFAULT;AWS;Azure;GCP;GHCR
+// +kubebuilder:default=DEFAULT
 type ImageRegistryCredentialsHelpersType string
 
 const (
 	Cosign   ImageVerificationType = "Cosign"
 	NotaryV2 ImageVerificationType = "NotaryV2"
 
-	AWS   ImageRegistryCredentialsHelpersType = "AWS"
-	Azure ImageRegistryCredentialsHelpersType = "Azure"
-	GCP   ImageRegistryCredentialsHelpersType = "GCP"
-	GHCR  ImageRegistryCredentialsHelpersType = "GHCR"
+	DEFAULT ImageRegistryCredentialsHelpersType = "DEFAULT"
+	AWS     ImageRegistryCredentialsHelpersType = "AWS"
+	Azure   ImageRegistryCredentialsHelpersType = "Azure"
+	GCP     ImageRegistryCredentialsHelpersType = "GCP"
+	GHCR    ImageRegistryCredentialsHelpersType = "GHCR"
 )
 
 // ImageVerification validates that images that match the specified pattern
@@ -266,6 +271,7 @@ type ImageRegistryCredentials struct {
 	Helpers []ImageRegistryCredentialsHelpersType `json:"helpers,omitempty" yaml:"helpers,omitempty"`
 
 	// Secrets specifies a list of secrets that are provided for credentials
+	// Secrets must be in Kyverno namespace
 	// +kubebuilder:validation:Optional
 	Secrets []Secret `json:"secrets,omitempty" yaml:"secrets,omitempty"`
 }

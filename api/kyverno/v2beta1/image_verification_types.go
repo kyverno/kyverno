@@ -10,9 +10,20 @@ import (
 // +kubebuilder:default=Cosign
 type ImageVerificationType string
 
+// ImageVerificationType selects the type of verification algorithm
+// +kubebuilder:validation:Enum=DEFAULT;AWS;Azure;GCP;GHCR
+// +kubebuilder:default=DEFAULT
+type ImageRegistryCredentialsHelpersType string
+
 const (
 	Cosign   ImageVerificationType = "Cosign"
 	NotaryV2 ImageVerificationType = "NotaryV2"
+
+	DEFAULT ImageRegistryCredentialsHelpersType = "DEFAULT"
+	AWS     ImageRegistryCredentialsHelpersType = "AWS"
+	Azure   ImageRegistryCredentialsHelpersType = "Azure"
+	GCP     ImageRegistryCredentialsHelpersType = "GCP"
+	GHCR    ImageRegistryCredentialsHelpersType = "GHCR"
 )
 
 // ImageVerification validates that images that match the specified pattern
@@ -60,6 +71,10 @@ type ImageVerification struct {
 	// +kubebuilder:default=true
 	// +kubebuilder:validation:Optional
 	Required bool `json:"required" yaml:"required"`
+
+	// ImageRegistryCredentials provides credentials that will be used for authentication with registry
+	// +kubebuilder:validation:Optional
+	ImageRegistryCredentials kyvernov1.ImageRegistryCredentials `json:"imageRegistryCredentials,omitempty" yaml:"imageRegistryCredentials,omitempty"`
 }
 
 // Validate implements programmatic validation
