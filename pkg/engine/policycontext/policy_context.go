@@ -48,6 +48,9 @@ type PolicyContext struct {
 	// jsonContext is the variable context
 	jsonContext enginectx.Interface
 
+	// registry client loader is an instance of registry client loader which is used to get registry client
+	rclientloader engineapi.RegistryClientLoader
+
 	// namespaceLabels stores the label of namespace to be processed by namespace selector
 	namespaceLabels map[string]string
 
@@ -113,6 +116,10 @@ func (c *PolicyContext) JSONContext() enginectx.Interface {
 	return c.jsonContext
 }
 
+func (c *PolicyContext) RegistryClientLoader() engineapi.RegistryClientLoader {
+	return c.rclientloader
+}
+
 func (c PolicyContext) Copy() engineapi.PolicyContext {
 	return c.copy()
 }
@@ -169,6 +176,12 @@ func (c *PolicyContext) WithResources(newResource unstructured.Unstructured, old
 func (c *PolicyContext) WithAdmissionOperation(admissionOperation bool) *PolicyContext {
 	copy := c.copy()
 	copy.admissionOperation = admissionOperation
+	return copy
+}
+
+func (c *PolicyContext) WithRegistryClient(rclientloader engineapi.RegistryClientLoader) *PolicyContext {
+	copy := c.copy()
+	copy.rclientloader = rclientloader
 	return copy
 }
 

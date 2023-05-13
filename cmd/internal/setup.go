@@ -62,10 +62,8 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	// var registryClient registryclient.Client
 	var registryClientLoader engineapi.RegistryClientLoader
 	if config.UsesRegistryClient() {
-		registryClientLoaderFactory := engineapi.DefaultRegistryClientLoaderFactory(ctx, client)
-		registryClientLoader = registryClientLoaderFactory(imagePullSecrets, allowInsecureRegistry, registryCredentialHelpers)
-		// registryClient = setupRegistryClient(ctx, logger, client)
-		// registryClientLoader.SetGlobalRegistryClient(registryClient)
+		registryClientLoader = getRegistryClientLoader(ctx, logger, client)
+
 	}
 	var leaderElectionClient kubeclient.UpstreamInterface
 	if config.UsesLeaderElection() {

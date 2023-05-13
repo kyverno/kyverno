@@ -59,7 +59,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 			config.NewDefaultMetricsConfiguration(),
 			jp,
 			dclient,
-			rclient,
+			nil,
 			engineapi.DefaultContextLoaderFactory(configMapResolver),
 			peLister,
 		),

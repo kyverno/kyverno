@@ -39,7 +39,6 @@ func (e *engine) verifyAndPatchImages(
 				matchedResource,
 				rule,
 				e.configuration,
-				e.rclientLoader,
 				&ivm,
 			)
 		}
