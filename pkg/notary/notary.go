@@ -51,14 +51,12 @@ func (v *notaryVerifier) VerifySignature(ctx context.Context, opts images.Option
 		return nil, errors.Wrapf(err, "failed to created verifier")
 	}
 
-	v.log.V(2).Info("creating notation repo", "reference", opts.ImageRef)
+	v.log.V(4).Info("creating notation repo", "reference", opts.ImageRef)
 	parsedRef, err := parseReferenceCrane(ctx, opts.ImageRef, opts.RegistryClient)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
 	}
-	v.log.V(2).Info("created notation repo", "reference", opts.ImageRef)
-
-	v.log.V(2).Info("created parsedRef", "reference", opts.ImageRef)
+	v.log.V(4).Info("created parsedRef", "reference", opts.ImageRef)
 
 	ref := parsedRef.Ref.Name()
 	remoteVerifyOptions := notation.RemoteVerifyOptions{
@@ -124,7 +122,7 @@ func (v *notaryVerifier) verifyOutcomes(outcomes []*notation.VerificationOutcome
 		content := outcome.EnvelopeContent.Payload.Content
 		contentType := outcome.EnvelopeContent.Payload.ContentType
 
-		v.log.Info("content", "type", contentType, "data", content)
+		v.log.V(2).Info("content", "type", contentType, "data", content)
 	}
 
 	return multierr.Combine(errs...)
@@ -148,13 +146,13 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 		return nil, err
 	}
 
-	v.log.V(2).Info("client setup done", "repo", ref)
+	v.log.V(4).Info("client setup done", "repo", ref)
 
 	repoDesc, err := crane.Head(opts.ImageRef, craneOpts)
 	if err != nil {
 		return nil, err
 	}
-	v.log.V(2).Info("fetched repository", "repoDesc", repoDesc)
+	v.log.V(4).Info("fetched repository", "repoDesc", repoDesc)
 
 	referrers, err := remote.Referrers(ref.Context().Digest(repoDesc.Digest.String()), remoteOpts...)
 	if err != nil {
@@ -165,7 +163,7 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 		return nil, err
 	}
 
-	v.log.V(2).Info("fetched referrers", "referrers", referrersDescs)
+	v.log.V(4).Info("fetched referrers", "referrers", referrersDescs)
 
 	var statements []map[string]interface{}
 
@@ -176,31 +174,31 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 		}
 
 		if !match {
-			v.log.V(2).Info("type doesn't match, continue", "expected", opts.Type, "received", referrer.ArtifactType)
+			v.log.V(6).Info("type doesn't match, continue", "expected", opts.Type, "received", referrer.ArtifactType)
 			continue
 		}
 
 		targetDesc, err := verifyAttestators(ctx, v, ref, opts, referrer)
 		if err != nil {
 			msg := err.Error()
-			v.log.V(2).Info(msg, "failed to verify referrer %s", targetDesc.Digest.String())
+			v.log.V(4).Info(msg, "failed to verify referrer %s", targetDesc.Digest.String())
 			return nil, err
 		}
 
-		v.log.V(2).Info("extracting statements", "desc", targetDesc, "repo", ref)
+		v.log.V(4).Info("extracting statements", "desc", targetDesc, "repo", ref)
 		statements, err = extractStatements(ctx, ref, referrer, craneOpts)
 		if err != nil {
 			msg := err.Error()
-			v.log.V(2).Info("failed to extract statements %s", "err", msg)
+			v.log.V(4).Info("failed to extract statements %s", "err", msg)
 			return nil, err
 		}
 
-		v.log.V(2).Info("verified attestators", "digest", targetDesc.Digest.String())
+		v.log.V(4).Info("verified attestators", "digest", targetDesc.Digest.String())
 
 		if len(statements) == 0 {
 			return nil, fmt.Errorf("failed to fetch attestations")
 		}
-		v.log.V(2).Info("sending response")
+		v.log.V(6).Info("sending response")
 		return &images.Response{Digest: repoDesc.Digest.String(), Statements: statements}, nil
 	}
 
@@ -224,27 +222,25 @@ func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Referenc
 	certsPEM := combineCerts(opts)
 	certs, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(certsPEM)))
 	if err != nil {
-		v.log.V(2).Info("failed to parse certificates", "err", err)
+		v.log.V(4).Info("failed to parse certificates", "err", err)
 		return ocispec.Descriptor{}, errors.Wrapf(err, "failed to parse certificates")
 	}
 
-	v.log.V(2).Info("parsed certificates")
+	v.log.V(4).Info("parsed certificates")
 	trustStore := NewTrustStore("kyverno", certs)
 	policyDoc := v.buildPolicy()
 	notationVerifier, err := verifier.New(policyDoc, trustStore, nil)
 	if err != nil {
-		v.log.V(2).Info("failed to created verifier", "err", err)
+		v.log.V(4).Info("failed to created verifier", "err", err)
 		return ocispec.Descriptor{}, errors.Wrapf(err, "failed to created verifier")
 	}
 
-	v.log.V(2).Info("created verifier")
+	v.log.V(4).Info("created verifier")
 	parsedRef, err := parseReferenceCrane(ctx, opts.ImageRef, opts.RegistryClient)
 	if err != nil {
 		return ocispec.Descriptor{}, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
 	}
-	v.log.V(2).Info("created notation repo", "reference", opts.ImageRef)
-
-	v.log.V(2).Info("created parsedRef", "reference", opts.ImageRef)
+	v.log.V(4).Info("created notation repo", "reference", opts.ImageRef)
 
 	reference := parsedRef.Ref.Name()
 	remoteVerifyOptions := notation.RemoteVerifyOptions{
@@ -252,10 +248,10 @@ func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Referenc
 		MaxSignatureAttempts: 10,
 	}
 
-	v.log.V(2).Info("verification started")
+	v.log.V(4).Info("verification started")
 	targetDesc, outcomes, err := notation.Verify(context.TODO(), notationVerifier, parsedRef.Repo, remoteVerifyOptions)
 	if err != nil {
-		v.log.V(2).Info("failed to vefify attestator", "remoteVerifyOptions", remoteVerifyOptions, "repo", parsedRef.Repo)
+		v.log.V(4).Info("failed to vefify attestator", "remoteVerifyOptions", remoteVerifyOptions, "repo", parsedRef.Repo)
 		return targetDesc, err
 	}
 	if err := v.verifyOutcomes(outcomes); err != nil {
@@ -263,7 +259,7 @@ func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Referenc
 	}
 
 	if targetDesc.Digest.String() != desc.Digest.String() {
-		v.log.V(2).Info("digest mismatch", "expected", desc.Digest.String(), "found", targetDesc.Digest.String())
+		v.log.V(4).Info("digest mismatch", "expected", desc.Digest.String(), "found", targetDesc.Digest.String())
 		return targetDesc, errors.Errorf("digest mismatch")
 	}
 	v.log.V(2).Info("attestator verified", "desc", targetDesc.Digest.String())

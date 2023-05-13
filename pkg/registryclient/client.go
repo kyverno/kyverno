@@ -28,7 +28,7 @@ var (
 		authn.DefaultKeychain,
 		google.Keychain,
 		authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard))),
-		// authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()),
+		authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()),
 		github.Keychain,
 	)
 	defaultTransport = &http.Transport{
@@ -147,7 +147,7 @@ func WithCredentialHelpers(credentialHelpers ...string) Option {
 			chains = append(chains, authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard))))
 		}
 		if helpers.Has("azure") {
-			chains = append(chains, authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()))
+			// chains = append(chains, authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()))
 		}
 		if helpers.Has("github") {
 			chains = append(chains, github.Keychain)
