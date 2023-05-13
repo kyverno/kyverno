@@ -349,6 +349,18 @@ features:
   forceFailurePolicyIgnore:
     # -- Enables the feature
     enabled: false
+  logging:
+    # -- Logging format
+    format: text
+    # -- Logging verbosity
+    verbosity: 2
+  omitEvents:
+    # -- Events which should not be emitted (possible values `PolicyViolation`, `PolicyApplied`, `PolicyError`, and `PolicySkipped`)
+    eventTypes: []
+      # - PolicyViolation
+      # - PolicyApplied
+      # - PolicyError
+      # - PolicySkipped
   policyExceptions:
     # -- Enables the feature
     enabled: false
@@ -778,12 +790,6 @@ admissionController:
     # -- Traces receiver credentials
     creds: ''
 
-  logging:
-    # -- Logging format
-    format: text
-    # -- Logging verbosity
-    verbosity: 2
-
   metering:
     # -- Disable metrics export
     disabled: false
@@ -985,12 +991,6 @@ backgroundController:
     port:
     # -- Traces receiver credentials
     creds: ''
-
-  logging:
-    # -- Logging format
-    format: text
-    # -- Logging verbosity
-    verbosity: 2
 
   metering:
     # -- Disable metrics export
@@ -1249,12 +1249,6 @@ cleanupController:
     # -- Traces receiver credentials
     creds: ''
 
-  logging:
-    # -- Logging format
-    format: text
-    # -- Logging verbosity
-    verbosity: 2
-
   metering:
     # -- Disable metrics export
     disabled: false
@@ -1460,12 +1454,6 @@ reportsController:
     port: ~
     # -- (string) Traces receiver credentials
     creds: ~
-
-  logging:
-    # -- Logging format
-    format: text
-    # -- Logging verbosity
-    verbosity: 2
 
   metering:
     # -- Disable metrics export

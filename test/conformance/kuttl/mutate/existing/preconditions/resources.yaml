@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-a
+  namespace: default
+  annotations:
+    policy.lan/value: foo
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-b
+  namespace: default
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-c
+  namespace: default
+  annotations:
+    policy.lan/value: bar
+spec:
+  containers:
+    - name: nginx
+      image: nginx
