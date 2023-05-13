@@ -16,9 +16,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/mattbaird/jsonpatch"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubefake "k8s.io/client-go/kubernetes/fake"
@@ -784,14 +786,7 @@ func Test_MarkImageVerified(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, len(patches), 2)
 
-	patchesBytes := make([][]byte, len(patches))
-	for i, patch := range patches {
-		bytes, err := patch.MarshalJSON()
-		assert.NilError(t, err)
-		patchesBytes[i] = bytes
-	}
-
-	resource := testApplyPatches(t, patchesBytes)
+	resource := testApplyPatches(t, patches)
 	patchedAnnotations := resource.GetAnnotations()
 	assert.Equal(t, len(patchedAnnotations), 1)
 
