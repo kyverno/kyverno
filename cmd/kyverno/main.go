@@ -418,7 +418,7 @@ func main() {
 		engine,
 		setup.KyvernoDynamicClient,
 		setup.KyvernoClient,
-		setup.RegistryClientLoader.GetGlobalRegistryClient(),
+		setup.RegistryClientLoader,
 		setup.Configuration,
 		setup.MetricsManager,
 		policyCache,

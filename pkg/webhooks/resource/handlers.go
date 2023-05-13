@@ -19,7 +19,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
@@ -38,7 +37,7 @@ type resourceHandlers struct {
 	// clients
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
-	rclient       registryclient.Client
+	rclientloader engineapi.RegistryClientLoader
 	engine        engineapi.Engine
 
 	// config
@@ -67,7 +66,7 @@ func NewHandlers(
 	engine engineapi.Engine,
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
-	rclient registryclient.Client,
+	rclientloader engineapi.RegistryClientLoader,
 	configuration config.Configuration,
 	metricsConfig metrics.MetricsConfigManager,
 	pCache policycache.Cache,
@@ -86,7 +85,7 @@ func NewHandlers(
 		engine:                       engine,
 		client:                       client,
 		kyvernoClient:                kyvernoClient,
-		rclient:                      rclient,
+		rclientloader:                rclientloader,
 		configuration:                configuration,
 		metricsConfig:                metricsConfig,
 		pCache:                       pCache,
@@ -175,7 +174,7 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.Response(request.UID, err)
 	}
-	ivh := imageverification.NewImageVerificationHandler(logger, h.kyvernoClient, h.engine, h.eventGen, h.admissionReports, h.configuration, h.nsLister)
+	ivh := imageverification.NewImageVerificationHandler(logger, h.kyvernoClient, h.engine, h.eventGen, h.admissionReports, h.configuration, h.nsLister, h.rclientloader)
 	imagePatches, imageVerifyWarnings, err := ivh.Handle(ctx, newRequest, verifyImagesPolicies, policyContext)
 	if err != nil {
 		logger.Error(err, "image verification failed")

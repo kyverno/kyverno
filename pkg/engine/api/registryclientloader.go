@@ -42,11 +42,22 @@ func DefaultRegistryClientLoaderFactory(ctx context.Context, secretLister v1.Sec
 	}
 }
 
+func RegistryClientLoaderNewOrDie(options ...registryclient.Option) RegistryClientLoader {
+	return &registryClientLoader{
+		logger:                logging.WithName("registry-client"),
+		secretLister:          nil,
+		defaultRegistryClient: registryclient.NewOrDie(options...),
+	}
+}
+
 func (rcl *registryClientLoader) Load(
 	ctx context.Context,
 	imageVerify kyvernov1.ImageVerification,
 	policyContext PolicyContext,
 ) registryclient.Client {
+	if rcl.secretLister == nil { // only nil when a fake registryClientLoader is created
+		return rcl.defaultRegistryClient
+	}
 	if len(imageVerify.ImageRegistryCredentials.Secrets) == 0 {
 		checkError(rcl.logger, errors.New("secrets not found"), "secrets not found")
 	}

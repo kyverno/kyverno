@@ -39,6 +39,7 @@ type imageVerificationHandler struct {
 	admissionReports bool
 	cfg              config.Configuration
 	nsLister         corev1listers.NamespaceLister
+	rclientloader    engineapi.RegistryClientLoader
 }
 
 func NewImageVerificationHandler(
@@ -49,6 +50,7 @@ func NewImageVerificationHandler(
 	admissionReports bool,
 	cfg config.Configuration,
 	nsLister corev1listers.NamespaceLister,
+	rclientloader engineapi.RegistryClientLoader,
 ) ImageVerificationHandler {
 	return &imageVerificationHandler{
 		kyvernoClient:    kyvernoClient,
@@ -58,6 +60,7 @@ func NewImageVerificationHandler(
 		admissionReports: admissionReports,
 		cfg:              cfg,
 		nsLister:         nsLister,
+		rclientloader:    rclientloader,
 	}
 }
 
@@ -100,7 +103,7 @@ func (h *imageVerificationHandler) handleVerifyImages(
 					failurePolicy = kyvernov1.Fail
 				}
 
-				policyContext := policyContext.WithPolicy(policy)
+				policyContext := policyContext.WithPolicy(policy).WithRegistryClient(h.rclientloader)
 				if request.Kind.Kind != "Namespace" && request.Namespace != "" {
 					policyContext = policyContext.WithNamespaceLabels(engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
 				}

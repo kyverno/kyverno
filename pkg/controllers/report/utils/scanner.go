@@ -14,10 +14,11 @@ import (
 )
 
 type scanner struct {
-	logger logr.Logger
-	engine engineapi.Engine
-	config config.Configuration
-	jp     jmespath.Interface
+	logger        logr.Logger
+	engine        engineapi.Engine
+	rclientloader engineapi.RegistryClientLoader
+	config        config.Configuration
+	jp            jmespath.Interface
 }
 
 type ScanResult struct {
@@ -32,14 +33,16 @@ type Scanner interface {
 func NewScanner(
 	logger logr.Logger,
 	engine engineapi.Engine,
+	rclientloader engineapi.RegistryClientLoader,
 	config config.Configuration,
 	jp jmespath.Interface,
 ) Scanner {
 	return &scanner{
-		logger: logger,
-		engine: engine,
-		config: config,
-		jp:     jp,
+		logger:        logger,
+		engine:        engine,
+		rclientloader: rclientloader,
+		config:        config,
+		jp:            jp,
 	}
 }
 
@@ -91,7 +94,7 @@ func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unst
 	policyCtx = policyCtx.
 		WithNewResource(resource).
 		WithPolicy(policy).
-		WithNamespaceLabels(nsLabels)
+		WithNamespaceLabels(nsLabels).WithRegistryClient(s.rclientloader)
 	response, _ := s.engine.VerifyAndPatchImages(ctx, policyCtx)
 	if len(response.PolicyResponse.Rules) > 0 {
 		s.logger.Info("validateImages", "policy", policy, "response", response)

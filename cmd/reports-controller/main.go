@@ -23,7 +23,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeinformers "k8s.io/client-go/informers"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
@@ -41,7 +40,7 @@ func createReportControllers(
 	backgroundScanWorkers int,
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
-	rclient registryclient.Client,
+	rclientloader engineapi.RegistryClientLoader,
 	metadataFactory metadatainformers.SharedInformerFactory,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
@@ -106,6 +105,7 @@ func createReportControllers(
 					configuration,
 					jp,
 					eventGenerator,
+					rclientloader,
 				),
 				backgroundScanWorkers,
 			))
@@ -132,7 +132,7 @@ func createrLeaderControllers(
 	metadataInformer metadatainformers.SharedInformerFactory,
 	kyvernoClient versioned.Interface,
 	dynamicClient dclient.Interface,
-	rclient registryclient.Client,
+	rclientloader engineapi.RegistryClientLoader,
 	configuration config.Configuration,
 	jp jmespath.Interface,
 	eventGenerator event.Interface,
@@ -146,7 +146,7 @@ func createrLeaderControllers(
 		backgroundScanWorkers,
 		dynamicClient,
 		kyvernoClient,
-		rclient,
+		rclientloader,
 		metadataInformer,
 		kubeInformer,
 		kyvernoInformer,
@@ -269,7 +269,7 @@ func main() {
 				metadataInformer,
 				setup.KyvernoClient,
 				setup.KyvernoDynamicClient,
-				setup.RegistryClientLoader.GetGlobalRegistryClient(),
+				setup.RegistryClientLoader,
 				setup.Configuration,
 				setup.Jp,
 				eventGenerator,

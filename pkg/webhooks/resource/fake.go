@@ -15,7 +15,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
@@ -39,12 +38,10 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 	configuration := config.NewDefaultConfiguration(false)
 	urLister := kyvernoInformers.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace())
 	peLister := kyvernoInformers.Kyverno().V2alpha1().PolicyExceptions().Lister()
-	rclient := registryclient.NewOrDie()
 	jp := jmespath.New(configuration)
 
 	return &resourceHandlers{
 		client:         dclient,
-		rclient:        rclient,
 		configuration:  configuration,
 		metricsConfig:  metricsConfig,
 		pCache:         policyCache,
@@ -59,7 +56,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 			config.NewDefaultMetricsConfiguration(),
 			jp,
 			dclient,
-			nil,
+			engineapi.RegistryClientLoaderNewOrDie(),
 			engineapi.DefaultContextLoaderFactory(configMapResolver),
 			peLister,
 		),

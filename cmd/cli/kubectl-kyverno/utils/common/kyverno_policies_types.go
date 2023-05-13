@@ -13,7 +13,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -115,7 +114,7 @@ OuterLoop:
 		config.NewDefaultMetricsConfiguration(),
 		jmespath.New(cfg),
 		c.Client,
-		registryclient.NewOrDie(),
+		engineapi.RegistryClientLoaderNewOrDie(),
 		store.ContextLoaderFactory(nil),
 		nil,
 	)
