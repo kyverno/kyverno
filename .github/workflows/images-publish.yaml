@@ -13,7 +13,7 @@ concurrency:
 permissions:
   contents: read
   packages: write
-  id-token: write 
+  id-token: read
 
 jobs:
   publish-images:

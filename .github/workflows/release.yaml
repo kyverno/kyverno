@@ -11,7 +11,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-      id-token: write
+      id-token: read
     outputs:
       kyverno-digest: ${{ steps.release-kyverno.outputs.digest }}
       kyverno-init-digest: ${{ steps.release-kyverno-init.outputs.digest }}
