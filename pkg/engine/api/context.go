@@ -142,6 +142,9 @@ func fetchImageData(ctx context.Context, jp jmespath.Interface, rclient registry
 // FetchImageDataMap fetches image information from the remote registry.
 func fetchImageDataMap(ctx context.Context, rclient registryclient.Client, ref string) (interface{}, error) {
 	desc, err := rclient.FetchImageDescriptor(ctx, ref)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch image descriptor: %s, error: %v", ref, err)
+	}
 	parsedRef, err := name.ParseReference(ref)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse image reference: %s, error: %v", ref, err)
