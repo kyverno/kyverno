@@ -8,7 +8,7 @@ metadata:
   namespace: notary-verify-attestation
 spec:
   containers:
-  - image: ghcr.io/vishal-chdhry/net-monitor:v1
+  - image: ghcr.io/vishal-chdhry/monitor:v1
     name: test
     resources: {}
   dnsPolicy: ClusterFirst

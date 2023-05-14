@@ -54,7 +54,7 @@ spec:
       verifyImages:
       - type: Notary
         imageReferences:
-        - "ghcr.io/vishal-chdhry/net-monitor*"
+        - "ghcr.io/vishal-chdhry/monitor*"
         attestors:
         - count: 1
           entries:
