@@ -85,7 +85,8 @@ func setupRegistryClient(
 	secretLister v1.SecretNamespaceLister,
 	imagePullSecrets string,
 	allowInsecureRegistry bool,
-	registryCredentialHelpers string) registryclient.Client {
+	registryCredentialHelpers string,
+) registryclient.Client {
 	logger = logger.WithName("registry-client").WithValues("secrets", imagePullSecrets, "insecure", allowInsecureRegistry)
 	logger.Info("setup registry client...")
 	registryOptions := []registryclient.Option{

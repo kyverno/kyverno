@@ -63,7 +63,6 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	var registryClientLoader engineapi.RegistryClientLoader
 	if config.UsesRegistryClient() {
 		registryClientLoader = getRegistryClientLoader(ctx, logger, client)
-
 	}
 	var leaderElectionClient kubeclient.UpstreamInterface
 	if config.UsesLeaderElection() {

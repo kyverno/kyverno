@@ -23,7 +23,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policy"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeinformers "k8s.io/client-go/informers"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
@@ -39,7 +38,7 @@ func createrLeaderControllers(
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 	kyvernoClient versioned.Interface,
 	dynamicClient dclient.Interface,
-	rclient registryclient.Client,
+	rclientloader engineapi.RegistryClientLoader,
 	configuration config.Configuration,
 	metricsConfig metrics.MetricsConfigManager,
 	eventGenerator event.Interface,
@@ -175,7 +174,7 @@ func main() {
 				kyvernoInformer,
 				setup.KyvernoClient,
 				setup.KyvernoDynamicClient,
-				setup.RegistryClientLoader.GetGlobalRegistryClient(),
+				setup.RegistryClientLoader,
 				setup.Configuration,
 				setup.MetricsManager,
 				eventGenerator,

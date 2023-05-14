@@ -12,7 +12,6 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	log "github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"gotest.tools/assert"
@@ -1056,7 +1055,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 		config.NewDefaultMetricsConfiguration(),
 		jp,
 		nil,
-		registryclient.NewOrDie(),
+		engineapi.RegistryClientLoaderNewOrDie(),
 		engineapi.DefaultContextLoaderFactory(nil),
 		nil,
 	)
@@ -1157,7 +1156,7 @@ func Test_RuleSelector(t *testing.T) {
 		config.NewDefaultMetricsConfiguration(),
 		jp,
 		nil,
-		registryclient.NewOrDie(),
+		engineapi.RegistryClientLoaderNewOrDie(),
 		engineapi.DefaultContextLoaderFactory(nil),
 		nil,
 	)
