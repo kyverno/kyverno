@@ -185,7 +185,7 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 			return nil, err
 		}
 
-		v.log.V(4).Info("extracting statements", "desc", targetDesc, "repo", ref)
+		v.log.V(4).Info("extracting statements", "desc", referrer, "repo", ref)
 		statements, err = extractStatements(ctx, ref, referrer, craneOpts)
 		if err != nil {
 			msg := err.Error()
@@ -258,10 +258,6 @@ func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Referenc
 		return targetDesc, err
 	}
 
-	if targetDesc.Digest.String() != desc.Digest.String() {
-		v.log.V(4).Info("digest mismatch", "expected", desc.Digest.String(), "found", targetDesc.Digest.String())
-		return targetDesc, errors.Errorf("digest mismatch")
-	}
 	v.log.V(2).Info("attestator verified", "desc", targetDesc.Digest.String())
 
 	return targetDesc, nil
