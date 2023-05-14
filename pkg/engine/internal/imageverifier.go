@@ -2,7 +2,6 @@ package internal
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -21,6 +20,7 @@ import (
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
+	"github.com/mattbaird/jsonpatch"
 	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -149,12 +149,12 @@ func buildStatementMap(statements []map[string]interface{}) (map[string][]map[st
 	return results, predicateTypes
 }
 
-func makeAddDigestPatch(imageInfo apiutils.ImageInfo, digest string) ([]byte, error) {
-	patch := make(map[string]interface{})
-	patch["op"] = "replace"
-	patch["path"] = imageInfo.Pointer
-	patch["value"] = imageInfo.String() + "@" + digest
-	return json.Marshal(patch)
+func makeAddDigestPatch(imageInfo apiutils.ImageInfo, digest string) jsonpatch.JsonPatchOperation {
+	return jsonpatch.JsonPatchOperation{
+		Operation: "replace",
+		Path:      imageInfo.Pointer,
+		Value:     imageInfo.String() + "@" + digest,
+	}
 }
 
 func EvaluateConditions(
@@ -224,7 +224,7 @@ func (iv *ImageVerifier) Verify(
 				if ruleResp == nil {
 					ruleResp = engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, "mutated image digest")
 				}
-				ruleResp = ruleResp.WithPatches(patch)
+				ruleResp = ruleResp.WithPatches(*patch)
 				imageInfo.Digest = retrievedDigest
 				image = imageInfo.String()
 			}
@@ -565,7 +565,7 @@ func (iv *ImageVerifier) checkAttestations(a kyvernov1.Attestation, s map[string
 	return EvaluateConditions(a.Conditions, iv.policyContext.JSONContext(), s, iv.logger)
 }
 
-func (iv *ImageVerifier) handleMutateDigest(ctx context.Context, digest string, imageInfo apiutils.ImageInfo) ([]byte, string, error) {
+func (iv *ImageVerifier) handleMutateDigest(ctx context.Context, digest string, imageInfo apiutils.ImageInfo) (*jsonpatch.JsonPatchOperation, string, error) {
 	if imageInfo.Digest != "" {
 		return nil, "", nil
 	}
@@ -576,10 +576,7 @@ func (iv *ImageVerifier) handleMutateDigest(ctx context.Context, digest string, 
 		}
 		digest = desc.Digest.String()
 	}
-	patch, err := makeAddDigestPatch(imageInfo, digest)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to create image digest patch: %w", err)
-	}
-	iv.logger.V(4).Info("adding digest patch", "image", imageInfo.String(), "patch", string(patch))
-	return patch, digest, nil
+	patch := makeAddDigestPatch(imageInfo, digest)
+	iv.logger.V(4).Info("adding digest patch", "image", imageInfo.String(), "patch", patch.Json())
+	return &patch, digest, nil
 }

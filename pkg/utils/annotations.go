@@ -1,12 +1,11 @@
 package utils
 
 import (
-	"encoding/json"
 	"strings"
 
 	"github.com/go-logr/logr"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
+	"github.com/mattbaird/jsonpatch"
 	yamlv2 "gopkg.in/yaml.v2"
 )
 
@@ -33,9 +32,9 @@ var OperationToPastTense = map[string]string{
 	"test":    "tested",
 }
 
-func GenerateAnnotationPatches(engineResponses []engineapi.EngineResponse, log logr.Logger) [][]byte {
+func GenerateAnnotationPatches(engineResponses []engineapi.EngineResponse, log logr.Logger) []jsonpatch.JsonPatchOperation {
 	var annotations map[string]string
-	var patchBytes [][]byte
+	var patchBytes []jsonpatch.JsonPatchOperation
 	for _, er := range engineResponses {
 		if ann := er.PatchedResource.GetAnnotations(); ann != nil {
 			annotations = ann
@@ -45,7 +44,7 @@ func GenerateAnnotationPatches(engineResponses []engineapi.EngineResponse, log l
 	if annotations == nil {
 		annotations = make(map[string]string)
 	}
-	var patchResponse jsonutils.PatchOperation
+	var patchResponse jsonpatch.JsonPatchOperation
 	value := annotationFromEngineResponses(engineResponses, log)
 	if value == nil {
 		// no patches or error while processing patches
@@ -54,38 +53,47 @@ func GenerateAnnotationPatches(engineResponses []engineapi.EngineResponse, log l
 	if _, ok := annotations[strings.ReplaceAll(policyAnnotation, "~1", "/")]; ok {
 		// create update patch string
 		if _, ok := annotations["policies.kyverno.io/patches"]; ok {
-			patchResponse = jsonutils.NewPatchOperation("/metadata/annotations/"+oldAnnotation, "remove", nil)
+			patchResponse = jsonpatch.JsonPatchOperation{
+				Operation: "remove",
+				Path:      "/metadata/annotations/" + oldAnnotation,
+				Value:     nil,
+			}
 			delete(annotations, "policies.kyverno.io/patches")
-			patchByte, _ := json.Marshal(patchResponse)
-			patchBytes = append(patchBytes, patchByte)
+			patchBytes = append(patchBytes, patchResponse)
 		}
-		patchResponse = jsonutils.NewPatchOperation("/metadata/annotations/"+policyAnnotation, "replace", string(value))
-		patchByte, _ := json.Marshal(patchResponse)
-		patchBytes = append(patchBytes, patchByte)
+		patchResponse = jsonpatch.JsonPatchOperation{
+			Operation: "replace",
+			Path:      "/metadata/annotations/" + policyAnnotation,
+			Value:     string(value),
+		}
+		patchBytes = append(patchBytes, patchResponse)
 	} else {
 		// mutate rule has annotation patches
 		if len(annotations) > 0 {
 			if _, ok := annotations["policies.kyverno.io/patches"]; ok {
-				patchResponse = jsonutils.NewPatchOperation("/metadata/annotations/"+oldAnnotation, "remove", nil)
+				patchResponse = jsonpatch.JsonPatchOperation{
+					Operation: "remove",
+					Path:      "/metadata/annotations/" + oldAnnotation,
+					Value:     nil,
+				}
 				delete(annotations, "policies.kyverno.io/patches")
-				patchByte, _ := json.Marshal(patchResponse)
-				patchBytes = append(patchBytes, patchByte)
+				patchBytes = append(patchBytes, patchResponse)
 			}
-			patchResponse = jsonutils.NewPatchOperation("/metadata/annotations/"+policyAnnotation, "add", string(value))
-			patchByte, _ := json.Marshal(patchResponse)
-			patchBytes = append(patchBytes, patchByte)
+			patchResponse = jsonpatch.JsonPatchOperation{
+				Operation: "add",
+				Path:      "/metadata/annotations/" + policyAnnotation,
+				Value:     string(value),
+			}
+			patchBytes = append(patchBytes, patchResponse)
 		} else {
 			// insert 'policies.kyverno.patches' entry in annotation map
 			annotations[strings.ReplaceAll(policyAnnotation, "~1", "/")] = string(value)
-			patchResponse = jsonutils.NewPatchOperation("/metadata/annotations", "add", annotations)
-			patchByte, _ := json.Marshal(patchResponse)
-			patchBytes = append(patchBytes, patchByte)
-		}
-	}
-	for _, patchByte := range patchBytes {
-		err := jsonutils.CheckPatch(patchByte)
-		if err != nil {
-			log.Error(err, "failed to build JSON patch for annotation", "patch", string(patchByte))
+			patchResponse = jsonpatch.JsonPatchOperation{
+				Operation: "add",
+				Path:      "/metadata/annotations",
+				Value:     annotations,
+			}
+			patchBytes = append(patchBytes, patchResponse)
 		}
 	}
 	return patchBytes
@@ -123,15 +131,10 @@ func annotationFromPolicyResponse(policyResponse engineapi.PolicyResponse, log l
 	var RulePatches []RulePatch
 	for _, ruleInfo := range policyResponse.Rules {
 		for _, patch := range ruleInfo.Patches() {
-			var patchmap map[string]interface{}
-			if err := json.Unmarshal(patch, &patchmap); err != nil {
-				log.Error(err, "Failed to parse JSON patch bytes")
-				continue
-			}
 			rp := RulePatch{
 				RuleName: ruleInfo.Name(),
-				Op:       patchmap["op"].(string),
-				Path:     patchmap["path"].(string),
+				Op:       patch.Operation,
+				Path:     patch.Path,
 			}
 			RulePatches = append(RulePatches, rp)
 			log.V(4).Info("annotation value prepared", "patches", RulePatches)

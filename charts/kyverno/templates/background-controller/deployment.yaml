@@ -79,8 +79,6 @@ spec:
             name: metrics
             protocol: TCP
           args:
-            - --loggingFormat={{ .Values.backgroundController.logging.format }}
-            - --v={{ .Values.backgroundController.logging.verbosity }}
             {{- if .Values.backgroundController.tracing.enabled }}
             - --enableTracing
             - --tracingAddress={{ .Values.backgroundController.tracing.address }}
@@ -105,6 +103,8 @@ spec:
             {{- end }}
             {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.backgroundController.featuresOverride)
               "configMapCaching"
+              "logging"
+              "omitEvents"
               "policyExceptions"
             ) | nindent 12 }}
             {{- range $key, $value := .Values.backgroundController.extraArgs }}
