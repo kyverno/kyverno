@@ -236,13 +236,13 @@ func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Referenc
 	}
 
 	v.log.V(4).Info("created verifier")
-	parsedRef, err := parseReferenceCrane(ctx, opts.ImageRef, opts.RegistryClient)
+	reference := ref.Context().RegistryStr() + "/" + ref.Context().RepositoryStr() + "@" + desc.Digest.String()
+	parsedRef, err := parseReferenceCrane(ctx, reference, opts.RegistryClient)
 	if err != nil {
 		return ocispec.Descriptor{}, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
 	}
 	v.log.V(4).Info("created notation repo", "reference", opts.ImageRef)
 
-	reference := parsedRef.Ref.Name()
 	remoteVerifyOptions := notation.RemoteVerifyOptions{
 		ArtifactReference:    reference,
 		MaxSignatureAttempts: 10,
@@ -258,6 +258,10 @@ func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Referenc
 		return targetDesc, err
 	}
 
+	if targetDesc.Digest.String() != desc.Digest.String() {
+		v.log.V(4).Info("digest mismatch", "expected", desc.Digest.String(), "found", targetDesc.Digest.String())
+		return targetDesc, errors.Errorf("digest mismatch")
+	}
 	v.log.V(2).Info("attestator verified", "desc", targetDesc.Digest.String())
 
 	return targetDesc, nil
