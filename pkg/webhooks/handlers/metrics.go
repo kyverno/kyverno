@@ -69,11 +69,11 @@ func (inner HttpHandler) WithMetrics(logger logr.Logger, attrs ...attribute.KeyV
 func (inner HttpHandler) withMetrics(logger logr.Logger, attrs ...attribute.KeyValue) HttpHandler {
 	meter := global.MeterProvider().Meter(metrics.MeterName)
 	requestsMetric, err := meter.Int64Counter(
-		"kyverno_http_requests_total",
+		"kyverno_http_requests",
 		metric.WithDescription("can be used to track the number of http requests"),
 	)
 	if err != nil {
-		logger.Error(err, "Failed to create instrument, kyverno_http_requests_total")
+		logger.Error(err, "Failed to create instrument, kyverno_http_requests")
 	}
 	durationMetric, err := meter.Float64Histogram(
 		"kyverno_http_requests_duration_seconds",
@@ -85,7 +85,6 @@ func (inner HttpHandler) withMetrics(logger logr.Logger, attrs ...attribute.KeyV
 	return func(writer http.ResponseWriter, request *http.Request) {
 		startTime := time.Now()
 		attributes := []attribute.KeyValue{
-			semconv.HTTPRequestContentLengthKey.Int64(request.ContentLength),
 			// semconv.HTTPHostKey.String(request.Host),
 			semconv.HTTPMethodKey.String(request.Method),
 			semconv.HTTPURLKey.String(request.RequestURI),
