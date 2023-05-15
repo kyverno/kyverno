@@ -24,6 +24,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"golang.org/x/exp/slices"
+	"k8s.io/api/admissionregistration/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -102,7 +103,7 @@ func applyPoliciesFromPath(
 		values.Results[i].CloneSourceResource = CloneSourceResourceFullPath[0]
 	}
 
-	policies, err := common.GetPoliciesFromPaths(fs, policyFullPath, isGit, policyResourcePath)
+	policies, validatingAdmissionPolicies, err := common.GetPoliciesFromPaths(fs, policyFullPath, isGit, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
 		os.Exit(1)
@@ -118,12 +119,27 @@ func applyPoliciesFromPath(
 		}
 	}
 
+	var filteredVAPs []v1alpha1.ValidatingAdmissionPolicy
+	for _, p := range validatingAdmissionPolicies {
+		for _, res := range values.Results {
+			if p.GetName() == res.Policy {
+				filteredVAPs = append(filteredVAPs, p)
+				break
+			}
+		}
+	}
+	validatingAdmissionPolicies = filteredVAPs
+
 	ruleToCloneSourceResource := map[string]string{}
 	for _, p := range filteredPolicies {
 		var filteredRules []kyvernov1.Rule
 
 		for _, rule := range autogen.ComputeRules(p) {
 			for _, res := range values.Results {
+				if res.IsVap {
+					continue
+				}
+
 				if rule.Name == res.Rule {
 					filteredRules = append(filteredRules, rule)
 					if rule.HasGenerate() {
@@ -156,7 +172,7 @@ func applyPoliciesFromPath(
 		return nil, nil, sanitizederror.NewWithError("failed to print mutated policy", err)
 	}
 
-	resources, err := common.GetResourceAccordingToResourcePath(fs, resourceFullPath, false, policies, dClient, "", false, isGit, policyResourcePath)
+	resources, err := common.GetResourceAccordingToResourcePath(fs, resourceFullPath, false, policies, validatingAdmissionPolicies, dClient, "", false, isGit, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
 		os.Exit(1)
@@ -165,8 +181,8 @@ func applyPoliciesFromPath(
 	checkableResources := selectResourcesForCheck(resources, values)
 
 	msgPolicies := "1 policy"
-	if len(policies) > 1 {
-		msgPolicies = fmt.Sprintf("%d policies", len(policies))
+	if len(policies)+len(validatingAdmissionPolicies) > 1 {
+		msgPolicies = fmt.Sprintf("%d policies", len(policies)+len(validatingAdmissionPolicies))
 	}
 
 	msgResources := "1 resource"
@@ -218,6 +234,25 @@ func applyPoliciesFromPath(
 				Subresources:              subresources,
 			}
 			ers, err := common.ApplyPolicyOnResource(applyPolicyConfig)
+			if err != nil {
+				return nil, nil, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
+			}
+			engineResponses = append(engineResponses, ers...)
+		}
+	}
+
+	validatingAdmissionPolicy := common.ValidatingAdmissionPolicies{}
+	for _, policy := range validatingAdmissionPolicies {
+		for _, resource := range resources {
+			applyPolicyConfig := common.ApplyPolicyConfig{
+				ValidatingAdmissionPolicy: policy,
+				Resource:                  resource,
+				PolicyReport:              true,
+				Rc:                        &resultCounts,
+				Client:                    dClient,
+				Subresources:              subresources,
+			}
+			ers, err := validatingAdmissionPolicy.ApplyPolicyOnResource(applyPolicyConfig)
 			if err != nil {
 				return nil, nil, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}
@@ -304,11 +339,28 @@ func buildPolicyResults(
 	results := map[string]policyreportv1alpha2.PolicyReportResult{}
 
 	for _, resp := range engineResponses {
-		policyName := resp.Policy().GetName()
+		var ns, name string
+		var ann map[string]string
+
+		isVAP := resp.IsValidatingAdmissionPolicy()
+
+		if isVAP {
+			validatingAdmissionPolicy := resp.ValidatingAdmissionPolicy()
+			ns = validatingAdmissionPolicy.GetNamespace()
+			name = validatingAdmissionPolicy.GetName()
+			ann = validatingAdmissionPolicy.GetAnnotations()
+		} else {
+			kyvernoPolicy := resp.Policy()
+			ns = kyvernoPolicy.GetNamespace()
+			name = kyvernoPolicy.GetName()
+			ann = kyvernoPolicy.GetAnnotations()
+		}
+
+		policyName := name
 		resourceName := resp.Resource.GetName()
 		resourceKind := resp.Resource.GetKind()
 		resourceNamespace := resp.Resource.GetNamespace()
-		policyNamespace := resp.Policy().GetNamespace()
+		policyNamespace := ns
 
 		var rules []string
 		for _, rule := range resp.PolicyResponse.Rules {
@@ -351,29 +403,32 @@ func buildPolicyResults(
 					for _, resource := range test.Resources {
 						if resource == resourceName {
 							var resultsKey string
-							resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, resource)
-							if !slices.Contains(rules, test.Rule) {
-								if !slices.Contains(rules, "autogen-"+test.Rule) {
-									if !slices.Contains(rules, "autogen-cronjob-"+test.Rule) {
-										result.Result = policyreportv1alpha2.StatusSkip
+							resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, resource, test.IsVap)
+							if !test.IsVap {
+								if !slices.Contains(rules, test.Rule) {
+									if !slices.Contains(rules, "autogen-"+test.Rule) {
+										if !slices.Contains(rules, "autogen-cronjob-"+test.Rule) {
+											result.Result = policyreportv1alpha2.StatusSkip
+										} else {
+											testResults[i].AutoGeneratedRule = "autogen-cronjob"
+											test.Rule = "autogen-cronjob-" + test.Rule
+											resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, resource, test.IsVap)
+										}
 									} else {
-										testResults[i].AutoGeneratedRule = "autogen-cronjob"
-										test.Rule = "autogen-cronjob-" + test.Rule
-										resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, resource)
+										testResults[i].AutoGeneratedRule = "autogen"
+										test.Rule = "autogen-" + test.Rule
+										resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, resource, test.IsVap)
 									}
-								} else {
-									testResults[i].AutoGeneratedRule = "autogen"
-									test.Rule = "autogen-" + test.Rule
-									resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, resource)
+
+									if results[resultsKey].Result == "" {
+										result.Result = policyreportv1alpha2.StatusSkip
+										results[resultsKey] = result
+									}
 								}
 
-								if results[resultsKey].Result == "" {
-									result.Result = policyreportv1alpha2.StatusSkip
-									results[resultsKey] = result
-								}
+								patchedResourcePath = append(patchedResourcePath, test.PatchedResource)
 							}
 
-							patchedResourcePath = append(patchedResourcePath, test.PatchedResource)
 							if _, ok := results[resultsKey]; !ok {
 								results[resultsKey] = result
 							}
@@ -384,29 +439,32 @@ func buildPolicyResults(
 			if test.Resource != "" {
 				if test.Policy == policyName && test.Resource == resourceName {
 					var resultsKey string
-					resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, test.Resource)
-					if !slices.Contains(rules, test.Rule) {
-						if !slices.Contains(rules, "autogen-"+test.Rule) {
-							if !slices.Contains(rules, "autogen-cronjob-"+test.Rule) {
-								result.Result = policyreportv1alpha2.StatusSkip
+					resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, test.Resource, test.IsVap)
+					if !test.IsVap {
+						if !slices.Contains(rules, test.Rule) {
+							if !slices.Contains(rules, "autogen-"+test.Rule) {
+								if !slices.Contains(rules, "autogen-cronjob-"+test.Rule) {
+									result.Result = policyreportv1alpha2.StatusSkip
+								} else {
+									testResults[i].AutoGeneratedRule = "autogen-cronjob"
+									test.Rule = "autogen-cronjob-" + test.Rule
+									resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, test.Resource, test.IsVap)
+								}
 							} else {
-								testResults[i].AutoGeneratedRule = "autogen-cronjob"
-								test.Rule = "autogen-cronjob-" + test.Rule
-								resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, test.Resource)
+								testResults[i].AutoGeneratedRule = "autogen"
+								test.Rule = "autogen-" + test.Rule
+								resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, test.Resource, test.IsVap)
 							}
-						} else {
-							testResults[i].AutoGeneratedRule = "autogen"
-							test.Rule = "autogen-" + test.Rule
-							resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, test.Resource)
+
+							if results[resultsKey].Result == "" {
+								result.Result = policyreportv1alpha2.StatusSkip
+								results[resultsKey] = result
+							}
 						}
 
-						if results[resultsKey].Result == "" {
-							result.Result = policyreportv1alpha2.StatusSkip
-							results[resultsKey] = result
-						}
+						patchedResourcePath = append(patchedResourcePath, test.PatchedResource)
 					}
 
-					patchedResourcePath = append(patchedResourcePath, test.PatchedResource)
 					if _, ok := results[resultsKey]; !ok {
 						results[resultsKey] = result
 					}
@@ -421,7 +479,7 @@ func buildPolicyResults(
 				var resultsKey []string
 				var resultKey string
 				var result policyreportv1alpha2.PolicyReportResult
-				resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.Name(), resourceNamespace, resourceKind, resourceName)
+				resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.Name(), resourceNamespace, resourceKind, resourceName, test.IsVap)
 				for _, key := range resultsKey {
 					if val, ok := results[key]; ok {
 						result = val
@@ -454,7 +512,7 @@ func buildPolicyResults(
 				var resultsKey []string
 				var resultKey string
 				var result policyreportv1alpha2.PolicyReportResult
-				resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.Name(), resourceNamespace, resourceKind, resourceName)
+				resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.Name(), resourceNamespace, resourceKind, resourceName, test.IsVap)
 				for _, key := range resultsKey {
 					if val, ok := results[key]; ok {
 						result = val
@@ -484,14 +542,14 @@ func buildPolicyResults(
 			}
 
 			for _, rule := range resp.PolicyResponse.Rules {
-				if rule.RuleType() != engineapi.Validation && rule.RuleType() != engineapi.ImageVerify || test.Rule != rule.Name() {
+				if rule.RuleType() != engineapi.Validation && rule.RuleType() != engineapi.ImageVerify || test.Rule != rule.Name() && !test.IsVap {
 					continue
 				}
 
 				var resultsKey []string
 				var resultKey string
 				var result policyreportv1alpha2.PolicyReportResult
-				resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.Name(), resourceNamespace, resourceKind, resourceName)
+				resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.Name(), resourceNamespace, resourceKind, resourceName, test.IsVap)
 				for _, key := range resultsKey {
 					if val, ok := results[key]; ok {
 						result = val
@@ -500,7 +558,6 @@ func buildPolicyResults(
 						continue
 					}
 
-					ann := resp.Policy().GetAnnotations()
 					if rule.Status() == engineapi.RuleStatusSkip {
 						result.Result = policyreportv1alpha2.StatusSkip
 					} else if rule.Status() == engineapi.RuleStatusError {
@@ -527,27 +584,50 @@ func buildPolicyResults(
 	return results, testResults
 }
 
-func GetAllPossibleResultsKey(policyNamespace, policy, rule, resourceNamespace, kind, resource string) []string {
+func GetAllPossibleResultsKey(policyNamespace, policy, rule, resourceNamespace, kind, resource string, isVap bool) []string {
 	var resultsKey []string
-	resultKey1 := fmt.Sprintf("%s-%s-%s-%s", policy, rule, kind, resource)
-	resultKey2 := fmt.Sprintf("%s-%s-%s-%s-%s", policy, rule, resourceNamespace, kind, resource)
-	resultKey3 := fmt.Sprintf("%s-%s-%s-%s-%s", policyNamespace, policy, rule, kind, resource)
-	resultKey4 := fmt.Sprintf("%s-%s-%s-%s-%s-%s", policyNamespace, policy, rule, resourceNamespace, kind, resource)
+	var resultKey1, resultKey2, resultKey3, resultKey4 string
+
+	if isVap {
+		resultKey1 = fmt.Sprintf("%s-%s-%s", policy, kind, resource)
+		resultKey2 = fmt.Sprintf("%s-%s-%s-%s", policy, resourceNamespace, kind, resource)
+		resultKey3 = fmt.Sprintf("%s-%s-%s-%s", policyNamespace, policy, kind, resource)
+		resultKey4 = fmt.Sprintf("%s-%s-%s-%s-%s", policyNamespace, policy, resourceNamespace, kind, resource)
+	} else {
+		resultKey1 = fmt.Sprintf("%s-%s-%s-%s", policy, rule, kind, resource)
+		resultKey2 = fmt.Sprintf("%s-%s-%s-%s-%s", policy, rule, resourceNamespace, kind, resource)
+		resultKey3 = fmt.Sprintf("%s-%s-%s-%s-%s", policyNamespace, policy, rule, kind, resource)
+		resultKey4 = fmt.Sprintf("%s-%s-%s-%s-%s-%s", policyNamespace, policy, rule, resourceNamespace, kind, resource)
+	}
+
 	resultsKey = append(resultsKey, resultKey1, resultKey2, resultKey3, resultKey4)
 	return resultsKey
 }
 
-func GetResultKeyAccordingToTestResults(policyNs, policy, rule, resourceNs, kind, resource string) string {
+func GetResultKeyAccordingToTestResults(policyNs, policy, rule, resourceNs, kind, resource string, isVap bool) string {
 	var resultKey string
-	resultKey = fmt.Sprintf("%s-%s-%s-%s", policy, rule, kind, resource)
+	if isVap {
+		resultKey = fmt.Sprintf("%s-%s-%s", policy, kind, resource)
 
-	if policyNs != "" && resourceNs != "" {
-		resultKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", policyNs, policy, rule, resourceNs, kind, resource)
-	} else if policyNs != "" {
-		resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", policyNs, policy, rule, kind, resource)
-	} else if resourceNs != "" {
-		resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", policy, rule, resourceNs, kind, resource)
+		if policyNs != "" && resourceNs != "" {
+			resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", policyNs, policy, resourceNs, kind, resource)
+		} else if policyNs != "" {
+			resultKey = fmt.Sprintf("%s-%s-%s-%s", policyNs, policy, kind, resource)
+		} else if resourceNs != "" {
+			resultKey = fmt.Sprintf("%s-%s-%s-%s", policy, resourceNs, kind, resource)
+		}
+	} else {
+		resultKey = fmt.Sprintf("%s-%s-%s-%s", policy, rule, kind, resource)
+
+		if policyNs != "" && resourceNs != "" {
+			resultKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", policyNs, policy, rule, resourceNs, kind, resource)
+		} else if policyNs != "" {
+			resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", policyNs, policy, rule, kind, resource)
+		} else if resourceNs != "" {
+			resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", policy, rule, resourceNs, kind, resource)
+		}
 	}
+
 	return resultKey
 }
 

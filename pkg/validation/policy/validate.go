@@ -124,7 +124,6 @@ func checkValidationFailureAction(spec *kyvernov1.Spec) []string {
 // Validate checks the policy and rules declarations for required configurations
 func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager openapi.Manager, username string) ([]string, error) {
 	var warnings []string
-	namespaced := policy.IsNamespaced()
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
 	mutateExistingOnPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
@@ -150,7 +149,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 	var res []*metav1.APIResourceList
 	clusterResources := sets.New[string]()
-	if !mock && namespaced {
+	if !mock {
 		// Get all the cluster type kind supported by cluster
 		res, err = discovery.ServerPreferredResources(client.Discovery().DiscoveryInterface())
 		if err != nil {
@@ -176,7 +175,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		return warnings, errs.ToAggregate()
 	}
 
-	if !namespaced {
+	if !policy.IsNamespaced() {
 		err := validateNamespaces(spec, specPath.Child("validationFailureActionOverrides"))
 		if err != nil {
 			return warnings, err
@@ -284,7 +283,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 		// validate Cluster Resources in namespaced policy
 		// For namespaced policy, ClusterResource type field and values are not allowed in match and exclude
-		if namespaced {
+		if policy.IsNamespaced() {
 			if err := checkClusterResourceInMatchAndExclude(rule, clusterResources, policy.GetNamespace(), mock, res); err != nil {
 				return warnings, err
 			}

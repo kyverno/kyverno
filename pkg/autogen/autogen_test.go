@@ -318,7 +318,7 @@ func Test_Any(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := yamlutils.GetPolicy(file)
+	policies, _, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -356,7 +356,7 @@ func Test_All(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := yamlutils.GetPolicy(file)
+	policies, _, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -395,7 +395,7 @@ func Test_Exclude(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := yamlutils.GetPolicy(file)
+	policies, _, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -429,7 +429,7 @@ func Test_CronJobOnly(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := yamlutils.GetPolicy(file)
+	policies, _, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -459,7 +459,7 @@ func Test_ForEachPod(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := yamlutils.GetPolicy(file)
+	policies, _, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -494,7 +494,7 @@ func Test_CronJob_hasExclude(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := yamlutils.GetPolicy(file)
+	policies, _, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -531,7 +531,7 @@ func Test_CronJobAndDeployment(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := yamlutils.GetPolicy(file)
+	policies, _, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -603,7 +603,7 @@ func Test_UpdateVariablePath(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := yamlutils.GetPolicy(file)
+	policies, _, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -633,7 +633,7 @@ func Test_Deny(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := yamlutils.GetPolicy(file)
+	policies, _, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -841,7 +841,7 @@ kA==
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			policies, err := yamlutils.GetPolicy([]byte(test.policy))
+			policies, _, err := yamlutils.GetPolicy([]byte(test.policy))
 			assert.NilError(t, err)
 			assert.Equal(t, 1, len(policies))
 			rules := computeRules(policies[0])
@@ -852,7 +852,7 @@ kA==
 
 func Test_PodSecurityWithNoExceptions(t *testing.T) {
 	policy := []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"pod-security"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"restricted","match":{"all":[{"resources":{"kinds":["Pod"]}}]},"validate":{"podSecurity":{"level":"restricted","version":"v1.24"}}}]}}`)
-	policies, err := yamlutils.GetPolicy([]byte(policy))
+	policies, _, err := yamlutils.GetPolicy([]byte(policy))
 	assert.NilError(t, err)
 	assert.Equal(t, 1, len(policies))
 

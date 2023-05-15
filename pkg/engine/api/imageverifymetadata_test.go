@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestImageVerificationMetadata_IsVerified(t *testing.T) {
@@ -306,7 +307,7 @@ func TestImageVerificationMetadata_Patches(t *testing.T) {
 		name    string
 		fields  fields
 		args    args
-		want    [][]byte
+		want    []string
 		wantErr bool
 	}{{
 		fields: fields{
@@ -318,9 +319,9 @@ func TestImageVerificationMetadata_Patches(t *testing.T) {
 			hasAnnotations: false,
 			log:            logr.Discard(),
 		},
-		want: [][]byte{
-			[]byte(`{"path":"/metadata/annotations","op":"add","value":{}}`),
-			[]byte(`{"path":"/metadata/annotations/kyverno.io~1verify-images","op":"add","value":"{\"test\":true}"}`),
+		want: []string{
+			`{"op":"add","path":"/metadata/annotations","value":{}}`,
+			`{"op":"add","path":"/metadata/annotations/kyverno.io~1verify-images","value":"{\"test\":true}"}`,
 		},
 	}, {
 		fields: fields{
@@ -332,16 +333,16 @@ func TestImageVerificationMetadata_Patches(t *testing.T) {
 			hasAnnotations: true,
 			log:            logr.Discard(),
 		},
-		want: [][]byte{
-			[]byte(`{"path":"/metadata/annotations/kyverno.io~1verify-images","op":"add","value":"{\"test\":true}"}`),
+		want: []string{
+			`{"op":"add","path":"/metadata/annotations/kyverno.io~1verify-images","value":"{\"test\":true}"}`,
 		},
 	}, {
 		args: args{
 			hasAnnotations: true,
 			log:            logr.Discard(),
 		},
-		want: [][]byte{
-			[]byte(`{"path":"/metadata/annotations/kyverno.io~1verify-images","op":"add","value":"null"}`),
+		want: []string{
+			`{"op":"add","path":"/metadata/annotations/kyverno.io~1verify-images","value":"null"}`,
 		},
 	}}
 	for _, tt := range tests {
@@ -354,8 +355,9 @@ func TestImageVerificationMetadata_Patches(t *testing.T) {
 				t.Errorf("ImageVerificationMetadata.Patches() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ImageVerificationMetadata.Patches() = %v, want %v", got, tt.want)
+			assert.Equal(t, len(got), len(tt.want))
+			for i := range got {
+				assert.Equal(t, got[i].Json(), tt.want[i])
 			}
 		})
 	}

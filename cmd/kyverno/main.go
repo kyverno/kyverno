@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -69,7 +70,6 @@ func sanityChecks(apiserverClient apiserver.Interface) error {
 
 func createNonLeaderControllers(
 	eng engineapi.Engine,
-	genWorkers int,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 	kubeClient kubernetes.Interface,
@@ -181,8 +181,8 @@ func main() {
 		// will be removed in future and the configuration will be set only via configmaps
 		serverIP                     string
 		webhookTimeout               int
-		genWorkers                   int
 		maxQueuedEvents              int
+		omitEvents                   string
 		autoUpdateWebhooks           bool
 		webhookRegistrationTimeout   time.Duration
 		admissionReports             bool
@@ -193,8 +193,8 @@ func main() {
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
 	flagset.IntVar(&webhookTimeout, "webhookTimeout", webhookcontroller.DefaultWebhookTimeout, "Timeout for webhook configurations.")
-	flagset.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
+	flagset.StringVar(&omitEvents, "omit-events", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omit-events=PolicyApplied,PolicyViolation")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flagset.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
 	flagset.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
@@ -255,11 +255,16 @@ func main() {
 		serverIP,
 	)
 	policyCache := policycache.NewCache()
+	omitEventsValues := strings.Split(omitEvents, ",")
+	if omitEvents == "" {
+		omitEventsValues = []string{}
+	}
 	eventGenerator := event.NewEventGenerator(
 		setup.KyvernoDynamicClient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		maxQueuedEvents,
+		omitEventsValues,
 		logging.WithName("EventGenerator"),
 	)
 	// this controller only subscribe to events, nothing is returned...
@@ -303,7 +308,6 @@ func main() {
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
 		engine,
-		genWorkers,
 		kubeInformer,
 		kyvernoInformer,
 		setup.KubeClient,
