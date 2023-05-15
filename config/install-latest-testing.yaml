@@ -7436,16 +7436,26 @@ spec:
                                   It can be of one of these values: AWS, Azure, GCP,
                                   GHCR'
                                 items:
+                                  description: ImageVerificationType selects the type
+                                    of verification algorithm
+                                  enum:
+                                  - DEFAULT
+                                  - AWS
+                                  - Azure
+                                  - GCP
+                                  - GHCR
                                   type: string
                                 type: array
                               secrets:
                                 description: Secrets specifies a list of secrets that
-                                  are provided for credentials
+                                  are provided for credentials Secrets must be in
+                                  Kyverno namespace
                                 items:
                                   properties:
                                     helpers:
                                       description: Specifies the name of the secret
-                                        to be used for getting credentials
+                                        to be used for getting credentials Secrets
+                                        must be in Kyverno namespace
                                       type: string
                                   type: object
                                 type: array
@@ -11119,16 +11129,26 @@ spec:
                                       are provided It can be of one of these values:
                                       AWS, Azure, GCP, GHCR'
                                     items:
+                                      description: ImageVerificationType selects the
+                                        type of verification algorithm
+                                      enum:
+                                      - DEFAULT
+                                      - AWS
+                                      - Azure
+                                      - GCP
+                                      - GHCR
                                       type: string
                                     type: array
                                   secrets:
                                     description: Secrets specifies a list of secrets
-                                      that are provided for credentials
+                                      that are provided for credentials Secrets must
+                                      be in Kyverno namespace
                                     items:
                                       properties:
                                         helpers:
                                           description: Specifies the name of the secret
-                                            to be used for getting credentials
+                                            to be used for getting credentials Secrets
+                                            must be in Kyverno namespace
                                           type: string
                                       type: object
                                     type: array
@@ -14478,6 +14498,40 @@ spec:
                             items:
                               type: string
                             type: array
+                          imageRegistryCredentials:
+                            description: ImageRegistryCredentials provides credentials
+                              that will be used for authentication with registry
+                            properties:
+                              helpers:
+                                description: 'Helpers specifies a list of OCI Registry
+                                  names, whose authentication helpers are provided
+                                  It can be of one of these values: AWS, Azure, GCP,
+                                  GHCR'
+                                items:
+                                  description: ImageVerificationType selects the type
+                                    of verification algorithm
+                                  enum:
+                                  - DEFAULT
+                                  - AWS
+                                  - Azure
+                                  - GCP
+                                  - GHCR
+                                  type: string
+                                type: array
+                              secrets:
+                                description: Secrets specifies a list of secrets that
+                                  are provided for credentials Secrets must be in
+                                  Kyverno namespace
+                                items:
+                                  properties:
+                                    helpers:
+                                      description: Specifies the name of the secret
+                                        to be used for getting credentials Secrets
+                                        must be in Kyverno namespace
+                                      type: string
+                                  type: object
+                                type: array
+                            type: object
                           mutateDigest:
                             default: true
                             description: MutateDigest enables replacement of image
@@ -18128,16 +18182,26 @@ spec:
                                       are provided It can be of one of these values:
                                       AWS, Azure, GCP, GHCR'
                                     items:
+                                      description: ImageVerificationType selects the
+                                        type of verification algorithm
+                                      enum:
+                                      - DEFAULT
+                                      - AWS
+                                      - Azure
+                                      - GCP
+                                      - GHCR
                                       type: string
                                     type: array
                                   secrets:
                                     description: Secrets specifies a list of secrets
-                                      that are provided for credentials
+                                      that are provided for credentials Secrets must
+                                      be in Kyverno namespace
                                     items:
                                       properties:
                                         helpers:
                                           description: Specifies the name of the secret
-                                            to be used for getting credentials
+                                            to be used for getting credentials Secrets
+                                            must be in Kyverno namespace
                                           type: string
                                       type: object
                                     type: array
@@ -21789,16 +21853,26 @@ spec:
                                   It can be of one of these values: AWS, Azure, GCP,
                                   GHCR'
                                 items:
+                                  description: ImageVerificationType selects the type
+                                    of verification algorithm
+                                  enum:
+                                  - DEFAULT
+                                  - AWS
+                                  - Azure
+                                  - GCP
+                                  - GHCR
                                   type: string
                                 type: array
                               secrets:
                                 description: Secrets specifies a list of secrets that
-                                  are provided for credentials
+                                  are provided for credentials Secrets must be in
+                                  Kyverno namespace
                                 items:
                                   properties:
                                     helpers:
                                       description: Specifies the name of the secret
-                                        to be used for getting credentials
+                                        to be used for getting credentials Secrets
+                                        must be in Kyverno namespace
                                       type: string
                                   type: object
                                 type: array
@@ -25473,16 +25547,26 @@ spec:
                                       are provided It can be of one of these values:
                                       AWS, Azure, GCP, GHCR'
                                     items:
+                                      description: ImageVerificationType selects the
+                                        type of verification algorithm
+                                      enum:
+                                      - DEFAULT
+                                      - AWS
+                                      - Azure
+                                      - GCP
+                                      - GHCR
                                       type: string
                                     type: array
                                   secrets:
                                     description: Secrets specifies a list of secrets
-                                      that are provided for credentials
+                                      that are provided for credentials Secrets must
+                                      be in Kyverno namespace
                                     items:
                                       properties:
                                         helpers:
                                           description: Specifies the name of the secret
-                                            to be used for getting credentials
+                                            to be used for getting credentials Secrets
+                                            must be in Kyverno namespace
                                           type: string
                                       type: object
                                     type: array
@@ -28833,6 +28917,40 @@ spec:
                             items:
                               type: string
                             type: array
+                          imageRegistryCredentials:
+                            description: ImageRegistryCredentials provides credentials
+                              that will be used for authentication with registry
+                            properties:
+                              helpers:
+                                description: 'Helpers specifies a list of OCI Registry
+                                  names, whose authentication helpers are provided
+                                  It can be of one of these values: AWS, Azure, GCP,
+                                  GHCR'
+                                items:
+                                  description: ImageVerificationType selects the type
+                                    of verification algorithm
+                                  enum:
+                                  - DEFAULT
+                                  - AWS
+                                  - Azure
+                                  - GCP
+                                  - GHCR
+                                  type: string
+                                type: array
+                              secrets:
+                                description: Secrets specifies a list of secrets that
+                                  are provided for credentials Secrets must be in
+                                  Kyverno namespace
+                                items:
+                                  properties:
+                                    helpers:
+                                      description: Specifies the name of the secret
+                                        to be used for getting credentials Secrets
+                                        must be in Kyverno namespace
+                                      type: string
+                                  type: object
+                                type: array
+                            type: object
                           mutateDigest:
                             default: true
                             description: MutateDigest enables replacement of image
@@ -32483,16 +32601,26 @@ spec:
                                       are provided It can be of one of these values:
                                       AWS, Azure, GCP, GHCR'
                                     items:
+                                      description: ImageVerificationType selects the
+                                        type of verification algorithm
+                                      enum:
+                                      - DEFAULT
+                                      - AWS
+                                      - Azure
+                                      - GCP
+                                      - GHCR
                                       type: string
                                     type: array
                                   secrets:
                                     description: Secrets specifies a list of secrets
-                                      that are provided for credentials
+                                      that are provided for credentials Secrets must
+                                      be in Kyverno namespace
                                     items:
                                       properties:
                                         helpers:
                                           description: Specifies the name of the secret
-                                            to be used for getting credentials
+                                            to be used for getting credentials Secrets
+                                            must be in Kyverno namespace
                                           type: string
                                       type: object
                                     type: array

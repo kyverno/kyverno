@@ -233,7 +233,8 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) *Po
 
 	policyContext = policyContext.
 		WithPolicy(&cpol).
-		WithNewResource(*resourceUnstructured)
+		WithNewResource(*resourceUnstructured).
+		WithRegistryClient(engineapi.RegistryClientLoaderNewOrDie())
 
 	if oldResource != "" {
 		oldResourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(oldResource))

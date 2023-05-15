@@ -1870,7 +1870,8 @@ the image reference.</p>
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>)
+<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>, 
+<a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>)
 </p>
 <p>
 </p>
@@ -1906,7 +1907,8 @@ It can be of one of these values: AWS, Azure, GCP, GHCR</p>
 </em>
 </td>
 <td>
-<p>Secrets specifies a list of secrets that are provided for credentials</p>
+<p>Secrets specifies a list of secrets that are provided for credentials
+Secrets must be in Kyverno namespace</p>
 </td>
 </tr>
 </tbody>
@@ -1919,6 +1921,7 @@ It can be of one of these values: AWS, Azure, GCP, GHCR</p>
 <a href="#kyverno.io/v1.ImageRegistryCredentials">ImageRegistryCredentials</a>)
 </p>
 <p>
+<p>ImageVerificationType selects the type of verification algorithm</p>
 </p>
 <h3 id="kyverno.io/v1.ImageVerification">ImageVerification
 </h3>
@@ -3273,7 +3276,8 @@ string
 </em>
 </td>
 <td>
-<p>Specifies the name of the secret to be used for getting credentials</p>
+<p>Specifies the name of the secret to be used for getting credentials
+Secrets must be in Kyverno namespace</p>
 </td>
 </tr>
 </tbody>
@@ -6334,6 +6338,11 @@ See: <a href="https://kyverno.io/docs/writing-policies/validate/#deny-rules">htt
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v2beta1.ImageRegistryCredentialsHelpersType">ImageRegistryCredentialsHelpersType
+(<code>string</code> alias)</p></h3>
+<p>
+<p>ImageVerificationType selects the type of verification algorithm</p>
+</p>
 <h3 id="kyverno.io/v2beta1.ImageVerification">ImageVerification
 </h3>
 <p>
@@ -6454,6 +6463,19 @@ bool
 </td>
 <td>
 <p>Required validates that images are verified i.e. have matched passed a signature or attestation check.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>imageRegistryCredentials</code><br/>
+<em>
+<a href="#kyverno.io/v1.ImageRegistryCredentials">
+ImageRegistryCredentials
+</a>
+</em>
+</td>
+<td>
+<p>ImageRegistryCredentials provides credentials that will be used for authentication with registry</p>
 </td>
 </tr>
 </tbody>
