@@ -10,7 +10,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	v1 "k8s.io/client-go/listers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type RegistryClientLoaderFactory = func(imagePullSecrets string, allowInsecureRegistry bool, registryCredentialHelpers string) RegistryClientLoader
@@ -26,11 +26,11 @@ type RegistryClientLoader interface {
 
 type registryClientLoader struct {
 	logger                logr.Logger
-	secretLister          v1.SecretNamespaceLister
+	secretLister          corev1listers.SecretNamespaceLister
 	defaultRegistryClient registryclient.Client
 }
 
-func DefaultRegistryClientLoaderFactory(ctx context.Context, secretLister v1.SecretNamespaceLister) RegistryClientLoaderFactory {
+func DefaultRegistryClientLoaderFactory(ctx context.Context, secretLister corev1listers.SecretNamespaceLister) RegistryClientLoaderFactory {
 	return func(imagePullSecrets string, allowInsecureRegistry bool, registryCredentialHelpers string) RegistryClientLoader {
 		logger := logging.WithName("registry-client")
 		registryClient := setupRegistryClient(ctx, logger, secretLister, imagePullSecrets, allowInsecureRegistry, registryCredentialHelpers)
@@ -82,7 +82,7 @@ func (rcl *registryClientLoader) GetGlobalRegistryClient() registryclient.Client
 func setupRegistryClient(
 	ctx context.Context,
 	logger logr.Logger,
-	secretLister v1.SecretNamespaceLister,
+	secretLister corev1listers.SecretNamespaceLister,
 	imagePullSecrets string,
 	allowInsecureRegistry bool,
 	registryCredentialHelpers string,

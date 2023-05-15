@@ -59,7 +59,6 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	configuration := startConfigController(ctx, logger, client, skipResourceFilters)
 	sdownTracing := SetupTracing(logger, name, client)
 	setupCosign(logger)
-	// var registryClient registryclient.Client
 	var registryClientLoader engineapi.RegistryClientLoader
 	if config.UsesRegistryClient() {
 		registryClientLoader = getRegistryClientLoader(ctx, logger, client)
