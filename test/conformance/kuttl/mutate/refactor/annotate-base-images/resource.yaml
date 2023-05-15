@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: testpodannotate
+  namespace: annotate-base-images
+spec:
+  containers:
+  - name: kyverno180
+    image: ghcr.io/kyverno/kyverno:v1.8.0
+  - name: kyverno190
+    image: ghcr.io/kyverno/kyverno:v1.9.0

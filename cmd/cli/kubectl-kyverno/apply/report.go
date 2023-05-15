@@ -77,9 +77,24 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 
 	for _, engineResponse := range engineResponses {
-		policy := engineResponse.Policy
+		var ns, policyName string
+		var ann map[string]string
+
+		isVAP := engineResponse.IsValidatingAdmissionPolicy()
+
+		if isVAP {
+			validatingAdmissionPolicy := engineResponse.ValidatingAdmissionPolicy()
+			ns = validatingAdmissionPolicy.GetNamespace()
+			policyName = validatingAdmissionPolicy.GetName()
+			ann = validatingAdmissionPolicy.GetAnnotations()
+		} else {
+			kyvernoPolicy := engineResponse.Policy()
+			ns = kyvernoPolicy.GetNamespace()
+			policyName = kyvernoPolicy.GetName()
+			ann = kyvernoPolicy.GetAnnotations()
+		}
+
 		var appname string
-		ns := policy.GetNamespace()
 		if ns != "" {
 			appname = fmt.Sprintf("policyreport-ns-%s", ns)
 		} else {
@@ -92,7 +107,7 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 			}
 
 			result := policyreportv1alpha2.PolicyReportResult{
-				Policy: policy.GetName(),
+				Policy: policyName,
 				Resources: []corev1.ObjectReference{
 					{
 						Kind:       engineResponse.Resource.GetKind(),
@@ -105,7 +120,6 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 				Scored: true,
 			}
 
-			ann := engineResponse.Policy.GetAnnotations()
 			if ruleResponse.Status() == engineapi.RuleStatusSkip {
 				result.Result = policyreportv1alpha2.StatusSkip
 			} else if ruleResponse.Status() == engineapi.RuleStatusError {
@@ -124,7 +138,9 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 				fmt.Println(ruleResponse)
 			}
 
-			result.Rule = ruleResponse.Name()
+			if !isVAP {
+				result.Rule = ruleResponse.Name()
+			}
 			result.Message = ruleResponse.Message()
 			result.Source = kyvernov1.ValueKyvernoApp
 			result.Timestamp = now

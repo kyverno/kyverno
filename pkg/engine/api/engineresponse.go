@@ -7,6 +7,8 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	utils "github.com/kyverno/kyverno/pkg/utils/match"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
+	"github.com/mattbaird/jsonpatch"
+	"k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -15,7 +17,9 @@ type EngineResponse struct {
 	// Resource is the original resource
 	Resource unstructured.Unstructured
 	// Policy is the original policy
-	Policy kyvernov1.PolicyInterface
+	policy kyvernov1.PolicyInterface
+	// Policy is the validating admission policy
+	validatingAdmissionPolicy v1alpha1.ValidatingAdmissionPolicy
 	// namespaceLabels given by policy context
 	namespaceLabels map[string]string
 	// PatchedResource is the resource patched with the engine action changes
@@ -26,7 +30,7 @@ type EngineResponse struct {
 	stats ExecutionStats
 }
 
-func Resource(policyContext PolicyContext) unstructured.Unstructured {
+func resource(policyContext PolicyContext) unstructured.Unstructured {
 	resource := policyContext.NewResource()
 	if resource.Object == nil {
 		resource = policyContext.OldResource()
@@ -36,7 +40,7 @@ func Resource(policyContext PolicyContext) unstructured.Unstructured {
 
 func NewEngineResponseFromPolicyContext(policyContext PolicyContext) EngineResponse {
 	return NewEngineResponse(
-		Resource(policyContext),
+		resource(policyContext),
 		policyContext.Policy(),
 		policyContext.NamespaceLabels(),
 	)
@@ -49,10 +53,15 @@ func NewEngineResponse(
 ) EngineResponse {
 	return EngineResponse{
 		Resource:        resource,
-		Policy:          policy,
+		policy:          policy,
 		namespaceLabels: namespaceLabels,
 		PatchedResource: resource,
 	}
+}
+
+func (er EngineResponse) WithPolicy(policy kyvernov1.PolicyInterface) EngineResponse {
+	er.policy = policy
+	return er
 }
 
 func (er EngineResponse) WithPolicyResponse(policyResponse PolicyResponse) EngineResponse {
@@ -70,6 +79,19 @@ func (er EngineResponse) WithPatchedResource(patchedResource unstructured.Unstru
 	return er
 }
 
+func NewEngineResponseWithValidatingAdmissionPolicy(
+	resource unstructured.Unstructured,
+	policy v1alpha1.ValidatingAdmissionPolicy,
+	namespaceLabels map[string]string,
+) EngineResponse {
+	response := EngineResponse{
+		Resource:                  resource,
+		validatingAdmissionPolicy: policy,
+		namespaceLabels:           namespaceLabels,
+	}
+	return response
+}
+
 func (er EngineResponse) WithNamespaceLabels(namespaceLabels map[string]string) EngineResponse {
 	er.namespaceLabels = namespaceLabels
 	return er
@@ -77,6 +99,14 @@ func (er EngineResponse) WithNamespaceLabels(namespaceLabels map[string]string) 
 
 func (er *EngineResponse) NamespaceLabels() map[string]string {
 	return er.namespaceLabels
+}
+
+func (er *EngineResponse) Policy() kyvernov1.PolicyInterface {
+	return er.policy
+}
+
+func (er *EngineResponse) ValidatingAdmissionPolicy() v1alpha1.ValidatingAdmissionPolicy {
+	return er.validatingAdmissionPolicy
 }
 
 // IsOneOf checks if any rule has status in a given list
@@ -119,9 +149,13 @@ func (er EngineResponse) IsNil() bool {
 	return datautils.DeepEqual(er, EngineResponse{})
 }
 
+func (er EngineResponse) IsValidatingAdmissionPolicy() bool {
+	return !datautils.DeepEqual(er.validatingAdmissionPolicy, v1alpha1.ValidatingAdmissionPolicy{})
+}
+
 // GetPatches returns all the patches joined
-func (er EngineResponse) GetPatches() [][]byte {
-	var patches [][]byte
+func (er EngineResponse) GetPatches() []jsonpatch.JsonPatchOperation {
+	var patches []jsonpatch.JsonPatchOperation
 	for _, r := range er.PolicyResponse.Rules {
 		patches = append(patches, r.Patches()...)
 	}
@@ -175,7 +209,7 @@ func (er EngineResponse) getRulesWithErrors(predicate func(RuleResponse) bool) [
 }
 
 func (er EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailureAction {
-	spec := er.Policy.GetSpec()
+	spec := er.Policy().GetSpec()
 	for _, v := range spec.ValidationFailureActionOverrides {
 		if !v.Action.IsValid() {
 			continue

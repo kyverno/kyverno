@@ -14,6 +14,10 @@ fullnameOverride: ~
 # -- (string) Override the namespace the chart deploys to
 namespaceOverride: ~
 
+upgrade:
+  # -- Upgrading from v2 to v3 is not allowed by default, set this to true once changes have been reviewed.
+  fromV2: false
+
 apiVersionOverride:
   # -- (string) Override api version used to create `PodDisruptionBudget`` resources.
   # When not specified the chart will check if `policy/v1/PodDisruptionBudget` is available to
@@ -55,8 +59,8 @@ config:
     - system:nodes
 
   # -- Exclude usernames
-  excludeUsernames: []
-    # - system:kube-scheduler
+  excludeUsernames:
+    - '!system:kube-scheduler'
 
   # -- Exclude roles
   excludeRoles: []
@@ -345,6 +349,18 @@ features:
   forceFailurePolicyIgnore:
     # -- Enables the feature
     enabled: false
+  logging:
+    # -- Logging format
+    format: text
+    # -- Logging verbosity
+    verbosity: 2
+  omitEvents:
+    # -- Events which should not be emitted (possible values `PolicyViolation`, `PolicyApplied`, `PolicyError`, and `PolicySkipped`)
+    eventTypes: []
+      # - PolicyViolation
+      # - PolicyApplied
+      # - PolicyError
+      # - PolicySkipped
   policyExceptions:
     # -- Enables the feature
     enabled: false
@@ -774,12 +790,6 @@ admissionController:
     # -- Traces receiver credentials
     creds: ''
 
-  logging:
-    # -- Logging format
-    format: text
-    # -- Logging verbosity
-    verbosity: 2
-
   metering:
     # -- Disable metrics export
     disabled: false
@@ -981,12 +991,6 @@ backgroundController:
     port:
     # -- Traces receiver credentials
     creds: ''
-
-  logging:
-    # -- Logging format
-    format: text
-    # -- Logging verbosity
-    verbosity: 2
 
   metering:
     # -- Disable metrics export
@@ -1245,12 +1249,6 @@ cleanupController:
     # -- Traces receiver credentials
     creds: ''
 
-  logging:
-    # -- Logging format
-    format: text
-    # -- Logging verbosity
-    verbosity: 2
-
   metering:
     # -- Disable metrics export
     disabled: false
@@ -1456,12 +1454,6 @@ reportsController:
     port: ~
     # -- (string) Traces receiver credentials
     creds: ~
-
-  logging:
-    # -- Logging format
-    format: text
-    # -- Logging verbosity
-    verbosity: 2
 
   metering:
     # -- Disable metrics export
