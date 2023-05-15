@@ -48,14 +48,14 @@ type cleanupMetrics struct {
 func newCleanupMetrics(logger logr.Logger) cleanupMetrics {
 	meter := global.MeterProvider().Meter(metrics.MeterName)
 	deletedObjectsTotal, err := meter.Int64Counter(
-		"cleanup_controller_deletedobjects",
+		"kyverno_cleanup_controller_deletedobjects",
 		metric.WithDescription("can be used to track number of deleted objects."),
 	)
 	if err != nil {
 		logger.Error(err, "Failed to create instrument, cleanup_controller_deletedobjects_total")
 	}
 	cleanupFailuresTotal, err := meter.Int64Counter(
-		"cleanup_controller_errors",
+		"kyverno_cleanup_controller_errors",
 		metric.WithDescription("can be used to track number of cleanup failures."),
 	)
 	if err != nil {
