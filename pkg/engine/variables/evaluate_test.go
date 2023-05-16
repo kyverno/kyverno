@@ -512,7 +512,7 @@ func Test_Condition_Messages(t *testing.T) {
 
 	val, msg = EvaluateAnyAllConditions(logr.Discard(), ctx, conditions)
 	assert.Equal(t, true, val)
-	assert.Equal(t, msg, "")
+	assert.Equal(t, "invalid name", msg)
 
 	conditions[0].AllConditions = append(conditions[0].AllConditions, conditions[0].AnyConditions[0])
 	conditions[0].AllConditions = append(conditions[0].AllConditions, conditions[0].AnyConditions[1])
