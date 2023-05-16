@@ -51,8 +51,8 @@ type Interface interface {
 	// AddOldResource merges resource json under request.oldObject
 	AddOldResource(data map[string]interface{}) error
 
-	// AddTargetResource merges resource json under target
-	AddTargetResource(data map[string]interface{}) error
+	// SetTargetResource merges resource json under target
+	SetTargetResource(data map[string]interface{}) error
 
 	// AddOperation merges operation under request.operation
 	AddOperation(data string) error
@@ -190,7 +190,11 @@ func (ctx *context) AddOldResource(data map[string]interface{}) error {
 }
 
 // AddTargetResource adds data at path: target
-func (ctx *context) AddTargetResource(data map[string]interface{}) error {
+func (ctx *context) SetTargetResource(data map[string]interface{}) error {
+	if err := addToContext(ctx, nil, "target"); err != nil {
+		logger.Error(err, "unable to replace target resource")
+		return err
+	}
 	return addToContext(ctx, data, "target")
 }
 

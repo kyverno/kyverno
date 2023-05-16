@@ -35286,8 +35286,6 @@ spec:
           args:
             - --backgroundServiceAccountName=system:serviceaccount:kyverno:kyverno-background-controller
             - --servicePort=443
-            - --loggingFormat=text
-            - --v=2
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
@@ -35296,8 +35294,9 @@ spec:
             - --enableConfigMapCaching=true
             - --dumpPayload=false
             - --forceFailurePolicyIgnore=false
+            - --loggingFormat=text
+            - --v=2
             - --enablePolicyException=false
-            - --exceptionNamespace=
             - --protectManagedResources=false
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
@@ -35435,14 +35434,13 @@ spec:
             name: metrics
             protocol: TCP
           args:
-            - --loggingFormat=text
-            - --v=2
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
             - --enableConfigMapCaching=true
+            - --loggingFormat=text
+            - --v=2
             - --enablePolicyException=false
-            - --exceptionNamespace=
           env:
           - name: METRICS_CONFIG
             value: kyverno-metrics
@@ -35527,12 +35525,12 @@ spec:
             protocol: TCP
           args:
             - --servicePort=443
-            - --loggingFormat=text
-            - --v=2
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
             - --dumpPayload=false
+            - --loggingFormat=text
+            - --v=2
           env:
           - name: METRICS_CONFIG
             value: kyverno-metrics
@@ -35648,8 +35646,6 @@ spec:
             name: metrics
             protocol: TCP
           args:
-            - --loggingFormat=text
-            - --v=2
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
@@ -35659,8 +35655,9 @@ spec:
             - --backgroundScanInterval=1h
             - --skipResourceFilters=true
             - --enableConfigMapCaching=true
+            - --loggingFormat=text
+            - --v=2
             - --enablePolicyException=false
-            - --exceptionNamespace=
             - --reportsChunkSize=1000
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
