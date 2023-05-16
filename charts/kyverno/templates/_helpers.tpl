@@ -31,9 +31,20 @@
 {{- with .forceFailurePolicyIgnore -}}
   {{- $flags = append $flags (print "--forceFailurePolicyIgnore=" .enabled) -}}
 {{- end -}}
+{{- with .logging -}}
+  {{- $flags = append $flags (print "--loggingFormat=" .format) -}}
+  {{- $flags = append $flags (print "--v=" (join "," .verbosity)) -}}
+{{- end -}}
+{{- with .omitEvents -}}
+  {{- with .eventTypes -}}
+    {{- $flags = append $flags (print "--omit-events=" (join "," .)) -}}
+  {{- end -}}
+{{- end -}}
 {{- with .policyExceptions -}}
   {{- $flags = append $flags (print "--enablePolicyException=" .enabled) -}}
-  {{- $flags = append $flags (print "--exceptionNamespace=" .namespace) -}}
+  {{- with .namespace -}}
+    {{- $flags = append $flags (print "--exceptionNamespace=" .) -}}
+  {{- end -}}
 {{- end -}}
 {{- with .protectManagedResources -}}
   {{- $flags = append $flags (print "--protectManagedResources=" .enabled) -}}

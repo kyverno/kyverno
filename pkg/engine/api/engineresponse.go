@@ -7,6 +7,8 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	utils "github.com/kyverno/kyverno/pkg/utils/match"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
+	"github.com/mattbaird/jsonpatch"
+	"k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -14,8 +16,10 @@ import (
 type EngineResponse struct {
 	// Resource is the original resource
 	Resource unstructured.Unstructured
-	// policy is the original policy
+	// Policy is the original policy
 	policy kyvernov1.PolicyInterface
+	// Policy is the validating admission policy
+	validatingAdmissionPolicy v1alpha1.ValidatingAdmissionPolicy
 	// namespaceLabels given by policy context
 	namespaceLabels map[string]string
 	// PatchedResource is the resource patched with the engine action changes
@@ -75,6 +79,19 @@ func (er EngineResponse) WithPatchedResource(patchedResource unstructured.Unstru
 	return er
 }
 
+func NewEngineResponseWithValidatingAdmissionPolicy(
+	resource unstructured.Unstructured,
+	policy v1alpha1.ValidatingAdmissionPolicy,
+	namespaceLabels map[string]string,
+) EngineResponse {
+	response := EngineResponse{
+		Resource:                  resource,
+		validatingAdmissionPolicy: policy,
+		namespaceLabels:           namespaceLabels,
+	}
+	return response
+}
+
 func (er EngineResponse) WithNamespaceLabels(namespaceLabels map[string]string) EngineResponse {
 	er.namespaceLabels = namespaceLabels
 	return er
@@ -86,6 +103,10 @@ func (er *EngineResponse) NamespaceLabels() map[string]string {
 
 func (er *EngineResponse) Policy() kyvernov1.PolicyInterface {
 	return er.policy
+}
+
+func (er *EngineResponse) ValidatingAdmissionPolicy() v1alpha1.ValidatingAdmissionPolicy {
+	return er.validatingAdmissionPolicy
 }
 
 // IsOneOf checks if any rule has status in a given list
@@ -128,9 +149,13 @@ func (er EngineResponse) IsNil() bool {
 	return datautils.DeepEqual(er, EngineResponse{})
 }
 
+func (er EngineResponse) IsValidatingAdmissionPolicy() bool {
+	return !datautils.DeepEqual(er.validatingAdmissionPolicy, v1alpha1.ValidatingAdmissionPolicy{})
+}
+
 // GetPatches returns all the patches joined
-func (er EngineResponse) GetPatches() [][]byte {
-	var patches [][]byte
+func (er EngineResponse) GetPatches() []jsonpatch.JsonPatchOperation {
+	var patches []jsonpatch.JsonPatchOperation
 	for _, r := range er.PolicyResponse.Rules {
 		patches = append(patches, r.Patches()...)
 	}
