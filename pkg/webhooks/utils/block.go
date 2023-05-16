@@ -40,15 +40,11 @@ func GetBlockedMessages(engineResponses []engineapi.EngineResponse) string {
 		return ""
 	}
 	failures := make(map[string]interface{})
-	hasViolations := false
 	for _, er := range engineResponses {
 		ruleToReason := make(map[string]string)
 		for _, rule := range er.PolicyResponse.Rules {
 			if rule.Status() != engineapi.RuleStatusPass {
 				ruleToReason[rule.Name()] = rule.Message()
-				if rule.Status() == engineapi.RuleStatusFail {
-					hasViolations = true
-				}
 			}
 		}
 		if len(ruleToReason) != 0 {
@@ -60,8 +56,7 @@ func GetBlockedMessages(engineResponses []engineapi.EngineResponse) string {
 	}
 	r := engineResponses[0].Resource
 	resourceName := fmt.Sprintf("%s/%s/%s", r.GetKind(), r.GetNamespace(), r.GetName())
-	action := getAction(hasViolations, len(failures))
 	results, _ := yaml.Marshal(failures)
-	msg := fmt.Sprintf("\n\npolicy %s for resource %s: \n\n%s", resourceName, action, results)
+	msg := fmt.Sprintf("\n\nresource %s was blocked due to the following policies \n\n%s", resourceName, results)
 	return msg
 }
