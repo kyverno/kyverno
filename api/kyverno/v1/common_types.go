@@ -7,7 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	admissionv1 "k8s.io/api/admission/v1"
-	v1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -588,7 +588,7 @@ func (p *Precondition) SetAnyAllConditions(in apiextensions.JSON) {
 	p.RawAnyAllConditions = ToJSON(in)
 }
 
-type CELCondition v1.MatchCondition
+type CELCondition admissionregistrationv1.MatchCondition
 
 // ForEachValidation applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 type ForEachValidation struct {
