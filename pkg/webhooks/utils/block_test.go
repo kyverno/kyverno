@@ -221,7 +221,7 @@ func TestGetBlockedMessages(t *testing.T) {
 				}),
 			},
 		},
-		want: "\n\npolicy foo/bar/baz for resource error: \n\ntest:\n  rule-error: message error\n",
+		want: "\n\nresource foo/bar/baz was blocked due to the following policies \n\ntest:\n  rule-error: message error\n",
 	}, {
 		name: "error and failure - enforce",
 		args: args{
