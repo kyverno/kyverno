@@ -76,8 +76,7 @@ data:
   enableDefaultRegistryMutation: "true"
   defaultRegistry: "docker.io"
   generateSuccessEvents: "false"
-  excludeGroups: "system:serviceaccounts:kube-system,system:nodes"
-  excludeUsernames: "!system:kube-scheduler"
+  excludeGroups: "system:nodes"
   resourceFilters: >-
     [*/*,kyverno,*]
     [Event,*,*]
