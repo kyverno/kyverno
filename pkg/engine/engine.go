@@ -211,7 +211,7 @@ func matches(
 			subresource,
 			policyContext.Operation(),
 		)
-		if err == nil {
+		if err != nil {
 			return nil
 		}
 	}
