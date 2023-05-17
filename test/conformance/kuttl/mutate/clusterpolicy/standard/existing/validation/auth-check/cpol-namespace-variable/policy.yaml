@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: test
+  name: cpol-namespace-variable
 spec:
   mutateExistingOnPolicyUpdate: false
   rules:
@@ -16,7 +16,7 @@ spec:
                   policy.lan/flag: 'true'
       mutate:
         targets:
-          - kind: Pod
+          - kind: PersistentVolumeClaim
             apiVersion: v1
             namespace: "{{ request.object.metadata.name }}"
         patchStrategicMerge:
