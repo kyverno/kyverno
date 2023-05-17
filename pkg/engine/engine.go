@@ -200,7 +200,7 @@ func matches(
 		return nil
 	}
 	oldResource := policyContext.OldResource()
-	if oldResource.Object != nil {
+	if resource.Object == nil && oldResource.Object != nil {
 		err := engineutils.MatchesResourceDescription(
 			policyContext.OldResource(),
 			rule,
@@ -211,7 +211,7 @@ func matches(
 			subresource,
 			policyContext.Operation(),
 		)
-		if err != nil {
+		if err == nil {
 			return nil
 		}
 	}
