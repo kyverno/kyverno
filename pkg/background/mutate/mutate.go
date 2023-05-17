@@ -220,18 +220,10 @@ func (c *mutateExistingController) getPolicy(ur *kyvernov1beta1.UpdateRequest) (
 	}
 
 	if pNamespace != "" {
-		policy, err = c.npolicyLister.Policies(pNamespace).Get(pName)
+		return c.npolicyLister.Policies(pNamespace).Get(pName)
 	}
 
-	policy, err = c.policyLister.Get(pName)
-	if err != nil {
-		return nil, err
-	}
-
-	// newPol := policy.CreateDeepCopy()
-	// newPol.
-	// policy.GetSpec().Rules
-	return
+	return c.policyLister.Get(pName)
 }
 
 func (c *mutateExistingController) report(err error, policy, rule string, target *unstructured.Unstructured) {
