@@ -56,7 +56,7 @@ jobs:
           version: v3.10.3
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@204a51a57a74d190b284a0ce69b44bc37201f343 # v3.0.3
+        uses: sigstore/cosign-installer@03d0fecf172873164a163bbc64bed0f3bf114ed7 # v3.0.4
         with:
           cosign-release: 'v1.13.0'
 
