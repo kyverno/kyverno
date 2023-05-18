@@ -195,18 +195,18 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:     []string{"https://github.com/kyverno/policies/other/require_unique_uid_per_workload/"},
+				PolicyPaths:     []string{"https://github.com/kyverno/policies/other/limit-configmap-for-sa/"},
 				ResourcePaths:   []string{"../../../../test/cli/apply/resources-set-test/resources-two.yaml"},
 				GitBranch:       "main",
 				PolicyReport:    true,
-				VariablesString: "uidsAllPodsExceptSameOwnerAsRequestObject=[\"1337\"]",
+				VariablesString: "request.operation=DELETE",
 			},
 			expectedPolicyReports: []preport.PolicyReport{
 				{
 					Summary: preport.PolicyReportSummary{
 						Pass:  1,
-						Fail:  1,
-						Skip:  0,
+						Fail:  0,
+						Skip:  1,
 						Error: 0,
 						Warn:  0,
 					},
