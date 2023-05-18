@@ -20,7 +20,7 @@ func Evaluate(logger logr.Logger, ctx context.EvalInterface, condition kyvernov1
 	if err != nil {
 		return false, "", fmt.Errorf("failed to substitute variables in condition value: %w", err)
 	}
-	handler := operator.CreateOperatorHandler(logger, ctx, kyvernov1.ConditionOperator(condition.Operator))
+	handler := operator.CreateOperatorHandler(logger, ctx, condition.Operator)
 	if handler == nil {
 		return false, "", fmt.Errorf("failed to create handler for condition operator: %w", err)
 	}
