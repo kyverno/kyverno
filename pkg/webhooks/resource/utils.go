@@ -59,16 +59,18 @@ func applyUpdateRequest(
 	}
 
 	for _, er := range engineResponses {
-		ur := transform(admissionRequestInfo, userRequestInfo, er, ruleType)
-		if err := urGenerator.Apply(ctx, ur); err != nil {
-			failedUpdateRequest = append(failedUpdateRequest, updateRequestResponse{ur: ur, err: err})
+		urs := transform(admissionRequestInfo, userRequestInfo, er, ruleType)
+		for _, ur := range urs {
+			if err := urGenerator.Apply(ctx, ur); err != nil {
+				failedUpdateRequest = append(failedUpdateRequest, updateRequestResponse{ur: ur, err: err})
+			}
 		}
 	}
 
 	return
 }
 
-func transform(admissionRequestInfo kyvernov1beta1.AdmissionRequestInfoObject, userRequestInfo kyvernov1beta1.RequestInfo, er *engineapi.EngineResponse, ruleType kyvernov1beta1.RequestType) kyvernov1beta1.UpdateRequestSpec {
+func transform(admissionRequestInfo kyvernov1beta1.AdmissionRequestInfoObject, userRequestInfo kyvernov1beta1.RequestInfo, er *engineapi.EngineResponse, ruleType kyvernov1beta1.RequestType) (urs []kyvernov1beta1.UpdateRequestSpec) {
 	var PolicyNameNamespaceKey string
 	if er.Policy().GetNamespace() != "" {
 		PolicyNameNamespaceKey = er.Policy().GetNamespace() + "/" + er.Policy().GetName()
@@ -76,20 +78,24 @@ func transform(admissionRequestInfo kyvernov1beta1.AdmissionRequestInfoObject, u
 		PolicyNameNamespaceKey = er.Policy().GetName()
 	}
 
-	ur := kyvernov1beta1.UpdateRequestSpec{
-		Type:   ruleType,
-		Policy: PolicyNameNamespaceKey,
-		Resource: kyvernov1.ResourceSpec{
-			Kind:       er.Resource.GetKind(),
-			Namespace:  er.Resource.GetNamespace(),
-			Name:       er.Resource.GetName(),
-			APIVersion: er.Resource.GetAPIVersion(),
-		},
-		Context: kyvernov1beta1.UpdateRequestSpecContext{
-			UserRequestInfo:      userRequestInfo,
-			AdmissionRequestInfo: admissionRequestInfo,
-		},
+	for _, rule := range er.PolicyResponse.Rules {
+		ur := kyvernov1beta1.UpdateRequestSpec{
+			Type:   ruleType,
+			Policy: PolicyNameNamespaceKey,
+			Rule:   rule.Name(),
+			Resource: kyvernov1.ResourceSpec{
+				Kind:       er.Resource.GetKind(),
+				Namespace:  er.Resource.GetNamespace(),
+				Name:       er.Resource.GetName(),
+				APIVersion: er.Resource.GetAPIVersion(),
+			},
+			Context: kyvernov1beta1.UpdateRequestSpecContext{
+				UserRequestInfo:      userRequestInfo,
+				AdmissionRequestInfo: admissionRequestInfo,
+			},
+		}
+		urs = append(urs, ur)
 	}
 
-	return ur
+	return urs
 }
