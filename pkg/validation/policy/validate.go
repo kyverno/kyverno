@@ -383,6 +383,31 @@ func ValidateVariables(p kyvernov1.PolicyInterface, backgroundMode bool) error {
 	if err := hasInvalidVariables(p, backgroundMode); err != nil {
 		return fmt.Errorf("policy contains invalid variables: %s", err.Error())
 	}
+	if cp, ok := p.(*kyvernov1.ClusterPolicy); ok {
+		if err := validateJMESPathBraces(cp); err != nil {
+			return fmt.Errorf("policy contains JMESPath statements with incorrect brace enclosure: %s", err.Error())
+		}
+	} else {
+		return fmt.Errorf("invalid type for policy: expected *kyvernov1.ClusterPolicy")
+	}
+
+	return nil
+}
+
+func validateJMESPathBraces(p *kyvernov1.ClusterPolicy) error {
+	braceRegex := regexp.MustCompile(`\{\{[^{}]+\}\}`)
+
+	policyJSON, err := json.MarshalIndent(p, "", " ")
+	if err != nil {
+		return fmt.Errorf("error marshaling ClusterPolicy to JSON: %s", err.Error())
+	}
+
+	matches := braceRegex.FindAllString(string(policyJSON), -1)
+	for _, match := range matches {
+		if match != "{{}}" {
+			return fmt.Errorf("invalid JMESPath statement: %s", match)
+		}
+	}
 	return nil
 }
 
