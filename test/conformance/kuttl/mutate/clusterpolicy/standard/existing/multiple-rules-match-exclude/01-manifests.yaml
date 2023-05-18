@@ -1,0 +1,91 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: background-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+  name: kyverno:update-pods
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - update
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns-multiple-rules-match-exclude
+  labels:
+    policy.lan/flag: 'true'
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-a
+  namespace: ns-multiple-rules-match-exclude
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-b
+  namespace: ns-multiple-rules-match-exclude
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-multiple-rules-match-exclude
+spec:
+  mutateExistingOnPolicyUpdate: false
+  rules:
+    - name: apply-flag
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+              selector:
+                matchLabels:
+                  policy.lan/flag: 'true'
+      mutate:
+        targets:
+          - kind: Pod
+            apiVersion: v1
+            namespace: "{{ request.object.metadata.name }}"
+        patchStrategicMerge:
+          metadata:
+            labels:
+              policy.lan/apply-flag: 'true'
+    - name: remove-flag
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+      exclude:
+        any:
+          - resources:
+              kinds:
+              - Namespace
+              selector:
+                matchLabels:
+                  policy.lan/flag: 'true'
+      mutate:
+        targets:
+          - kind: Pod
+            apiVersion: v1
+            namespace: "{{ request.object.metadata.name }}"
+        patchStrategicMerge:
+          metadata:
+            labels:
+              policy.lan/remove-flag: 'true'
