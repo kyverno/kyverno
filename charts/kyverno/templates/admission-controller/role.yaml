@@ -25,16 +25,9 @@ rules:
       - get
       - list
       - watch
-  - apiGroups:
-      - coordination.k8s.io
-    resources:
-      - leases
-    verbs:
-      - create
-      - delete
-      - get
-      - patch
-      - update
+    resourceNames:
+      - {{ include "kyverno.config.configMapName" . }}
+      - {{ include "kyverno.config.metricsConfigMapName" . }}
   - apiGroups:
       - coordination.k8s.io
     resources:

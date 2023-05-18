@@ -6,7 +6,9 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -376,9 +378,9 @@ func TestEvaluate(t *testing.T) {
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{1, 5, 7}), Operator: kyverno.ConditionOperators["AnyNotIn"], RawValue: kyverno.ToJSON("0-10")}, false},
 	}
 
-	ctx := context.NewContext()
+	ctx := context.NewContext(jmespath.New(config.NewDefaultConfiguration(false)))
 	for _, tc := range testCases {
-		if Evaluate(logr.Discard(), ctx, tc.Condition) != tc.Result {
+		if val, _ := Evaluate(logr.Discard(), ctx, tc.Condition); val != tc.Result {
 			t.Errorf("%v - expected result to be %v", tc.Condition, tc.Result)
 		}
 	}
@@ -401,7 +403,7 @@ func Test_Eval_Equal_Var_Pass(t *testing.T) {
 		`)
 
 	// context
-	ctx := context.NewContext()
+	ctx := context.NewContext(jmespath.New(config.NewDefaultConfiguration(false)))
 	err := context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -425,7 +427,9 @@ func Test_Eval_Equal_Var_Pass(t *testing.T) {
 
 	err = json.Unmarshal(conditionJSON, &condition)
 	assert.Nil(t, err)
-	assert.True(t, Evaluate(logr.Discard(), ctx, condition))
+
+	val, _ := Evaluate(logr.Discard(), ctx, condition)
+	assert.True(t, val)
 }
 
 func Test_Eval_Equal_Var_Fail(t *testing.T) {
@@ -443,7 +447,7 @@ func Test_Eval_Equal_Var_Fail(t *testing.T) {
 		`)
 
 	// context
-	ctx := context.NewContext()
+	ctx := context.NewContext(jmespath.New(config.NewDefaultConfiguration(false)))
 	err := context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -454,7 +458,74 @@ func Test_Eval_Equal_Var_Fail(t *testing.T) {
 		RawValue: kyverno.ToJSON("temp1"),
 	}
 
-	if Evaluate(logr.Discard(), ctx, condition) {
+	if val, _ := Evaluate(logr.Discard(), ctx, condition); val {
 		t.Error("expected to fail")
 	}
+}
+
+func Test_Condition_Messages(t *testing.T) {
+	resourceRaw := []byte(`
+	{
+		"metadata": {
+			"name": "temp",
+			"namespace": "n1"
+		},
+		"spec": {
+			"foo": "bar",
+			"foo2": "bar2"
+		}
+	}
+	`)
+
+	ctx := context.NewContext(jmespath.New(config.NewDefaultConfiguration(false)))
+	err := context.AddResource(ctx, resourceRaw)
+	if err != nil {
+		t.Error(err)
+	}
+
+	conditions := []kyverno.AnyAllConditions{
+		{
+			AnyConditions: []kyverno.Condition{
+				{
+					RawKey:   kyverno.ToJSON("{{request.object.metadata.name}}"),
+					Operator: kyverno.ConditionOperators["Equal"],
+					RawValue: kyverno.ToJSON("temp"),
+					Message:  "invalid name",
+				},
+				{
+					RawKey:   kyverno.ToJSON("{{request.object.spec.foo}}"),
+					Operator: kyverno.ConditionOperators["Equal"],
+					RawValue: kyverno.ToJSON("bar2"),
+					Message:  "invalid foo",
+				},
+			},
+		},
+	}
+
+	val, msg := EvaluateAnyAllConditions(logr.Discard(), ctx, conditions)
+	assert.Equal(t, false, val)
+	assert.Contains(t, msg, "invalid name; invalid foo")
+
+	conditions[0].AnyConditions[1].RawValue = kyverno.ToJSON("bar")
+	conditions, err = SubstituteAllInConditions(logr.Discard(), ctx, conditions)
+	assert.Nil(t, err)
+
+	val, msg = EvaluateAnyAllConditions(logr.Discard(), ctx, conditions)
+	assert.Equal(t, true, val)
+	assert.Equal(t, "invalid name", msg)
+
+	conditions[0].AllConditions = append(conditions[0].AllConditions, conditions[0].AnyConditions[0])
+	conditions[0].AllConditions = append(conditions[0].AllConditions, conditions[0].AnyConditions[1])
+	conditions[0].AllConditions[1].RawValue = kyverno.ToJSON("bar2")
+
+	val, msg = EvaluateAnyAllConditions(logr.Discard(), ctx, conditions)
+	assert.Equal(t, false, val)
+	assert.Contains(t, msg, "invalid foo")
+
+	conditions[0].AnyConditions[0].RawValue = kyverno.ToJSON("temp1")
+	conditions[0].AnyConditions[1].RawValue = kyverno.ToJSON("bar2")
+	conditions[0].AllConditions[1].Message = "invalid foo2"
+	val, msg = EvaluateAnyAllConditions(logr.Discard(), ctx, conditions)
+	assert.Equal(t, false, val)
+	assert.Contains(t, msg, "invalid name; invalid foo; invalid foo2")
 }

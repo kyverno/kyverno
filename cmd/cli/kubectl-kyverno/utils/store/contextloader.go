@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 )
@@ -37,6 +38,7 @@ type mockContextLoader struct {
 
 func (l *mockContextLoader) Load(
 	ctx context.Context,
+	jp jmespath.Interface,
 	client dclient.Interface,
 	_ registryclient.Client,
 	contextEntries []kyvernov1.ContextEntry,
@@ -56,15 +58,15 @@ func (l *mockContextLoader) Load(
 	for _, entry := range contextEntries {
 		if entry.ImageRegistry != nil && hasRegistryAccess {
 			rclient := GetRegistryClient()
-			if err := engineapi.LoadImageData(ctx, rclient, l.logger, entry, jsonContext); err != nil {
+			if err := engineapi.LoadImageData(ctx, jp, rclient, l.logger, entry, jsonContext); err != nil {
 				return err
 			}
 		} else if entry.Variable != nil {
-			if err := engineapi.LoadVariable(l.logger, entry, jsonContext); err != nil {
+			if err := engineapi.LoadVariable(l.logger, jp, entry, jsonContext); err != nil {
 				return err
 			}
 		} else if entry.APICall != nil && IsApiCallAllowed() {
-			if err := engineapi.LoadAPIData(ctx, l.logger, entry, jsonContext, client); err != nil {
+			if err := engineapi.LoadAPIData(ctx, jp, l.logger, entry, jsonContext, client); err != nil {
 				return err
 			}
 		}

@@ -19,7 +19,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
-	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -91,7 +90,7 @@ func getAppliedRules(policy kyvernov1.PolicyInterface, applied []engineapi.RuleR
 			continue
 		}
 		for _, applied := range applied {
-			if applied.Name == rule.Name && applied.Type == engineapi.Generation {
+			if applied.Name() == rule.Name && applied.RuleType() == engineapi.Generation {
 				rules = append(rules, rule)
 			}
 		}
@@ -114,18 +113,15 @@ func (h *generationHandler) handleTrigger(
 		}
 		engineResponse := h.engine.ApplyBackgroundChecks(ctx, policyContext)
 		for _, rule := range engineResponse.PolicyResponse.Rules {
-			if rule.Status == engineapi.RuleStatusPass {
+			if rule.Status() == engineapi.RuleStatusPass {
 				appliedRules = append(appliedRules, rule)
-			} else if rule.Status == engineapi.RuleStatusFail {
+			} else if rule.Status() == engineapi.RuleStatusFail {
 				failedRules = append(failedRules, rule)
 			}
 		}
 
 		h.applyGeneration(ctx, request, policy, appliedRules, policyContext)
 		h.syncTriggerAction(ctx, request, policy, failedRules, policyContext)
-
-		go webhookutils.RegisterPolicyResultsMetricGeneration(ctx, h.log, h.metrics, string(request.Operation), policy, engineResponse)
-		go webhookutils.RegisterPolicyExecutionDurationMetricGenerate(ctx, h.log, h.metrics, string(request.Operation), policy, engineResponse)
 	}
 }
 

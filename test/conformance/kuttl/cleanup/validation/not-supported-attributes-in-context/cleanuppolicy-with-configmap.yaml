@@ -1,0 +1,25 @@
+apiVersion: kyverno.io/v2alpha1
+kind: ClusterCleanupPolicy
+metadata:
+  name: cleanup-pod
+spec:
+  context:
+    - name: configData
+      configMap:
+        name: some-config-map
+        namespace: default
+  match:
+    any:
+      - resources:
+          kinds:
+            - Pod
+  conditions:
+    all:
+      - key: "{{ target.metadata.name }}"
+        operator: Equals
+        value: example
+      - key: "{{ target.metadata.namespace }}"
+        operator: Equals
+        value: default
+  ## execute every minute
+  schedule: "*/1 * * * *"

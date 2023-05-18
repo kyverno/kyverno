@@ -81,7 +81,9 @@ spec:
           image: {{ include "kyverno.image" (dict "image" .Values.admissionController.initContainer.image "defaultTag" (default .Chart.AppVersion .Values.admissionController.container.image.tag)) | quote }}
           imagePullPolicy: {{ default .Values.admissionController.container.image.pullPolicy .Values.admissionController.initContainer.image.pullPolicy }}
           args:
-            - --loggingFormat={{ .Values.admissionController.logging.format }}
+            {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.admissionController.featuresOverride)
+              "logging"
+            ) | nindent 12 }}
             {{- range $key, $value := .Values.admissionController.initContainer.extraArgs }}
             {{- if $value }}
             - --{{ $key }}={{ $value }}
@@ -119,8 +121,8 @@ spec:
           image: {{ include "kyverno.image" (dict "image" .Values.admissionController.container.image "defaultTag" .Chart.AppVersion) | quote }}
           imagePullPolicy: {{ .Values.admissionController.container.image.pullPolicy }}
           args:
+            - --backgroundServiceAccountName=system:serviceaccount:{{ include "kyverno.namespace" . }}:{{ include "kyverno.background-controller.serviceAccountName" . }}
             - --servicePort={{ .Values.admissionController.service.port }}
-            - --loggingFormat={{ .Values.admissionController.logging.format }}
             {{- if .Values.admissionController.tracing.enabled }}
             - --enableTracing
             - --tracingAddress={{ .Values.admissionController.tracing.address }}
@@ -143,6 +145,18 @@ spec:
             {{- if or .Values.imagePullSecrets .Values.existingImagePullSecrets }}
             - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
             {{- end }}
+            {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.admissionController.featuresOverride)
+              "admissionReports"
+              "autoUpdateWebhooks"
+              "configMapCaching"
+              "dumpPayload"
+              "forceFailurePolicyIgnore"
+              "logging"
+              "omitEvents"
+              "policyExceptions"
+              "protectManagedResources"
+              "registryClient"
+            ) | nindent 12 }}
             {{- range $key, $value := .Values.admissionController.container.extraArgs }}
             {{- if $value }}
             - --{{ $key }}={{ $value }}
@@ -201,16 +215,7 @@ spec:
           volumeMounts:
             - mountPath: {{ .Values.admissionController.tufRootMountPath }}
               name: sigstore
-            - mountPath: /var/run/secrets/tokens
-              name: api-token
       volumes:
       - name: sigstore
         {{- toYaml (required "A valid .Values.admissionController.sigstoreVolume entry is required" .Values.admissionController.sigstoreVolume) | nindent 8 }}
-      - name: api-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              path: api-token
-              expirationSeconds: 600
-              audience: kyverno-extension
 {{- end -}}

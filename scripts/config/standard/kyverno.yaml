@@ -1,7 +1,6 @@
-admissionController:
-  container:
-    extraArgs:
-      enablePolicyException: true
+features:
+  policyExceptions:
+    enabled: true
 
 backgroundController:
   rbac:
@@ -30,7 +29,3 @@ cleanupController:
             - ''
           resources:
             - pods
-
-reportsController:
-  extraArgs:
-    enablePolicyException: true

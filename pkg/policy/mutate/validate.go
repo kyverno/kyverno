@@ -20,10 +20,10 @@ type Mutate struct {
 }
 
 // NewMutateFactory returns a new instance of Mutate validation checker
-func NewMutateFactory(m kyvernov1.Mutation, client dclient.Interface) *Mutate {
+func NewMutateFactory(m kyvernov1.Mutation, client dclient.Interface, user string) *Mutate {
 	return &Mutate{
 		mutation:    m,
-		authChecker: newAuthChecker(client),
+		authChecker: newAuthChecker(client, user),
 	}
 }
 
@@ -93,7 +93,7 @@ func (m *Mutate) hasPatchesJSON6902() bool {
 func (m *Mutate) validateAuth(ctx context.Context, targets []kyvernov1.TargetResourceSpec) error {
 	var errs []error
 	for _, target := range targets {
-		if !regex.IsVariable(target.Namespace) {
+		if !regex.IsVariable(target.Kind) {
 			_, _, k, sub := kubeutils.ParseKindSelector(target.Kind)
 			srcKey := k
 			if sub != "" {

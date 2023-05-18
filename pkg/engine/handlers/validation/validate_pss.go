@@ -9,7 +9,6 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
-	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/pss"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -34,9 +33,12 @@ func (h validatePssHandler) Process(
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	// Marshal pod metadata and spec
 	podSecurity := rule.Validation.PodSecurity
+	if resource.Object == nil {
+		resource = policyContext.OldResource()
+	}
 	podSpec, metadata, err := getSpec(resource)
 	if err != nil {
-		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.Validation, "Error while getting new resource", err))
+		return resource, handlers.WithError(rule, engineapi.Validation, "Error while getting new resource", err)
 	}
 	pod := &corev1.Pod{
 		Spec:       *podSpec,
@@ -44,23 +46,23 @@ func (h validatePssHandler) Process(
 	}
 	allowed, pssChecks, err := pss.EvaluatePod(podSecurity, pod)
 	if err != nil {
-		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.Validation, "failed to parse pod security api version", err))
+		return resource, handlers.WithError(rule, engineapi.Validation, "failed to parse pod security api version", err)
 	}
-	podSecurityChecks := &engineapi.PodSecurityChecks{
+	podSecurityChecks := engineapi.PodSecurityChecks{
 		Level:   podSecurity.Level,
 		Version: podSecurity.Version,
 		Checks:  pssChecks,
 	}
 	if allowed {
 		msg := fmt.Sprintf("Validation rule '%s' passed.", rule.Name)
-		rspn := internal.RulePass(rule, engineapi.Validation, msg)
-		rspn.PodSecurityChecks = podSecurityChecks
-		return resource, handlers.RuleResponses(rspn)
+		return resource, handlers.WithResponses(
+			engineapi.RulePass(rule.Name, engineapi.Validation, msg).WithPodSecurityChecks(podSecurityChecks),
+		)
 	} else {
 		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, rule.Name, podSecurity.Level, podSecurity.Version, pss.FormatChecksPrint(pssChecks))
-		rspn := internal.RuleResponse(rule, engineapi.Validation, msg, engineapi.RuleStatusFail)
-		rspn.PodSecurityChecks = podSecurityChecks
-		return resource, handlers.RuleResponses(rspn)
+		return resource, handlers.WithResponses(
+			engineapi.RuleFail(rule.Name, engineapi.Validation, msg).WithPodSecurityChecks(podSecurityChecks),
+		)
 	}
 }
 

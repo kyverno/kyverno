@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
+	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -37,7 +38,7 @@ func (h mutateExistingHandler) Process(
 	logger.V(3).Info("processing mutate rule")
 	targets, err := loadTargets(h.client, rule.Mutation.Targets, policyContext, logger)
 	if err != nil {
-		rr := internal.RuleError(rule, engineapi.Mutation, "", err)
+		rr := engineapi.RuleError(rule.Name, engineapi.Mutation, "", err)
 		responses = append(responses, *rr)
 	}
 
@@ -46,25 +47,26 @@ func (h mutateExistingHandler) Process(
 			continue
 		}
 		policyContext := policyContext.Copy()
-		if err := policyContext.JSONContext().AddTargetResource(target.unstructured.Object); err != nil {
+		if err := policyContext.JSONContext().SetTargetResource(target.unstructured.Object); err != nil {
 			logger.Error(err, "failed to add target resource to the context")
 			continue
 		}
 		// load target specific context
 		if err := contextLoader(ctx, target.context, policyContext.JSONContext()); err != nil {
-			rr := internal.RuleError(rule, engineapi.Mutation, "failed to load context", err)
+			rr := engineapi.RuleError(rule.Name, engineapi.Mutation, "failed to load context", err)
 			responses = append(responses, *rr)
 			continue
 		}
 		// load target specific preconditions
-		preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), target.preconditions)
+		preconditionsPassed, msg, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), target.preconditions)
 		if err != nil {
-			rr := internal.RuleError(rule, engineapi.Mutation, "failed to evaluate preconditions", err)
+			rr := engineapi.RuleError(rule.Name, engineapi.Mutation, "failed to evaluate preconditions", err)
 			responses = append(responses, *rr)
 			continue
 		}
 		if !preconditionsPassed {
-			rr := internal.RuleSkip(rule, engineapi.Mutation, "preconditions not met")
+			s := stringutils.JoinNonEmpty([]string{"preconditions not met", msg}, "; ")
+			rr := engineapi.RuleSkip(rule.Name, engineapi.Mutation, s)
 			responses = append(responses, *rr)
 			continue
 		}

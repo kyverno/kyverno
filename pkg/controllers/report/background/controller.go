@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -59,12 +60,12 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 
 	// cache
-	metadataCache          resource.MetadataCache
-	informerCacheResolvers engineapi.ConfigmapResolver
-	forceDelay             time.Duration
+	metadataCache resource.MetadataCache
+	forceDelay    time.Duration
 
 	// config
 	config   config.Configuration
+	jp       jmespath.Interface
 	eventGen event.Interface
 }
 
@@ -77,29 +78,29 @@ func NewController(
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	nsInformer corev1informers.NamespaceInformer,
 	metadataCache resource.MetadataCache,
-	informerCacheResolvers engineapi.ConfigmapResolver,
 	forceDelay time.Duration,
 	config config.Configuration,
+	jp jmespath.Interface,
 	eventGen event.Interface,
 ) controllers.Controller {
 	bgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("backgroundscanreports"))
 	cbgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
-		client:                 client,
-		kyvernoClient:          kyvernoClient,
-		engine:                 engine,
-		polLister:              polInformer.Lister(),
-		cpolLister:             cpolInformer.Lister(),
-		bgscanrLister:          bgscanr.Lister(),
-		cbgscanrLister:         cbgscanr.Lister(),
-		nsLister:               nsInformer.Lister(),
-		queue:                  queue,
-		metadataCache:          metadataCache,
-		informerCacheResolvers: informerCacheResolvers,
-		forceDelay:             forceDelay,
-		config:                 config,
-		eventGen:               eventGen,
+		client:         client,
+		kyvernoClient:  kyvernoClient,
+		engine:         engine,
+		polLister:      polInformer.Lister(),
+		cpolLister:     cpolInformer.Lister(),
+		bgscanrLister:  bgscanr.Lister(),
+		cbgscanrLister: cbgscanr.Lister(),
+		nsLister:       nsInformer.Lister(),
+		queue:          queue,
+		metadataCache:  metadataCache,
+		forceDelay:     forceDelay,
+		config:         config,
+		jp:             jp,
+		eventGen:       eventGen,
 	}
 	controllerutils.AddDefaultEventHandlers(logger, bgscanr.Informer(), queue)
 	controllerutils.AddDefaultEventHandlers(logger, cbgscanr.Informer(), queue)
@@ -304,7 +305,7 @@ func (c *controller) reconcileReport(
 	// calculate necessary results
 	for _, policy := range backgroundPolicies {
 		if full || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
-			scanner := utils.NewScanner(logger, c.engine, c.config)
+			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp)
 			for _, result := range scanner.ScanResource(ctx, *target, nsLabels, policy) {
 				if result.Error != nil {
 					return result.Error

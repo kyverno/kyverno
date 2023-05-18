@@ -2,21 +2,36 @@ package api
 
 // PolicyResponse policy application response
 type PolicyResponse struct {
-	// Stats contains policy statistics
-	Stats PolicyStats
+	// stats contains policy statistics
+	stats PolicyStats
 	// Rules contains policy rules responses
 	Rules []RuleResponse
 }
 
-func (pr *PolicyResponse) Add(rr RuleResponse) {
-	pr.Rules = append(pr.Rules, rr)
-	if rr.Status == RuleStatusPass || rr.Status == RuleStatusFail {
-		pr.Stats.RulesAppliedCount++
-	} else if rr.Status == RuleStatusError {
-		pr.Stats.RulesErrorCount++
+func (pr *PolicyResponse) Add(stats ExecutionStats, responses ...RuleResponse) {
+	for _, response := range responses {
+		pr.Rules = append(pr.Rules, response.WithStats(stats))
+		status := response.Status()
+		if status == RuleStatusPass || status == RuleStatusFail {
+			pr.stats.rulesAppliedCount++
+		} else if status == RuleStatusError {
+			pr.stats.rulesErrorCount++
+		}
 	}
 }
 
 func NewPolicyResponse() PolicyResponse {
 	return PolicyResponse{}
+}
+
+func (pr *PolicyResponse) Stats() PolicyStats {
+	return pr.stats
+}
+
+func (pr *PolicyResponse) RulesAppliedCount() int {
+	return pr.stats.RulesAppliedCount()
+}
+
+func (pr *PolicyResponse) RulesErrorCount() int {
+	return pr.stats.RulesErrorCount()
 }

@@ -2,7 +2,7 @@ package apicall
 
 import (
 	"bytes"
-	goctx "context"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -14,40 +14,47 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/engine/context"
+	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/tracing"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 type apiCall struct {
-	log     logr.Logger
+	logger  logr.Logger
+	jp      jmespath.Interface
 	entry   kyvernov1.ContextEntry
-	ctx     goctx.Context
-	jsonCtx context.Interface
+	jsonCtx enginecontext.Interface
 	client  dclient.Interface
 }
 
-func New(ctx goctx.Context, entry kyvernov1.ContextEntry, jsonCtx context.Interface, client dclient.Interface, log logr.Logger) (*apiCall, error) {
+func New(
+	logger logr.Logger,
+	jp jmespath.Interface,
+	entry kyvernov1.ContextEntry,
+	jsonCtx enginecontext.Interface,
+	client dclient.Interface,
+) (*apiCall, error) {
 	if entry.APICall == nil {
 		return nil, fmt.Errorf("missing APICall in context entry %v", entry)
 	}
-
 	return &apiCall{
-		ctx:     ctx,
+		logger:  logger,
+		jp:      jp,
 		entry:   entry,
 		jsonCtx: jsonCtx,
 		client:  client,
-		log:     log,
 	}, nil
 }
 
-func (a *apiCall) Execute() ([]byte, error) {
-	call, err := variables.SubstituteAllInType(a.log, a.jsonCtx, a.entry.APICall)
+func (a *apiCall) Execute(ctx context.Context) ([]byte, error) {
+	call, err := variables.SubstituteAllInType(a.logger, a.jsonCtx, a.entry.APICall)
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", a.entry.Name, a.entry.APICall.URLPath, err)
 	}
 
-	data, err := a.execute(call)
+	data, err := a.execute(ctx, call)
 	if err != nil {
 		return nil, err
 	}
@@ -60,35 +67,40 @@ func (a *apiCall) Execute() ([]byte, error) {
 	return result, nil
 }
 
-func (a *apiCall) execute(call *kyvernov1.APICall) ([]byte, error) {
+func (a *apiCall) execute(ctx context.Context, call *kyvernov1.APICall) ([]byte, error) {
 	if call.URLPath != "" {
-		return a.executeK8sAPICall(call.URLPath)
+		return a.executeK8sAPICall(ctx, call.URLPath, call.Method, call.Data)
 	}
 
-	return a.executeServiceCall(call.Service)
+	return a.executeServiceCall(ctx, call)
 }
 
-func (a *apiCall) executeK8sAPICall(path string) ([]byte, error) {
-	jsonData, err := a.client.RawAbsPath(a.ctx, path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get resource with raw url\n: %s: %v", path, err)
-	}
-
-	a.log.V(4).Info("executed APICall", "name", a.entry.Name, "len", len(jsonData))
-	return jsonData, nil
-}
-
-func (a *apiCall) executeServiceCall(service *kyvernov1.ServiceCall) ([]byte, error) {
-	if service == nil {
-		return nil, fmt.Errorf("missing service for APICall %s", a.entry.Name)
-	}
-
-	client, err := a.buildHTTPClient(service)
+func (a *apiCall) executeK8sAPICall(ctx context.Context, path string, method kyvernov1.Method, data []kyvernov1.RequestData) ([]byte, error) {
+	requestData, err := a.buildRequestData(data)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := a.buildHTTPRequest(service)
+	jsonData, err := a.client.RawAbsPath(ctx, path, string(method), requestData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to %v resource with raw url\n: %s: %v", method, path, err)
+	}
+
+	a.logger.V(4).Info("executed APICall", "name", a.entry.Name, "path", path, "method", method, "len", len(jsonData))
+	return jsonData, nil
+}
+
+func (a *apiCall) executeServiceCall(ctx context.Context, apiCall *kyvernov1.APICall) ([]byte, error) {
+	if apiCall.Service == nil {
+		return nil, fmt.Errorf("missing service for APICall %s", a.entry.Name)
+	}
+
+	client, err := a.buildHTTPClient(apiCall.Service)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := a.buildHTTPRequest(ctx, apiCall)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build HTTP request for APICall %s: %w", a.entry.Name, err)
 	}
@@ -99,7 +111,12 @@ func (a *apiCall) executeServiceCall(service *kyvernov1.ServiceCall) ([]byte, er
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)
+		b, err := io.ReadAll(resp.Body)
+		if err == nil {
+			return nil, fmt.Errorf("HTTP %s: %s", resp.Status, string(b))
+		}
+
+		return nil, fmt.Errorf("HTTP %s", resp.Status)
 	}
 
 	defer resp.Body.Close()
@@ -108,11 +125,15 @@ func (a *apiCall) executeServiceCall(service *kyvernov1.ServiceCall) ([]byte, er
 		return nil, fmt.Errorf("failed to read data from APICall %s: %w", a.entry.Name, err)
 	}
 
-	a.log.Info("executed service APICall", "name", a.entry.Name, "len", len(body))
+	a.logger.Info("executed service APICall", "name", a.entry.Name, "len", len(body))
 	return body, nil
 }
 
-func (a *apiCall) buildHTTPRequest(service *kyvernov1.ServiceCall) (req *http.Request, err error) {
+func (a *apiCall) buildHTTPRequest(ctx context.Context, apiCall *kyvernov1.APICall) (req *http.Request, err error) {
+	if apiCall.Service == nil {
+		return nil, fmt.Errorf("missing service")
+	}
+
 	token := a.getToken()
 	defer func() {
 		if token != "" && req != nil {
@@ -120,28 +141,29 @@ func (a *apiCall) buildHTTPRequest(service *kyvernov1.ServiceCall) (req *http.Re
 		}
 	}()
 
-	if service.Method == "GET" {
-		req, err = http.NewRequest("GET", service.URL, nil)
+	if apiCall.Method == "GET" {
+		req, err = http.NewRequestWithContext(ctx, "GET", apiCall.Service.URL, nil)
 		return
 	}
 
-	if service.Method == "POST" {
-		data, dataErr := a.buildPostData(service.Data)
+	if apiCall.Method == "POST" {
+		data, dataErr := a.buildRequestData(apiCall.Data)
 		if dataErr != nil {
 			return nil, dataErr
 		}
 
-		req, err = http.NewRequest("POST", service.URL, data)
+		req, err = http.NewRequest("POST", apiCall.Service.URL, data)
 		return
 	}
 
-	return nil, fmt.Errorf("invalid request type %s for APICall %s", service.Method, a.entry.Name)
+	return nil, fmt.Errorf("invalid request type %s for APICall %s", apiCall.Method, a.entry.Name)
 }
 
 func (a *apiCall) getToken() string {
-	b, err := os.ReadFile("/var/run/secrets/tokens/api-token")
+	fileName := "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	b, err := os.ReadFile(fileName)
 	if err != nil {
-		a.log.Info("failed to read token", "path", "/var/run/secrets/tokens/api-token")
+		a.logger.Info("failed to read service account token", "path", fileName)
 		return ""
 	}
 
@@ -149,26 +171,25 @@ func (a *apiCall) getToken() string {
 }
 
 func (a *apiCall) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client, error) {
-	if service.CABundle == "" {
+	if service == nil || service.CABundle == "" {
 		return http.DefaultClient, nil
 	}
-
 	caCertPool := x509.NewCertPool()
 	if ok := caCertPool.AppendCertsFromPEM([]byte(service.CABundle)); !ok {
 		return nil, fmt.Errorf("failed to parse PEM CA bundle for APICall %s", a.entry.Name)
 	}
-
-	return &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs:    caCertPool,
-				MinVersion: tls.VersionTLS12,
-			},
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			RootCAs:    caCertPool,
+			MinVersion: tls.VersionTLS12,
 		},
+	}
+	return &http.Client{
+		Transport: tracing.Transport(transport, otelhttp.WithFilter(tracing.RequestFilterIsInSpan)),
 	}, nil
 }
 
-func (a *apiCall) buildPostData(data []kyvernov1.RequestData) (io.Reader, error) {
+func (a *apiCall) buildRequestData(data []kyvernov1.RequestData) (io.Reader, error) {
 	dataMap := make(map[string]interface{})
 	for _, d := range data {
 		dataMap[d.Key] = d.Value
@@ -192,12 +213,12 @@ func (a *apiCall) transformAndStore(jsonData []byte) ([]byte, error) {
 		return jsonData, nil
 	}
 
-	path, err := variables.SubstituteAll(a.log, a.jsonCtx, a.entry.APICall.JMESPath)
+	path, err := variables.SubstituteAll(a.logger, a.jsonCtx, a.entry.APICall.JMESPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s JMESPath %s: %w", a.entry.Name, a.entry.APICall.JMESPath, err)
 	}
 
-	results, err := applyJMESPathJSON(path.(string), jsonData)
+	results, err := a.applyJMESPathJSON(path.(string), jsonData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply JMESPath %s for context entry %s: %w", path, a.entry.Name, err)
 	}
@@ -212,21 +233,15 @@ func (a *apiCall) transformAndStore(jsonData []byte) ([]byte, error) {
 		return nil, fmt.Errorf("failed to add APICall results for context entry %s: %w", a.entry.Name, err)
 	}
 
-	a.log.V(4).Info("added context data", "name", a.entry.Name, "len", len(contextData))
+	a.logger.V(4).Info("added context data", "name", a.entry.Name, "len", len(contextData))
 	return contextData, nil
 }
 
-func applyJMESPathJSON(jmesPath string, jsonData []byte) (interface{}, error) {
+func (a *apiCall) applyJMESPathJSON(jmesPath string, jsonData []byte) (interface{}, error) {
 	var data interface{}
 	err := json.Unmarshal(jsonData, &data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal JSON: %s, error: %w", string(jsonData), err)
 	}
-
-	jp, err := jmespath.New(jmesPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to compile JMESPath: %s, error: %v", jmesPath, err)
-	}
-
-	return jp.Search(data)
+	return a.jp.Search(jmesPath, data)
 }
