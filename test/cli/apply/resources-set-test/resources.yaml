@@ -1,21 +1,19 @@
 apiVersion: v1
-kind: Pod
+kind: ConfigMap
 metadata:
-  name: myapp-pod
+  name: any-configmap-name-one
+  namespace: any-namespace
   labels:
     op: CREATE
-spec: 
-  containers:
-  - name: nginx
-    image: nginx:1.12
+data:
+  key: value
 ---
 apiVersion: v1
-kind: Pod
+kind: ConfigMap
 metadata:
-  name: myapp-pod2
+  name: any-configmap-name-two
+  namespace: any-namespace
   labels:
     op: CREATE
-spec: 
-  containers:
-  - name: nginx
-    image: nginx:1.12
+data:
+  key: value

@@ -2,8 +2,6 @@ apiVersion : kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: require-label
-  annotations:
-    pod-policies.kyverno.io/autogen-controllers: none
 spec:
   validationFailureAction: audit
   rules:
@@ -11,7 +9,7 @@ spec:
     match:
       resources:
         kinds:
-        - Pod
+        - ConfigMap
     validate:
       message: "Op label is required"  
       pattern:
