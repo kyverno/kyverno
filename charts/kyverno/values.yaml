@@ -55,12 +55,11 @@ config:
 
   # -- Exclude groups
   excludeGroups:
-    - system:serviceaccounts:kube-system
     - system:nodes
 
   # -- Exclude usernames
-  excludeUsernames:
-    - '!system:kube-scheduler'
+  excludeUsernames: []
+    # - '!system:kube-scheduler'
 
   # -- Exclude roles
   excludeRoles: []
