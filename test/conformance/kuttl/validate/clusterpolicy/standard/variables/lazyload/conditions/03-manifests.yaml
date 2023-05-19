@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: preconditions
 spec:
-  validationFailureAction: enforce
+  validationFailureAction: Enforce
   background: false
   rules:
     - name: test
