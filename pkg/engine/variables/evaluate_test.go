@@ -443,9 +443,9 @@ func Test_Eval_Equal_Var_Fail(t *testing.T) {
 		RawValue: kyverno.ToJSON("temp1"),
 	}
 
-	if val, _, _ := Evaluate(logr.Discard(), ctx, condition); val {
-		t.Error("expected to fail")
-	}
+	val, _, err := Evaluate(logr.Discard(), ctx, condition)
+	assert.Nil(t, err)
+	assert.Equal(t, false, val, "expected to fail")
 }
 
 func Test_Condition_Messages(t *testing.T) {
