@@ -4,7 +4,7 @@ This test verifies a variable definition is not evaluated until the condition is
 
 ## Expected Behavior
 
-The policy should not cause an error if the first condition passes. The policy should cause an error if the 
+The policy should not cause an error if the first condition (any) passes. The policy should cause an error if the first condition (all) fails.
 
 ## Reference Issues
 
