@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/sigstore/cosign/pkg/cosign"
-	"github.com/sigstore/cosign/pkg/oci"
+	"github.com/sigstore/cosign/v2/pkg/cosign"
+	"github.com/sigstore/cosign/v2/pkg/oci"
 )
 
 var client Cosign = &driver{}

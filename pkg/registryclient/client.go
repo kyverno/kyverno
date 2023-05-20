@@ -17,7 +17,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/google"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/tracing"
-	"github.com/sigstore/cosign/pkg/oci/remote"
+	"github.com/sigstore/cosign/v2/pkg/oci/remote"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"k8s.io/apimachinery/pkg/util/sets"
 	corev1listers "k8s.io/client-go/listers/core/v1"

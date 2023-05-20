@@ -11,9 +11,9 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/kyverno/kyverno/pkg/images"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	"github.com/sigstore/cosign/pkg/cosign"
-	"github.com/sigstore/cosign/pkg/cosign/bundle"
-	"github.com/sigstore/cosign/pkg/oci"
+	"github.com/sigstore/cosign/v2/pkg/cosign"
+	"github.com/sigstore/cosign/v2/pkg/cosign/bundle"
+	"github.com/sigstore/cosign/v2/pkg/oci"
 	"gotest.tools/assert"
 )
 
@@ -52,7 +52,9 @@ const tektonPayload = `{
 func TestCosignPayload(t *testing.T) {
 	image := "registry-v2.nirmata.io/pause"
 	signedPayloads := cosign.SignedPayload{Payload: []byte(cosignPayload)}
-	p, err := extractPayload([]oci.Signature{&sig{cosignPayload: signedPayloads}})
+	ociSig, err := GetOCISignatureFromCosignSignedPayload(signedPayloads)
+	assert.NilError(t, err)
+	p, err := extractPayload([]oci.Signature{ociSig})
 	assert.NilError(t, err)
 	a := map[string]string{"foo": "bar"}
 	err = checkAnnotations(p, a)
@@ -63,7 +65,9 @@ func TestCosignPayload(t *testing.T) {
 
 	image2 := "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/nop"
 	signedPayloads2 := cosign.SignedPayload{Payload: []byte(tektonPayload)}
-	signatures2 := []oci.Signature{&sig{cosignPayload: signedPayloads2}}
+	ociSig, err = GetOCISignatureFromCosignSignedPayload(signedPayloads2)
+	assert.NilError(t, err)
+	signatures2 := []oci.Signature{ociSig}
 	p2, err := extractPayload(signatures2)
 	assert.NilError(t, err)
 
@@ -163,6 +167,10 @@ func (ts testSignature) Payload() ([]byte, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
+func (ts testSignature) Signature() ([]byte, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 func (ts testSignature) Base64Signature() (string, error) {
 	return "", fmt.Errorf("not implemented")
 }
@@ -177,6 +185,10 @@ func (ts testSignature) Chain() ([]*x509.Certificate, error) {
 
 func (ts testSignature) Bundle() (*bundle.RekorBundle, error) {
 	return nil, fmt.Errorf("not implemented")
+}
+
+func (ts testSignature) RFC3161Timestamp() (*bundle.RFC3161Timestamp, error) {
+	return nil, nil
 }
 
 func TestCosignMatchSignatures(t *testing.T) {
