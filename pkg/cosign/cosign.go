@@ -186,6 +186,8 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Rekor client from URL %s: %w", opts.RekorURL, err)
 		}
+	} else {
+		cosignOpts.IgnoreTlog = true
 	}
 
 	if opts.Repository != "" {
@@ -196,6 +198,7 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 
 		cosignOpts.RegistryClientOpts = append(cosignOpts.RegistryClientOpts, remote.WithTargetRepository(signatureRepo))
 	}
+	cosignOpts.IgnoreSCT = true
 
 	return cosignOpts, nil
 }
