@@ -24,7 +24,6 @@ type PolicyContext interface {
 	AdmissionOperation() bool
 	Element() unstructured.Unstructured
 	SetElement(element unstructured.Unstructured)
-	RegistryClientLoader() RegistryClientLoader
 
 	JSONContext() enginecontext.Interface
 	Copy() PolicyContext

@@ -94,7 +94,7 @@ func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unst
 	policyCtx = policyCtx.
 		WithNewResource(resource).
 		WithPolicy(policy).
-		WithNamespaceLabels(nsLabels).WithRegistryClient(s.rclientloader)
+		WithNamespaceLabels(nsLabels)
 	response, _ := s.engine.VerifyAndPatchImages(ctx, policyCtx)
 	if len(response.PolicyResponse.Rules) > 0 {
 		s.logger.Info("validateImages", "policy", policy, "response", response)

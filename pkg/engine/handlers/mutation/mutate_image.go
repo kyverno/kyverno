@@ -21,6 +21,7 @@ type mutateImageHandler struct {
 	configuration config.Configuration
 	ivm           *engineapi.ImageVerificationMetadata
 	images        []apiutils.ImageInfo
+	rclientLoader engineapi.RegistryClientLoader
 }
 
 func NewMutateImageHandler(
@@ -28,6 +29,7 @@ func NewMutateImageHandler(
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
 	configuration config.Configuration,
+	rclientLoader engineapi.RegistryClientLoader,
 	ivm *engineapi.ImageVerificationMetadata,
 ) (handlers.Handler, error) {
 	if len(rule.VerifyImages) == 0 {
@@ -44,6 +46,7 @@ func NewMutateImageHandler(
 		configuration: configuration,
 		ivm:           ivm,
 		images:        ruleImages,
+		rclientLoader: rclientLoader,
 	}, nil
 }
 
@@ -66,9 +69,9 @@ func (h mutateImageHandler) Process(
 	for _, imageVerify := range ruleCopy.VerifyImages {
 		var rclient registryclient.Client
 		if len(imageVerify.ImageRegistryCredentials.Secrets) != 0 {
-			rclient = policyContext.RegistryClientLoader().Load(ctx, imageVerify, policyContext)
+			rclient = h.rclientLoader.Load(ctx, imageVerify, policyContext)
 		} else {
-			rclient = policyContext.RegistryClientLoader().GetGlobalRegistryClient()
+			rclient = h.rclientLoader.GetGlobalRegistryClient()
 		}
 		iv := internal.NewImageVerifier(logger, rclient, policyContext, *ruleCopy, h.ivm)
 		engineResponses = append(engineResponses, iv.Verify(ctx, imageVerify, h.images, h.configuration)...)

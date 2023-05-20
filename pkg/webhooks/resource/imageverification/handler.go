@@ -103,7 +103,7 @@ func (h *imageVerificationHandler) handleVerifyImages(
 					failurePolicy = kyvernov1.Fail
 				}
 
-				policyContext := policyContext.WithPolicy(policy).WithRegistryClient(h.rclientloader)
+				policyContext := policyContext.WithPolicy(policy)
 				if request.Kind.Kind != "Namespace" && request.Namespace != "" {
 					policyContext = policyContext.WithNamespaceLabels(engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
 				}
