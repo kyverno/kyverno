@@ -1040,64 +1040,6 @@ If ParamKind refers to a non-existent kind, this policy definition is mis-config
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v1.CELCondition">CELCondition
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.Precondition">Precondition</a>)
-</p>
-<p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>name</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Name is an identifier for this match condition, used for strategic merging of MatchConditions,
-as well as providing an identifier for logging purposes. A good name should be descriptive of
-the associated expression.
-Name must be a qualified name consisting of alphanumeric characters, &lsquo;-&rsquo;, &lsquo;<em>&rsquo; or &lsquo;.&rsquo;, and
-must start and end with an alphanumeric character (e.g. &lsquo;MyName&rsquo;,  or &lsquo;my.name&rsquo;,  or
-&lsquo;123-abc&rsquo;, regex used for validation is &lsquo;([A-Za-z0-9][-A-Za-z0-9</em>.]*)?[A-Za-z0-9]&rsquo;) with an
-optional DNS subdomain prefix and &lsquo;/&rsquo; (e.g. &lsquo;example.com/MyName&rsquo;)</p>
-<p>Required.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>expression</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
-CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:</p>
-<p>&lsquo;object&rsquo; - The object from the incoming request. The value is null for DELETE requests.
-&lsquo;oldObject&rsquo; - The existing object. The value is null for CREATE requests.
-&lsquo;request&rsquo; - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
-&lsquo;authorizer&rsquo; - A CEL Authorizer. May be used to perform authorization checks for the principal (user or service account) of the request.
-See <a href="https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz">https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz</a>
-&lsquo;authorizer.requestResource&rsquo; - A CEL ResourceCheck constructed from the &lsquo;authorizer&rsquo; and configured with the
-request resource.
-Documentation on CEL: <a href="https://kubernetes.io/docs/reference/using-api/cel/">https://kubernetes.io/docs/reference/using-api/cel/</a></p>
-<p>Required.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="kyverno.io/v1.CELExpression">CELExpression
 </h3>
 <p>
@@ -2949,59 +2891,6 @@ RuleCountStatus
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v1.Precondition">Precondition
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.Rule">Rule</a>, 
-<a href="#kyverno.io/v2beta1.Rule">Rule</a>)
-</p>
-<p>
-<p>Preconditions are used to determine if a policy rule should be applied by evaluating a
-set of conditions.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>conditions</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
-Kubernetes apiextensions/v1.JSON
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Multiple conditions can be declared under an <code>any</code> or <code>all</code> statement. A direct list
-of conditions (without <code>any</code> or <code>all</code> statements) is also supported for backwards compatibility
-but will be deprecated in the next major release.
-See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
-</td>
-</tr>
-<tr>
-<td>
-<code>celConditions</code><br/>
-<em>
-<a href="#kyverno.io/v1.CELCondition">
-[]CELCondition
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>CELConditions is a list of conditions written as CEL expressions. It can only be used with the validate.cel subrule</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="kyverno.io/v1.RequestData">RequestData
 </h3>
 <p>
@@ -3400,18 +3289,33 @@ This config is only valid for verifyImages rules.</p>
 <td>
 <code>preconditions</code><br/>
 <em>
-<a href="#kyverno.io/v1.Precondition">
-Precondition
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
 <p>Preconditions are used to determine if a policy rule should be applied by evaluating a
-set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> or <code>cel</code> statements. A direct list
+set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements. A direct list
 of conditions (without <code>any</code> or <code>all</code> statements is supported for backwards compatibility but
 will be deprecated in the next major release.
 See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>celPreconditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CELPreconditions are used to determine if a policy rule should be applied by evaluating a
+set of CEL conditions. It can only be used with the validate.cel subrule</p>
 </td>
 </tr>
 <tr>
@@ -6439,7 +6343,8 @@ PolicyStatus
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v2alpha1.CleanupPolicySpec">CleanupPolicySpec</a>, 
-<a href="#kyverno.io/v2beta1.Deny">Deny</a>)
+<a href="#kyverno.io/v2beta1.Deny">Deny</a>, 
+<a href="#kyverno.io/v2beta1.Rule">Rule</a>)
 </p>
 <p>
 </p>
@@ -7055,8 +6960,8 @@ This config is only valid for verifyImages rules.</p>
 <td>
 <code>preconditions</code><br/>
 <em>
-<a href="#kyverno.io/v1.Precondition">
-Precondition
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
+AnyAllConditions
 </a>
 </em>
 </td>
@@ -7066,6 +6971,21 @@ Precondition
 set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements. A direct list
 of conditions (without <code>any</code> or <code>all</code> statements is supported for backwards compatibility but
 See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>celPreconditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CELPreconditions are used to determine if a policy rule should be applied by evaluating a
+set of CEL conditions. It can only be used with the validate.cel subrule</p>
 </td>
 </tr>
 <tr>

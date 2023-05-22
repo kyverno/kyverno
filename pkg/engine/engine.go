@@ -257,17 +257,14 @@ func (e *engine) invokeRuleHandler(
 					return resource, handlers.WithError(rule, ruleType, "failed to load context", err)
 				}
 				// check preconditions
-				if rule.Preconditions != nil {
-					preconditionsPassed, msg, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), rule.Preconditions.GetAnyAllConditions())
-					if err != nil {
-						return resource, handlers.WithError(rule, ruleType, "failed to evaluate preconditions", err)
-					}
-					if !preconditionsPassed {
-						s := stringutils.JoinNonEmpty([]string{"preconditions not met", msg}, "; ")
-						return resource, handlers.WithSkip(rule, ruleType, s)
-					}
+				preconditionsPassed, msg, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), rule.GetAnyAllConditions())
+				if err != nil {
+					return resource, handlers.WithError(rule, ruleType, "failed to evaluate preconditions", err)
 				}
-
+				if !preconditionsPassed {
+					s := stringutils.JoinNonEmpty([]string{"preconditions not met", msg}, "; ")
+					return resource, handlers.WithSkip(rule, ruleType, s)
+				}
 				// process handler
 				return handler.Process(ctx, logger, policyContext, resource, rule, contextLoader)
 			}

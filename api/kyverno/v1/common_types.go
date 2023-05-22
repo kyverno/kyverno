@@ -7,7 +7,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	admissionv1 "k8s.io/api/admission/v1"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -564,31 +563,6 @@ func (d *Deny) GetAnyAllConditions() apiextensions.JSON {
 func (d *Deny) SetAnyAllConditions(in apiextensions.JSON) {
 	d.RawAnyAllConditions = ToJSON(in)
 }
-
-// Preconditions are used to determine if a policy rule should be applied by evaluating a
-// set of conditions.
-type Precondition struct {
-	// Multiple conditions can be declared under an `any` or `all` statement. A direct list
-	// of conditions (without `any` or `all` statements) is also supported for backwards compatibility
-	// but will be deprecated in the next major release.
-	// See: https://kyverno.io/docs/writing-policies/preconditions/
-	// +optional
-	RawAnyAllConditions *apiextv1.JSON `json:"conditions,omitempty" yaml:"conditions,omitempty"`
-
-	// CELConditions is a list of conditions written as CEL expressions. It can only be used with the validate.cel subrule
-	// +optional
-	CELConditions []CELCondition `json:"celConditions,omitempty" yaml:"celConditions,omitempty"`
-}
-
-func (p *Precondition) GetAnyAllConditions() apiextensions.JSON {
-	return FromJSON(p.RawAnyAllConditions)
-}
-
-func (p *Precondition) SetAnyAllConditions(in apiextensions.JSON) {
-	p.RawAnyAllConditions = ToJSON(in)
-}
-
-type CELCondition admissionregistrationv1.MatchCondition
 
 // ForEachValidation applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 type ForEachValidation struct {

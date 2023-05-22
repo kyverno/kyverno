@@ -7,6 +7,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/pss/utils"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -68,12 +71,17 @@ type Rule struct {
 	ImageExtractors ImageExtractorConfigs `json:"imageExtractors,omitempty" yaml:"imageExtractors,omitempty"`
 
 	// Preconditions are used to determine if a policy rule should be applied by evaluating a
-	// set of conditions. The declaration can contain nested `any` or `all` or `cel` statements. A direct list
+	// set of conditions. The declaration can contain nested `any` or `all` statements. A direct list
 	// of conditions (without `any` or `all` statements is supported for backwards compatibility but
 	// will be deprecated in the next major release.
 	// See: https://kyverno.io/docs/writing-policies/preconditions/
 	// +optional
-	Preconditions *Precondition `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+	RawAnyAllConditions *apiextv1.JSON `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+
+	// CELPreconditions are used to determine if a policy rule should be applied by evaluating a
+	// set of CEL conditions. It can only be used with the validate.cel subrule
+	// +optional
+	CELPreconditions []admissionregistrationv1.MatchCondition `json:"celPreconditions,omitempty" yaml:"celPreconditions,omitempty"`
 
 	// Mutation is used to modify matching resources.
 	// +optional
@@ -156,6 +164,14 @@ func (r *Rule) GetGenerateTypeAndSync() (_ GenerateType, sync bool) {
 		return
 	}
 	return r.Generation.GetTypeAndSync()
+}
+
+func (r *Rule) GetAnyAllConditions() apiextensions.JSON {
+	return FromJSON(r.RawAnyAllConditions)
+}
+
+func (r *Rule) SetAnyAllConditions(in apiextensions.JSON) {
+	r.RawAnyAllConditions = ToJSON(in)
 }
 
 // ValidateRuleType checks only one type of rule is defined per rule

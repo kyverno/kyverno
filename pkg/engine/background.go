@@ -95,7 +95,7 @@ func (e *engine) filterRule(
 	}
 
 	// operate on the copy of the conditions, as we perform variable substitution
-	copyConditions, err := engineutils.TransformConditions(rule.Preconditions.GetAnyAllConditions())
+	copyConditions, err := engineutils.TransformConditions(rule.GetAnyAllConditions())
 	if err != nil {
 		logger.V(4).Info("cannot copy AnyAllConditions", "reason", err.Error())
 		return engineapi.RuleError(rule.Name, ruleType, "failed to convert AnyAllConditions", err)

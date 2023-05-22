@@ -58,12 +58,6 @@ func (h validateCELHandler) Process(
 	validations := rule.Validation.CEL.Expressions
 	auditAnnotations := rule.Validation.CEL.AuditAnnotations
 
-	// Get CEL preconditions if exist
-	var conditions []kyvernov1.CELCondition
-	if rule.Preconditions != nil {
-		conditions = rule.Preconditions.CELConditions
-	}
-
 	// Get the parameter resource
 	hasParam := rule.Validation.CEL.ParamKind != nil
 
@@ -99,7 +93,7 @@ func (h validateCELHandler) Process(
 		messageExpressions = append(messageExpressions, messageCondition)
 	}
 
-	for _, condition := range conditions {
+	for _, condition := range rule.CELPreconditions {
 		matchCondition := &matchconditions.MatchCondition{
 			Name:       condition.Name,
 			Expression: condition.Expression,

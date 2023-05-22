@@ -23,6 +23,7 @@ package v2beta1
 
 import (
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -402,8 +403,13 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 	}
 	if in.Preconditions != nil {
 		in, out := &in.Preconditions, &out.Preconditions
-		*out = new(v1.Precondition)
+		*out = new(AnyAllConditions)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.CELPreconditions != nil {
+		in, out := &in.CELPreconditions, &out.CELPreconditions
+		*out = make([]admissionregistrationv1.MatchCondition, len(*in))
+		copy(*out, *in)
 	}
 	in.Mutation.DeepCopyInto(&out.Mutation)
 	in.Validation.DeepCopyInto(&out.Validation)
