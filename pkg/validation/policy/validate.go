@@ -811,7 +811,6 @@ func validateResources(path *field.Path, rule kyvernov1.Rule) (string, error) {
 			return fmt.Sprintf("validate.%s", path), err
 		}
 	}
-
 	// validating the values present under validate.conditions, if they exist
 	if rule.Validation.Deny != nil {
 		if target := rule.Validation.Deny.GetAnyAllConditions(); target != nil {

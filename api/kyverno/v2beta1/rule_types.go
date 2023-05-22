@@ -44,7 +44,7 @@ type Rule struct {
 	// of conditions (without `any` or `all` statements is supported for backwards compatibility but
 	// See: https://kyverno.io/docs/writing-policies/preconditions/
 	// +optional
-	Preconditions *AnyAllConditions `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+	RawAnyAllConditions *AnyAllConditions `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
 
 	// CELPreconditions are used to determine if a policy rule should be applied by evaluating a
 	// set of CEL conditions. It can only be used with the validate.cel subrule

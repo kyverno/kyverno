@@ -401,8 +401,8 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 			(*out)[key] = outVal
 		}
 	}
-	if in.Preconditions != nil {
-		in, out := &in.Preconditions, &out.Preconditions
+	if in.RawAnyAllConditions != nil {
+		in, out := &in.RawAnyAllConditions, &out.RawAnyAllConditions
 		*out = new(AnyAllConditions)
 		(*in).DeepCopyInto(*out)
 	}
