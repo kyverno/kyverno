@@ -174,8 +174,7 @@ func EvaluateConditions(
 	if err != nil {
 		return false, "", fmt.Errorf("failed to substitute variables in attestation conditions: %w", err)
 	}
-	pass, msg := variables.EvaluateAnyAllConditions(log, ctx, c)
-	return pass, msg, nil
+	return variables.EvaluateAnyAllConditions(log, ctx, c)
 }
 
 // verify applies policy rules to each matching image. The policy rule results and annotation patches are
