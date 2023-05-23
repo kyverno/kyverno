@@ -1262,8 +1262,8 @@ github.com/sigstore/fulcio v1.1.0 h1:mzzJ05Ccu8Y2inyioklNvc8MpzlGHxu8YqNeTm0dHfU
 github.com/sigstore/fulcio v1.1.0/go.mod h1:zv1ZQTXZbUwQdRwajlQksc34pRas+2aZYpIZoQBNev8=
 github.com/sigstore/k8s-manifest-sigstore v0.4.4 h1:7ae///+L0nqFBsRwr26anJc5bnJxoDXCGhVHXQB1GSo=
 github.com/sigstore/k8s-manifest-sigstore v0.4.4/go.mod h1:PJSnSF8Nh7PqV4xhU3BRweqEFwGvJq6Xi2B5yhYjxb0=
-github.com/sigstore/rekor v1.0.1 h1:rcESXSNkAPRWFYZel9rarspdvneET60F2ngNkadi89c=
-github.com/sigstore/rekor v1.0.1/go.mod h1:ecTKdZWGWqE1pl3U1m1JebQJLU/hSjD9vYHOmHQ7w4g=
+github.com/sigstore/rekor v1.1.1 h1:JCeSss+qUHnCATmwAZh4zT9k0Frdyq0BjmRwewSfEy4=
+github.com/sigstore/rekor v1.1.1/go.mod h1:x/xK+HK08MiuJv+v4OxY/Oo3bhuz1DtJXNJrV7hrzvs=
 github.com/sigstore/sigstore v1.5.2 h1:rvZSPJDH2ysoc8kjW9v4nv1UX3XwSA8y4x6Dk7hA0D4=
 github.com/sigstore/sigstore v1.5.2/go.mod h1:wxhp9KoaOpeb1VLKILruD283KJqPSqX+3TuBByVDZ6E=
 github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=
