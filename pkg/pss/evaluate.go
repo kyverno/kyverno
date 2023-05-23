@@ -15,30 +15,35 @@ import (
 // Evaluate Pod's specified containers only and get PSSCheckResults
 func evaluatePSS(level *api.LevelVersion, pod corev1.Pod) (results []pssutils.PSSCheckResult) {
 	checks := policy.DefaultChecks()
-	checksMap := map[policy.CheckID]policy.VersionedCheck{}
+	var latestVersionCheck policy.VersionedCheck
 	for _, check := range checks {
-		if _, ok := checksMap[check.ID]; !ok {
-			checksMap[check.ID] = check.Versions[0]
-		}
-		for i := 1; i < len(check.Versions); i++ {
-			latestVersionCheck := checksMap[check.ID]
-			vc := check.Versions[i]
-			if !vc.MinimumVersion.Older(latestVersionCheck.MinimumVersion) {
-				checksMap[check.ID] = vc
-			}
-		}
 		if level.Level == api.LevelBaseline && check.Level != level.Level {
 			continue
 		}
-		// check version
-		appliedOnce := true
+
+		latestVersionCheck = check.Versions[0]
+		for i := 1; i < len(check.Versions); i++ {
+			vc := check.Versions[i]
+			if !vc.MinimumVersion.Older(latestVersionCheck.MinimumVersion) {
+				latestVersionCheck = vc
+			}
+		}
+
+		if level.Version == api.LatestVersion() {
+			checkResult := latestVersionCheck.CheckPod(&pod.ObjectMeta, &pod.Spec)
+			if !checkResult.Allowed {
+				results = append(results, pssutils.PSSCheckResult{
+					ID:               string(check.ID),
+					CheckResult:      checkResult,
+					RestrictedFields: GetRestrictedFields(check),
+				})
+			}
+		}
+
 		for _, versionCheck := range check.Versions {
 			// the latest check returned twice, skip duplicate application
 			if level.Version == api.LatestVersion() {
-				versionCheck = checksMap[check.ID]
-				if !appliedOnce {
-					continue
-				}
+				continue
 			} else if level.Version != api.LatestVersion() && level.Version.Older(versionCheck.MinimumVersion) {
 				continue
 			}
@@ -51,7 +56,6 @@ func evaluatePSS(level *api.LevelVersion, pod corev1.Pod) (results []pssutils.PS
 					RestrictedFields: GetRestrictedFields(check),
 				})
 			}
-			appliedOnce = false
 		}
 	}
 	return results
