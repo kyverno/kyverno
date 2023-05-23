@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: disallow-host-path
+  name: disallow-host-port-range
 status:
   conditions:
   - reason: Succeeded

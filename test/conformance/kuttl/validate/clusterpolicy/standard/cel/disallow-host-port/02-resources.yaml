@@ -1,7 +1,7 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 apply:
-- file: deployment-pass.yaml
+- file: pod-pass.yaml
   shouldFail: false
-- file: deployment-fail.yaml
+- file: pod-fail.yaml
   shouldFail: true
