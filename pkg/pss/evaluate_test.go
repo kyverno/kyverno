@@ -2116,6 +2116,40 @@ var baseline_procMount = []testCase{
 
 var baseline_seccompProfile = []testCase{
 	{
+		name: "baseline_seccompProfile_no_exclusion",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "latest"
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"seccompProfile": {
+						"type": "Unconfined"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"seccompProfile": {
+								"type": "Unconfined"
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: false,
+	},
+	{
 		name: "baseline_seccompProfile_defines_all_violate_true_1",
 		rawRule: []byte(`
 		{
