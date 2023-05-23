@@ -587,6 +587,25 @@ func (c *controller) buildDefaultResourceMutatingWebhookConfiguration(cfg config
 				AdmissionReviewVersions: []string{"v1"},
 				TimeoutSeconds:          &c.defaultTimeout,
 				ReinvocationPolicy:      &ifNeeded,
+			}, {
+				Name:         config.MutatingWebhookName + "-fail",
+				ClientConfig: c.clientConfig(caBundle, config.MutatingWebhookServicePath+"/fail"),
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{"*"},
+						APIVersions: []string{"*"},
+						Resources:   []string{"*/*"},
+					},
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+				}},
+				FailurePolicy:           &fail,
+				SideEffects:             &noneOnDryRun,
+				AdmissionReviewVersions: []string{"v1"},
+				TimeoutSeconds:          &c.defaultTimeout,
+				ReinvocationPolicy:      &ifNeeded,
 			}},
 		},
 		nil
