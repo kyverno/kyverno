@@ -689,6 +689,26 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(cfg conf
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
 				TimeoutSeconds:          &c.defaultTimeout,
+			}, {
+				Name:         config.ValidatingWebhookName + "-fail",
+				ClientConfig: c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/fail"),
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{"*"},
+						APIVersions: []string{"*"},
+						Resources:   []string{"*/*"},
+					},
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+						admissionregistrationv1.Delete,
+						admissionregistrationv1.Connect,
+					},
+				}},
+				FailurePolicy:           &fail,
+				SideEffects:             sideEffects,
+				AdmissionReviewVersions: []string{"v1"},
+				TimeoutSeconds:          &c.defaultTimeout,
 			}},
 		},
 		nil
