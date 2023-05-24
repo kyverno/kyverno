@@ -180,18 +180,23 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 		}
 	}
 
-	if opts.RekorURL != "" {
+	if opts.RekorURL == "" && opts.Key == "" {
+		// KEYLESS Verification and RecorURL is not provided
 		opts.RekorURL = "https://rekor.sigstore.dev"
 	}
 
-	cosignOpts.RekorClient, err = rekorclient.GetRekorClient(opts.RekorURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Rekor client from URL %s: %w", opts.RekorURL, err)
-	}
+	if opts.RekorURL != "" {
+		cosignOpts.RekorClient, err = rekorclient.GetRekorClient(opts.RekorURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Rekor client from URL %s: %w", opts.RekorURL, err)
+		}
 
-	cosignOpts.RekorPubKeys, err = cosign.GetRekorPubs(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load RekorPubKeys: %w", err)
+		cosignOpts.RekorPubKeys, err = cosign.GetRekorPubs(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load RekorPubKeys: %w", err)
+		}
+	} else {
+		cosignOpts.IgnoreTlog = true
 	}
 
 	if opts.Repository != "" {
