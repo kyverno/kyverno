@@ -20,9 +20,7 @@ import (
 	"sigs.k8s.io/release-utils/version"
 )
 
-var (
-	uaString = fmt.Sprintf("cosign/%s (%s; %s)", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH)
-)
+var uaString = fmt.Sprintf("cosign/%s (%s; %s)", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH)
 
 func UserAgent() string {
 	return uaString
