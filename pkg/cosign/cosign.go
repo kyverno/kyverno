@@ -185,6 +185,11 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Rekor client from URL %s: %w", opts.RekorURL, err)
 		}
+
+		cosignOpts.RekorPubKeys, err = cosign.GetRekorPubs(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load RekorPubKeys: %w", err)
+		}
 	} else {
 		cosignOpts.IgnoreTlog = true
 	}

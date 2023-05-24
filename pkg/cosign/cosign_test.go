@@ -86,6 +86,7 @@ func TestCosignKeyless(t *testing.T) {
 	rc, err := registryclient.New()
 	assert.NilError(t, err)
 	opts.RegistryClient = rc
+	opts.RekorURL = "https://rekor.sigstore.dev"
 
 	verifier := &cosignVerifier{}
 	_, err = verifier.VerifySignature(context.TODO(), opts)
