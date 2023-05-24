@@ -40,7 +40,7 @@ require (
 	github.com/prometheus/client_golang v1.15.1
 	github.com/robfig/cron v1.2.0
 	github.com/sigstore/cosign/v2 v2.0.2
-	github.com/sigstore/k8s-manifest-sigstore v0.4.4
+	github.com/sigstore/k8s-manifest-sigstore v0.5.0
 	github.com/sigstore/rekor v1.1.1
 	github.com/sigstore/sigstore v1.6.4
 	github.com/spf13/cobra v1.7.0
@@ -92,6 +92,7 @@ require (
 	cloud.google.com/go/iam v1.0.0 // indirect
 	cloud.google.com/go/kms v1.10.1 // indirect
 	cuelang.org/go v0.5.0 // indirect
+	filippo.io/edwards25519 v1.0.0 // indirect
 	github.com/AliyunContainerService/ack-ram-tool/pkg/credentials/alibabacloudsdkgo/helper v0.2.0 // indirect
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
@@ -141,6 +142,7 @@ require (
 	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
+	github.com/buildkite/agent/v3 v3.45.0 // indirect
 	github.com/cenkalti/backoff/v3 v3.2.2 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
@@ -200,7 +202,6 @@ require (
 	github.com/google/cel-go v0.12.6 // indirect
 	github.com/google/certificate-transparency-go v1.1.4 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
-	github.com/google/go-github/v45 v45.2.0 // indirect
 	github.com/google/go-github/v50 v50.2.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
@@ -258,6 +259,7 @@ require (
 	github.com/open-policy-agent/opa v0.51.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
+	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.7 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
@@ -275,7 +277,6 @@ require (
 	github.com/segmentio/ksuid v1.0.4 // indirect
 	github.com/sergi/go-diff v1.3.1 // indirect
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
-	github.com/sigstore/cosign v1.13.1 // indirect
 	github.com/sigstore/fulcio v1.2.0 // indirect
 	github.com/sigstore/timestamp-authority v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
@@ -313,6 +314,7 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric v0.38.1 // indirect
 	go.opentelemetry.io/proto/otlp v0.19.0 // indirect
 	go.starlark.net v0.0.0-20230302034142-4b1e35fe2254 // indirect
+	go.step.sm/crypto v0.29.3 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	golang.org/x/mod v0.10.0 // indirect
 	golang.org/x/net v0.10.0 // indirect

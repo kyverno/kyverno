@@ -58,6 +58,7 @@ cuelang.org/go v0.5.0 h1:D6N0UgTGJCOxFKU8RU+qYvavKNsVc/+ZobmifStVJzU=
 cuelang.org/go v0.5.0/go.mod h1:okjJBHFQFer+a41sAe2SaGm1glWS8oEb6CmJvn5Zdws=
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
 filippo.io/edwards25519 v1.0.0 h1:0wAIcmJUqRdI8IJ/3eGi5/HwXZWPujYXXlkrQogz0Ek=
+filippo.io/edwards25519 v1.0.0/go.mod h1:N1IkdkCkiLB6tki+MYJoSx2JTY9NUlxZE7eHn5EwJns=
 github.com/AdamKorcz/go-fuzz-headers-1 v0.0.0-20230329111138-12e09aba5ebd h1:1tbEqR4NyQLgiod7vLXSswHteGetAVZrMGCqrJxLKRs=
 github.com/AliyunContainerService/ack-ram-tool/pkg/credentials/alibabacloudsdkgo/helper v0.2.0 h1:8+4G8JaejP8Xa6W46PzJEwisNgBXMvFcz78N6zG/ARw=
 github.com/AliyunContainerService/ack-ram-tool/pkg/credentials/alibabacloudsdkgo/helper v0.2.0/go.mod h1:GgeIE+1be8Ivm7Sh4RgwI42aTtC9qrcj+Y9Y6CjJhJs=
@@ -273,6 +274,8 @@ github.com/blang/semver/v4 v4.0.0 h1:1PFHFE6yCCTv8C1TeyNNarDzntLi7wMI5i/pzqYIsAM
 github.com/blang/semver/v4 v4.0.0/go.mod h1:IbckMUScFkM3pff0VJDNKRiT6TG/YpiHIM2yvyW5YoQ=
 github.com/bombsimon/wsl/v3 v3.3.0/go.mod h1:st10JtZYLE4D5sC7b8xV4zTKZwAQjCH/Hy2Pm1FNZIc=
 github.com/buger/jsonparser v1.1.1/go.mod h1:6RYKKt7H4d4+iWqouImQ9R2FZql3VbhNgx27UK13J/0=
+github.com/buildkite/agent/v3 v3.45.0 h1:LEHtJSE0q2ZGsBb5yvhVr53+pRHCHLrENT4WR4nEy70=
+github.com/buildkite/agent/v3 v3.45.0/go.mod h1:4FtZnYmUU6dWENBCsVzXsJN3GHD3yDC2GgR8c9X780g=
 github.com/bwesterb/go-ristretto v1.2.0/go.mod h1:fUIoIZaG73pV5biE2Blr2xEzDoMj7NFEuV9ekS419A0=
 github.com/bytecodealliance/wasmtime-go v0.27.0 h1:b/mvyw1YJSwF5zNxqLH9V24ENkZGAvp+KgIKHOFHk1c=
 github.com/bytecodealliance/wasmtime-go v0.27.0/go.mod h1:q320gUxqyI8yB+ZqRuaJOEnGkAnHh6WtJjMaT2CW4wI=
@@ -689,8 +692,6 @@ github.com/google/go-containerregistry v0.14.1-0.20230409045903-ed5c185df419 h1:
 github.com/google/go-containerregistry v0.14.1-0.20230409045903-ed5c185df419/go.mod h1:ETSJmRH9iO4Q0WQILIMkDUiKk+CaxItZW+gEDjyw8Ug=
 github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20230403180904-b8d1c0a1df12 h1:LLLVB/7zCZVKI27rqA7bbZHZJxH1lL2jbLxdomX1Eew=
 github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20230403180904-b8d1c0a1df12/go.mod h1:CSeefFZsOfyNrYGXDafpWNkf3tUz17nKReR5INPRaMI=
-github.com/google/go-github/v45 v45.2.0 h1:5oRLszbrkvxDDqBCNj2hjDZMKmvexaZ1xw/FCD+K3FI=
-github.com/google/go-github/v45 v45.2.0/go.mod h1:FObaZJEDSTa/WGCzZ2Z3eoCDXWJKMenWWTrd8jrta28=
 github.com/google/go-github/v50 v50.2.0 h1:j2FyongEHlO9nxXLc+LP3wuBSVU9mVxfpdYUexMpIfk=
 github.com/google/go-github/v50 v50.2.0/go.mod h1:VBY8FB6yPIjrtKhozXv4FQupxKLS6H4m6xFZlT43q8Q=
 github.com/google/go-querystring v1.1.0 h1:AnCroh3fv4ZBgVIf1Iwtovgjaw/GiKJo8M8yD/fhyJ8=
@@ -1126,6 +1127,8 @@ github.com/orcaman/concurrent-map/v2 v2.0.1/go.mod h1:9Eq3TG2oBe5FirmYWQfYO5iH1q
 github.com/pact-foundation/pact-go v1.0.4/go.mod h1:uExwJY4kCzNPcHRj+hCR/HBbOOIwwtUjcrb0b5/5kLM=
 github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
 github.com/pborman/uuid v1.2.0/go.mod h1:X/NO0urCmaxf9VXbdlT7C2Yzkj2IKimNn4k+gtPdI/k=
+github.com/pborman/uuid v1.2.1 h1:+ZZIw58t/ozdjRaXh/3awHfmWRbzYxJoAdNJxe/3pvw=
+github.com/pborman/uuid v1.2.1/go.mod h1:X/NO0urCmaxf9VXbdlT7C2Yzkj2IKimNn4k+gtPdI/k=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
 github.com/pelletier/go-toml v1.7.0/go.mod h1:vwGMzjaWMwyfHwgIBhI2YUM4fB6nL6lVAvS1LBMMhTE=
 github.com/pelletier/go-toml/v2 v2.0.7 h1:muncTPStnKRos5dpVKULv2FVd4bMOhNePj9CjgDb8Us=
@@ -1263,14 +1266,12 @@ github.com/shirou/gopsutil/v3 v3.21.4/go.mod h1:ghfMypLDrFSWN2c9cDYFLHyynQ+QUht0
 github.com/shurcooL/go v0.0.0-20180423040247-9e1955d9fb6e/go.mod h1:TDJrrUr11Vxrven61rcy3hJMUqaf/CLWYhHNPmT14Lk=
 github.com/shurcooL/go-goon v0.0.0-20170922171312-37c2f522c041/go.mod h1:N5mDOmsrJOB+vfqUK+7DmDyjhSLIIBnXo9lvZJj3MWQ=
 github.com/shurcooL/sanitized_anchor_name v1.0.0/go.mod h1:1NzhyTcUVG4SuEtjjoZeVRXNmyL/1OwPU0+IJeTBvfc=
-github.com/sigstore/cosign v1.13.1 h1:+5oF8jisEcDw2TuXxCADC1u5//HfdnJhGbpv9Isiwu4=
-github.com/sigstore/cosign v1.13.1/go.mod h1:PlfJODkovUOKsLrGI7Su57Ie/Eb/Ks7hRHw3tn5hQS4=
 github.com/sigstore/cosign/v2 v2.0.2 h1:Ttaj/OkJAy+ummhnHG2F+JSFeZQj8i0P6o8j2RY9NG4=
 github.com/sigstore/cosign/v2 v2.0.2/go.mod h1:yJXtRmWrumyQA/XPjTTjOufnNckI87mmmVxv9rtEqgE=
 github.com/sigstore/fulcio v1.2.0 h1:I4H764cDbryKXkPtasUvo8bcix/7xLvkxWYWNp+JtWI=
 github.com/sigstore/fulcio v1.2.0/go.mod h1:FS7qpBvOEqs0uEh1+hJxzxtJistWN29ybLtAzFNUi0c=
-github.com/sigstore/k8s-manifest-sigstore v0.4.4 h1:7ae///+L0nqFBsRwr26anJc5bnJxoDXCGhVHXQB1GSo=
-github.com/sigstore/k8s-manifest-sigstore v0.4.4/go.mod h1:PJSnSF8Nh7PqV4xhU3BRweqEFwGvJq6Xi2B5yhYjxb0=
+github.com/sigstore/k8s-manifest-sigstore v0.5.0 h1:ECXhkek5SxUqphX5exz2vvZo0H+g8zwv1jMtGcnyYgQ=
+github.com/sigstore/k8s-manifest-sigstore v0.5.0/go.mod h1:+MjS+k6nZKoFThlxtyu+bn4V1VpprC1qtF1IC8Yzdk4=
 github.com/sigstore/rekor v1.1.1 h1:JCeSss+qUHnCATmwAZh4zT9k0Frdyq0BjmRwewSfEy4=
 github.com/sigstore/rekor v1.1.1/go.mod h1:x/xK+HK08MiuJv+v4OxY/Oo3bhuz1DtJXNJrV7hrzvs=
 github.com/sigstore/sigstore v1.6.4 h1:jH4AzR7qlEH/EWzm+opSpxCfuUcjHL+LJPuQE7h40WE=
@@ -1290,6 +1291,7 @@ github.com/skeema/knownhosts v1.1.1 h1:MTk78x9FPgDFVFkDLTrsnnfCJl7g1C/nnKvePgrIn
 github.com/skeema/knownhosts v1.1.1/go.mod h1:g4fPeYpque7P0xefxtGzV81ihjC8sX2IqpAoNkjxbMo=
 github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 h1:JIAuq3EEf9cgbU6AtGPK4CTG3Zf6CKMNqf0MHTggAUA=
 github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966/go.mod h1:sUM3LWHvSMaG192sy56D9F7CNvL7jUJVXoqM1QKLnog=
+github.com/smallstep/assert v0.0.0-20200723003110-82e2b9b3b262 h1:unQFBIznI+VYD1/1fApl1A+9VcBk+9dcqGfnePY87LY=
 github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d/go.mod h1:OnSkiWE9lh6wB0YB77sQom3nweQdgAjqCqsofrRNTgc=
 github.com/smartystreets/assertions v1.1.0 h1:MkTeG1DMwsrdH7QtLXy5W+fUxWq+vmb6cLmyJ7aRtF0=
 github.com/smartystreets/assertions v1.1.0/go.mod h1:tcbTF8ujkAEcZ8TElKY+i30BzYlVhC/LOxJk7iOWnoo=
@@ -1504,6 +1506,7 @@ go.opentelemetry.io/proto/otlp v0.19.0/go.mod h1:H7XAot3MsfNsj7EXtrA2q5xSNQ10UqI
 go.starlark.net v0.0.0-20230302034142-4b1e35fe2254 h1:Ss6D3hLXTM0KobyBYEAygXzFfGcjnmfEJOBgSbemCtg=
 go.starlark.net v0.0.0-20230302034142-4b1e35fe2254/go.mod h1:jxU+3+j+71eXOW14274+SmmuW82qJzl6iZSeqEtTGds=
 go.step.sm/crypto v0.29.3 h1:lFCsFQQGic1VZIa0B/87iMCDy67+LW8eEl119GTyeWI=
+go.step.sm/crypto v0.29.3/go.mod h1:0lYeIyQMJbFJ27L4BOGaq2gnuTgOShf+Ju/cTsMULq4=
 go.uber.org/atomic v1.3.2/go.mod h1:gD2HeocX3+yG+ygLZcrzQJaqmWj9AIm7n08wl/qW/PE=
 go.uber.org/atomic v1.4.0/go.mod h1:gD2HeocX3+yG+ygLZcrzQJaqmWj9AIm7n08wl/qW/PE=
 go.uber.org/atomic v1.5.0/go.mod h1:sABNBOSYdrvTF6hTgEIbc7YasKWGhgEQZyfxyTvoXHQ=
