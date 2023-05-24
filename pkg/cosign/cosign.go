@@ -181,7 +181,7 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 	}
 
 	if opts.RekorURL == "" && opts.Key == "" {
-		// KEYLESS Verification and RecorURL is not provided
+		// KEYLESS Verification and RekorURL is not provided
 		opts.RekorURL = "https://rekor.sigstore.dev"
 	}
 
