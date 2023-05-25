@@ -13,7 +13,7 @@ import (
 // +kubebuilder:default=Cosign
 type ImageVerificationType string
 
-// ImageVerificationType selects the type of verification algorithm
+// ImageRegistryCredentialsHelpersType provides the list of credential helpers required.
 // +kubebuilder:validation:Enum=DEFAULT;AWS;Azure;GCP;GHCR
 // +kubebuilder:default=DEFAULT
 type ImageRegistryCredentialsHelpersType string
@@ -280,7 +280,7 @@ type Secret struct {
 	// Specifies the name of the secret to be used for getting credentials
 	// Secrets must be in Kyverno namespace
 	// +kubebuilder:validation:Optional
-	Name string `json:"helpers,omitempty" yaml:"helpers,omitempty"`
+	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 }
 
 func (iv *ImageVerification) GetType() ImageVerificationType {
