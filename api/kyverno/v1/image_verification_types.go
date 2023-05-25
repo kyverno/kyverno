@@ -24,7 +24,7 @@ const (
 
 	DEFAULT ImageRegistryCredentialsHelpersType = "DEFAULT"
 	AWS     ImageRegistryCredentialsHelpersType = "AWS"
-	Azure   ImageRegistryCredentialsHelpersType = "Azure"
+	ACR     ImageRegistryCredentialsHelpersType = "ACR"
 	GCP     ImageRegistryCredentialsHelpersType = "GCP"
 	GHCR    ImageRegistryCredentialsHelpersType = "GHCR"
 )
