@@ -56,7 +56,7 @@ spec:
         imageReferences:
           - "ghcr.io/kyverno/test-verify-image*"
         attestations:
-          - type: application/vnd.cyclonedx+json
+          - type: sbom/cyclone-dx
             attestors:
             - entries:
               - certificates: 
