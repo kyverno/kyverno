@@ -8,7 +8,7 @@ metadata:
   namespace: notary-verify-attestation
 spec:
   containers:
-  - image: :ghcr.io/kyverno/test-verify-image:signed
+  - image: ghcr.io/kyverno/test-verify-image:signed
     name: test
     resources: {}
   dnsPolicy: ClusterFirst
