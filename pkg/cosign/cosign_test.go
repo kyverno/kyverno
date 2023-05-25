@@ -52,7 +52,7 @@ const tektonPayload = `{
 func TestCosignPayload(t *testing.T) {
 	image := "registry-v2.nirmata.io/pause"
 	signedPayloads := cosign.SignedPayload{Payload: []byte(cosignPayload)}
-	ociSig, err := GetOCISignatureFromCosignSignedPayload(signedPayloads)
+	ociSig, err := getSignature(signedPayloads)
 	assert.NilError(t, err)
 	p, err := extractPayload([]oci.Signature{ociSig})
 	assert.NilError(t, err)
@@ -65,7 +65,7 @@ func TestCosignPayload(t *testing.T) {
 
 	image2 := "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/nop"
 	signedPayloads2 := cosign.SignedPayload{Payload: []byte(tektonPayload)}
-	ociSig, err = GetOCISignatureFromCosignSignedPayload(signedPayloads2)
+	ociSig, err = getSignature(signedPayloads2)
 	assert.NilError(t, err)
 	signatures2 := []oci.Signature{ociSig}
 	p2, err := extractPayload(signatures2)

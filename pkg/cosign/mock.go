@@ -54,7 +54,7 @@ func (m *mock) getSignatures(signedImgRef name.Reference) ([]oci.Signature, bool
 
 	sigs := make([]oci.Signature, 0, len(results))
 	for _, sp := range results {
-		ociSig, err := GetOCISignatureFromCosignSignedPayload(sp)
+		ociSig, err := getSignature(sp)
 		if err != nil {
 			return nil, false, err
 		}
@@ -64,7 +64,7 @@ func (m *mock) getSignatures(signedImgRef name.Reference) ([]oci.Signature, bool
 	return sigs, true, nil
 }
 
-func GetOCISignatureFromCosignSignedPayload(sp cosign.SignedPayload) (oci.Signature, error) {
+func getSignature(sp cosign.SignedPayload) (oci.Signature, error) {
 	chain := make([]byte, 0)
 	for _, cert := range sp.Chain {
 		chain = append(chain, cert.Raw...)

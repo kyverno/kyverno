@@ -181,7 +181,7 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 	}
 
 	if opts.RekorURL == "" && opts.Key == "" {
-		// KEYLESS Verification and RekorURL is not provided
+		// Keyless verification and RekorURL is not provided
 		opts.RekorURL = "https://rekor.sigstore.dev"
 	}
 
@@ -193,7 +193,7 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 
 		cosignOpts.RekorPubKeys, err = cosign.GetRekorPubs(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load RekorPubKeys: %w", err)
+			return nil, fmt.Errorf("failed to load Rekor public keys: %w", err)
 		}
 	} else {
 		cosignOpts.IgnoreTlog = true
