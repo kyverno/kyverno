@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+
 # read user input for count
 echo "Enter the count:"
 read count
