@@ -4,7 +4,7 @@ This test checks that the `default` field in a context variable should replace n
 
 ## Expected Behavior
 
-With the mutateExisting policy, the context variable `tokenvolname` will assume the value of `''` since there is no volume or volumeMounts in the containers inside the pod whose name is starting with `kube-api-access-`, and the pod should get created as a result of being skipped due to preconditions not matching as `''` is not equal to `?*`.
+With the mutateExisting policy, the context variable `podName` will assume the value of `empty` since there is no pod whose name is starting with `good-`, and the pod should get created as preconditions matching as the value of the variable is set to default which is `empty` is equal to  `empty`.
 
 ## Reference Issue(s)
 
