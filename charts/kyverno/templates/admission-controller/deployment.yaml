@@ -19,8 +19,8 @@ spec:
     metadata:
       labels:
         {{- include "kyverno.admission-controller.labels" . | nindent 8 }}
-        {{- range $key, $value := .Values.admissionController.podLabels }}
-        {{ $key }}: {{ $value }}
+        {{- with .Values.admissionController.podLabels }}
+        {{ tpl (toYaml .) $ | nindent 8 }}
         {{- end }}
       {{- with .Values.admissionController.podAnnotations }}
       annotations: {{ tpl (toYaml .) $ | nindent 8 }}
