@@ -1801,6 +1801,8 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatter
 
 	policyContext := newPolicyContext(t, *resourceUnstructured, kyverno.Create, nil).WithPolicy(&policy)
 	er := testValidate(context.TODO(), engineapi.RegistryClientLoaderNewOrDie(), policyContext, cfg, nil)
+s=======
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, nil)
 
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusFail)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message(),
