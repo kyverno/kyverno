@@ -42,7 +42,19 @@ k3d cluster create --agents=3  --k3s-arg "--disable=metrics-server@server:*" --k
 To set up embedded etcd for the K3s cluster, follow instructions below. This is used when getting objects from etcd. 
 
 ```sh
-k3d cluster create scaling --servers 3 --agents=15 --k3s-arg "--disable=metrics-server@server:*" --k3s-node-label "ingress-ready=true@agent:*"
+k3d cluster create scaling --servers 3 --agents=15 --k3s-arg "--disable=metrics-server@server:*" --k3s-node-label "ingress-ready=true@agent:*" 
+```
+
+Use the following command if you want to configure the etcd storage limit, this command sets the storage limit to 8GB:
+```sh
+k3d cluster create scaling --servers 3 --agents=15 --k3s-arg "--disable=metrics-server@server:*" --k3s-node-label "ingress-ready=true@agent:*" --k3s-arg "--etcd-arg=quota-backend-bytes=8589934592@server:*"
+```
+
+Note, you can execute into the server node to check the storage setting:
+```
+docker exec -ti k3d-scaling-server-0 sh
+cat /var/lib/rancher/k3s/server/db/etcd/config | tail -2
+quota-backend-bytes: 8589934592
 ```
 
 ## Prepare etcd access
@@ -96,9 +108,10 @@ helm upgrade --install kyverno kyverno/kyverno -n kyverno \
   --create-namespace \
   --devel \
   --set admissionController.serviceMonitor.enabled=true \
-  --set reportsController.serviceMonitor.enabled=true \
   --set admissionController.replicas=3 \
-  --set reportsController.resources.limits.memory=10Gi
+  # --set features.admissionReports.enabled=false \
+  --set reportsController.serviceMonitor.enabled=true \
+  --set reportsController.resources.limits.memory=10Gi 
 ```
 
 ## Deploy Kyverno PSS policies
@@ -111,13 +124,18 @@ helm upgrade --install kyverno kyverno/kyverno-policies --set=podSecurityStandar
 This script creates a single ReplicaSet with 1000 pods, with QPS and burst set to 50:
 
 ```sh
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 kubectl create ns test
-go run release-1.10/main.go --count=1000 --kinds=pods --clientRateLimitQPS=50 --clientRateLimitBurst=50 --namespace=test
+go run docs/perf-testing/main.go --count=10000 --kinds=pods --clientRateLimitQPS=50 --clientRateLimitBurst=50 --namespace=test
 ```
 
 Note that these pods will be scheduled to the Kwok nodes, not k3s nodes.
 
 # Prometheus Queries
+
+```
+kubectl port-forward --address 127.0.0.1 svc/kube-prometheus-stack-prometheus 9090:9090 -n monitoring &
+```
 
 ## Memory utilization
 
@@ -154,4 +172,10 @@ sum(kyverno_admission_requests_total)
 Run the following script to calculate total sizes for pods:
 ```sh
 ./docs/perf-testing/size.sh
+```
+
+This command returns the resources stored in etcd that have more than 100 objects:
+
+```
+kubectl get --raw=/metrics | grep apiserver_storage_objects |awk '$2>100' |sort -g -k 2
 ```
