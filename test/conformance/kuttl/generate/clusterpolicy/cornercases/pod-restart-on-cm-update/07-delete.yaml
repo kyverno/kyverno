@@ -1,8 +1,0 @@
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: rm pod-name.txt
-delete:
-  - apiVersion: v1
-    kind: Namespace
-    name: kube-state-metrics

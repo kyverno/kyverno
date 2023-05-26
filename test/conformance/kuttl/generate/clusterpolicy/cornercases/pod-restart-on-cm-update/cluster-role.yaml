@@ -8,15 +8,8 @@ metadata:
     app.kubernetes.io/part-of: kyverno
 rules:
 - apiGroups:
-  - '*'
+  - apps
   resources:
   - deployments
   verbs:
-  - create
   - update
-  - create
-  - update
-  - patch
-  - delete
-  - get
-  - list
