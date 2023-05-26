@@ -20,7 +20,7 @@ spec:
     metadata:
       labels:
         {{- include "kyverno.reports-controller.labels" . | nindent 8 }}
-        {{- with .Values.backgroundController.podLabels }}
+        {{- with .Values.reportsController.podLabels }}
         {{- tpl (toYaml .) $ | nindent 8 }}
         {{- end }}
       {{- with .Values.reportsController.podAnnotations }}
