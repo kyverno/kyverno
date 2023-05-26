@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+
 # Variables preparation
 KWOK_WORK_DIR=$(mktemp -d)
 KWOK_REPO=kubernetes-sigs/kwok
