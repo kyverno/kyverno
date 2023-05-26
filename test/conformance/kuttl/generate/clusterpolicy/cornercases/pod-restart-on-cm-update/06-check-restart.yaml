@@ -1,0 +1,4 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: "if [ \"$(kubectl get pods -n kyverno | sort --key 5 --numeric | awk 'NR==2{print $1}')\" != \"$(cat pod-name.txt)\" ];then exit;else (exit 1);fi"
