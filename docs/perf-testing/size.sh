@@ -3,7 +3,7 @@
 
 ## calculate total size for the given object
 
-# read user input for count
+# read user input for the resource
 echo "Enter the resource to caclutate the size:"
 read resource
 
