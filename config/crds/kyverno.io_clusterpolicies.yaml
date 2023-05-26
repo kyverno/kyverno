@@ -3478,8 +3478,8 @@ spec:
                                   It can be of one of these values: AWS, Azure, GCP,
                                   GHCR'
                                 items:
-                                  description: ImageVerificationType selects the type
-                                    of verification algorithm
+                                  description: ImageRegistryCredentialsHelpersType
+                                    provides the list of credential helpers required.
                                   enum:
                                   - DEFAULT
                                   - AWS
@@ -3494,7 +3494,7 @@ spec:
                                   Kyverno namespace
                                 items:
                                   properties:
-                                    helpers:
+                                    name:
                                       description: Specifies the name of the secret
                                         to be used for getting credentials Secrets
                                         must be in Kyverno namespace
@@ -7171,8 +7171,8 @@ spec:
                                       are provided It can be of one of these values:
                                       AWS, Azure, GCP, GHCR'
                                     items:
-                                      description: ImageVerificationType selects the
-                                        type of verification algorithm
+                                      description: ImageRegistryCredentialsHelpersType
+                                        provides the list of credential helpers required.
                                       enum:
                                       - DEFAULT
                                       - AWS
@@ -7187,7 +7187,7 @@ spec:
                                       be in Kyverno namespace
                                     items:
                                       properties:
-                                        helpers:
+                                        name:
                                           description: Specifies the name of the secret
                                             to be used for getting credentials Secrets
                                             must be in Kyverno namespace
@@ -10550,8 +10550,8 @@ spec:
                                   It can be of one of these values: AWS, Azure, GCP,
                                   GHCR'
                                 items:
-                                  description: ImageVerificationType selects the type
-                                    of verification algorithm
+                                  description: ImageRegistryCredentialsHelpersType
+                                    provides the list of credential helpers required.
                                   enum:
                                   - DEFAULT
                                   - AWS
@@ -10566,7 +10566,7 @@ spec:
                                   Kyverno namespace
                                 items:
                                   properties:
-                                    helpers:
+                                    name:
                                       description: Specifies the name of the secret
                                         to be used for getting credentials Secrets
                                         must be in Kyverno namespace
@@ -14224,8 +14224,8 @@ spec:
                                       are provided It can be of one of these values:
                                       AWS, Azure, GCP, GHCR'
                                     items:
-                                      description: ImageVerificationType selects the
-                                        type of verification algorithm
+                                      description: ImageRegistryCredentialsHelpersType
+                                        provides the list of credential helpers required.
                                       enum:
                                       - DEFAULT
                                       - AWS
@@ -14240,7 +14240,7 @@ spec:
                                       be in Kyverno namespace
                                     items:
                                       properties:
-                                        helpers:
+                                        name:
                                           description: Specifies the name of the secret
                                             to be used for getting credentials Secrets
                                             must be in Kyverno namespace
