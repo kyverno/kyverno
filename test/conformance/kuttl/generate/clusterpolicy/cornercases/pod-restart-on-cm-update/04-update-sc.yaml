@@ -3,5 +3,5 @@ kind: Secret
 metadata:
   name: kube-state-metrics-crds
   namespace: kube-state-metrics
-stringData:
-  foo: not-bar
+data:
+  foo: bm90LWJhcg==

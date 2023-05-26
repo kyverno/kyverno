@@ -34,8 +34,8 @@ spec:
             labels:
               generatedBy: kyverno
               kubestatemetrics.platform.example: generated
-          stringData:
-            foo: bar
+          data:
+            foo: YmFy
     - name: restart-kube-state-metrics-on-sc-change
       match:
         any:
