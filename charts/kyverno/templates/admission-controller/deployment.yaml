@@ -20,7 +20,7 @@ spec:
       labels:
         {{- include "kyverno.admission-controller.labels" . | nindent 8 }}
         {{- with .Values.admissionController.podLabels }}
-        {{ tpl (toYaml .) $ | nindent 8 }}
+        {{- tpl (toYaml .) $ | nindent 8 }}
         {{- end }}
       {{- with .Values.admissionController.podAnnotations }}
       annotations: {{ tpl (toYaml .) $ | nindent 8 }}
