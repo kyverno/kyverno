@@ -394,8 +394,8 @@ The chart values are organised per component.
 | backgroundController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | backgroundController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
 | backgroundController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
-| backgroundController.image.registry | string | `nil` | Image registry |
-| backgroundController.image.repository | string | `"ghcr.io/kyverno/background-controller"` | Image repository |
+| backgroundController.image.registry | string | `"ghcr.io"` | Image registry |
+| backgroundController.image.repository | string | `"kyverno/background-controller"` | Image repository |
 | backgroundController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | backgroundController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | backgroundController.imagePullSecrets | list | `[]` | Image pull secrets |

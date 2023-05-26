@@ -31,6 +31,7 @@ require (
 	github.com/mattbaird/jsonpatch v0.0.0-20200820163806-098863c1fc24
 	github.com/mozillazg/docker-credential-acr-helper v0.3.0
 	github.com/notaryproject/notation-core-go v1.0.0-rc.3
+	github.com/notaryproject/notation-core-go v1.0.0-rc.4
 	github.com/notaryproject/notation-go v1.0.0-rc.3
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.27.7
@@ -78,7 +79,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f
 	k8s.io/pod-security-admission v0.27.2
 	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
-	oras.land/oras-go/v2 v2.1.0
+	oras.land/oras-go/v2 v2.2.0
 	sigs.k8s.io/controller-runtime v0.15.0
 	sigs.k8s.io/kustomize/api v0.13.4
 	sigs.k8s.io/kustomize/kyaml v0.14.2
@@ -299,7 +300,7 @@ require (
 	github.com/tjfoc/gmsm v1.4.1 // indirect
 	github.com/transparency-dev/merkle v0.0.1 // indirect
 	github.com/vbatts/tar-split v0.11.3 // indirect
-	github.com/veraison/go-cose v1.0.0 // indirect
+	github.com/veraison/go-cose v1.1.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xanzy/go-gitlab v0.83.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
