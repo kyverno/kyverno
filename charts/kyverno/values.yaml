@@ -831,13 +831,10 @@ backgroundController:
       #     - pods
 
   image:
-    # -- (string) Image registry
-    registry: ~
-    # If you want to manage the registry you should remove it from the repository
-    # registry: ghcr.io
-    # repository: kyverno/background-controller
+    # -- Image registry
+    registry: ghcr.io
     # -- Image repository
-    repository: ghcr.io/kyverno/background-controller
+    repository: kyverno/background-controller
     # -- Image tag
     # Defaults to appVersion in Chart.yaml if omitted
     tag:  # replaced in e2e tests
