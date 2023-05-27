@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: unmount-serviceaccount-token
+  name: pod-add-labels
 status:
   conditions:
   - reason: Succeeded
