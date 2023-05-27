@@ -1,0 +1,68 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-cm-for-kube-state-metrics-crds
+  annotations:
+    policies.kyverno.io/description: >-
+      This policy generates and synchronizes a configmap for custom resource kube-state-metrics.
+spec:
+  generateExisting: true
+  mutateExistingOnPolicyUpdate: false
+  schemaValidation: false
+  rules:
+    - name: generate-cm-for-kube-state-metrics-crds
+      match:
+        any:
+          - resources:
+              names:
+                - "*"
+              kinds:
+                - ConfigMap
+              namespaces:
+                - "kube-state-metrics"
+              selector:
+                matchLabels:
+                  kubestatemetrics.platform.example: source
+      generate:
+        synchronize: true
+        apiVersion: v1
+        kind: Secret
+        name: kube-state-metrics-crds
+        namespace: kube-state-metrics
+        data:
+          metadata:
+            labels:
+              generatedBy: kyverno
+              kubestatemetrics.platform.example: generated
+          data:
+            foo: YmFy
+    - name: restart-kube-state-metrics-on-sc-change
+      match:
+        any:
+          - resources:
+              kinds:
+                - Secret
+              names:
+                - "kube-state-metrics-crds"
+              namespaces:
+                - "kube-state-metrics"
+      preconditions:
+        all:
+          - key: "{{ request.object.metadata.labels.\"kubestatemetrics.platform.example\" || '' }}"
+            operator: NotEquals
+            value: source
+          - key: "{{request.operation || 'BACKGROUND'}}"
+            operator: Equals
+            value: UPDATE
+      mutate:
+        targets:
+          - apiVersion: apps/v1
+            kind: Deployment
+            name: kube-state-metrics
+            namespace: kube-state-metrics
+        patchStrategicMerge:
+          spec:
+            template:
+              metadata:
+                annotations:
+                  platform.cloud.allianz/triggerrestart: "{{request.object.metadata.resourceVersion}}"
