@@ -7184,11 +7184,11 @@ spec:
                             type: string
                           type:
                             description: Type specifies the method of signature validation.
-                              The allowed options are Cosign and NotaryV2. By default
+                              The allowed options are Cosign and Notary. By default
                               Cosign is used if a type is not specified.
                             enum:
                             - Cosign
-                            - NotaryV2
+                            - Notary
                             type: string
                           verifyDigest:
                             default: true
@@ -10811,11 +10811,11 @@ spec:
                                 type: string
                               type:
                                 description: Type specifies the method of signature
-                                  validation. The allowed options are Cosign and NotaryV2.
+                                  validation. The allowed options are Cosign and Notary.
                                   By default Cosign is used if a type is not specified.
                                 enum:
                                 - Cosign
-                                - NotaryV2
+                                - Notary
                                 type: string
                               verifyDigest:
                                 default: true
@@ -14089,11 +14089,11 @@ spec:
                             type: boolean
                           type:
                             description: Type specifies the method of signature validation.
-                              The allowed options are Cosign and NotaryV2. By default
+                              The allowed options are Cosign and Notary. By default
                               Cosign is used if a type is not specified.
                             enum:
                             - Cosign
-                            - NotaryV2
+                            - Notary
                             type: string
                           verifyDigest:
                             default: true
@@ -17716,11 +17716,11 @@ spec:
                                 type: string
                               type:
                                 description: Type specifies the method of signature
-                                  validation. The allowed options are Cosign and NotaryV2.
+                                  validation. The allowed options are Cosign and Notary.
                                   By default Cosign is used if a type is not specified.
                                 enum:
                                 - Cosign
-                                - NotaryV2
+                                - Notary
                                 type: string
                               verifyDigest:
                                 default: true
@@ -21319,11 +21319,11 @@ spec:
                             type: string
                           type:
                             description: Type specifies the method of signature validation.
-                              The allowed options are Cosign and NotaryV2. By default
+                              The allowed options are Cosign and Notary. By default
                               Cosign is used if a type is not specified.
                             enum:
                             - Cosign
-                            - NotaryV2
+                            - Notary
                             type: string
                           verifyDigest:
                             default: true
@@ -24947,11 +24947,11 @@ spec:
                                 type: string
                               type:
                                 description: Type specifies the method of signature
-                                  validation. The allowed options are Cosign and NotaryV2.
+                                  validation. The allowed options are Cosign and Notary.
                                   By default Cosign is used if a type is not specified.
                                 enum:
                                 - Cosign
-                                - NotaryV2
+                                - Notary
                                 type: string
                               verifyDigest:
                                 default: true
@@ -28226,11 +28226,11 @@ spec:
                             type: boolean
                           type:
                             description: Type specifies the method of signature validation.
-                              The allowed options are Cosign and NotaryV2. By default
+                              The allowed options are Cosign and Notary. By default
                               Cosign is used if a type is not specified.
                             enum:
                             - Cosign
-                            - NotaryV2
+                            - Notary
                             type: string
                           verifyDigest:
                             default: true
@@ -31853,11 +31853,11 @@ spec:
                                 type: string
                               type:
                                 description: Type specifies the method of signature
-                                  validation. The allowed options are Cosign and NotaryV2.
+                                  validation. The allowed options are Cosign and Notary.
                                   By default Cosign is used if a type is not specified.
                                 enum:
                                 - Cosign
-                                - NotaryV2
+                                - Notary
                                 type: string
                               verifyDigest:
                                 default: true
