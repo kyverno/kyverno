@@ -1,4 +1,4 @@
-package notaryv2
+package notary
 
 import (
 	"bytes"
@@ -18,16 +18,16 @@ import (
 )
 
 func NewVerifier() images.ImageVerifier {
-	return &notaryV2Verifier{
-		log: logging.WithName("NotaryV2"),
+	return &notaryVerifier{
+		log: logging.WithName("Notary"),
 	}
 }
 
-type notaryV2Verifier struct {
+type notaryVerifier struct {
 	log logr.Logger
 }
 
-func (v *notaryV2Verifier) VerifySignature(ctx context.Context, opts images.Options) (*images.Response, error) {
+func (v *notaryVerifier) VerifySignature(ctx context.Context, opts images.Options) (*images.Response, error) {
 	v.log.V(2).Info("verifying image", "reference", opts.ImageRef)
 
 	certsPEM := combineCerts(opts)
@@ -95,7 +95,7 @@ func combineCerts(opts images.Options) string {
 	return certs
 }
 
-func (v *notaryV2Verifier) buildPolicy() *trustpolicy.Document {
+func (v *notaryVerifier) buildPolicy() *trustpolicy.Document {
 	return &trustpolicy.Document{
 		Version: "1.0",
 		TrustPolicies: []trustpolicy.TrustPolicy{
@@ -110,7 +110,7 @@ func (v *notaryV2Verifier) buildPolicy() *trustpolicy.Document {
 	}
 }
 
-func (v *notaryV2Verifier) verifyOutcomes(outcomes []*notation.VerificationOutcome) error {
+func (v *notaryVerifier) verifyOutcomes(outcomes []*notation.VerificationOutcome) error {
 	var errs []error
 	for _, outcome := range outcomes {
 		if outcome.Error != nil {
@@ -127,6 +127,6 @@ func (v *notaryV2Verifier) verifyOutcomes(outcomes []*notation.VerificationOutco
 	return multierr.Combine(errs...)
 }
 
-func (v *notaryV2Verifier) FetchAttestations(ctx context.Context, opts images.Options) (*images.Response, error) {
+func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Options) (*images.Response, error) {
 	return nil, errors.Errorf("not implemented")
 }
