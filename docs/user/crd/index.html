@@ -894,55 +894,6 @@ attributes for keyless verification, or a nested attestor declaration.</p>
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v1.AuditAnnotation">AuditAnnotation
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.CEL">CEL</a>)
-</p>
-<p>
-<p>AuditAnnotation describes how to produce an audit annotation for an API request.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>key</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>key specifies the audit annotation key.
-ref: <a href="https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#AuditAnnotation">https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#AuditAnnotation</a>
-Required.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>valueExpression</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>valueExpression represents the expression which is evaluated by CEL to
-produce an audit annotation value. The expression must evaluate to either
-a string or null value. If the expression evaluates to a string, the
-audit annotation is included with the string value. If the expression
-evaluates to null or empty string the audit annotation will be omitted.
-Required.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="kyverno.io/v1.AutogenStatus">AutogenStatus
 </h3>
 <p>
@@ -984,7 +935,7 @@ Required.</p>
 <a href="#kyverno.io/v2beta1.Validation">Validation</a>)
 </p>
 <p>
-<p>CEL defines the CEL expression which is used to apply the validation.</p>
+<p>CEL allows validation checks using the Common Expression Language (<a href="https://kubernetes.io/docs/reference/using-api/cel/">https://kubernetes.io/docs/reference/using-api/cel/</a>).</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -998,13 +949,13 @@ Required.</p>
 <td>
 <code>expressions</code><br/>
 <em>
-<a href="#kyverno.io/v1.CELExpression">
-[]CELExpression
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validation-v1alpha1-admissionregistration">
+[]Kubernetes admissionregistration/v1alpha1.Validation
 </a>
 </em>
 </td>
 <td>
-<p>Expressions contain CEL expressions which is used to apply the validation.</p>
+<p>Expressions is a list of CELExpression types.</p>
 </td>
 </tr>
 <tr>
@@ -1027,75 +978,14 @@ If ParamKind refers to a non-existent kind, this policy definition is mis-config
 <td>
 <code>auditAnnotations</code><br/>
 <em>
-<a href="#kyverno.io/v1.AuditAnnotation">
-[]AuditAnnotation
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#auditannotation-v1alpha1-admissionregistration">
+[]Kubernetes admissionregistration/v1alpha1.AuditAnnotation
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
 <p>AuditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the API request.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1.CELExpression">CELExpression
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.CEL">CEL</a>)
-</p>
-<p>
-<p>CELExpression specifies the CEL expression which is used to apply the validation.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>expression</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Expression represents the expression which will be evaluated by CEL.
-ref: <a href="https://github.com/google/cel-spec">https://github.com/google/cel-spec</a>
-Required.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>message</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Message represents the message displayed when cel validation fails.
-If unset, the message is &ldquo;failed Expression: {Expression}&rdquo;.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>messageExpression</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>messageExpression declares a CEL expression that evaluates to the validation failure message that is returned when this rule fails.
-Since messageExpression is used as a failure message, it must evaluate to a string.
-If both message and messageExpression are present on a validation, then messageExpression will be used if validation fails.
-ref: <a href="https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation">https://pkg.go.dev/k8s.io/api/admissionregistration/v1alpha1#Validation</a></p>
 </td>
 </tr>
 </tbody>
@@ -4045,7 +3935,7 @@ CEL
 </td>
 <td>
 <em>(Optional)</em>
-<p>CEL specifies CEL expressions which is used to apply the validation.</p>
+<p>CEL allows validation checks using the Common Expression Language (<a href="https://kubernetes.io/docs/reference/using-api/cel/">https://kubernetes.io/docs/reference/using-api/cel/</a>).</p>
 </td>
 </tr>
 </tbody>
@@ -7352,7 +7242,7 @@ CEL
 </td>
 <td>
 <em>(Optional)</em>
-<p>CEL specifies CEL expressions which is used to apply the validation.</p>
+<p>CEL allows validation checks using the Common Expression Language (<a href="https://kubernetes.io/docs/reference/using-api/cel/">https://kubernetes.io/docs/reference/using-api/cel/</a>).</p>
 </td>
 </tr>
 </tbody>

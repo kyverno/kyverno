@@ -38,7 +38,7 @@ type Validation struct {
 	// +optional
 	PodSecurity *kyvernov1.PodSecurity `json:"podSecurity,omitempty" yaml:"podSecurity,omitempty"`
 
-	// CEL specifies CEL expressions which is used to apply the validation.
+	// CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
 	// +optional
 	CEL *kyvernov1.CEL `json:"cel,omitempty" yaml:"cel,omitempty"`
 }

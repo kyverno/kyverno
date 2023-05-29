@@ -39,7 +39,7 @@ func (h validateCELHandler) Process(
 	_ engineapi.EngineContextLoader,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	if engineutils.IsDeleteRequest(policyContext) {
-		logger.V(3).Info("skipping validation on deleted resource")
+		logger.V(3).Info("skipping CEL validation on deleted resource")
 		return resource, nil
 	}
 
@@ -59,13 +59,13 @@ func (h validateCELHandler) Process(
 	auditAnnotations := rule.Validation.CEL.AuditAnnotations
 
 	// Get the parameter resource
-	hasParam := rule.Validation.CEL.ParamKind != nil
+	paramKind, hasParam := rule.Validation.CEL.GetParam()
 
 	if hasParam {
-		apiVersion := rule.Validation.CEL.ParamKind.APIVersion
-		kind := rule.Validation.CEL.ParamKind.Kind
-		name := rule.Validation.CEL.ParamKind.Name
-		namespace := rule.Validation.CEL.ParamKind.Namespace
+		apiVersion := paramKind.APIVersion
+		kind := paramKind.Kind
+		name := paramKind.Name
+		namespace := paramKind.Namespace
 
 		if namespace == "" {
 			namespace = "default"
