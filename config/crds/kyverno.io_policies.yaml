@@ -2471,13 +2471,8 @@ spec:
                                 type: object
                               type: array
                             paramKind:
-                              description: ParamKind specifies the kind of resources
-                                used to parameterize this policy. If absent, there
-                                are no parameters for this policy and the param CEL
-                                variable will not be provided to validation expressions.
-                                If ParamKind refers to a non-existent kind, this policy
-                                definition is mis-configured and the FailurePolicy
-                                is applied.
+                              description: ParamKind is a tuple of Group Kind and
+                                Version.
                               properties:
                                 apiVersion:
                                   description: APIVersion is the API group version
@@ -2488,14 +2483,20 @@ spec:
                                   description: Kind is the API kind the resources
                                     belong to. Required.
                                   type: string
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            paramRef:
+                              description: ParamRef references a parameter resource.
+                              properties:
                                 name:
-                                  description: Name of the resource. Required.
+                                  description: Name of the resource being referenced.
                                   type: string
                                 namespace:
-                                  description: Namespace of the resource. Should be
-                                    empty for the cluster-scoped resources
+                                  description: Namespace of the referenced resource.
+                                    Should be empty for the cluster-scoped resources
                                   type: string
                               type: object
+                              x-kubernetes-map-type: atomic
                           type: object
                         deny:
                           description: Deny defines conditions used to pass or fail
@@ -6328,13 +6329,8 @@ spec:
                                     type: object
                                   type: array
                                 paramKind:
-                                  description: ParamKind specifies the kind of resources
-                                    used to parameterize this policy. If absent, there
-                                    are no parameters for this policy and the param
-                                    CEL variable will not be provided to validation
-                                    expressions. If ParamKind refers to a non-existent
-                                    kind, this policy definition is mis-configured
-                                    and the FailurePolicy is applied.
+                                  description: ParamKind is a tuple of Group Kind
+                                    and Version.
                                   properties:
                                     apiVersion:
                                       description: APIVersion is the API group version
@@ -6345,14 +6341,20 @@ spec:
                                       description: Kind is the API kind the resources
                                         belong to. Required.
                                       type: string
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                                paramRef:
+                                  description: ParamRef references a parameter resource.
+                                  properties:
                                     name:
-                                      description: Name of the resource. Required.
+                                      description: Name of the resource being referenced.
                                       type: string
                                     namespace:
-                                      description: Namespace of the resource. Should
-                                        be empty for the cluster-scoped resources
+                                      description: Namespace of the referenced resource.
+                                        Should be empty for the cluster-scoped resources
                                       type: string
                                   type: object
+                                  x-kubernetes-map-type: atomic
                               type: object
                             deny:
                               description: Deny defines conditions used to pass or
@@ -9892,13 +9894,8 @@ spec:
                                 type: object
                               type: array
                             paramKind:
-                              description: ParamKind specifies the kind of resources
-                                used to parameterize this policy. If absent, there
-                                are no parameters for this policy and the param CEL
-                                variable will not be provided to validation expressions.
-                                If ParamKind refers to a non-existent kind, this policy
-                                definition is mis-configured and the FailurePolicy
-                                is applied.
+                              description: ParamKind is a tuple of Group Kind and
+                                Version.
                               properties:
                                 apiVersion:
                                   description: APIVersion is the API group version
@@ -9909,14 +9906,20 @@ spec:
                                   description: Kind is the API kind the resources
                                     belong to. Required.
                                   type: string
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            paramRef:
+                              description: ParamRef references a parameter resource.
+                              properties:
                                 name:
-                                  description: Name of the resource. Required.
+                                  description: Name of the resource being referenced.
                                   type: string
                                 namespace:
-                                  description: Namespace of the resource. Should be
-                                    empty for the cluster-scoped resources
+                                  description: Namespace of the referenced resource.
+                                    Should be empty for the cluster-scoped resources
                                   type: string
                               type: object
+                              x-kubernetes-map-type: atomic
                           type: object
                         deny:
                           description: Deny defines conditions used to pass or fail
@@ -13802,13 +13805,8 @@ spec:
                                     type: object
                                   type: array
                                 paramKind:
-                                  description: ParamKind specifies the kind of resources
-                                    used to parameterize this policy. If absent, there
-                                    are no parameters for this policy and the param
-                                    CEL variable will not be provided to validation
-                                    expressions. If ParamKind refers to a non-existent
-                                    kind, this policy definition is mis-configured
-                                    and the FailurePolicy is applied.
+                                  description: ParamKind is a tuple of Group Kind
+                                    and Version.
                                   properties:
                                     apiVersion:
                                       description: APIVersion is the API group version
@@ -13819,14 +13817,20 @@ spec:
                                       description: Kind is the API kind the resources
                                         belong to. Required.
                                       type: string
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                                paramRef:
+                                  description: ParamRef references a parameter resource.
+                                  properties:
                                     name:
-                                      description: Name of the resource. Required.
+                                      description: Name of the resource being referenced.
                                       type: string
                                     namespace:
-                                      description: Namespace of the resource. Should
-                                        be empty for the cluster-scoped resources
+                                      description: Namespace of the referenced resource.
+                                        Should be empty for the cluster-scoped resources
                                       type: string
                                   type: object
+                                  x-kubernetes-map-type: atomic
                               type: object
                             deny:
                               description: Deny defines conditions used to pass or

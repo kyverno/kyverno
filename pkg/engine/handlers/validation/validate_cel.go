@@ -59,13 +59,17 @@ func (h validateCELHandler) Process(
 	auditAnnotations := rule.Validation.CEL.AuditAnnotations
 
 	// Get the parameter resource
-	paramKind, hasParam := rule.Validation.CEL.GetParam()
+	hasParam := rule.Validation.CEL.HasParam()
 
 	if hasParam {
+		paramKind := rule.Validation.CEL.GetParamKind()
+		paramRef := rule.Validation.CEL.GetParamRef()
+
 		apiVersion := paramKind.APIVersion
 		kind := paramKind.Kind
-		name := paramKind.Name
-		namespace := paramKind.Namespace
+
+		name := paramRef.Name
+		namespace := paramRef.Namespace
 
 		if namespace == "" {
 			namespace = "default"

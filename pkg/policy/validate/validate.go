@@ -84,8 +84,18 @@ func (v *Validate) Validate(ctx context.Context) (string, error) {
 				return "", fmt.Errorf("cel.paramKind.kind is required")
 			}
 
-			if v.rule.CEL.ParamKind.Name == "" {
-				return "", fmt.Errorf("cel.paramKind.name is required")
+			if v.rule.CEL.ParamRef == nil {
+				return "", fmt.Errorf("cel.paramRef is required")
+			}
+		}
+
+		if v.rule.CEL.ParamRef != nil {
+			if v.rule.CEL.ParamRef.Name == "" {
+				return "", fmt.Errorf("cel.paramRef.name is required")
+			}
+
+			if v.rule.CEL.ParamKind == nil {
+				return "", fmt.Errorf("cel.paramKind is required")
 			}
 		}
 

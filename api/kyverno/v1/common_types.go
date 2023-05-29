@@ -432,44 +432,29 @@ type CEL struct {
 	// Expressions is a list of CELExpression types.
 	Expressions []v1alpha1.Validation `json:"expressions,omitempty" yaml:"expressions,omitempty"`
 
-	// ParamKind specifies the kind of resources used to parameterize this policy.
-	// If absent, there are no parameters for this policy and the param CEL variable will not be provided to validation expressions.
-	// If ParamKind refers to a non-existent kind, this policy definition is mis-configured and the FailurePolicy is applied.
+	// ParamKind is a tuple of Group Kind and Version.
 	// +optional
-	ParamKind *ParamKind `json:"paramKind,omitempty" yaml:"paramKind,omitempty"`
+	ParamKind *v1alpha1.ParamKind `json:"paramKind,omitempty" yaml:"paramKind,omitempty"`
+
+	// ParamRef references a parameter resource.
+	// +optional
+	ParamRef *v1alpha1.ParamRef `json:"paramRef,omitempty" yaml:"paramRef,omitempty"`
 
 	// AuditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the API request.
 	// +optional
 	AuditAnnotations []v1alpha1.AuditAnnotation `json:"auditAnnotations,omitempty" yaml:"auditAnnotations,omitempty"`
 }
 
-// ParamKind specifies the kind of resources used to parameterize this policy.
-// It is a tuple of Group Kind, Version, Name and Namespace
-type ParamKind struct {
-	// APIVersion is the API group version the resources belong to.
-	// In format of "group/version".
-	// Required.
-	APIVersion string `json:"apiVersion,omitempty" yaml:"apiVersion,omitempty"`
-
-	// Kind is the API kind the resources belong to.
-	// Required.
-	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
-
-	// Name of the resource.
-	// Required.
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
-
-	// Namespace of the resource.
-	// Should be empty for the cluster-scoped resources
-	// +optional
-	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+func (c *CEL) HasParam() bool {
+	return c.ParamKind != nil && c.ParamRef != nil
 }
 
-func (c *CEL) GetParam() (*ParamKind, bool) {
-	if c.ParamKind == nil {
-		return nil, false
-	}
-	return c.ParamKind, true
+func (c *CEL) GetParamKind() v1alpha1.ParamKind {
+	return *c.ParamKind
+}
+
+func (c *CEL) GetParamRef() v1alpha1.ParamRef {
+	return *c.ParamRef
 }
 
 // DeserializeAnyPattern deserialize apiextensions.JSON to []interface{}

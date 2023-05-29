@@ -962,16 +962,28 @@ attributes for keyless verification, or a nested attestor declaration.</p>
 <td>
 <code>paramKind</code><br/>
 <em>
-<a href="#kyverno.io/v1.ParamKind">
-ParamKind
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#paramkind-v1alpha1-admissionregistration">
+Kubernetes admissionregistration/v1alpha1.ParamKind
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>ParamKind specifies the kind of resources used to parameterize this policy.
-If absent, there are no parameters for this policy and the param CEL variable will not be provided to validation expressions.
-If ParamKind refers to a non-existent kind, this policy definition is mis-configured and the FailurePolicy is applied.</p>
+<p>ParamKind is a tuple of Group Kind and Version.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>paramRef</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#paramref-v1alpha1-admissionregistration">
+Kubernetes admissionregistration/v1alpha1.ParamRef
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ParamRef references a parameter resource.</p>
 </td>
 </tr>
 <tr>
@@ -2514,77 +2526,6 @@ github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest.ObjectReferenceList
 </em>
 </td>
 <td>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1.ParamKind">ParamKind
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.CEL">CEL</a>)
-</p>
-<p>
-<p>ParamKind specifies the kind of resources used to parameterize this policy.
-It is a tuple of Group Kind, Version, Name and Namespace</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>APIVersion is the API group version the resources belong to.
-In format of &ldquo;group/version&rdquo;.
-Required.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Kind is the API kind the resources belong to.
-Required.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>name</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Name of the resource.
-Required.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>namespace</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Namespace of the resource.
-Should be empty for the cluster-scoped resources</p>
 </td>
 </tr>
 </tbody>
