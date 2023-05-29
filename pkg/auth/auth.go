@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kyverno/kyverno/pkg/auth/checker"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	authorizationv1 "k8s.io/api/authorization/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	authorizationv1client "k8s.io/client-go/kubernetes/typed/authorization/v1"
 )
@@ -34,7 +33,8 @@ type canIOptions struct {
 	subresource string
 	user        string
 	discovery   Discovery
-	sarClient   authorizationv1client.SubjectAccessReviewInterface
+	checker     checker.AuthChecker
+	// sarClient   authorizationv1client.SubjectAccessReviewInterface
 }
 
 // NewCanI returns a new instance of operation access controller evaluator
@@ -46,7 +46,7 @@ func NewCanI(discovery Discovery, sarClient authorizationv1client.SubjectAccessR
 		subresource: subresource,
 		user:        user,
 		discovery:   discovery,
-		sarClient:   sarClient,
+		checker:     checker.NewSubjectChecker(sarClient, user, nil),
 	}
 }
 
@@ -68,37 +68,18 @@ func (o *canIOptions) RunAccessCheck(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to get GVR for kind %s", o.kind)
 	}
-
 	if gvr.Empty() {
 		// cannot find GVR
 		return false, fmt.Errorf("failed to get the Group Version Resource for kind %s", o.kind)
 	}
-
-	sar := &authorizationv1.SubjectAccessReview{
-		Spec: authorizationv1.SubjectAccessReviewSpec{
-			ResourceAttributes: &authorizationv1.ResourceAttributes{
-				Namespace:   o.namespace,
-				Verb:        o.verb,
-				Group:       gvr.Group,
-				Resource:    gvr.Resource,
-				Subresource: o.subresource,
-			},
-			User: o.user,
-		},
-	}
-
-	logger := logger.WithValues("kind", sar.Kind, "namespace", sar.Namespace, "name", sar.Name, "gvr", gvr.String())
-	resp, err := o.sarClient.Create(ctx, sar, metav1.CreateOptions{})
+	logger := logger.WithValues("kind", kind, "namespace", o.namespace, "gvr", gvr.String(), "verb", o.verb)
+	result, err := o.checker.Check(ctx, gvr.Group, gvr.Version, gvr.Resource, o.subresource, o.namespace, o.verb)
 	if err != nil {
-		logger.Error(err, "failed to create resource")
+		logger.Error(err, "failed to check permissions")
 		return false, err
 	}
-
-	if !resp.Status.Allowed {
-		reason := resp.Status.Reason
-		evaluationError := resp.Status.EvaluationError
-		logger.Info("disallowed operation", "reason", reason, "evaluationError", evaluationError)
+	if !result.Allowed {
+		logger.Info("disallowed operation", "reason", result.Reason, "evaluationError", result.EvaluationError)
 	}
-
-	return resp.Status.Allowed, nil
+	return result.Allowed, nil
 }
