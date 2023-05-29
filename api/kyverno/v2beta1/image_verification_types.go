@@ -6,7 +6,7 @@ import (
 )
 
 // ImageVerificationType selects the type of verification algorithm
-// +kubebuilder:validation:Enum=Cosign;NotaryV2
+// +kubebuilder:validation:Enum=Cosign;Notary
 // +kubebuilder:default=Cosign
 type ImageVerificationType string
 

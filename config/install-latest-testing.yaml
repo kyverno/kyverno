@@ -14218,7 +14218,7 @@ spec:
                               Cosign is used if a type is not specified.
                             enum:
                             - Cosign
-                            - NotaryV2
+                            - Notary
                             type: string
                           verifyDigest:
                             default: true
@@ -28501,7 +28501,7 @@ spec:
                               Cosign is used if a type is not specified.
                             enum:
                             - Cosign
-                            - NotaryV2
+                            - Notary
                             type: string
                           verifyDigest:
                             default: true
