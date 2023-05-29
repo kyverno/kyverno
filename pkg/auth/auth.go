@@ -34,7 +34,6 @@ type canIOptions struct {
 	user        string
 	discovery   Discovery
 	checker     checker.AuthChecker
-	// sarClient   authorizationv1client.SubjectAccessReviewInterface
 }
 
 // NewCanI returns a new instance of operation access controller evaluator
