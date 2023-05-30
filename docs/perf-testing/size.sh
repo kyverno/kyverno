@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 ## calculate total size for the given object

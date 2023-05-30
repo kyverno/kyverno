@@ -9,10 +9,10 @@ import (
 	"strings"
 	"sync"
 
-	v1 "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8s_io_client_go_kubernetes "k8s.io/client-go/kubernetes"
+	kubernetes "k8s.io/client-go/kubernetes"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
 )
 
@@ -53,7 +53,7 @@ func main() {
 
 	clientConfig.Burst = clientRateLimitBurst
 	clientConfig.QPS = float32(clientRateLimitQPS)
-	client, err := k8s_io_client_go_kubernetes.NewForConfig(clientConfig)
+	client, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
 		fmt.Println("error creating client set: ", err)
 		os.Exit(1)
@@ -141,9 +141,9 @@ func newPod(i string) *corev1.Pod {
 	}
 }
 
-func newReplicaset(i string) *v1.ReplicaSet {
+func newReplicaset(i string) *appsv1.ReplicaSet {
 	r := int32(replicas)
-	return &v1.ReplicaSet{
+	return &appsv1.ReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "perf-testing-rs" + i,
 			Namespace: namespace,
@@ -151,7 +151,7 @@ func newReplicaset(i string) *v1.ReplicaSet {
 				"app.kubernetes.io/name": "perf-testing",
 			},
 		},
-		Spec: v1.ReplicaSetSpec{
+		Spec: appsv1.ReplicaSetSpec{
 			Replicas: &r,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
@@ -170,9 +170,9 @@ func newReplicaset(i string) *v1.ReplicaSet {
 	}
 }
 
-func newDeployment(i string) *v1.Deployment {
+func newDeployment(i string) *appsv1.Deployment {
 	r := int32(replicas)
-	return &v1.Deployment{
+	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "perf-testing-deploy-" + i,
 			Namespace: namespace,
@@ -180,7 +180,7 @@ func newDeployment(i string) *v1.Deployment {
 				"app.kubernetes.io/name": "perf-testing",
 			},
 		},
-		Spec: v1.DeploymentSpec{
+		Spec: appsv1.DeploymentSpec{
 			Replicas: &r,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
