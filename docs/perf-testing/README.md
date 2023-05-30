@@ -86,13 +86,13 @@ Credits to [k3s etcd commands](https://gist.github.com/superseb/0c06164eef5a097c
 
 ## Create `Kwok` nodes
 
-Run the script to create the desired number of nodes for your Kowk cluster:
+Run the script to create the desired number of nodes for your Kwok cluster:
 
 ```sh
 ./docs/perf-testing/node.sh
 ```
 
-More about Kowk on this [page](https://kwok.sigs.k8s.io/docs/user/kwok-in-cluster/).
+More about Kwok on this [page](https://kwok.sigs.k8s.io/docs/user/kwok-in-cluster/).
 
 ## Setup Monitor Components
 
