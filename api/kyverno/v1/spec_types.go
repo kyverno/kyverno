@@ -264,13 +264,6 @@ func (s *Spec) ValidateRules(path *field.Path, namespaced bool, policyNamespace 
 	return errs
 }
 
-func (s *Spec) validateDeprecatedFields(path *field.Path) (errs field.ErrorList) {
-	if s.GenerateExistingOnPolicyUpdate != nil {
-		errs = append(errs, field.Forbidden(path.Child("generateExistingOnPolicyUpdate"), "deprecated field, define generateExisting instead"))
-	}
-	return errs
-}
-
 func (s *Spec) validateMutateTargets(path *field.Path) (errs field.ErrorList) {
 	if s.MutateExistingOnPolicyUpdate {
 		for i, rule := range s.Rules {
@@ -287,9 +280,6 @@ func (s *Spec) validateMutateTargets(path *field.Path) (errs field.ErrorList) {
 
 // Validate implements programmatic validation
 func (s *Spec) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
-	if err := s.validateDeprecatedFields(path); err != nil {
-		errs = append(errs, err...)
-	}
 	if err := s.validateMutateTargets(path); err != nil {
 		errs = append(errs, err...)
 	}
