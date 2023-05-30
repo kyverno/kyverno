@@ -39,7 +39,7 @@ To quickly try out the scaling test, you can use the following command to create
 k3d cluster create --agents=3  --k3s-arg "--disable=metrics-server@server:*" --k3s-node-label "ingress-ready=true@agent:*"
 ```
 
-To set up embedded etcd for the K3s cluster, follow instructions below. This is used when getting objects from etcd. 
+To set up embedded etcd for the K3s cluster, follow instructions below.
 
 ```sh
 k3d cluster create scaling --servers 3 --agents=15 --k3s-arg "--disable=metrics-server@server:*" --k3s-node-label "ingress-ready=true@agent:*" 
@@ -106,12 +106,12 @@ make dev-lab-metrics-server dev-lab-prometheus
 helm repo update
 helm upgrade --install kyverno kyverno/kyverno -n kyverno \
   --create-namespace \
-  --devel \
   --set admissionController.serviceMonitor.enabled=true \
   --set admissionController.replicas=3 \
-  # --set features.admissionReports.enabled=false \
   --set reportsController.serviceMonitor.enabled=true \
   --set reportsController.resources.limits.memory=10Gi 
+  # --devel \
+  # --set features.admissionReports.enabled=false \
 ```
 
 ## Deploy Kyverno PSS policies
@@ -121,25 +121,25 @@ helm upgrade --install kyverno kyverno/kyverno-policies --set=podSecurityStandar
 
 # Create workloads
 
-This script creates a single ReplicaSet with 1000 pods, with QPS and burst set to 50:
+This script creates 1000 pods, with QPS and burst set to 50:
 
 ```sh
-export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 kubectl create ns test
-go run docs/perf-testing/main.go --count=10000 --kinds=pods --clientRateLimitQPS=50 --clientRateLimitBurst=50 --namespace=test
+go run docs/perf-testing/main.go --count=1000 --kinds=pods --clientRateLimitQPS=50 --clientRateLimitBurst=50 --namespace=test
 ```
 
 Note that these pods will be scheduled to the Kwok nodes, not k3s nodes.
 
 # Prometheus Queries
 
+To view the Prometheus dashboard, you can expose it on your localhost's port at 9090:
 ```
 kubectl port-forward --address 127.0.0.1 svc/kube-prometheus-stack-prometheus 9090:9090 -n monitoring &
 ```
 
 ## Memory utilization
 
-You can select by the container image for a specific Kyverno controller:
+To get an view of the memory utilization overtime, you can select by the container image for a specific Kyverno controller:
 
 ```
 container_memory_working_set_bytes{image="ghcr.io/kyverno/kyverno:v1.10.0-rc.1"}
@@ -169,13 +169,39 @@ sum(kyverno_admission_requests_total)
 
 ## Objects sizes in etcd
 
-Run the following script to calculate total sizes for pods:
+Run the following script to calculate total sizes for the given resource (pods in the following example):
 ```sh
-./docs/perf-testing/size.sh
+$ ./docs/perf-testing/size.sh
+Enter the resource to calculate the size:
+pods
+The total size for pods is 8861737 bytes.
+```
+
+You can also check the total etcd size:
+```sh
+$ etcdctl endpoint status -w table
++-------------------------+------------------+---------+---------+-----------+------------+-----------+------------+--------------------+--------+
+|        ENDPOINT         |        ID        | VERSION | DB SIZE | IS LEADER | IS LEARNER | RAFT TERM | RAFT INDEX | RAFT APPLIED INDEX | ERRORS |
++-------------------------+------------------+---------+---------+-----------+------------+-----------+------------+--------------------+--------+
+| https://172.19.0.2:2379 | d7380397c3ec4b90 |   3.5.3 |   84 MB |      true |      false |         2 |     154449 |             154449 |        |
++-------------------------+------------------+---------+---------+-----------+------------+-----------+------------+--------------------+--------+
 ```
 
 This command returns the resources stored in etcd that have more than 100 objects:
 
-```
+```sh
 kubectl get --raw=/metrics | grep apiserver_storage_objects |awk '$2>100' |sort -g -k 2
+```
+
+
+## Admission review latency (average)
+
+Kyverno exposes two metrics that can be used to calculate the admission review latency, 
+```
+sum(kyverno_admission_review_duration_seconds_sum{resource_request_operation=~"create|update"})/sum(kyverno_admission_review_duration_seconds_count{resource_request_operation=~"create|update"})
+```
+
+The following metrics exposed by Prometheus should give you the same result if you follow the same setup on this page:
+```
+sum(apiserver_admission_webhook_admission_duration_seconds_sum{name="validate.kyverno.svc-fail",operation="CREATE"}) / sum(apiserver_admission_webhook_admission_duration_seconds_count{name="validate.kyverno.svc-fail",operation="CREATE"})
 ```
