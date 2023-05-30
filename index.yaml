@@ -25,6 +25,53 @@ entries:
       artifacthub.io/operator: "false"
       artifacthub.io/prerelease: "false"
     apiVersion: v2
+    appVersion: v1.10.0
+    created: "2023-05-30T09:02:00.07883155Z"
+    description: Kubernetes Native Policy Management
+    digest: 4f27366a6b660f360fe59876f583ff9a3b5d5ddf83146a2b6af7d24cd2cb8f05
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.16.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-3.0.0.tgz
+    version: 3.0.0
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: added
+          description: make sigstore volume configurable
+        - kind: changed
+          description: no deployments can run with 0 replicas
+        - kind: changed
+          description: change dashboard title of kyverno grafana dashboard
+        - kind: added
+          description: view aggregated cluster role support
+        - kind: added
+          description: support for webhook annotations in config map
+        - kind: added
+          description: allow overriding PDB api version
+        - kind: fixed
+          description: missing image pull secrets in helm hooks
+        - kind: added
+          description: support `excludeRoles` and `excludeClusterRoles` in config
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://kyverno.io/docs
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
     appVersion: v1.10.0-rc.1
     created: "2023-05-23T20:35:46.157484982Z"
     description: Kubernetes Native Policy Management
@@ -6965,4 +7012,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2023-05-30T08:59:30.206857723Z"
+generated: "2023-05-30T09:02:00.062299246Z"
