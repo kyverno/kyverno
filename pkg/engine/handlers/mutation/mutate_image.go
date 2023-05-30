@@ -74,7 +74,6 @@ func (h mutateImageHandler) Process(
 	for _, imageVerify := range ruleCopy.VerifyImages {
 		engineResponses = append(engineResponses, iv.Verify(ctx, imageVerify, h.images, h.configuration)...)
 	}
-
 	var patches []jsonpatch.JsonPatchOperation
 	for _, response := range engineResponses {
 		patches = append(patches, response.Patches()...)
