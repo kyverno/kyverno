@@ -226,9 +226,23 @@ type KeylessAttestor struct {
 
 type CTLog struct {
 	// URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	// +kubebuilder:Default:=https://rekor.sigstore.dev
 	URL string `json:"url" yaml:"url"`
+
+	// RekorPubKey is an optional PEM encoded public key to use for a custom Rekor.
+	// +kubebuilder:validation:Optional
+	RekorPubKey string `json:"pubkey,omitempty" yaml:"pubkey,omitempty"`
+
+	// IgnoreSCT requires that a certificate contain an embedded SCT during verification. An SCT is proof of inclusion in a certificate transparency log.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	IgnoreSCT bool `json:"ignoreSCT,omitempty" yaml:"ignoreSCT,omitempty"`
+
+	// IgnoreTlog skip tlog verification
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	IgnoreTlog bool `json:"ignoreTlog,omitempty" yaml:"ignoreTlog,omitempty"`
 }
 
 // Attestation are checks for signed in-toto Statements that are used to verify the image.

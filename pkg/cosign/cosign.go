@@ -26,6 +26,7 @@ import (
 	"github.com/sigstore/sigstore/pkg/fulcioroots"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/payload"
+	"github.com/sigstore/sigstore/pkg/tuf"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
 )
@@ -180,24 +181,18 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 		}
 	}
 
-	if opts.RekorURL == "" && opts.Key == "" {
-		// Keyless verification and RekorURL is not provided
-		opts.RekorURL = "https://rekor.sigstore.dev"
+	cosignOpts.RekorClient, err = rekorclient.GetRekorClient(opts.RekorURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Rekor client from URL %s: %w", opts.RekorURL, err)
 	}
 
-	if opts.RekorURL != "" {
-		cosignOpts.RekorClient, err = rekorclient.GetRekorClient(opts.RekorURL)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create Rekor client from URL %s: %w", opts.RekorURL, err)
-		}
-
-		cosignOpts.RekorPubKeys, err = cosign.GetRekorPubs(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load Rekor public keys: %w", err)
-		}
-	} else {
-		cosignOpts.IgnoreTlog = true
+	cosignOpts.RekorPubKeys, err = getRekorPubs(ctx, opts.RekorPubKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load Rekor public keys: %w", err)
 	}
+
+	cosignOpts.IgnoreSCT = opts.IgnoreSCT
+	cosignOpts.IgnoreTlog = opts.IgnoreTlog
 
 	if opts.Repository != "" {
 		signatureRepo, err := name.NewRepository(opts.Repository)
@@ -207,7 +202,13 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 
 		cosignOpts.RegistryClientOpts = append(cosignOpts.RegistryClientOpts, remote.WithTargetRepository(signatureRepo))
 	}
-	cosignOpts.IgnoreSCT = true
+
+	cosignOpts.Identities = []cosign.Identity{
+		{
+			Issuer:  opts.Issuer,
+			Subject: opts.Subject,
+		},
+	}
 
 	return cosignOpts, nil
 }
@@ -578,4 +579,16 @@ func checkAnnotations(payload []payload.SimpleContainerImage, annotations map[st
 		}
 	}
 	return nil
+}
+
+func getRekorPubs(ctx context.Context, rekorPubKey string) (*cosign.TrustedTransparencyLogPubKeys, error) {
+	if rekorPubKey == "" {
+		return cosign.GetRekorPubs(ctx)
+	}
+
+	publicKeys := cosign.NewTrustedTransparencyLogPubKeys()
+	if err := publicKeys.AddTransparencyLogPubKey([]byte(rekorPubKey), tuf.Active); err != nil {
+		return nil, fmt.Errorf("AddRekorPubKey: %w", err)
+	}
+	return &publicKeys, nil
 }

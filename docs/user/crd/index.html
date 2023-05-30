@@ -956,6 +956,39 @@ string
 <p>URL is the address of the transparency log. Defaults to the public log <a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>pubkey</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>RekorPubKey is an optional PEM encoded public key to use for a custom Rekor.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ignoreSCT</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>IgnoreSCT requires that a certificate contain an embedded SCT during verification. An SCT is proof of inclusion in a certificate transparency log.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ignoreTlog</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>IgnoreTlog skip tlog verification</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />

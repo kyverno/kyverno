@@ -28,6 +28,9 @@ type Options struct {
 	Annotations          map[string]string
 	Repository           string
 	RekorURL             string
+	RekorPubKey          string
+	IgnoreSCT            bool
+	IgnoreTlog           bool
 	SignatureAlgorithm   string
 	PredicateType        string
 	Identities           string

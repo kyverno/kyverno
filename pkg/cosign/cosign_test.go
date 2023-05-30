@@ -78,23 +78,24 @@ func TestCosignPayload(t *testing.T) {
 
 func TestCosignKeyless(t *testing.T) {
 	opts := images.Options{
-		ImageRef: "ghcr.io/jimbugwadia/pause2",
-		Issuer:   "https://github.com/",
-		Subject:  "jim",
+		ImageRef:  "ghcr.io/jimbugwadia/pause2",
+		Issuer:    "https://github.com/",
+		Subject:   "jim",
+		RekorURL:  "https://rekor.sigstore.dev",
+		IgnoreSCT: true,
 	}
 
 	rc, err := registryclient.New()
 	assert.NilError(t, err)
 	opts.RegistryClient = rc
-	opts.RekorURL = "https://rekor.sigstore.dev"
 
 	verifier := &cosignVerifier{}
 	_, err = verifier.VerifySignature(context.TODO(), opts)
-	assert.ErrorContains(t, err, "subject mismatch: expected jim, received jim@nirmata.com")
+	assert.ErrorContains(t, err, "none of the expected identities matched what was in the certificate, got subjects [jim@nirmata.com]")
 
 	opts.Subject = "jim@nirmata.com"
 	_, err = verifier.VerifySignature(context.TODO(), opts)
-	assert.ErrorContains(t, err, "issuer mismatch: expected https://github.com/, received https://github.com/login/oauth")
+	assert.ErrorContains(t, err, "none of the expected identities matched what was in the certificate, got subjects [jim@nirmata.com] with issuer https://github.com/login/oauth")
 
 	opts.Issuer = "https://github.com/login/oauth"
 	_, err = verifier.VerifySignature(context.TODO(), opts)
