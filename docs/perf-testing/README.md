@@ -154,6 +154,7 @@ container_memory_working_set_bytes{image="ghcr.io/kyverno/kyverno:v1.10.0-rc.1"}
 rate(container_cpu_usage_seconds_total{image="ghcr.io/kyverno/kyverno:v1.10.0-rc.1"}[1m])
 ```
 
+`container_cpu_usage_seconds_total` is the sum of the total amount of “user” time (i.e. time spent not in the kernel) and the total amount of “system” time (i.e. time spent in the kernel). This query gives the average CPU usage in the last 1 minute.
 
 ## Admission Request Rate
 
