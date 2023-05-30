@@ -224,8 +224,18 @@ func (s *Spec) ValidateRules(path *field.Path, namespaced bool, clusterResources
 	return errs
 }
 
+func (s *Spec) ValidateDeprecatedFields(path *field.Path) (errs field.ErrorList) {
+	if s.GenerateExistingOnPolicyUpdate != nil && s.GenerateExisting {
+		errs = append(errs, field.Forbidden(path.Child("generateExistingOnPolicyUpdate"), "remove the deprecated field and use generateExisting instead"))
+	}
+	return errs
+}
+
 // Validate implements programmatic validation
 func (s *Spec) Validate(path *field.Path, namespaced bool, clusterResources sets.Set[string]) (errs field.ErrorList) {
+	if err := s.ValidateDeprecatedFields(path); err != nil {
+		errs = append(errs, err...)
+	}
 	if s.WebhookTimeoutSeconds != nil && (*s.WebhookTimeoutSeconds < 1 || *s.WebhookTimeoutSeconds > 30) {
 		errs = append(errs, field.Invalid(path.Child("webhookTimeoutSeconds"), s.WebhookTimeoutSeconds, "the timeout value must be between 1 and 30 seconds"))
 	}
