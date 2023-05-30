@@ -428,6 +428,14 @@ cleanupJobs:
       seccompProfile:
         type: RuntimeDefault
 
+    resources:
+      # -- Pod resource limits
+      limits:
+        memory: 128Mi
+      # -- Pod resource requests
+      requests:
+        cpu: 100m
+        memory: 64Mi
   clusterAdmissionReports:
 
     # -- Enable cleanup cronjob
@@ -470,6 +478,15 @@ cleanupJobs:
           - ALL
       seccompProfile:
         type: RuntimeDefault
+
+    resources:
+      # -- Pod resource limits
+      limits:
+        memory: 128Mi
+      # -- Pod resource requests
+      requests:
+        cpu: 100m
+        memory: 64Mi
 
 # Admission controller configuration
 admissionController:

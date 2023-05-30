@@ -39,5 +39,9 @@ spec:
             securityContext:
               {{- toYaml . | nindent 14 }}
             {{- end }}
+            {{- with .Values.cleanupJobs.clusterAdmissionReports.resources }}
+            resources:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
           restartPolicy: OnFailure
 {{- end -}}
