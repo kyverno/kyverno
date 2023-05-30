@@ -21,7 +21,7 @@ type scanner struct {
 }
 
 type ScanResult struct {
-	EngineResponse engineapi.EngineResponse
+	EngineResponse *engineapi.EngineResponse
 	Error          error
 }
 
@@ -61,11 +61,11 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 			}
 			if response == nil {
 				response = ivResponse
-			} else {
+			} else if ivResponse != nil {
 				response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ivResponse.PolicyResponse.Rules...)
 			}
 		}
-		results[policy] = ScanResult{*response, multierr.Combine(errors...)}
+		results[policy] = ScanResult{response, multierr.Combine(errors...)}
 	}
 	return results
 }
