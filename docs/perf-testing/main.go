@@ -125,7 +125,6 @@ func main() {
 			}
 		}
 	}
-
 }
 
 func newPod(i string) *corev1.Pod {
