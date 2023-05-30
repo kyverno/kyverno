@@ -20,6 +20,12 @@ spec:
     metadata:
       labels:
         {{- include "kyverno.reports-controller.labels" . | nindent 8 }}
+        {{- with .Values.reportsController.podLabels }}
+        {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- end }}
+      {{- with .Values.reportsController.podAnnotations }}
+      annotations: {{ tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
     spec:
       {{- with .Values.reportsController.imagePullSecrets }}
       imagePullSecrets: 

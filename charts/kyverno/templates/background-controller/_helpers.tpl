@@ -27,7 +27,7 @@
 {{- end -}}
 
 {{- define "kyverno.background-controller.roleName" -}}
-{{ .Release.Name }}:background-controller
+{{ include "kyverno.fullname" . }}:background-controller
 {{- end -}}
 
 {{- define "kyverno.background-controller.serviceAccountName" -}}
