@@ -428,6 +428,9 @@ cleanupJobs:
       seccompProfile:
         type: RuntimeDefault
 
+    # -- List of node taints to tolerate
+    tolerations: []
+
   clusterAdmissionReports:
 
     # -- Enable cleanup cronjob
@@ -470,6 +473,9 @@ cleanupJobs:
           - ALL
       seccompProfile:
         type: RuntimeDefault
+
+    # -- List of node taints to tolerate
+    tolerations: []
 
 # Admission controller configuration
 admissionController:
