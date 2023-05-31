@@ -434,6 +434,9 @@ cleanupJobs:
     # -- List of node taints to tolerate
     tolerations: []
 
+    # -- Pod Annotations
+    podAnnotations: {}
+
   clusterAdmissionReports:
 
     # -- Enable cleanup cronjob
@@ -482,6 +485,9 @@ cleanupJobs:
 
     # -- List of node taints to tolerate
     tolerations: []
+
+    # -- Pod Annotations
+    podAnnotations: {}
 
 # Admission controller configuration
 admissionController:
