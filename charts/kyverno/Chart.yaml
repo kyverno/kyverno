@@ -28,3 +28,5 @@ annotations:
   artifacthub.io/changes: |
     - kind: fixed
       description: incorrect config map names
+    - kind: added
+      description: define resources for cleanupJobs
