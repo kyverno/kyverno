@@ -428,14 +428,8 @@ cleanupJobs:
       seccompProfile:
         type: RuntimeDefault
 
-    resources:
-      # -- Pod resource limits
-      limits:
-        memory: 128Mi
-      # -- Pod resource requests
-      requests:
-        cpu: 100m
-        memory: 64Mi
+    # -- Job resources
+    resources: {}
 
     # -- List of node taints to tolerate
     tolerations: []
@@ -483,14 +477,8 @@ cleanupJobs:
       seccompProfile:
         type: RuntimeDefault
 
-    resources:
-      # -- Pod resource limits
-      limits:
-        memory: 128Mi
-      # -- Pod resource requests
-      requests:
-        cpu: 100m
-        memory: 64Mi
+    # -- Job resources
+    resources: {}
 
     # -- List of node taints to tolerate
     tolerations: []
