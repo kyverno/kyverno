@@ -3,6 +3,39 @@ entries:
   kyverno:
   - annotations:
       artifacthub.io/changes: |
+        - kind: fixed
+          description: incorrect config map names
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://kyverno.io/docs
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
+    appVersion: v1.10.0
+    created: "2023-05-31T08:34:16.343191467Z"
+    description: Kubernetes Native Policy Management
+    digest: fffcb39b4bc54e4fb8e8c90a87bc5d171bc4111e6075b9ec0bdedcccd20bf64c
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.16.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-3.0.1.tgz
+    version: 3.0.1
+  - annotations:
+      artifacthub.io/changes: |
         - kind: added
           description: make sigstore volume configurable
         - kind: changed
@@ -7046,4 +7079,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2023-05-31T07:52:43.956169163Z"
+generated: "2023-05-31T08:34:16.32280834Z"
