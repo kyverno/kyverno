@@ -35483,6 +35483,7 @@ spec:
   jobTemplate:
     spec:
       template:
+        metadata:
         spec:
           serviceAccountName: kyverno-cleanup-jobs
           containers:
@@ -35529,6 +35530,7 @@ spec:
   jobTemplate:
     spec:
       template:
+        metadata:
         spec:
           serviceAccountName: kyverno-cleanup-jobs
           containers:

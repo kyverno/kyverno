@@ -14,6 +14,11 @@ spec:
   jobTemplate:
     spec:
       template:
+        metadata:
+          {{- with .Values.cleanupJobs.admissionReports.podAnnotations }}
+          annotations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
         spec:
           serviceAccountName: {{ template "kyverno.name" . }}-cleanup-jobs
           {{- with .Values.cleanupJobs.admissionReports.podSecurityContext }}
