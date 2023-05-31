@@ -39,5 +39,13 @@ spec:
             securityContext:
               {{- toYaml . | nindent 14 }}
             {{- end }}
+            {{- with .Values.cleanupJobs.admissionReports.resources }}
+            resources:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
           restartPolicy: OnFailure
+          {{- with .Values.cleanupJobs.admissionReports.tolerations }}
+          tolerations:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
 {{- end -}}
