@@ -129,7 +129,7 @@ The first option for upgrading, which is the recommended option, involves backin
 Follow the procedure below.
 
 1. READ THE COMPLETE RELEASE NOTES FIRST
-2. Backup and export all Kyverno policy resources to a YAML manifest. Use the command `kubectl get pol,cpol,cleanpol,ccleanpol,polex -A > kyvernobackup.yaml`.
+2. Backup and export all Kyverno policy resources to a YAML manifest. Use the command `kubectl get pol,cpol,cleanpol,ccleanpol,polex -A -o yaml > kyvernobackup.yaml`.
 3. Uninstall your current version of Kyverno.
 4. Review the [New Chart Values](#new-chart-values) section and translate your desired features and configurations to the new format.
 5. Install the v3 chart with Kyverno 1.10.
@@ -153,7 +153,7 @@ Follow the procedure below.
 
 1. READ THE COMPLETE RELEASE NOTES FIRST
 2. Scale the `kyverno` Deployment to zero replicas.
-3. If coming from 1.9 and you have install the cleanup controller, scale the `kyverno-cleanup-controller` Deployment to zero replicas.
+3. If coming from 1.9 and you have installed the cleanup controller, scale the `kyverno-cleanup-controller` Deployment to zero replicas.
 4. If step 3 applied to you, now delete the cleanup Deployment.
 5. Review the [New Chart Values](#new-chart-values) section and translate your desired features and configurations to the new format.
 6. Upgrade to the v3 chart by passing the mandatory flag `upgrade.fromV2=true`.
@@ -400,6 +400,8 @@ The chart values are organised per component.
 | backgroundController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | backgroundController.imagePullSecrets | list | `[]` | Image pull secrets |
 | backgroundController.replicas | int | `nil` | Desired number of pods |
+| backgroundController.podLabels | object | `{}` | Additional labels to add to each pod |
+| backgroundController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | backgroundController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | backgroundController.priorityClassName | string | `""` | Optional priority class |
 | backgroundController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
@@ -459,6 +461,8 @@ The chart values are organised per component.
 | cleanupController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | cleanupController.imagePullSecrets | list | `[]` | Image pull secrets |
 | cleanupController.replicas | int | `nil` | Desired number of pods |
+| cleanupController.podLabels | object | `{}` | Additional labels to add to each pod |
+| cleanupController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | cleanupController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | cleanupController.priorityClassName | string | `""` | Optional priority class |
 | cleanupController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
@@ -524,6 +528,8 @@ The chart values are organised per component.
 | reportsController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | reportsController.imagePullSecrets | list | `[]` | Image pull secrets |
 | reportsController.replicas | int | `nil` | Desired number of pods |
+| reportsController.podLabels | object | `{}` | Additional labels to add to each pod |
+| reportsController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | reportsController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | reportsController.priorityClassName | string | `""` | Optional priority class |
 | reportsController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
@@ -617,6 +623,8 @@ The chart values are organised per component.
 | cleanupJobs.admissionReports.history | object | `{"failure":1,"success":1}` | Cronjob history |
 | cleanupJobs.admissionReports.podSecurityContext | object | `{}` | Security context for the pod |
 | cleanupJobs.admissionReports.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
+| cleanupJobs.admissionReports.resources | object | `{}` | Job resources |
+| cleanupJobs.admissionReports.tolerations | list | `[]` | List of node taints to tolerate |
 | cleanupJobs.clusterAdmissionReports.enabled | bool | `true` | Enable cleanup cronjob |
 | cleanupJobs.clusterAdmissionReports.image.registry | string | `nil` | Image registry |
 | cleanupJobs.clusterAdmissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
@@ -627,6 +635,8 @@ The chart values are organised per component.
 | cleanupJobs.clusterAdmissionReports.history | object | `{"failure":1,"success":1}` | Cronjob history |
 | cleanupJobs.clusterAdmissionReports.podSecurityContext | object | `{}` | Security context for the pod |
 | cleanupJobs.clusterAdmissionReports.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
+| cleanupJobs.clusterAdmissionReports.resources | object | `{}` | Job resources |
+| cleanupJobs.clusterAdmissionReports.tolerations | list | `[]` | List of node taints to tolerate |
 
 ### Other
 
