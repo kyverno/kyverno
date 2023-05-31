@@ -1,7 +1,7 @@
 apiVersion: v2
 type: application
 name: kyverno
-version: 3.0.0
+version: 3.0.1
 appVersion: v1.10.0
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Native Policy Management
@@ -26,19 +26,5 @@ annotations:
       url: https://kyverno.io/docs
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
-    - kind: added
-      description: make sigstore volume configurable
-    - kind: changed
-      description: no deployments can run with 0 replicas
-    - kind: changed
-      description: change dashboard title of kyverno grafana dashboard
-    - kind: added
-      description: view aggregated cluster role support
-    - kind: added
-      description: support for webhook annotations in config map
-    - kind: added
-      description: allow overriding PDB api version
     - kind: fixed
-      description: missing image pull secrets in helm hooks
-    - kind: added
-      description: support `excludeRoles` and `excludeClusterRoles` in config
+      description: incorrect config map names
