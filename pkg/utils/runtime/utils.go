@@ -20,6 +20,7 @@ type Runtime interface {
 
 type runtime struct {
 	serverIP         string
+	deploymentName   string
 	deploymentLister appsv1listers.DeploymentLister
 	certValidator    tls.CertValidator
 	logger           logr.Logger
@@ -28,12 +29,14 @@ type runtime struct {
 func NewRuntime(
 	logger logr.Logger,
 	serverIP string,
+	deploymentName string,
 	deploymentInformer appsv1informers.DeploymentInformer,
 	certValidator tls.CertValidator,
 ) Runtime {
 	return &runtime{
 		logger:           logger,
 		serverIP:         serverIP,
+		deploymentName:   deploymentName,
 		deploymentLister: deploymentInformer.Lister(),
 		certValidator:    certValidator,
 	}
@@ -90,7 +93,7 @@ func (c *runtime) IsGoingDown() bool {
 }
 
 func (c *runtime) getDeployment() (*appsv1.Deployment, error) {
-	return c.deploymentLister.Deployments(config.KyvernoNamespace()).Get(config.KyvernoDeploymentName())
+	return c.deploymentLister.Deployments(config.KyvernoNamespace()).Get(c.deploymentName)
 }
 
 func (c *runtime) validateCertificates() bool {
