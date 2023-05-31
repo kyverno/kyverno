@@ -5,3 +5,4 @@ Contributors are those who have made enough contributions to the project as defi
 | Maintainer               | GitHub ID                                              |
 |--------------------------|--------------------------------------------------------|
 | John Doe                 | [@JohnDoe](https://github.com/JohnDoe)                 |
+| Vishal Choudhary         | [@Vishal-Chdhry](https://github.com/Vishal-Chdhry)     |
