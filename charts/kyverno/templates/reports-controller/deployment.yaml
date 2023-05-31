@@ -123,6 +123,8 @@ spec:
             {{- end }}
             {{- end }}
           env:
+          - name: INIT_CONFIG
+            value: {{ template "kyverno.config.configMapName" . }}
           - name: METRICS_CONFIG
             value: {{ template "kyverno.config.metricsConfigMapName" . }}
           - name: KYVERNO_POD_NAME
