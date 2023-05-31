@@ -18,12 +18,12 @@ import (
 )
 
 // NewTraceConfig generates the initial tracing configuration with 'address' as the endpoint to connect to the Opentelemetry Collector
-func NewTraceConfig(log logr.Logger, tracerName, address, certs string, kubeClient kubernetes.Interface) (func(), error) {
+func NewTraceConfig(log logr.Logger, tracerName, address, namespace, certs string, kubeClient kubernetes.Interface) (func(), error) {
 	ctx := context.Background()
 	var client otlptrace.Client
 	if certs != "" {
 		// here the certificates are stored as configmaps
-		transportCreds, err := tlsutils.FetchCert(ctx, certs, kubeClient)
+		transportCreds, err := tlsutils.FetchCert(ctx, namespace, certs, kubeClient)
 		if err != nil {
 			log.Error(err, "Error fetching certificate from secret")
 		}

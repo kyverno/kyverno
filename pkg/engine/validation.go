@@ -40,6 +40,7 @@ func (e *engine) validate(
 				hasValidatePss := rule.HasValidatePodSecurity()
 				if hasVerifyManifest {
 					return validation.NewValidateManifestHandler(
+						"TODO",
 						policyContext,
 						e.client,
 					)

@@ -10,7 +10,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -48,13 +47,13 @@ func updateRetryAnnotation(kyvernoClient versioned.Interface, ur *kyvernov1beta1
 		return err
 	}
 	if retry > 3 {
-		err = kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
+		err = kyvernoClient.KyvernoV1beta1().UpdateRequests(ur.GetNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
 		if err != nil {
 			return errors.Wrapf(err, "exceeds retry limit, failed to delete the UR: %s, retry: %v, resourceVersion: %s", ur.Name, retry, ur.GetResourceVersion())
 		}
 	} else {
 		ur.SetAnnotations(urAnnotations)
-		_, err = kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Update(context.TODO(), ur, metav1.UpdateOptions{})
+		_, err = kyvernoClient.KyvernoV1beta1().UpdateRequests(ur.GetNamespace()).Update(context.TODO(), ur, metav1.UpdateOptions{})
 		if err != nil {
 			return errors.Wrapf(err, "failed to update annotation in update request: %s for the resource, retry: %v, resourceVersion %s, annotations: %v", ur.Name, retry, ur.GetResourceVersion(), urAnnotations)
 		}

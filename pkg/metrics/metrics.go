@@ -106,11 +106,12 @@ func NewOTLPGRPCConfig(
 	certs string,
 	kubeClient kubernetes.Interface,
 	log logr.Logger,
+	namespace string,
 ) (metric.MeterProvider, error) {
 	options := []otlpmetricgrpc.Option{otlpmetricgrpc.WithEndpoint(endpoint), otlpmetricgrpc.WithAggregationSelector(aggregationSelector)}
 	if certs != "" {
 		// here the certificates are stored as configmaps
-		transportCreds, err := tlsutils.FetchCert(ctx, certs, kubeClient)
+		transportCreds, err := tlsutils.FetchCert(ctx, namespace, certs, kubeClient)
 		if err != nil {
 			log.Error(err, "Error fetching certificate from secret")
 			return nil, err
@@ -152,13 +153,14 @@ func NewOTLPGRPCConfig(
 func NewPrometheusConfig(
 	ctx context.Context,
 	log logr.Logger,
+	namespace string,
 ) (metric.MeterProvider, *http.ServeMux, error) {
 	res, err := resource.Merge(
 		resource.Default(),
 		resource.NewWithAttributes(
 			semconv.SchemaURL,
 			semconv.ServiceNameKey.String("kyverno-svc-metrics"),
-			semconv.ServiceNamespaceKey.String(kconfig.KyvernoNamespace()),
+			semconv.ServiceNamespaceKey.String(namespace),
 			semconv.ServiceVersionKey.String(version.BuildVersion),
 		),
 	)

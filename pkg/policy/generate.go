@@ -9,7 +9,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	generateutils "github.com/kyverno/kyverno/pkg/background/generate"
-	"github.com/kyverno/kyverno/pkg/config"
 	"go.uber.org/multierr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -46,7 +45,7 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 	ruleType := kyvernov1beta1.Generate
 	triggers := generateTriggers(pc.client, rule, pc.log)
 	for _, trigger := range triggers {
-		ur := newUR(policy, common.ResourceSpecFromUnstructured(*trigger), rule.Name, ruleType, false)
+		ur := newUR(policy, common.ResourceSpecFromUnstructured(*trigger), pc.namespace, rule.Name, ruleType, false)
 		skip, err := pc.handleUpdateRequest(ur, trigger, rule, policy)
 		if err != nil {
 			pc.log.Error(err, "failed to create new UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
@@ -101,15 +100,15 @@ func (pc *policyController) createURForDataRule(policy kyvernov1.PolicyInterface
 		for _, downstream := range downstreams.Items {
 			labels := downstream.GetLabels()
 			trigger := generateutils.TriggerFromLabels(labels)
-			ur := newUR(policy, trigger, rule.Name, kyvernov1beta1.Generate, deleteDownstream)
-			created, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
+			ur := newUR(policy, trigger, pc.namespace, rule.Name, kyvernov1beta1.Generate, deleteDownstream)
+			created, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(pc.namespace).Create(context.TODO(), ur, metav1.CreateOptions{})
 			if err != nil {
 				errorList = append(errorList, err)
 				continue
 			}
 			updated := created.DeepCopy()
 			updated.Status = newURStatus(downstream)
-			_, err = pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
+			_, err = pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(pc.namespace).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
 			if err != nil {
 				errorList = append(errorList, err)
 				continue

@@ -28,6 +28,8 @@ const (
 )
 
 func main() {
+	// TODO
+	var namespace string
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithKubeconfig(),
@@ -63,8 +65,8 @@ func main() {
 	failure := false
 
 	run := func(context.Context) {
-		name := tls.GenerateRootCASecretName()
-		_, err := setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
+		name := tls.GenerateRootCASecretName(namespace)
+		_, err := setup.KubeClient.CoreV1().Secrets(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			logging.V(2).Info("failed to fetch root CA secret", "name", name, "error", err.Error())
 			if !errors.IsNotFound(err) {
@@ -72,8 +74,8 @@ func main() {
 			}
 		}
 
-		name = tls.GenerateTLSPairSecretName()
-		_, err = setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
+		name = tls.GenerateTLSPairSecretName(namespace)
+		_, err = setup.KubeClient.CoreV1().Secrets(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			logging.V(2).Info("failed to fetch TLS Pair secret", "name", name, "error", err.Error())
 			if !errors.IsNotFound(err) {
@@ -81,7 +83,7 @@ func main() {
 			}
 		}
 
-		if err = acquireLeader(ctx, setup.KubeClient); err != nil {
+		if err = acquireLeader(ctx, namespace, setup.KubeClient); err != nil {
 			logging.V(2).Info("Failed to create lease 'kyvernopre-lock'")
 			os.Exit(1)
 		}
@@ -111,7 +113,7 @@ func main() {
 	le, err := leaderelection.New(
 		logging.WithName("kyvernopre/LeaderElection"),
 		"kyvernopre",
-		config.KyvernoNamespace(),
+		namespace,
 		setup.KubeClient,
 		config.KyvernoPodName(),
 		leaderelection.DefaultRetryPeriod,
@@ -126,8 +128,8 @@ func main() {
 	le.Run(ctx)
 }
 
-func acquireLeader(ctx context.Context, kubeClient kubernetes.Interface) error {
-	_, err := kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()).Get(ctx, "kyvernopre-lock", metav1.GetOptions{})
+func acquireLeader(ctx context.Context, namespace string, kubeClient kubernetes.Interface) error {
+	_, err := kubeClient.CoordinationV1().Leases(namespace).Get(ctx, "kyvernopre-lock", metav1.GetOptions{})
 	if err != nil {
 		logging.V(2).Info("Lease 'kyvernopre-lock' not found. Starting clean-up...")
 	} else {
@@ -140,7 +142,7 @@ func acquireLeader(ctx context.Context, kubeClient kubernetes.Interface) error {
 			Name: "kyvernopre-lock",
 		},
 	}
-	_, err = kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()).Create(ctx, &lease, metav1.CreateOptions{})
+	_, err = kubeClient.CoordinationV1().Leases(namespace).Create(ctx, &lease, metav1.CreateOptions{})
 
 	return err
 }

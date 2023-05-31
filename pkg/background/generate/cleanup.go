@@ -30,11 +30,11 @@ func (c *GenerateController) deleteDownstream(policy kyvernov1.PolicyInterface, 
 
 		if len(errs) != 0 {
 			c.log.Error(multierr.Combine(errs...), "failed to clean up downstream resources on policy deletion")
-			_, err = c.statusControl.Failed(ur.GetName(),
+			_, err = c.statusControl.Failed(ur.GetNamespace(), ur.GetName(),
 				fmt.Sprintf("failed to clean up downstream resources on policy deletion: %v", multierr.Combine(errs...)),
 				failedDownstreams)
 		} else {
-			_, err = c.statusControl.Success(ur.GetName(), nil)
+			_, err = c.statusControl.Success(ur.GetNamespace(), ur.GetName(), nil)
 		}
 		return
 	}
@@ -71,11 +71,11 @@ func (c *GenerateController) deleteDownstreamForClone(policy kyvernov1.PolicyInt
 		}
 		if len(errs) != 0 {
 			c.log.Error(multierr.Combine(errs...), "failed to clean up downstream resources on source deletion")
-			_, err = c.statusControl.Failed(ur.GetName(),
+			_, err = c.statusControl.Failed(ur.GetNamespace(), ur.GetName(),
 				fmt.Sprintf("failed to clean up downstream resources on source deletion: %v", multierr.Combine(errs...)),
 				failedDownstreams)
 		} else {
-			_, err = c.statusControl.Success(ur.GetName(), nil)
+			_, err = c.statusControl.Success(ur.GetNamespace(), ur.GetName(), nil)
 		}
 		return err
 	}

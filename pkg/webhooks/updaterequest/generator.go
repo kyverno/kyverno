@@ -10,7 +10,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/pkg/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -27,13 +26,17 @@ type generator struct {
 
 	// listers
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister
+
+	// config
+	namespace string
 }
 
 // NewGenerator returns a new instance of UpdateRequest resource generator
-func NewGenerator(client versioned.Interface, urInformer kyvernov1beta1informers.UpdateRequestInformer) Generator {
+func NewGenerator(client versioned.Interface, urInformer kyvernov1beta1informers.UpdateRequestInformer, namespace string) Generator {
 	return &generator{
-		client:   client,
-		urLister: urInformer.Lister().UpdateRequests(config.KyvernoNamespace()),
+		client:    client,
+		urLister:  urInformer.Lister().UpdateRequests(namespace),
+		namespace: namespace,
 	}
 }
 
@@ -72,20 +75,20 @@ func (g *generator) tryApplyResource(ctx context.Context, urSpec kyvernov1beta1.
 	l.V(4).Info("creating new UpdateRequest")
 	ur := kyvernov1beta1.UpdateRequest{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:    config.KyvernoNamespace(),
+			Namespace:    g.namespace,
 			GenerateName: "ur-",
 			Labels:       queryLabels,
 		},
 		Spec: urSpec,
 	}
-	created, err := g.client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(ctx, &ur, metav1.CreateOptions{})
+	created, err := g.client.KyvernoV1beta1().UpdateRequests(g.namespace).Create(ctx, &ur, metav1.CreateOptions{})
 	if err != nil {
 		l.V(4).Error(err, "failed to create UpdateRequest, retrying", "name", ur.GetGenerateName(), "namespace", ur.GetNamespace())
 		return err
 	}
 	updated := created.DeepCopy()
 	updated.Status.State = kyvernov1beta1.Pending
-	_, err = g.client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
+	_, err = g.client.KyvernoV1beta1().UpdateRequests(g.namespace).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}

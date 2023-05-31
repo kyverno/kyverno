@@ -41,7 +41,7 @@ func FetchClusteredResources(logger logr.Logger, client dclient.Interface) (sets
 }
 
 // Validate checks policy is valid
-func Validate(ctx context.Context, logger logr.Logger, client dclient.Interface, policy kyvernov2alpha1.CleanupPolicyInterface) error {
+func Validate(ctx context.Context, logger logr.Logger, ns string, client dclient.Interface, policy kyvernov2alpha1.CleanupPolicyInterface) error {
 	clusteredResources, err := FetchClusteredResources(logger, client)
 	if err != nil {
 		return err
@@ -49,7 +49,7 @@ func Validate(ctx context.Context, logger logr.Logger, client dclient.Interface,
 	if err := validatePolicy(clusteredResources, policy); err != nil {
 		return err
 	}
-	if err := validateAuth(ctx, client, policy); err != nil {
+	if err := validateAuth(ctx, ns, client, policy); err != nil {
 		return err
 	}
 
@@ -66,12 +66,13 @@ func validatePolicy(clusterResources sets.Set[string], policy kyvernov2alpha1.Cl
 }
 
 // validateAuth checks the the delete action is allowed
-func validateAuth(ctx context.Context, client dclient.Interface, policy kyvernov2alpha1.CleanupPolicyInterface) error {
+func validateAuth(ctx context.Context, ns string, client dclient.Interface, policy kyvernov2alpha1.CleanupPolicyInterface) error {
 	namespace := policy.GetNamespace()
 	spec := policy.GetSpec()
 	kinds := sets.New(spec.MatchResources.GetKinds()...)
+	username := config.KyvernoUserName(ns, config.KyvernoServiceAccountName())
 	for kind := range kinds {
-		checker := auth.NewCanI(client.Discovery(), client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, "delete", "", config.KyvernoUserName(config.KyvernoServiceAccountName()))
+		checker := auth.NewCanI(client.Discovery(), client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, "delete", "", username)
 		allowedDeletion, err := checker.RunAccessCheck(ctx)
 		if err != nil {
 			return err
@@ -80,7 +81,7 @@ func validateAuth(ctx context.Context, client dclient.Interface, policy kyvernov
 			return fmt.Errorf("cleanup controller has no permission to delete kind %s", kind)
 		}
 
-		checker = auth.NewCanI(client.Discovery(), client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, "list", "", config.KyvernoUserName(config.KyvernoServiceAccountName()))
+		checker = auth.NewCanI(client.Discovery(), client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, "list", "", username)
 		allowedList, err := checker.RunAccessCheck(ctx)
 		if err != nil {
 			return err

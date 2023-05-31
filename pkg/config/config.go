@@ -87,7 +87,7 @@ const (
 
 var (
 	// kyvernoNamespace is the Kyverno namespace
-	kyvernoNamespace = osutils.GetEnvWithFallback("KYVERNO_NAMESPACE", "kyverno")
+	// kyvernoNamespace = osutils.GetEnvWithFallback("KYVERNO_NAMESPACE", "kyverno")
 	// kyvernoServiceAccountName is the Kyverno service account name
 	kyvernoServiceAccountName = osutils.GetEnvWithFallback("KYVERNO_SERVICEACCOUNT_NAME", "kyverno")
 	// kyvernoDeploymentName is the Kyverno deployment name
@@ -104,9 +104,9 @@ var (
 	kyvernoDryrunNamespace = osutils.GetEnvWithFallback("KYVERNO_DRYRUN_NAMESPACE", "kyverno-dryrun")
 )
 
-func KyvernoNamespace() string {
-	return kyvernoNamespace
-}
+// func KyvernoNamespace() string {
+// 	return kyvernoNamespace
+// }
 
 func KyvernoDryRunNamespace() string {
 	return kyvernoDryrunNamespace
@@ -136,8 +136,8 @@ func KyvernoMetricsConfigMapName() string {
 	return kyvernoMetricsConfigMapName
 }
 
-func KyvernoUserName(serviceaccount string) string {
-	return fmt.Sprintf("system:serviceaccount:%s:%s", kyvernoNamespace, serviceaccount)
+func KyvernoUserName(namespace, serviceaccount string) string {
+	return fmt.Sprintf("system:serviceaccount:%s:%s", namespace, serviceaccount)
 }
 
 // Configuration to be used by consumer to check filters

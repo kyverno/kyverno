@@ -97,14 +97,14 @@ func isSecretManagedByKyverno(secret *corev1.Secret) bool {
 }
 
 // inClusterServiceName The generated service name should be the common name for TLS certificate
-func inClusterServiceName() string {
-	return config.KyvernoServiceName() + "." + config.KyvernoNamespace() + ".svc"
+func inClusterServiceName(namespace string) string {
+	return config.KyvernoServiceName() + "." + namespace + ".svc"
 }
 
-func GenerateTLSPairSecretName() string {
-	return inClusterServiceName() + ".kyverno-tls-pair"
+func GenerateTLSPairSecretName(namespace string) string {
+	return inClusterServiceName(namespace) + ".kyverno-tls-pair"
 }
 
-func GenerateRootCASecretName() string {
-	return inClusterServiceName() + ".kyverno-tls-ca"
+func GenerateRootCASecretName(namespace string) string {
+	return inClusterServiceName(namespace) + ".kyverno-tls-ca"
 }

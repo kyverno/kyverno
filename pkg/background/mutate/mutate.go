@@ -244,11 +244,11 @@ func (c *mutateExistingController) report(err error, policy, rule string, target
 
 func updateURStatus(statusControl common.StatusControlInterface, ur kyvernov1beta1.UpdateRequest, err error) error {
 	if err != nil {
-		if _, err := statusControl.Failed(ur.GetName(), err.Error(), nil); err != nil {
+		if _, err := statusControl.Failed(ur.GetNamespace(), ur.GetName(), err.Error(), nil); err != nil {
 			return err
 		}
 	} else {
-		if _, err := statusControl.Success(ur.GetName(), nil); err != nil {
+		if _, err := statusControl.Success(ur.GetNamespace(), ur.GetName(), nil); err != nil {
 			return err
 		}
 	}

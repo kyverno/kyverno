@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/config"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -17,16 +16,15 @@ import (
 
 const namespaceControllerUsername = "system:serviceaccount:kube-system:namespace-controller"
 
-var kyvernoUsernamePrefix = fmt.Sprintf("system:serviceaccount:%s:", config.KyvernoNamespace())
-
-func (inner AdmissionHandler) WithProtection(enabled bool) AdmissionHandler {
+func (inner AdmissionHandler) WithProtection(enabled bool, namespace string) AdmissionHandler {
 	if !enabled {
 		return inner
 	}
-	return inner.withProtection().WithTrace("PROTECT")
+	return inner.withProtection(namespace).WithTrace("PROTECT")
 }
 
-func (inner AdmissionHandler) withProtection() AdmissionHandler {
+func (inner AdmissionHandler) withProtection(namespace string) AdmissionHandler {
+	var kyvernoUsernamePrefix = fmt.Sprintf("system:serviceaccount:%s:", namespace)
 	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
 		// Allows deletion of namespace containing managed resources
 		if request.Operation == admissionv1.Delete && request.UserInfo.Username == namespaceControllerUsername {

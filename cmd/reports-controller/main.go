@@ -168,6 +168,7 @@ func main() {
 		maxQueuedEvents        int
 		omitEvents             string
 		skipResourceFilters    bool
+		namespace              string
 	)
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
 	flagset.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable backgound scan.")
@@ -178,6 +179,7 @@ func main() {
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&omitEvents, "omit-events", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omit-events=PolicyApplied,PolicyViolation")
 	flagset.BoolVar(&skipResourceFilters, "skipResourceFilters", true, "If true, resource filters wont be considered.")
+	flagset.StringVar(&namespace, "namespace", "kyverno", "Kyverno install namespace")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -246,7 +248,7 @@ func main() {
 	le, err := leaderelection.New(
 		setup.Logger.WithName("leader-election"),
 		"kyverno-reports-controller",
-		config.KyvernoNamespace(),
+		namespace,
 		setup.LeaderElectionClient,
 		config.KyvernoPodName(),
 		internal.LeaderElectionRetryPeriod(),
@@ -254,7 +256,7 @@ func main() {
 			logger := setup.Logger.WithName("leader")
 			// create leader factories
 			kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
-			kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
+			kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(namespace))
 			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 			metadataInformer := metadatainformers.NewSharedInformerFactory(setup.MetadataClient, 15*time.Minute)
 			// create leader controllers

@@ -50,13 +50,13 @@ func generateCA(key *rsa.PrivateKey, certValidityDuration time.Duration) (*rsa.P
 
 // generateTLS takes the results of GenerateCACert and uses it to create the
 // PEM-encoded public certificate and private key, respectively
-func generateTLS(server string, caCert *x509.Certificate, caKey *rsa.PrivateKey, certValidityDuration time.Duration) (*rsa.PrivateKey, *x509.Certificate, error) {
+func generateTLS(server string, namespace string, caCert *x509.Certificate, caKey *rsa.PrivateKey, certValidityDuration time.Duration) (*rsa.PrivateKey, *x509.Certificate, error) {
 	now := time.Now()
 	begin, end := now.Add(-1*time.Hour), now.Add(certValidityDuration)
 	dnsNames := []string{
 		config.KyvernoServiceName(),
-		fmt.Sprintf("%s.%s", config.KyvernoServiceName(), config.KyvernoNamespace()),
-		inClusterServiceName(),
+		fmt.Sprintf("%s.%s", config.KyvernoServiceName(), namespace),
+		inClusterServiceName(namespace),
 	}
 	var ips []net.IP
 	if server != "" {

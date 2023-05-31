@@ -57,6 +57,7 @@ type controller struct {
 	failurePolicy  *admissionregistrationv1.FailurePolicyType
 	sideEffects    *admissionregistrationv1.SideEffectClass
 	configuration  config.Configuration
+	namespace      string
 }
 
 func NewController(
@@ -72,12 +73,13 @@ func NewController(
 	failurePolicy *admissionregistrationv1.FailurePolicyType,
 	sideEffects *admissionregistrationv1.SideEffectClass,
 	configuration config.Configuration,
+	namespace string,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 	c := controller{
 		vwcClient:      vwcClient,
 		vwcLister:      vwcInformer.Lister(),
-		secretLister:   secretInformer.Lister().Secrets(config.KyvernoNamespace()),
+		secretLister:   secretInformer.Lister().Secrets(namespace),
 		queue:          queue,
 		controllerName: controllerName,
 		logger:         logging.ControllerLogger(controllerName),
@@ -89,22 +91,23 @@ func NewController(
 		failurePolicy:  failurePolicy,
 		sideEffects:    sideEffects,
 		configuration:  configuration,
+		namespace:      namespace,
 	}
 	controllerutils.AddDefaultEventHandlers(c.logger, vwcInformer.Informer(), queue)
 	controllerutils.AddEventHandlersT(
 		secretInformer.Informer(),
 		func(obj *corev1.Secret) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == tls.GenerateRootCASecretName() {
+			if obj.GetNamespace() == namespace && obj.GetName() == tls.GenerateRootCASecretName(namespace) {
 				c.enqueue()
 			}
 		},
 		func(_, obj *corev1.Secret) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == tls.GenerateRootCASecretName() {
+			if obj.GetNamespace() == namespace && obj.GetName() == tls.GenerateRootCASecretName(namespace) {
 				c.enqueue()
 			}
 		},
 		func(obj *corev1.Secret) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == tls.GenerateRootCASecretName() {
+			if obj.GetNamespace() == namespace && obj.GetName() == tls.GenerateRootCASecretName(namespace) {
 				c.enqueue()
 			}
 		},
@@ -126,7 +129,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	if key != c.webhookName {
 		return nil
 	}
-	caData, err := tls.ReadRootCASecret(c.secretLister)
+	caData, err := tls.ReadRootCASecret(c.namespace, c.secretLister)
 	if err != nil {
 		return err
 	}
@@ -167,7 +170,7 @@ func (c *controller) build(cfg config.Configuration, caBundle []byte) (*admissio
 	return &admissionregistrationv1.ValidatingWebhookConfiguration{
 			ObjectMeta: objectMeta(c.webhookName, cfg.GetWebhookAnnotations()),
 			Webhooks: []admissionregistrationv1.ValidatingWebhook{{
-				Name:                    fmt.Sprintf("%s.%s.svc", config.KyvernoServiceName(), config.KyvernoNamespace()),
+				Name:                    fmt.Sprintf("%s.%s.svc", config.KyvernoServiceName(), c.namespace),
 				ClientConfig:            c.clientConfig(caBundle),
 				Rules:                   c.rules,
 				FailurePolicy:           c.failurePolicy,
@@ -184,7 +187,7 @@ func (c *controller) clientConfig(caBundle []byte) admissionregistrationv1.Webho
 	}
 	if c.server == "" {
 		clientConfig.Service = &admissionregistrationv1.ServiceReference{
-			Namespace: config.KyvernoNamespace(),
+			Namespace: c.namespace,
 			Name:      config.KyvernoServiceName(),
 			Path:      &c.path,
 			Port:      &c.servicePort,

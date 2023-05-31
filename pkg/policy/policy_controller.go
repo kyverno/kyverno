@@ -89,6 +89,8 @@ type policyController struct {
 	metricsConfig metrics.MetricsConfigManager
 
 	jp jmespath.Interface
+
+	namespace string
 }
 
 // NewPolicyController create a new PolicyController
@@ -106,6 +108,7 @@ func NewPolicyController(
 	reconcilePeriod time.Duration,
 	metricsConfig metrics.MetricsConfigManager,
 	jp jmespath.Interface,
+	namespace string,
 ) (*policyController, error) {
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
@@ -127,6 +130,7 @@ func NewPolicyController(
 		metricsConfig:   metricsConfig,
 		log:             log,
 		jp:              jp,
+		namespace:       namespace,
 	}
 
 	pc.pLister = pInformer.Lister()
@@ -424,13 +428,13 @@ func (pc *policyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest
 		}
 
 		pc.log.V(2).Info("creating new UR for generate")
-		created, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
+		created, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(pc.namespace).Create(context.TODO(), ur, metav1.CreateOptions{})
 		if err != nil {
 			return false, err
 		}
 		updated := created.DeepCopy()
 		updated.Status.State = kyvernov1beta1.Pending
-		_, err = pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
+		_, err = pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(pc.namespace).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
 		if err != nil {
 			return false, err
 		}

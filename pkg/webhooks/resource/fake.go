@@ -37,7 +37,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 
 	dclient := dclient.NewEmptyFakeClient()
 	configuration := config.NewDefaultConfiguration(false)
-	urLister := kyvernoInformers.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace())
+	urLister := kyvernoInformers.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests("kyverno")
 	peLister := kyvernoInformers.Kyverno().V2alpha1().PolicyExceptions().Lister()
 	rclient := registryclient.NewOrDie()
 	jp := jmespath.New(configuration)

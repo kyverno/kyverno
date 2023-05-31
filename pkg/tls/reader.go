@@ -3,7 +3,6 @@ package tls
 import (
 	"fmt"
 
-	"github.com/kyverno/kyverno/pkg/config"
 	corev1 "k8s.io/api/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -11,8 +10,8 @@ import (
 var ErrorsNotFound = "root CA certificate not found"
 
 // ReadRootCASecret returns the RootCA from the pre-defined secret
-func ReadRootCASecret(client corev1listers.SecretNamespaceLister) ([]byte, error) {
-	sname := GenerateRootCASecretName()
+func ReadRootCASecret(namespace string, client corev1listers.SecretNamespaceLister) ([]byte, error) {
+	sname := GenerateRootCASecretName(namespace)
 	stlsca, err := client.Get(sname)
 	if err != nil {
 		return nil, err
@@ -24,7 +23,7 @@ func ReadRootCASecret(client corev1listers.SecretNamespaceLister) ([]byte, error
 		result = stlsca.Data[rootCAKey]
 	}
 	if len(result) == 0 {
-		return nil, fmt.Errorf("%s in secret %s/%s", ErrorsNotFound, config.KyvernoNamespace(), stlsca.Name)
+		return nil, fmt.Errorf("%s in secret %s", ErrorsNotFound, stlsca.Name)
 	}
 	return result, nil
 }

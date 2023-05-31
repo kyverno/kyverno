@@ -60,6 +60,7 @@ type controller struct {
 	eventGen      event.Interface
 	configuration config.Configuration
 	jp            jmespath.Interface
+	namespace     string
 }
 
 // NewController returns an instance of the Generate-Request Controller
@@ -73,9 +74,10 @@ func NewController(
 	namespaceInformer corev1informers.NamespaceInformer,
 	eventGen event.Interface,
 	configuration config.Configuration,
+	namespace string,
 	jp jmespath.Interface,
 ) Controller {
-	urLister := urInformer.Lister().UpdateRequests(config.KyvernoNamespace())
+	urLister := urInformer.Lister().UpdateRequests(namespace)
 	c := controller{
 		client:        client,
 		kyvernoClient: kyvernoClient,
@@ -88,6 +90,7 @@ func NewController(
 		eventGen:      eventGen,
 		configuration: configuration,
 		jp:            jp,
+		namespace:     namespace,
 	}
 	_, _ = urInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addUR,
@@ -230,7 +233,7 @@ func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 }
 
 func (c *controller) reconcileURStatus(ur *kyvernov1beta1.UpdateRequest) (kyvernov1beta1.UpdateRequestState, error) {
-	new, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Get(context.TODO(), ur.GetName(), metav1.GetOptions{})
+	new, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(c.namespace).Get(context.TODO(), ur.GetName(), metav1.GetOptions{})
 	if err != nil {
 		logger.V(2).Info("cannot fetch latest UR, fallback to the existing one", "reason", err.Error())
 		new = ur
@@ -239,10 +242,10 @@ func (c *controller) reconcileURStatus(ur *kyvernov1beta1.UpdateRequest) (kyvern
 	var errUpdate error
 	switch new.Status.State {
 	case kyvernov1beta1.Completed:
-		errUpdate = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
+		errUpdate = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(c.namespace).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
 	case kyvernov1beta1.Failed:
 		new.Status.State = kyvernov1beta1.Pending
-		_, errUpdate = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{})
+		_, errUpdate = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(c.namespace).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{})
 	}
 	return new.Status.State, errUpdate
 }

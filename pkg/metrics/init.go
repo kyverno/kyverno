@@ -22,6 +22,7 @@ func InitMetrics(
 	transportCreds string,
 	kubeClient kubernetes.Interface,
 	logger logr.Logger,
+	namespace string,
 ) (MetricsConfigManager, *http.ServeMux, *sdkmetric.MeterProvider, error) {
 	var err error
 	var metricsServerMux *http.ServeMux
@@ -35,12 +36,13 @@ func InitMetrics(
 				transportCreds,
 				kubeClient,
 				logger,
+				namespace,
 			)
 			if err != nil {
 				return nil, nil, nil, err
 			}
 		} else if otel == "prometheus" {
-			meterProvider, metricsServerMux, err = NewPrometheusConfig(ctx, logger)
+			meterProvider, metricsServerMux, err = NewPrometheusConfig(ctx, logger, namespace)
 			if err != nil {
 				return nil, nil, nil, err
 			}

@@ -51,11 +51,13 @@ func main() {
 		dumpPayload bool
 		serverIP    string
 		servicePort int
+		namespace   string
 	)
 	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
+	flagset.StringVar(&namespace, "namespace", "kyverno", "Kyverno install namespace")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -76,7 +78,7 @@ func main() {
 	le, err := leaderelection.New(
 		setup.Logger.WithName("leader-election"),
 		"kyverno-cleanup-controller",
-		config.KyvernoNamespace(),
+		namespace,
 		setup.LeaderElectionClient,
 		config.KyvernoPodName(),
 		internal.LeaderElectionRetryPeriod(),
@@ -85,23 +87,25 @@ func main() {
 			// informer factories
 			kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod)
 			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
-			kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
+			kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(namespace))
 			// listers
-			secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
+			secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(namespace)
 			// controllers
 			renewer := tls.NewCertRenewer(
-				setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
+				setup.KubeClient.CoreV1().Secrets(namespace),
 				secretLister,
 				tls.CertRenewalInterval,
 				tls.CAValidityDuration,
 				tls.TLSValidityDuration,
 				serverIP,
+				namespace,
 			)
 			certController := internal.NewController(
 				certmanager.ControllerName,
 				certmanager.NewController(
 					kubeKyvernoInformer.Core().V1().Secrets(),
 					renewer,
+					namespace,
 				),
 				certmanager.Workers,
 			)
@@ -133,6 +137,7 @@ func main() {
 					genericwebhookcontroller.Fail,
 					genericwebhookcontroller.None,
 					setup.Configuration,
+					namespace,
 				),
 				webhookWorkers,
 			)
@@ -143,7 +148,8 @@ func main() {
 					kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies(),
 					kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies(),
 					kubeInformer.Batch().V1().CronJobs(),
-					"https://"+config.KyvernoServiceName()+"."+config.KyvernoNamespace()+".svc",
+					"https://"+config.KyvernoServiceName()+"."+namespace+".svc",
+					namespace,
 				),
 				cleanup.Workers,
 			)
@@ -168,10 +174,10 @@ func main() {
 	}
 	// informer factories
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod)
-	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
+	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(namespace))
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 	// listers
-	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
+	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(namespace)
 	cpolLister := kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies().Lister()
 	polLister := kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies().Lister()
 	nsLister := kubeInformer.Core().V1().Namespaces().Lister()
@@ -198,7 +204,7 @@ func main() {
 	// create server
 	server := NewServer(
 		func() ([]byte, []byte, error) {
-			secret, err := secretLister.Get(tls.GenerateTLSPairSecretName())
+			secret, err := secretLister.Get(tls.GenerateTLSPairSecretName(namespace))
 			if err != nil {
 				return nil, nil, err
 			}

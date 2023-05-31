@@ -242,7 +242,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 			}
 
 			for _, v := range urList {
-				err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
+				err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(v.GetNamespace()).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
 				if err != nil {
 					logger.Error(err, "failed to delete update request")
 				}
@@ -279,11 +279,11 @@ func (c *GenerateController) getPolicySpec(ur kyvernov1beta1.UpdateRequest) (kyv
 
 func updateStatus(statusControl common.StatusControlInterface, ur kyvernov1beta1.UpdateRequest, err error, genResources []kyvernov1.ResourceSpec) error {
 	if err != nil {
-		if _, err := statusControl.Failed(ur.GetName(), err.Error(), genResources); err != nil {
+		if _, err := statusControl.Failed(ur.GetNamespace(), ur.GetName(), err.Error(), genResources); err != nil {
 			return err
 		}
 	} else {
-		if _, err := statusControl.Success(ur.GetName(), genResources); err != nil {
+		if _, err := statusControl.Success(ur.GetNamespace(), ur.GetName(), genResources); err != nil {
 			return err
 		}
 	}

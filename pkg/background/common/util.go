@@ -7,16 +7,15 @@ import (
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/logging"
 	errors "github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func UpdateStatus(client versioned.Interface, urLister kyvernov1beta1listers.UpdateRequestNamespaceLister, name string, state kyvernov1beta1.UpdateRequestState, message string, genResources []kyvernov1.ResourceSpec) (*kyvernov1beta1.UpdateRequest, error) {
+func UpdateStatus(client versioned.Interface, urLister kyvernov1beta1listers.UpdateRequestNamespaceLister, namespace, name string, state kyvernov1beta1.UpdateRequestState, message string, genResources []kyvernov1.ResourceSpec) (*kyvernov1beta1.UpdateRequest, error) {
 	var latest *kyvernov1beta1.UpdateRequest
-	ur, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
+	ur, err := client.KyvernoV1beta1().UpdateRequests(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		return ur, errors.Wrapf(err, "failed to fetch update request")
 	}
@@ -27,7 +26,7 @@ func UpdateStatus(client versioned.Interface, urLister kyvernov1beta1listers.Upd
 		latest.Status.GeneratedResources = genResources
 	}
 
-	new, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), latest, metav1.UpdateOptions{})
+	new, err := client.KyvernoV1beta1().UpdateRequests(namespace).UpdateStatus(context.TODO(), latest, metav1.UpdateOptions{})
 	if err != nil {
 		return ur, errors.Wrapf(err, "failed to update ur status to %s", string(state))
 	}

@@ -103,6 +103,7 @@ type controller struct {
 	// state
 	lock        sync.Mutex
 	policyState map[string]sets.Set[string]
+	namespace   string
 }
 
 func NewController(
@@ -125,6 +126,7 @@ func NewController(
 	admissionReports bool,
 	runtime runtimeutils.Runtime,
 	configuration config.Configuration,
+	namespace string,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
@@ -152,23 +154,24 @@ func NewController(
 			config.MutatingWebhookConfigurationName:   sets.New[string](),
 			config.ValidatingWebhookConfigurationName: sets.New[string](),
 		},
+		namespace: namespace,
 	}
 	controllerutils.AddDefaultEventHandlers(logger, mwcInformer.Informer(), queue)
 	controllerutils.AddDefaultEventHandlers(logger, vwcInformer.Informer(), queue)
 	controllerutils.AddEventHandlersT(
 		secretInformer.Informer(),
 		func(obj *corev1.Secret) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == tls.GenerateRootCASecretName() {
+			if obj.GetNamespace() == namespace && obj.GetName() == tls.GenerateRootCASecretName(namespace) {
 				c.enqueueAll()
 			}
 		},
 		func(_, obj *corev1.Secret) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == tls.GenerateRootCASecretName() {
+			if obj.GetNamespace() == namespace && obj.GetName() == tls.GenerateRootCASecretName(namespace) {
 				c.enqueueAll()
 			}
 		},
 		func(obj *corev1.Secret) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == tls.GenerateRootCASecretName() {
+			if obj.GetNamespace() == namespace && obj.GetName() == tls.GenerateRootCASecretName(namespace) {
 				c.enqueueAll()
 			}
 		},
@@ -209,7 +212,7 @@ func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
 					_, err = c.leaseClient.Create(ctx, &coordinationv1.Lease{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "kyverno-health",
-							Namespace: config.KyvernoNamespace(),
+							Namespace: c.namespace,
 							Labels: map[string]string{
 								"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
 							},
@@ -299,7 +302,7 @@ func (c *controller) clientConfig(caBundle []byte, path string) admissionregistr
 	}
 	if c.server == "" {
 		clientConfig.Service = &admissionregistrationv1.ServiceReference{
-			Namespace: config.KyvernoNamespace(),
+			Namespace: c.namespace,
 			Name:      config.KyvernoServiceName(),
 			Path:      &path,
 			Port:      &c.servicePort,
@@ -340,7 +343,7 @@ func (c *controller) reconcileVerifyMutatingWebhookConfiguration(ctx context.Con
 }
 
 func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context, autoUpdateWebhooks bool, build func(config.Configuration, []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error)) error {
-	caData, err := tls.ReadRootCASecret(c.secretLister.Secrets(config.KyvernoNamespace()))
+	caData, err := tls.ReadRootCASecret(c.namespace, c.secretLister.Secrets(c.namespace))
 	if err != nil {
 		return err
 	}
@@ -370,7 +373,7 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 }
 
 func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, autoUpdateWebhooks bool, build func(config.Configuration, []byte) (*admissionregistrationv1.MutatingWebhookConfiguration, error)) error {
-	caData, err := tls.ReadRootCASecret(c.secretLister.Secrets(config.KyvernoNamespace()))
+	caData, err := tls.ReadRootCASecret(c.namespace, c.secretLister.Secrets(c.namespace))
 	if err != nil {
 		return err
 	}
@@ -825,7 +828,7 @@ func (c *controller) getAllPolicies() ([]kyvernov1.PolicyInterface, error) {
 }
 
 func (c *controller) getLease() (*coordinationv1.Lease, error) {
-	return c.leaseLister.Leases(config.KyvernoNamespace()).Get("kyverno-health")
+	return c.leaseLister.Leases(c.namespace).Get("kyverno-health")
 }
 
 // mergeWebhook merges the matching kinds of the policy to webhook.rule

@@ -83,6 +83,7 @@ func NewServer(
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
 	discovery dclient.IDiscovery,
+	namespace string,
 ) Server {
 	mux := httprouter.New()
 	resourceLogger := logger.WithName("resource")
@@ -97,7 +98,7 @@ func NewServer(
 		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
 			return handler.
 				WithFilter(configuration).
-				WithProtection(toggle.ProtectManagedResources.Enabled()).
+				WithProtection(toggle.ProtectManagedResources.Enabled(), namespace).
 				WithDump(debugModeOpts.DumpPayload).
 				WithTopLevelGVK(discovery).
 				WithRoles(rbLister, crbLister).
@@ -114,7 +115,7 @@ func NewServer(
 		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
 			return handler.
 				WithFilter(configuration).
-				WithProtection(toggle.ProtectManagedResources.Enabled()).
+				WithProtection(toggle.ProtectManagedResources.Enabled(), namespace).
 				WithDump(debugModeOpts.DumpPayload).
 				WithTopLevelGVK(discovery).
 				WithRoles(rbLister, crbLister).
@@ -154,7 +155,11 @@ func NewServer(
 	mux.HandlerFunc(
 		"POST",
 		config.VerifyMutatingWebhookServicePath,
-		handlers.FromAdmissionFunc("VERIFY", handlers.Verify).
+		handlers.FromAdmissionFunc(
+			"VERIFY",
+			func(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, startTime time.Time) handlers.AdmissionResponse {
+				return handlers.Verify(ctx, logger, namespace, request, startTime)
+			}).
 			WithAdmission(verifyLogger.WithName("mutate")).
 			ToHandlerFunc(),
 	)

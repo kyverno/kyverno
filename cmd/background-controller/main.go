@@ -44,6 +44,7 @@ func createrLeaderControllers(
 	metricsConfig metrics.MetricsConfigManager,
 	eventGenerator event.Interface,
 	jp jmespath.Interface,
+	namespace string,
 ) ([]internal.Controller, error) {
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
@@ -59,6 +60,7 @@ func createrLeaderControllers(
 		time.Hour,
 		metricsConfig,
 		jp,
+		namespace,
 	)
 	if err != nil {
 		return nil, err
@@ -73,6 +75,7 @@ func createrLeaderControllers(
 		kubeInformer.Core().V1().Namespaces(),
 		eventGenerator,
 		configuration,
+		namespace,
 		jp,
 	)
 	return []internal.Controller{
@@ -86,11 +89,13 @@ func main() {
 		genWorkers      int
 		maxQueuedEvents int
 		omitEvents      string
+		namespace       string
 	)
 	flagset := flag.NewFlagSet("updaterequest-controller", flag.ExitOnError)
 	flagset.IntVar(&genWorkers, "genWorkers", 10, "Workers for the background controller.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&omitEvents, "omit-events", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omit-events=PolicyApplied,PolicyViolation")
+	flagset.StringVar(&namespace, "namespace", "kyverno", "Kyverno install namespace")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -158,7 +163,7 @@ func main() {
 	le, err := leaderelection.New(
 		setup.Logger.WithName("leader-election"),
 		"kyverno-background-controller",
-		config.KyvernoNamespace(),
+		namespace,
 		setup.LeaderElectionClient,
 		config.KyvernoPodName(),
 		internal.LeaderElectionRetryPeriod(),
@@ -180,6 +185,7 @@ func main() {
 				setup.MetricsManager,
 				eventGenerator,
 				setup.Jp,
+				namespace,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create leader controllers")

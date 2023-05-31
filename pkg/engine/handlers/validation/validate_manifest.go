@@ -35,10 +35,12 @@ const (
 )
 
 type validateManifestHandler struct {
-	client dclient.Interface
+	namespace string
+	client    dclient.Interface
 }
 
 func NewValidateManifestHandler(
+	namespace string,
 	policyContext engineapi.PolicyContext,
 	client dclient.Interface,
 ) (handlers.Handler, error) {
@@ -46,7 +48,8 @@ func NewValidateManifestHandler(
 		return nil, nil
 	}
 	return validateManifestHandler{
-		client: client,
+		namespace: namespace,
+		client:    client,
 	}, nil
 }
 
@@ -136,7 +139,7 @@ func (h validateManifestHandler) verifyManifest(
 			vo.DisableDryRun = true
 		}
 		// check if kyverno namespace is not used for dryrun
-		ok = checkDryRunNamespace(vo.DryRunNamespace)
+		ok = checkDryRunNamespace(vo.DryRunNamespace, h.namespace)
 		if !ok {
 			logger.V(1).Info("an inappropriate dryrun namespace is set; set a namespace other than kyverno.", "dryrun namespace", vo.DryRunNamespace)
 			vo.DisableDryRun = true
@@ -427,7 +430,7 @@ func checkManifestAnnotations(mnfstAnnotations map[string]string, annotations ma
 	return nil
 }
 
-func checkDryRunNamespace(namespace string) bool {
+func checkDryRunNamespace(namespace, kyvernoNamespace string) bool {
 	// should not use kyverno namespace for dryrun
-	return namespace != config.KyvernoNamespace()
+	return namespace != kyvernoNamespace
 }

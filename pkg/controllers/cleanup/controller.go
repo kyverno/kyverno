@@ -9,7 +9,6 @@ import (
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
 	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
-	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	batchv1 "k8s.io/api/batch/v1"
@@ -43,6 +42,7 @@ type controller struct {
 
 	// config
 	cleanupService string
+	namespace      string
 }
 
 const (
@@ -57,6 +57,7 @@ func NewController(
 	polInformer kyvernov2alpha1informers.CleanupPolicyInformer,
 	cjInformer batchv1informers.CronJobInformer,
 	cleanupService string,
+	namespace string,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	keyFunc := controllerutils.MetaNamespaceKeyT[kyvernov2alpha1.CleanupPolicyInterface]
@@ -84,6 +85,7 @@ func NewController(
 		queue:          queue,
 		cleanupService: cleanupService,
 		enqueue:        baseEnqueueFunc,
+		namespace:      namespace,
 	}
 	controllerutils.AddEventHandlersT(
 		cpolInformer.Informer(),
@@ -244,7 +246,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	}
 	cronjobNs := namespace
 	if namespace == "" {
-		cronjobNs = config.KyvernoNamespace()
+		cronjobNs = c.namespace
 	}
 	observed, err := c.getCronjob(cronjobNs, string(policy.GetUID()))
 	if err != nil {

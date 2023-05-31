@@ -5,13 +5,12 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/config"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 )
 
-func Verify(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
-	if request.Name != "kyverno-health" || request.Namespace != config.KyvernoNamespace() {
+func Verify(ctx context.Context, logger logr.Logger, namespace string, request AdmissionRequest, startTime time.Time) AdmissionResponse {
+	if request.Name != "kyverno-health" || request.Namespace != namespace {
 		return admissionutils.ResponseSuccess(request.UID)
 	}
 	patch := jsonutils.NewPatchOperation("/metadata/annotations/"+"kyverno.io~1last-request-time", "replace", time.Now().Format(time.RFC3339))
