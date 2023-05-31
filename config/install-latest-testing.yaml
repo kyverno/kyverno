@@ -35469,6 +35469,8 @@ spec:
             - --v=2
             - --enablePolicyException=false
           env:
+          - name: INIT_CONFIG
+            value: kyverno
           - name: METRICS_CONFIG
             value: kyverno-metrics
           - name: KYVERNO_POD_NAME
@@ -35559,6 +35561,8 @@ spec:
             - --loggingFormat=text
             - --v=2
           env:
+          - name: INIT_CONFIG
+            value: kyverno
           - name: METRICS_CONFIG
             value: kyverno-metrics
           - name: KYVERNO_POD_NAME
@@ -35689,6 +35693,8 @@ spec:
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
           env:
+          - name: INIT_CONFIG
+            value: kyverno
           - name: METRICS_CONFIG
             value: kyverno-metrics
           - name: KYVERNO_POD_NAME

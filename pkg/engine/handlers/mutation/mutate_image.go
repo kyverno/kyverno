@@ -3,6 +3,7 @@ package mutation
 import (
 	"context"
 
+	json_patch "github.com/evanphx/json-patch/v5"
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -10,10 +11,13 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
+	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
+	"github.com/mattbaird/jsonpatch"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -69,6 +73,37 @@ func (h mutateImageHandler) Process(
 	var engineResponses []*engineapi.RuleResponse
 	for _, imageVerify := range ruleCopy.VerifyImages {
 		engineResponses = append(engineResponses, iv.Verify(ctx, imageVerify, h.images, h.configuration)...)
+	}
+	var patches []jsonpatch.JsonPatchOperation
+	for _, response := range engineResponses {
+		patches = append(patches, response.Patches()...)
+	}
+	if len(patches) != 0 {
+		patch := jsonutils.JoinPatches(patch.ConvertPatches(patches...)...)
+		decoded, err := json_patch.DecodePatch(patch)
+		if err != nil {
+			return resource, handlers.WithResponses(
+				engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to decode patch", err),
+			)
+		}
+		options := &json_patch.ApplyOptions{SupportNegativeIndices: true, AllowMissingPathOnRemove: true, EnsurePathExistsOnAdd: true}
+		resourceBytes, err := resource.MarshalJSON()
+		if err != nil {
+			return resource, handlers.WithResponses(
+				engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to marshal resource", err),
+			)
+		}
+		patchedResourceBytes, err := decoded.ApplyWithOptions(resourceBytes, options)
+		if err != nil {
+			return resource, handlers.WithResponses(
+				engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to apply patch", err),
+			)
+		}
+		if err := resource.UnmarshalJSON(patchedResourceBytes); err != nil {
+			return resource, handlers.WithResponses(
+				engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to unmarshal resource", err),
+			)
+		}
 	}
 	return resource, handlers.WithResponses(engineResponses...)
 }

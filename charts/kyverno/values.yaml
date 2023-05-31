@@ -848,6 +848,14 @@ backgroundController:
   # -- (int) Desired number of pods
   replicas: ~
 
+  # -- Additional labels to add to each pod
+  podLabels: {}
+  # example.com/label: foo
+
+  # -- Additional annotations to add to each pod
+  podAnnotations: {}
+  # example.com/annotation: foo
+
   # -- Deployment update strategy.
   # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
   # @default -- See [values.yaml](values.yaml)
@@ -1050,6 +1058,14 @@ cleanupController:
 
   # -- (int) Desired number of pods
   replicas: ~
+
+  # -- Additional labels to add to each pod
+  podLabels: {}
+  # example.com/label: foo
+
+  # -- Additional annotations to add to each pod
+  podAnnotations: {}
+  # example.com/annotation: foo
 
   # -- Deployment update strategy.
   # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
@@ -1303,6 +1319,14 @@ reportsController:
 
   # -- (int) Desired number of pods
   replicas: ~
+
+  # -- Additional labels to add to each pod
+  podLabels: {}
+  # example.com/label: foo
+
+  # -- Additional annotations to add to each pod
+  podAnnotations: {}
+  # example.com/annotation: foo
 
   # -- Deployment update strategy.
   # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
