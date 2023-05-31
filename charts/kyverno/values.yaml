@@ -436,6 +436,10 @@ cleanupJobs:
       requests:
         cpu: 100m
         memory: 64Mi
+
+    # -- List of node taints to tolerate
+    tolerations: []
+
   clusterAdmissionReports:
 
     # -- Enable cleanup cronjob
@@ -487,6 +491,9 @@ cleanupJobs:
       requests:
         cpu: 100m
         memory: 64Mi
+
+    # -- List of node taints to tolerate
+    tolerations: []
 
 # Admission controller configuration
 admissionController:
