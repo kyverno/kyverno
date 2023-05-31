@@ -129,7 +129,7 @@ The first option for upgrading, which is the recommended option, involves backin
 Follow the procedure below.
 
 1. READ THE COMPLETE RELEASE NOTES FIRST
-2. Backup and export all Kyverno policy resources to a YAML manifest. Use the command `kubectl get pol,cpol,cleanpol,ccleanpol,polex -A > kyvernobackup.yaml`.
+2. Backup and export all Kyverno policy resources to a YAML manifest. Use the command `kubectl get pol,cpol,cleanpol,ccleanpol,polex -A -o yaml > kyvernobackup.yaml`.
 3. Uninstall your current version of Kyverno.
 4. Review the [New Chart Values](#new-chart-values) section and translate your desired features and configurations to the new format.
 5. Install the v3 chart with Kyverno 1.10.
@@ -153,7 +153,7 @@ Follow the procedure below.
 
 1. READ THE COMPLETE RELEASE NOTES FIRST
 2. Scale the `kyverno` Deployment to zero replicas.
-3. If coming from 1.9 and you have install the cleanup controller, scale the `kyverno-cleanup-controller` Deployment to zero replicas.
+3. If coming from 1.9 and you have installed the cleanup controller, scale the `kyverno-cleanup-controller` Deployment to zero replicas.
 4. If step 3 applied to you, now delete the cleanup Deployment.
 5. Review the [New Chart Values](#new-chart-values) section and translate your desired features and configurations to the new format.
 6. Upgrade to the v3 chart by passing the mandatory flag `upgrade.fromV2=true`.
@@ -623,6 +623,9 @@ The chart values are organised per component.
 | cleanupJobs.admissionReports.history | object | `{"failure":1,"success":1}` | Cronjob history |
 | cleanupJobs.admissionReports.podSecurityContext | object | `{}` | Security context for the pod |
 | cleanupJobs.admissionReports.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
+| cleanupJobs.admissionReports.resources | object | `{}` | Job resources |
+| cleanupJobs.admissionReports.tolerations | list | `[]` | List of node taints to tolerate |
+| cleanupJobs.admissionReports.podAnnotations | object | `{}` | Pod Annotations |
 | cleanupJobs.clusterAdmissionReports.enabled | bool | `true` | Enable cleanup cronjob |
 | cleanupJobs.clusterAdmissionReports.image.registry | string | `nil` | Image registry |
 | cleanupJobs.clusterAdmissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
@@ -633,6 +636,9 @@ The chart values are organised per component.
 | cleanupJobs.clusterAdmissionReports.history | object | `{"failure":1,"success":1}` | Cronjob history |
 | cleanupJobs.clusterAdmissionReports.podSecurityContext | object | `{}` | Security context for the pod |
 | cleanupJobs.clusterAdmissionReports.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
+| cleanupJobs.clusterAdmissionReports.resources | object | `{}` | Job resources |
+| cleanupJobs.clusterAdmissionReports.tolerations | list | `[]` | List of node taints to tolerate |
+| cleanupJobs.clusterAdmissionReports.podAnnotations | object | `{}` | Pod Annotations |
 
 ### Other
 
