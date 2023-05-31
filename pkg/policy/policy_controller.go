@@ -372,7 +372,7 @@ func (pc *policyController) forceReconciliation(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			logger.Info("performing the background scan", "scan interval", pc.reconcilePeriod.String())
+			logger.Info("reconciling generate and mutateExisting policies", "scan interval", pc.reconcilePeriod.String())
 			pc.requeuePolicies()
 
 		case <-ctx.Done():

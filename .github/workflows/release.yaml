@@ -35,7 +35,7 @@ jobs:
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
       - name: Install Cosign
-        uses: sigstore/cosign-installer@204a51a57a74d190b284a0ce69b44bc37201f343 # v3.0.3
+        uses: sigstore/cosign-installer@dd6b2e2b610a11fd73dd187a43d57cc1394e35f9 # v3.0.5
         with:
           cosign-release: 'v1.13.0'
       - name: Publish kyverno
@@ -136,7 +136,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.5.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.6.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/kyverno
       digest: "${{ needs.release-images.outputs.kyverno-digest }}"
@@ -151,7 +151,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.5.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.6.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/kyvernopre
       digest: "${{ needs.release-images.outputs.kyverno-init-digest }}"
@@ -166,7 +166,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.5.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.6.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/background-controller
       digest: "${{ needs.release-images.outputs.background-controller-digest }}"
@@ -181,7 +181,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.5.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.6.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/cleanup-controller
       digest: "${{ needs.release-images.outputs.cleanup-controller-digest }}"
@@ -196,7 +196,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.5.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.6.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/kyverno-cli
       digest: "${{ needs.release-images.outputs.cli-digest }}"
@@ -211,7 +211,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.5.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.6.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/reports-controller
       digest: "${{ needs.release-images.outputs.reports-controller-digest }}"
@@ -261,20 +261,20 @@ jobs:
         with:
           version: 0.35.0
       - name: Install Cosign
-        uses: sigstore/cosign-installer@204a51a57a74d190b284a0ce69b44bc37201f343 # v3.0.3
+        uses: sigstore/cosign-installer@dd6b2e2b610a11fd73dd187a43d57cc1394e35f9 # v3.0.5
         with:
           cosign-release: 'v1.13.0'
       - name: Build yaml manifest
         run: VERSION=${{ github.ref_name }} make codegen-manifest-release
       - name: Upload install manifest
-        uses: svenstaro/upload-release-action@7319e4733ec7a184d739a6f412c40ffc339b69c7 # 2.5.0
+        uses: svenstaro/upload-release-action@58d525808845e4c8ff229ea1d5d7c496504a79bc # 2.6.0
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: .manifest/release.yaml
           asset_name: install.yaml
           tag: ${{ github.ref }}
       - name: Upload CRD manifest
-        uses: svenstaro/upload-release-action@7319e4733ec7a184d739a6f412c40ffc339b69c7 # 2.5.0
+        uses: svenstaro/upload-release-action@58d525808845e4c8ff229ea1d5d7c496504a79bc # 2.6.0
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: config/crds/*.yaml

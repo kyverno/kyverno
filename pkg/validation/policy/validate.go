@@ -124,7 +124,6 @@ func checkValidationFailureAction(spec *kyvernov1.Spec) []string {
 // Validate checks the policy and rules declarations for required configurations
 func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager openapi.Manager, username string) ([]string, error) {
 	var warnings []string
-	namespaced := policy.IsNamespaced()
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
 	mutateExistingOnPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
@@ -150,7 +149,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 	var res []*metav1.APIResourceList
 	clusterResources := sets.New[string]()
-	if !mock && namespaced {
+	if !mock {
 		// Get all the cluster type kind supported by cluster
 		res, err = discovery.ServerPreferredResources(client.Discovery().DiscoveryInterface())
 		if err != nil {
@@ -176,7 +175,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		return warnings, errs.ToAggregate()
 	}
 
-	if !namespaced {
+	if !policy.IsNamespaced() {
 		err := validateNamespaces(spec, specPath.Child("validationFailureActionOverrides"))
 		if err != nil {
 			return warnings, err
@@ -284,7 +283,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 		// validate Cluster Resources in namespaced policy
 		// For namespaced policy, ClusterResource type field and values are not allowed in match and exclude
-		if namespaced {
+		if policy.IsNamespaced() {
 			if err := checkClusterResourceInMatchAndExclude(rule, clusterResources, policy.GetNamespace(), mock, res); err != nil {
 				return warnings, err
 			}
@@ -375,7 +374,10 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 }
 
 func ValidateVariables(p kyvernov1.PolicyInterface, backgroundMode bool) error {
-	vars := hasVariables(p)
+	vars, err := hasVariables(p)
+	if err != nil {
+		return err
+	}
 	if backgroundMode {
 		if err := containsUserVariables(p, vars); err != nil {
 			return fmt.Errorf("only select variables are allowed in background mode. Set spec.background=false to disable background mode for this policy rule: %s ", err)
@@ -426,7 +428,10 @@ func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) erro
 }
 
 func ValidateOnPolicyUpdate(p kyvernov1.PolicyInterface, onPolicyUpdate bool) error {
-	vars := hasVariables(p)
+	vars, err := hasVariables(p)
+	if err != nil {
+		return err
+	}
 	if len(vars) == 0 {
 		return nil
 	}
@@ -470,11 +475,14 @@ func ruleForbiddenSectionsHaveVariables(rule *kyvernov1.Rule) error {
 }
 
 // hasVariables - check for variables in the policy
-func hasVariables(policy kyvernov1.PolicyInterface) [][]string {
-	policy = cleanup(policy)
-	policyRaw, _ := json.Marshal(policy)
+func hasVariables(policy kyvernov1.PolicyInterface) ([][]string, error) {
+	polCopy := cleanup(policy.CreateDeepCopy())
+	policyRaw, err := json.Marshal(polCopy)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize the policy: %v", err)
+	}
 	matches := regex.RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
-	return matches
+	return matches, nil
 }
 
 func cleanup(policy kyvernov1.PolicyInterface) kyvernov1.PolicyInterface {

@@ -20,6 +20,12 @@ spec:
     metadata:
       labels:
         {{- include "kyverno.reports-controller.labels" . | nindent 8 }}
+        {{- with .Values.reportsController.podLabels }}
+        {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- end }}
+      {{- with .Values.reportsController.podAnnotations }}
+      annotations: {{ tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
     spec:
       {{- with .Values.reportsController.imagePullSecrets }}
       imagePullSecrets: 
@@ -79,8 +85,6 @@ spec:
             name: metrics
             protocol: TCP
           args:
-            - --loggingFormat={{ .Values.reportsController.logging.format }}
-            - --v={{ .Values.reportsController.logging.verbosity }}
             {{- if .Values.reportsController.tracing.enabled }}
             - --enableTracing
             - --tracingAddress={{ .Values.reportsController.tracing.address }}
@@ -107,6 +111,8 @@ spec:
               "admissionReports"
               "backgroundScan"
               "configMapCaching"
+              "logging"
+              "omitEvents"
               "policyExceptions"
               "reports"
               "registryClient"
@@ -117,6 +123,8 @@ spec:
             {{- end }}
             {{- end }}
           env:
+          - name: INIT_CONFIG
+            value: {{ template "kyverno.config.configMapName" . }}
           - name: METRICS_CONFIG
             value: {{ template "kyverno.config.metricsConfigMapName" . }}
           - name: KYVERNO_POD_NAME

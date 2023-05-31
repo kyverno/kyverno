@@ -2,7 +2,6 @@ package mutate
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -79,14 +78,14 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey(), "resource", ur.Spec.GetResource().String())
 	var errs []error
 
-	policy, err := c.getPolicy(ur.Spec.Policy)
+	policy, err := c.getPolicy(ur)
 	if err != nil {
 		logger.Error(err, "failed to get policy")
 		return err
 	}
 
 	for _, rule := range policy.GetSpec().Rules {
-		if !rule.IsMutateExisting() {
+		if !rule.IsMutateExisting() || ur.Spec.Rule != rule.Name {
 			continue
 		}
 
@@ -214,8 +213,8 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 	return updateURStatus(c.statusControl, *ur, err)
 }
 
-func (c *mutateExistingController) getPolicy(key string) (kyvernov1.PolicyInterface, error) {
-	pNamespace, pName, err := cache.SplitMetaNamespaceKey(key)
+func (c *mutateExistingController) getPolicy(ur *kyvernov1beta1.UpdateRequest) (policy kyvernov1.PolicyInterface, err error) {
+	pNamespace, pName, err := cache.SplitMetaNamespaceKey(ur.Spec.Policy)
 	if err != nil {
 		return nil, err
 	}
@@ -265,22 +264,11 @@ func addAnnotation(policy kyvernov1.PolicyInterface, patched *unstructured.Unstr
 	var rulePatches []utils.RulePatch
 
 	for _, patch := range r.Patches() {
-		var patchmap map[string]interface{}
-		if err := json.Unmarshal(patch, &patchmap); err != nil {
-			return nil, fmt.Errorf("failed to parse JSON patch bytes: %v", err)
-		}
-
-		rp := struct {
-			RuleName string `json:"rulename"`
-			Op       string `json:"op"`
-			Path     string `json:"path"`
-		}{
+		rulePatches = append(rulePatches, utils.RulePatch{
 			RuleName: r.Name(),
-			Op:       patchmap["op"].(string),
-			Path:     patchmap["path"].(string),
-		}
-
-		rulePatches = append(rulePatches, rp)
+			Op:       patch.Operation,
+			Path:     patch.Path,
+		})
 	}
 
 	annotationContent := make(map[string]string)

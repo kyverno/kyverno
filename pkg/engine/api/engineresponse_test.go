@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/mattbaird/jsonpatch"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -917,7 +918,7 @@ func TestEngineResponse_GetPatches(t *testing.T) {
 	tests := []struct {
 		name   string
 		fields fields
-		want   [][]byte
+		want   []jsonpatch.JsonPatchOperation
 	}{{}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
@@ -941,22 +942,62 @@ func TestEngineResponse_GetPatches(t *testing.T) {
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
 					{},
-					*RuleResponse{}.WithPatches([][]byte{{0, 1, 2}, {3, 4, 5}}...),
+					*RuleResponse{}.WithPatches([]jsonpatch.JsonPatchOperation{{
+						Operation: "add",
+						Path:      "/1",
+						Value:     0,
+					}, {
+						Operation: "add",
+						Path:      "/2",
+						Value:     1,
+					}}...),
 				},
 			},
 		},
-		want: [][]byte{{0, 1, 2}, {3, 4, 5}},
+		want: []jsonpatch.JsonPatchOperation{{
+			Operation: "add",
+			Path:      "/1",
+			Value:     0,
+		}, {
+			Operation: "add",
+			Path:      "/2",
+			Value:     1,
+		}},
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
 					{},
-					*RuleResponse{}.WithPatches([][]byte{{0, 1, 2}, {3, 4, 5}}...),
-					*RuleResponse{}.WithPatches([][]byte{{7, 8, 9}}...),
+					*RuleResponse{}.WithPatches([]jsonpatch.JsonPatchOperation{{
+						Operation: "add",
+						Path:      "/1",
+						Value:     0,
+					}, {
+						Operation: "add",
+						Path:      "/2",
+						Value:     1,
+					}}...),
+					*RuleResponse{}.WithPatches([]jsonpatch.JsonPatchOperation{{
+						Operation: "add",
+						Path:      "/3",
+						Value:     2,
+					}}...),
 				},
 			},
 		},
-		want: [][]byte{{0, 1, 2}, {3, 4, 5}, {7, 8, 9}},
+		want: []jsonpatch.JsonPatchOperation{{
+			Operation: "add",
+			Path:      "/1",
+			Value:     0,
+		}, {
+			Operation: "add",
+			Path:      "/2",
+			Value:     1,
+		}, {
+			Operation: "add",
+			Path:      "/3",
+			Value:     2,
+		}},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

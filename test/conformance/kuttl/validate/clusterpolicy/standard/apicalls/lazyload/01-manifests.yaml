@@ -1,0 +1,67 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: ingress-unique-host
+spec:
+  validationFailureAction: Enforce
+  failurePolicy: Fail
+  rules:
+    - name: unique-ingress-against-other-ingress-class
+      match: # match any ingress resource
+        all:
+          - resources:
+              kinds:
+                - Ingress
+      context:
+        - name: requestIngressClass
+          variable:
+            jmesPath: request.object.metadata.annotations."kubernetes.io/ingress.class"
+        # Create a list of ingresses, excluding the ingress we are currently reviewing
+        - name: ingresses
+          apiCall:
+            urlPath: '/apis/networking.k8s.io/v1/ingresses'
+            jmesPath: items[?metadata.name != '{{ request.object.metadata.name }}']
+      preconditions:
+        all:
+          - key: "{{ request.operation }}"
+            operator: AnyIn
+            value:
+              - CREATE
+              - UPDATE
+      validate:
+        message: >
+          Ingress must have a unique hostname across different ingress classes
+        deny:
+          conditions:
+            any:
+              # select ingresses with ingress class that does NOT match the class of the request object
+              # compare the request object hosts against the selected set of hosts - if they match, deny
+              - key: '{{ request.object.spec.rules[].host }}'
+                operator: AnyIn
+                value: "{{ingresses[?metadata.annotations.\"kubernetes.io/ingress.class\" != '{{ request.object.metadata.annotations.\"kubernetes.io/ingress.class\" }}'].spec.rules[].host }}"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-ingress
+--- 
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: nginx
+  name: my-app-ingress
+  namespace: test-ingress
+spec:
+  rules:
+  - host: my-app.myorg.io
+    http:
+      paths:
+      - backend:
+          service:
+            name: my-app-deployment
+            port:
+              number: 80
+        path: /
+        pathType: ImplementationSpecific

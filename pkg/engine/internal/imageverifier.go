@@ -2,7 +2,6 @@ package internal
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -21,6 +20,7 @@ import (
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
+	"github.com/mattbaird/jsonpatch"
 	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -149,12 +149,12 @@ func buildStatementMap(statements []map[string]interface{}) (map[string][]map[st
 	return results, predicateTypes
 }
 
-func makeAddDigestPatch(imageInfo apiutils.ImageInfo, digest string) ([]byte, error) {
-	patch := make(map[string]interface{})
-	patch["op"] = "replace"
-	patch["path"] = imageInfo.Pointer
-	patch["value"] = imageInfo.String() + "@" + digest
-	return json.Marshal(patch)
+func makeAddDigestPatch(imageInfo apiutils.ImageInfo, digest string) jsonpatch.JsonPatchOperation {
+	return jsonpatch.JsonPatchOperation{
+		Operation: "replace",
+		Path:      imageInfo.Pointer,
+		Value:     imageInfo.String() + "@" + digest,
+	}
 }
 
 func EvaluateConditions(
@@ -162,20 +162,19 @@ func EvaluateConditions(
 	ctx enginecontext.Interface,
 	s map[string]interface{},
 	log logr.Logger,
-) (bool, error) {
+) (bool, string, error) {
 	predicate, ok := s["predicate"].(map[string]interface{})
 	if !ok {
-		return false, fmt.Errorf("failed to extract predicate from statement: %v", s)
+		return false, "", fmt.Errorf("failed to extract predicate from statement: %v", s)
 	}
 	if err := enginecontext.AddJSONObject(ctx, predicate); err != nil {
-		return false, fmt.Errorf("failed to add Statement to the context %v: %w", s, err)
+		return false, "", fmt.Errorf("failed to add Statement to the context %v: %w", s, err)
 	}
 	c, err := variables.SubstituteAllInConditions(log, ctx, conditions)
 	if err != nil {
-		return false, fmt.Errorf("failed to substitute variables in attestation conditions: %w", err)
+		return false, "", fmt.Errorf("failed to substitute variables in attestation conditions: %w", err)
 	}
-	pass := variables.EvaluateAnyAllConditions(log, ctx, c)
-	return pass, nil
+	return variables.EvaluateAnyAllConditions(log, ctx, c)
 }
 
 // verify applies policy rules to each matching image. The policy rule results and annotation patches are
@@ -224,7 +223,7 @@ func (iv *ImageVerifier) Verify(
 				if ruleResp == nil {
 					ruleResp = engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, "mutated image digest")
 				}
-				ruleResp = ruleResp.WithPatches(patch)
+				ruleResp = ruleResp.WithPatches(*patch)
 				imageInfo.Digest = retrievedDigest
 				image = imageInfo.String()
 			}
@@ -263,19 +262,14 @@ func (iv *ImageVerifier) verifyImage(
 		if ruleResp.Status() != engineapi.RuleStatusPass {
 			return ruleResp, ""
 		}
-		if len(imageVerify.Attestations) == 0 {
-			return ruleResp, cosignResp.Digest
-		}
 		if imageInfo.Digest == "" {
 			imageInfo.Digest = cosignResp.Digest
 		}
 		if len(imageVerify.Attestations) == 0 {
 			return ruleResp, cosignResp.Digest
-		}
-		if imageInfo.Digest == "" {
-			imageInfo.Digest = cosignResp.Digest
 		}
 	}
+
 	return iv.verifyAttestations(ctx, imageVerify, imageInfo)
 }
 
@@ -545,27 +539,27 @@ func (iv *ImageVerifier) verifyAttestation(statements []map[string]interface{}, 
 	}
 	for _, s := range statements {
 		iv.logger.Info("checking attestation", "predicates", types, "image", imageInfo.String())
-		val, err := iv.checkAttestations(attestation, s)
+		val, msg, err := iv.checkAttestations(attestation, s)
 		if err != nil {
 			return fmt.Errorf("failed to check attestations: %w", err)
 		}
 		if !val {
-			return fmt.Errorf("attestation checks failed for %s and predicate %s", imageInfo.String(), attestation.PredicateType)
+			return fmt.Errorf("attestation checks failed for %s and predicate %s: %s", imageInfo.String(), attestation.PredicateType, msg)
 		}
 	}
 	return nil
 }
 
-func (iv *ImageVerifier) checkAttestations(a kyvernov1.Attestation, s map[string]interface{}) (bool, error) {
+func (iv *ImageVerifier) checkAttestations(a kyvernov1.Attestation, s map[string]interface{}) (bool, string, error) {
 	if len(a.Conditions) == 0 {
-		return true, nil
+		return true, "", nil
 	}
 	iv.policyContext.JSONContext().Checkpoint()
 	defer iv.policyContext.JSONContext().Restore()
 	return EvaluateConditions(a.Conditions, iv.policyContext.JSONContext(), s, iv.logger)
 }
 
-func (iv *ImageVerifier) handleMutateDigest(ctx context.Context, digest string, imageInfo apiutils.ImageInfo) ([]byte, string, error) {
+func (iv *ImageVerifier) handleMutateDigest(ctx context.Context, digest string, imageInfo apiutils.ImageInfo) (*jsonpatch.JsonPatchOperation, string, error) {
 	if imageInfo.Digest != "" {
 		return nil, "", nil
 	}
@@ -576,10 +570,7 @@ func (iv *ImageVerifier) handleMutateDigest(ctx context.Context, digest string, 
 		}
 		digest = desc.Digest.String()
 	}
-	patch, err := makeAddDigestPatch(imageInfo, digest)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to create image digest patch: %w", err)
-	}
-	iv.logger.V(4).Info("adding digest patch", "image", imageInfo.String(), "patch", string(patch))
-	return patch, digest, nil
+	patch := makeAddDigestPatch(imageInfo, digest)
+	iv.logger.V(4).Info("adding digest patch", "image", imageInfo.String(), "patch", patch.Json())
+	return &patch, digest, nil
 }
