@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-containerregistry/pkg/name"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
@@ -142,6 +143,13 @@ func fetchImageData(ctx context.Context, jp jmespath.Interface, rclient registry
 func fetchImageDataMap(ctx context.Context, rclient registryclient.Client, ref string) (interface{}, error) {
 	desc, err := rclient.FetchImageDescriptor(ctx, ref)
 	if err != nil {
+		return nil, fmt.Errorf("failed to fetch image descriptor: %s, error: %v", ref, err)
+	}
+	parsedRef, err := name.ParseReference(ref)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse image reference: %s, error: %v", ref, err)
+	}
+	if err != nil {
 		return nil, err
 	}
 	image, err := desc.Image()
@@ -169,10 +177,10 @@ func fetchImageDataMap(ctx context.Context, rclient registryclient.Client, ref s
 
 	data := map[string]interface{}{
 		"image":         ref,
-		"resolvedImage": fmt.Sprintf("%s@%s", desc.Ref.Context().Name(), desc.Digest.String()),
-		"registry":      desc.Ref.Context().RegistryStr(),
-		"repository":    desc.Ref.Context().RepositoryStr(),
-		"identifier":    desc.Ref.Identifier(),
+		"resolvedImage": fmt.Sprintf("%s@%s", parsedRef.Context().Name(), desc.Digest.String()),
+		"registry":      parsedRef.Context().RegistryStr(),
+		"repository":    parsedRef.Context().RepositoryStr(),
+		"identifier":    parsedRef.Identifier(),
 		"manifest":      manifest,
 		"configData":    configData,
 	}
