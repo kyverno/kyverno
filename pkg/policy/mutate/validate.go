@@ -16,6 +16,7 @@ import (
 // Mutate provides implementation to validate 'mutate' rule
 type Mutate struct {
 	mutation    kyvernov1.Mutation
+	user        string
 	authChecker AuthChecker
 }
 
@@ -23,6 +24,7 @@ type Mutate struct {
 func NewMutateFactory(m kyvernov1.Mutation, client dclient.Interface, user string) *Mutate {
 	return &Mutate{
 		mutation:    m,
+		user:        user,
 		authChecker: newAuthChecker(client, user),
 	}
 }
@@ -43,7 +45,7 @@ func (m *Mutate) Validate(ctx context.Context) (string, error) {
 
 	if m.mutation.Targets != nil {
 		if err := m.validateAuth(ctx, m.mutation.Targets); err != nil {
-			return "targets", fmt.Errorf("auth check fails, require additional privileges, update the ClusterRole 'kyverno:background-controller:additional':%v", err)
+			return "targets", fmt.Errorf("auth check fails, additional privileges are required for the service account '%s': %v", m.user, err)
 		}
 	}
 	return "", nil
