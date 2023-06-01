@@ -5,7 +5,6 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
@@ -15,11 +14,11 @@ import (
 )
 
 type mutateExistingHandler struct {
-	client dclient.Interface
+	client engineapi.ClientInterface
 }
 
 func NewMutateExistingHandler(
-	client dclient.Interface,
+	client engineapi.ClientInterface,
 ) (handlers.Handler, error) {
 	return mutateExistingHandler{
 		client: client,
