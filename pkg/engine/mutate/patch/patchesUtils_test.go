@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/go-logr/logr"
 	"github.com/mattbaird/jsonpatch"
 	assertnew "github.com/stretchr/testify/assert"
 	"gotest.tools/assert"
 )
 
 func Test_GeneratePatches(t *testing.T) {
-	out, err := strategicMergePatch(logging.GlobalLogger(), string(baseBytes), string(overlayBytes))
+	out, err := strategicMergePatch(logr.Discard(), string(baseBytes), string(overlayBytes))
 	assert.NilError(t, err)
 
 	expectedPatches := map[string]bool{
@@ -24,7 +24,7 @@ func Test_GeneratePatches(t *testing.T) {
 	assert.NilError(t, err)
 
 	for _, p := range patches {
-		assertnew.Equal(t, expectedPatches[string(p)], true)
+		assertnew.Equal(t, expectedPatches[p.Json()], true)
 	}
 }
 
@@ -223,7 +223,7 @@ func Test_GeneratePatches_sortRemovalPatches(t *testing.T) {
 	patches, err := generatePatches(base, patchedResource)
 	fmt.Println(patches)
 	assertnew.Nil(t, err)
-	assertnew.Equal(t, expectedPatches, patches)
+	assertnew.Equal(t, expectedPatches, ConvertPatches(patches...))
 }
 
 func Test_sortRemovalPatches(t *testing.T) {

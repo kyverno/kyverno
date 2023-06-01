@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	gojmespath "github.com/jmespath/go-jmespath"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
@@ -35,7 +36,8 @@ func Command() *cobra.Command {
 	var queries []string
 	cmd := &cobra.Command{
 		Use:          "query [-i input] [-q query|query]...",
-		Short:        strings.Join(description, "\n"),
+		Short:        description[0],
+		Long:         strings.Join(description, "\n"),
 		SilenceUsage: true,
 		Example:      strings.Join(examples, "\n\n"),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -110,7 +112,7 @@ func loadFile(file string) ([]byte, error) {
 
 func readQuery(cmd *cobra.Command) (string, error) {
 	fmt.Println("Reading from terminal input.")
-	fmt.Println("Enter a jmespatch expression and hit Ctrl+D.")
+	fmt.Println("Enter a jmespath expression and hit Ctrl+D.")
 	data, err := readFile(cmd.InOrStdin())
 	if err != nil {
 		return "", err
@@ -161,11 +163,12 @@ func loadInput(file string) (interface{}, error) {
 }
 
 func evaluate(input interface{}, query string) (interface{}, error) {
-	jp, err := jmespath.New(query)
+	jp := jmespath.New(config.NewDefaultConfiguration(false))
+	q, err := jp.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile JMESPath: %s, error: %v", query, err)
 	}
-	result, err := jp.Search(input)
+	result, err := q.Search(input)
 	if err != nil {
 		if syntaxError, ok := err.(gojmespath.SyntaxError); ok {
 			return nil, fmt.Errorf("%s\n%s", syntaxError, syntaxError.HighlightLocation())

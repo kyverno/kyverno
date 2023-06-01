@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
-	"github.com/kyverno/kyverno/pkg/logging"
 	"gotest.tools/assert"
 	yaml "sigs.k8s.io/kustomize/kyaml/yaml"
 )
@@ -962,7 +962,7 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 
 	for i, test := range testCases {
 		t.Logf("Running test %d...", i)
-		preProcessedPolicy, err := preProcessStrategicMergePatch(logging.GlobalLogger(), string(test.rawPolicy), string(test.rawResource))
+		preProcessedPolicy, err := preProcessStrategicMergePatch(logr.Discard(), string(test.rawPolicy), string(test.rawResource))
 		assert.NilError(t, err)
 
 		output, err := preProcessedPolicy.MarshalJSON()
@@ -986,7 +986,7 @@ func Test_FilterKeys_NoConditions(t *testing.T) {
 	}`)
 
 	pattern := yaml.MustParse(string(patternRaw))
-	conditions, err := filterKeys(pattern, anchor.IsConditionAnchor)
+	conditions, err := filterKeys(pattern, anchor.IsCondition)
 
 	assert.NilError(t, err)
 	assert.Equal(t, len(conditions), 0)
@@ -1000,18 +1000,18 @@ func Test_FilterKeys_ConditionsArePresent(t *testing.T) {
 	}`)
 
 	pattern := yaml.MustParse(string(patternRaw))
-	conditions, err := filterKeys(pattern, anchor.IsConditionAnchor)
+	conditions, err := filterKeys(pattern, anchor.IsCondition)
 
 	assert.NilError(t, err)
 	assert.Equal(t, len(conditions), 2)
-	assert.Equal(t, conditions[0], "(key2)")
-	assert.Equal(t, conditions[1], "(key3)")
+	assert.Equal(t, conditions[0].String(), "(key2)")
+	assert.Equal(t, conditions[1].String(), "(key3)")
 }
 
 func Test_FilterKeys_EmptyList(t *testing.T) {
 	patternRaw := []byte(`{}`)
 	pattern := yaml.MustParse(string(patternRaw))
-	conditions, err := filterKeys(pattern, anchor.IsConditionAnchor)
+	conditions, err := filterKeys(pattern, anchor.IsCondition)
 
 	assert.NilError(t, err)
 	assert.Equal(t, len(conditions), 0)
@@ -1024,7 +1024,7 @@ func Test_CheckConditionAnchor_Matches(t *testing.T) {
 	pattern := yaml.MustParse(string(patternRaw))
 	resource := yaml.MustParse(string(resourceRaw))
 
-	err := checkCondition(logging.GlobalLogger(), pattern, resource)
+	err := checkCondition(logr.Discard(), pattern, resource)
 	assert.Equal(t, err, nil)
 }
 
@@ -1035,7 +1035,7 @@ func Test_CheckConditionAnchor_DoesNotMatch(t *testing.T) {
 	pattern := yaml.MustParse(string(patternRaw))
 	resource := yaml.MustParse(string(resourceRaw))
 
-	err := checkCondition(logging.GlobalLogger(), pattern, resource)
+	err := checkCondition(logr.Discard(), pattern, resource)
 	assert.Error(t, err, "resource value 'sample' does not match 'value*' at path /key1/")
 }
 
@@ -1053,7 +1053,7 @@ func Test_ValidateConditions_MapWithOneCondition_Matches(t *testing.T) {
 	pattern := yaml.MustParse(string(patternRaw))
 	resource := yaml.MustParse(string(resourceRaw))
 
-	err := validateConditions(logging.GlobalLogger(), pattern, resource)
+	err := validateConditions(logr.Discard(), pattern, resource)
 	assert.NilError(t, err)
 }
 
@@ -1071,7 +1071,7 @@ func Test_ValidateConditions_MapWithOneCondition_DoesNotMatch(t *testing.T) {
 	pattern := yaml.MustParse(string(patternRaw))
 	resource := yaml.MustParse(string(resourceRaw))
 
-	err := validateConditions(logging.GlobalLogger(), pattern, resource)
+	err := validateConditions(logr.Discard(), pattern, resource)
 	_, ok := err.(ConditionError)
 	assert.Assert(t, ok)
 }
@@ -1208,7 +1208,7 @@ func Test_ConditionCheck_SeveralElementsMatchExceptOne(t *testing.T) {
 	pattern := yaml.MustParse(string(patternRaw))
 	containers := yaml.MustParse(string(containersRaw))
 
-	err := preProcessPattern(logging.GlobalLogger(), pattern, containers)
+	err := preProcessPattern(logr.Discard(), pattern, containers)
 	assert.NilError(t, err)
 
 	patternContainers := pattern.Field("containers")
@@ -1261,7 +1261,7 @@ func Test_NonExistingKeyMustFailPreprocessing(t *testing.T) {
 
 	pattern := yaml.MustParse(string(rawPattern))
 	resource := yaml.MustParse(string(rawResource))
-	err := preProcessPattern(logging.GlobalLogger(), pattern, resource)
+	err := preProcessPattern(logr.Discard(), pattern, resource)
 	assert.Error(t, err, "condition failed: could not found \"key1\" key in the resource")
 }
 
@@ -1272,7 +1272,7 @@ func Test_NestedConditionals(t *testing.T) {
 
 	pattern := yaml.MustParse(rawPattern)
 	resource := yaml.MustParse(rawResource)
-	err := preProcessPattern(logging.GlobalLogger(), pattern, resource)
+	err := preProcessPattern(logr.Discard(), pattern, resource)
 	assert.NilError(t, err)
 	resultPattern, _ := pattern.String()
 
@@ -1312,6 +1312,6 @@ func Test_GlobalCondition_Fail(t *testing.T) {
 
 	pattern := yaml.MustParse(string(rawPattern))
 	resource := yaml.MustParse(string(rawResource))
-	err := preProcessPattern(logging.GlobalLogger(), pattern, resource)
+	err := preProcessPattern(logr.Discard(), pattern, resource)
 	assert.Error(t, err, "global condition failed: could not found \"emptyDir\" key in the resource")
 }

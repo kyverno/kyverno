@@ -2,10 +2,10 @@ package metrics
 
 import (
 	"fmt"
-	"reflect"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 )
 
 func ParsePolicyValidationMode(validationFailureAction kyvernov1.ValidationFailureAction) (PolicyValidationMode, error) {
@@ -23,13 +23,13 @@ func ParsePolicyBackgroundMode(policy kyvernov1.PolicyInterface) PolicyBackgroun
 }
 
 func ParseRuleType(rule kyvernov1.Rule) RuleType {
-	if !reflect.DeepEqual(rule.Validation, kyvernov1.Validation{}) {
+	if !datautils.DeepEqual(rule.Validation, kyvernov1.Validation{}) {
 		return Validate
 	}
-	if !reflect.DeepEqual(rule.Mutation, kyvernov1.Mutation{}) {
+	if !datautils.DeepEqual(rule.Mutation, kyvernov1.Mutation{}) {
 		return Mutate
 	}
-	if !reflect.DeepEqual(rule.Generation, kyvernov1.Generation{}) {
+	if !datautils.DeepEqual(rule.Generation, kyvernov1.Generation{}) {
 		return Generate
 	}
 	if len(rule.VerifyImages) > 0 {
@@ -53,8 +53,8 @@ func ParseResourceRequestOperation(requestOperationStr string) (ResourceRequestO
 	}
 }
 
-func ParseRuleTypeFromEngineRuleResponse(rule response.RuleResponse) RuleType {
-	switch rule.Type {
+func ParseRuleTypeFromEngineRuleResponse(rule engineapi.RuleResponse) RuleType {
+	switch rule.RuleType() {
 	case "Validation":
 		return Validate
 	case "Mutation":

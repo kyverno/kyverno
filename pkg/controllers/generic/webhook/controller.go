@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/tls"
+	"github.com/kyverno/kyverno/pkg/utils"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -24,8 +25,7 @@ import (
 )
 
 const (
-	maxRetries     = 10
-	managedByLabel = "webhook.kyverno.io/managed-by"
+	maxRetries = 10
 )
 
 var (
@@ -52,9 +52,11 @@ type controller struct {
 	webhookName    string
 	path           string
 	server         string
+	servicePort    int32
 	rules          []admissionregistrationv1.RuleWithOperations
 	failurePolicy  *admissionregistrationv1.FailurePolicyType
 	sideEffects    *admissionregistrationv1.SideEffectClass
+	configuration  config.Configuration
 }
 
 func NewController(
@@ -65,9 +67,11 @@ func NewController(
 	webhookName string,
 	path string,
 	server string,
+	servicePort int32,
 	rules []admissionregistrationv1.RuleWithOperations,
 	failurePolicy *admissionregistrationv1.FailurePolicyType,
 	sideEffects *admissionregistrationv1.SideEffectClass,
+	configuration config.Configuration,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 	c := controller{
@@ -80,9 +84,11 @@ func NewController(
 		webhookName:    webhookName,
 		path:           path,
 		server:         server,
+		servicePort:    servicePort,
 		rules:          rules,
 		failurePolicy:  failurePolicy,
 		sideEffects:    sideEffects,
+		configuration:  configuration,
 	}
 	controllerutils.AddDefaultEventHandlers(c.logger, vwcInformer.Informer(), queue)
 	controllerutils.AddEventHandlersT(
@@ -103,6 +109,7 @@ func NewController(
 			}
 		},
 	)
+	configuration.OnChanged(c.enqueue)
 	return &c
 }
 
@@ -123,7 +130,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	if err != nil {
 		return err
 	}
-	desired, err := c.build(caData)
+	desired, err := c.build(c.configuration, caData)
 	if err != nil {
 		return err
 	}
@@ -137,6 +144,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	}
 	_, err = controllerutils.Update(ctx, observed, c.vwcClient, func(w *admissionregistrationv1.ValidatingWebhookConfiguration) error {
 		w.Labels = desired.Labels
+		w.Annotations = desired.Annotations
 		w.OwnerReferences = desired.OwnerReferences
 		w.Webhooks = desired.Webhooks
 		return nil
@@ -144,19 +152,20 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	return err
 }
 
-func objectMeta(name string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
+func objectMeta(name string, annotations map[string]string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name: name,
 		Labels: map[string]string{
-			managedByLabel: kyvernov1.ValueKyvernoApp,
+			utils.ManagedByLabel: kyvernov1.ValueKyvernoApp,
 		},
+		Annotations:     annotations,
 		OwnerReferences: owner,
 	}
 }
 
-func (c *controller) build(caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
+func (c *controller) build(cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
 	return &admissionregistrationv1.ValidatingWebhookConfiguration{
-			ObjectMeta: objectMeta(c.webhookName),
+			ObjectMeta: objectMeta(c.webhookName, cfg.GetWebhookAnnotations()),
 			Webhooks: []admissionregistrationv1.ValidatingWebhook{{
 				Name:                    fmt.Sprintf("%s.%s.svc", config.KyvernoServiceName(), config.KyvernoNamespace()),
 				ClientConfig:            c.clientConfig(caBundle),
@@ -178,6 +187,7 @@ func (c *controller) clientConfig(caBundle []byte) admissionregistrationv1.Webho
 			Namespace: config.KyvernoNamespace(),
 			Name:      config.KyvernoServiceName(),
 			Path:      &c.path,
+			Port:      &c.servicePort,
 		}
 	} else {
 		url := fmt.Sprintf("https://%s%s", c.server, c.path)

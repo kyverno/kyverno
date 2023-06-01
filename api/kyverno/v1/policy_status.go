@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	// Ready means that the policy is ready
+	// PolicyConditionReady means that the policy is ready
 	PolicyConditionReady = "Ready"
 )
 
@@ -48,9 +48,10 @@ type RuleCountStatus struct {
 	VerifyImages int `json:"verifyimages" yaml:"verifyimages"`
 }
 
-func (status *PolicyStatus) SetReady(ready bool) {
+func (status *PolicyStatus) SetReady(ready bool, message string) {
 	condition := metav1.Condition{
-		Type: PolicyConditionReady,
+		Type:    PolicyConditionReady,
+		Message: message,
 	}
 	if ready {
 		condition.Status = metav1.ConditionTrue

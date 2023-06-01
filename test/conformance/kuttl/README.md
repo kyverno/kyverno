@@ -49,7 +49,7 @@ PRs which address issues will typically go into the `cornercases` directory sepa
 
 ## Writing Tests
 
-To make writing test cases even easier, we have provided an example [here](https://github.com/kyverno/kyverno/tree/main/test/conformance/kuttl/aaa_template_resources) under the `scaffold` directory which may be copied-and-pasted to a new test case (directory) based upon the organizational structure outlined above. Additional `kuttl` test files may be found in either `commands` or `scripts` with some common test files for Kyverno.
+To make writing test cases even easier, we have provided an example [here](https://github.com/kyverno/kyverno/tree/main/test/conformance/kuttl/_aaa_template_resources) under the `scaffold` directory which may be copied-and-pasted to a new test case (directory) based upon the organizational structure outlined above. Additional `kuttl` test files may be found in either `commands` or `scripts` with some common test files for Kyverno.
 
 It is imperative you modify `README.md` for each test case and follow the template provided. The template looks like the following:
 
@@ -67,4 +67,4 @@ This is the expected behavior of my test. Although it's assumed the test, overal
 1234
 ```
 
-For some best practices we have identified, see the best practices document [here](https://github.com/kyverno/kyverno/blob/main/test/conformance/kuttl/aaa_template_resources/BEST_PRACTICES.md).
+For some best practices we have identified, see the best practices document [here](https://github.com/kyverno/kyverno/blob/main/test/conformance/kuttl/_aaa_template_resources/BEST_PRACTICES.md).

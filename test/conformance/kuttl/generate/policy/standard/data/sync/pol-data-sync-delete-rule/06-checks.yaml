@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+assert:
+- configmap-remain.yaml
+error:
+- configmap.yaml

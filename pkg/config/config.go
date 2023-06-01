@@ -1,17 +1,16 @@
 package config
 
 import (
-	"context"
+	"errors"
+	"fmt"
 	"strconv"
 	"sync"
 
 	valid "github.com/asaskevich/govalidator"
 	osutils "github.com/kyverno/kyverno/pkg/utils/os"
-	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // These constants MUST be equal to the corresponding names in service definition in definitions/install.yaml
@@ -72,14 +71,18 @@ const (
 	MetricsPath = "/metrics"
 )
 
+// keys in config map
 const (
-	// Due to kubernetes issue, we must use next literal constants instead of deployment TypeMeta fields
-	// Issue: https://github.com/kubernetes/kubernetes/pull/63972
-	// When the issue is closed, we should use TypeMeta struct instead of this constants
-	// ClusterRoleAPIVersion define the default clusterrole resource apiVersion
-	ClusterRoleAPIVersion = "rbac.authorization.k8s.io/v1"
-	// ClusterRoleKind define the default clusterrole resource kind
-	ClusterRoleKind = "ClusterRole"
+	resourceFilters               = "resourceFilters"
+	defaultRegistry               = "defaultRegistry"
+	enableDefaultRegistryMutation = "enableDefaultRegistryMutation"
+	excludeGroups                 = "excludeGroups"
+	excludeUsernames              = "excludeUsernames"
+	excludeRoles                  = "excludeRoles"
+	excludeClusterRoles           = "excludeClusterRoles"
+	generateSuccessEvents         = "generateSuccessEvents"
+	webhooks                      = "webhooks"
+	webhookAnnotations            = "webhookAnnotations"
 )
 
 var (
@@ -95,8 +98,8 @@ var (
 	kyvernoPodName = osutils.GetEnvWithFallback("KYVERNO_POD_NAME", "kyverno")
 	// kyvernoConfigMapName is the Kyverno configmap name
 	kyvernoConfigMapName = osutils.GetEnvWithFallback("INIT_CONFIG", "kyverno")
-	// defaultExcludeGroupRole ...
-	defaultExcludeGroupRole []string = []string{"system:serviceaccounts:kube-system", "system:nodes", "system:kube-scheduler"}
+	// kyvernoMetricsConfigMapName is the Kyverno metrics configmap name
+	kyvernoMetricsConfigMapName = osutils.GetEnvWithFallback("METRICS_CONFIG", "kyverno-metrics")
 	// kyvernoDryRunNamespace is the namespace for DryRun option of YAML verification
 	kyvernoDryrunNamespace = osutils.GetEnvWithFallback("KYVERNO_DRYRUN_NAMESPACE", "kyverno-dryrun")
 )
@@ -129,72 +132,85 @@ func KyvernoConfigMapName() string {
 	return kyvernoConfigMapName
 }
 
+func KyvernoMetricsConfigMapName() string {
+	return kyvernoMetricsConfigMapName
+}
+
+func KyvernoUserName(serviceaccount string) string {
+	return fmt.Sprintf("system:serviceaccount:%s:%s", kyvernoNamespace, serviceaccount)
+}
+
 // Configuration to be used by consumer to check filters
 type Configuration interface {
 	// GetDefaultRegistry return default image registry
 	GetDefaultRegistry() string
 	// GetEnableDefaultRegistryMutation return if should mutate image registry
 	GetEnableDefaultRegistryMutation() bool
+	// IsExcluded checks exlusions/inclusions to determine if the admission request should be excluded or not
+	IsExcluded(username string, groups []string, roles []string, clusterroles []string) bool
 	// ToFilter checks if the given resource is set to be filtered in the configuration
-	ToFilter(kind, namespace, name string) bool
-	// GetExcludeGroupRole return exclude roles
-	GetExcludeGroupRole() []string
-	// GetExcludeUsername return exclude username
-	GetExcludeUsername() []string
+	ToFilter(kind schema.GroupVersionKind, subresource, namespace, name string) bool
 	// GetGenerateSuccessEvents return if should generate success events
 	GetGenerateSuccessEvents() bool
-	// FilterNamespaces filters exclude namespace
-	FilterNamespaces(namespaces []string) []string
 	// GetWebhooks returns the webhook configs
 	GetWebhooks() []WebhookConfig
+	// GetWebhookAnnotations returns annotations to set on webhook configs
+	GetWebhookAnnotations() map[string]string
 	// Load loads configuration from a configmap
-	Load(cm *corev1.ConfigMap)
+	Load(*corev1.ConfigMap)
+	// OnChanged adds a callback to be invoked when the configuration is reloaded
+	OnChanged(func())
 }
 
 // configuration stores the configuration
 type configuration struct {
+	skipResourceFilters           bool
 	defaultRegistry               string
 	enableDefaultRegistryMutation bool
-	excludeGroupRole              []string
-	excludeUsername               []string
+	exclusions                    match
+	inclusions                    match
 	filters                       []filter
 	generateSuccessEvents         bool
-	mux                           sync.RWMutex
 	webhooks                      []WebhookConfig
+	webhookAnnotations            map[string]string
+	mux                           sync.RWMutex
+	callbacks                     []func()
 }
 
-// NewDefaultConfiguration ...
-func NewDefaultConfiguration() *configuration {
-	return &configuration{
-		defaultRegistry:               "docker.io",
-		enableDefaultRegistryMutation: true,
-		excludeGroupRole:              defaultExcludeGroupRole,
-	}
+type match struct {
+	groups       []string
+	usernames    []string
+	roles        []string
+	clusterroles []string
 }
 
-// NewConfiguration ...
-func NewConfiguration(client kubernetes.Interface) (Configuration, error) {
-	cd := NewDefaultConfiguration()
-	if cm, err := client.CoreV1().ConfigMaps(kyvernoNamespace).Get(context.TODO(), kyvernoConfigMapName, metav1.GetOptions{}); err != nil {
-		if !errors.IsNotFound(err) {
-			return nil, err
-		}
-	} else {
-		cd.load(cm)
-	}
-	return cd, nil
-}
-
-func (cd *configuration) ToFilter(kind, namespace, name string) bool {
-	cd.mux.RLock()
-	defer cd.mux.RUnlock()
-	for _, f := range cd.filters {
-		if wildcard.Match(f.Kind, kind) && wildcard.Match(f.Namespace, namespace) && wildcard.Match(f.Name, name) {
+func (c match) matches(username string, groups []string, roles []string, clusterroles []string) bool {
+	// filter by username
+	for _, pattern := range c.usernames {
+		if wildcard.Match(pattern, username) {
 			return true
 		}
-		if kind == "Namespace" {
-			// [Namespace,kube-system,*] || [*,kube-system,*]
-			if (f.Kind == "Namespace" || f.Kind == "*") && wildcard.Match(f.Namespace, name) {
+	}
+	// filter by groups
+	for _, pattern := range c.groups {
+		for _, candidate := range groups {
+			if wildcard.Match(pattern, candidate) {
+				return true
+			}
+		}
+	}
+	// filter by roles
+	for _, pattern := range c.roles {
+		for _, candidate := range roles {
+			if wildcard.Match(pattern, candidate) {
+				return true
+			}
+		}
+	}
+	// filter by cluster roles
+	for _, pattern := range c.clusterroles {
+		for _, candidate := range clusterroles {
+			if wildcard.Match(pattern, candidate) {
 				return true
 			}
 		}
@@ -202,10 +218,47 @@ func (cd *configuration) ToFilter(kind, namespace, name string) bool {
 	return false
 }
 
-func (cd *configuration) GetExcludeGroupRole() []string {
+// NewDefaultConfiguration ...
+func NewDefaultConfiguration(skipResourceFilters bool) *configuration {
+	return &configuration{
+		skipResourceFilters:           skipResourceFilters,
+		defaultRegistry:               "docker.io",
+		enableDefaultRegistryMutation: true,
+	}
+}
+
+func (cd *configuration) OnChanged(callback func()) {
+	cd.mux.Lock()
+	defer cd.mux.Unlock()
+	cd.callbacks = append(cd.callbacks, callback)
+}
+
+func (c *configuration) IsExcluded(username string, groups []string, roles []string, clusterroles []string) bool {
+	if c.inclusions.matches(username, groups, roles, clusterroles) {
+		return false
+	}
+	return c.exclusions.matches(username, groups, roles, clusterroles)
+}
+
+func (cd *configuration) ToFilter(gvk schema.GroupVersionKind, subresource, namespace, name string) bool {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
-	return cd.excludeGroupRole
+	if !cd.skipResourceFilters {
+		for _, f := range cd.filters {
+			if wildcard.Match(f.Group, gvk.Group) && wildcard.Match(f.Version, gvk.Version) && wildcard.Match(f.Kind, gvk.Kind) && wildcard.Match(f.Subresource, subresource) {
+				if wildcard.Match(f.Namespace, namespace) && wildcard.Match(f.Name, name) {
+					return true
+				}
+				// [Namespace,kube-system,*] || [*,kube-system,*]
+				if gvk.Group == "" && gvk.Version == "v1" && gvk.Kind == "Namespace" {
+					if wildcard.Match(f.Namespace, name) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
 }
 
 func (cd *configuration) GetDefaultRegistry() string {
@@ -220,32 +273,22 @@ func (cd *configuration) GetEnableDefaultRegistryMutation() bool {
 	return cd.enableDefaultRegistryMutation
 }
 
-func (cd *configuration) GetExcludeUsername() []string {
-	cd.mux.RLock()
-	defer cd.mux.RUnlock()
-	return cd.excludeUsername
-}
-
 func (cd *configuration) GetGenerateSuccessEvents() bool {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
 	return cd.generateSuccessEvents
 }
 
-func (cd *configuration) FilterNamespaces(namespaces []string) []string {
-	var results []string
-	for _, ns := range namespaces {
-		if !cd.ToFilter("", ns, "") {
-			results = append(results, ns)
-		}
-	}
-	return results
-}
-
 func (cd *configuration) GetWebhooks() []WebhookConfig {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
 	return cd.webhooks
+}
+
+func (cd *configuration) GetWebhookAnnotations() map[string]string {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.webhookAnnotations
 }
 
 func (cd *configuration) Load(cm *corev1.ConfigMap) {
@@ -258,64 +301,124 @@ func (cd *configuration) Load(cm *corev1.ConfigMap) {
 
 func (cd *configuration) load(cm *corev1.ConfigMap) {
 	logger := logger.WithValues("name", cm.Name, "namespace", cm.Namespace)
-	if cm.Data == nil {
-		return
-	}
 	cd.mux.Lock()
 	defer cd.mux.Unlock()
+	defer cd.notify()
+	data := cm.Data
+	if data == nil {
+		data = map[string]string{}
+	}
 	// reset
+	cd.defaultRegistry = "docker.io"
+	cd.enableDefaultRegistryMutation = true
+	cd.exclusions = match{}
+	cd.inclusions = match{}
 	cd.filters = []filter{}
-	cd.excludeGroupRole = []string{}
-	cd.excludeUsername = []string{}
 	cd.generateSuccessEvents = false
 	cd.webhooks = nil
+	cd.webhookAnnotations = nil
 	// load filters
-	cd.filters = parseKinds(cm.Data["resourceFilters"])
-	newDefaultRegistry, ok := cm.Data["defaultRegistry"]
+	cd.filters = parseKinds(data[resourceFilters])
+	logger.Info("filters configured", "filters", cd.filters)
+	// load defaultRegistry
+	defaultRegistry, ok := data[defaultRegistry]
 	if !ok {
-		logger.V(4).Info("configuration: No defaultRegistry defined in ConfigMap")
+		logger.Info("defaultRegistry not set")
 	} else {
-		if valid.IsDNSName(newDefaultRegistry) {
-			logger.V(4).Info("Updated defaultRegistry config parameter.", "oldDefaultRegistry", cd.defaultRegistry, "newDefaultRegistry", newDefaultRegistry)
-			cd.defaultRegistry = newDefaultRegistry
+		logger := logger.WithValues("defaultRegistry", defaultRegistry)
+		if valid.IsDNSName(defaultRegistry) {
+			cd.defaultRegistry = defaultRegistry
+			logger.Info("defaultRegistry configured")
 		} else {
-			logger.V(4).Info("defaultRegistry didn't change because the provided config value isn't a valid DNS hostname")
+			logger.Error(errors.New("defaultRegistry is not a valid DNS hostname"), "failed to configure defaultRegistry")
 		}
 	}
-	enableDefaultRegistryMutation, ok := cm.Data["enableDefaultRegistryMutation"]
+	// load enableDefaultRegistryMutation
+	enableDefaultRegistryMutation, ok := data[enableDefaultRegistryMutation]
 	if !ok {
-		logger.V(4).Info("configuration: No enableDefaultRegistryMutation defined in ConfigMap")
+		logger.Info("enableDefaultRegistryMutation not set")
 	} else {
-		newEnableDefaultRegistryMutation, err := strconv.ParseBool(enableDefaultRegistryMutation)
+		logger := logger.WithValues("enableDefaultRegistryMutation", enableDefaultRegistryMutation)
+		enableDefaultRegistryMutation, err := strconv.ParseBool(enableDefaultRegistryMutation)
 		if err != nil {
-			logger.V(4).Info("configuration: Invalid value for enableDefaultRegistryMutation defined in ConfigMap. enableDefaultRegistryMutation didn't change")
+			logger.Error(err, "enableDefaultRegistryMutation is not a boolean")
+		} else {
+			cd.enableDefaultRegistryMutation = enableDefaultRegistryMutation
+			logger.Info("enableDefaultRegistryMutation configured")
 		}
-		logger.V(4).Info("Updated enableDefaultRegistryMutation config parameter", "oldEnableDefaultRegistryMutation", cd.enableDefaultRegistryMutation, "newEnableDefaultRegistryMutation", newEnableDefaultRegistryMutation)
-		cd.enableDefaultRegistryMutation = newEnableDefaultRegistryMutation
 	}
 	// load excludeGroupRole
-	cd.excludeGroupRole = append(cd.excludeGroupRole, parseRbac(cm.Data["excludeGroupRole"])...)
-	cd.excludeGroupRole = append(cd.excludeGroupRole, defaultExcludeGroupRole...)
+	excludedGroups, ok := data[excludeGroups]
+	if !ok {
+		logger.Info("excludeGroups not set")
+	} else {
+		cd.exclusions.groups, cd.inclusions.groups = parseExclusions(excludedGroups)
+		logger.Info("excludedGroups configured", "excludeGroups", cd.exclusions.groups, "includeGroups", cd.inclusions.groups)
+	}
 	// load excludeUsername
-	cd.excludeUsername = append(cd.excludeUsername, parseRbac(cm.Data["excludeUsername"])...)
+	excludedUsernames, ok := data[excludeUsernames]
+	if !ok {
+		logger.Info("excludeUsernames not set")
+	} else {
+		cd.exclusions.usernames, cd.inclusions.usernames = parseExclusions(excludedUsernames)
+		logger.Info("excludedUsernames configured", "excludeUsernames", cd.exclusions.usernames, "includeUsernames", cd.inclusions.usernames)
+	}
+	// load excludeRoles
+	excludedRoles, ok := data[excludeRoles]
+	if !ok {
+		logger.Info("excludeRoles not set")
+	} else {
+		cd.exclusions.roles, cd.inclusions.roles = parseExclusions(excludedRoles)
+		logger.Info("excludedRoles configured", "excludeRoles", cd.exclusions.roles, "includeRoles", cd.inclusions.roles)
+	}
+	// load excludeClusterRoles
+	excludedClusterRoles, ok := data[excludeClusterRoles]
+	if !ok {
+		logger.Info("excludeClusterRoles not set")
+	} else {
+		cd.exclusions.clusterroles, cd.inclusions.clusterroles = parseExclusions(excludedClusterRoles)
+		logger.Info("excludedClusterRoles configured", "excludeClusterRoles", cd.exclusions.clusterroles, "includeClusterRoles", cd.inclusions.clusterroles)
+	}
 	// load generateSuccessEvents
-	generateSuccessEvents, ok := cm.Data["generateSuccessEvents"]
-	if ok {
+	generateSuccessEvents, ok := data[generateSuccessEvents]
+	if !ok {
+		logger.Info("generateSuccessEvents not set")
+	} else {
+		logger := logger.WithValues("generateSuccessEvents", generateSuccessEvents)
 		generateSuccessEvents, err := strconv.ParseBool(generateSuccessEvents)
 		if err != nil {
-			logger.Error(err, "failed to parse generateSuccessEvents")
+			logger.Error(err, "generateSuccessEvents is not a boolean")
 		} else {
 			cd.generateSuccessEvents = generateSuccessEvents
+			logger.Info("generateSuccessEvents configured")
 		}
 	}
 	// load webhooks
-	webhooks, ok := cm.Data["webhooks"]
-	if ok {
+	webhooks, ok := data[webhooks]
+	if !ok {
+		logger.Info("webhooks not set")
+	} else {
+		logger := logger.WithValues("webhooks", webhooks)
 		webhooks, err := parseWebhooks(webhooks)
 		if err != nil {
 			logger.Error(err, "failed to parse webhooks")
 		} else {
 			cd.webhooks = webhooks
+			logger.Info("webhooks configured")
+		}
+	}
+	// load webhook annotations
+	webhookAnnotations, ok := data[webhookAnnotations]
+	if !ok {
+		logger.Info("webhookAnnotations not set")
+	} else {
+		logger := logger.WithValues("webhookAnnotations", webhookAnnotations)
+		webhookAnnotations, err := parseWebhookAnnotations(webhookAnnotations)
+		if err != nil {
+			logger.Error(err, "failed to parse webhook annotations")
+		} else {
+			cd.webhookAnnotations = webhookAnnotations
+			logger.Info("webhookAnnotations configured")
 		}
 	}
 }
@@ -323,12 +426,20 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 func (cd *configuration) unload() {
 	cd.mux.Lock()
 	defer cd.mux.Unlock()
-	cd.filters = []filter{}
+	defer cd.notify()
 	cd.defaultRegistry = "docker.io"
 	cd.enableDefaultRegistryMutation = true
-	cd.excludeGroupRole = []string{}
-	cd.excludeUsername = []string{}
+	cd.exclusions = match{}
+	cd.inclusions = match{}
+	cd.filters = []filter{}
 	cd.generateSuccessEvents = false
 	cd.webhooks = nil
-	cd.excludeGroupRole = append(cd.excludeGroupRole, defaultExcludeGroupRole...)
+	cd.webhookAnnotations = nil
+	logger.Info("configuration unloaded")
+}
+
+func (cd *configuration) notify() {
+	for _, callback := range cd.callbacks {
+		callback()
+	}
 }

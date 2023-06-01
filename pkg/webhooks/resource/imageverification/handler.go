@@ -4,62 +4,66 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
-	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
+	"github.com/mattbaird/jsonpatch"
 	"go.opentelemetry.io/otel/trace"
 	admissionv1 "k8s.io/api/admission/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type ImageVerificationHandler interface {
-	Handle(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext) ([]byte, []string, error)
+	Handle(context.Context, admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext) ([]byte, []string, error)
 }
 
 type imageVerificationHandler struct {
 	kyvernoClient    versioned.Interface
-	rclient          registryclient.Client
+	engine           engineapi.Engine
 	log              logr.Logger
 	eventGen         event.Interface
 	admissionReports bool
 	cfg              config.Configuration
+	nsLister         corev1listers.NamespaceLister
 }
 
 func NewImageVerificationHandler(
 	log logr.Logger,
 	kyvernoClient versioned.Interface,
-	rclient registryclient.Client,
+	engine engineapi.Engine,
 	eventGen event.Interface,
 	admissionReports bool,
 	cfg config.Configuration,
+	nsLister corev1listers.NamespaceLister,
 ) ImageVerificationHandler {
 	return &imageVerificationHandler{
 		kyvernoClient:    kyvernoClient,
-		rclient:          rclient,
+		engine:           engine,
 		log:              log,
 		eventGen:         eventGen,
 		admissionReports: admissionReports,
 		cfg:              cfg,
+		nsLister:         nsLister,
 	}
 }
 
 func (h *imageVerificationHandler) Handle(
 	ctx context.Context,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 ) ([]byte, []string, error) {
@@ -74,38 +78,47 @@ func (h *imageVerificationHandler) Handle(
 func (h *imageVerificationHandler) handleVerifyImages(
 	ctx context.Context,
 	logger logr.Logger,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	policyContext *engine.PolicyContext,
 	policies []kyvernov1.PolicyInterface,
 ) (bool, string, []byte, []string) {
 	if len(policies) == 0 {
 		return true, "", nil, nil
 	}
-	var engineResponses []*response.EngineResponse
-	var patches [][]byte
-	verifiedImageData := &engine.ImageVerificationMetadata{}
+	var engineResponses []engineapi.EngineResponse
+	var patches []jsonpatch.JsonPatchOperation
+	verifiedImageData := engineapi.ImageVerificationMetadata{}
+	failurePolicy := kyvernov1.Ignore
+
 	for _, policy := range policies {
 		tracing.ChildSpan(
 			ctx,
 			"",
 			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
 			func(ctx context.Context, span trace.Span) {
-				policyContext := policyContext.WithPolicy(policy)
-				resp, ivm := engine.VerifyAndPatchImages(ctx, h.rclient, policyContext, h.cfg)
+				if policy.GetSpec().GetFailurePolicy() == kyvernov1.Fail {
+					failurePolicy = kyvernov1.Fail
+				}
 
-				engineResponses = append(engineResponses, resp)
+				policyContext := policyContext.WithPolicy(policy)
+				if request.Kind.Kind != "Namespace" && request.Namespace != "" {
+					policyContext = policyContext.WithNamespaceLabels(engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
+				}
+
+				resp, ivm := h.engine.VerifyAndPatchImages(ctx, policyContext)
+				if !resp.IsEmpty() {
+					engineResponses = append(engineResponses, resp)
+				}
+
 				patches = append(patches, resp.GetPatches()...)
 				verifiedImageData.Merge(ivm)
 			},
 		)
 	}
 
-	failurePolicy := policies[0].GetSpec().GetFailurePolicy()
 	blocked := webhookutils.BlockRequest(engineResponses, failurePolicy, logger)
-	if !isResourceDeleted(policyContext) {
-		events := webhookutils.GenerateEvents(engineResponses, blocked)
-		h.eventGen.Add(events...)
-	}
+	events := webhookutils.GenerateEvents(engineResponses, blocked)
+	h.eventGen.Add(events...)
 
 	if blocked {
 		logger.V(4).Info("admission request blocked")
@@ -126,7 +139,7 @@ func (h *imageVerificationHandler) handleVerifyImages(
 	go h.handleAudit(ctx, policyContext.NewResource(), request, nil, engineResponses...)
 
 	warnings := webhookutils.GetWarningMessages(engineResponses)
-	return true, "", jsonutils.JoinPatches(patches...), warnings
+	return true, "", jsonutils.JoinPatches(patch.ConvertPatches(patches...)...), warnings
 }
 
 func hasAnnotations(context *engine.PolicyContext) bool {
@@ -135,54 +148,37 @@ func hasAnnotations(context *engine.PolicyContext) bool {
 	return len(annotations) != 0
 }
 
-func isResourceDeleted(policyContext *engine.PolicyContext) bool {
-	var deletionTimeStamp *metav1.Time
-	if reflect.DeepEqual(policyContext.NewResource, unstructured.Unstructured{}) {
-		resource := policyContext.NewResource()
-		deletionTimeStamp = resource.GetDeletionTimestamp()
-	} else {
-		resource := policyContext.OldResource()
-		deletionTimeStamp = resource.GetDeletionTimestamp()
-	}
-	return deletionTimeStamp != nil
-}
-
 func (v *imageVerificationHandler) handleAudit(
 	ctx context.Context,
 	resource unstructured.Unstructured,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	namespaceLabels map[string]string,
-	engineResponses ...*response.EngineResponse,
+	engineResponses ...engineapi.EngineResponse,
 ) {
-	if !v.admissionReports {
-		return
-	}
-	if request.DryRun != nil && *request.DryRun {
-		return
+	createReport := v.admissionReports
+	if admissionutils.IsDryRun(request) {
+		createReport = false
 	}
 	// we don't need reports for deletions and when it's about sub resources
 	if request.Operation == admissionv1.Delete || request.SubResource != "" {
-		return
+		createReport = false
 	}
 	// check if the resource supports reporting
 	if !reportutils.IsGvkSupported(schema.GroupVersionKind(request.Kind)) {
-		return
+		createReport = false
 	}
 	tracing.Span(
 		context.Background(),
 		"",
 		fmt.Sprintf("AUDIT %s %s", request.Operation, request.Kind),
 		func(ctx context.Context, span trace.Span) {
-			report := reportutils.BuildAdmissionReport(resource, request, request.Kind, engineResponses...)
-			// if it's not a creation, the resource already exists, we can set the owner
-			if request.Operation != admissionv1.Create {
-				gv := metav1.GroupVersion{Group: request.Kind.Group, Version: request.Kind.Version}
-				controllerutils.SetOwner(report, gv.String(), request.Kind.Kind, resource.GetName(), resource.GetUID())
-			}
-			if len(report.GetResults()) > 0 {
-				_, err := reportutils.CreateReport(context.Background(), report, v.kyvernoClient)
-				if err != nil {
-					v.log.Error(err, "failed to create report")
+			if createReport {
+				report := reportutils.BuildAdmissionReport(resource, request, engineResponses...)
+				if len(report.GetResults()) > 0 {
+					_, err := reportutils.CreateReport(context.Background(), report, v.kyvernoClient)
+					if err != nil {
+						v.log.Error(err, "failed to create report")
+					}
 				}
 			}
 		},

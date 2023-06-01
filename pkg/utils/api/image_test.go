@@ -10,7 +10,7 @@ import (
 	"gotest.tools/assert"
 )
 
-var cfg = config.NewDefaultConfiguration()
+var cfg = config.NewDefaultConfiguration(false)
 
 func Test_extractImageInfo(t *testing.T) {
 	tests := []struct {
@@ -213,6 +213,27 @@ func Test_extractImageInfo(t *testing.T) {
 							Tag:      "latest",
 						},
 						"/spec/steps/0/image",
+					},
+				},
+			},
+		},
+		{
+			extractionConfig: kyvernov1.ImageExtractorConfigs{
+				"DataVolume": []kyvernov1.ImageExtractorConfig{
+					{Path: "/spec/source/registry/url", JMESPath: "trim_prefix(@, 'docker://')"},
+				},
+			},
+			raw: []byte(`{"apiVersion":"cdi.kubevirt.io/v1beta1","kind":"DataVolume","metadata":{"name":"registry-image-datavolume"},"spec":{"source":{"registry":{"url":"docker://kubevirt/fedora-cloud-registry-disk-demo"}},"pvc":{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"5Gi"}}}}}`),
+			images: map[string]map[string]ImageInfo{
+				"custom": {
+					"/spec/source/registry/url": {
+						imageutils.ImageInfo{
+							Registry: "docker.io",
+							Name:     "fedora-cloud-registry-disk-demo",
+							Path:     "kubevirt/fedora-cloud-registry-disk-demo",
+							Tag:      "latest",
+						},
+						"/spec/source/registry/url",
 					},
 				},
 			},

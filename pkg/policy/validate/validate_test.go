@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -17,7 +18,7 @@ func Test_Validate_OverlayPattern_Empty(t *testing.T) {
 	assert.NilError(t, err)
 
 	checker := NewValidateFactory(&validation)
-	if _, err := checker.Validate(); err != nil {
+	if _, err := checker.Validate(context.TODO()); err != nil {
 		assert.Assert(t, err != nil)
 	}
 }
@@ -31,7 +32,7 @@ func Test_Validate_OverlayPattern_Nil_PatternAnypattern(t *testing.T) {
 	err := json.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
 	checker := NewValidateFactory(&validation)
-	if _, err := checker.Validate(); err != nil {
+	if _, err := checker.Validate(context.TODO()); err != nil {
 		assert.Assert(t, err != nil)
 	}
 }
@@ -69,7 +70,7 @@ func Test_Validate_OverlayPattern_Exist_PatternAnypattern(t *testing.T) {
 	err := json.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
 	checker := NewValidateFactory(&validation)
-	if _, err := checker.Validate(); err != nil {
+	if _, err := checker.Validate(context.TODO()); err != nil {
 		assert.Assert(t, err != nil)
 	}
 }
@@ -107,7 +108,7 @@ func Test_Validate_OverlayPattern_Valid(t *testing.T) {
 	err := json.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
 	checker := NewValidateFactory(&validation)
-	if _, err := checker.Validate(); err != nil {
+	if _, err := checker.Validate(context.TODO()); err != nil {
 		assert.NilError(t, err)
 	}
 }
@@ -140,7 +141,7 @@ func Test_Validate_ExistingAnchor_AnchorOnMap(t *testing.T) {
 	err := json.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
 	checker := NewValidateFactory(&validation)
-	if _, err := checker.Validate(); err != nil {
+	if _, err := checker.Validate(context.TODO()); err != nil {
 		assert.Assert(t, err != nil)
 	}
 }
@@ -170,7 +171,7 @@ func Test_Validate_ExistingAnchor_AnchorOnString(t *testing.T) {
 	err := json.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
 	checker := NewValidateFactory(&validation)
-	if _, err := checker.Validate(); err != nil {
+	if _, err := checker.Validate(context.TODO()); err != nil {
 		assert.Assert(t, err != nil)
 	}
 }
@@ -203,7 +204,7 @@ func Test_Validate_ExistingAnchor_Valid(t *testing.T) {
 	err = json.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
 	checker := NewValidateFactory(&validation)
-	if _, err := checker.Validate(); err != nil {
+	if _, err := checker.Validate(context.TODO()); err != nil {
 		assert.Assert(t, err != nil)
 	}
 	rawValidation = []byte(`
@@ -228,7 +229,7 @@ func Test_Validate_ExistingAnchor_Valid(t *testing.T) {
 	err = json.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
 	checker = NewValidateFactory(&validation)
-	if _, err := checker.Validate(); err != nil {
+	if _, err := checker.Validate(context.TODO()); err != nil {
 		assert.Assert(t, err != nil)
 	}
 
@@ -269,7 +270,7 @@ func Test_Validate_Validate_ValidAnchor(t *testing.T) {
 	assert.NilError(t, err)
 
 	checker := NewValidateFactory(&validate)
-	if _, err := checker.Validate(); err != nil {
+	if _, err := checker.Validate(context.TODO()); err != nil {
 		assert.NilError(t, err)
 	}
 
@@ -291,7 +292,7 @@ func Test_Validate_Validate_ValidAnchor(t *testing.T) {
 	assert.NilError(t, err)
 
 	checker = NewValidateFactory(&validate)
-	if _, err := checker.Validate(); err != nil {
+	if _, err := checker.Validate(context.TODO()); err != nil {
 		assert.NilError(t, err)
 	}
 }
@@ -318,7 +319,7 @@ func Test_Validate_Validate_Mismatched(t *testing.T) {
 	err := json.Unmarshal(rawValidate, &validate)
 	assert.NilError(t, err)
 	checker := NewValidateFactory(&validate)
-	if _, err := checker.Validate(); err != nil {
+	if _, err := checker.Validate(context.TODO()); err != nil {
 		assert.Assert(t, err != nil)
 	}
 }
@@ -348,7 +349,7 @@ func Test_Validate_Validate_Unsupported(t *testing.T) {
 	err = json.Unmarshal(rawValidate, &validate)
 	assert.NilError(t, err)
 	checker := NewValidateFactory(&validate)
-	if _, err := checker.Validate(); err != nil {
+	if _, err := checker.Validate(context.TODO()); err != nil {
 		assert.Assert(t, err != nil)
 	}
 
@@ -374,7 +375,7 @@ func Test_Validate_Validate_Unsupported(t *testing.T) {
 	assert.NilError(t, err)
 
 	checker = NewValidateFactory(&validate)
-	if _, err := checker.Validate(); err != nil {
+	if _, err := checker.Validate(context.TODO()); err != nil {
 		assert.Assert(t, err != nil)
 	}
 

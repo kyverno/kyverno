@@ -8,14 +8,15 @@ import (
 	"github.com/go-logr/logr"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (inner AdmissionHandler) WithDump(enabled bool) AdmissionHandler {
+func (inner AdmissionHandler) WithDump(
+	enabled bool,
+) AdmissionHandler {
 	if !enabled {
 		return inner
 	}
@@ -23,19 +24,24 @@ func (inner AdmissionHandler) WithDump(enabled bool) AdmissionHandler {
 }
 
 func (inner AdmissionHandler) withDump() AdmissionHandler {
-	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
 		response := inner(ctx, logger, request, startTime)
 		dumpPayload(logger, request, response)
 		return response
 	}
 }
 
-func dumpPayload(logger logr.Logger, request *admissionv1.AdmissionRequest, response *admissionv1.AdmissionResponse) {
+func dumpPayload(
+	logger logr.Logger,
+	request AdmissionRequest,
+	response AdmissionResponse,
+) {
 	reqPayload, err := newAdmissionRequestPayload(request)
 	if err != nil {
 		logger.Error(err, "Failed to extract resources")
 	} else {
-		logger.Info("Logging admission request and response payload ", "AdmissionRequest", reqPayload, "AdmissionResponse", response)
+		logger = logger.WithValues("admission.response", response, "admission.request", reqPayload)
+		logger.Info("admission request dump")
 	}
 }
 
@@ -52,14 +58,18 @@ type admissionRequestPayload struct {
 	Namespace          string                       `json:"namespace,omitempty"`
 	Operation          string                       `json:"operation"`
 	UserInfo           authenticationv1.UserInfo    `json:"userInfo"`
+	Roles              []string                     `json:"roles"`
+	ClusterRoles       []string                     `json:"clusterRoles"`
 	Object             unstructured.Unstructured    `json:"object,omitempty"`
 	OldObject          unstructured.Unstructured    `json:"oldObject,omitempty"`
 	DryRun             *bool                        `json:"dryRun,omitempty"`
 	Options            unstructured.Unstructured    `json:"options,omitempty"`
 }
 
-func newAdmissionRequestPayload(request *admissionv1.AdmissionRequest) (*admissionRequestPayload, error) {
-	newResource, oldResource, err := admissionutils.ExtractResources(nil, request)
+func newAdmissionRequestPayload(
+	request AdmissionRequest,
+) (*admissionRequestPayload, error) {
+	newResource, oldResource, err := admissionutils.ExtractResources(nil, request.AdmissionRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -82,6 +92,8 @@ func newAdmissionRequestPayload(request *admissionv1.AdmissionRequest) (*admissi
 		Namespace:          request.Namespace,
 		Operation:          string(request.Operation),
 		UserInfo:           request.UserInfo,
+		Roles:              request.Roles,
+		ClusterRoles:       request.ClusterRoles,
 		Object:             newResource,
 		OldObject:          oldResource,
 		DryRun:             request.DryRun,

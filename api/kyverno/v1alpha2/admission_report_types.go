@@ -39,16 +39,14 @@ type AdmissionReportSpec struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
 // +kubebuilder:resource:shortName=admr,categories=kyverno
-// +kubebuilder:printcolumn:name="ApiVersion",type=string,JSONPath=".metadata.ownerReferences[0].apiVersion",priority=1
-// +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=".metadata.ownerReferences[0].kind",priority=1
-// +kubebuilder:printcolumn:name="Subject",type=string,JSONPath=".metadata.ownerReferences[0].name",priority=1
-// +kubebuilder:printcolumn:name="Pass",type=integer,JSONPath=".spec.summary.pass"
-// +kubebuilder:printcolumn:name="Fail",type=integer,JSONPath=".spec.summary.fail"
-// +kubebuilder:printcolumn:name="Warn",type=integer,JSONPath=".spec.summary.warn"
-// +kubebuilder:printcolumn:name="Error",type=integer,JSONPath=".spec.summary.error"
-// +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=".spec.summary.skip"
-// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:printcolumn:name="Hash",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.hash']",priority=1
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="PASS",type=integer,JSONPath=".spec.summary.pass"
+// +kubebuilder:printcolumn:name="FAIL",type=integer,JSONPath=".spec.summary.fail"
+// +kubebuilder:printcolumn:name="WARN",type=integer,JSONPath=".spec.summary.warn"
+// +kubebuilder:printcolumn:name="ERROR",type=integer,JSONPath=".spec.summary.error"
+// +kubebuilder:printcolumn:name="SKIP",type=integer,JSONPath=".spec.summary.skip"
+// +kubebuilder:printcolumn:name="GVR",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.gvr']",priority=1
+// +kubebuilder:printcolumn:name="REF",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.name']",priority=1
 // +kubebuilder:printcolumn:name="AGGREGATE",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/report\\.aggregate']",priority=1
 
 // AdmissionReport is the Schema for the AdmissionReports API
@@ -76,16 +74,14 @@ func (r *AdmissionReport) SetSummary(summary policyreportv1alpha2.PolicyReportSu
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
 // +kubebuilder:resource:scope=Cluster,shortName=cadmr,categories=kyverno
-// +kubebuilder:printcolumn:name="ApiVersion",type=string,JSONPath=".metadata.ownerReferences[0].apiVersion",priority=1
-// +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=".metadata.ownerReferences[0].kind",priority=1
-// +kubebuilder:printcolumn:name="Subject",type=string,JSONPath=".metadata.ownerReferences[0].name",priority=1
-// +kubebuilder:printcolumn:name="Pass",type=integer,JSONPath=".spec.summary.pass"
-// +kubebuilder:printcolumn:name="Fail",type=integer,JSONPath=".spec.summary.fail"
-// +kubebuilder:printcolumn:name="Warn",type=integer,JSONPath=".spec.summary.warn"
-// +kubebuilder:printcolumn:name="Error",type=integer,JSONPath=".spec.summary.error"
-// +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=".spec.summary.skip"
-// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:printcolumn:name="Hash",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.hash']",priority=1
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="PASS",type=integer,JSONPath=".spec.summary.pass"
+// +kubebuilder:printcolumn:name="FAIL",type=integer,JSONPath=".spec.summary.fail"
+// +kubebuilder:printcolumn:name="WARN",type=integer,JSONPath=".spec.summary.warn"
+// +kubebuilder:printcolumn:name="ERROR",type=integer,JSONPath=".spec.summary.error"
+// +kubebuilder:printcolumn:name="SKIP",type=integer,JSONPath=".spec.summary.skip"
+// +kubebuilder:printcolumn:name="GVR",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.gvr']",priority=1
+// +kubebuilder:printcolumn:name="REF",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.name']",priority=1
 // +kubebuilder:printcolumn:name="AGGREGATE",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/report\\.aggregate']",priority=1
 
 // ClusterAdmissionReport is the Schema for the ClusterAdmissionReports API

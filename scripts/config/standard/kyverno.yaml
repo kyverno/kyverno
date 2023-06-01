@@ -1,9 +1,25 @@
-initContainer:
-  extraArgs:
-    - --loggingFormat=json
+features:
+  policyExceptions:
+    enabled: true
 
-extraArgs:
-  - --loggingFormat=json
+backgroundController:
+  rbac:
+    clusterRole:
+      extraResources:
+        - apiGroups:
+            - '*'
+          resources:
+            - configmaps
+            - networkpolicies
+            - resourcequotas
+            - secrets
+            - roles
+            - rolebindings
+            - limitranges
+            - namespaces
+            - nodes
+            - nodes/status
+            - pods
 
 cleanupController:
   rbac:

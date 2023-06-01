@@ -17,10 +17,9 @@ limitations under the License.
 package v2alpha1
 
 import (
-	"reflect"
-
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"github.com/robfig/cron"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -149,6 +148,10 @@ type ClusterCleanupPolicyList struct {
 // CleanupPolicySpec stores specifications for selecting resources that the user needs to delete
 // and schedule when the matching resources needs deleted.
 type CleanupPolicySpec struct {
+	// Context defines variables and data sources that can be used during rule execution.
+	// +optional
+	Context []kyvernov1.ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
+
 	// MatchResources defines when cleanuppolicy should be applied. The match
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the user name or role.
@@ -164,7 +167,7 @@ type CleanupPolicySpec struct {
 	// The schedule in Cron format
 	Schedule string `json:"schedule"`
 
-	// Conditions defines conditions used to select resources which user needs to delete
+	// Conditions defines the conditions used to select the resources which will be cleaned up.
 	// +optional
 	Conditions *kyvernov2beta1.AnyAllConditions `json:"conditions,omitempty"`
 }
@@ -176,12 +179,33 @@ type CleanupPolicyStatus struct {
 
 // Validate implements programmatic validation
 func (p *CleanupPolicySpec) Validate(path *field.Path, clusterResources sets.Set[string], namespaced bool) (errs field.ErrorList) {
+	// Write context validation code here by following other validations.
+	errs = append(errs, ValidateContext(path.Child("context"), p.Context)...)
 	errs = append(errs, ValidateSchedule(path.Child("schedule"), p.Schedule)...)
-	errs = append(errs, p.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)
+	if userInfoErrs := p.MatchResources.ValidateNoUserInfo(path.Child("match")); len(userInfoErrs) != 0 {
+		errs = append(errs, userInfoErrs...)
+	} else {
+		errs = append(errs, p.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)
+	}
 	if p.ExcludeResources != nil {
-		errs = append(errs, p.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
+		if userInfoErrs := p.ExcludeResources.ValidateNoUserInfo(path.Child("exclude")); len(userInfoErrs) != 0 {
+			errs = append(errs, userInfoErrs...)
+		} else {
+			errs = append(errs, p.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
+		}
 	}
 	errs = append(errs, p.ValidateMatchExcludeConflict(path)...)
+	return errs
+}
+
+func ValidateContext(path *field.Path, context []kyvernov1.ContextEntry) (errs field.ErrorList) {
+	for _, entry := range context {
+		if entry.ImageRegistry != nil {
+			errs = append(errs, field.Invalid(path, context, "ImageRegistry is not allowed in CleanUp Policy"))
+		} else if entry.ConfigMap != nil {
+			errs = append(errs, field.Invalid(path, context, "ConfigMap is not allowed in CleanUp Policy"))
+		}
+	}
 	return errs
 }
 
@@ -202,14 +226,14 @@ func (spec *CleanupPolicySpec) ValidateMatchExcludeConflict(path *field.Path) (e
 	if len(spec.MatchResources.Any) > 0 && len(spec.ExcludeResources.Any) > 0 {
 		for _, rmr := range spec.MatchResources.Any {
 			for _, rer := range spec.ExcludeResources.Any {
-				if reflect.DeepEqual(rmr, rer) {
+				if datautils.DeepEqual(rmr, rer) {
 					return append(errs, field.Invalid(path, spec, "CleanupPolicy is matching an empty set"))
 				}
 			}
 		}
 		return errs
 	}
-	if reflect.DeepEqual(spec.ExcludeResources, kyvernov2beta1.MatchResources{}) {
+	if datautils.DeepEqual(spec.ExcludeResources, &kyvernov2beta1.MatchResources{}) {
 		return errs
 	}
 	return append(errs, field.Invalid(path, spec, "CleanupPolicy is matching an empty set"))

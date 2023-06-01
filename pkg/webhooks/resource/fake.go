@@ -7,7 +7,10 @@ import (
 	kyvernoinformers "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
@@ -33,26 +36,32 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 	kyvernoInformers.Start(ctx.Done())
 
 	dclient := dclient.NewEmptyFakeClient()
-	configuration := config.NewDefaultConfiguration()
-	rbLister := informers.Rbac().V1().RoleBindings().Lister()
-	crbLister := informers.Rbac().V1().ClusterRoleBindings().Lister()
+	configuration := config.NewDefaultConfiguration(false)
 	urLister := kyvernoInformers.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace())
 	peLister := kyvernoInformers.Kyverno().V2alpha1().PolicyExceptions().Lister()
+	rclient := registryclient.NewOrDie()
+	jp := jmespath.New(configuration)
 
-	return &handlers{
+	return &resourceHandlers{
 		client:         dclient,
-		rclient:        registryclient.NewOrDie(),
+		rclient:        rclient,
 		configuration:  configuration,
 		metricsConfig:  metricsConfig,
 		pCache:         policyCache,
 		nsLister:       informers.Core().V1().Namespaces().Lister(),
-		rbLister:       rbLister,
-		crbLister:      crbLister,
 		urLister:       urLister,
 		urGenerator:    updaterequest.NewFake(),
 		eventGen:       event.NewFake(),
 		openApiManager: openapi.NewFake(),
-		pcBuilder:      webhookutils.NewPolicyContextBuilder(configuration, dclient, rbLister, crbLister, configMapResolver, peLister),
-		urUpdater:      webhookutils.NewUpdateRequestUpdater(kyvernoclient, urLister),
+		pcBuilder:      webhookutils.NewPolicyContextBuilder(configuration, jp),
+		engine: engine.NewEngine(
+			configuration,
+			config.NewDefaultMetricsConfiguration(),
+			jp,
+			dclient,
+			rclient,
+			engineapi.DefaultContextLoaderFactory(configMapResolver),
+			peLister,
+		),
 	}
 }

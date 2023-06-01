@@ -1,11 +1,11 @@
 package validate
 
 import (
+	"context"
 	"fmt"
-	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor"
+	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/policy/common"
 )
 
@@ -25,13 +25,19 @@ func NewValidateFactory(rule *kyvernov1.Validation) *Validate {
 }
 
 // Validate validates the 'validate' rule
-func (v *Validate) Validate() (string, error) {
+func (v *Validate) Validate(ctx context.Context) (string, error) {
 	if err := v.validateElements(); err != nil {
 		return "", err
 	}
 
 	if target := v.rule.GetPattern(); target != nil {
-		if path, err := common.ValidatePattern(target, "/", []commonAnchors.IsAnchor{commonAnchors.IsConditionAnchor, commonAnchors.IsExistenceAnchor, commonAnchors.IsEqualityAnchor, commonAnchors.IsNegationAnchor, commonAnchors.IsGlobalAnchor}); err != nil {
+		if path, err := common.ValidatePattern(target, "/", func(a anchor.Anchor) bool {
+			return anchor.IsCondition(a) ||
+				anchor.IsExistence(a) ||
+				anchor.IsEquality(a) ||
+				anchor.IsNegation(a) ||
+				anchor.IsGlobal(a)
+		}); err != nil {
 			return fmt.Sprintf("pattern.%s", path), err
 		}
 	}
@@ -42,7 +48,13 @@ func (v *Validate) Validate() (string, error) {
 			return "anyPattern", fmt.Errorf("failed to deserialize anyPattern, expect array: %v", err)
 		}
 		for i, pattern := range anyPattern {
-			if path, err := common.ValidatePattern(pattern, "/", []commonAnchors.IsAnchor{commonAnchors.IsConditionAnchor, commonAnchors.IsExistenceAnchor, commonAnchors.IsEqualityAnchor, commonAnchors.IsNegationAnchor, commonAnchors.IsGlobalAnchor}); err != nil {
+			if path, err := common.ValidatePattern(pattern, "/", func(a anchor.Anchor) bool {
+				return anchor.IsCondition(a) ||
+					anchor.IsExistence(a) ||
+					anchor.IsEquality(a) ||
+					anchor.IsNegation(a) ||
+					anchor.IsGlobal(a)
+			}); err != nil {
 				return fmt.Sprintf("anyPattern[%d].%s", i, path), err
 			}
 		}
@@ -56,17 +68,61 @@ func (v *Validate) Validate() (string, error) {
 		}
 	}
 
+	if v.rule.CEL != nil {
+		for _, expression := range v.rule.CEL.Expressions {
+			if expression.Expression == "" {
+				return "", fmt.Errorf("cel.expressions.expression is required")
+			}
+		}
+
+		if v.rule.CEL.ParamKind != nil {
+			if v.rule.CEL.ParamKind.APIVersion == "" {
+				return "", fmt.Errorf("cel.paramKind.apiVersion is required")
+			}
+
+			if v.rule.CEL.ParamKind.Kind == "" {
+				return "", fmt.Errorf("cel.paramKind.kind is required")
+			}
+
+			if v.rule.CEL.ParamRef == nil {
+				return "", fmt.Errorf("cel.paramRef is required")
+			}
+		}
+
+		if v.rule.CEL.ParamRef != nil {
+			if v.rule.CEL.ParamRef.Name == "" {
+				return "", fmt.Errorf("cel.paramRef.name is required")
+			}
+
+			if v.rule.CEL.ParamKind == nil {
+				return "", fmt.Errorf("cel.paramKind is required")
+			}
+		}
+
+		if v.rule.CEL.AuditAnnotations != nil {
+			for _, auditAnnotation := range v.rule.CEL.AuditAnnotations {
+				if auditAnnotation.Key == "" {
+					return "", fmt.Errorf("cel.auditAnnotation.key is required")
+				}
+
+				if auditAnnotation.ValueExpression == "" {
+					return "", fmt.Errorf("cel.auditAnnotation.valueExpression is required")
+				}
+			}
+		}
+	}
+
 	return "", nil
 }
 
 func (v *Validate) validateElements() error {
 	count := validationElemCount(v.rule)
 	if count == 0 {
-		return fmt.Errorf("one of pattern, anyPattern, deny, foreach must be specified")
+		return fmt.Errorf("one of pattern, anyPattern, deny, foreach, cel must be specified")
 	}
 
 	if count > 1 {
-		return fmt.Errorf("only one of pattern, anyPattern, deny, foreach can be specified")
+		return fmt.Errorf("only one of pattern, anyPattern, deny, foreach, cel can be specified")
 	}
 
 	return nil
@@ -98,6 +154,10 @@ func validationElemCount(v *kyvernov1.Validation) int {
 		count++
 	}
 
+	if v.CEL != nil {
+		count++
+	}
+
 	if v.Manifests != nil && len(v.Manifests.Attestors) != 0 {
 		count++
 	}
@@ -110,17 +170,13 @@ func (v *Validate) validateForEach(foreach kyvernov1.ForEachValidation) error {
 		return fmt.Errorf("foreach.list is required")
 	}
 
-	if !strings.HasPrefix(foreach.List, "request.object") && !strings.HasPrefix(foreach.List, "request.userInfo") {
-		return fmt.Errorf("foreach.list must start with either 'request.object' or 'request.userInfo', e.g. 'request.object.spec.containers', 'request.userInfo.groups'")
-	}
-
 	count := foreachElemCount(foreach)
 	if count == 0 {
-		return fmt.Errorf("one of pattern, anyPattern, deny must be specified")
+		return fmt.Errorf("one of pattern, anyPattern, deny, or a nested foreach must be specified")
 	}
 
 	if count > 1 {
-		return fmt.Errorf("only one of pattern, anyPattern, deny can be specified")
+		return fmt.Errorf("only one of pattern, anyPattern, deny, or a nested foreach can be specified")
 	}
 
 	return nil
@@ -137,6 +193,10 @@ func foreachElemCount(foreach kyvernov1.ForEachValidation) int {
 	}
 
 	if foreach.Deny != nil {
+		count++
+	}
+
+	if foreach.ForEachValidation != nil {
 		count++
 	}
 

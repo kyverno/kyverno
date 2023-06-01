@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/engine/common"
+	"github.com/kyverno/kyverno/pkg/engine/pattern"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 	"github.com/kyverno/kyverno/pkg/logging"
 )
@@ -54,7 +54,7 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 		return validateArray(log, typedResourceElement, typedPatternElement, originPattern, path)
 	// elementary values
 	case string, float64, int, int64, bool, nil:
-		if !common.ValidateValueWithPattern(log, resourceElement, patternElement) {
+		if !pattern.Validate(log, resourceElement, patternElement) {
 			return path, fmt.Errorf("value '%v' does not match '%v' at path %s", resourceElement, patternElement, path)
 		}
 

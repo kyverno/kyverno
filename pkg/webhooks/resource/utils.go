@@ -7,7 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
@@ -20,16 +20,15 @@ type updateRequestResponse struct {
 	err error
 }
 
-func errorResponse(logger logr.Logger, uid types.UID, err error, message string) *admissionv1.AdmissionResponse {
+func errorResponse(logger logr.Logger, uid types.UID, err error, message string) admissionv1.AdmissionResponse {
 	logger.Error(err, message)
 	return admissionutils.Response(uid, errors.New(message+": "+err.Error()))
 }
 
-func patchRequest(patches []byte, request *admissionv1.AdmissionRequest, logger logr.Logger) *admissionv1.AdmissionRequest {
+func patchRequest(patches []byte, request admissionv1.AdmissionRequest, logger logr.Logger) admissionv1.AdmissionRequest {
 	patchedResource := processResourceWithPatches(patches, request.Object.Raw, logger)
-	newRequest := request.DeepCopy()
-	newRequest.Object.Raw = patchedResource
-	return newRequest
+	request.Object.Raw = patchedResource
+	return request
 }
 
 func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) []byte {
@@ -47,50 +46,56 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 
 func applyUpdateRequest(
 	ctx context.Context,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	ruleType kyvernov1beta1.RequestType,
-	grGenerator updaterequest.Generator,
+	urGenerator updaterequest.Generator,
 	userRequestInfo kyvernov1beta1.RequestInfo,
 	action admissionv1.Operation,
-	engineResponses ...*response.EngineResponse,
+	engineResponses ...*engineapi.EngineResponse,
 ) (failedUpdateRequest []updateRequestResponse) {
 	admissionRequestInfo := kyvernov1beta1.AdmissionRequestInfoObject{
-		AdmissionRequest: request,
+		AdmissionRequest: &request,
 		Operation:        action,
 	}
 
 	for _, er := range engineResponses {
-		ur := transform(admissionRequestInfo, userRequestInfo, er, ruleType)
-		if err := grGenerator.Apply(ctx, ur, action); err != nil {
-			failedUpdateRequest = append(failedUpdateRequest, updateRequestResponse{ur: ur, err: err})
+		urs := transform(admissionRequestInfo, userRequestInfo, er, ruleType)
+		for _, ur := range urs {
+			if err := urGenerator.Apply(ctx, ur); err != nil {
+				failedUpdateRequest = append(failedUpdateRequest, updateRequestResponse{ur: ur, err: err})
+			}
 		}
 	}
 
 	return
 }
 
-func transform(admissionRequestInfo kyvernov1beta1.AdmissionRequestInfoObject, userRequestInfo kyvernov1beta1.RequestInfo, er *response.EngineResponse, ruleType kyvernov1beta1.RequestType) kyvernov1beta1.UpdateRequestSpec {
+func transform(admissionRequestInfo kyvernov1beta1.AdmissionRequestInfoObject, userRequestInfo kyvernov1beta1.RequestInfo, er *engineapi.EngineResponse, ruleType kyvernov1beta1.RequestType) (urs []kyvernov1beta1.UpdateRequestSpec) {
 	var PolicyNameNamespaceKey string
-	if er.PolicyResponse.Policy.Namespace != "" {
-		PolicyNameNamespaceKey = er.PolicyResponse.Policy.Namespace + "/" + er.PolicyResponse.Policy.Name
+	if er.Policy().GetNamespace() != "" {
+		PolicyNameNamespaceKey = er.Policy().GetNamespace() + "/" + er.Policy().GetName()
 	} else {
-		PolicyNameNamespaceKey = er.PolicyResponse.Policy.Name
+		PolicyNameNamespaceKey = er.Policy().GetName()
 	}
 
-	ur := kyvernov1beta1.UpdateRequestSpec{
-		Type:   ruleType,
-		Policy: PolicyNameNamespaceKey,
-		Resource: kyvernov1.ResourceSpec{
-			Kind:       er.PolicyResponse.Resource.Kind,
-			Namespace:  er.PolicyResponse.Resource.Namespace,
-			Name:       er.PolicyResponse.Resource.Name,
-			APIVersion: er.PolicyResponse.Resource.APIVersion,
-		},
-		Context: kyvernov1beta1.UpdateRequestSpecContext{
-			UserRequestInfo:      userRequestInfo,
-			AdmissionRequestInfo: admissionRequestInfo,
-		},
+	for _, rule := range er.PolicyResponse.Rules {
+		ur := kyvernov1beta1.UpdateRequestSpec{
+			Type:   ruleType,
+			Policy: PolicyNameNamespaceKey,
+			Rule:   rule.Name(),
+			Resource: kyvernov1.ResourceSpec{
+				Kind:       er.Resource.GetKind(),
+				Namespace:  er.Resource.GetNamespace(),
+				Name:       er.Resource.GetName(),
+				APIVersion: er.Resource.GetAPIVersion(),
+			},
+			Context: kyvernov1beta1.UpdateRequestSpecContext{
+				UserRequestInfo:      userRequestInfo,
+				AdmissionRequestInfo: admissionRequestInfo,
+			},
+		}
+		urs = append(urs, ur)
 	}
 
-	return ur
+	return urs
 }

@@ -4,20 +4,20 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 )
 
-func GetErrorMsg(engineReponses []*response.EngineResponse) string {
+func GetErrorMsg(engineReponses []engineapi.EngineResponse) string {
 	var str []string
 	var resourceInfo string
 	for _, er := range engineReponses {
 		if !er.IsSuccessful() {
 			// resource in engineReponses is identical as this was called per admission request
-			resourceInfo = fmt.Sprintf("%s/%s/%s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
-			str = append(str, fmt.Sprintf("failed policy %s:", er.PolicyResponse.Policy.Name))
+			resourceInfo = fmt.Sprintf("%s/%s/%s", er.Resource.GetKind(), er.Resource.GetNamespace(), er.Resource.GetName())
+			str = append(str, fmt.Sprintf("failed policy %s:", er.Policy().GetName()))
 			for _, rule := range er.PolicyResponse.Rules {
-				if rule.Status != response.RuleStatusPass {
-					str = append(str, rule.ToString())
+				if rule.Status() != engineapi.RuleStatusPass {
+					str = append(str, rule.String())
 				}
 			}
 		}

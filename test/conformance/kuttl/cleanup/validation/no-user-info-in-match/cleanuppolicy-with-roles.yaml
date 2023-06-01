@@ -1,0 +1,13 @@
+apiVersion: kyverno.io/v2alpha1
+kind: ClusterCleanupPolicy
+metadata:
+  name: cleanuppolicy
+spec:
+  match:
+    any:
+      - resources:
+          kinds:
+            - Pod
+        roles:
+          - admin
+  schedule: '* * * * *'

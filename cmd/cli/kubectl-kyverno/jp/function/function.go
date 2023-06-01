@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slices"
@@ -23,7 +24,8 @@ var examples = []string{
 func Command() *cobra.Command {
 	return &cobra.Command{
 		Use:          "function [function_name]...",
-		Short:        strings.Join(description, "\n"),
+		Short:        description[0],
+		Long:         strings.Join(description, "\n"),
 		Example:      strings.Join(examples, "\n\n"),
 		SilenceUsage: true,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -33,17 +35,16 @@ func Command() *cobra.Command {
 }
 
 func printFunctions(names ...string) {
-	functions := jmespath.GetFunctions()
-	slices.SortFunc(functions, func(a, b *jmespath.FunctionEntry) bool {
+	functions := jmespath.GetFunctions(config.NewDefaultConfiguration(false))
+	slices.SortFunc(functions, func(a, b jmespath.FunctionEntry) bool {
 		return a.String() < b.String()
 	})
 	namesSet := sets.New(names...)
 	for _, function := range functions {
-		if len(namesSet) == 0 || namesSet.Has(function.Entry.Name) {
-			function := *function
+		if len(namesSet) == 0 || namesSet.Has(function.Name) {
 			note := function.Note
 			function.Note = ""
-			fmt.Println("Name:", function.Entry.Name)
+			fmt.Println("Name:", function.Name)
 			fmt.Println("  Signature:", function.String())
 			if note != "" {
 				fmt.Println("  Note:     ", note)

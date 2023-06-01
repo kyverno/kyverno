@@ -3,7 +3,6 @@ package aggregate
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -17,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,6 +36,7 @@ const (
 	ControllerName = "aggregate-report-controller"
 	maxRetries     = 10
 	mergeLimit     = 1000
+	enqueueDelay   = 30 * time.Second
 )
 
 type controller struct {
@@ -94,15 +95,14 @@ func NewController(
 		metadataCache:  metadataCache,
 		chunkSize:      chunkSize,
 	}
-	delay := 15 * time.Second
-	controllerutils.AddDelayedExplicitEventHandlers(logger, polrInformer.Informer(), c.queue, delay, keyFunc)
-	controllerutils.AddDelayedExplicitEventHandlers(logger, cpolrInformer.Informer(), c.queue, delay, keyFunc)
-	controllerutils.AddDelayedExplicitEventHandlers(logger, bgscanrInformer.Informer(), c.queue, delay, keyFunc)
-	controllerutils.AddDelayedExplicitEventHandlers(logger, cbgscanrInformer.Informer(), c.queue, delay, keyFunc)
+	controllerutils.AddDelayedExplicitEventHandlers(logger, polrInformer.Informer(), c.queue, enqueueDelay, keyFunc)
+	controllerutils.AddDelayedExplicitEventHandlers(logger, cpolrInformer.Informer(), c.queue, enqueueDelay, keyFunc)
+	controllerutils.AddDelayedExplicitEventHandlers(logger, bgscanrInformer.Informer(), c.queue, enqueueDelay, keyFunc)
+	controllerutils.AddDelayedExplicitEventHandlers(logger, cbgscanrInformer.Informer(), c.queue, enqueueDelay, keyFunc)
 	enqueueFromAdmr := func(obj metav1.Object) {
 		// no need to consider non aggregated reports
 		if controllerutils.HasLabel(obj, reportutils.LabelAggregatedReport) {
-			c.queue.AddAfter(keyFunc(obj), delay)
+			c.queue.AddAfter(keyFunc(obj), enqueueDelay)
 		}
 	}
 	controllerutils.AddEventHandlersT(
@@ -229,7 +229,7 @@ func (c *controller) reconcileReport(ctx context.Context, policyMap map[string]p
 		}
 	}
 	reportutils.SetResults(after, results...)
-	if reflect.DeepEqual(report, after) {
+	if datautils.DeepEqual(report, after) {
 		return after, nil
 	}
 	return reportutils.UpdateReport(ctx, after, c.client)

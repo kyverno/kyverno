@@ -1,11 +1,33 @@
 package utils
 
 import (
+	"fmt"
+
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	commonAnchor "github.com/kyverno/kyverno/pkg/engine/anchor"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/logging"
+	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
+
+func IsDeleteRequest(ctx engineapi.PolicyContext) bool {
+	newResource := ctx.NewResource()
+	// if the OldResource is not empty, and the NewResource is empty, the request is a DELETE
+	return IsEmptyUnstructured(&newResource)
+}
+
+func IsEmptyUnstructured(u *unstructured.Unstructured) bool {
+	if u == nil {
+		return true
+	}
+	if u.Object == nil {
+		return true
+	}
+	return false
+}
 
 // ApplyPatches patches given resource with given patches and returns patched document
 // return original resource if any error occurs
@@ -45,15 +67,21 @@ func ApplyPatchNew(resource, patch []byte) ([]byte, error) {
 	return patchedResource, err
 }
 
-// GetAnchorsFromMap gets the conditional anchor map
-func GetAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{} {
-	result := make(map[string]interface{})
-
-	for key, value := range anchorsMap {
-		if commonAnchor.IsConditionAnchor(key) {
-			result[key] = value
-		}
+func TransformConditions(original apiextensions.JSON) (interface{}, error) {
+	// conditions are currently in the form of []interface{}
+	oldConditions, err := apiutils.ApiextensionsJsonToKyvernoConditions(original)
+	if err != nil {
+		return nil, err
 	}
-
-	return result
+	switch typedValue := oldConditions.(type) {
+	case kyvernov1.AnyAllConditions:
+		return *typedValue.DeepCopy(), nil
+	case []kyvernov1.Condition: // backwards compatibility
+		var copies []kyvernov1.Condition
+		for _, condition := range typedValue {
+			copies = append(copies, *condition.DeepCopy())
+		}
+		return copies, nil
+	}
+	return nil, fmt.Errorf("invalid preconditions")
 }

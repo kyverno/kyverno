@@ -1,11 +1,11 @@
 ## Description
 
-This test ensures that deletion of the source (upstream) resource used by a ClusterPolicy `generate` rule with sync enabled using a clone declaration does NOT cause deletion of downstream/cloned resources.
+This test ensures that deletion of the source (upstream) resource used by a ClusterPolicy `generate` rule with sync enabled using a clone declaration DOES cause deletion of downstream/cloned resources.
 
 ## Expected Behavior
 
-After the source is deleted, the downstream resources should remain. If the downstream resource remains, the test passes. If the downstream resource is deleted, the test fails.
+After the source is deleted, the downstream resources should be deleted. If the downstream resource remains, the test fails. If the downstream resource is deleted, the test passes.
 
 ## Reference Issue(s)
 
-N/A
+https://github.com/kyverno/kyverno/issues/6266

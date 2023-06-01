@@ -8,17 +8,19 @@ import (
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
-	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"go.uber.org/multierr"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/dynamic"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -26,7 +28,7 @@ import (
 
 const (
 	// Workers is the number of workers for this controller
-	Workers        = 2
+	Workers        = 10
 	ControllerName = "admission-report-controller"
 	maxRetries     = 10
 	deletionGrace  = time.Minute * 2
@@ -34,7 +36,8 @@ const (
 
 type controller struct {
 	// clients
-	client versioned.Interface
+	client  versioned.Interface
+	dclient dclient.Interface
 
 	// listers
 	admrLister  cache.GenericLister
@@ -42,34 +45,23 @@ type controller struct {
 
 	// queue
 	queue workqueue.RateLimitingInterface
-
-	// cache
-	metadataCache resource.MetadataCache
 }
 
 func NewController(
 	client versioned.Interface,
+	dclient dclient.Interface,
 	metadataFactory metadatainformers.SharedInformerFactory,
-	metadataCache resource.MetadataCache,
 ) controllers.Controller {
 	admrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("admissionreports"))
 	cadmrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusteradmissionreports"))
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
-		client:        client,
-		admrLister:    admrInformer.Lister(),
-		cadmrLister:   cadmrInformer.Lister(),
-		queue:         queue,
-		metadataCache: metadataCache,
+		client:      client,
+		dclient:     dclient,
+		admrLister:  admrInformer.Lister(),
+		cadmrLister: cadmrInformer.Lister(),
+		queue:       queue,
 	}
-	c.metadataCache.AddEventHandler(func(eventType resource.EventType, uid types.UID, _ schema.GroupVersionKind, _ resource.Resource) {
-		// if it's a deletion, give some time to native garbage collection
-		if eventType == resource.Deleted {
-			queue.AddAfter(cache.ExplicitKey(uid), time.Minute)
-		} else {
-			queue.Add(cache.ExplicitKey(uid))
-		}
-	})
 	controllerutils.AddEventHandlersT(
 		admrInformer.Informer(),
 		func(obj metav1.Object) { queue.Add(cache.ExplicitKey(reportutils.GetResourceUid(obj))) },
@@ -87,22 +79,6 @@ func NewController(
 
 func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
-}
-
-func (c *controller) deleteReport(ctx context.Context, namespace, name string) error {
-	if namespace == "" {
-		return c.client.KyvernoV1alpha2().ClusterAdmissionReports().Delete(ctx, name, metav1.DeleteOptions{})
-	} else {
-		return c.client.KyvernoV1alpha2().AdmissionReports(namespace).Delete(ctx, name, metav1.DeleteOptions{})
-	}
-}
-
-func (c *controller) fetchReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
-	if namespace == "" {
-		return c.client.KyvernoV1alpha2().ClusterAdmissionReports().Get(ctx, name, metav1.GetOptions{})
-	} else {
-		return c.client.KyvernoV1alpha2().AdmissionReports(namespace).Get(ctx, name, metav1.GetOptions{})
-	}
 }
 
 func (c *controller) getReports(uid types.UID) ([]metav1.Object, error) {
@@ -128,131 +104,220 @@ func (c *controller) getReports(uid types.UID) ([]metav1.Object, error) {
 	return results, nil
 }
 
-func mergeReports(accumulator map[string]policyreportv1alpha2.PolicyReportResult, reports ...kyvernov1alpha2.ReportInterface) {
-	for _, report := range reports {
-		if len(report.GetOwnerReferences()) == 1 {
-			ownerRef := report.GetOwnerReferences()[0]
-			objectRefs := []corev1.ObjectReference{{
-				APIVersion: ownerRef.APIVersion,
-				Kind:       ownerRef.Kind,
-				Namespace:  report.GetNamespace(),
-				Name:       ownerRef.Name,
-				UID:        ownerRef.UID,
-			}}
-			for _, result := range report.GetResults() {
-				key := result.Policy + "/" + result.Rule + "/" + string(ownerRef.UID)
-				result.Resources = objectRefs
-				if rule, exists := accumulator[key]; !exists {
-					accumulator[key] = result
-				} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
-					accumulator[key] = result
+func (c *controller) fetchReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
+	if namespace == "" {
+		return c.client.KyvernoV1alpha2().ClusterAdmissionReports().Get(ctx, name, metav1.GetOptions{})
+	} else {
+		return c.client.KyvernoV1alpha2().AdmissionReports(namespace).Get(ctx, name, metav1.GetOptions{})
+	}
+}
+
+func (c *controller) fetchReports(ctx context.Context, uid types.UID) ([]kyvernov1alpha2.ReportInterface, error) {
+	var results []kyvernov1alpha2.ReportInterface
+	ns := sets.New[string]()
+	if reports, err := c.getReports(uid); err != nil {
+		return nil, err
+	} else {
+		// TODO: threshold here ?
+		if len(reports) < 5 {
+			for _, report := range reports {
+				if result, err := c.fetchReport(ctx, report.GetNamespace(), report.GetName()); err != nil {
+					return nil, err
+				} else {
+					results = append(results, result)
 				}
+			}
+			return results, nil
+		}
+		for _, report := range reports {
+			ns.Insert(report.GetNamespace())
+		}
+	}
+	if selector, err := reportutils.SelectorResourceUidEquals(uid); err != nil {
+		return nil, err
+	} else {
+		for n := range ns {
+			if n == "" {
+				cadmrs, err := c.client.KyvernoV1alpha2().ClusterAdmissionReports().List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
+				if err != nil {
+					return nil, err
+				}
+				for i := range cadmrs.Items {
+					results = append(results, &cadmrs.Items[i])
+				}
+			} else {
+				admrs, err := c.client.KyvernoV1alpha2().AdmissionReports(n).List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
+				if err != nil {
+					return nil, err
+				}
+				for i := range admrs.Items {
+					results = append(results, &admrs.Items[i])
+				}
+			}
+		}
+		return results, nil
+	}
+}
+
+func (c *controller) deleteReport(ctx context.Context, namespace, name string) error {
+	if namespace == "" {
+		return c.client.KyvernoV1alpha2().ClusterAdmissionReports().Delete(ctx, name, metav1.DeleteOptions{})
+	} else {
+		return c.client.KyvernoV1alpha2().AdmissionReports(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	}
+}
+
+func mergeReports(resource corev1.ObjectReference, accumulator map[string]policyreportv1alpha2.PolicyReportResult, reports ...kyvernov1alpha2.ReportInterface) {
+	for _, report := range reports {
+		for _, result := range report.GetResults() {
+			key := result.Policy + "/" + result.Rule
+			result.Resources = []corev1.ObjectReference{resource}
+			if rule, exists := accumulator[key]; !exists {
+				accumulator[key] = result
+			} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
+				accumulator[key] = result
 			}
 		}
 	}
 }
 
-func (c *controller) aggregateReports(ctx context.Context, uid types.UID, gvk schema.GroupVersionKind, res resource.Resource, reports ...metav1.Object) error {
-	before, err := c.fetchReport(ctx, res.Namespace, string(uid))
+func (c *controller) aggregateReports(ctx context.Context, uid types.UID) (kyvernov1alpha2.ReportInterface, []kyvernov1alpha2.ReportInterface, error) {
+	reports, err := c.fetchReports(ctx, uid)
 	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			return err
-		}
-		before = reportutils.NewAdmissionReport(res.Namespace, string(uid), res.Name, uid, metav1.GroupVersionKind(gvk))
+		return nil, nil, err
 	}
-	merged := map[string]policyreportv1alpha2.PolicyReportResult{}
+	if len(reports) == 0 {
+		return nil, nil, nil
+	}
+	// do we have an aggregated report ?
+	var aggregated kyvernov1alpha2.ReportInterface
 	for _, report := range reports {
-		if reportutils.GetResourceHash(report) == res.Hash {
-			if report.GetName() == string(uid) {
-				mergeReports(merged, before)
+		if report.GetName() == string(uid) {
+			aggregated = report
+			break
+		}
+	}
+	// if we dont, try to fetch the associated resource
+	if aggregated == nil || len(aggregated.GetOwnerReferences()) == 0 {
+		var res *unstructured.Unstructured
+		var gvr schema.GroupVersionResource
+		for _, report := range reports {
+			// fetch resource using labels recorded on individual reports
+			gvr = reportutils.GetResourceGVR(report)
+			dyn := c.dclient.GetDynamicInterface().Resource(gvr)
+			namespace, name := reportutils.GetResourceNamespaceAndName(report)
+			var iface dynamic.ResourceInterface
+			if namespace == "" {
+				iface = dyn
 			} else {
-				// TODO: see if we can use List instead of fetching reports one by one
-				report, err := c.fetchReport(ctx, report.GetNamespace(), report.GetName())
-				if err != nil {
-					return err
+				iface = dyn.Namespace(namespace)
+			}
+			if got, err := iface.Get(ctx, name, metav1.GetOptions{}); err == nil {
+				res = got
+				break
+			}
+		}
+		// if we found the resource, build an aggregated report for it
+		if res != nil {
+			if aggregated == nil {
+				aggregated = reportutils.NewAdmissionReport(res.GetNamespace(), string(uid), gvr, *res)
+				controllerutils.SetOwner(aggregated, res.GetAPIVersion(), res.GetKind(), res.GetName(), uid)
+				controllerutils.SetLabel(aggregated, reportutils.LabelAggregatedReport, string(uid))
+			}
+		}
+	}
+	// if we have an aggregated report available, compute results
+	var errs []error
+	if aggregated != nil && len(aggregated.GetOwnerReferences()) != 0 {
+		owner := aggregated.GetOwnerReferences()[0]
+		resource := corev1.ObjectReference{
+			APIVersion: owner.APIVersion,
+			Kind:       owner.Kind,
+			Namespace:  aggregated.GetNamespace(),
+			Name:       owner.Name,
+			UID:        owner.UID,
+		}
+		merged := map[string]policyreportv1alpha2.PolicyReportResult{}
+		for _, report := range reports {
+			mergeReports(resource, merged, report)
+		}
+		var results []policyreportv1alpha2.PolicyReportResult
+		for _, result := range merged {
+			results = append(results, result)
+		}
+		after := aggregated
+		if aggregated.GetResourceVersion() != "" {
+			after = reportutils.DeepCopy(aggregated)
+		}
+		reportutils.SetResults(aggregated, results...)
+		if after.GetResourceVersion() == "" {
+			if len(results) > 0 {
+				if _, err := reportutils.CreateReport(ctx, after, c.client); err != nil {
+					errs = append(errs, err)
 				}
-				mergeReports(merged, report)
-			}
-		}
-	}
-	var results []policyreportv1alpha2.PolicyReportResult
-	for _, result := range merged {
-		results = append(results, result)
-	}
-	after := before
-	if before.GetResourceVersion() != "" {
-		after = reportutils.DeepCopy(before)
-	}
-	controllerutils.SetOwner(after, gvk.GroupVersion().String(), gvk.Kind, res.Name, uid)
-	controllerutils.SetLabel(after, reportutils.LabelResourceHash, res.Hash)
-	controllerutils.SetLabel(after, reportutils.LabelAggregatedReport, res.Hash)
-	reportutils.SetResults(after, results...)
-	if after.GetResourceVersion() == "" {
-		if len(results) > 0 {
-			if _, err := reportutils.CreateReport(ctx, after, c.client); err != nil {
-				return err
-			}
-		}
-	} else {
-		if len(results) == 0 {
-			if err := c.deleteReport(ctx, after.GetNamespace(), after.GetName()); err != nil {
-				return err
 			}
 		} else {
-			if !utils.ReportsAreIdentical(before, after) {
-				if _, err = reportutils.UpdateReport(ctx, after, c.client); err != nil {
-					return err
+			if len(results) == 0 {
+				if err := c.deleteReport(ctx, after.GetNamespace(), after.GetName()); err != nil {
+					errs = append(errs, err)
+				}
+			} else {
+				if !utils.ReportsAreIdentical(aggregated, after) {
+					if _, err = reportutils.UpdateReport(ctx, after, c.client); err != nil {
+						errs = append(errs, err)
+					}
 				}
 			}
 		}
 	}
-	return c.cleanupReports(ctx, uid, res.Hash, reports...)
-}
-
-func (c *controller) cleanupReports(ctx context.Context, uid types.UID, hash string, reports ...metav1.Object) error {
-	var toDelete []metav1.Object
-	for _, report := range reports {
-		if report.GetName() != string(uid) {
-			if reportutils.GetResourceHash(report) == hash || report.GetCreationTimestamp().Add(deletionGrace).Before(time.Now()) {
-				toDelete = append(toDelete, report)
-			} else {
-				c.queue.AddAfter(cache.ExplicitKey(uid), deletionGrace)
-			}
-		}
-	}
-	var errs []error
-	for _, report := range toDelete {
-		if err := c.deleteReport(ctx, report.GetNamespace(), report.GetName()); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	return multierr.Combine(errs...)
+	return aggregated, reports, multierr.Combine(errs...)
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, _ string) error {
 	uid := types.UID(key)
-	// find related reports
-	reports, err := c.getReports(uid)
-	if err != nil {
-		return err
-	}
-	// is the resource known
-	resource, gvk, found := c.metadataCache.GetResourceHash(uid)
-	if !found {
-		return c.cleanupReports(ctx, "", "", reports...)
-	}
-	// set orphan reports an owner
-	for _, report := range reports {
-		if len(report.GetOwnerReferences()) == 0 {
-			report, err := c.fetchReport(ctx, report.GetNamespace(), report.GetName())
-			if err != nil {
-				return err
-			}
-			controllerutils.SetOwner(report, gvk.GroupVersion().String(), gvk.Kind, resource.Name, uid)
-			_, err = reportutils.UpdateReport(ctx, report, c.client)
+	// catch invalid reports case
+	if uid == "" {
+		// find related reports
+		objs, err := c.getReports(uid)
+		if err != nil {
 			return err
 		}
+		var errs []error
+		for _, report := range objs {
+			if err := c.deleteReport(ctx, report.GetNamespace(), report.GetName()); err != nil {
+				errs = append(errs, err)
+			}
+		}
+		return multierr.Combine(errs...)
 	}
-	// build an aggregated report
-	return c.aggregateReports(ctx, uid, gvk, resource, reports...)
+	// try to aggregate reports for the given uid
+	aggregate, reports, err := c.aggregateReports(ctx, uid)
+	var errs []error
+	if err != nil {
+		errs = append(errs, err)
+	}
+	// if we created an aggregated report, delete individual ones
+	if aggregate != nil {
+		for _, report := range reports {
+			if aggregate != report {
+				if err := c.deleteReport(ctx, report.GetNamespace(), report.GetName()); err != nil {
+					errs = append(errs, err)
+				}
+			}
+		}
+	} else {
+		// we didn't create an aggregated report, still we had some individual reports, let's requeue
+		if reports != nil {
+			c.queue.AddAfter(cache.ExplicitKey(uid), time.Second*15)
+		}
+		// delete outdated reports
+		for _, report := range reports {
+			if report.GetCreationTimestamp().Add(deletionGrace).Before(time.Now()) {
+				if err := c.deleteReport(ctx, report.GetNamespace(), report.GetName()); err != nil {
+					errs = append(errs, err)
+				}
+			}
+		}
+	}
+	return multierr.Combine(errs...)
 }

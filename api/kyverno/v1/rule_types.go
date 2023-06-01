@@ -3,10 +3,11 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 
 	"github.com/kyverno/kyverno/pkg/pss/utils"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -32,6 +33,12 @@ type ImageExtractorConfig struct {
 	// Note - this field MUST be unique.
 	// +optional
 	Key string `json:"key,omitempty" yaml:"key,omitempty"`
+	// JMESPath is an optional JMESPath expression to apply to the image value.
+	// This is useful when the extracted image begins with a prefix like 'docker://'.
+	// The 'trim_prefix' function may be used to trim the prefix: trim_prefix(@, 'docker://').
+	// Note - Image digest mutation may not be used when applying a JMESPAth to an image.
+	// +optional
+	JMESPath string `json:"jmesPath,omitempty" yaml:"jmesPath,omitempty"`
 }
 
 // Rule defines a validation, mutation, or generation control for matching resources.
@@ -71,6 +78,11 @@ type Rule struct {
 	// +optional
 	RawAnyAllConditions *apiextv1.JSON `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
 
+	// CELPreconditions are used to determine if a policy rule should be applied by evaluating a
+	// set of CEL conditions. It can only be used with the validate.cel subrule
+	// +optional
+	CELPreconditions []admissionregistrationv1.MatchCondition `json:"celPreconditions,omitempty" yaml:"celPreconditions,omitempty"`
+
 	// Mutation is used to modify matching resources.
 	// +optional
 	Mutation Mutation `json:"mutate,omitempty" yaml:"mutate,omitempty"`
@@ -90,49 +102,52 @@ type Rule struct {
 
 // HasMutate checks for mutate rule
 func (r *Rule) HasMutate() bool {
-	return !reflect.DeepEqual(r.Mutation, Mutation{})
+	return !datautils.DeepEqual(r.Mutation, Mutation{})
 }
 
 // HasVerifyImages checks for verifyImages rule
 func (r *Rule) HasVerifyImages() bool {
-	return r.VerifyImages != nil && !reflect.DeepEqual(r.VerifyImages, ImageVerification{})
+	for _, verifyImage := range r.VerifyImages {
+		if !datautils.DeepEqual(verifyImage, ImageVerification{}) {
+			return true
+		}
+	}
+	return false
 }
 
-// HasYAMLSignatureVerify checks for validate.manifests rule
-func (r Rule) HasYAMLSignatureVerify() bool {
+// HasVerifyImageChecks checks whether the verifyImages rule has validation checks
+func (r *Rule) HasVerifyImageChecks() bool {
+	for _, verifyImage := range r.VerifyImages {
+		if verifyImage.VerifyDigest || verifyImage.Required {
+			return true
+		}
+	}
+	return false
+}
+
+// HasVerifyManifests checks for validate.manifests rule
+func (r Rule) HasVerifyManifests() bool {
 	return r.Validation.Manifests != nil && len(r.Validation.Manifests.Attestors) != 0
 }
 
-// HasImagesValidationChecks checks whether the verifyImages rule has validation checks
-func (r *Rule) HasImagesValidationChecks() bool {
-	for _, v := range r.VerifyImages {
-		if v.VerifyDigest || v.Required {
-			return true
-		}
-	}
-
-	return false
+// HasValidatePodSecurity checks for validate.podSecurity rule
+func (r Rule) HasValidatePodSecurity() bool {
+	return r.Validation.PodSecurity != nil && !datautils.DeepEqual(r.Validation.PodSecurity, &PodSecurity{})
 }
 
-// HasYAMLSignatureVerify checks for validate rule
-func (p *ClusterPolicy) HasYAMLSignatureVerify() bool {
-	for _, rule := range p.Spec.Rules {
-		if rule.HasYAMLSignatureVerify() {
-			return true
-		}
-	}
-
-	return false
+// HasValidateCEL checks for validate.cel rule
+func (r *Rule) HasValidateCEL() bool {
+	return r.Validation.CEL != nil && !datautils.DeepEqual(r.Validation.CEL, &CEL{})
 }
 
 // HasValidate checks for validate rule
 func (r *Rule) HasValidate() bool {
-	return !reflect.DeepEqual(r.Validation, Validation{})
+	return !datautils.DeepEqual(r.Validation, Validation{})
 }
 
 // HasGenerate checks for generate rule
 func (r *Rule) HasGenerate() bool {
-	return !reflect.DeepEqual(r.Generation, Generation{})
+	return !datautils.DeepEqual(r.Generation, Generation{})
 }
 
 // IsMutateExisting checks if the mutate rule applies to existing resources
@@ -144,18 +159,11 @@ func (r *Rule) IsPodSecurity() bool {
 	return r.Validation.PodSecurity != nil
 }
 
-// IsCloneSyncGenerate checks if the generate rule has the clone block with sync=true
-func (r *Rule) GetCloneSyncForGenerate() (clone bool, sync bool) {
+func (r *Rule) GetGenerateTypeAndSync() (_ GenerateType, sync bool) {
 	if !r.HasGenerate() {
 		return
 	}
-
-	if r.Generation.Clone.Name != "" {
-		clone = true
-	}
-
-	sync = r.Generation.Synchronize
-	return
+	return r.Generation.GetTypeAndSync()
 }
 
 func (r *Rule) GetAnyAllConditions() apiextensions.JSON {
@@ -196,14 +204,14 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 	if len(r.MatchResources.Any) > 0 && len(r.ExcludeResources.Any) > 0 {
 		for _, rmr := range r.MatchResources.Any {
 			for _, rer := range r.ExcludeResources.Any {
-				if reflect.DeepEqual(rmr, rer) {
+				if datautils.DeepEqual(rmr, rer) {
 					return append(errs, field.Invalid(path, r, "Rule is matching an empty set"))
 				}
 			}
 		}
 		return errs
 	}
-	if reflect.DeepEqual(r.ExcludeResources, MatchResources{}) {
+	if datautils.DeepEqual(r.ExcludeResources, MatchResources{}) {
 		return errs
 	}
 	excludeRoles := sets.New(r.ExcludeResources.Roles...)
@@ -341,7 +349,7 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 		return errs
 	}
 	if r.MatchResources.Annotations != nil && r.ExcludeResources.Annotations != nil {
-		if !(reflect.DeepEqual(r.MatchResources.Annotations, r.ExcludeResources.Annotations)) {
+		if !datautils.DeepEqual(r.MatchResources.Annotations, r.ExcludeResources.Annotations) {
 			return errs
 		}
 	}
@@ -396,6 +404,14 @@ func (r *Rule) ValidatePSaControlNames(path *field.Path) (errs field.ErrorList) 
 	return errs
 }
 
+func (r *Rule) ValidateGenerate(path *field.Path, clusterResources sets.Set[string]) (errs field.ErrorList) {
+	if !r.HasGenerate() {
+		return nil
+	}
+
+	return r.Generation.Validate(path, clusterResources)
+}
+
 // Validate implements programmatic validation
 func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, r.ValidateRuleType(path)...)
@@ -404,5 +420,6 @@ func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace strin
 	errs = append(errs, r.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
 	errs = append(errs, r.ValidateMutationRuleTargetNamespace(path, namespaced, policyNamespace)...)
 	errs = append(errs, r.ValidatePSaControlNames(path)...)
+	errs = append(errs, r.ValidateGenerate(path, clusterResources)...)
 	return errs
 }

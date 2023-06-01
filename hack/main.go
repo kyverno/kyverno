@@ -10,10 +10,12 @@ import (
 	"text/template"
 
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
+	aggregator "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 )
 
 const (
@@ -368,8 +370,10 @@ import (
 	{{- end }}
 )
 
+type UpstreamInterface = {{ GoType .Target.Type }}
+
 type Interface interface {
-	{{ GoType .Target.Type }}
+	UpstreamInterface
 	WithMetrics(metrics.MetricsConfigManager, metrics.ClientType) Interface
 	WithTracing() Interface
 	WithLogging(logr.Logger) Interface
@@ -744,4 +748,10 @@ func main() {
 	metadataResource := parseResource(reflect.TypeOf((*metadata.ResourceInterface)(nil)).Elem())
 	generateInterface(metadataInterface, "pkg/clients/metadata")
 	generateResource(metadataResource, "pkg/clients/metadata/resource")
+	apiserverInterface := parseClientset(reflect.TypeOf((*apiserver.Interface)(nil)).Elem())
+	generateClientset(apiserverInterface, "pkg/clients/apiserver")
+	generateInterface(apiserverInterface, "pkg/clients/apiserver")
+	aggregatorInterface := parseClientset(reflect.TypeOf((*aggregator.Interface)(nil)).Elem())
+	generateClientset(aggregatorInterface, "pkg/clients/aggregator")
+	generateInterface(aggregatorInterface, "pkg/clients/aggregator")
 }

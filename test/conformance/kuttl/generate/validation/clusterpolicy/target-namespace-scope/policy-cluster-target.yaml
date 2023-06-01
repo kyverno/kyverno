@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-cluster-target
+spec:
+  generateExisting: false
+  rules:
+  - name: cpol-cluster-target
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    generate:
+      synchronize: false
+      apiVersion: v1
+      kind: Namespace
+      namespace: fake-ns
+      name: cpol-cluster-target-ns

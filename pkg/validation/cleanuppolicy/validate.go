@@ -3,11 +3,15 @@ package cleanuppolicy
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/go-logr/logr"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/auth"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
+	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
 )
@@ -48,6 +52,10 @@ func Validate(ctx context.Context, logger logr.Logger, client dclient.Interface,
 	if err := validateAuth(ctx, client, policy); err != nil {
 		return err
 	}
+
+	if err := validateVariables(logger, policy); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -63,14 +71,36 @@ func validateAuth(ctx context.Context, client dclient.Interface, policy kyvernov
 	spec := policy.GetSpec()
 	kinds := sets.New(spec.MatchResources.GetKinds()...)
 	for kind := range kinds {
-		checker := auth.NewCanI(client.Discovery(), client.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews(), kind, namespace, "delete", "")
-		allowed, err := checker.RunAccessCheck(ctx)
+		checker := auth.NewCanI(client.Discovery(), client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, "delete", "", config.KyvernoUserName(config.KyvernoServiceAccountName()))
+		allowedDeletion, err := checker.RunAccessCheck(ctx)
 		if err != nil {
 			return err
 		}
-		if !allowed {
+		if !allowedDeletion {
 			return fmt.Errorf("cleanup controller has no permission to delete kind %s", kind)
+		}
+
+		checker = auth.NewCanI(client.Discovery(), client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, "list", "", config.KyvernoUserName(config.KyvernoServiceAccountName()))
+		allowedList, err := checker.RunAccessCheck(ctx)
+		if err != nil {
+			return err
+		}
+		if !allowedList {
+			return fmt.Errorf("cleanup controller has no permission to list kind %s", kind)
 		}
 	}
 	return nil
 }
+
+func validateVariables(logger logr.Logger, policy kyvernov2alpha1.CleanupPolicyInterface) error {
+	ctx := enginecontext.NewMockContext(allowedVariables)
+
+	c := policy.GetSpec().Conditions
+	conditionCopy := c.DeepCopy()
+	if _, err := variables.SubstituteAllInType(logger, ctx, conditionCopy); !variables.CheckNotFoundErr(err) {
+		return fmt.Errorf("variable substitution failed for policy %s: %s", policy.GetName(), err.Error())
+	}
+	return nil
+}
+
+var allowedVariables = regexp.MustCompile(`([a-z_0-9]+)|(target\.|images\.|([a-z_0-9]+\()[^{}])`)

@@ -16,7 +16,7 @@ Before you contribute, please take a moment to review and agree to abide by our 
 
 ## Engage with us
 
-The Kyverno website has the most updated information on [how to engage with the Kyverno community](https://kyverno.io/community/) including its maintainers and contributors.
+The Kyverno website has the most updated information on [how to engage with the Kyverno community](https://kyverno.io/community/) including its maintainers and contributors. There are three classes of contributors possible: Contributor, Code Owner, and Maintainer. Please see the [Contributing section on the website](https://kyverno.io/community/#contributing) for the requirements and privileges afforded to each.
 
 Join our community meetings to learn more about Kyverno and engage with other contributors.
 
@@ -42,7 +42,7 @@ New contributors may easily view all [open issues labeled as good first issues](
 
 Once you wish to get started contributing to the code base, please refer to our [running in development mode](https://github.com/kyverno/kyverno/wiki/Running-in-development-mode) for local setup guide.
 
-In the process of submitting your PRs, please read and abide by the template provided to ensure the maintainers are able to understand your changes and quickly come up to speed. There are some important pieces that are required outside of the code itself. Some of these are up to you, others are up to the maintainers.
+In the process of submitting your PRs, please read and abide by the template provided to ensure the maintainers are able to understand your changes and quickly come up to speed. There are some important pieces that are required outside the code itself. Some of these are up to you, others are up to the maintainers.
 
 1. Provide Proof Manifests allowing the maintainers and other contributors to verify your changes without requiring they understand the nuances of all your code.
 2. For new or changed functionality, this typically requires documentation and so raise a corresponding issue (or, better yet, raise a separate PR) on the [documentation repository](https://github.com/kyverno/website).
@@ -113,7 +113,7 @@ git cherry-pick <commit-hash> -s
 git push --set-upstream origin release-1.7
 ```
 
-Once the commit has been cherry picked, the author will need to open a PR merging to the release branch, release-1.7 for example.
+Once the commit has been cherry-picked, the author will need to open a PR merging to the release branch, release-1.7 for example.
 
 #### Developer Certificate of Origin (DCO) Sign off
 

@@ -4,6 +4,7 @@ This document covers basic needs to work with Kyverno codebase.
 
 It contains instructions to build, run, and test Kyverno.
 
+- [Open project in devcontainer](#open-project-in-devcontainer-recommended)
 - [Tools](#tools)
 - [Building local binaries](#building-local-binaries)
   - [Building kyvernopre locally](#building-kyvernopre-locally)
@@ -12,6 +13,7 @@ It contains instructions to build, run, and test Kyverno.
 - [Building local images](#building-local-images)
   - [Building local images with ko](#building-local-images-with-ko)
 - [Pushing images](#pushing-images)
+  - [Images tagging strategy](#images-tagging-strategy)
   - [Pushing images with ko](#pushing-images-with-ko)
 - [Deploying a local build](#deploying-a-local-build)
   - [Create a local cluster](#create-a-local-cluster)
@@ -25,6 +27,27 @@ It contains instructions to build, run, and test Kyverno.
   - [Generating helm charts CRDs](#generating-helm-charts-crds)
   - [Generating helm charts docs](#generating-helm-charts-docs)
 - [Debugging local code](#debugging-local-code)
+
+## Open project in devcontainer (recommended)
+- Clone the project to your local machine.
+- Make sure that you have the Visual Studio Code editor installed on your system.
+
+- Make sure that you have the Docker installed on your system.
+
+- Open the project in Visual Studio Code.
+
+- If you haven't already done so, install the **Dev Containers** extension in Visual Studio Code.
+
+- Once the extension is installed, you should see a green icon in the bottom left corner of the window.
+
+- After you have installed Dev Containers extension, it should automatically detect the .devcontainer folder inside the project,
+and should suggest you to open the project in container.
+
+- If it doesn't suggest you, then press <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>p</kbd> and search "reopen in container" and click on it.
+
+- If everything goes well, the project should be opened in your devcontainer.
+
+- Then follow the steps as mentioned below to configure the project.
 
 ## Tools
 
@@ -63,10 +86,10 @@ The Kyverno repository contains code for three different binaries:
 
 To build `kyvernopre` binary on your local system, run:
 ```console
-make build-kyvernopre
+make build-kyverno-init
 ```
 
-The binary should be created at `./cmd/initContainer/kyvernopre`.
+The binary should be created at `./cmd/kyverno-init/kyvernopre`.
 
 ### Building kyverno locally
 
@@ -111,7 +134,7 @@ When building local images with ko you can't specify the registry used to create
 
 To build `kyvernopre` image on your local system, run:
 ```console
-make ko-build-kyvernopre
+make ko-build-kyverno-init
 ```
 
 The resulting image should be available locally, named `ko.local/github.com/kyverno/kyverno/cmd/initcontainer`.
@@ -142,7 +165,12 @@ Pushing images is very similar to [building local images](#building-local-images
 
 When pushing images you can specify the registry you want to publish images to by setting the `REGISTRY` environment variable (default value is `ghcr.io`).
 
-<!-- TODO: explain the way images are tagged. -->
+### Images tagging strategy
+
+When publishing images, we are using the following strategy:
+- All published images are tagged with `latest`. Images tagged with `latest` should not be considered stable and can come from multiple release branches or main.
+- In addition to `latest`, dev images are tagged with the following pattern `<major>.<minor>-dev-N-<git hash>` where `N` is a two-digit number beginning at one for the major-minor combination and incremented by one on each subsequent tagged image.
+- In addition to `latest`, release images are tagged with the following pattern `<major>.<minor>.<patch>-<pre release>`. The pre release part is optional and only applies to pre releases (`-beta.1`, `-rc.2`, ...).
 
 ### Pushing images with ko
 
@@ -157,12 +185,12 @@ To allow authentication you will need to set `REGISTRY_USERNAME` and `REGISTRY_P
 To push `kyvernopre` image on a remote registry, run:
 ```console
 # push stable image
-make ko-publish-kyvernopre
+make ko-publish-kyverno-init
 ```
 or
 ```console
 # push dev image
-make ko-publish-kyvernopre-dev
+make ko-publish-kyverno-init-dev
 ```
 
 The resulting image should be available remotely, named `ghcr.io/kyverno/kyvernopre` (by default, if `REGISTRY` environment variable was not set).
@@ -224,7 +252,7 @@ You can also override the KinD cluster name by setting the `KIND_NAME` environme
 To build local images and load them on a local KinD cluster, run:
 ```console
 # build kyvernopre image and load it in KinD cluster
-make kind-load-kyvernopre
+make kind-load-kyverno-init
 ```
 or
 ```console
@@ -384,15 +412,16 @@ You can run Kyverno locally or in your IDE of choice with a few steps:
 1. Create a local cluster
     - You can create a simple cluster with [KinD](https://kind.sigs.k8s.io/) with `make kind-create-cluster`
 1. Deploy Kyverno manifests except the Kyverno `Deployment`
-    - Kyverno is going to run on your local machine so it should not run in cluster at the same time
+    - Kyverno is going to run on your local machine, so it should not run in cluster at the same time
     - You can deploy the manifests by running `make debug-deploy`
 1. To run Kyverno locally against the remote cluster you will need to provide `--kubeconfig` and `--serverIP` arguments:
     - `--kubeconfig` must point to your kubeconfig file (usually `~/.kube/config`)
     - `--serverIP` must be set to `<local ip>:9443` (`<local ip>` is the private ip adress of your local machine)
+    - `--backgroundServiceAccountName` must be set to `system:serviceaccount:kyverno:kyverno-background-controller`
 
 Once you are ready with the steps above, Kyverno can be started locally with:
 ```console
-go run ./cmd/kyverno/ --kubeconfig ~/.kube/config --serverIP=<local-ip>:9443
+go run ./cmd/kyverno/ --kubeconfig ~/.kube/config --serverIP=<local-ip>:9443 --backgroundServiceAccountName=system:serviceaccount:kyverno:kyverno-background-controller
 ```
 
 You will need to adapt those steps to run debug sessions in your IDE of choice, but the general idea remains the same.

@@ -1,0 +1,12 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      if kubectl apply -f resource.yaml 2>&1 | grep -q "label ''app.kubernetes.io/name'' is required"
+      then
+        echo "Test succeeded. Resource was blocked from label."
+        exit 0
+      else
+        echo "Tested failed. Resource was allowed to create."
+        exit 1
+      fi

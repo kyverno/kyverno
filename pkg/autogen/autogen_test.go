@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -27,8 +28,10 @@ func Test_getAutogenRuleName(t *testing.T) {
 		{"truncated-cronjob", "too-long-this-rule-name-will-be-truncated-to-63-characters", "autogen-cronjob", "autogen-cronjob-too-long-this-rule-name-will-be-truncated-to-63"},
 	}
 	for _, test := range testCases {
-		res := getAutogenRuleName(test.prefix, test.ruleName)
-		assert.Equal(t, test.expected, res)
+		t.Run(test.name, func(t *testing.T) {
+			res := getAutogenRuleName(test.prefix, test.ruleName)
+			assert.Equal(t, test.expected, res)
+		})
 	}
 }
 
@@ -45,8 +48,10 @@ func Test_isAutogenRule(t *testing.T) {
 		{"truncated-cronjob", "autogen-cronjob-too-long-this-rule-name-will-be-truncated-to-63", true},
 	}
 	for _, test := range testCases {
-		res := isAutogenRuleName(test.ruleName)
-		assert.Equal(t, test.expected, res)
+		t.Run(test.name, func(t *testing.T) {
+			res := isAutogenRuleName(test.ruleName)
+			assert.Equal(t, test.expected, res)
+		})
 	}
 }
 
@@ -139,15 +144,17 @@ func Test_CanAutoGen(t *testing.T) {
 	}
 
 	for _, test := range testCases {
-		var policy kyverno.ClusterPolicy
-		err := json.Unmarshal(test.policy, &policy)
-		assert.NilError(t, err)
+		t.Run(test.name, func(t *testing.T) {
+			var policy kyverno.ClusterPolicy
+			err := json.Unmarshal(test.policy, &policy)
+			assert.NilError(t, err)
 
-		applyAutoGen, controllers := CanAutoGen(&policy.Spec)
-		if !applyAutoGen {
-			controllers = "none"
-		}
-		assert.Equal(t, test.expectedControllers, controllers, fmt.Sprintf("test %s failed", test.name))
+			applyAutoGen, controllers := CanAutoGen(&policy.Spec)
+			if !applyAutoGen {
+				controllers = "none"
+			}
+			assert.Equal(t, test.expectedControllers, controllers, fmt.Sprintf("test %s failed", test.name))
+		})
 	}
 }
 
@@ -240,18 +247,20 @@ func Test_GetSupportedControllers(t *testing.T) {
 	}
 
 	for _, test := range testCases {
-		var policy kyverno.ClusterPolicy
-		err := json.Unmarshal(test.policy, &policy)
-		assert.NilError(t, err)
+		t.Run(test.name, func(t *testing.T) {
+			var policy kyverno.ClusterPolicy
+			err := json.Unmarshal(test.policy, &policy)
+			assert.NilError(t, err)
 
-		controllers := GetSupportedControllers(&policy.Spec)
+			controllers := GetSupportedControllers(&policy.Spec)
 
-		var expectedControllers []string
-		if test.expectedControllers != "none" {
-			expectedControllers = strings.Split(test.expectedControllers, ",")
-		}
+			var expectedControllers []string
+			if test.expectedControllers != "none" {
+				expectedControllers = strings.Split(test.expectedControllers, ",")
+			}
 
-		assert.DeepEqual(t, expectedControllers, controllers)
+			assert.DeepEqual(t, expectedControllers, controllers)
+		})
 	}
 }
 
@@ -294,8 +303,10 @@ func Test_GetRequestedControllers(t *testing.T) {
 	}
 
 	for _, test := range testCases {
-		controllers := GetRequestedControllers(&test.meta)
-		assert.DeepEqual(t, test.expectedControllers, controllers)
+		t.Run(test.name, func(t *testing.T) {
+			controllers := GetRequestedControllers(&test.meta)
+			assert.DeepEqual(t, test.expectedControllers, controllers)
+		})
 	}
 }
 
@@ -307,7 +318,7 @@ func Test_Any(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := yamlutils.GetPolicy(file)
+	policies, _, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -345,7 +356,7 @@ func Test_All(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := yamlutils.GetPolicy(file)
+	policies, _, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -384,7 +395,7 @@ func Test_Exclude(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := yamlutils.GetPolicy(file)
+	policies, _, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -418,7 +429,7 @@ func Test_CronJobOnly(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := yamlutils.GetPolicy(file)
+	policies, _, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -448,7 +459,7 @@ func Test_ForEachPod(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := yamlutils.GetPolicy(file)
+	policies, _, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -483,7 +494,7 @@ func Test_CronJob_hasExclude(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := yamlutils.GetPolicy(file)
+	policies, _, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -520,7 +531,7 @@ func Test_CronJobAndDeployment(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := yamlutils.GetPolicy(file)
+	policies, _, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -543,6 +554,47 @@ func Test_CronJobAndDeployment(t *testing.T) {
 	assert.DeepEqual(t, rulePatches, expectedPatches)
 }
 
+func TestUpdateGenRuleByte(t *testing.T) {
+	tests := []struct {
+		pbyte   []byte
+		kind    string
+		want    []byte
+		wantErr bool
+	}{
+		{
+			pbyte: []byte("request.object.spec"),
+			kind:  "Pod",
+			want:  []byte("request.object.spec.template.spec"),
+		},
+		{
+			pbyte: []byte("request.oldObject.spec"),
+			kind:  "Pod",
+			want:  []byte("request.oldObject.spec.template.spec"),
+		},
+		{
+			pbyte: []byte("request.object.spec"),
+			kind:  "Cronjob",
+			want:  []byte("request.object.spec.jobTemplate.spec.template.spec"),
+		},
+		{
+			pbyte: []byte("request.oldObject.spec"),
+			kind:  "Cronjob",
+			want:  []byte("request.oldObject.spec.jobTemplate.spec.template.spec"),
+		},
+		{
+			pbyte: []byte("request.object.metadata"),
+			kind:  "Pod",
+			want:  []byte("request.object.spec.template.metadata"),
+		},
+	}
+	for _, tt := range tests {
+		got := updateGenRuleByte(tt.pbyte, tt.kind)
+		if !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("updateGenRuleByte() = %v, want %v", string(got), string(tt.want))
+		}
+	}
+}
+
 func Test_UpdateVariablePath(t *testing.T) {
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
@@ -551,7 +603,7 @@ func Test_UpdateVariablePath(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := yamlutils.GetPolicy(file)
+	policies, _, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -581,7 +633,7 @@ func Test_Deny(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := yamlutils.GetPolicy(file)
+	policies, _, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -788,17 +840,19 @@ kA==
 	}
 
 	for _, test := range testCases {
-		policies, err := yamlutils.GetPolicy([]byte(test.policy))
-		assert.NilError(t, err)
-		assert.Equal(t, 1, len(policies))
-		rules := computeRules(policies[0])
-		assert.DeepEqual(t, test.expectedRules, rules)
+		t.Run(test.name, func(t *testing.T) {
+			policies, _, err := yamlutils.GetPolicy([]byte(test.policy))
+			assert.NilError(t, err)
+			assert.Equal(t, 1, len(policies))
+			rules := computeRules(policies[0])
+			assert.DeepEqual(t, test.expectedRules, rules)
+		})
 	}
 }
 
 func Test_PodSecurityWithNoExceptions(t *testing.T) {
 	policy := []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"pod-security"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"restricted","match":{"all":[{"resources":{"kinds":["Pod"]}}]},"validate":{"podSecurity":{"level":"restricted","version":"v1.24"}}}]}}`)
-	policies, err := yamlutils.GetPolicy([]byte(policy))
+	policies, _, err := yamlutils.GetPolicy([]byte(policy))
 	assert.NilError(t, err)
 	assert.Equal(t, 1, len(policies))
 

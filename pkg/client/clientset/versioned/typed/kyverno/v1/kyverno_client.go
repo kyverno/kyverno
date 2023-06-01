@@ -29,7 +29,6 @@ import (
 type KyvernoV1Interface interface {
 	RESTClient() rest.Interface
 	ClusterPoliciesGetter
-	GenerateRequestsGetter
 	PoliciesGetter
 }
 
@@ -40,10 +39,6 @@ type KyvernoV1Client struct {
 
 func (c *KyvernoV1Client) ClusterPolicies() ClusterPolicyInterface {
 	return newClusterPolicies(c)
-}
-
-func (c *KyvernoV1Client) GenerateRequests(namespace string) GenerateRequestInterface {
-	return newGenerateRequests(c, namespace)
 }
 
 func (c *KyvernoV1Client) Policies(namespace string) PolicyInterface {

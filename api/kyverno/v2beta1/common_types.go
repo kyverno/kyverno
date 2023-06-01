@@ -37,6 +37,10 @@ type Validation struct {
 	// by specifying exclusions for Pod Security Standards controls.
 	// +optional
 	PodSecurity *kyvernov1.PodSecurity `json:"podSecurity,omitempty" yaml:"podSecurity,omitempty"`
+
+	// CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
+	// +optional
+	CEL *kyvernov1.CEL `json:"cel,omitempty" yaml:"cel,omitempty"`
 }
 
 // ConditionOperator is the operation performed on condition key and value.
@@ -97,6 +101,9 @@ type Condition struct {
 	// or can be variables declared using JMESPath.
 	// +optional
 	RawValue *apiextv1.JSON `json:"value,omitempty" yaml:"value,omitempty"`
+
+	// Message is an optional display message
+	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 }
 
 func (c *Condition) GetKey() apiextensions.JSON {
@@ -119,14 +126,14 @@ type AnyAllConditions struct {
 	// AnyConditions enable variable-based conditional rule execution. This is useful for
 	// finer control of when an rule is applied. A condition can reference object data
 	// using JMESPath notation.
-	// Here, at least one of the conditions need to pass
+	// Here, at least one of the conditions need to pass.
 	// +optional
 	AnyConditions []Condition `json:"any,omitempty" yaml:"any,omitempty"`
 
 	// AllConditions enable variable-based conditional rule execution. This is useful for
 	// finer control of when an rule is applied. A condition can reference object data
 	// using JMESPath notation.
-	// Here, all of the conditions need to pass
+	// Here, all of the conditions need to pass.
 	// +optional
 	AllConditions []Condition `json:"all,omitempty" yaml:"all,omitempty"`
 }

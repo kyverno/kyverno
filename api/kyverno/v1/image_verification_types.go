@@ -2,16 +2,31 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
 
-	"github.com/pkg/errors"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+)
+
+// ImageVerificationType selects the type of verification algorithm
+// +kubebuilder:validation:Enum=Cosign;Notary
+// +kubebuilder:default=Cosign
+type ImageVerificationType string
+
+const (
+	Cosign ImageVerificationType = "Cosign"
+	Notary ImageVerificationType = "Notary"
 )
 
 // ImageVerification validates that images that match the specified pattern
 // are signed with the supplied public key. Once the image is verified it is
 // mutated to include the SHA digest retrieved during the registration.
 type ImageVerification struct {
+	// Type specifies the method of signature validation. The allowed options
+	// are Cosign and Notary. By default Cosign is used if a type is not specified.
+	// +kubebuilder:validation:Optional
+	Type ImageVerificationType `json:"type,omitempty" yaml:"type,omitempty"`
+
 	// Image is the image name consisting of the registry address, repository, image, and tag.
 	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
 	// Deprecated. Use ImageReferences instead.
@@ -94,6 +109,13 @@ type AttestorSet struct {
 	// attributes for keyless verification, or a nested attestor declaration.
 	// +kubebuilder:validation:Optional
 	Entries []Attestor `json:"entries,omitempty" yaml:"entries,omitempty"`
+}
+
+func (as AttestorSet) RequiredCount() int {
+	if as.Count == nil || *as.Count == 0 {
+		return len(as.Entries)
+	}
+	return *as.Count
 }
 
 type Attestor struct {
@@ -214,8 +236,13 @@ type CTLog struct {
 // OCI registry and decodes them into a list of Statements.
 type Attestation struct {
 	// PredicateType defines the type of Predicate contained within the Statement.
-	// +kubebuilder:validation:Required
+	// Deprecated in favour of 'Type', to be removed soon
+	// +kubebuilder:validation:Optional
 	PredicateType string `json:"predicateType" yaml:"predicateType"`
+
+	// Type defines the type of attestation contained within the Statement.
+	// +kubebuilder:validation:Optional
+	Type string `json:"type" yaml:"type"`
 
 	// Attestors specify the required attestors (i.e. authorities)
 	// +kubebuilder:validation:Optional
@@ -227,9 +254,21 @@ type Attestation struct {
 	Conditions []AnyAllConditions `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }
 
+func (iv *ImageVerification) GetType() ImageVerificationType {
+	if iv.Type != "" {
+		return iv.Type
+	}
+
+	return Cosign
+}
+
 // Validate implements programmatic validation
-func (iv *ImageVerification) Validate(path *field.Path) (errs field.ErrorList) {
+func (iv *ImageVerification) Validate(isAuditFailureAction bool, path *field.Path) (errs field.ErrorList) {
 	copy := iv.Convert()
+
+	if isAuditFailureAction && iv.MutateDigest {
+		errs = append(errs, field.Invalid(path.Child("mutateDigest"), iv.MutateDigest, "mutateDigest must be set to false for ‘Audit’ failure action"))
+	}
 
 	if len(copy.ImageReferences) == 0 {
 		errs = append(errs, field.Invalid(path, iv, "An image reference is required"))
@@ -245,6 +284,19 @@ func (iv *ImageVerification) Validate(path *field.Path) (errs field.ErrorList) {
 	for i, as := range copy.Attestors {
 		attestorErrors := as.Validate(attestorsPath.Index(i))
 		errs = append(errs, attestorErrors...)
+	}
+
+	if iv.Type == Notary {
+		for _, attestorSet := range iv.Attestors {
+			for _, attestor := range attestorSet.Entries {
+				if attestor.Keyless != nil {
+					errs = append(errs, field.Invalid(attestorsPath, iv, "Keyless field is not allowed for type notary"))
+				}
+				if attestor.Keys != nil {
+					errs = append(errs, field.Invalid(attestorsPath, iv, "Keys field is not allowed for type notary"))
+				}
+			}
+		}
 	}
 
 	return errs
@@ -332,7 +384,7 @@ func (a *Attestor) Validate(path *field.Path) (errs field.ErrorList) {
 func AttestorSetUnmarshal(o *apiextv1.JSON) (*AttestorSet, error) {
 	var as AttestorSet
 	if err := json.Unmarshal(o.Raw, &as); err != nil {
-		return nil, errors.Wrapf(err, "failed to unmarshal attestor set %s", string(o.Raw))
+		return nil, fmt.Errorf("failed to unmarshal attestor set %s: %w", string(o.Raw), err)
 	}
 
 	return &as, nil

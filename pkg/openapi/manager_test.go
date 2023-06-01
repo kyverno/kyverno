@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"gotest.tools/assert"
 )
@@ -72,21 +73,23 @@ func Test_ValidateMutationPolicy(t *testing.T) {
 		},
 	}
 
-	o, _ := NewManager()
+	o, _ := NewManager(logr.Discard())
 
 	for i, tc := range tcs {
-		policy := v1.ClusterPolicy{}
-		_ = json.Unmarshal(tc.policy, &policy)
-		var errMessage string
-		err := o.ValidatePolicyMutation(&policy)
-		if err != nil {
-			errMessage = err.Error()
-		}
-		if tc.mustSucceed {
-			assert.NilError(t, err, "\nTestcase [%v] failed: Expected no error, Got error:  %v", i+1, errMessage)
-		} else {
-			assert.Assert(t, err != nil, "\nTestcase [%v] failed: Expected error to have occurred", i+1)
-		}
+		t.Run(tc.description, func(t *testing.T) {
+			policy := v1.ClusterPolicy{}
+			_ = json.Unmarshal(tc.policy, &policy)
+			var errMessage string
+			err := o.ValidatePolicyMutation(&policy)
+			if err != nil {
+				errMessage = err.Error()
+			}
+			if tc.mustSucceed {
+				assert.NilError(t, err, "\nTestcase [%v] failed: Expected no error, Got error:  %v", i+1, errMessage)
+			} else {
+				assert.Assert(t, err != nil, "\nTestcase [%v] failed: Expected error to have occurred", i+1)
+			}
+		})
 	}
 
 }
@@ -186,34 +189,27 @@ func Test_matchGVK(t *testing.T) {
 	}
 
 	for i, test := range testCases {
-		res := matchGVK(test.definitionName, test.gvk)
-		assert.Equal(t, res, test.match, "test #%d failed", i)
+		t.Run(test.definitionName, func(t *testing.T) {
+			res := matchGVK(test.definitionName, test.gvk)
+			assert.Equal(t, res, test.match, "test #%d failed", i)
+		})
 	}
 }
 
-// this test covers all supported Ingress in 1.20 cluster
-// networking.k8s.io/v1/Ingress
-// networking.k8s.io/v1beta1/Ingress
-// extensions/v1beta1/Ingress
+// this test covers all supported Ingress
 func Test_Ingress(t *testing.T) {
-	o, err := NewManager()
+	o, err := NewManager(logr.Discard())
 	assert.NilError(t, err)
 
 	versions, ok := o.kindToAPIVersions.Get("Ingress")
 	assert.Equal(t, true, ok)
 
 	assert.Equal(t, versions.serverPreferredGVK, "networking.k8s.io/v1/Ingress")
-	assert.Equal(t, len(versions.gvks), 3)
+	assert.Equal(t, len(versions.gvks), 1)
 
 	definitionName, _ := o.gvkToDefinitionName.Get("Ingress")
 	assert.Equal(t, definitionName, "io.k8s.api.networking.v1.Ingress")
 
 	definitionName, _ = o.gvkToDefinitionName.Get("networking.k8s.io/v1/Ingress")
 	assert.Equal(t, definitionName, "io.k8s.api.networking.v1.Ingress")
-
-	definitionName, _ = o.gvkToDefinitionName.Get("networking.k8s.io/v1beta1/Ingress")
-	assert.Equal(t, definitionName, "io.k8s.api.networking.v1beta1.Ingress")
-
-	definitionName, _ = o.gvkToDefinitionName.Get("extensions/v1beta1/Ingress")
-	assert.Equal(t, definitionName, "io.k8s.api.extensions.v1beta1.Ingress")
 }

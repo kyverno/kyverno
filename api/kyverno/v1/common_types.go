@@ -2,12 +2,17 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
 
+	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
+	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/pod-security-admission/api"
 )
 
@@ -27,10 +32,21 @@ const (
 type ApplyRulesType string
 
 const (
-	// AllMatchingRules applies all rules in a policy that match.
+	// ApplyAll applies all rules in a policy that match.
 	ApplyAll ApplyRulesType = "All"
-	// FirstMatchingRule applies only the first matching rule in the policy.
+	// ApplyOne applies only the first matching rule in the policy.
 	ApplyOne ApplyRulesType = "One"
+)
+
+// ForeachOrder specifies the iteration order in foreach statements.
+// +kubebuilder:validation:Enum=Ascending;Descending
+type ForeachOrder string
+
+const (
+	// Ascending means iterating from first to last element.
+	Ascending ForeachOrder = "Ascending"
+	// Descending means iterating from last to first element.
+	Descending ForeachOrder = "Descending"
 )
 
 // AnyAllConditions consists of conditions wrapped denoting a logical criteria to be fulfilled.
@@ -114,11 +130,21 @@ type ConfigMapReference struct {
 }
 
 type APICall struct {
-	// URLPath is the URL path to be used in the HTTP GET request to the
+	// URLPath is the URL path to be used in the HTTP GET or POST request to the
 	// Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
 	// The format required is the same format used by the `kubectl get --raw` command.
+	// See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+	// for details.
 	// +kubebuilder:validation:Optional
 	URLPath string `json:"urlPath" yaml:"urlPath"`
+
+	// Method is the HTTP request type (GET or POST).
+	// +kubebuilder:default=GET
+	Method Method `json:"method,omitempty" yaml:"method,omitempty"`
+
+	// Data specifies the POST data sent to the server.
+	// +kubebuilder:validation:Optional
+	Data []RequestData `json:"data,omitempty" yaml:"data,omitempty"`
 
 	// Service is an API call to a JSON web service
 	// +kubebuilder:validation:Optional
@@ -134,22 +160,14 @@ type APICall struct {
 }
 
 type ServiceCall struct {
-	// URL is the JSON web service URL.
-	// The typical format is `https://{service}.{namespace}:{port}/{path}`.
-	URL string `json:"urlPath" yaml:"urlPath"`
+	// URL is the JSON web service URL. A typical form is
+	// `https://{service}.{namespace}:{port}/{path}`.
+	URL string `json:"url" yaml:"url"`
 
 	// CABundle is a PEM encoded CA bundle which will be used to validate
 	// the server certificate.
 	// +kubebuilder:validation:Optional
 	CABundle string `json:"caBundle" yaml:"caBundle"`
-
-	// Method is the HTTP request type (GET or POST).
-	// +kubebuilder:default=GET
-	Method Method `json:"requestType" yaml:"requestType"`
-
-	// Data specifies the POST data sent to the server.
-	// +kubebuilder:validation:Optional
-	Data []RequestData `json:"data" yaml:"data"`
 }
 
 // Method is a HTTP request type.
@@ -162,7 +180,7 @@ type RequestData struct {
 	Key string `json:"key" yaml:"key"`
 
 	// Value is the data value
-	Value *apiextensionsv1.JSON `json:"value" yaml:"value"`
+	Value *apiextv1.JSON `json:"value" yaml:"value"`
 }
 
 // Condition defines variable-based conditional criteria for rule execution.
@@ -180,6 +198,9 @@ type Condition struct {
 	// or can be variables declared using JMESPath.
 	// +optional
 	RawValue *apiextv1.JSON `json:"value,omitempty" yaml:"value,omitempty"`
+
+	// Message is an optional display message
+	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 }
 
 func (c *Condition) GetKey() apiextensions.JSON {
@@ -264,7 +285,7 @@ func (r ResourceFilter) IsEmpty() bool {
 type Mutation struct {
 	// Targets defines the target resources to be mutated.
 	// +optional
-	Targets []ResourceSpec `json:"targets,omitempty" yaml:"targets,omitempty"`
+	Targets []TargetResourceSpec `json:"targets,omitempty" yaml:"targets,omitempty"`
 
 	// PatchStrategicMerge is a strategic merge patch used to modify resources.
 	// See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
@@ -290,11 +311,16 @@ func (m *Mutation) SetPatchStrategicMerge(in apiextensions.JSON) {
 	m.RawPatchStrategicMerge = ToJSON(in)
 }
 
-// ForEach applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
+// ForEachMutation applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 type ForEachMutation struct {
 	// List specifies a JMESPath expression that results in one or more elements
 	// to which the validation logic is applied.
 	List string `json:"list,omitempty" yaml:"list,omitempty"`
+
+	// Order defines the iteration order on the list.
+	// Can be Ascending to iterate from first to last element or Descending to iterate in from last to first element.
+	// +optional
+	Order *ForeachOrder `json:"order,omitempty" yaml:"order,omitempty"`
 
 	// Context defines variables and data sources that can be used during rule execution.
 	// +optional
@@ -362,6 +388,10 @@ type Validation struct {
 	// by specifying exclusions for Pod Security Standards controls.
 	// +optional
 	PodSecurity *PodSecurity `json:"podSecurity,omitempty" yaml:"podSecurity,omitempty"`
+
+	// CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
+	// +optional
+	CEL *CEL `json:"cel,omitempty" yaml:"cel,omitempty"`
 }
 
 // PodSecurity applies exemptions for Kubernetes Pod Security admission
@@ -373,8 +403,8 @@ type PodSecurity struct {
 	Level api.Level `json:"level,omitempty" yaml:"level,omitempty"`
 
 	// Version defines the Pod Security Standard versions that Kubernetes supports.
-	// Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, latest. Defaults to latest.
-	// +kubebuilder:validation:Enum=v1.19;v1.20;v1.21;v1.22;v1.23;v1.24;v1.25;latest
+	// Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, v1.26, latest. Defaults to latest.
+	// +kubebuilder:validation:Enum=v1.19;v1.20;v1.21;v1.22;v1.23;v1.24;v1.25;v1.26;latest
 	// +optional
 	Version string `json:"version,omitempty" yaml:"version,omitempty"`
 
@@ -395,6 +425,36 @@ type PodSecurityStandard struct {
 	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
 	// +optional
 	Images []string `json:"images,omitempty" yaml:"images,omitempty"`
+}
+
+// CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
+type CEL struct {
+	// Expressions is a list of CELExpression types.
+	Expressions []v1alpha1.Validation `json:"expressions,omitempty" yaml:"expressions,omitempty"`
+
+	// ParamKind is a tuple of Group Kind and Version.
+	// +optional
+	ParamKind *v1alpha1.ParamKind `json:"paramKind,omitempty" yaml:"paramKind,omitempty"`
+
+	// ParamRef references a parameter resource.
+	// +optional
+	ParamRef *v1alpha1.ParamRef `json:"paramRef,omitempty" yaml:"paramRef,omitempty"`
+
+	// AuditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the API request.
+	// +optional
+	AuditAnnotations []v1alpha1.AuditAnnotation `json:"auditAnnotations,omitempty" yaml:"auditAnnotations,omitempty"`
+}
+
+func (c *CEL) HasParam() bool {
+	return c.ParamKind != nil && c.ParamRef != nil
+}
+
+func (c *CEL) GetParamKind() v1alpha1.ParamKind {
+	return *c.ParamKind
+}
+
+func (c *CEL) GetParamRef() v1alpha1.ParamRef {
+	return *c.ParamRef
 }
 
 // DeserializeAnyPattern deserialize apiextensions.JSON to []interface{}
@@ -461,7 +521,7 @@ func (d *Deny) SetAnyAllConditions(in apiextensions.JSON) {
 	d.RawAnyAllConditions = ToJSON(in)
 }
 
-// ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
+// ForEachValidation applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 type ForEachValidation struct {
 	// List specifies a JMESPath expression that results in one or more elements
 	// to which the validation logic is applied.
@@ -560,12 +620,67 @@ type CloneList struct {
 	Selector *metav1.LabelSelector `json:"selector,omitempty" yaml:"selector,omitempty"`
 }
 
+func (g *Generation) Validate(path *field.Path, clusterResources sets.Set[string]) (errs field.ErrorList) {
+	if err := g.validateTargetsScope(clusterResources); err != nil {
+		errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
+	}
+
+	generateType, _ := g.GetTypeAndSync()
+	if generateType == Data {
+		return errs
+	}
+
+	newGeneration := Generation{
+		ResourceSpec: ResourceSpec{
+			Kind:       g.ResourceSpec.GetKind(),
+			APIVersion: g.ResourceSpec.GetAPIVersion(),
+		},
+		Clone:     g.Clone,
+		CloneList: g.CloneList,
+	}
+
+	if err := regex.ObjectHasVariables(newGeneration); err != nil {
+		errs = append(errs, field.Forbidden(path.Child("generate").Child("clone/cloneList"), "Generation Rule Clone/CloneList should not have variables"))
+	}
+
+	return errs
+}
+
 func (g *Generation) GetData() apiextensions.JSON {
 	return FromJSON(g.RawData)
 }
 
 func (g *Generation) SetData(in apiextensions.JSON) {
 	g.RawData = ToJSON(in)
+}
+
+func (g *Generation) validateTargetsScope(clusterResources sets.Set[string]) error {
+	target := g.ResourceSpec
+	if clusterResources.Has(target.GetKind()) {
+		if target.GetNamespace() != "" {
+			return fmt.Errorf("the target namespace must not be set for cluster-wide resource: %v", target.GetKind())
+		}
+	} else {
+		if target.GetNamespace() == "" {
+			return fmt.Errorf("the target namespace must be set for namespaced resource: %v", target.GetKind())
+		}
+	}
+
+	return nil
+}
+
+type GenerateType string
+
+const (
+	Data  GenerateType = "Data"
+	Clone GenerateType = "Clone"
+)
+
+func (g *Generation) GetTypeAndSync() (GenerateType, bool) {
+	if g.RawData != nil {
+		return Data, g.Synchronize
+	}
+	return Clone, g.Synchronize
 }
 
 // CloneFrom provides the location of the source resource used to generate target resources.
@@ -613,3 +728,14 @@ type DryRunOption struct {
 type IgnoreFieldList []ObjectFieldBinding
 
 type ObjectFieldBinding k8smanifest.ObjectFieldBinding
+
+// AdmissionOperation can have one of the values CREATE, UPDATE, CONNECT, DELETE, which are used to match a specific action.
+// +kubebuilder:validation:Enum=CREATE;CONNECT;UPDATE;DELETE
+type AdmissionOperation admissionv1.Operation
+
+const (
+	Create  AdmissionOperation = AdmissionOperation(admissionv1.Create)
+	Update  AdmissionOperation = AdmissionOperation(admissionv1.Update)
+	Delete  AdmissionOperation = AdmissionOperation(admissionv1.Delete)
+	Connect AdmissionOperation = AdmissionOperation(admissionv1.Connect)
+)

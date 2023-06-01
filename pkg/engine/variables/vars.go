@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"path"
-	"regexp"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -15,41 +14,16 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	jsonUtils "github.com/kyverno/kyverno/pkg/engine/jsonutils"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
+	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
 )
-
-var RegexVariables = regexp.MustCompile(`(^|[^\\])(\{\{(?:\{[^{}]*\}|[^{}])*\}\})`)
-
-var RegexEscpVariables = regexp.MustCompile(`\\\{\{(\{[^{}]*\}|[^{}])*\}\}`)
-
-// RegexReferences is the Regex for '$(...)' at the beginning of the string, and 'x$(...)' where 'x' is not '\'
-var RegexReferences = regexp.MustCompile(`^\$\(.[^\ ]*\)|[^\\]\$\(.[^\ ]*\)`)
-
-// RegexEscpReferences is the Regex for '\$(...)'
-var RegexEscpReferences = regexp.MustCompile(`\\\$\(.[^\ ]*\)`)
-
-var regexVariableInit = regexp.MustCompile(`^\{\{(\{[^{}]*\}|[^{}])*\}\}`)
-
-var regexElementIndex = regexp.MustCompile(`{{\s*elementIndex\d*\s*}}`)
-
-// IsVariable returns true if the element contains a 'valid' variable {{}}
-func IsVariable(value string) bool {
-	groups := RegexVariables.FindAllStringSubmatch(value, -1)
-	return len(groups) != 0
-}
-
-// IsReference returns true if the element contains a 'valid' reference $()
-func IsReference(value string) bool {
-	groups := RegexReferences.FindAllStringSubmatch(value, -1)
-	return len(groups) != 0
-}
 
 // ReplaceAllVars replaces all variables with the value defined in the replacement function
 // This is used to avoid validation errors
 func ReplaceAllVars(src string, repl func(string) string) string {
 	wrapper := func(s string) string {
-		initial := len(regexVariableInit.FindAllString(s, -1)) > 0
+		initial := len(regex.RegexVariableInit.FindAllString(s, -1)) > 0
 		prefix := ""
 
 		if !initial {
@@ -60,7 +34,7 @@ func ReplaceAllVars(src string, repl func(string) string) string {
 		return prefix + repl(s)
 	}
 
-	return RegexVariables.ReplaceAllStringFunc(src, wrapper)
+	return regex.RegexVariables.ReplaceAllStringFunc(src, wrapper)
 }
 
 func newPreconditionsVariableResolver(log logr.Logger) VariableResolver {
@@ -116,7 +90,7 @@ func SubstituteAllInType[T any](log logr.Logger, ctx context.EvalInterface, t *T
 	return &result, nil
 }
 
-func SubstituteAllInRule(log logr.Logger, ctx context.EvalInterface, rule kyvernov1.Rule) (_ kyvernov1.Rule, err error) {
+func SubstituteAllInRule(log logr.Logger, ctx context.EvalInterface, rule kyvernov1.Rule) (kyvernov1.Rule, error) {
 	result, err := SubstituteAllInType(log, ctx, &rule)
 	if err != nil {
 		return kyvernov1.Rule{}, err
@@ -255,9 +229,9 @@ func validateElementInForEach(log logr.Logger) jsonUtils.Action {
 		if !ok {
 			return data.Element, nil
 		}
-		vars := RegexVariables.FindAllString(value, -1)
+		vars := regex.RegexVariables.FindAllString(value, -1)
 		for _, v := range vars {
-			initial := len(regexVariableInit.FindAllString(v, -1)) > 0
+			initial := len(regex.RegexVariableInit.FindAllString(v, -1)) > 0
 
 			if !initial {
 				v = v[1:]
@@ -290,7 +264,7 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 			return data.Element, nil
 		}
 
-		for _, v := range RegexReferences.FindAllString(value, -1) {
+		for _, v := range regex.RegexReferences.FindAllString(value, -1) {
 			initial := v[:2] == `$(`
 			old := v
 
@@ -333,7 +307,7 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 			}
 		}
 
-		for _, v := range RegexEscpReferences.FindAllString(value, -1) {
+		for _, v := range regex.RegexEscpReferences.FindAllString(value, -1) {
 			value = strings.Replace(value, v, v[1:], -1)
 		}
 
@@ -358,11 +332,11 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 
 		isDeleteRequest := IsDeleteRequest(ctx)
 
-		vars := RegexVariables.FindAllString(value, -1)
+		vars := regex.RegexVariables.FindAllString(value, -1)
 		for len(vars) > 0 {
 			originalPattern := value
 			for _, v := range vars {
-				initial := len(regexVariableInit.FindAllString(v, -1)) > 0
+				initial := len(regex.RegexVariableInit.FindAllString(v, -1)) > 0
 				old := v
 
 				if !initial {
@@ -419,10 +393,10 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 			}
 
 			// check for nested variables in strings
-			vars = RegexVariables.FindAllString(value, -1)
+			vars = regex.RegexVariables.FindAllString(value, -1)
 		}
 
-		for _, v := range RegexEscpVariables.FindAllString(value, -1) {
+		for _, v := range regex.RegexEscpVariables.FindAllString(value, -1) {
 			value = strings.Replace(value, v, v[1:], -1)
 		}
 
@@ -515,7 +489,7 @@ func valFromReferenceToString(value interface{}, operator string) (string, error
 }
 
 func FindAndShiftReferences(log logr.Logger, value, shift, pivot string) string {
-	for _, reference := range RegexReferences.FindAllString(value, -1) {
+	for _, reference := range regex.RegexReferences.FindAllString(value, -1) {
 		initial := reference[:2] == `$(`
 		oldReference := reference
 
@@ -581,25 +555,25 @@ func replaceSubstituteVariables(document interface{}) interface{} {
 	}
 
 	for {
-		if len(regexElementIndex.FindAllSubmatch(rawDocument, -1)) == 0 {
+		if len(regex.RegexElementIndex.FindAllSubmatch(rawDocument, -1)) == 0 {
 			break
 		}
 
-		rawDocument = regexElementIndex.ReplaceAll(rawDocument, []byte(`0`))
+		rawDocument = regex.RegexElementIndex.ReplaceAll(rawDocument, []byte(`0`))
 	}
 
 	for {
-		if len(RegexVariables.FindAllSubmatch(rawDocument, -1)) == 0 {
+		if len(regex.RegexVariables.FindAllSubmatch(rawDocument, -1)) == 0 {
 			break
 		}
 
-		rawDocument = RegexVariables.ReplaceAll(rawDocument, []byte(`${1}placeholderValue`))
+		rawDocument = regex.RegexVariables.ReplaceAll(rawDocument, []byte(`${1}placeholderValue`))
 	}
 
 	var output interface{}
 	err = json.Unmarshal(rawDocument, &output)
 	if err != nil {
-		logging.Error(err, "failed to unmarshall JSON: %s", string(rawDocument))
+		logging.Error(err, "failed to unmarshall JSON", "document", string(rawDocument))
 		return document
 	}
 

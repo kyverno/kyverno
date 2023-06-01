@@ -10,9 +10,9 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/logging"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
-	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -34,7 +34,7 @@ type EvalInterface interface {
 // Interface to manage context operations
 type Interface interface {
 	// AddRequest marshals and adds the admission request to the context
-	AddRequest(request *admissionv1.AdmissionRequest) error
+	AddRequest(request admissionv1.AdmissionRequest) error
 
 	// AddVariable adds a variable to the context
 	AddVariable(key string, value interface{}) error
@@ -51,8 +51,8 @@ type Interface interface {
 	// AddOldResource merges resource json under request.oldObject
 	AddOldResource(data map[string]interface{}) error
 
-	// AddTargetResource merges resource json under target
-	AddTargetResource(data map[string]interface{}) error
+	// SetTargetResource merges resource json under target
+	SetTargetResource(data map[string]interface{}) error
 
 	// AddOperation merges operation under request.operation
 	AddOperation(data string) error
@@ -74,6 +74,9 @@ type Interface interface {
 
 	// AddImageInfos adds image infos to the context
 	AddImageInfos(resource *unstructured.Unstructured, cfg config.Configuration) error
+
+	// AddDeferredLoader adds a loader that is executed on first use (query)
+	AddDeferredLoader(name string, loader DeferredLoader)
 
 	// ImageInfo returns image infos present in the context
 	ImageInfo() map[string]map[string]apiutils.ImageInfo
@@ -97,26 +100,39 @@ type Interface interface {
 	addJSON(dataRaw []byte) error
 }
 
+// DeferredLoader loads the context data on first use (query)
+type DeferredLoader func() error
+
 // Context stores the data resources as JSON
 type context struct {
+	jp                 jmespath.Interface
 	mutex              sync.RWMutex
 	jsonRaw            []byte
 	jsonRawCheckpoints [][]byte
 	images             map[string]map[string]apiutils.ImageInfo
+	deferred           deferredLoaders
+}
+
+type deferredLoaders struct {
+	mutex   sync.Mutex
+	loaders map[string]DeferredLoader
 }
 
 // NewContext returns a new context
-func NewContext() Interface {
-	return NewContextFromRaw([]byte(`{}`))
+func NewContext(jp jmespath.Interface) Interface {
+	return NewContextFromRaw(jp, []byte(`{}`))
 }
 
 // NewContextFromRaw returns a new context initialized with raw data
-func NewContextFromRaw(raw []byte) Interface {
-	ctx := context{
+func NewContextFromRaw(jp jmespath.Interface, raw []byte) Interface {
+	return &context{
+		jp:                 jp,
 		jsonRaw:            raw,
 		jsonRawCheckpoints: make([][]byte, 0),
+		deferred: deferredLoaders{
+			loaders: make(map[string]DeferredLoader),
+		},
 	}
-	return &ctx
 }
 
 // addJSON merges json data
@@ -125,14 +141,14 @@ func (ctx *context) addJSON(dataRaw []byte) error {
 	defer ctx.mutex.Unlock()
 	json, err := jsonpatch.MergeMergePatches(ctx.jsonRaw, dataRaw)
 	if err != nil {
-		return errors.Wrap(err, "failed to merge JSON data")
+		return fmt.Errorf("failed to merge JSON data: %w", err)
 	}
 	ctx.jsonRaw = json
 	return nil
 }
 
 // AddRequest adds an admission request to context
-func (ctx *context) AddRequest(request *admissionv1.AdmissionRequest) error {
+func (ctx *context) AddRequest(request admissionv1.AdmissionRequest) error {
 	return addToContext(ctx, request, "request")
 }
 
@@ -174,7 +190,11 @@ func (ctx *context) AddOldResource(data map[string]interface{}) error {
 }
 
 // AddTargetResource adds data at path: target
-func (ctx *context) AddTargetResource(data map[string]interface{}) error {
+func (ctx *context) SetTargetResource(data map[string]interface{}) error {
+	if err := addToContext(ctx, nil, "target"); err != nil {
+		logger.Error(err, "unable to replace target resource")
+		return err
+	}
 	return addToContext(ctx, data, "target")
 }
 
@@ -283,7 +303,7 @@ func (ctx *context) AddImageInfos(resource *unstructured.Unstructured, cfg confi
 func (ctx *context) GenerateCustomImageInfo(resource *unstructured.Unstructured, imageExtractorConfigs kyvernov1.ImageExtractorConfigs, cfg config.Configuration) (map[string]map[string]apiutils.ImageInfo, error) {
 	images, err := apiutils.ExtractImagesFromResource(*resource, imageExtractorConfigs, cfg)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to extract images")
+		return nil, fmt.Errorf("failed to extract images: %w", err)
 	}
 
 	if len(images) == 0 {
@@ -331,4 +351,10 @@ func (ctx *context) reset(remove bool) {
 	if remove {
 		ctx.jsonRawCheckpoints = ctx.jsonRawCheckpoints[:n]
 	}
+}
+
+func (ctx *context) AddDeferredLoader(name string, loader DeferredLoader) {
+	ctx.deferred.mutex.Lock()
+	defer ctx.deferred.mutex.Unlock()
+	ctx.deferred.loaders[name] = loader
 }

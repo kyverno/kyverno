@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/engine/internal"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/kyverno/pkg/utils/image"
 	"gotest.tools/assert"
@@ -244,7 +247,7 @@ func Test_Conditions(t *testing.T) {
 		},
 	}
 
-	ctx := context.NewContext()
+	ctx := context.NewContext(jmespath.New(config.NewDefaultConfiguration(false)))
 	img := api.ImageInfo{Pointer: "/spec/containers/0/image"}
 	img.ImageInfo = image.ImageInfo{
 		Registry: "docker.io",
@@ -257,7 +260,7 @@ func Test_Conditions(t *testing.T) {
 	err := json.Unmarshal([]byte(scanPredicate), &dataMap)
 	assert.NilError(t, err)
 
-	pass, err := evaluateConditions(conditions, ctx, dataMap, logging.GlobalLogger())
+	pass, _, err := internal.EvaluateConditions(conditions, ctx, dataMap, logr.Discard())
 	assert.NilError(t, err)
 	assert.Equal(t, pass, true)
 }

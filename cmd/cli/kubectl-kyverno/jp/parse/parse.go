@@ -28,7 +28,8 @@ func Command() *cobra.Command {
 	var files []string
 	cmd := &cobra.Command{
 		Use:          "parse [-f file|expression]...",
-		Short:        strings.Join(description, "\n"),
+		Short:        description[0],
+		Long:         strings.Join(description, "\n"),
 		Example:      strings.Join(examples, "\n\n"),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -85,7 +86,7 @@ func loadExpressions(cmd *cobra.Command, args []string, files []string) ([]strin
 	}
 	if len(expressions) == 0 {
 		fmt.Println("Reading from terminal input.")
-		fmt.Println("Enter a jmespatch expression and hit Ctrl+D.")
+		fmt.Println("Enter a jmespath expression and hit Ctrl+D.")
 		data, err := readFile(cmd.InOrStdin())
 		if err != nil {
 			return nil, fmt.Errorf("failed to read file STDIN: %v", err)

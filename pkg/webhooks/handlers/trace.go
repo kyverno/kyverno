@@ -8,9 +8,9 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/tracing"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	"go.opentelemetry.io/otel/trace"
-	admissionv1 "k8s.io/api/admission/v1"
 )
 
 func (inner HttpHandler) WithTrace(name string) HttpHandler {
@@ -24,9 +24,9 @@ func (inner HttpHandler) WithTrace(name string) HttpHandler {
 			},
 			trace.WithAttributes(
 				semconv.HTTPRequestContentLengthKey.Int64(request.ContentLength),
-				semconv.HTTPHostKey.String(request.Host),
-				semconv.HTTPMethodKey.String(request.Method),
-				semconv.HTTPURLKey.String(request.RequestURI),
+				semconv.NetSockPeerAddrKey.String(tracing.StringValue(request.Host)),
+				semconv.HTTPMethodKey.String(tracing.StringValue(request.Method)),
+				semconv.HTTPURLKey.String(tracing.StringValue(request.RequestURI)),
 			),
 			trace.WithSpanKind(trace.SpanKindServer),
 		)
@@ -34,57 +34,60 @@ func (inner HttpHandler) WithTrace(name string) HttpHandler {
 }
 
 func (inner AdmissionHandler) WithTrace(name string) AdmissionHandler {
-	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
 		return tracing.Span1(
 			ctx,
 			"webhooks/handlers",
 			fmt.Sprintf("%s %s %s", name, request.Operation, request.Kind),
-			func(ctx context.Context, span trace.Span) *admissionv1.AdmissionResponse {
+			func(ctx context.Context, span trace.Span) AdmissionResponse {
 				response := inner(ctx, logger, request, startTime)
-				if response != nil {
+				span.SetAttributes(
+					tracing.ResponseUidKey.String(tracing.StringValue(string(response.UID))),
+					tracing.ResponseAllowedKey.Bool(response.Allowed),
+					tracing.ResponseWarningsKey.StringSlice(response.Warnings),
+				)
+				if response.Result != nil {
 					span.SetAttributes(
-						tracing.ResponseUidKey.String(string(response.UID)),
-						tracing.ResponseAllowedKey.Bool(response.Allowed),
-						tracing.ResponseWarningsKey.StringSlice(response.Warnings),
+						tracing.ResponseResultStatusKey.String(tracing.StringValue(response.Result.Status)),
+						tracing.ResponseResultMessageKey.String(tracing.StringValue(response.Result.Message)),
+						tracing.ResponseResultReasonKey.String(tracing.StringValue(string(response.Result.Reason))),
+						tracing.ResponseResultCodeKey.Int(int(response.Result.Code)),
 					)
-					if response.Result != nil {
-						span.SetAttributes(
-							tracing.ResponseResultStatusKey.String(response.Result.Status),
-							tracing.ResponseResultMessageKey.String(response.Result.Message),
-							tracing.ResponseResultReasonKey.String(string(response.Result.Reason)),
-							tracing.ResponseResultCodeKey.Int(int(response.Result.Code)),
-						)
-					}
-					if response.PatchType != nil {
-						span.SetAttributes(
-							tracing.ResponsePatchTypeKey.String(string(*response.PatchType)),
-						)
-					}
+				}
+				if response.PatchType != nil {
+					span.SetAttributes(
+						tracing.ResponsePatchTypeKey.String(tracing.StringValue(string(*response.PatchType))),
+					)
 				}
 				return response
 			},
 			trace.WithAttributes(
-				tracing.RequestNameKey.String(request.Name),
-				tracing.RequestNamespaceKey.String(request.Namespace),
-				tracing.RequestUidKey.String(string(request.UID)),
-				tracing.RequestOperationKey.String(string(request.Operation)),
-				tracing.RequestDryRunKey.Bool(request.DryRun != nil && *request.DryRun),
-				tracing.RequestKindGroupKey.String(request.Kind.Group),
-				tracing.RequestKindVersionKey.String(request.Kind.Version),
-				tracing.RequestKindKindKey.String(request.Kind.Kind),
-				tracing.RequestSubResourceKey.String(request.SubResource),
-				tracing.RequestRequestKindGroupKey.String(request.RequestKind.Group),
-				tracing.RequestRequestKindVersionKey.String(request.RequestKind.Version),
-				tracing.RequestRequestKindKindKey.String(request.RequestKind.Kind),
-				tracing.RequestRequestSubResourceKey.String(request.RequestSubResource),
-				tracing.RequestResourceGroupKey.String(request.Resource.Group),
-				tracing.RequestResourceVersionKey.String(request.Resource.Version),
-				tracing.RequestResourceResourceKey.String(request.Resource.Resource),
-				tracing.RequestRequestResourceGroupKey.String(request.RequestResource.Group),
-				tracing.RequestRequestResourceVersionKey.String(request.RequestResource.Version),
-				tracing.RequestRequestResourceResourceKey.String(request.RequestResource.Resource),
-				tracing.RequestUserNameKey.String(request.UserInfo.Username),
-				tracing.RequestUserUidKey.String(request.UserInfo.UID),
+				tracing.RequestNameKey.String(tracing.StringValue(request.Name)),
+				tracing.RequestNamespaceKey.String(tracing.StringValue(request.Namespace)),
+				tracing.RequestUidKey.String(tracing.StringValue(string(request.UID))),
+				tracing.RequestOperationKey.String(tracing.StringValue(string(request.Operation))),
+				tracing.RequestDryRunKey.Bool(admissionutils.IsDryRun(request.AdmissionRequest)),
+				tracing.RequestKindGroupKey.String(tracing.StringValue(request.Kind.Group)),
+				tracing.RequestKindVersionKey.String(tracing.StringValue(request.Kind.Version)),
+				tracing.RequestKindKindKey.String(tracing.StringValue(request.Kind.Kind)),
+				tracing.RequestSubResourceKey.String(tracing.StringValue(request.SubResource)),
+				tracing.RequestRequestKindGroupKey.String(tracing.StringValue(request.RequestKind.Group)),
+				tracing.RequestRequestKindVersionKey.String(tracing.StringValue(request.RequestKind.Version)),
+				tracing.RequestRequestKindKindKey.String(tracing.StringValue(request.RequestKind.Kind)),
+				tracing.RequestRequestSubResourceKey.String(tracing.StringValue(request.RequestSubResource)),
+				tracing.RequestResourceGroupKey.String(tracing.StringValue(request.Resource.Group)),
+				tracing.RequestResourceVersionKey.String(tracing.StringValue(request.Resource.Version)),
+				tracing.RequestResourceResourceKey.String(tracing.StringValue(request.Resource.Resource)),
+				tracing.RequestRequestResourceGroupKey.String(tracing.StringValue(request.RequestResource.Group)),
+				tracing.RequestRequestResourceVersionKey.String(tracing.StringValue(request.RequestResource.Version)),
+				tracing.RequestRequestResourceResourceKey.String(tracing.StringValue(request.RequestResource.Resource)),
+				tracing.RequestUserNameKey.String(tracing.StringValue(request.UserInfo.Username)),
+				tracing.RequestUserUidKey.String(tracing.StringValue(request.UserInfo.UID)),
+				tracing.RequestRolesKey.StringSlice(request.Roles),
+				tracing.RequestClusterRolesKey.StringSlice(request.ClusterRoles),
+				tracing.RequestGroupKey.String(request.GroupVersionKind.Group),
+				tracing.RequestVersionKey.String(request.GroupVersionKind.Version),
+				tracing.RequestKindKey.String(request.GroupVersionKind.Kind),
 				tracing.RequestUserGroupsKey.StringSlice(request.UserInfo.Groups),
 			),
 		)

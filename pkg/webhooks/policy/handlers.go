@@ -7,37 +7,39 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/openapi"
-	policyvalidate "github.com/kyverno/kyverno/pkg/policy"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	policyvalidate "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/kyverno/kyverno/pkg/webhooks"
-	admissionv1 "k8s.io/api/admission/v1"
+	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 )
 
-type handlers struct {
-	client         dclient.Interface
-	openApiManager openapi.Manager
+type policyHandlers struct {
+	client                       dclient.Interface
+	openApiManager               openapi.Manager
+	backgroungServiceAccountName string
 }
 
-func NewHandlers(client dclient.Interface, openApiManager openapi.Manager) webhooks.PolicyHandlers {
-	return &handlers{
-		client:         client,
-		openApiManager: openApiManager,
+func NewHandlers(client dclient.Interface, openApiManager openapi.Manager, serviceaccount string) webhooks.PolicyHandlers {
+	return &policyHandlers{
+		client:                       client,
+		openApiManager:               openApiManager,
+		backgroungServiceAccountName: serviceaccount,
 	}
 }
 
-func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
-	policy, _, err := admissionutils.GetPolicies(request)
+func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, _ time.Time) handlers.AdmissionResponse {
+	policy, oldPolicy, err := admissionutils.GetPolicies(request.AdmissionRequest)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal policies from admission request")
 		return admissionutils.Response(request.UID, err)
 	}
-	warnings, err := policyvalidate.Validate(policy, h.client, false, h.openApiManager)
+	warnings, err := policyvalidate.Validate(policy, oldPolicy, h.client, false, h.openApiManager, h.backgroungServiceAccountName)
 	if err != nil {
 		logger.Error(err, "policy validation errors")
 	}
 	return admissionutils.Response(request.UID, err, warnings...)
 }
 
-func (h *handlers) Mutate(_ context.Context, _ logr.Logger, _ *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
-	return nil
+func (h *policyHandlers) Mutate(_ context.Context, _ logr.Logger, request handlers.AdmissionRequest, _ time.Time) handlers.AdmissionResponse {
+	return admissionutils.ResponseSuccess(request.UID)
 }

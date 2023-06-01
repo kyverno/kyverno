@@ -1,0 +1,18 @@
+apiVersion: kyverno.io/v2alpha1
+kind: CleanupPolicy
+metadata:
+  name: cleanup-pod
+  namespace: default
+spec:
+  match:
+    any:
+    - resources:
+        kinds:
+          - Pod
+  conditions:
+    any:
+    - key: "{{ target.metadata.name }}"
+      operator: Equals
+      value: example
+  ## execute every minute
+  schedule: "*/1 * * * *"

@@ -2,7 +2,6 @@ package mutate
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -12,108 +11,160 @@ import (
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/utils"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	"go.uber.org/multierr"
 	yamlv2 "gopkg.in/yaml.v2"
+	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
 var ErrEmptyPatch error = fmt.Errorf("empty resource to patch")
 
-type MutateExistingController struct {
+type mutateExistingController struct {
 	// clients
 	client        dclient.Interface
 	statusControl common.StatusControlInterface
-	rclient       registryclient.Client
+	engine        engineapi.Engine
+
 	// listers
 	policyLister  kyvernov1listers.ClusterPolicyLister
 	npolicyLister kyvernov1listers.PolicyLister
+	nsLister      corev1listers.NamespaceLister
 
-	configuration          config.Configuration
-	informerCacheResolvers resolvers.ConfigmapResolver
-	eventGen               event.Interface
+	configuration config.Configuration
+	eventGen      event.Interface
 
 	log logr.Logger
+	jp  jmespath.Interface
 }
 
 // NewMutateExistingController returns an instance of the MutateExistingController
 func NewMutateExistingController(
 	client dclient.Interface,
 	statusControl common.StatusControlInterface,
-	rclient registryclient.Client,
+	engine engineapi.Engine,
 	policyLister kyvernov1listers.ClusterPolicyLister,
 	npolicyLister kyvernov1listers.PolicyLister,
+	nsLister corev1listers.NamespaceLister,
 	dynamicConfig config.Configuration,
-	informerCacheResolvers resolvers.ConfigmapResolver,
 	eventGen event.Interface,
 	log logr.Logger,
-) *MutateExistingController {
-	c := MutateExistingController{
-		client:                 client,
-		statusControl:          statusControl,
-		rclient:                rclient,
-		policyLister:           policyLister,
-		npolicyLister:          npolicyLister,
-		configuration:          dynamicConfig,
-		informerCacheResolvers: informerCacheResolvers,
-		eventGen:               eventGen,
-		log:                    log,
+	jp jmespath.Interface,
+) *mutateExistingController {
+	c := mutateExistingController{
+		client:        client,
+		statusControl: statusControl,
+		engine:        engine,
+		policyLister:  policyLister,
+		npolicyLister: npolicyLister,
+		nsLister:      nsLister,
+		configuration: dynamicConfig,
+		eventGen:      eventGen,
+		log:           log,
+		jp:            jp,
 	}
 	return &c
 }
 
-func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
-	logger := c.log.WithValues("name", ur.Name, "policy", ur.Spec.Policy, "kind", ur.Spec.Resource.Kind, "apiVersion", ur.Spec.Resource.APIVersion, "namespace", ur.Spec.Resource.Namespace, "name", ur.Spec.Resource.Name)
+func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
+	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey(), "resource", ur.Spec.GetResource().String())
 	var errs []error
 
-	policy, err := c.getPolicy(ur.Spec.Policy)
+	policy, err := c.getPolicy(ur)
 	if err != nil {
 		logger.Error(err, "failed to get policy")
 		return err
 	}
 
 	for _, rule := range policy.GetSpec().Rules {
-		if !rule.IsMutateExisting() {
+		if !rule.IsMutateExisting() || ur.Spec.Rule != rule.Name {
 			continue
 		}
 
-		trigger, err := common.GetResource(c.client, ur.Spec, c.log)
-		if err != nil {
-			logger.WithName(rule.Name).Error(err, "failed to get trigger resource")
-			errs = append(errs, err)
-			continue
+		var trigger *unstructured.Unstructured
+		admissionRequest := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
+		if admissionRequest == nil {
+			trigger, err = common.GetResource(c.client, ur.Spec, c.log)
+			if err != nil || trigger == nil {
+				logger.WithName(rule.Name).Error(err, "failed to get trigger resource")
+				errs = append(errs, err)
+				continue
+			}
+		} else {
+			if admissionRequest.Operation == admissionv1.Create {
+				trigger, err = common.GetResource(c.client, ur.Spec, c.log)
+				if err != nil || trigger == nil {
+					if admissionRequest.SubResource == "" {
+						logger.WithName(rule.Name).Error(err, "failed to get trigger resource")
+						errs = append(errs, err)
+						continue
+					} else {
+						logger.WithName(rule.Name).Info("trigger resource not found for subresource, reverting to resource in AdmissionReviewRequest", "subresource", admissionRequest.SubResource)
+						newResource, _, err := admissionutils.ExtractResources(nil, *admissionRequest)
+						if err != nil {
+							logger.WithName(rule.Name).Error(err, "failed to extract resources from admission review request")
+							errs = append(errs, err)
+							continue
+						}
+						trigger = &newResource
+					}
+				}
+			} else {
+				newResource, oldResource, err := admissionutils.ExtractResources(nil, *admissionRequest)
+				if err != nil {
+					logger.WithName(rule.Name).Error(err, "failed to extract resources from admission review request")
+					errs = append(errs, err)
+					continue
+				}
+
+				trigger = &newResource
+				if newResource.Object == nil {
+					trigger = &oldResource
+				}
+			}
 		}
 
-		policyContext, _, err := common.NewBackgroundContext(c.client, ur, policy, trigger, c.configuration, c.informerCacheResolvers, nil, logger)
+		namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
+		policyContext, err := common.NewBackgroundContext(logger, c.client, ur, policy, trigger, c.configuration, c.jp, namespaceLabels)
 		if err != nil {
 			logger.WithName(rule.Name).Error(err, "failed to build policy context")
 			errs = append(errs, err)
 			continue
 		}
+		if admissionRequest != nil {
+			var gvk schema.GroupVersionKind
+			gvk, err = c.client.Discovery().GetGVKFromGVR(schema.GroupVersionResource(admissionRequest.Resource))
+			if err != nil {
+				logger.WithName(rule.Name).Error(err, "failed to get GVK from GVR", "GVR", admissionRequest.Resource)
+				errs = append(errs, err)
+				continue
+			}
+			policyContext = policyContext.WithResourceKind(gvk, admissionRequest.SubResource)
+		}
 
-		er := engine.Mutate(context.TODO(), c.rclient, policyContext)
+		er := c.engine.Mutate(context.TODO(), policyContext)
 		for _, r := range er.PolicyResponse.Rules {
-			patched := r.PatchedTarget
-			patchedTargetSubresourceName := r.PatchedTargetSubresourceName
-			switch r.Status {
-			case response.RuleStatusFail, response.RuleStatusError, response.RuleStatusWarn:
-				err := fmt.Errorf("failed to mutate existing resource, rule response%v: %s", r.Status, r.Message)
+			patched, parentGVR, patchedSubresource := r.PatchedTarget()
+			switch r.Status() {
+			case engineapi.RuleStatusFail, engineapi.RuleStatusError, engineapi.RuleStatusWarn:
+				err := fmt.Errorf("failed to mutate existing resource, rule response%v: %s", r.Status(), r.Message())
 				logger.Error(err, "")
 				errs = append(errs, err)
 				c.report(err, ur.Spec.Policy, rule.Name, patched)
 
-			case response.RuleStatusSkip:
-				logger.Info("mutate existing rule skipped", "rule", r.Name, "message", r.Message)
+			case engineapi.RuleStatusSkip:
+				logger.Info("mutate existing rule skipped", "rule", r.Name(), "message", r.Message())
 				c.report(err, ur.Spec.Policy, rule.Name, patched)
 
-			case response.RuleStatusPass:
+			case engineapi.RuleStatusPass:
 
 				patchedNew, err := addAnnotation(policy, patched, r)
 				if err != nil {
@@ -122,26 +173,26 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 				}
 
 				if patchedNew == nil {
-					logger.Error(ErrEmptyPatch, "", "rule", r.Name, "message", r.Message)
+					logger.Error(ErrEmptyPatch, "", "rule", r.Name(), "message", r.Message())
 					errs = append(errs, err)
 					continue
 				}
 
-				if r.Status == response.RuleStatusPass {
-					patchedNew.SetResourceVersion("")
+				if r.Status() == engineapi.RuleStatusPass {
+					patchedNew.SetResourceVersion(patched.GetResourceVersion())
 					var updateErr error
-					if patchedTargetSubresourceName == "status" {
+					if patchedSubresource == "status" {
 						_, updateErr = c.client.UpdateStatusResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
-					} else if patchedTargetSubresourceName != "" {
-						parentResourceGVR := r.PatchedTargetParentResourceGVR
+					} else if patchedSubresource != "" {
+						parentResourceGVR := parentGVR
 						parentResourceGV := schema.GroupVersion{Group: parentResourceGVR.Group, Version: parentResourceGVR.Version}
-						parentResourceGVK, err := c.client.Discovery().GetGVKFromGVR(parentResourceGV.String(), parentResourceGVR.Resource)
+						parentResourceGVK, err := c.client.Discovery().GetGVKFromGVR(parentResourceGV.WithResource(parentResourceGVR.Resource))
 						if err != nil {
 							logger.Error(err, "failed to get GVK from GVR", "GVR", parentResourceGVR)
 							errs = append(errs, err)
 							continue
 						}
-						_, updateErr = c.client.UpdateResource(context.TODO(), parentResourceGV.String(), parentResourceGVK.Kind, patchedNew.GetNamespace(), patchedNew.Object, false, patchedTargetSubresourceName)
+						_, updateErr = c.client.UpdateResource(context.TODO(), parentResourceGV.String(), parentResourceGVK.Kind, patchedNew.GetNamespace(), patchedNew.Object, false, patchedSubresource)
 					} else {
 						_, updateErr = c.client.UpdateResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
 					}
@@ -162,8 +213,8 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 	return updateURStatus(c.statusControl, *ur, err)
 }
 
-func (c *MutateExistingController) getPolicy(key string) (kyvernov1.PolicyInterface, error) {
-	pNamespace, pName, err := cache.SplitMetaNamespaceKey(key)
+func (c *mutateExistingController) getPolicy(ur *kyvernov1beta1.UpdateRequest) (policy kyvernov1.PolicyInterface, err error) {
+	pNamespace, pName, err := cache.SplitMetaNamespaceKey(ur.Spec.Policy)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +226,7 @@ func (c *MutateExistingController) getPolicy(key string) (kyvernov1.PolicyInterf
 	return c.policyLister.Get(pName)
 }
 
-func (c *MutateExistingController) report(err error, policy, rule string, target *unstructured.Unstructured) {
+func (c *mutateExistingController) report(err error, policy, rule string, target *unstructured.Unstructured) {
 	var events []event.Info
 
 	if target == nil {
@@ -204,7 +255,7 @@ func updateURStatus(statusControl common.StatusControlInterface, ur kyvernov1bet
 	return nil
 }
 
-func addAnnotation(policy kyvernov1.PolicyInterface, patched *unstructured.Unstructured, r response.RuleResponse) (patchedNew *unstructured.Unstructured, err error) {
+func addAnnotation(policy kyvernov1.PolicyInterface, patched *unstructured.Unstructured, r engineapi.RuleResponse) (patchedNew *unstructured.Unstructured, err error) {
 	if patched == nil {
 		return
 	}
@@ -212,23 +263,12 @@ func addAnnotation(policy kyvernov1.PolicyInterface, patched *unstructured.Unstr
 	patchedNew = patched
 	var rulePatches []utils.RulePatch
 
-	for _, patch := range r.Patches {
-		var patchmap map[string]interface{}
-		if err := json.Unmarshal(patch, &patchmap); err != nil {
-			return nil, fmt.Errorf("failed to parse JSON patch bytes: %v", err)
-		}
-
-		rp := struct {
-			RuleName string `json:"rulename"`
-			Op       string `json:"op"`
-			Path     string `json:"path"`
-		}{
-			RuleName: r.Name,
-			Op:       patchmap["op"].(string),
-			Path:     patchmap["path"].(string),
-		}
-
-		rulePatches = append(rulePatches, rp)
+	for _, patch := range r.Patches() {
+		rulePatches = append(rulePatches, utils.RulePatch{
+			RuleName: r.Name(),
+			Op:       patch.Operation,
+			Path:     patch.Path,
+		})
 	}
 
 	annotationContent := make(map[string]string)
