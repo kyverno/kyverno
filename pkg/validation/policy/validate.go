@@ -364,6 +364,10 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			checkForScaleSubresource(mutationJson, allKinds, &warnings)
 			checkForStatusSubresource(mutationJson, allKinds, &warnings)
 		}
+
+		if rule.HasVerifyImages() {
+			checkForDeprecatedFieldsInVerifyImages(rule, &warnings)
+		}
 	}
 	if !mock && (spec.SchemaValidation == nil || *spec.SchemaValidation) {
 		if err := openApiManager.ValidatePolicyMutation(policy); err != nil {
@@ -1299,5 +1303,16 @@ func checkForStatusSubresource(ruleTypeJson []byte, allKinds []string, warnings 
 		}
 		msg := "You are matching on status but not including the status subresource in the policy."
 		*warnings = append(*warnings, msg)
+	}
+}
+
+func checkForDeprecatedFieldsInVerifyImages(rule kyvernov1.Rule, warnings *[]string) {
+	for _, imageVerify := range rule.VerifyImages {
+		for _, attestation := range imageVerify.Attestations {
+			if attestation.PredicateType != "" {
+				msg := fmt.Sprintf("predicateType has been deprecated use 'type: %s' instead of 'prediacteType: %s'", attestation.PredicateType, attestation.PredicateType)
+				*warnings = append(*warnings, msg)
+			}
+		}
 	}
 }

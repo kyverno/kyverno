@@ -715,7 +715,19 @@ string
 </em>
 </td>
 <td>
-<p>PredicateType defines the type of Predicate contained within the Statement.</p>
+<p>PredicateType defines the type of Predicate contained within the Statement.
+Deprecated in favour of &lsquo;Type&rsquo;, to be removed soon</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>type</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Type defines the type of attestation contained within the Statement.</p>
 </td>
 </tr>
 <tr>
@@ -1972,7 +1984,7 @@ ImageVerificationType
 </td>
 <td>
 <p>Type specifies the method of signature validation. The allowed options
-are Cosign and NotaryV2. By default Cosign is used if a type is not specified.</p>
+are Cosign and Notary. By default Cosign is used if a type is not specified.</p>
 </td>
 </tr>
 <tr>
@@ -6372,7 +6384,7 @@ ImageVerificationType
 </td>
 <td>
 <p>Type specifies the method of signature validation. The allowed options
-are Cosign and NotaryV2. By default Cosign is used if a type is not specified.</p>
+are Cosign and Notary. By default Cosign is used if a type is not specified.</p>
 </td>
 </tr>
 <tr>
