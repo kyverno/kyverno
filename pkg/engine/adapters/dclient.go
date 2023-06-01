@@ -6,6 +6,7 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type dclientAdapter struct {
@@ -32,6 +33,10 @@ func (a *dclientAdapter) GetResources(group, version, kind, subresource, namespa
 		})
 	}
 	return result, nil
+}
+
+func (a *dclientAdapter) GetResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error) {
+	return a.client.GetResource(ctx, apiVersion, kind, namespace, name, subresources...)
 }
 
 func ClientInterface(client dclient.Interface) engineapi.ClientInterface {

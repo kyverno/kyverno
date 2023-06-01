@@ -8,9 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
@@ -47,7 +45,7 @@ func NewEngine(
 	configuration config.Configuration,
 	metricsConfiguration config.MetricsConfiguration,
 	jp jmespath.Interface,
-	client dclient.Interface,
+	client engineapi.ClientInterface,
 	rclient registryclient.Client,
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,
@@ -71,7 +69,7 @@ func NewEngine(
 		configuration:        configuration,
 		metricsConfiguration: metricsConfiguration,
 		jp:                   jp,
-		client:               adapters.ClientInterface(client),
+		client:               client,
 		rclient:              rclient,
 		contextLoader:        contextLoader,
 		exceptionSelector:    exceptionSelector,

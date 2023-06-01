@@ -28,6 +28,7 @@ type ContextClientInterface interface {
 
 type ClientInterface interface {
 	ContextClientInterface
+	GetResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error)
 	GetResources(group, version, kind, subresource, namespace, name string) ([]Resource, error)
 }
 
