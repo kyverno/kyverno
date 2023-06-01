@@ -28,6 +28,9 @@ spec:
             secret:
               name: testsecret
               namespace: test-verify-images
+            rekor:
+              url: https://rekor.sigstore.dev
+              ignoreTlog: true
 ---
 apiVersion: v1
 kind: Secret
