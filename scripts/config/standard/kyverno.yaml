@@ -20,6 +20,8 @@ backgroundController:
             - nodes
             - nodes/status
             - pods
+          verbs:
+            - '*'
 
 cleanupController:
   rbac:
