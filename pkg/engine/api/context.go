@@ -66,7 +66,6 @@ func LoadVariable(logger logr.Logger, jp jmespath.Interface, entry kyvernov1.Con
 			}
 		}
 	}
-	fmt.Printf("%v\n\n", output)
 	logger.V(4).Info("evaluated output", "variable name", entry.Name, "output", output)
 	if output == nil {
 		return fmt.Errorf("unable to add context entry for variable %s since it evaluated to nil", entry.Name)
