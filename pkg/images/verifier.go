@@ -33,6 +33,7 @@ type Options struct {
 	IgnoreTlog           bool
 	SignatureAlgorithm   string
 	PredicateType        string
+	Type                 string
 	Identities           string
 }
 
