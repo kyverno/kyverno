@@ -7,6 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/pss/utils"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -77,6 +78,11 @@ type Rule struct {
 	// +optional
 	RawAnyAllConditions *apiextv1.JSON `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
 
+	// CELPreconditions are used to determine if a policy rule should be applied by evaluating a
+	// set of CEL conditions. It can only be used with the validate.cel subrule
+	// +optional
+	CELPreconditions []admissionregistrationv1.MatchCondition `json:"celPreconditions,omitempty" yaml:"celPreconditions,omitempty"`
+
 	// Mutation is used to modify matching resources.
 	// +optional
 	Mutation Mutation `json:"mutate,omitempty" yaml:"mutate,omitempty"`
@@ -127,6 +133,11 @@ func (r Rule) HasVerifyManifests() bool {
 // HasValidatePodSecurity checks for validate.podSecurity rule
 func (r Rule) HasValidatePodSecurity() bool {
 	return r.Validation.PodSecurity != nil && !datautils.DeepEqual(r.Validation.PodSecurity, &PodSecurity{})
+}
+
+// HasValidateCEL checks for validate.cel rule
+func (r *Rule) HasValidateCEL() bool {
+	return r.Validation.CEL != nil && !datautils.DeepEqual(r.Validation.CEL, &CEL{})
 }
 
 // HasValidate checks for validate rule
