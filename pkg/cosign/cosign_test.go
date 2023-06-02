@@ -91,11 +91,11 @@ func TestCosignKeyless(t *testing.T) {
 
 	verifier := &cosignVerifier{}
 	_, err = verifier.VerifySignature(context.TODO(), opts)
-	assert.ErrorContains(t, err, "none of the expected identities matched what was in the certificate, got subjects [jim@nirmata.com]")
+	assert.ErrorContains(t, err, "subject mismatch: expected jim, received jim@nirmata.com")
 
 	opts.Subject = "jim@nirmata.com"
 	_, err = verifier.VerifySignature(context.TODO(), opts)
-	assert.ErrorContains(t, err, "none of the expected identities matched what was in the certificate, got subjects [jim@nirmata.com] with issuer https://github.com/login/oauth")
+	assert.ErrorContains(t, err, "issuer mismatch: expected https://github.com/, received https://github.com/login/oauth")
 
 	opts.Issuer = "https://github.com/login/oauth"
 	_, err = verifier.VerifySignature(context.TODO(), opts)

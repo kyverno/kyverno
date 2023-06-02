@@ -203,13 +203,6 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 		cosignOpts.RegistryClientOpts = append(cosignOpts.RegistryClientOpts, remote.WithTargetRepository(signatureRepo))
 	}
 
-	cosignOpts.Identities = []cosign.Identity{
-		{
-			Issuer:  opts.Issuer,
-			Subject: opts.Subject,
-		},
-	}
-
 	return cosignOpts, nil
 }
 
