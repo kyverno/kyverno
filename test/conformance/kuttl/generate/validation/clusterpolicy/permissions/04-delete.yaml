@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+delete:
+- apiVersion: kyverno.io/v1
+  kind: ClusterPolicy
+  name: cpol-validate-create-sa-permission

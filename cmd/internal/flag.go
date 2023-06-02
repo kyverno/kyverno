@@ -2,7 +2,10 @@ package internal
 
 import (
 	"flag"
+	"time"
 
+	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 )
 
@@ -28,6 +31,18 @@ var (
 	kubeconfig           string
 	clientRateLimitQPS   float64
 	clientRateLimitBurst int
+	// engine
+	enablePolicyException  bool
+	exceptionNamespace     string
+	enableConfigMapCaching bool
+	// cosign
+	imageSignatureRepository string
+	// registry client
+	imagePullSecrets          string
+	allowInsecureRegistry     bool
+	registryCredentialHelpers string
+	// leader election
+	leaderElectionRetryPeriod time.Duration
 )
 
 func initLoggingFlags() {
@@ -57,13 +72,68 @@ func initMetricsFlags() {
 	flag.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true' to disable metrics.")
 }
 
-func initKubeconfigFlags() {
+func initKubeconfigFlags(qps float64, burst int) {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 20, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
-	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 50, "Configure the maximum burst for throttle. Uses the client default if zero.")
+	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", qps, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
+	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", burst, "Configure the maximum burst for throttle. Uses the client default if zero.")
 }
 
-func InitFlags(config Configuration) {
+func initPolicyExceptionsFlags() {
+	flag.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions.")
+	flag.BoolVar(&enablePolicyException, "enablePolicyException", false, "Enable PolicyException feature.")
+}
+
+func initConfigMapCachingFlags() {
+	flag.BoolVar(&enableConfigMapCaching, "enableConfigMapCaching", true, "Enable config maps caching.")
+}
+
+func initCosignFlags() {
+	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
+}
+
+func initRegistryClientFlags() {
+	flag.BoolVar(&allowInsecureRegistry, "allowInsecureRegistry", false, "Whether to allow insecure connections to registries. Don't use this for anything but testing.")
+	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
+	flag.StringVar(&registryCredentialHelpers, "registryCredentialHelpers", "", "Credential helpers to enable (default,google,amazon,azure,github), all will be enabled if empty.")
+}
+
+func initLeaderElectionFlags() {
+	flag.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
+}
+
+type options struct {
+	clientRateLimitQPS   float64
+	clientRateLimitBurst int
+}
+
+func newOptions() options {
+	return options{
+		clientRateLimitQPS:   20,
+		clientRateLimitBurst: 50,
+	}
+}
+
+type Option = func(*options)
+
+func WithDefaultQps(qps float64) Option {
+	return func(o *options) {
+		o.clientRateLimitQPS = qps
+	}
+}
+
+func WithDefaultBurst(burst int) Option {
+	return func(o *options) {
+		o.clientRateLimitBurst = burst
+	}
+}
+
+func initFlags(config Configuration, opts ...Option) {
+	options := newOptions()
+	for _, o := range opts {
+		if o != nil {
+			o(&options)
+		}
+	}
 	// logging
 	initLoggingFlags()
 	// profiling
@@ -80,7 +150,27 @@ func InitFlags(config Configuration) {
 	}
 	// kubeconfig
 	if config.UsesKubeconfig() {
-		initKubeconfigFlags()
+		initKubeconfigFlags(options.clientRateLimitQPS, options.clientRateLimitBurst)
+	}
+	// policy exceptions
+	if config.UsesPolicyExceptions() {
+		initPolicyExceptionsFlags()
+	}
+	// config map caching
+	if config.UsesConfigMapCaching() {
+		initConfigMapCachingFlags()
+	}
+	// cosign
+	if config.UsesCosign() {
+		initCosignFlags()
+	}
+	// registry client
+	if config.UsesRegistryClient() {
+		initRegistryClientFlags()
+	}
+	// leader election
+	if config.UsesLeaderElection() {
+		initLeaderElectionFlags()
 	}
 	for _, flagset := range config.FlagSets() {
 		flagset.VisitAll(func(f *flag.Flag) {
@@ -89,7 +179,26 @@ func InitFlags(config Configuration) {
 	}
 }
 
-func ParseFlags(config Configuration) {
-	InitFlags(config)
+func ParseFlags(config Configuration, opts ...Option) {
+	initFlags(config, opts...)
 	flag.Parse()
+}
+
+func ExceptionNamespace() string {
+	return exceptionNamespace
+}
+
+func PolicyExceptionEnabled() bool {
+	return enablePolicyException
+}
+
+func LeaderElectionRetryPeriod() time.Duration {
+	return leaderElectionRetryPeriod
+}
+
+func printFlagSettings(logger logr.Logger) {
+	logger = logger.WithName("flag")
+	flag.VisitAll(func(f *flag.Flag) {
+		logger.V(2).Info("", f.Name, f.Value)
+	})
 }

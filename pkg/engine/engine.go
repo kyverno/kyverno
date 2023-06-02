@@ -14,13 +14,15 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
+	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/global"
-	"go.opentelemetry.io/otel/metric/instrument"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -28,13 +30,14 @@ import (
 type engine struct {
 	configuration        config.Configuration
 	metricsConfiguration config.MetricsConfiguration
+	jp                   jmespath.Interface
 	client               dclient.Interface
 	rclient              registryclient.Client
 	contextLoader        engineapi.ContextLoaderFactory
 	exceptionSelector    engineapi.PolicyExceptionSelector
 	// metrics
-	resultCounter     instrument.Int64Counter
-	durationHistogram instrument.Float64Histogram
+	resultCounter     metric.Int64Counter
+	durationHistogram metric.Float64Histogram
 }
 
 type handlerFactory = func() (handlers.Handler, error)
@@ -42,6 +45,7 @@ type handlerFactory = func() (handlers.Handler, error)
 func NewEngine(
 	configuration config.Configuration,
 	metricsConfiguration config.MetricsConfiguration,
+	jp jmespath.Interface,
 	client dclient.Interface,
 	rclient registryclient.Client,
 	contextLoader engineapi.ContextLoaderFactory,
@@ -50,14 +54,14 @@ func NewEngine(
 	meter := global.MeterProvider().Meter(metrics.MeterName)
 	resultCounter, err := meter.Int64Counter(
 		"kyverno_policy_results",
-		instrument.WithDescription("can be used to track the results associated with the policies applied in the user’s cluster, at the level from rule to policy to admission requests"),
+		metric.WithDescription("can be used to track the results associated with the policies applied in the user's cluster, at the level from rule to policy to admission requests"),
 	)
 	if err != nil {
 		logging.Error(err, "failed to register metric kyverno_policy_results")
 	}
 	durationHistogram, err := meter.Float64Histogram(
 		"kyverno_policy_execution_duration_seconds",
-		instrument.WithDescription("can be used to track the latencies (in seconds) associated with the execution/processing of the individual rules under Kyverno policies whenever they evaluate incoming resource requests"),
+		metric.WithDescription("can be used to track the latencies (in seconds) associated with the execution/processing of the individual rules under Kyverno policies whenever they evaluate incoming resource requests"),
 	)
 	if err != nil {
 		logging.Error(err, "failed to register metric kyverno_policy_execution_duration_seconds")
@@ -65,6 +69,7 @@ func NewEngine(
 	return &engine{
 		configuration:        configuration,
 		metricsConfiguration: metricsConfiguration,
+		jp:                   jp,
 		client:               client,
 		rclient:              rclient,
 		contextLoader:        contextLoader,
@@ -165,6 +170,7 @@ func (e *engine) ContextLoader(
 	return func(ctx context.Context, contextEntries []kyvernov1.ContextEntry, jsonContext enginecontext.Interface) error {
 		return loader.Load(
 			ctx,
+			e.jp,
 			e.client,
 			e.rclient,
 			contextEntries,
@@ -194,7 +200,7 @@ func matches(
 		return nil
 	}
 	oldResource := policyContext.OldResource()
-	if oldResource.Object != nil {
+	if resource.Object == nil && oldResource.Object != nil {
 		err := engineutils.MatchesResourceDescription(
 			policyContext.OldResource(),
 			rule,
@@ -251,12 +257,13 @@ func (e *engine) invokeRuleHandler(
 					return resource, handlers.WithError(rule, ruleType, "failed to load context", err)
 				}
 				// check preconditions
-				preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), rule.GetAnyAllConditions())
+				preconditionsPassed, msg, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), rule.GetAnyAllConditions())
 				if err != nil {
 					return resource, handlers.WithError(rule, ruleType, "failed to evaluate preconditions", err)
 				}
 				if !preconditionsPassed {
-					return resource, handlers.WithSkip(rule, ruleType, "preconditions not met")
+					s := stringutils.JoinNonEmpty([]string{"preconditions not met", msg}, "; ")
+					return resource, handlers.WithSkip(rule, ruleType, s)
 				}
 				// process handler
 				return handler.Process(ctx, logger, policyContext, resource, rule, contextLoader)

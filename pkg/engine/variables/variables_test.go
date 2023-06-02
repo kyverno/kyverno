@@ -7,10 +7,14 @@ import (
 
 	"github.com/go-logr/logr"
 	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"gotest.tools/assert"
 	authenticationv1 "k8s.io/api/authentication/v1"
 )
+
+var jp = jmespath.New(config.NewDefaultConfiguration(false))
 
 func Test_variablesub1(t *testing.T) {
 	patternMap := []byte(`
@@ -74,7 +78,7 @@ func Test_variablesub1(t *testing.T) {
 		t.Error(err)
 	}
 	// context
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -164,7 +168,7 @@ func Test_variablesub_multiple(t *testing.T) {
 	}
 
 	// context
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -252,7 +256,7 @@ func Test_variablesubstitution(t *testing.T) {
 	}
 
 	// context
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -317,7 +321,7 @@ func Test_variableSubstitutionValue(t *testing.T) {
 	}
 
 	// context
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -374,7 +378,7 @@ func Test_variableSubstitutionValueOperatorNotEqual(t *testing.T) {
 	}
 
 	// context
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -432,7 +436,7 @@ func Test_variableSubstitutionValueFail(t *testing.T) {
 	}
 
 	// context
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -489,7 +493,7 @@ func Test_variableSubstitutionObject(t *testing.T) {
 	}
 
 	// context
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -553,7 +557,7 @@ func Test_variableSubstitutionObjectOperatorNotEqualFail(t *testing.T) {
 	}
 
 	// context
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -628,7 +632,7 @@ func Test_variableSubstitutionMultipleObject(t *testing.T) {
 	}
 
 	// context
-	ctx := context.NewContext()
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)

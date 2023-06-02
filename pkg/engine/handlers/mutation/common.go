@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/utils/api"
+	"github.com/mattbaird/jsonpatch"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -26,7 +27,7 @@ type forEachMutator struct {
 
 func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 	var applyCount int
-	allPatches := make([][]byte, 0)
+	var allPatches []jsonpatch.JsonPatchOperation
 
 	for _, foreach := range f.foreach {
 		elements, err := engineutils.EvaluateList(foreach.List, f.policyContext.JSONContext())
@@ -66,16 +67,23 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 	defer f.policyContext.JSONContext().Restore()
 
 	patchedResource := f.resource
-	var allPatches [][]byte
+	var allPatches []jsonpatch.JsonPatchOperation
+	reverse := false
 	if foreach.RawPatchStrategicMerge != nil {
+		reverse = true
+	} else if foreach.Order != nil && *foreach.Order == kyvernov1.Descending {
+		reverse = true
+	}
+	if reverse {
 		engineutils.InvertedElement(elements)
 	}
-
 	for index, element := range elements {
 		if element == nil {
 			continue
 		}
-
+		if reverse {
+			index = len(elements) - 1 - index
+		}
 		f.policyContext.JSONContext().Reset()
 		policyContext := f.policyContext.Copy()
 
@@ -88,13 +96,13 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 			return mutate.NewErrorResponse(fmt.Sprintf("failed to load to mutate.foreach[%d].context", index), err)
 		}
 
-		preconditionsPassed, err := internal.CheckPreconditions(f.logger, policyContext.JSONContext(), foreach.AnyAllConditions)
+		preconditionsPassed, msg, err := internal.CheckPreconditions(f.logger, policyContext.JSONContext(), foreach.AnyAllConditions)
 		if err != nil {
 			return mutate.NewErrorResponse(fmt.Sprintf("failed to evaluate mutate.foreach[%d].preconditions", index), err)
 		}
 
 		if !preconditionsPassed {
-			f.logger.Info("mutate.foreach.preconditions not met", "elementIndex", index)
+			f.logger.Info("mutate.foreach.preconditions not met", "elementIndex", index, "message", msg)
 			continue
 		}
 
@@ -129,7 +137,6 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 			allPatches = append(allPatches, mutateResp.Patches...)
 		}
 	}
-
 	return mutate.NewResponse(engineapi.RuleStatusPass, patchedResource.unstructured, allPatches, "")
 }
 

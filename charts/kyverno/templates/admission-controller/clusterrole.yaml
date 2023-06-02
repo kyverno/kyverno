@@ -88,7 +88,12 @@ rules:
       - create
       - update
       - patch
-      - delete
+  - apiGroups:
+      - authorization.k8s.io
+    resources:
+      - subjectaccessreviews
+    verbs:
+      - create
   - apiGroups:
       - '*'
     resources:
@@ -97,40 +102,6 @@ rules:
       - get
       - list
       - watch
-  - apiGroups:
-      - networking.k8s.io
-    resources:
-      - ingresses
-      - ingressclasses
-      - networkpolicies
-    verbs:
-      - create
-      - update
-      - patch
-      - delete
-  - apiGroups:
-      - ''
-    resources:
-      - namespaces
-      - configmaps
-      - secrets
-      - resourcequotas
-      - limitranges
-    verbs:
-      - create
-      - update
-      - patch
-      - delete
-  - apiGroups:
-      - rbac.authorization.k8s.io
-    resources:
-      - rolebindings
-      - roles
-    verbs:
-      - create
-      - update
-      - patch
-      - delete
 {{- with .Values.admissionController.rbac.clusterRole.extraResources }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1

@@ -9,8 +9,10 @@ import (
 	k8s_io_kube_aggregator_pkg_client_clientset_generated_clientset "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 )
 
+type UpstreamInterface = k8s_io_kube_aggregator_pkg_client_clientset_generated_clientset.Interface
+
 type Interface interface {
-	k8s_io_kube_aggregator_pkg_client_clientset_generated_clientset.Interface
+	UpstreamInterface
 	WithMetrics(metrics.MetricsConfigManager, metrics.ClientType) Interface
 	WithTracing() Interface
 	WithLogging(logr.Logger) Interface

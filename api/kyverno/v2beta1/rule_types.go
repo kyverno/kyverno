@@ -5,6 +5,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -44,6 +45,11 @@ type Rule struct {
 	// See: https://kyverno.io/docs/writing-policies/preconditions/
 	// +optional
 	RawAnyAllConditions *AnyAllConditions `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+
+	// CELPreconditions are used to determine if a policy rule should be applied by evaluating a
+	// set of CEL conditions. It can only be used with the validate.cel subrule
+	// +optional
+	CELPreconditions []admissionregistrationv1.MatchCondition `json:"celPreconditions,omitempty" yaml:"celPreconditions,omitempty"`
 
 	// Mutation is used to modify matching resources.
 	// +optional
@@ -95,6 +101,11 @@ func (r Rule) HasVerifyManifests() bool {
 // HasValidatePodSecurity checks for validate.podSecurity rule
 func (r Rule) HasValidatePodSecurity() bool {
 	return r.Validation.PodSecurity != nil && !datautils.DeepEqual(r.Validation.PodSecurity, &kyvernov1.PodSecurity{})
+}
+
+// HasValidateCEL checks for validate.cel rule
+func (r *Rule) HasValidateCEL() bool {
+	return r.Validation.CEL != nil && !datautils.DeepEqual(r.Validation.CEL, &kyvernov1.CEL{})
 }
 
 // HasValidate checks for validate rule
@@ -172,15 +183,12 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 	return append(errs, field.Invalid(path, r, "Rule is matching an empty set"))
 }
 
-func (r *Rule) ValidateGenerateVariables(path *field.Path) (errs field.ErrorList) {
+func (r *Rule) ValidateGenerate(path *field.Path, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if !r.HasGenerate() {
 		return nil
 	}
 
-	if err := r.Generation.Validate(); err != nil {
-		errs = append(errs, field.Forbidden(path.Child("generate").Child("clone/cloneList"), fmt.Sprintf("Generation Rule Clone/CloneList \"%s\" should not have variables", r.Name)))
-	}
-	return errs
+	return r.Generation.Validate(path, clusterResources)
 }
 
 // Validate implements programmatic validation
@@ -189,6 +197,6 @@ func (r *Rule) Validate(path *field.Path, namespaced bool, clusterResources sets
 	errs = append(errs, r.ValidateMatchExcludeConflict(path)...)
 	errs = append(errs, r.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)
 	errs = append(errs, r.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
-	errs = append(errs, r.ValidateGenerateVariables(path)...)
+	errs = append(errs, r.ValidateGenerate(path, clusterResources)...)
 	return errs
 }

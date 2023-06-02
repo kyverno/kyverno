@@ -32,11 +32,6 @@ func GetResource(client dclient.Interface, urSpec kyvernov1beta1.UpdateRequestSp
 			return nil, fmt.Errorf("resource %s/%s/%s/%s: %v", resourceSpec.APIVersion, resourceSpec.Kind, resourceSpec.Namespace, resourceSpec.Name, err)
 		}
 
-		if resource.GetDeletionTimestamp() != nil {
-			log.V(4).Info("trigger resource is in termination", "operation", urSpec.Context.AdmissionRequestInfo.Operation)
-			return nil, fmt.Errorf("trigger resource is in termination")
-		}
-
 		return resource, nil
 	}
 
