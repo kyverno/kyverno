@@ -56,7 +56,12 @@ var testPolicyGood = `{
 						"entries": [
 							{
 								"keys": {
-									"publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHMmDjK65krAyDaGaeyWNzgvIu155JI50B2vezCw8+3CVeE0lJTL5dbL3OP98Za0oAEBJcOxky8Riy/XcmfKZbw==\n-----END PUBLIC KEY-----"
+									"publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHMmDjK65krAyDaGaeyWNzgvIu155JI50B2vezCw8+3CVeE0lJTL5dbL3OP98Za0oAEBJcOxky8Riy/XcmfKZbw==\n-----END PUBLIC KEY-----",
+									"rekor": {
+										"url": "https://rekor.sigstore.dev",
+										"ignoreSCT": true,
+										"ignoreTlog": true
+									}
 								}
 							}
 						]
@@ -284,7 +289,12 @@ var testSampleSingleKeyPolicy = `
                                 "entries": [
                                     {
                                         "keys": {
-                                            "publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM\n5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----"
+                                            "publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM\n5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----",
+																						"rekor": {
+																							"url": "https://rekor.sigstore.dev",
+																							"ignoreSCT": true,
+																							"ignoreTlog": true
+																						}
                                         }
                                     }
                                 ]
@@ -334,12 +344,22 @@ var testSampleMultipleKeyPolicy = `
                                 "entries": [
                                     {
                                         "keys": {
-                                            "publicKeys": "KEY1"
+                                            "publicKeys": "KEY1",
+																						"rekor": {
+																							"url": "https://rekor.sigstore.dev",
+																							"ignoreSCT": true,
+																							"ignoreTlog": true
+																						}
                                         }
                                     },
                                     {
                                         "keys": {
-                                            "publicKeys": "KEY2"
+                                            "publicKeys": "KEY2",
+																						"rekor": {
+																							"url": "https://rekor.sigstore.dev",
+																							"ignoreSCT": true,
+																							"ignoreTlog": true
+																						}
                                         }
                                     }
                                 ]
@@ -400,7 +420,12 @@ var testConfigMapMissing = `{
                                 "entries": [
                                     {
                                         "keys": {
-                                            "publicKeys": "{{myconfigmap.data.configmapkey}}"
+                                            "publicKeys": "{{myconfigmap.data.configmapkey}}",
+																						"rekor": {
+																							"url": "https://rekor.sigstore.dev",
+																							"ignoreSCT": true,
+																							"ignoreTlog": true
+																						}
                                         }
                                     }
                                 ]
@@ -635,7 +660,12 @@ var testNestedAttestorPolicy = `
                                 "entries": [
                                     {
                                         "keys": {
-                                            "publicKeys": "KEY1"
+                                            "publicKeys": "KEY1",
+																						"rekor": {
+																							"url": "https://rekor.sigstore.dev",
+																							"ignoreSCT": true,
+																							"ignoreTlog": true
+																						}
                                         }
                                     },
                                     {
@@ -643,7 +673,12 @@ var testNestedAttestorPolicy = `
                                             "entries": [
                                                 {
                                                     "keys": {
-                                                        "publicKeys": "KEY2"
+                                                        "publicKeys": "KEY2",
+																												"rekor": {
+																													"url": "https://rekor.sigstore.dev",
+																													"ignoreSCT": true,
+																													"ignoreTlog": true
+																												}
                                                     }
                                                 }
                                             ]
@@ -847,7 +882,12 @@ func Test_ParsePEMDelimited(t *testing.T) {
 	                         "entries": [
 	                            {
 	                               "keys": {
-	                                  "publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfVMHGmFK4OgVqhy36KZ7a3r4R4/o\nCwaCVvXZV4ZULFbkFZ0IodGqKqcVmgycnoj7d8TpKpAUVNF8kKh90ewH3A==\n-----END PUBLIC KEY-----\n-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE0f1W0XigyPFbX8Xq3QmkbL9gDFTf\nRfc8jF7UadBcwKxiyvPSOKZn+igQfXzpNjrwPSZ58JGvF4Fs8BB3fSRP2g==\n-----END PUBLIC KEY-----"
+	                                  "publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfVMHGmFK4OgVqhy36KZ7a3r4R4/o\nCwaCVvXZV4ZULFbkFZ0IodGqKqcVmgycnoj7d8TpKpAUVNF8kKh90ewH3A==\n-----END PUBLIC KEY-----\n-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE0f1W0XigyPFbX8Xq3QmkbL9gDFTf\nRfc8jF7UadBcwKxiyvPSOKZn+igQfXzpNjrwPSZ58JGvF4Fs8BB3fSRP2g==\n-----END PUBLIC KEY-----",
+																		"rekor": {
+																			"url": "https://rekor.sigstore.dev",
+																			"ignoreSCT": true,
+																			"ignoreTlog": true
+																		}
 	                               }
 	                            }
 	                         ]
