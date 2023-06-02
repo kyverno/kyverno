@@ -189,6 +189,7 @@ func main() {
 		dumpPayload                  bool
 		servicePort                  int
 		backgroundServiceAccountName string
+		deploymentName               string
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -203,6 +204,7 @@ func main() {
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
 	flagset.StringVar(&backgroundServiceAccountName, "backgroundServiceAccountName", "", "Background service account name.")
+	flagset.StringVar(&deploymentName, "deploymentName", "", "Deployment name to track.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -290,6 +292,7 @@ func main() {
 	runtime := runtimeutils.NewRuntime(
 		setup.Logger.WithName("runtime-checks"),
 		serverIP,
+		deploymentName,
 		kubeKyvernoInformer.Apps().V1().Deployments(),
 		certRenewer,
 	)
