@@ -31,9 +31,6 @@ import (
 	"go.uber.org/multierr"
 )
 
-// ImageSignatureRepository is an alternate signature repository
-var ImageSignatureRepository string
-
 func NewVerifier() images.ImageVerifier {
 	return &cosignVerifier{}
 }
