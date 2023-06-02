@@ -44,13 +44,8 @@ func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Desc
 		return err
 	}
 
-	referrersDescs, err := referrers.IndexManifest()
-	if err != nil {
-		return err
-	}
-
 	descList := []ocispec.Descriptor{}
-	for _, d := range referrersDescs.Manifests {
+	for _, d := range referrers.Manifests {
 		if d.ArtifactType == notationregistry.ArtifactTypeNotation {
 			descList = append(descList, v1ToOciSpecDescriptor(d))
 		}

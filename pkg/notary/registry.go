@@ -109,18 +109,6 @@ func getRemoteOpts(authenticator authn.Authenticator) ([]gcrremote.Option, error
 	remoteOpts := []gcrremote.Option{}
 	remoteOpts = append(remoteOpts, gcrremote.WithAuth(authenticator))
 
-	pusher, err := gcrremote.NewPusher(remoteOpts...)
-	if err != nil {
-		return nil, err
-	}
-	remoteOpts = append(remoteOpts, gcrremote.Reuse(pusher))
-
-	puller, err := gcrremote.NewPuller(remoteOpts...)
-	if err != nil {
-		return nil, err
-	}
-	remoteOpts = append(remoteOpts, gcrremote.Reuse(puller))
-
 	return remoteOpts, nil
 }
 

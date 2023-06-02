@@ -18,10 +18,8 @@ func TestExtractStatements(t *testing.T) {
 	assert.NilError(t, err)
 	referrers, err := remote.Referrers(ref.Context().Digest(repoDesc.Digest.String()))
 	assert.NilError(t, err)
-	referrersDescs, err := referrers.IndexManifest()
-	assert.NilError(t, err)
 
-	for _, referrer := range referrersDescs.Manifests {
+	for _, referrer := range referrers.Manifests {
 		if referrer.ArtifactType == "application/vnd.cncf.notary.signature" {
 			statements, err := extractStatements(context.Background(), ref, referrer)
 			assert.NilError(t, err)

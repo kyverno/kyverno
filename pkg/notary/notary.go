@@ -158,16 +158,10 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 	if err != nil {
 		return nil, err
 	}
-	referrersDescs, err := referrers.IndexManifest()
-	if err != nil {
-		return nil, err
-	}
-
-	v.log.V(4).Info("fetched referrers", "referrers", referrersDescs)
 
 	var statements []map[string]interface{}
 
-	for _, referrer := range referrersDescs.Manifests {
+	for _, referrer := range referrers.Manifests {
 		match, _, err := matchArtifactType(referrer, opts.Type)
 		if err != nil {
 			return nil, err
