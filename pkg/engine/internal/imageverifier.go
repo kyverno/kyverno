@@ -26,11 +26,12 @@ import (
 )
 
 type ImageVerifier struct {
-	logger        logr.Logger
-	rclient       registryclient.Client
-	policyContext engineapi.PolicyContext
-	rule          kyvernov1.Rule
-	ivm           *engineapi.ImageVerificationMetadata
+	logger                   logr.Logger
+	rclient                  registryclient.Client
+	policyContext            engineapi.PolicyContext
+	rule                     kyvernov1.Rule
+	ivm                      *engineapi.ImageVerificationMetadata
+	imageSignatureRepository string
 }
 
 func NewImageVerifier(
@@ -39,13 +40,15 @@ func NewImageVerifier(
 	policyContext engineapi.PolicyContext,
 	rule kyvernov1.Rule,
 	ivm *engineapi.ImageVerificationMetadata,
+	imageSignatureRepository string,
 ) *ImageVerifier {
 	return &ImageVerifier{
-		logger:        logger,
-		rclient:       rclient,
-		policyContext: policyContext,
-		rule:          rule,
-		ivm:           ivm,
+		logger:                   logger,
+		rclient:                  rclient,
+		policyContext:            policyContext,
+		rule:                     rule,
+		ivm:                      ivm,
+		imageSignatureRepository: imageSignatureRepository,
 	}
 }
 
@@ -456,7 +459,7 @@ func (iv *ImageVerifier) buildCosignVerifier(
 	attestation *kyvernov1.Attestation,
 ) (images.ImageVerifier, *images.Options, string) {
 	path := ""
-	repository := cosign.ImageSignatureRepository
+	repository := iv.imageSignatureRepository
 	if imageVerify.Repository != "" {
 		repository = imageVerify.Repository
 	}
