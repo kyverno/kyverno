@@ -2,9 +2,9 @@
 
 ## v1.11.0-rc.1
 
-- Deprecated flag `--imageSignatureRepository`. Will be removed in 1.12. Use per rule configuration `verifyImages.Repository` instead.
-
 ### Note
+
+- Deprecated flag `--imageSignatureRepository`. Will be removed in 1.12. Use per rule configuration `verifyImages.Repository` instead.
 
 ## v1.10.0
 

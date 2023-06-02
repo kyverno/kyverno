@@ -36473,6 +36473,7 @@ rules:
     verbs:
       - list
       - deletecollection
+      - delete
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -37254,6 +37255,8 @@ spec:
             seccompProfile:
               type: RuntimeDefault
           env:
+          - name: INIT_CONFIG
+            value: kyverno
           - name: METRICS_CONFIG
             value: kyverno-metrics
           - name: KYVERNO_NAMESPACE
@@ -37265,7 +37268,9 @@ spec:
               fieldRef:
                 fieldPath: metadata.name
           - name: KYVERNO_DEPLOYMENT
-            value: kyverno
+            value: kyverno-admission-controller
+          - name: KYVERNO_SVC
+            value: kyverno-svc
       containers:
         - name: kyverno
           image: "ghcr.io/kyverno/kyverno:latest"
