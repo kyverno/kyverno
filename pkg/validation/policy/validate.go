@@ -412,10 +412,7 @@ func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) erro
 		mutateTarget := false
 		if ruleCopy.Mutation.Targets != nil {
 			mutateTarget = true
-			withTargetOnly := new(kyvernov1.Rule)
-			withTargetOnly.Mutation.Targets = make([]kyvernov1.TargetResourceSpec, len(ruleCopy.Mutation.Targets))
-			withTargetOnly.Context = ruleCopy.Context
-			withTargetOnly.RawAnyAllConditions = ruleCopy.RawAnyAllConditions
+			withTargetOnly := ruleWithoutPattern(ruleCopy)
 			for i := range ruleCopy.Mutation.Targets {
 				withTargetOnly.Mutation.Targets[i].ResourceSpec = ruleCopy.Mutation.Targets[i].ResourceSpec
 				ctx := buildContext(withTargetOnly, background, false)
@@ -560,6 +557,14 @@ func imageRefHasVariables(verifyImages []kyvernov1.ImageVerification) error {
 		}
 	}
 	return nil
+}
+
+func ruleWithoutPattern(ruleCopy *kyvernov1.Rule) *kyvernov1.Rule {
+	withTargetOnly := new(kyvernov1.Rule)
+	withTargetOnly.Mutation.Targets = make([]kyvernov1.TargetResourceSpec, len(ruleCopy.Mutation.Targets))
+	withTargetOnly.Context = ruleCopy.Context
+	withTargetOnly.RawAnyAllConditions = ruleCopy.RawAnyAllConditions
+	return withTargetOnly
 }
 
 func buildContext(rule *kyvernov1.Rule, background bool, target bool) *enginecontext.MockContext {
