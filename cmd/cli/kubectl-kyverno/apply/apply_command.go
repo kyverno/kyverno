@@ -390,7 +390,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 	skipInvalidPolicies.invalid = make([]string, 0)
 
 	for _, policy := range policies {
-		_, err := policyvalidation.Validate(policy, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
+		_, err := policyvalidation.Validate(policy, nil, nil, true, openApiManager, "system:serviceaccount:kyverno:kyverno")
 		if err != nil {
 			log.Log.Error(err, "policy validation error")
 			if strings.HasPrefix(err.Error(), "variable 'element.name'") {
