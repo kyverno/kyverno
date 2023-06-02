@@ -841,6 +841,11 @@ backgroundController:
       #     - ''
       #   resources:
       #     - pods
+      #   verbs:
+      #     - create
+      #     - update
+      #     - delete
+      #     - patch
 
   image:
     # -- Image registry
