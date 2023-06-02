@@ -87,21 +87,21 @@ const (
 
 var (
 	// kyvernoNamespace is the Kyverno namespace
-	kyvernoNamespace = osutils.MustGetEnv("KYVERNO_NAMESPACE")
+	kyvernoNamespace = osutils.GetEnvWithFallback("KYVERNO_NAMESPACE", "kyverno")
 	// kyvernoServiceAccountName is the Kyverno service account name
-	kyvernoServiceAccountName = osutils.MustGetEnv("KYVERNO_SERVICEACCOUNT_NAME")
+	kyvernoServiceAccountName = osutils.GetEnvWithFallback("KYVERNO_SERVICEACCOUNT_NAME", "kyverno")
 	// kyvernoDeploymentName is the Kyverno deployment name
-	kyvernoDeploymentName = osutils.MustGetEnv("KYVERNO_DEPLOYMENT")
+	kyvernoDeploymentName = osutils.GetEnvWithFallback("KYVERNO_DEPLOYMENT", "kyverno")
 	// kyvernoServiceName is the Kyverno service name
-	kyvernoServiceName = osutils.MustGetEnv("KYVERNO_SVC")
+	kyvernoServiceName = osutils.GetEnvWithFallback("KYVERNO_SVC", "kyverno-svc")
 	// kyvernoPodName is the Kyverno pod name
-	kyvernoPodName = osutils.MustGetEnv("KYVERNO_POD_NAME")
+	kyvernoPodName = osutils.GetEnvWithFallback("KYVERNO_POD_NAME", "kyverno")
 	// kyvernoConfigMapName is the Kyverno configmap name
-	kyvernoConfigMapName = osutils.MustGetEnv("INIT_CONFIG")
+	kyvernoConfigMapName = osutils.GetEnvWithFallback("INIT_CONFIG", "kyverno")
 	// kyvernoMetricsConfigMapName is the Kyverno metrics configmap name
-	kyvernoMetricsConfigMapName = osutils.MustGetEnv("METRICS_CONFIG")
+	kyvernoMetricsConfigMapName = osutils.GetEnvWithFallback("METRICS_CONFIG", "kyverno-metrics")
 	// kyvernoDryRunNamespace is the namespace for DryRun option of YAML verification
-	kyvernoDryrunNamespace = osutils.MustGetEnv("KYVERNO_DRYRUN_NAMESPACE")
+	kyvernoDryrunNamespace = osutils.GetEnvWithFallback("KYVERNO_DRYRUN_NAMESPACE", "kyverno-dryrun")
 )
 
 func KyvernoNamespace() string {
