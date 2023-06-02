@@ -15,11 +15,6 @@ spec:
     name: check-builder-id-keyless
     verifyImages:
     - attestations:
-      - attestors: 
-          - entries:
-            - keyless:
-                rekor:
-                  ignoreSCT: true
       - conditions:
         - all:
           - key: '{{ regex_match(''^https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@refs/heads/main'',''{{
