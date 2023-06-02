@@ -137,6 +137,11 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 			allPatches = append(allPatches, mutateResp.Patches...)
 		}
 	}
+
+	if len(allPatches) == 0 {
+		return mutate.NewResponse(engineapi.RuleStatusSkip, patchedResource.unstructured, nil, "no patches applied")
+	}
+
 	return mutate.NewResponse(engineapi.RuleStatusPass, patchedResource.unstructured, allPatches, "")
 }
 
