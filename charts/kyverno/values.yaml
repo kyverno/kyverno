@@ -851,6 +851,7 @@ backgroundController:
       #     - create
       #     - update
       #     - delete
+      #     - patch
 
   image:
     # -- Image registry
