@@ -129,7 +129,7 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 		return ruleResponse
 	}
 
-	v.log.V(2).Info("invalid validation rule: podSecurity, patterns, or deny expected")
+	v.log.V(2).Info("invalid validation rule: podSecurity, cel, patterns, or deny expected")
 	return nil
 }
 

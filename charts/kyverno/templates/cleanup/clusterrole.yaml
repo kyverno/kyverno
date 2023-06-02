@@ -13,3 +13,4 @@ rules:
     verbs:
       - list
       - deletecollection
+      - delete
