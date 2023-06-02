@@ -858,6 +858,7 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 		nil,
 		store.ContextLoaderFactory(nil),
 		nil,
+		"",
 	))
 	return c, nil
 }
