@@ -17,7 +17,7 @@ spec:
         jmesPath: request.object.data.content
     - name: targetContent
       variable:
-        jmesPath: target.data.content
+        jmesPath: "{{target.data.content}}"
     preconditions:
       all:
       - key: "{{ request.object.metadata.name }}"
