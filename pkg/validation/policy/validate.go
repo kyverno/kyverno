@@ -409,7 +409,7 @@ func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) erro
 			}
 		}
 
-		var mutateTarget = false
+		mutateTarget := false
 		if ruleCopy.Mutation.Targets != nil {
 			mutateTarget = true
 			withTargetOnly := new(kyvernov1.Rule)
