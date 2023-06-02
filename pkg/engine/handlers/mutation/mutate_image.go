@@ -76,7 +76,7 @@ func (h mutateImageHandler) Process(
 	}
 	var patches []jsonpatch.JsonPatchOperation
 	for _, response := range engineResponses {
-		patches = append(patches, response.Patches()...)
+		patches = append(patches, response.DeprecatedPatches()...)
 	}
 	if len(patches) != 0 {
 		patch := jsonutils.JoinPatches(patch.ConvertPatches(patches...)...)
