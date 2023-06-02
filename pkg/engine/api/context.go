@@ -26,6 +26,7 @@ func LoadVariable(logger logr.Logger, jp jmespath.Interface, entry kyvernov1.Con
 		logger.V(4).Info("evaluated jmespath", "variable name", entry.Name, "jmespath", path)
 	}
 	var defaultValue interface{} = nil
+
 	if entry.Variable.Default != nil {
 		value, err := variables.DocumentToUntyped(entry.Variable.Default)
 		if err != nil {
@@ -57,7 +58,9 @@ func LoadVariable(logger logr.Logger, jp jmespath.Interface, entry kyvernov1.Con
 	} else {
 		if path != "" {
 			if variable, err := ctx.Query(path); err == nil {
-				output = variable
+				if variable != nil {
+					output = variable
+				}
 			} else if defaultValue == nil {
 				return fmt.Errorf("failed to apply jmespath %s to variable %v", path, err)
 			}
