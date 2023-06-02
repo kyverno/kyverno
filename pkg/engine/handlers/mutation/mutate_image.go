@@ -22,10 +22,11 @@ import (
 )
 
 type mutateImageHandler struct {
-	configuration config.Configuration
-	rclient       registryclient.Client
-	ivm           *engineapi.ImageVerificationMetadata
-	images        []apiutils.ImageInfo
+	configuration            config.Configuration
+	rclient                  registryclient.Client
+	ivm                      *engineapi.ImageVerificationMetadata
+	images                   []apiutils.ImageInfo
+	imageSignatureRepository string
 }
 
 func NewMutateImageHandler(
@@ -35,6 +36,7 @@ func NewMutateImageHandler(
 	configuration config.Configuration,
 	rclient registryclient.Client,
 	ivm *engineapi.ImageVerificationMetadata,
+	imageSignatureRepository string,
 ) (handlers.Handler, error) {
 	if len(rule.VerifyImages) == 0 {
 		return nil, nil
@@ -47,10 +49,11 @@ func NewMutateImageHandler(
 		return nil, nil
 	}
 	return mutateImageHandler{
-		configuration: configuration,
-		rclient:       rclient,
-		ivm:           ivm,
-		images:        ruleImages,
+		configuration:            configuration,
+		rclient:                  rclient,
+		ivm:                      ivm,
+		images:                   ruleImages,
+		imageSignatureRepository: imageSignatureRepository,
 	}, nil
 }
 
@@ -69,7 +72,7 @@ func (h mutateImageHandler) Process(
 			engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to substitute variables", err),
 		)
 	}
-	iv := internal.NewImageVerifier(logger, h.rclient, policyContext, *ruleCopy, h.ivm)
+	iv := internal.NewImageVerifier(logger, h.rclient, policyContext, *ruleCopy, h.ivm, h.imageSignatureRepository)
 	var engineResponses []*engineapi.RuleResponse
 	for _, imageVerify := range ruleCopy.VerifyImages {
 		engineResponses = append(engineResponses, iv.Verify(ctx, imageVerify, h.images, h.configuration)...)
