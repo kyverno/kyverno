@@ -220,10 +220,6 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		if err := validateKinds(rule.ExcludeResources.Kinds, rule, mock, background, client); err != nil {
 			return warnings, fmt.Errorf("path: spec.rules[%d].exclude.kinds: %v", i, err)
 		}
-
-		if err := loopInGenerate(rule); err != nil {
-			return warnings, fmt.Errorf("path: spec.rules[%d]: %v", i, err)
-		}
 	}
 
 	for i, rule := range rules {

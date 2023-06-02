@@ -2,6 +2,7 @@ apiVersion: kyverno.io/v1
 kind: Policy
 metadata:
   name: pol-generate-prevent-loop
+  namespace: pol-generate-prevent-loop-ns
 spec:
   rules:
   - name: pol-generate-prevent-loop
@@ -16,7 +17,7 @@ spec:
       apiVersion: v1
       kind: ConfigMap
       name: corp-{{ random('[0-9a-z]{8}') }}
-      namespace: "{{request.namespace}}"
+      namespace: pol-generate-prevent-loop-ns
       synchronize: false
       data:
         data:
