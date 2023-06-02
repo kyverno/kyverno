@@ -11,65 +11,28 @@ var (
 	jp         = jmespath.New(cfg)
 )
 
-// var testPolicyGood = `{
-//   "apiVersion": "kyverno.io/v1",
-//   "kind": "ClusterPolicy",
-//   "metadata": {
-//     "name": "attest"
-//   },
-//   "spec": {
-//     "rules": [
-//       {
-//         "name": "attest",
-//         "match": {
-//           "resources": {
-//             "kinds": [
-//               "Pod"
-//             ]
-//           }
-//         },
-//         "verifyImages": [
-//           {
-//             "image": "*",
-//             "key": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHMmDjK65krAyDaGaeyWNzgvIu155JI50B2vezCw8+3CVeE0lJTL5dbL3OP98Za0oAEBJcOxky8Riy/XcmfKZbw==\n-----END PUBLIC KEY-----",
-//             "attestations": [
-//               {
-//                 "predicateType": "https://example.com/CodeReview/v1",
-// 				"attestors": [
-// 					{
-// 						"entries": [
-// 							{
-// 								"keys": {
-// 									"publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHMmDjK65krAyDaGaeyWNzgvIu155JI50B2vezCw8+3CVeE0lJTL5dbL3OP98Za0oAEBJcOxky8Riy/XcmfKZbw==\n-----END PUBLIC KEY-----"
-// 								}
-// 							}
-// 						]
-// 					}
-// 				],
-//                 "conditions": [
-//                   {
-//                     "all": [
-//                       {
-//                         "key": "{{ repo.uri }}",
-//                         "operator": "Equals",
-//                         "value": "https://github.com/example/my-project"
-//                       },
-//                       {
-//                         "key": "{{ repo.branch }}",
-//                         "operator": "Equals",
-//                         "value": "main"
-//                       }
-//                     ]
-//                   }
-//                 ]
-//               }
-//             ]
-//           }
-//         ]
-//       }
-//     ]
-//   }
-// }`
+// func testVerifyAndPatchImages(
+// 	ctx context.Context,
+// 	rclient registryclient.Client,
+// 	cmResolver engineapi.ConfigmapResolver,
+// 	pContext engineapi.PolicyContext,
+// 	cfg config.Configuration,
+// ) (engineapi.EngineResponse, engineapi.ImageVerificationMetadata) {
+// 	e := NewEngine(
+// 		cfg,
+// 		metricsCfg,
+// 		jp,
+// 		nil,
+// 		rclient,
+// 		engineapi.DefaultContextLoaderFactory(cmResolver),
+// 		nil,
+// 		"",
+// 	)
+// 	return e.VerifyAndPatchImages(
+// 		ctx,
+// 		pContext,
+// 	)
+// }
 
 // var testPolicyBad = `{
 //   "apiVersion": "kyverno.io/v1",
