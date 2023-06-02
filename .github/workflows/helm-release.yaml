@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
-      - uses: actions/setup-python@57ded4d7d5e986d7296eab16560982c6dd7c923b # v4.6.0
+      - uses: actions/setup-python@bd6b4b6205c4dbad673328db7b31b7fab9e241c0 # v4.6.1
         with:
           python-version: 3.7
       - name: Set up chart-testing
@@ -56,7 +56,7 @@ jobs:
           version: v3.10.3
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@03d0fecf172873164a163bbc64bed0f3bf114ed7 # v3.0.4
+        uses: sigstore/cosign-installer@dd6b2e2b610a11fd73dd187a43d57cc1394e35f9 # v3.0.5
         with:
           cosign-release: 'v1.13.0'
 

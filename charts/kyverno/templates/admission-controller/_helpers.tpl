@@ -19,7 +19,7 @@
 {{- end -}}
 
 {{- define "kyverno.admission-controller.roleName" -}}
-{{ .Release.Name }}:admission-controller
+{{ include "kyverno.fullname" . }}:admission-controller
 {{- end -}}
 
 {{- define "kyverno.admission-controller.serviceAccountName" -}}

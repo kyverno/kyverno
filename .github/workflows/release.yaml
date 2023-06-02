@@ -35,7 +35,7 @@ jobs:
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
       - name: Install Cosign
-        uses: sigstore/cosign-installer@03d0fecf172873164a163bbc64bed0f3bf114ed7 # v3.0.4
+        uses: sigstore/cosign-installer@dd6b2e2b610a11fd73dd187a43d57cc1394e35f9 # v3.0.5
         with:
           cosign-release: 'v1.13.0'
       - name: Publish kyverno
@@ -261,20 +261,20 @@ jobs:
         with:
           version: 0.35.0
       - name: Install Cosign
-        uses: sigstore/cosign-installer@03d0fecf172873164a163bbc64bed0f3bf114ed7 # v3.0.4
+        uses: sigstore/cosign-installer@dd6b2e2b610a11fd73dd187a43d57cc1394e35f9 # v3.0.5
         with:
           cosign-release: 'v1.13.0'
       - name: Build yaml manifest
         run: VERSION=${{ github.ref_name }} make codegen-manifest-release
       - name: Upload install manifest
-        uses: svenstaro/upload-release-action@7319e4733ec7a184d739a6f412c40ffc339b69c7 # 2.5.0
+        uses: svenstaro/upload-release-action@2b9d2847a97b04d02ad5c3df2d3a27baa97ce689 # 2.6.1
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: .manifest/release.yaml
           asset_name: install.yaml
           tag: ${{ github.ref }}
       - name: Upload CRD manifest
-        uses: svenstaro/upload-release-action@7319e4733ec7a184d739a6f412c40ffc339b69c7 # 2.5.0
+        uses: svenstaro/upload-release-action@2b9d2847a97b04d02ad5c3df2d3a27baa97ce689 # 2.6.1
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: config/crds/*.yaml
