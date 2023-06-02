@@ -401,22 +401,22 @@ func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) erro
 			}
 		}
 
-		// skip variable checks on mutate.targets, they will be validated separately
-		withoutTargets := ruleCopy.DeepCopy()
-		for i := range withoutTargets.Mutation.Targets {
-			withoutTargets.Mutation.Targets[i].RawAnyAllConditions = nil
-		}
-		ctx := buildContext(withoutTargets, background, false, nil)
-		if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *withoutTargets); !variables.CheckNotFoundErr(err) {
-			return fmt.Errorf("variable substitution failed for rule %s: %s", withoutTargets.Name, err.Error())
+		mutateTarget := false
+		if ruleCopy.Mutation.Targets != nil {
+			mutateTarget = true
+			withTargetOnly := ruleWithoutPattern(ruleCopy)
+			for i := range ruleCopy.Mutation.Targets {
+				withTargetOnly.Mutation.Targets[i].ResourceSpec = ruleCopy.Mutation.Targets[i].ResourceSpec
+				ctx := buildContext(withTargetOnly, background, false)
+				if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *withTargetOnly); !variables.CheckNotFoundErr(err) {
+					return fmt.Errorf("invalid variables defined at mutate.targets[%d]: %s", i, err.Error())
+				}
+			}
 		}
 
-		// perform variable checks with mutate.targets
-		for _, target := range r.Mutation.Targets {
-			ctx := buildContext(ruleCopy, background, true, target.Context)
-			if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *ruleCopy); !variables.CheckNotFoundErr(err) {
-				return fmt.Errorf("variable substitution failed for rule target %s: %s", ruleCopy.Name, err.Error())
-			}
+		ctx := buildContext(ruleCopy, background, mutateTarget)
+		if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *ruleCopy); !variables.CheckNotFoundErr(err) {
+			return fmt.Errorf("variable substitution failed for rule %s: %s", ruleCopy.Name, err.Error())
 		}
 	}
 
@@ -551,7 +551,15 @@ func imageRefHasVariables(verifyImages []kyvernov1.ImageVerification) error {
 	return nil
 }
 
-func buildContext(rule *kyvernov1.Rule, background bool, target bool, targetContext []kyvernov1.ContextEntry) *enginecontext.MockContext {
+func ruleWithoutPattern(ruleCopy *kyvernov1.Rule) *kyvernov1.Rule {
+	withTargetOnly := new(kyvernov1.Rule)
+	withTargetOnly.Mutation.Targets = make([]kyvernov1.TargetResourceSpec, len(ruleCopy.Mutation.Targets))
+	withTargetOnly.Context = ruleCopy.Context
+	withTargetOnly.RawAnyAllConditions = ruleCopy.RawAnyAllConditions
+	return withTargetOnly
+}
+
+func buildContext(rule *kyvernov1.Rule, background bool, target bool) *enginecontext.MockContext {
 	re := getAllowedVariables(background, target)
 	ctx := enginecontext.NewMockContext(re)
 	addContextVariables(rule.Context, ctx)
