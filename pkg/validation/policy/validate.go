@@ -414,6 +414,8 @@ func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) erro
 			mutateTarget = true
 			withTargetOnly := new(kyvernov1.Rule)
 			withTargetOnly.Mutation.Targets = make([]kyvernov1.TargetResourceSpec, len(ruleCopy.Mutation.Targets))
+			withTargetOnly.Context = ruleCopy.Context
+			withTargetOnly.RawAnyAllConditions = ruleCopy.RawAnyAllConditions
 			for i := range ruleCopy.Mutation.Targets {
 				withTargetOnly.Mutation.Targets[i].ResourceSpec = ruleCopy.Mutation.Targets[i].ResourceSpec
 				ctx := buildContext(withTargetOnly, background, false)
