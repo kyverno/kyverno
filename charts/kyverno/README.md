@@ -407,6 +407,7 @@ The chart values are organised per component.
 | backgroundController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
 | backgroundController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
 | backgroundController.extraArgs | object | `{}` | Extra arguments passed to the container on the command line |
+| backgroundController.extraEnvVars | list | `[]` | Additional container environment variables. |
 | backgroundController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
 | backgroundController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
 | backgroundController.nodeSelector | object | `{}` | Node labels for pod assignment |
@@ -468,6 +469,7 @@ The chart values are organised per component.
 | cleanupController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
 | cleanupController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
 | cleanupController.extraArgs | object | `{}` | Extra arguments passed to the container on the command line |
+| cleanupController.extraEnvVars | list | `[]` | Additional container environment variables. |
 | cleanupController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
 | cleanupController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
 | cleanupController.startupProbe | object | See [values.yaml](values.yaml) | Startup probe. The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
@@ -535,6 +537,7 @@ The chart values are organised per component.
 | reportsController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
 | reportsController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
 | reportsController.extraArgs | object | `{}` | Extra arguments passed to the container on the command line |
+| reportsController.extraEnvVars | list | `[]` | Additional container environment variables. |
 | reportsController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
 | reportsController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
 | reportsController.nodeSelector | object | `{}` | Node labels for pod assignment |
