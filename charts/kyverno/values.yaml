@@ -904,6 +904,9 @@ backgroundController:
   # -- Extra arguments passed to the container on the command line
   extraArgs: {}
 
+  # -- Additional container environment variables.
+  extraEnvVars: []
+
   resources:
     # -- Pod resource limits
     limits:
@@ -1114,6 +1117,9 @@ cleanupController:
 
   # -- Extra arguments passed to the container on the command line
   extraArgs: {}
+
+  # -- Additional container environment variables.
+  extraEnvVars: []
 
   resources:
     # -- Pod resource limits
@@ -1375,6 +1381,9 @@ reportsController:
 
   # -- Extra arguments passed to the container on the command line
   extraArgs: {}
+
+  # -- Additional container environment variables.
+  extraEnvVars: []
 
   resources:
     # -- Pod resource limits
