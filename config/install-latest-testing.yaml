@@ -35068,7 +35068,7 @@ spec:
             - --protectManagedResources=false
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
-          resources: 
+          resources:
             limits:
               memory: 384Mi
             requests:
@@ -35222,7 +35222,7 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
-          resources: 
+          resources:
             limits:
               memory: 128Mi
             requests:
@@ -35318,7 +35318,7 @@ spec:
                 fieldPath: metadata.namespace
           - name: KYVERNO_SVC
             value: kyverno-cleanup-controller
-          resources: 
+          resources:
             limits:
               memory: 128Mi
             requests:
@@ -35448,7 +35448,7 @@ spec:
                 fieldPath: metadata.namespace
           - name: TUF_ROOT
             value: /.sigstore
-          resources: 
+          resources:
             limits:
               memory: 128Mi
             requests:

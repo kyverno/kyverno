@@ -131,8 +131,12 @@ spec:
                 fieldPath: metadata.namespace
           - name: KYVERNO_SVC
             value: {{ template "kyverno.cleanup-controller.name" . }}
+          {{- with .Values.cleanupController.extraEnvVars }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
           {{- with .Values.cleanupController.resources }}
-          resources: {{ tpl (toYaml .) $ | nindent 12 }}
+          resources:
+            {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           {{- with .Values.cleanupController.securityContext }}
           securityContext:
