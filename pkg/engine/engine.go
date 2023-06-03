@@ -28,13 +28,14 @@ import (
 )
 
 type engine struct {
-	configuration        config.Configuration
-	metricsConfiguration config.MetricsConfiguration
-	jp                   jmespath.Interface
-	client               dclient.Interface
-	rclient              registryclient.Client
-	contextLoader        engineapi.ContextLoaderFactory
-	exceptionSelector    engineapi.PolicyExceptionSelector
+	configuration            config.Configuration
+	metricsConfiguration     config.MetricsConfiguration
+	jp                       jmespath.Interface
+	client                   dclient.Interface
+	rclient                  registryclient.Client
+	contextLoader            engineapi.ContextLoaderFactory
+	exceptionSelector        engineapi.PolicyExceptionSelector
+	imageSignatureRepository string
 	// metrics
 	resultCounter     metric.Int64Counter
 	durationHistogram metric.Float64Histogram
@@ -50,6 +51,7 @@ func NewEngine(
 	rclient registryclient.Client,
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,
+	imageSignatureRepository string,
 ) engineapi.Engine {
 	meter := global.MeterProvider().Meter(metrics.MeterName)
 	resultCounter, err := meter.Int64Counter(
@@ -67,15 +69,16 @@ func NewEngine(
 		logging.Error(err, "failed to register metric kyverno_policy_execution_duration_seconds")
 	}
 	return &engine{
-		configuration:        configuration,
-		metricsConfiguration: metricsConfiguration,
-		jp:                   jp,
-		client:               client,
-		rclient:              rclient,
-		contextLoader:        contextLoader,
-		exceptionSelector:    exceptionSelector,
-		resultCounter:        resultCounter,
-		durationHistogram:    durationHistogram,
+		configuration:            configuration,
+		metricsConfiguration:     metricsConfiguration,
+		jp:                       jp,
+		client:                   client,
+		rclient:                  rclient,
+		contextLoader:            contextLoader,
+		exceptionSelector:        exceptionSelector,
+		imageSignatureRepository: imageSignatureRepository,
+		resultCounter:            resultCounter,
+		durationHistogram:        durationHistogram,
 	}
 }
 
