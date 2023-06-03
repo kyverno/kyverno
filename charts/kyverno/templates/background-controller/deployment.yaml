@@ -131,8 +131,12 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          {{- with .Values.backgroundController.extraEnvVars }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
           {{- with .Values.backgroundController.resources }}
-          resources: {{ tpl (toYaml .) $ | nindent 12 }}
+          resources:
+            {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           {{- with .Values.backgroundController.securityContext }}
           securityContext:
