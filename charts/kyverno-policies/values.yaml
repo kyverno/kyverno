@@ -22,7 +22,7 @@ failurePolicy: Fail
 
 # -- Validation failure action (`audit`, `enforce`).
 # For more info https://kyverno.io/docs/writing-policies/validate.
-validationFailureAction: audit
+validationFailureAction: Audit
 
 # -- Define validationFailureActionByPolicy for specific policies.
 # Override the defined `validationFailureAction` with a individual validationFailureAction for individual Policies.
