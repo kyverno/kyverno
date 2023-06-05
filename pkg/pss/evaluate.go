@@ -5,15 +5,14 @@ import (
 	"regexp"
 	"strconv"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/pod-security-admission/api"
 	"k8s.io/pod-security-admission/policy"
-
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
-	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 )
 
 var (
@@ -39,7 +38,7 @@ func evaluatePSS(level *api.LevelVersion, pod corev1.Pod) (results []pssutils.PS
 		}
 
 		if level.Version == api.LatestVersion() {
-			checkResult := latestVersionCheck.CheckPod(&pod.ObjectMeta, &pod.Spec)
+			checkResult := latestVersionCheck.CheckPod(&pod.ObjectMeta, &pod.Spec, policy.WithFieldErrors())
 			if !checkResult.Allowed {
 				results = append(results, pssutils.PSSCheckResult{
 					ID:               string(check.ID),
