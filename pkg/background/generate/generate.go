@@ -415,14 +415,11 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, t
 					newResource.SetNamespace("default")
 				}
 
-				// TODO(shuting): uncomment
-				// if _, err := ValidateResourceWithPattern(logger, generatedObj.Object, newResource.Object); err != nil {
 				_, err = client.UpdateResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), newResource, false)
 				if err != nil {
 					logger.Error(err, "failed to update resource")
 					return newGenResources, err
 				}
-				// }
 			}
 			logger.V(3).Info("updated generate target resource")
 		}
