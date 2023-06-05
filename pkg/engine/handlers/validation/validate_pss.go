@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
+	"strings"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -48,6 +50,7 @@ func (h validatePssHandler) Process(
 	if err != nil {
 		return resource, handlers.WithError(rule, engineapi.Validation, "failed to parse pod security api version", err)
 	}
+	pssChecks = convertChecks(pssChecks, resource.GetKind())
 	podSecurityChecks := engineapi.PodSecurityChecks{
 		Level:   podSecurity.Level,
 		Version: podSecurity.Version,
@@ -64,6 +67,29 @@ func (h validatePssHandler) Process(
 			engineapi.RuleFail(rule.Name, engineapi.Validation, msg).WithPodSecurityChecks(podSecurityChecks),
 		)
 	}
+}
+
+func convertChecks(checks []pssutils.PSSCheckResult, kind string) (newChecks []pssutils.PSSCheckResult) {
+	if kind == "DaemonSet" || kind == "Deployment" || kind == "Job" || kind == "StatefulSet" || kind == "ReplicaSet" || kind == "ReplicationController" {
+		for i := range checks {
+			for j := range *checks[i].CheckResult.ErrList {
+				(*checks[i].CheckResult.ErrList)[j].Field = strings.ReplaceAll((*checks[i].CheckResult.ErrList)[j].Field, "spec", "spec.template.spec")
+			}
+		}
+	} else if kind == "CronJob" {
+		for i := range checks {
+			for j := range *checks[i].CheckResult.ErrList {
+				(*checks[i].CheckResult.ErrList)[j].Field = strings.ReplaceAll((*checks[i].CheckResult.ErrList)[j].Field, "spec", "spec.jobTemplate.spec.template.spec")
+			}
+		}
+	}
+	for i := range checks {
+		for j := range *checks[i].CheckResult.ErrList {
+			(*checks[i].CheckResult.ErrList)[j].Field = strings.ReplaceAll((*checks[i].CheckResult.ErrList)[j].Field, "metadata", "spec.template.metadata")
+		}
+	}
+
+	return checks
 }
 
 func getSpec(resource unstructured.Unstructured) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta, err error) {

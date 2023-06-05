@@ -1469,7 +1469,7 @@ var baseline_seLinux = []testCase{
 				]
 			}
 		}`),
-		allowed: true,
+		allowed: false,
 	},
 	{
 		name: "baseline_seLinux_type_defines_all_violate_true_2",

@@ -425,6 +425,15 @@ type PodSecurityStandard struct {
 	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
 	// +optional
 	Images []string `json:"images,omitempty" yaml:"images,omitempty"`
+
+	// RestrictedField selects the field for the given Pod Security Standard control.
+	// When not set, all restricted fields for the control are selected.
+	// +optional
+	RestrictedField string `json:"restrictedField,omitempty" yaml:"restrictedField,omitempty"`
+
+	// Values defines the allowed values that can be excluded.
+	// +optional
+	Values []string `json:"values,omitempty" yaml:"values,omitempty"`
 }
 
 // CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).

@@ -74,7 +74,7 @@ require (
 	k8s.io/client-go v0.27.2
 	k8s.io/klog/v2 v2.100.1
 	k8s.io/kube-aggregator v0.27.2
-	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f
+	k8s.io/kube-openapi v0.0.0-20230601164746-7562a1006961
 	k8s.io/pod-security-admission v0.27.2
 	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
 	sigs.k8s.io/controller-runtime v0.15.0
@@ -85,8 +85,7 @@ require (
 
 require (
 	cloud.google.com/go/compute v1.19.1 // indirect
-	github.com/antlr/antlr4/runtime/Go/antlr v1.4.10 // indirect
-	github.com/google/cel-go v0.12.6 // indirect
+	github.com/google/cel-go v0.16.0 // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect
 )
 
@@ -125,6 +124,7 @@ require (
 	github.com/alibabacloud-go/tea-utils v1.4.5 // indirect
 	github.com/alibabacloud-go/tea-xml v1.1.3 // indirect
 	github.com/aliyun/credentials-go v1.2.7 // indirect
+	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230305170008-8188dc5388df // indirect
 	github.com/aws/aws-sdk-go-v2 v1.17.7 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.18.19 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.18 // indirect
@@ -320,7 +320,9 @@ require (
 	golang.org/x/tools v0.9.1 // indirect
 	google.golang.org/api v0.115.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20230403163135-c38d8f061ccd // indirect
+	google.golang.org/genproto v0.0.0-20230526161137-0005af68ea54 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20230525234035-dd9d682886f9 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20230525234030-28d5490b6b19 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/go-jose/go-jose.v2 v2.6.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
@@ -338,4 +340,6 @@ require (
 replace (
 	github.com/jmespath/go-jmespath => github.com/kyverno/go-jmespath v0.4.1-0.20230204162932-3ee946b9433d
 	github.com/mattbaird/jsonpatch => gomodules.xyz/jsonpatch/v2 v2.2.0
+	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f
+	k8s.io/pod-security-admission v0.27.2 => github.com/YTGhost/pod-security-admission v0.0.0-20230604065754-e751b1cb280c
 )

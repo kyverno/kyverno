@@ -19,3 +19,4 @@ cmd/background-controller/background-controller
 .dist
 .manifest
 kyverno.tar.gz
+vendor/
