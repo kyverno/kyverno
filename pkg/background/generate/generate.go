@@ -350,7 +350,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, t
 	logger := log.WithValues("target", target.String())
 
 	if rule.Generation.Clone.Name != "" {
-		resp := manageClone(logger.WithValues("type", "clone"), target, policy, ur, rule, client)
+		resp := manageClone(logger.WithValues("type", "clone"), target, kyvernov1.ResourceSpec{}, policy, ur, rule, client)
 		responses = append(responses, resp)
 	} else if len(rule.Generation.CloneList.Kinds) != 0 {
 		responses = manageCloneList(logger.WithValues("type", "cloneList"), target.GetNamespace(), ur, policy, rule, client)
@@ -362,7 +362,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, t
 	for _, response := range responses {
 		targetMeta := response.GetTarget()
 		if response.GetError() != nil {
-			logger.Error(err, "failed to generate resource", "mode", response.GetAction())
+			logger.Error(response.GetError(), "failed to generate resource", "mode", response.GetAction())
 			return newGenResources, err
 		}
 

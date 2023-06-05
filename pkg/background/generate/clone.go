@@ -13,18 +13,20 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-func manageClone(log logr.Logger, target kyvernov1.ResourceSpec, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest, rule kyvernov1.Rule, client dclient.Interface) generateResponse {
+func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest, rule kyvernov1.Rule, client dclient.Interface) generateResponse {
+	source := sourceSpec
 	clone := rule.Generation
-	source := kyvernov1.ResourceSpec{
-		APIVersion: target.GetAPIVersion(),
-		Kind:       target.GetKind(),
-		Namespace:  clone.Clone.Namespace,
-		Name:       clone.Clone.Name,
+	if clone.Clone.Name != "" {
+		source = kyvernov1.ResourceSpec{
+			APIVersion: target.GetAPIVersion(),
+			Kind:       target.GetKind(),
+			Namespace:  clone.Clone.Namespace,
+			Name:       clone.Clone.Name,
+		}
 	}
 
-	sourceNamespace := clone.Clone.Namespace
-	if sourceNamespace == "" {
-		log.V(4).Info("resource namespace %s , optional in case of cluster scope resource", sourceNamespace)
+	if source.GetNamespace() == "" {
+		log.V(4).Info("namespace is optional in case of cluster scope resource", "source namespace", source.GetNamespace())
 	}
 
 	if source.GetNamespace() == target.GetNamespace() && source.GetName() == target.GetName() ||
@@ -78,10 +80,6 @@ func manageCloneList(log logr.Logger, targetNamespace string, ur kyvernov1beta1.
 	var responses []generateResponse
 	cloneList := rule.Generation.CloneList
 	sourceNamespace := cloneList.Namespace
-	if sourceNamespace == "" {
-		log.V(4).Info("resource namespace %s , optional in case of cluster scope resource", sourceNamespace)
-	}
-
 	kinds := cloneList.Kinds
 	for _, kind := range kinds {
 		apiVersion, kind := kubeutils.GetKindFromGVK(kind)
@@ -98,7 +96,8 @@ func manageCloneList(log logr.Logger, targetNamespace string, ur kyvernov1beta1.
 
 		for _, source := range sources.Items {
 			target := newResourceSpec(source.GetAPIVersion(), source.GetKind(), targetNamespace, source.GetName())
-			responses = append(responses, manageClone(log, target, policy, ur, rule, client))
+			responses = append(responses,
+				manageClone(log, target, newResourceSpec(source.GetAPIVersion(), source.GetKind(), source.GetNamespace(), source.GetName()), policy, ur, rule, client))
 		}
 	}
 	return responses
