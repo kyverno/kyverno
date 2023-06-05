@@ -185,11 +185,17 @@ func (e *engine) ContextLoader(
 }
 
 // matches checks if either the new or old resource satisfies the filter conditions defined in the rule
-func matches(
+func (e *engine) matches(
 	rule kyvernov1.Rule,
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 ) error {
+	if policyContext.AdmissionOperation() {
+		request := policyContext.AdmissionInfo()
+		if e.configuration.IsExcluded(request.AdmissionUserInfo.Username, request.AdmissionUserInfo.Groups, request.Roles, request.ClusterRoles) {
+			return fmt.Errorf("excluded by configuration")
+		}
+	}
 	gvk, subresource := policyContext.ResourceKind()
 	err := engineutils.MatchesResourceDescription(
 		resource,
@@ -238,7 +244,7 @@ func (e *engine) invokeRuleHandler(
 		fmt.Sprintf("RULE %s", rule.Name),
 		func(ctx context.Context, span trace.Span) (unstructured.Unstructured, []engineapi.RuleResponse) {
 			// check if resource and rule match
-			if err := matches(rule, policyContext, resource); err != nil {
+			if err := e.matches(rule, policyContext, resource); err != nil {
 				logger.V(4).Info("rule not matched", "reason", err.Error())
 				return resource, nil
 			}
