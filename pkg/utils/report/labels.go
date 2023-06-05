@@ -74,8 +74,6 @@ func CleanupKyvernoLabels(obj metav1.Object) {
 			delete(labels, key)
 		}
 	}
-
-	obj.SetLabels(labels)
 }
 
 func SetManagedByKyvernoLabel(obj metav1.Object) {
