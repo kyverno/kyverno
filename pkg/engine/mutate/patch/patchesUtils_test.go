@@ -5,13 +5,13 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
-	assertnew "github.com/stretchr/testify/assert"
-	"gotest.tools/assert"
+	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_GeneratePatches(t *testing.T) {
 	out, err := strategicMergePatch(logr.Discard(), string(baseBytes), string(overlayBytes))
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	expectedPatches := map[string]bool{
 		`{"op":"add","path":"/spec/template/spec/initContainers","value":[{"command":["echo $(WORDPRESS_SERVICE)","echo $(MYSQL_SERVICE)"],"image":"debian","name":"init-command"}]}`:                                                                                                                                                                                                                                                    true,
 		`{"op":"add","path":"/spec/template/spec/containers/1","value":{"env":[{"name":"WORDPRESS_DB_HOST","value":"$(MYSQL_SERVICE)"},{"name":"WORDPRESS_DB_PASSWORD","valueFrom":{"secretKeyRef":{"key":"password","name":"mysql-pass"}}}],"image":"wordpress:4.8-apache","name":"wordpress","ports":[{"containerPort":80,"name":"wordpress"}],"volumeMounts":[{"mountPath":"/var/www/html","name":"wordpress-persistent-storage"}]}}`: true,
@@ -21,9 +21,9 @@ func Test_GeneratePatches(t *testing.T) {
 		`{"op":"remove","path":"/spec/template/spec/containers/0/volumeMounts"}`:           true,
 	}
 	patches, err := generatePatches(baseBytes, out)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	for _, p := range patches {
-		assertnew.Equal(t, expectedPatches[p.Json()], true)
+		assert.Equal(t, expectedPatches[p.Json()], true)
 	}
 }
 
@@ -211,25 +211,16 @@ func Test_ignorePath(t *testing.T) {
 
 	for _, test := range tests {
 		res := ignorePatch(test.path)
-		assertnew.Equal(t, test.ignore, res, fmt.Sprintf("test fails at %s", test.path))
+		assert.Equal(t, test.ignore, res, fmt.Sprintf("test fails at %s", test.path))
 	}
 }
 
 func Test_GeneratePatches_sortRemovalPatches(t *testing.T) {
 	base := []byte(`{"apiVersion": "apps/v1","kind": "Deployment","metadata": {"name": "nginx-deployment","labels": {"app": "nginx"}},"spec": {"selector": {"matchLabels": {"app": "nginx"}},"replicas": 1,"template": {"metadata": {"labels": {"app": "nginx"}},"spec": {"containers": [{"name": "nginx","image": "nginx:1.14.2","ports": [{"containerPort": 80}]}],"tolerations": [{"effect": "NoExecute","key": "node.kubernetes.io/not-ready","operator": "Exists","tolerationSeconds": 300},{"effect": "NoExecute","key": "node.kubernetes.io/unreachable","operator": "Exists","tolerationSeconds": 300}]}}}}`)
-	patchedResource := []byte(`{"apiVersion": "apps/v1","kind": "Deployment","metadata": {"name": "nginx-deployment","labels": {"app": "nginx"}},"spec": {"selector": {"matchLabels": {"app": "nginx"}},"replicas": 1,"template": {"metadata": {"labels": {"app": "nginx"}},"spec": {"containers": [{"name": "nginx","image": "nginx:1.14.2","ports": [{"containerPort": 80}]}],"tolerations": [{"effect": "NoSchedule","key": "networkzone","operator": "Equal","value": "dmz"}]}}}}`)
-	expectedPatches := [][]byte{
-		[]byte(`{"op":"remove","path":"/spec/template/spec/tolerations/1"}`),
-		[]byte(`{"op":"replace","path":"/spec/template/spec/tolerations/0/effect","value":"NoSchedule"}`),
-		[]byte(`{"op":"replace","path":"/spec/template/spec/tolerations/0/key","value":"networkzone"}`),
-		[]byte(`{"op":"replace","path":"/spec/template/spec/tolerations/0/operator","value":"Equal"}`),
-		[]byte(`{"op":"add","path":"/spec/template/spec/tolerations/0/value","value":"dmz"}`),
-		[]byte(`{"op":"remove","path":"/spec/template/spec/tolerations/0/tolerationSeconds"}`),
-	}
-	patches, err := generatePatches(base, patchedResource)
-	assertnew.Nil(t, err)
-	for _, patch := range patches {
-		fmt.Println(patch.Json())
-	}
-	assertnew.Equal(t, expectedPatches, ConvertPatches(patches...))
+	expectedResource := []byte(`{"apiVersion": "apps/v1","kind": "Deployment","metadata": {"name": "nginx-deployment","labels": {"app": "nginx"}},"spec": {"selector": {"matchLabels": {"app": "nginx"}},"replicas": 1,"template": {"metadata": {"labels": {"app": "nginx"}},"spec": {"containers": [{"name": "nginx","image": "nginx:1.14.2","ports": [{"containerPort": 80}]}],"tolerations": [{"effect": "NoSchedule","key": "networkzone","operator": "Equal","value": "dmz"}]}}}}`)
+	generatedPatches, err := generatePatches(base, expectedResource)
+	assert.NoError(t, err)
+	patchedResource, err := engineutils.ApplyPatches(base, ConvertPatches(generatedPatches...))
+	assert.NoError(t, err)
+	assert.JSONEq(t, string(expectedResource), string(patchedResource))
 }
