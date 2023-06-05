@@ -15,11 +15,6 @@ import (
 
 func manageClone(log logr.Logger, target kyvernov1.ResourceSpec, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest, rule kyvernov1.Rule, client dclient.Interface) generateResponse {
 	clone := rule.Generation
-	if !clone.Synchronize {
-		log.V(4).Info("synchronize disabled, skip updating target resource for clone")
-		return newSkipGenerateResponse(nil, target, nil)
-	}
-
 	source := kyvernov1.ResourceSpec{
 		APIVersion: target.GetAPIVersion(),
 		Kind:       target.GetKind(),
@@ -32,8 +27,8 @@ func manageClone(log logr.Logger, target kyvernov1.ResourceSpec, policy kyvernov
 		log.V(4).Info("resource namespace %s , optional in case of cluster scope resource", sourceNamespace)
 	}
 
-	if source.GetNamespace() == target.GetNamespace() ||
-		(rule.Generation.CloneList.Kinds == nil) && (source.GetName() == target.GetName()) {
+	if source.GetNamespace() == target.GetNamespace() && source.GetName() == target.GetName() ||
+		(rule.Generation.CloneList.Kinds != nil) && (source.GetNamespace() == target.GetNamespace()) {
 		log.V(4).Info("skip resource self-clone")
 		return newSkipGenerateResponse(nil, target, nil)
 	}
@@ -47,16 +42,19 @@ func manageClone(log logr.Logger, target kyvernov1.ResourceSpec, policy kyvernov
 		log.Error(err, "failed to add labels to the source", "kind", sourceObj.GetKind(), "namespace", sourceObj.GetNamespace(), "name", sourceObj.GetName())
 	}
 
+	sourceObjCopy := sourceObj.DeepCopy()
 	targetObj, err := client.GetResource(context.TODO(), target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName())
 	if err != nil {
 		if apierrors.IsNotFound(err) && len(ur.Status.GeneratedResources) != 0 && !clone.Synchronize {
 			log.V(4).Info("synchronization is disabled, recreation will be skipped", "target resource", targetObj)
 			return newSkipGenerateResponse(nil, target, nil)
 		}
+		if apierrors.IsNotFound(err) {
+			return newCreateGenerateResponse(sourceObjCopy.UnstructuredContent(), target, nil)
+		}
 		return newSkipGenerateResponse(nil, target, fmt.Errorf("failed to get the target source: %v", err))
 	}
 
-	sourceObjCopy := sourceObj.DeepCopy()
 	if sourceObjCopy.GetNamespace() != target.GetNamespace() && sourceObjCopy.GetOwnerReferences() != nil {
 		sourceObjCopy.SetOwnerReferences(nil)
 	}

@@ -19,11 +19,6 @@ func manageData(log logr.Logger, target kyvernov1.ResourceSpec, data interface{}
 		return newSkipGenerateResponse(nil, target, nil)
 	}
 
-	if !synchronize {
-		log.V(4).Info("synchronize disabled, skip updating target resource for data")
-		return newSkipGenerateResponse(nil, target, nil)
-	}
-
 	resource, err := datautils.ToMap(data)
 	if err != nil {
 		return newSkipGenerateResponse(nil, target, err)
@@ -43,6 +38,11 @@ func manageData(log logr.Logger, target kyvernov1.ResourceSpec, data interface{}
 	}
 
 	log.V(4).Info("found target resource")
+	if !synchronize {
+		log.V(4).Info("synchronize disabled, skip updating target resource for data")
+		return newSkipGenerateResponse(nil, target, nil)
+	}
+
 	updateObj := &unstructured.Unstructured{}
 	updateObj.SetUnstructuredContent(resource)
 	updateObj.SetResourceVersion(targetObj.GetResourceVersion())
