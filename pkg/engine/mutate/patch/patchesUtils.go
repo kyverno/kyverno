@@ -34,7 +34,6 @@ func filterInvalidPatches(patches []jsonpatch.JsonPatchOperation) []jsonpatch.Js
 		if ignorePatch(patch.Path) {
 			continue
 		}
-
 		res = append(res, patch)
 	}
 	return res
@@ -44,11 +43,9 @@ func ignorePatch(path string) bool {
 	if wildcard.Match("/spec/triggers/*/metadata/*", path) {
 		return false
 	}
-
 	if wildcard.Match("*/metadata", path) {
 		return false
 	}
-
 	if strings.Contains(path, "/metadata") {
 		if !strings.Contains(path, "/metadata/name") &&
 			!strings.Contains(path, "/metadata/namespace") &&
@@ -60,6 +57,5 @@ func ignorePatch(path string) bool {
 			return true
 		}
 	}
-
 	return false
 }
