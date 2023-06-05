@@ -18,7 +18,7 @@ spec:
           kinds:
           - Secret
     generate:
-      synchronize: false
+      synchronize: true
       apiVersion: v1
       kind: ConfigMap
       name: zk-kafka-address
