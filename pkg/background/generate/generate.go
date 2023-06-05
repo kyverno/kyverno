@@ -406,6 +406,9 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, t
 				}
 				newGenResources = append(newGenResources, targetMeta)
 			} else {
+				if !rule.Generation.Synchronize {
+					logger.V(4).Info("synchronize disabled, skip syncing changes")
+				}
 				logger.V(4).Info("updating existing resource")
 				if targetMeta.GetAPIVersion() == "" {
 					generatedResourceAPIVersion := generatedObj.GetAPIVersion()
