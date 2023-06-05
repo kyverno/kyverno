@@ -483,7 +483,7 @@ func Test_SignatureGoodSigned(t *testing.T) {
 	constainers, found, err := unstructured.NestedSlice(engineResp.PatchedResource.UnstructuredContent(), "spec", "containers")
 	assert.NilError(t, err)
 	assert.Equal(t, true, found)
-	image, found, err := unstructured.NestedMap(constainers[0].(map[string]interface{}), "image")
+	image, found, err := unstructured.NestedString(constainers[0].(map[string]interface{}), "image")
 	assert.NilError(t, err)
 	assert.Equal(t, true, found)
 	assert.Equal(t, "ghcr.io/kyverno/test-verify-image:signed@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", image)
