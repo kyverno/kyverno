@@ -20,7 +20,7 @@ includeRestrictedPolicies: []
 # For more info: https://kyverno.io/docs/writing-policies/policy-settings/
 failurePolicy: Fail
 
-# -- Validation failure action (`audit`, `enforce`).
+# -- Validation failure action (`Audit`, `Enforce`).
 # For more info https://kyverno.io/docs/writing-policies/validate.
 validationFailureAction: Audit
 
