@@ -141,8 +141,10 @@ func (e *engine) VerifyAndPatchImages(
 	ivm := engineapi.ImageVerificationMetadata{}
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.verify"), policyContext)
 	if internal.MatchPolicyContext(logger, policyContext, e.configuration) {
-		policyResponse, innerIvm := e.verifyAndPatchImages(ctx, logger, policyContext)
-		response, ivm = response.WithPolicyResponse(policyResponse), innerIvm
+		policyResponse, patchedResource, innerIvm := e.verifyAndPatchImages(ctx, logger, policyContext)
+		response, ivm = response.
+			WithPolicyResponse(policyResponse).
+			WithPatchedResource(patchedResource), innerIvm
 	}
 	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
 	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
