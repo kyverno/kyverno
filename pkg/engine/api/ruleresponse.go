@@ -137,7 +137,7 @@ func (r *RuleResponse) GeneratedResource() unstructured.Unstructured {
 	return r.generatedResource
 }
 
-func (r *RuleResponse) Patches() []jsonpatch.JsonPatchOperation {
+func (r *RuleResponse) DeprecatedPatches() []jsonpatch.JsonPatchOperation {
 	return r.patches
 }
 

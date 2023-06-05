@@ -130,7 +130,7 @@ func annotationFromEngineResponses(engineResponses []engineapi.EngineResponse, l
 func annotationFromPolicyResponse(policyResponse engineapi.PolicyResponse, log logr.Logger) []RulePatch {
 	var RulePatches []RulePatch
 	for _, ruleInfo := range policyResponse.Rules {
-		for _, patch := range ruleInfo.Patches() {
+		for _, patch := range ruleInfo.DeprecatedPatches() {
 			rp := RulePatch{
 				RuleName: ruleInfo.Name(),
 				Op:       patch.Operation,
