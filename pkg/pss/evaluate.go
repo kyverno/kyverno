@@ -2,17 +2,18 @@ package pss
 
 import (
 	"fmt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/validation/field"
 	"regexp"
 	"strconv"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/pod-security-admission/api"
+	"k8s.io/pod-security-admission/policy"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/pod-security-admission/api"
-	"k8s.io/pod-security-admission/policy"
 )
 
 var (
