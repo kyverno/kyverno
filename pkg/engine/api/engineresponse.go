@@ -168,11 +168,6 @@ func (er EngineResponse) GetPatches() []jsonpatch.JsonPatchOperation {
 		return nil
 	}
 	return patches
-	// var patches []jsonpatch.JsonPatchOperation
-	// for _, r := range er.PolicyResponse.Rules {
-	// 	patches = append(patches, r.Patches()...)
-	// }
-	// return patches
 }
 
 // GetFailedRules returns failed rules

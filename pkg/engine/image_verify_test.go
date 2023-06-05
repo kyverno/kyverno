@@ -5,6 +5,29 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 )
 
+// import (
+// 	"context"
+// 	"encoding/json"
+// 	"fmt"
+// 	"strings"
+// 	"testing"
+
+// 	"github.com/go-logr/logr"
+// 	"github.com/kyverno/kyverno/pkg/config"
+// 	"github.com/kyverno/kyverno/pkg/cosign"
+// 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+// 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
+// 	"github.com/kyverno/kyverno/pkg/engine/internal"
+// 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+// 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
+// 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
+// 	"github.com/kyverno/kyverno/pkg/registryclient"
+// 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+// 	"gomodules.xyz/jsonpatch/v2"
+// 	"gotest.tools/assert"
+// 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+// )
+
 var (
 	cfg        = config.NewDefaultConfiguration(false)
 	metricsCfg = config.NewDefaultMetricsConfiguration()
