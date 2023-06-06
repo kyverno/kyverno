@@ -428,8 +428,14 @@ cleanupJobs:
       seccompProfile:
         type: RuntimeDefault
 
+    # -- Job resources
+    resources: {}
+
     # -- List of node taints to tolerate
     tolerations: []
+
+    # -- Pod Annotations
+    podAnnotations: {}
 
   clusterAdmissionReports:
 
@@ -474,8 +480,14 @@ cleanupJobs:
       seccompProfile:
         type: RuntimeDefault
 
+    # -- Job resources
+    resources: {}
+
     # -- List of node taints to tolerate
     tolerations: []
+
+    # -- Pod Annotations
+    podAnnotations: {}
 
 # Admission controller configuration
 admissionController:
@@ -835,6 +847,11 @@ backgroundController:
       #     - ''
       #   resources:
       #     - pods
+      #   verbs:
+      #     - create
+      #     - update
+      #     - delete
+      #     - patch
 
   image:
     # -- Image registry
@@ -886,6 +903,9 @@ backgroundController:
 
   # -- Extra arguments passed to the container on the command line
   extraArgs: {}
+
+  # -- Additional container environment variables.
+  extraEnvVars: []
 
   resources:
     # -- Pod resource limits
@@ -1097,6 +1117,9 @@ cleanupController:
 
   # -- Extra arguments passed to the container on the command line
   extraArgs: {}
+
+  # -- Additional container environment variables.
+  extraEnvVars: []
 
   resources:
     # -- Pod resource limits
@@ -1358,6 +1381,9 @@ reportsController:
 
   # -- Extra arguments passed to the container on the command line
   extraArgs: {}
+
+  # -- Additional container environment variables.
+  extraEnvVars: []
 
   resources:
     # -- Pod resource limits

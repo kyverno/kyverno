@@ -858,6 +858,7 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 		nil,
 		store.ContextLoaderFactory(nil),
 		nil,
+		"",
 	))
 	return c, nil
 }
@@ -912,12 +913,13 @@ func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyCont
 			return nil, err
 		}
 
-		unstrGenResource, err := c.GetUnstrResource(genResource[0])
-		if err != nil {
-			return nil, err
+		if genResource != nil {
+			unstrGenResource, err := c.GetUnstrResource(genResource[0])
+			if err != nil {
+				return nil, err
+			}
+			newRuleResponse = append(newRuleResponse, *rule.WithGeneratedResource(*unstrGenResource))
 		}
-
-		newRuleResponse = append(newRuleResponse, *rule.WithGeneratedResource(*unstrGenResource))
 	}
 
 	return newRuleResponse, nil

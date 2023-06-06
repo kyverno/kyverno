@@ -263,7 +263,7 @@ func addAnnotation(policy kyvernov1.PolicyInterface, patched *unstructured.Unstr
 	patchedNew = patched
 	var rulePatches []utils.RulePatch
 
-	for _, patch := range r.Patches() {
+	for _, patch := range r.DeprecatedPatches() {
 		rulePatches = append(rulePatches, utils.RulePatch{
 			RuleName: r.Name(),
 			Op:       patch.Operation,
