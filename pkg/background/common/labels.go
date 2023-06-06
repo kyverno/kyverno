@@ -65,16 +65,6 @@ func GenerateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
 	return set
 }
 
-func SourceInfo(labels map[string]string, obj Object) {
-	if labels == nil {
-		labels = map[string]string{}
-	}
-	labels[GenerateSourceAPIVersionLabel] = obj.GetAPIVersion()
-	labels[GenerateSourceKindLabel] = obj.GetKind()
-	labels[GenerateSourceNSLabel] = obj.GetNamespace()
-	labels[GenerateSourceNameLabel] = obj.GetName()
-}
-
 func managedBy(labels map[string]string) {
 	// ManagedBy label
 	key := kyvernov1.LabelAppManagedBy

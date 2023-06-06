@@ -7,7 +7,6 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -41,11 +40,13 @@ func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, pol
 		return newSkipGenerateResponse(nil, target, fmt.Errorf("source resource %s not found: %v", target.String(), err))
 	}
 
+	// TODO(shuting): remove
 	if err := updateSourceLabel(client, sourceObj, ur.Spec.Resource, policy, rule); err != nil {
 		log.Error(err, "failed to add labels to the source", "kind", sourceObj.GetKind(), "namespace", sourceObj.GetNamespace(), "name", sourceObj.GetName())
 	}
 
 	sourceObjCopy := sourceObj.DeepCopy()
+	addSourceLabels(sourceObjCopy)
 	targetObj, err := client.GetResource(context.TODO(), target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName())
 	if err != nil {
 		if apierrors.IsNotFound(err) && len(ur.Status.GeneratedResources) != 0 && !clone.Synchronize {
@@ -68,9 +69,6 @@ func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, pol
 		sourceObjCopy.SetCreationTimestamp(targetObj.GetCreationTimestamp())
 		sourceObjCopy.SetManagedFields(targetObj.GetManagedFields())
 		sourceObjCopy.SetResourceVersion(targetObj.GetResourceVersion())
-		sourceLabels := sourceObjCopy.GetLabels()
-		common.SourceInfo(sourceLabels, targetObj)
-		sourceObjCopy.SetLabels(sourceLabels)
 		if datautils.DeepEqual(sourceObjCopy, targetObj) {
 			return newSkipGenerateResponse(nil, target, nil)
 		}
