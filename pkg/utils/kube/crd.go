@@ -29,7 +29,7 @@ func CRDsInstalled(apiserverClient apiserver.Interface) error {
 	for _, crd := range kyvernoCRDs {
 		err := isCRDInstalled(apiserverClient, crd)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to check CRD is installed: %s", err))
+			errs = append(errs, fmt.Errorf("failed to check CRD %s is installed: %s", crd, err))
 		}
 	}
 	return multierr.Combine(errs...)
