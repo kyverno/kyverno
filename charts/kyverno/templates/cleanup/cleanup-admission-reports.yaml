@@ -27,7 +27,7 @@ spec:
           {{- end }}
           containers:
           - name: cleanup
-            image: {{ template "kyverno.image" .Values.cleanupJobs.admissionReports }}
+            image: {{ (include "kyverno.image" .Values.cleanupJobs.admissionReports) | quote }}
             imagePullPolicy: {{ .Values.cleanupJobs.admissionReports.image.pullPolicy }}
             command:
             - /bin/sh
