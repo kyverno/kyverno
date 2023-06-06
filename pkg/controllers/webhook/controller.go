@@ -510,6 +510,7 @@ func (c *controller) buildVerifyMutatingWebhookConfiguration(cfg config.Configur
 				}},
 				FailurePolicy:           &ignore,
 				SideEffects:             &noneOnDryRun,
+				TimeoutSeconds:          &c.defaultTimeout,
 				ReinvocationPolicy:      &ifNeeded,
 				AdmissionReviewVersions: []string{"v1"},
 				ObjectSelector: &metav1.LabelSelector{
@@ -536,6 +537,7 @@ func (c *controller) buildPolicyMutatingWebhookConfiguration(cfg config.Configur
 					},
 				}},
 				FailurePolicy:           &fail,
+				TimeoutSeconds:          &c.defaultTimeout,
 				SideEffects:             &noneOnDryRun,
 				ReinvocationPolicy:      &ifNeeded,
 				AdmissionReviewVersions: []string{"v1"},
@@ -558,6 +560,7 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(cfg config.Config
 					},
 				}},
 				FailurePolicy:           &fail,
+				TimeoutSeconds:          &c.defaultTimeout,
 				SideEffects:             &none,
 				AdmissionReviewVersions: []string{"v1"},
 			}},
