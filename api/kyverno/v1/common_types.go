@@ -608,6 +608,14 @@ func (g *Generation) Validate(path *field.Path, clusterResources sets.Set[string
 		errs = append(errs, field.Forbidden(path.Child("generate").Child("clone/cloneList"), "Generation Rule Clone/CloneList should not have variables"))
 	}
 
+	if len(g.CloneList.Kinds) == 0 {
+		if g.Kind == "" {
+			errs = append(errs, field.Forbidden(path.Child("generate").Child("kind"), "kind can not be empty"))
+		}
+		if g.Name == "" {
+			errs = append(errs, field.Forbidden(path.Child("generate").Child("name"), "name can not be empty"))
+		}
+	}
 	return errs
 }
 
