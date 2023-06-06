@@ -2,6 +2,7 @@ package generation
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -133,7 +134,7 @@ func (h *generationHandler) handleNonTrigger(
 	labels := resource.GetLabels()
 	if labels[common.GeneratePolicyLabel] != "" {
 		h.log.V(4).Info("handle non-trigger resource operation for generate")
-		if err := h.createUR(ctx, policyContext, request); err != nil {
+		if err := h.processRequest(ctx, policyContext, request); err != nil {
 			h.log.Error(err, "failed to create the UR on non-trigger admission request")
 		}
 	}
@@ -226,48 +227,73 @@ func (h *generationHandler) syncTriggerAction(
 	}
 }
 
-func (h *generationHandler) createUR(ctx context.Context, policyContext *engine.PolicyContext, request admissionv1.AdmissionRequest) (err error) {
+// processRequest determine if it needs to re-apply the generate rule to the source or the target changes
+func (h *generationHandler) processRequest(ctx context.Context, policyContext *engine.PolicyContext, request admissionv1.AdmissionRequest) (err error) {
 	var policy kyvernov1.PolicyInterface
+	var labelsList []map[string]string
+	var deleteDownstream bool
+
 	new := policyContext.NewResource()
-	labels := new.GetLabels()
 	old := policyContext.OldResource()
-	oldLabels := old.GetLabels()
+	labels := old.GetLabels()
+	managedBy := labels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp
 
-	// TODO(shuting): remove
-	// if !compareLabels(labels, oldLabels) {
-	// 	return fmt.Errorf("labels have been changed, new: %v, old: %v", labels, oldLabels)
-	// }
+	// clone source changes
+	if !managedBy {
+		targetSelector := map[string]string{
+			common.GenerateSourceAPIVersionLabel: old.GetAPIVersion(),
+			common.GenerateSourceKindLabel:       old.GetKind(),
+			common.GenerateSourceNSLabel:         old.GetNamespace(),
+			common.GenerateSourceNameLabel:       old.GetName(),
+			kyvernov1.LabelAppManagedBy:          kyvernov1.ValueKyvernoApp,
+		}
+		targets, err := generateutils.FindDownstream(h.client, old.GetAPIVersion(), old.GetKind(), targetSelector)
+		if err != nil {
+			return fmt.Errorf("failed to list targets resources: %v", err)
+		}
 
-	managedBy := oldLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp
-	deleteDownstream := false
-	if new.Object == nil {
-		labels = oldLabels
-		if !managedBy {
-			deleteDownstream = true
+		for i := range targets.Items {
+			l := targets.Items[i].GetLabels()
+			labelsList = append(labelsList, l)
+		}
+	} else {
+		labelsList = append(labelsList, labels)
+		if new.Object == nil {
+			// clone source deletion
+			if !managedBy {
+				deleteDownstream = true
+			}
 		}
 	}
-	pName := labels[common.GeneratePolicyLabel]
-	pNamespace := labels[common.GeneratePolicyNamespaceLabel]
-	pRuleName := labels[common.GenerateRuleLabel]
 
-	if pNamespace != "" {
-		policy, err = h.polLister.Policies(pNamespace).Get(pName)
-	} else {
-		policy, err = h.cpolLister.Get(pName)
-	}
+	for _, labels := range labelsList {
 
-	if err != nil {
-		return err
-	}
+		// 1. if it's the target, we use the policy info labels to build the ur - done
+		// 2. if it's the source, we look up the same kind with the source info label,
+		//    and then back to 1 to use the policy info label to build the ur
+		pName := labels[common.GeneratePolicyLabel]
+		pNamespace := labels[common.GeneratePolicyNamespaceLabel]
+		pRuleName := labels[common.GenerateRuleLabel]
 
-	pKey := common.PolicyKey(pNamespace, pName)
-	for _, rule := range policy.GetSpec().Rules {
-		if rule.Name == pRuleName && rule.Generation.Synchronize {
-			ur := buildURSpec(kyvernov1beta1.Generate, pKey, rule.Name, generateutils.TriggerFromLabels(labels), deleteDownstream)
-			if err := h.urGenerator.Apply(ctx, ur); err != nil {
-				e := event.NewBackgroundFailedEvent(err, pKey, pRuleName, event.GeneratePolicyController, &new)
-				h.eventGen.Add(e...)
-				return err
+		if pNamespace != "" {
+			policy, err = h.polLister.Policies(pNamespace).Get(pName)
+		} else {
+			policy, err = h.cpolLister.Get(pName)
+		}
+
+		if err != nil {
+			return err
+		}
+
+		pKey := common.PolicyKey(pNamespace, pName)
+		for _, rule := range policy.GetSpec().Rules {
+			if rule.Name == pRuleName && rule.Generation.Synchronize {
+				ur := buildURSpec(kyvernov1beta1.Generate, pKey, rule.Name, generateutils.TriggerFromLabels(labels), deleteDownstream)
+				if err := h.urGenerator.Apply(ctx, ur); err != nil {
+					e := event.NewBackgroundFailedEvent(err, pKey, pRuleName, event.GeneratePolicyController, &new)
+					h.eventGen.Add(e...)
+					return err
+				}
 			}
 		}
 	}

@@ -80,14 +80,7 @@ func TriggerFromLabels(labels map[string]string) kyvernov1.ResourceSpec {
 	}
 }
 
-func FindDownstream(client dclient.Interface, policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) (*unstructured.UnstructuredList, error) {
-	generation := rule.Generation
-	selector := &metav1.LabelSelector{MatchLabels: map[string]string{
-		common.GeneratePolicyLabel:          policy.GetName(),
-		common.GeneratePolicyNamespaceLabel: policy.GetNamespace(),
-		common.GenerateRuleLabel:            rule.Name,
-		kyvernov1.LabelAppManagedBy:         kyvernov1.ValueKyvernoApp,
-	}}
-
-	return client.ListResource(context.TODO(), generation.GetAPIVersion(), generation.GetKind(), "", selector)
+func FindDownstream(client dclient.Interface, apiVersion, kind string, labels map[string]string) (*unstructured.UnstructuredList, error) {
+	selector := &metav1.LabelSelector{MatchLabels: labels}
+	return client.ListResource(context.TODO(), apiVersion, kind, "", selector)
 }

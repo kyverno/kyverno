@@ -88,7 +88,13 @@ func (pc *policyController) createURForDataRule(policy kyvernov1.PolicyInterface
 	}
 	var errorList []error
 	if generate.GetData() != nil {
-		downstreams, err := generateutils.FindDownstream(pc.client, policy, rule)
+		labels := map[string]string{
+			common.GeneratePolicyLabel:          policy.GetName(),
+			common.GeneratePolicyNamespaceLabel: policy.GetNamespace(),
+			common.GenerateRuleLabel:            rule.Name,
+			kyvernov1.LabelAppManagedBy:         kyvernov1.ValueKyvernoApp,
+		}
+		downstreams, err := generateutils.FindDownstream(pc.client, rule.Generation.GetAPIVersion(), rule.Generation.GetKind(), labels)
 		if err != nil {
 			return downstreamExist, err
 		}
