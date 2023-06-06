@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v2alpha1
+kind: PolicyException
+metadata:
+  name: delta-exception
+  namespace: kyverno
+spec:
+  exceptions:
+  - policyName: psa
+    ruleNames:
+    - "*"
+  match:
+    any:
+    - resources:
+        kinds:
+        - Deployment
+        namespaces:
+        - reza-dev
+        names:
+        - test-dpl1*
