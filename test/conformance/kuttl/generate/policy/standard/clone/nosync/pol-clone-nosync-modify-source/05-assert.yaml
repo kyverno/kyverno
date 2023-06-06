@@ -3,6 +3,6 @@ data:
   foo: YmFy
 kind: Secret
 metadata:
-  name: newsecret
+  name: pol-clone-nosync-modify-source-newsecret
   namespace: default
 type: Opaque
