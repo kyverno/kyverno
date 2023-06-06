@@ -16,6 +16,15 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+func newResourceSpec(genAPIVersion, genKind, genNamespace, genName string) kyvernov1.ResourceSpec {
+	return kyvernov1.ResourceSpec{
+		APIVersion: genAPIVersion,
+		Kind:       genKind,
+		Namespace:  genNamespace,
+		Name:       genName,
+	}
+}
+
 func increaseRetryAnnotation(ur *kyvernov1beta1.UpdateRequest) (int, map[string]string, error) {
 	urAnnotations := ur.Annotations
 	if len(urAnnotations) == 0 {
