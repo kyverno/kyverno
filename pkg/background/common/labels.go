@@ -21,19 +21,14 @@ type Object interface {
 }
 
 func ManageLabels(unstr *unstructured.Unstructured, triggerResource unstructured.Unstructured, policy kyvernov1.PolicyInterface, ruleName string) {
-	// add managedBY label if not defined
 	labels := unstr.GetLabels()
 	if labels == nil {
 		labels = map[string]string{}
 	}
 
-	// handle managedBy label
 	managedBy(labels)
-
 	PolicyInfo(labels, policy, ruleName)
-
 	TriggerInfo(labels, &triggerResource)
-	// update the labels
 	unstr.SetLabels(labels)
 }
 
@@ -68,6 +63,16 @@ func GenerateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
 		set[kyvernov1beta1.URGenerateResourceKindLabel] = trigger.GetKind()
 	}
 	return set
+}
+
+func SourceInfo(labels map[string]string, obj Object) {
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	labels[GenerateSourceAPIVersionLabel] = obj.GetAPIVersion()
+	labels[GenerateSourceKindLabel] = obj.GetKind()
+	labels[GenerateSourceNSLabel] = obj.GetNamespace()
+	labels[GenerateSourceNameLabel] = obj.GetName()
 }
 
 func managedBy(labels map[string]string) {

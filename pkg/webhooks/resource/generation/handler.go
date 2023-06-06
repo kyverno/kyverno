@@ -2,7 +2,6 @@ package generation
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -233,9 +232,11 @@ func (h *generationHandler) createUR(ctx context.Context, policyContext *engine.
 	labels := new.GetLabels()
 	old := policyContext.OldResource()
 	oldLabels := old.GetLabels()
-	if !compareLabels(labels, oldLabels) {
-		return fmt.Errorf("labels have been changed, new: %v, old: %v", labels, oldLabels)
-	}
+
+	// TODO(shuting): remove
+	// if !compareLabels(labels, oldLabels) {
+	// 	return fmt.Errorf("labels have been changed, new: %v, old: %v", labels, oldLabels)
+	// }
 
 	managedBy := oldLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp
 	deleteDownstream := false
