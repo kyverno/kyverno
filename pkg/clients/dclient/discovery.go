@@ -257,8 +257,7 @@ func (c serverResources) findResource(groupVersion string, kind string) (apiReso
 	serverPreferredResources, _ := c.cachedClient.ServerPreferredResources()
 	_, serverGroupsAndResources, err := c.cachedClient.ServerGroupsAndResources()
 	if err != nil && !strings.Contains(err.Error(), "Got empty response for") {
-		_, err := schema.ParseGroupVersion(groupVersion)
-		if err != nil {
+		if _, err := schema.ParseGroupVersion(groupVersion); err != nil {
 			logger.Error(err, "failed to parse group/version", "groupVersion", groupVersion)
 			return nil, nil, schema.GroupVersionResource{}, err
 		}
