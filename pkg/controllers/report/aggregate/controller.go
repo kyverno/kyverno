@@ -220,7 +220,8 @@ func (c *controller) reconcileReport(ctx context.Context, policyMap map[string]p
 		return reportutils.CreateReport(ctx, report, c.client)
 	}
 	after := reportutils.DeepCopy(report)
-	after.SetLabels(nil)
+	// hold custom labels
+	reportutils.CleanupKyvernoLabels(after)
 	reportutils.SetManagedByKyvernoLabel(after)
 	for _, result := range results {
 		policy := policyMap[result.Policy]

@@ -74,12 +74,11 @@ func (h mutateImageHandler) Process(
 	}
 	iv := internal.NewImageVerifier(logger, h.rclient, policyContext, *ruleCopy, h.ivm, h.imageSignatureRepository)
 	var engineResponses []*engineapi.RuleResponse
-	for _, imageVerify := range ruleCopy.VerifyImages {
-		engineResponses = append(engineResponses, iv.Verify(ctx, imageVerify, h.images, h.configuration)...)
-	}
 	var patches []jsonpatch.JsonPatchOperation
-	for _, response := range engineResponses {
-		patches = append(patches, response.Patches()...)
+	for _, imageVerify := range ruleCopy.VerifyImages {
+		patch, ruleResponse := iv.Verify(ctx, imageVerify, h.images, h.configuration)
+		patches = append(patches, patch...)
+		engineResponses = append(engineResponses, ruleResponse...)
 	}
 	if len(patches) != 0 {
 		patch := jsonutils.JoinPatches(patch.ConvertPatches(patches...)...)

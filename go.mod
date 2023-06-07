@@ -36,7 +36,7 @@ require (
 	github.com/notaryproject/notation-core-go v1.0.0-rc.4
 	github.com/notaryproject/notation-go v1.0.0-rc.3
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.27.7
+	github.com/onsi/gomega v1.27.8
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0-rc2
 	github.com/orcaman/concurrent-map/v2 v2.0.1
@@ -345,4 +345,7 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 )
 
-replace github.com/jmespath/go-jmespath => github.com/kyverno/go-jmespath v0.4.1-0.20230204162932-3ee946b9433d
+replace (
+	github.com/jmespath/go-jmespath => github.com/kyverno/go-jmespath v0.4.1-0.20230204162932-3ee946b9433d
+	github.com/mattbaird/jsonpatch => gomodules.xyz/jsonpatch/v2 v2.2.0
+)

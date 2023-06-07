@@ -7,4 +7,4 @@ metadata:
   labels:
     somekey: somevalue
   name: zk-kafka-address
-  namespace: pol-data-sync-modify-downstream
+  namespace: pol-data-sync-modify-downstream-ns

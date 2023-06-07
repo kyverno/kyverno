@@ -55,8 +55,13 @@ func (c *GenerateController) deleteDownstreamForClone(policy kyvernov1.PolicyInt
 		if ur.Spec.Rule != rule.Name {
 			continue
 		}
-
-		downstreams, err := FindDownstream(c.client, policy, rule)
+		labels := map[string]string{
+			common.GeneratePolicyLabel:          policy.GetName(),
+			common.GeneratePolicyNamespaceLabel: policy.GetNamespace(),
+			common.GenerateRuleLabel:            rule.Name,
+			kyvernov1.LabelAppManagedBy:         kyvernov1.ValueKyvernoApp,
+		}
+		downstreams, err := FindDownstream(c.client, rule.Generation.GetAPIVersion(), rule.Generation.GetKind(), labels)
 		if err != nil {
 			return err
 		}

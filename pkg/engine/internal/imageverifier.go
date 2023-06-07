@@ -187,8 +187,9 @@ func (iv *ImageVerifier) Verify(
 	imageVerify kyvernov1.ImageVerification,
 	matchedImageInfos []apiutils.ImageInfo,
 	cfg config.Configuration,
-) []*engineapi.RuleResponse {
+) ([]jsonpatch.JsonPatchOperation, []*engineapi.RuleResponse) {
 	var responses []*engineapi.RuleResponse
+	var patches []jsonpatch.JsonPatchOperation
 
 	// for backward compatibility
 	imageVerify = *imageVerify.Convert()
@@ -226,7 +227,7 @@ func (iv *ImageVerifier) Verify(
 				if ruleResp == nil {
 					ruleResp = engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, "mutated image digest")
 				}
-				ruleResp = ruleResp.WithPatches(*patch)
+				patches = append(patches, *patch)
 				imageInfo.Digest = retrievedDigest
 				image = imageInfo.String()
 			}
@@ -239,7 +240,7 @@ func (iv *ImageVerifier) Verify(
 			responses = append(responses, ruleResp)
 		}
 	}
-	return responses
+	return patches, responses
 }
 
 func (iv *ImageVerifier) verifyImage(
