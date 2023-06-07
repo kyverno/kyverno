@@ -6,9 +6,10 @@ spec:
   validationFailureAction: Audit
   rules:
   - match:
-      resources:
-        kinds:
-        - Pod
+      any:
+        - resources:
+            kinds:
+            - Pod
     name: require-image-tag
     validate:
       message: An image tag is required.
@@ -17,9 +18,10 @@ spec:
           containers:
           - image: '*:*'
   - match:
-      resources:
-        kinds:
-        - Pod
+      any:
+        - resources:
+            kinds:
+            - Pod
     name: validate-image-tag
     validate:
       message: Using a mutable image tag e.g. 'latest' is not allowed.
@@ -32,64 +34,65 @@ status:
   - reason: Succeeded
     status: "True"
     type: Ready
-  rules:
-  - match:
-      any:
-      - resources:
-          kinds:
-          - Deployment
-    name: autogen-require-image-tag
-    validate:
-      message: An image tag is required.
-      pattern:
-        spec:
-          template:
-            spec:
-              containers:
-              - image: '*:*'
-  - match:
-      any:
-      - resources:
-          kinds:
-          - CronJob
-    name: autogen-cronjob-require-image-tag
-    validate:
-      message: An image tag is required.
-      pattern:
-        spec:
-          jobTemplate:
-            spec:
-              template:
-                spec:
-                  containers:
-                  - image: '*:*'
-  - match:
-      any:
-      - resources:
-          kinds:
-          - Deployment
-    name: autogen-validate-image-tag
-    validate:
-      message: Using a mutable image tag e.g. 'latest' is not allowed.
-      pattern:
-        spec:
-          template:
-            spec:
-              containers:
-              - image: '!*:latest'
-  - match:
-      any:
-      - resources:
-          kinds:
-          - CronJob
-    name: autogen-cronjob-validate-image-tag
-    validate:
-      message: Using a mutable image tag e.g. 'latest' is not allowed.
-      pattern:
-        spec:
-          jobTemplate:
-            spec:
-              template:
-                spec:
-                  containers:
-                  - image: '!*:latest'
+  autogen:
+    rules:
+    - match:
+        any:
+        - resources:
+            kinds:
+            - Deployment
+      name: autogen-require-image-tag
+      validate:
+        message: An image tag is required.
+        pattern:
+          spec:
+            template:
+              spec:
+                containers:
+                - image: '*:*'
+    - match:
+        any:
+        - resources:
+            kinds:
+            - CronJob
+      name: autogen-cronjob-require-image-tag
+      validate:
+        message: An image tag is required.
+        pattern:
+          spec:
+            jobTemplate:
+              spec:
+                template:
+                  spec:
+                    containers:
+                    - image: '*:*'
+    - match:
+        any:
+        - resources:
+            kinds:
+            - Deployment
+      name: autogen-validate-image-tag
+      validate:
+        message: Using a mutable image tag e.g. 'latest' is not allowed.
+        pattern:
+          spec:
+            template:
+              spec:
+                containers:
+                - image: '!*:latest'
+    - match:
+        any:
+        - resources:
+            kinds:
+            - CronJob
+      name: autogen-cronjob-validate-image-tag
+      validate:
+        message: Using a mutable image tag e.g. 'latest' is not allowed.
+        pattern:
+          spec:
+            jobTemplate:
+              spec:
+                template:
+                  spec:
+                    containers:
+                    - image: '!*:latest'
