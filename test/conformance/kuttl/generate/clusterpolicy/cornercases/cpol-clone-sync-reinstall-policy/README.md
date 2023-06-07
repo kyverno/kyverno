@@ -1,6 +1,6 @@
 ## Description
 
-This is a corner case test to ensure a generate data rule can be triggered on the deletion of the trigger resource.
+This is a corner case test to ensure a generate clone rule can be triggered on the deletion of the trigger resource. It also ensures upgrades to 1.10 are successful for the same clone rule type.
 
 ## Expected Behavior
 
@@ -10,4 +10,4 @@ This is a corner case test to ensure a generate data rule can be triggered on th
 
 ## Reference Issue(s)
 
-https://github.com/kyverno/kyverno/issues/6398
+https://github.com/kyverno/kyverno/issues/7170
