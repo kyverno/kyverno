@@ -28,7 +28,7 @@ func ManageLabels(unstr *unstructured.Unstructured, triggerResource unstructured
 
 	managedBy(labels)
 	PolicyInfo(labels, policy, ruleName)
-	TriggerInfo(labels, &triggerResource)
+	TriggerInfo(labels, triggerResource)
 	unstr.SetLabels(labels)
 }
 
@@ -88,8 +88,9 @@ func PolicyInfo(labels map[string]string, policy kyvernov1.PolicyInterface, rule
 	labels[GenerateRuleLabel] = ruleName
 }
 
-func TriggerInfo(labels map[string]string, obj Object) {
-	labels[GenerateTriggerAPIVersionLabel] = obj.GetAPIVersion()
+func TriggerInfo(labels map[string]string, obj unstructured.Unstructured) {
+	labels[GenerateTriggerVersionLabel] = obj.GroupVersionKind().Version
+	labels[GenerateTriggerGroupLabel] = obj.GroupVersionKind().Group
 	labels[GenerateTriggerKindLabel] = obj.GetKind()
 	labels[GenerateTriggerNSLabel] = obj.GetNamespace()
 	labels[GenerateTriggerNameLabel] = trimByLength(obj.GetName(), 63)

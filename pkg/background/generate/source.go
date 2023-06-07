@@ -26,7 +26,8 @@ func addSourceLabels(source *unstructured.Unstructured) {
 		labels = make(map[string]string, 4)
 	}
 
-	labels[common.GenerateSourceAPIVersionLabel] = source.GetAPIVersion()
+	labels[common.GenerateSourceGroupLabel] = source.GroupVersionKind().Group
+	labels[common.GenerateSourceVersionLabel] = source.GroupVersionKind().Version
 	labels[common.GenerateSourceKindLabel] = source.GetKind()
 	labels[common.GenerateSourceNSLabel] = source.GetNamespace()
 	labels[common.GenerateSourceNameLabel] = source.GetName()

@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func newResourceSpec(genAPIVersion, genKind, genNamespace, genName string) kyvernov1.ResourceSpec {
@@ -72,11 +73,15 @@ func updateRetryAnnotation(kyvernoClient versioned.Interface, ur *kyvernov1beta1
 }
 
 func TriggerFromLabels(labels map[string]string) kyvernov1.ResourceSpec {
+	group := labels[common.GenerateTriggerGroupLabel]
+	version := labels[common.GenerateTriggerVersionLabel]
+	apiVersion := schema.GroupVersion{Group: group, Version: version}
+
 	return kyvernov1.ResourceSpec{
 		Kind:       labels[common.GenerateTriggerKindLabel],
 		Namespace:  labels[common.GenerateTriggerNSLabel],
 		Name:       labels[common.GenerateTriggerNameLabel],
-		APIVersion: labels[common.GenerateTriggerAPIVersionLabel],
+		APIVersion: apiVersion.String(),
 	}
 }
 

@@ -245,10 +245,11 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 			deleteDownstream = true
 		}
 		targetSelector := map[string]string{
-			common.GenerateSourceAPIVersionLabel: old.GetAPIVersion(),
-			common.GenerateSourceKindLabel:       old.GetKind(),
-			common.GenerateSourceNSLabel:         old.GetNamespace(),
-			common.GenerateSourceNameLabel:       old.GetName(),
+			common.GenerateSourceGroupLabel:   old.GroupVersionKind().Group,
+			common.GenerateSourceVersionLabel: old.GroupVersionKind().Version,
+			common.GenerateSourceKindLabel:    old.GetKind(),
+			common.GenerateSourceNSLabel:      old.GetNamespace(),
+			common.GenerateSourceNameLabel:    old.GetName(),
 		}
 		targets, err := generateutils.FindDownstream(h.client, old.GetAPIVersion(), old.GetKind(), targetSelector)
 		if err != nil {
