@@ -73,6 +73,8 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 	if reverse {
 		engineutils.InvertedElement(elements)
 	}
+
+	isPass := false
 	for index, element := range elements {
 		if element == nil {
 			continue
@@ -130,10 +132,15 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 
 		if mutateResp.Status == engineapi.RuleStatusPass {
 			patchedResource.unstructured = mutateResp.PatchedResource
+			isPass = true
 		}
 	}
 
-	return mutate.NewResponse(engineapi.RuleStatusPass, patchedResource.unstructured, "")
+	if isPass {
+		return mutate.NewResponse(engineapi.RuleStatusPass, patchedResource.unstructured, "")
+	}
+
+	return mutate.NewResponse(engineapi.RuleStatusSkip, patchedResource.unstructured, "no patches applied")
 }
 
 func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info resourceInfo) *engineapi.RuleResponse {
