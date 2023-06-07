@@ -41,7 +41,7 @@ func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 
 		if mutateResp.Status != engineapi.RuleStatusSkip {
 			applyCount++
-			if mutateResp.Status != engineapi.RuleStatusPass {
+			if mutateResp.Status == engineapi.RuleStatusPass {
 				f.resource.unstructured = mutateResp.PatchedResource
 			}
 			f.logger.Info("mutateResp.PatchedResource", "resource", mutateResp.PatchedResource)
@@ -128,7 +128,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 			return mutateResp
 		}
 
-		if mutateResp.Status != engineapi.RuleStatusPass {
+		if mutateResp.Status == engineapi.RuleStatusPass {
 			patchedResource.unstructured = mutateResp.PatchedResource
 		}
 	}

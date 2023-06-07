@@ -3,6 +3,7 @@ package mutate
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -54,9 +55,9 @@ func Mutate(rule *kyvernov1.Rule, ctx context.Interface, resource unstructured.U
 	if err != nil {
 		return NewErrorResponse("failed to patch resource", err)
 	}
-	// if len(patches) == 0 {
-	// 	return NewResponse(engineapi.RuleStatusSkip, resource, "no patches applied")
-	// }
+	if strings.TrimSpace(string(resourceBytes)) == strings.TrimSpace(string(patchedBytes)) {
+		return NewResponse(engineapi.RuleStatusSkip, resource, "no patches applied")
+	}
 	if err := resource.UnmarshalJSON(patchedBytes); err != nil {
 		return NewErrorResponse("failed to unmarshal patched resource", err)
 	}
@@ -90,9 +91,9 @@ func ForEach(name string, foreach kyvernov1.ForEachMutation, policyContext engin
 	if err != nil {
 		return NewErrorResponse("failed to patch resource", err)
 	}
-	// if patchedBytes == resourceBytes {
-	// 	return NewResponse(engineapi.RuleStatusSkip, resource, "no patches applied")
-	// }
+	if strings.TrimSpace(string(resourceBytes)) == strings.TrimSpace(string(patchedBytes)) {
+		return NewResponse(engineapi.RuleStatusSkip, resource, "no patches applied")
+	}
 	if err := resource.UnmarshalJSON(patchedBytes); err != nil {
 		return NewErrorResponse("failed to unmarshal patched resource", err)
 	} else if err := ctx.AddResource(resource.Object); err != nil {

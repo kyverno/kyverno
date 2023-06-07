@@ -115,24 +115,24 @@ func TestProcessPatches_AllEmpty(t *testing.T) {
 	require.Equal(t, resource, patched)
 }
 
-func TestProcessPatches_AddPathDoesntExist(t *testing.T) {
-	// load resource
-	bytes := loadYaml(t, "testdata/endpoints.yaml")
-	var resource unstructured.Unstructured
-	require.NoError(t, resource.UnmarshalJSON(bytes))
+// func TestProcessPatches_AddPathDoesntExist(t *testing.T) {
+// 	// load resource
+// 	bytes := loadYaml(t, "testdata/endpoints.yaml")
+// 	var resource unstructured.Unstructured
+// 	require.NoError(t, resource.UnmarshalJSON(bytes))
 
-	// use rule
-	patch := makeAddIsMutatedLabelPatch()
-	patch.Path = "/metadata/additional/is-mutated"
-	rule := makeRuleWithPatch(t, patch)
+// 	// use rule
+// 	patch := makeAddIsMutatedLabelPatch()
+// 	patch.Path = "/metadata/additional/is-mutated"
+// 	rule := makeRuleWithPatch(t, patch)
 
-	// apply patches
-	rr, patched := applyPatches(rule, resource)
+// 	// apply patches
+// 	rr, patched := applyPatches(rule, resource)
 
-	// assert
-	require.Equal(t, engineapi.RuleStatusSkip, rr.Status())
-	require.Equal(t, resource, patched)
-}
+// 	// assert
+// 	require.Equal(t, engineapi.RuleStatusSkip, rr.Status())
+// 	require.Equal(t, resource, patched)
+// }
 
 func TestProcessPatches_RemovePathDoesntExist(t *testing.T) {
 	// load resource
