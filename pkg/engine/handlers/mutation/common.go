@@ -152,7 +152,6 @@ func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info r
 		mutateResp.Status,
 	)
 	if mutateResp.Status == engineapi.RuleStatusPass {
-		resp = resp.WithPatches(mutateResp.Patches...)
 		if len(rule.Mutation.Targets) != 0 {
 			resp = resp.WithPatchedTarget(&mutateResp.PatchedResource, info.parentResourceGVR, info.subresource)
 		}
