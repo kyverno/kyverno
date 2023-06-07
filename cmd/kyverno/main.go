@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -62,10 +61,7 @@ func showWarnings(logger logr.Logger) {
 }
 
 func sanityChecks(apiserverClient apiserver.Interface) error {
-	if !kubeutils.CRDsInstalled(apiserverClient) {
-		return fmt.Errorf("CRDs not installed")
-	}
-	return nil
+	return kubeutils.CRDsInstalled(apiserverClient)
 }
 
 func createNonLeaderControllers(

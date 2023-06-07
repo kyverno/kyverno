@@ -48,9 +48,13 @@ func matchesException(
 		return nil, err
 	}
 	gvk, subresource := policyContext.ResourceKind()
+	resource := policyContext.NewResource()
+	if resource.Object == nil {
+		resource = policyContext.OldResource()
+	}
 	for _, candidate := range candidates {
 		err := matched.CheckMatchesResources(
-			policyContext.NewResource(),
+			resource,
 			candidate.Spec.Match,
 			policyContext.NamespaceLabels(),
 			policyContext.AdmissionInfo(),
