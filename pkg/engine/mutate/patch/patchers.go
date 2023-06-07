@@ -2,18 +2,16 @@ package patch
 
 import (
 	"github.com/go-logr/logr"
-	"gomodules.xyz/jsonpatch/v2"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 )
 
 type (
 	resource = []byte
-	patches  = []jsonpatch.JsonPatchOperation
 )
 
 // Patcher patches the resource
 type Patcher interface {
-	Patch(logr.Logger, resource) (resource, patches, error)
+	Patch(logr.Logger, resource) (resource, error)
 }
 
 // patchStrategicMergeHandler
@@ -27,7 +25,7 @@ func NewPatchStrategicMerge(patch apiextensions.JSON) Patcher {
 	}
 }
 
-func (h patchStrategicMergeHandler) Patch(logger logr.Logger, resource resource) (resource, patches, error) {
+func (h patchStrategicMergeHandler) Patch(logger logr.Logger, resource resource) (resource, error) {
 	return ProcessStrategicMergePatch(logger, h.patch, resource)
 }
 
@@ -42,11 +40,11 @@ func NewPatchesJSON6902(patches string) Patcher {
 	}
 }
 
-func (h patchesJSON6902Handler) Patch(logger logr.Logger, resource resource) (resource, patches, error) {
-	patchesJSON6902, err := ConvertPatchesToJSON(h.patches)
+func (h patchesJSON6902Handler) Patch(logger logr.Logger, resource resource) (resource, error) {
+	patchesJSON6902, err := convertPatchesToJSON(h.patches)
 	if err != nil {
 		logger.Error(err, "error in type conversion")
-		return nil, nil, err
+		return nil, err
 	}
 	return ProcessPatchJSON6902(logger, patchesJSON6902, resource)
 }

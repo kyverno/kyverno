@@ -130,7 +130,9 @@ func TestProcessPatches_AddPathDoesntExist(t *testing.T) {
 	rr, patched := applyPatches(rule, resource)
 
 	// assert
-	require.Equal(t, engineapi.RuleStatusSkip, rr.Status())
+	require.Equal(t, engineapi.RuleStatusPass, rr.Status())
+	require.NotEqual(t, patched.UnstructuredContent(), resource.UnstructuredContent())
+	unstructured.SetNestedField(resource.UnstructuredContent(), "true", "metadata", "additional", "is-mutated")
 	require.Equal(t, resource, patched)
 }
 
