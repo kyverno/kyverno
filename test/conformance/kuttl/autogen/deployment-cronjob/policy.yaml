@@ -2,6 +2,8 @@ apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: disallow-latest-tag
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: Deployment,CronJob
 spec:
   validationFailureAction: Audit
   rules:
