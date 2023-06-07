@@ -4,5 +4,5 @@ data:
 kind: Secret
 metadata:
   name: regcred
-  namespace: default
+  namespace: cpol-clone-sync-modify-source-ns
 type: Opaque
