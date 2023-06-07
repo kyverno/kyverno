@@ -5,7 +5,6 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-logr/logr"
-	"sigs.k8s.io/yaml"
 )
 
 // ProcessPatchJSON6902 ...
@@ -29,20 +28,4 @@ func applyPatchesWithOptions(resource, patch []byte) ([]byte, error) {
 		return resource, err
 	}
 	return patchedResource, nil
-}
-
-func ConvertPatchesToJSON(patchesJSON6902 string) ([]byte, error) {
-	if len(patchesJSON6902) == 0 {
-		return []byte(patchesJSON6902), nil
-	}
-	if patchesJSON6902[0] != '[' {
-		// If the patch doesn't look like a JSON6902 patch, we
-		// try to parse it to json.
-		op, err := yaml.YAMLToJSON([]byte(patchesJSON6902))
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert patchesJSON6902 to JSON: %v", err)
-		}
-		return op, nil
-	}
-	return []byte(patchesJSON6902), nil
 }

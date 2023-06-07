@@ -41,7 +41,7 @@ func NewPatchesJSON6902(patches string) Patcher {
 }
 
 func (h patchesJSON6902Handler) Patch(logger logr.Logger, resource resource) (resource, error) {
-	patchesJSON6902, err := ConvertPatchesToJSON(h.patches)
+	patchesJSON6902, err := convertPatchesToJSON(h.patches)
 	if err != nil {
 		logger.Error(err, "error in type conversion")
 		return nil, err
