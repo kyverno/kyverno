@@ -4,4 +4,4 @@ delete:
 - apiVersion: v1
   kind: Secret
   name: regcred
-  namespace: default
+  namespace: cpol-clone-sync-delete-source-ns
