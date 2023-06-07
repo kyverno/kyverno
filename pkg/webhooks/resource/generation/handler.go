@@ -132,7 +132,7 @@ func (h *generationHandler) handleNonTrigger(
 ) {
 	resource := policyContext.OldResource()
 	labels := resource.GetLabels()
-	if labels[common.GeneratePolicyLabel] != "" {
+	if _, ok := labels[common.GenerateTypeCloneSourceLabel]; ok || labels[common.GeneratePolicyLabel] != "" {
 		h.log.V(4).Info("handle non-trigger resource operation for generate")
 		if err := h.processRequest(ctx, policyContext, request); err != nil {
 			h.log.Error(err, "failed to create the UR on non-trigger admission request")
@@ -240,12 +240,15 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 
 	// clone source changes
 	if !managedBy {
+		if new.Object == nil {
+			// clone source deletion
+			deleteDownstream = true
+		}
 		targetSelector := map[string]string{
 			common.GenerateSourceAPIVersionLabel: old.GetAPIVersion(),
 			common.GenerateSourceKindLabel:       old.GetKind(),
 			common.GenerateSourceNSLabel:         old.GetNamespace(),
 			common.GenerateSourceNameLabel:       old.GetName(),
-			kyvernov1.LabelAppManagedBy:          kyvernov1.ValueKyvernoApp,
 		}
 		targets, err := generateutils.FindDownstream(h.client, old.GetAPIVersion(), old.GetKind(), targetSelector)
 		if err != nil {
@@ -258,19 +261,9 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 		}
 	} else {
 		labelsList = append(labelsList, labels)
-		if new.Object == nil {
-			// clone source deletion
-			if !managedBy {
-				deleteDownstream = true
-			}
-		}
 	}
 
 	for _, labels := range labelsList {
-
-		// 1. if it's the target, we use the policy info labels to build the ur - done
-		// 2. if it's the source, we look up the same kind with the source info label,
-		//    and then back to 1 to use the policy info label to build the ur
 		pName := labels[common.GeneratePolicyLabel]
 		pNamespace := labels[common.GeneratePolicyNamespaceLabel]
 		pRuleName := labels[common.GenerateRuleLabel]

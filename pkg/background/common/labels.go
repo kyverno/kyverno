@@ -95,6 +95,10 @@ func TriggerInfo(labels map[string]string, obj Object) {
 	labels[GenerateTriggerNameLabel] = trimByLength(obj.GetName(), 63)
 }
 
+func TagSource(labels map[string]string, obj Object) {
+	labels[GenerateTypeCloneSourceLabel] = ""
+}
+
 func trimByLength(value string, character int) string {
 	if len(value) > character {
 		return value[0:character]
