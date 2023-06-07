@@ -1,6 +1,8 @@
 package patch
 
-import "bytes"
+import (
+	"bytes"
+)
 
 // buffer is a wrapper around a slice of bytes used for JSON
 // marshal and unmarshal operations for a strategic merge patch
@@ -11,7 +13,6 @@ type buffer struct {
 // UnmarshalJSON writes the slice of bytes to an internal buffer
 func (buff buffer) UnmarshalJSON(b []byte) error {
 	buff.Reset()
-
 	if _, err := buff.Write(b); err != nil {
 		return err
 	}
