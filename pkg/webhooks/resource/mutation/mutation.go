@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/tracing"
-	"github.com/kyverno/kyverno/pkg/utils"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
@@ -125,11 +124,6 @@ func (v *mutationHandler) applyMutations(
 		if err != nil {
 			return nil, nil, err
 		}
-	}
-
-	// generate annotations
-	if annPatches := utils.GenerateAnnotationPatches(engineResponses, v.log); annPatches != nil {
-		patches = append(patches, annPatches...)
 	}
 
 	events := webhookutils.GenerateEvents(engineResponses, false)
