@@ -36473,6 +36473,7 @@ rules:
     verbs:
       - list
       - deletecollection
+      - delete
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -37228,6 +37229,18 @@ spec:
         app.kubernetes.io/version: latest
     spec:
       dnsPolicy: ClusterFirst
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app.kubernetes.io/component
+                  operator: In
+                  values:
+                  - admission-controller
+              topologyKey: kubernetes.io/hostname
+            weight: 1
       serviceAccountName: kyverno-admission-controller
       initContainers:
         - name: kyverno-pre
@@ -37254,6 +37267,8 @@ spec:
             seccompProfile:
               type: RuntimeDefault
           env:
+          - name: INIT_CONFIG
+            value: kyverno
           - name: METRICS_CONFIG
             value: kyverno-metrics
           - name: KYVERNO_NAMESPACE
@@ -37265,7 +37280,9 @@ spec:
               fieldRef:
                 fieldPath: metadata.name
           - name: KYVERNO_DEPLOYMENT
-            value: kyverno
+            value: kyverno-admission-controller
+          - name: KYVERNO_SVC
+            value: kyverno-svc
       containers:
         - name: kyverno
           image: "ghcr.io/kyverno/kyverno:latest"
@@ -37287,7 +37304,7 @@ spec:
             - --protectManagedResources=false
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
-          resources: 
+          resources:
             limits:
               memory: 384Mi
             requests:
@@ -37441,7 +37458,7 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
-          resources: 
+          resources:
             limits:
               memory: 128Mi
             requests:
@@ -37537,7 +37554,7 @@ spec:
                 fieldPath: metadata.namespace
           - name: KYVERNO_SVC
             value: kyverno-cleanup-controller
-          resources: 
+          resources:
             limits:
               memory: 128Mi
             requests:
@@ -37667,7 +37684,7 @@ spec:
                 fieldPath: metadata.namespace
           - name: TUF_ROOT
             value: /.sigstore
-          resources: 
+          resources:
             limits:
               memory: 128Mi
             requests:
@@ -37712,7 +37729,7 @@ spec:
           serviceAccountName: kyverno-cleanup-jobs
           containers:
           - name: cleanup
-            image: bitnami/kubectl:1.26.4
+            image: "bitnami/kubectl:1.26.4"
             imagePullPolicy: 
             command:
             - /bin/sh
@@ -37759,7 +37776,7 @@ spec:
           serviceAccountName: kyverno-cleanup-jobs
           containers:
           - name: cleanup
-            image: bitnami/kubectl:1.26.4
+            image: "bitnami/kubectl:1.26.4"
             imagePullPolicy: 
             command:
             - /bin/sh

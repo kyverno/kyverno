@@ -26,11 +26,12 @@ import (
 )
 
 type ImageVerifier struct {
-	logger        logr.Logger
-	rclient       registryclient.Client
-	policyContext engineapi.PolicyContext
-	rule          kyvernov1.Rule
-	ivm           *engineapi.ImageVerificationMetadata
+	logger                   logr.Logger
+	rclient                  registryclient.Client
+	policyContext            engineapi.PolicyContext
+	rule                     kyvernov1.Rule
+	ivm                      *engineapi.ImageVerificationMetadata
+	imageSignatureRepository string
 }
 
 func NewImageVerifier(
@@ -39,13 +40,15 @@ func NewImageVerifier(
 	policyContext engineapi.PolicyContext,
 	rule kyvernov1.Rule,
 	ivm *engineapi.ImageVerificationMetadata,
+	imageSignatureRepository string,
 ) *ImageVerifier {
 	return &ImageVerifier{
-		logger:        logger,
-		rclient:       rclient,
-		policyContext: policyContext,
-		rule:          rule,
-		ivm:           ivm,
+		logger:                   logger,
+		rclient:                  rclient,
+		policyContext:            policyContext,
+		rule:                     rule,
+		ivm:                      ivm,
+		imageSignatureRepository: imageSignatureRepository,
 	}
 }
 
@@ -184,8 +187,9 @@ func (iv *ImageVerifier) Verify(
 	imageVerify kyvernov1.ImageVerification,
 	matchedImageInfos []apiutils.ImageInfo,
 	cfg config.Configuration,
-) []*engineapi.RuleResponse {
+) ([]jsonpatch.JsonPatchOperation, []*engineapi.RuleResponse) {
 	var responses []*engineapi.RuleResponse
+	var patches []jsonpatch.JsonPatchOperation
 
 	// for backward compatibility
 	imageVerify = *imageVerify.Convert()
@@ -223,7 +227,7 @@ func (iv *ImageVerifier) Verify(
 				if ruleResp == nil {
 					ruleResp = engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, "mutated image digest")
 				}
-				ruleResp = ruleResp.WithPatches(*patch)
+				patches = append(patches, *patch)
 				imageInfo.Digest = retrievedDigest
 				image = imageInfo.String()
 			}
@@ -236,7 +240,7 @@ func (iv *ImageVerifier) Verify(
 			responses = append(responses, ruleResp)
 		}
 	}
-	return responses
+	return patches, responses
 }
 
 func (iv *ImageVerifier) verifyImage(
@@ -456,7 +460,7 @@ func (iv *ImageVerifier) buildCosignVerifier(
 	attestation *kyvernov1.Attestation,
 ) (images.ImageVerifier, *images.Options, string) {
 	path := ""
-	repository := cosign.ImageSignatureRepository
+	repository := iv.imageSignatureRepository
 	if imageVerify.Repository != "" {
 		repository = imageVerify.Repository
 	}

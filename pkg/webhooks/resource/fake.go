@@ -63,6 +63,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 			rclient,
 			engineapi.DefaultContextLoaderFactory(configMapResolver),
 			peLister,
+			"",
 		),
 	}
 }

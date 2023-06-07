@@ -119,6 +119,7 @@ OuterLoop:
 		registryclient.NewOrDie(),
 		store.ContextLoaderFactory(nil),
 		nil,
+		"",
 	)
 	policyContext, err := engine.NewPolicyContext(
 		jp,

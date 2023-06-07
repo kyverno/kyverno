@@ -155,9 +155,17 @@ func (er EngineResponse) IsValidatingAdmissionPolicy() bool {
 
 // GetPatches returns all the patches joined
 func (er EngineResponse) GetPatches() []jsonpatch.JsonPatchOperation {
-	var patches []jsonpatch.JsonPatchOperation
-	for _, r := range er.PolicyResponse.Rules {
-		patches = append(patches, r.Patches()...)
+	originalBytes, err := er.Resource.MarshalJSON()
+	if err != nil {
+		return nil
+	}
+	patchedBytes, err := er.PatchedResource.MarshalJSON()
+	if err != nil {
+		return nil
+	}
+	patches, err := jsonpatch.CreatePatch(originalBytes, patchedBytes)
+	if err != nil {
+		return nil
 	}
 	return patches
 }

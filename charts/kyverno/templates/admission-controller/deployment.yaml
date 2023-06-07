@@ -55,7 +55,7 @@ spec:
       {{- with .Values.admissionController.dnsPolicy }}
       dnsPolicy: {{ . }}
       {{- end }}
-      {{- if or .Values.admissionController.antiAffinity.enable .Values.admissionController.podAffinity .Values.admissionController.nodeAffinity }}
+      {{- if or .Values.admissionController.antiAffinity.enabled .Values.admissionController.podAffinity .Values.admissionController.nodeAffinity }}
       affinity:
         {{- if .Values.admissionController.antiAffinity.enabled }}
         {{- with .Values.admissionController.podAntiAffinity }}
@@ -98,6 +98,8 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           env:
+          - name: INIT_CONFIG
+            value: {{ template "kyverno.config.configMapName" . }}
           - name: METRICS_CONFIG
             value: {{ template "kyverno.config.metricsConfigMapName" . }}
           - name: KYVERNO_NAMESPACE
@@ -109,7 +111,9 @@ spec:
               fieldRef:
                 fieldPath: metadata.name
           - name: KYVERNO_DEPLOYMENT
-            value: {{ template "kyverno.fullname" . }}
+            value: {{ template "kyverno.admission-controller.name" . }}
+          - name: KYVERNO_SVC
+            value: {{ template "kyverno.admission-controller.serviceName" . }}
           {{- with .Values.admissionController.initContainer.extraEnvVars }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
@@ -163,7 +167,8 @@ spec:
             {{- end }}
             {{- end }}
           {{- with .Values.admissionController.container.resources }}
-          resources: {{ tpl (toYaml .) $ | nindent 12 }}
+          resources:
+            {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           {{- with .Values.admissionController.container.securityContext }}
           securityContext:

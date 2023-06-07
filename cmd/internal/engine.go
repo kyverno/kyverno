@@ -42,6 +42,7 @@ func NewEngine(
 		rclient,
 		engineapi.DefaultContextLoaderFactory(configMapResolver),
 		exceptionsSelector,
+		imageSignatureRepository,
 	)
 }
 
