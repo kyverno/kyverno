@@ -5,7 +5,7 @@ import (
 
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
-	"github.com/mattbaird/jsonpatch"
+	"gomodules.xyz/jsonpatch/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/pod-security-admission/api"

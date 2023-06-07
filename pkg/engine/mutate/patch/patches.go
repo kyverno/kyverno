@@ -2,7 +2,7 @@ package patch
 
 import (
 	"github.com/go-logr/logr"
-	"github.com/mattbaird/jsonpatch"
+	"gomodules.xyz/jsonpatch/v2"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 )
 

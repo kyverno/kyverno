@@ -17,8 +17,8 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
-	"github.com/mattbaird/jsonpatch"
 	"go.opentelemetry.io/otel/trace"
+	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )

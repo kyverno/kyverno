@@ -11,7 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/utils/api"
-	"github.com/mattbaird/jsonpatch"
+	"gomodules.xyz/jsonpatch/v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 

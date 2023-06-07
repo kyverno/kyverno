@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
-	"github.com/mattbaird/jsonpatch"
+	"gomodules.xyz/jsonpatch/v2"
 )
 
 func ConvertPatches(in ...jsonpatch.JsonPatchOperation) [][]byte {
