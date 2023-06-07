@@ -7,10 +7,10 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	gcrremote "github.com/google/go-containerregistry/0_14/pkg/v1/remote" // TODO: Remove this once we upgrade tp cosign version < 2.0.2
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/images"
 	"github.com/kyverno/kyverno/pkg/logging"
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
@@ -154,14 +154,21 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 	}
 	v.log.V(4).Info("fetched repository", "repoDesc", repoDesc)
 
-	referrers, err := remote.Referrers(ref.Context().Digest(repoDesc.Digest.String()), remoteOpts...)
+	referrers, err := gcrremote.Referrers(ref.Context().Digest(repoDesc.Digest.String()), remoteOpts...)
 	if err != nil {
 		return nil, err
 	}
 
+	referrersDescs, err := referrers.IndexManifest()
+	if err != nil {
+		return nil, err
+	}
+
+	v.log.V(4).Info("fetched referrers", "referrers", referrersDescs)
+
 	var statements []map[string]interface{}
 
-	for _, referrer := range referrers.Manifests {
+	for _, referrer := range referrersDescs.Manifests {
 		match, _, err := matchArtifactType(referrer, opts.Type)
 		if err != nil {
 			return nil, err

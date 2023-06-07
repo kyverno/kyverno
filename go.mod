@@ -2,6 +2,8 @@ module github.com/kyverno/kyverno
 
 go 1.20
 
+replace github.com/google/go-containerregistry/0_14 => github.com/google/go-containerregistry v0.14.1-0.20230425172351-b7c6e9dc3944
+
 require (
 	github.com/IGLOU-EU/go-wildcard v1.0.3
 	github.com/aquilax/truncate v1.0.0
@@ -21,6 +23,7 @@ require (
 	github.com/go-logr/zapr v1.2.4
 	github.com/google/gnostic v0.6.9
 	github.com/google/go-containerregistry v0.14.1-0.20230409045903-ed5c185df419
+	github.com/google/go-containerregistry/0_14 v0.0.0-00010101000000-000000000000
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20230403180904-b8d1c0a1df12
 	github.com/in-toto/in-toto-golang v0.9.0
 	github.com/jmespath/go-jmespath v0.4.0

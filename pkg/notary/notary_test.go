@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
+	gcrremote "github.com/google/go-containerregistry/0_14/pkg/v1/remote" // TODO: Remove this once we upgrade tp cosign version < 2.0.2
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"gotest.tools/assert"
 )
 
@@ -16,10 +16,12 @@ func TestExtractStatements(t *testing.T) {
 	assert.NilError(t, err)
 	repoDesc, err := crane.Head(imageRef)
 	assert.NilError(t, err)
-	referrers, err := remote.Referrers(ref.Context().Digest(repoDesc.Digest.String()))
+	referrers, err := gcrremote.Referrers(ref.Context().Digest(repoDesc.Digest.String()))
+	assert.NilError(t, err)
+	referrersDescs, err := referrers.IndexManifest()
 	assert.NilError(t, err)
 
-	for _, referrer := range referrers.Manifests {
+	for _, referrer := range referrersDescs.Manifests {
 		if referrer.ArtifactType == "application/vnd.cncf.notary.signature" {
 			statements, err := extractStatements(context.Background(), ref, referrer)
 			assert.NilError(t, err)

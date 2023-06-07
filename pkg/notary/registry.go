@@ -4,10 +4,10 @@ import (
 	"context"
 	"strings"
 
+	gcrremote "github.com/google/go-containerregistry/0_14/pkg/v1/remote" // TODO: Remove this once we upgrade tp cosign version < 2.0.2
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
-	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	notationregistry "github.com/notaryproject/notation-go/registry"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -108,6 +108,18 @@ func isDigestReference(reference string) bool {
 func getRemoteOpts(authenticator authn.Authenticator) ([]gcrremote.Option, error) {
 	remoteOpts := []gcrremote.Option{}
 	remoteOpts = append(remoteOpts, gcrremote.WithAuth(authenticator))
+
+	pusher, err := gcrremote.NewPusher(remoteOpts...)
+	if err != nil {
+		return nil, err
+	}
+	remoteOpts = append(remoteOpts, gcrremote.Reuse(pusher))
+
+	puller, err := gcrremote.NewPuller(remoteOpts...)
+	if err != nil {
+		return nil, err
+	}
+	remoteOpts = append(remoteOpts, gcrremote.Reuse(puller))
 
 	return remoteOpts, nil
 }
