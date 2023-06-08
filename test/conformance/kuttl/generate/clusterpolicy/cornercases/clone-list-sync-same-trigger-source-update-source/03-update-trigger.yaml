@@ -4,8 +4,10 @@ metadata:
   labels:
     location: europe
     allowedToBeCloned: "true"
+  annotations:
+    myProj/cluster.addon.sync.targetNamespace: no-clone
   name: mysecret
-  namespace: clone-list-sync-same-trigger-source-trigger-ns
+  namespace: clone-list-sync-same-trigger-source-update-source-trigger-ns
 type: Opaque
 data:
   foo: YmFy

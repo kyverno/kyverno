@@ -5,9 +5,9 @@ metadata:
     location: europe
     allowedToBeCloned: "true"
   annotations:
-    myProj/cluster.addon.sync.targetNamespace: clone-list-sync-same-trigger-source-target-ns
+    myProj/cluster.addon.sync.targetNamespace: clone-list-sync-same-trigger-source-update-source-target-ns
   name: mysecret
-  namespace: clone-list-sync-same-trigger-source-trigger-ns
+  namespace: clone-list-sync-same-trigger-source-update-source-trigger-ns
 type: Opaque
 data:
   foo: YmFy
