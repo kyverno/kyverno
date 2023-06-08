@@ -28,7 +28,6 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
-	github.com/mattbaird/jsonpatch v0.0.0-20200820163806-098863c1fc24
 	github.com/notaryproject/notation-core-go v1.0.0-rc.4
 	github.com/notaryproject/notation-go v1.0.0-rc.3
 	github.com/onsi/ginkgo v1.16.5
@@ -61,6 +60,7 @@ require (
 	golang.org/x/crypto v0.9.0
 	golang.org/x/exp v0.0.0-20230321023759-10a507213a29
 	golang.org/x/text v0.9.0
+	gomodules.xyz/jsonpatch/v2 v2.3.0
 	google.golang.org/grpc v1.55.0
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
@@ -335,7 +335,4 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 )
 
-replace (
-	github.com/jmespath/go-jmespath => github.com/kyverno/go-jmespath v0.4.1-0.20230204162932-3ee946b9433d
-	github.com/mattbaird/jsonpatch => gomodules.xyz/jsonpatch/v2 v2.2.0
-)
+replace github.com/jmespath/go-jmespath => github.com/kyverno/go-jmespath v0.4.1-0.20230204162932-3ee946b9433d
