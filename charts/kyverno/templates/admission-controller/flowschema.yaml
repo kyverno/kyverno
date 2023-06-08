@@ -1,0 +1,157 @@
+{{- if .Values.admissionController.apiPriorityAndFairness }}
+apiVersion: flowcontrol.apiserver.k8s.io/v1beta3
+kind: FlowSchema
+metadata:
+  name: {{ template "kyverno.admission-controller.flowSchema" . }}
+  labels:
+    {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
+spec:
+  priorityLevelConfiguration:
+    name: {{ template "kyverno.admission-controller.priorityLevelConfiguration" . }}
+  rules:
+  - resourceRules:
+    - apiGroups:
+        - admissionregistration.k8s.io
+      clusterScope: true
+      resources:
+        - mutatingwebhookconfigurations
+        - validatingwebhookconfigurations
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+        - deletecollection
+    - apiGroups:
+        - rbac.authorization.k8s.io
+      clusterScope: true
+      resources:
+        - roles
+        - clusterroles
+        - rolebindings
+        - clusterrolebindings
+      verbs:
+        - watch
+        - list
+    - apiGroups:
+        - kyverno.io
+      clusterScope: true
+      resources:
+        - policies
+        - policies/status
+        - clusterpolicies
+        - clusterpolicies/status
+        - updaterequests
+        - updaterequests/status
+        - admissionreports
+        - clusteradmissionreports
+        - backgroundscanreports
+        - clusterbackgroundscanreports
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+        - deletecollection
+    - apiGroups:
+        - wgpolicyk8s.io
+      clusterScope: true
+      resources:
+        - policyreports
+        - policyreports/status
+        - clusterpolicyreports
+        - clusterpolicyreports/status
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+        - deletecollection
+    - apiGroups:
+        - ""
+        - events.k8s.io
+      clusterScope: true
+      resources:
+        - events
+      verbs:
+        - create
+        - update
+        - patch
+    - apiGroups:
+        - authorization.k8s.io
+      clusterScope: true
+      resources:
+        - subjectaccessreviews
+      verbs:
+        - create
+    - apiGroups:
+        - '*'
+      clusterScope: true
+      resources:
+        - '*'
+      verbs:
+        - get
+        - list
+        - watch
+    - apiGroups:
+        - ''
+      namespaces:
+        - {{ template "kyverno.namespace" . }}
+      resources:
+        - secrets
+      verbs:
+        - get
+        - list
+        - watch
+        - create
+        - update
+    - apiGroups:
+        - ''
+      namespaces:
+        - {{ template "kyverno.namespace" . }}
+      resources:
+        - configmaps
+      verbs:
+        - get
+        - list
+        - watch
+    - apiGroups:
+        - coordination.k8s.io
+      namespaces:
+          - {{ template "kyverno.namespace" . }}
+      resources:
+        - leases
+      verbs:
+        - create
+        - delete
+        - get
+        - patch
+        - update
+    - apiGroups:
+        - apps
+      namespaces:
+          - {{ template "kyverno.namespace" . }}
+      resources:
+        - deployments
+        - deployments/scale
+      verbs:
+        - get
+        - list
+        - watch
+        - patch
+        - update
+    subjects:
+    - kind: ServiceAccount
+      serviceAccount:
+        name: {{ template "kyverno.admission-controller.serviceAccountName" . }}
+        namespace: {{ template "kyverno.namespace" . }}
+{{- end }}

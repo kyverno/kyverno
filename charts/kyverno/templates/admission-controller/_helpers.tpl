@@ -33,3 +33,11 @@
 {{- define "kyverno.admission-controller.serviceName" -}}
 {{- printf "%s-svc" (include "kyverno.fullname" .) | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
+
+{{- define "kyverno.admission-controller.flowSchema" -}}
+{{ template "kyverno.name" . }}-admission-controller
+{{- end -}}
+
+{{- define "kyverno.admission-controller.priorityLevelConfiguration" -}}
+{{ template "kyverno.name" . }}-admission-controller
+{{- end -}}

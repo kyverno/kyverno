@@ -1,0 +1,92 @@
+{{- if .Values.reportsController.apiPriorityAndFairness }}
+apiVersion: flowcontrol.apiserver.k8s.io/v1beta3
+kind: FlowSchema
+metadata:
+  name: {{ template "kyverno.reports-controller.flowSchema" . }}
+  labels:
+    {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
+spec:
+  priorityLevelConfiguration:
+    name: {{ template "kyverno.reports-controller.priorityLevelConfiguration" . }}
+  rules:
+  - resourceRules:
+    - apiGroups:
+        - '*'
+      clusterScope: true
+      resources:
+        - '*'
+      verbs:
+        - get
+        - list
+        - watch
+    - apiGroups:
+        - kyverno.io
+      clusterScope: true
+      resources:
+        - admissionreports
+        - clusteradmissionreports
+        - backgroundscanreports
+        - clusterbackgroundscanreports
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+        - deletecollection
+    - apiGroups:
+        - wgpolicyk8s.io
+      clusterScope: true
+      resources:
+        - policyreports
+        - policyreports/status
+        - clusterpolicyreports
+        - clusterpolicyreports/status
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+        - deletecollection
+    - apiGroups:
+        - ''
+        - events.k8s.io
+      clusterScope: true
+      resources:
+        - events
+      verbs:
+        - create
+        - patch
+    - apiGroups:
+        - ''
+      namespaces:
+        - {{ template "kyverno.namespace" . }}
+      resources:
+        - configmaps
+      verbs:
+        - get
+        - list
+        - watch
+    - apiGroups:
+        - coordination.k8s.io
+      namespaces:
+        - {{ template "kyverno.namespace" . }}
+      resources:
+        - leases
+      verbs:
+        - create
+        - delete
+        - get
+        - patch
+        - update
+    subjects:
+    - kind: ServiceAccount
+      serviceAccount:
+        name: {{ template "kyverno.reports-controller.serviceAccountName" . }}
+        namespace: {{ template "kyverno.namespace" . }}
+{{- end }}

@@ -1,0 +1,16 @@
+{{- if .Values.reportsController.apiPriorityAndFairness }}
+apiVersion: flowcontrol.apiserver.k8s.io/v1beta3
+kind: PriorityLevelConfiguration
+metadata:
+  name: {{ template "kyverno.reports-controller.priorityLevelConfiguration" . }}
+  labels:
+    {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
+spec:
+  type: Limited
+  limited:
+    nominalConcurrencyShares: 10
+    limitResponse:
+      queuing:
+        queueLengthLimit: 50
+      type: Queue
+{{- end }}

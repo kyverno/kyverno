@@ -37,3 +37,11 @@
     {{ required "A service account name is required when `rbac.create` is set to `false`" .Values.reportsController.rbac.serviceAccount.name }}
 {{- end -}}
 {{- end -}}
+
+{{- define "kyverno.reports-controller.flowSchema" -}}
+{{ template "kyverno.name" . }}-reports-controller
+{{- end -}}
+
+{{- define "kyverno.reports-controller.priorityLevelConfiguration" -}}
+{{ template "kyverno.name" . }}-reports-controller
+{{- end -}}

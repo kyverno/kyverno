@@ -1,0 +1,16 @@
+{{- if .Values.admissionController.apiPriorityAndFairness }}
+apiVersion: flowcontrol.apiserver.k8s.io/v1beta3
+kind: PriorityLevelConfiguration
+metadata:
+  name: {{ template "kyverno.admission-controller.priorityLevelConfiguration" . }}
+  labels:
+    {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
+spec:
+  type: Limited
+  limited:
+    nominalConcurrencyShares: 10
+    limitResponse:
+      queuing:
+        queueLengthLimit: 50
+      type: Queue
+{{- end }}
