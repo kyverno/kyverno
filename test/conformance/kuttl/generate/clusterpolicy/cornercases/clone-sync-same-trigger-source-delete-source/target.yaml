@@ -4,9 +4,9 @@ data:
 kind: Secret
 metadata:
   annotations:
-    myProj/cluster.addon.sync.targetNamespace: clone-list-sync-same-trigger-source-target-ns
+    myProj/cluster.addon.sync.targetNamespace: clone-sync-same-trigger-source-target-ns
   labels:
     location: europe
   name: mysecret
-  namespace: clone-list-sync-same-trigger-source-target-ns
+  namespace: clone-sync-same-trigger-source-target-ns
 type: Opaque
