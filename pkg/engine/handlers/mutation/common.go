@@ -65,8 +65,12 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 
 	patchedResource := f.resource
 	reverse := false
-	if foreach.Order != nil && *foreach.Order == kyvernov1.Descending {
+	// if it's a patch strategic merge, reverse by default
+	if foreach.RawPatchStrategicMerge != nil {
 		reverse = true
+	}
+	if foreach.Order != nil {
+		reverse = *foreach.Order == kyvernov1.Descending
 	}
 	if reverse {
 		engineutils.InvertedElement(elements)
