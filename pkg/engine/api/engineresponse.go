@@ -7,7 +7,7 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	utils "github.com/kyverno/kyverno/pkg/utils/match"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
-	"github.com/mattbaird/jsonpatch"
+	"gomodules.xyz/jsonpatch/v2"
 	"k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
