@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
@@ -31,7 +32,6 @@ import (
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 )
 
 type resourceHandlers struct {
@@ -59,7 +59,8 @@ type resourceHandlers struct {
 	openApiManager openapi.ValidateInterface
 	pcBuilder      webhookutils.PolicyContextBuilder
 
-	admissionReports bool
+	admissionReports             bool
+	backgroungServiceAccountName string
 }
 
 func NewHandlers(
@@ -71,8 +72,6 @@ func NewHandlers(
 	metricsConfig metrics.MetricsConfigManager,
 	pCache policycache.Cache,
 	nsLister corev1listers.NamespaceLister,
-	rbLister rbacv1listers.RoleBindingLister,
-	crbLister rbacv1listers.ClusterRoleBindingLister,
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
@@ -80,24 +79,27 @@ func NewHandlers(
 	eventGen event.Interface,
 	openApiManager openapi.ValidateInterface,
 	admissionReports bool,
+	backgroungServiceAccountName string,
+	jp jmespath.Interface,
 ) webhooks.ResourceHandlers {
 	return &resourceHandlers{
-		engine:           engine,
-		client:           client,
-		kyvernoClient:    kyvernoClient,
-		rclient:          rclient,
-		configuration:    configuration,
-		metricsConfig:    metricsConfig,
-		pCache:           pCache,
-		nsLister:         nsLister,
-		urLister:         urLister,
-		cpolLister:       cpolInformer.Lister(),
-		polLister:        polInformer.Lister(),
-		urGenerator:      urGenerator,
-		eventGen:         eventGen,
-		openApiManager:   openApiManager,
-		pcBuilder:        webhookutils.NewPolicyContextBuilder(configuration),
-		admissionReports: admissionReports,
+		engine:                       engine,
+		client:                       client,
+		kyvernoClient:                kyvernoClient,
+		rclient:                      rclient,
+		configuration:                configuration,
+		metricsConfig:                metricsConfig,
+		pCache:                       pCache,
+		nsLister:                     nsLister,
+		urLister:                     urLister,
+		cpolLister:                   cpolInformer.Lister(),
+		polLister:                    polInformer.Lister(),
+		urGenerator:                  urGenerator,
+		eventGen:                     eventGen,
+		openApiManager:               openApiManager,
+		pcBuilder:                    webhookutils.NewPolicyContextBuilder(configuration, jp),
+		admissionReports:             admissionReports,
+		backgroungServiceAccountName: backgroungServiceAccountName,
 	}
 }
 
@@ -173,7 +175,7 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.Response(request.UID, err)
 	}
-	ivh := imageverification.NewImageVerificationHandler(logger, h.kyvernoClient, h.engine, h.eventGen, h.admissionReports, h.configuration)
+	ivh := imageverification.NewImageVerificationHandler(logger, h.kyvernoClient, h.engine, h.eventGen, h.admissionReports, h.configuration, h.nsLister)
 	imagePatches, imageVerifyWarnings, err := ivh.Handle(ctx, newRequest, verifyImagesPolicies, policyContext)
 	if err != nil {
 		logger.Error(err, "image verification failed")

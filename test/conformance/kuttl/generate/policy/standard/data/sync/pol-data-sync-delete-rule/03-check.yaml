@@ -1,5 +1,5 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 assert:
-- secret.yaml
 - configmap.yaml
+- configmap-remain.yaml

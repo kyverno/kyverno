@@ -38,6 +38,7 @@ func (e *engine) validate(
 			if hasValidate {
 				hasVerifyManifest := rule.HasVerifyManifests()
 				hasValidatePss := rule.HasValidatePodSecurity()
+				hasValidateCEL := rule.HasValidateCEL()
 				if hasVerifyManifest {
 					return validation.NewValidateManifestHandler(
 						policyContext,
@@ -45,6 +46,8 @@ func (e *engine) validate(
 					)
 				} else if hasValidatePss {
 					return validation.NewValidatePssHandler()
+				} else if hasValidateCEL {
+					return validation.NewValidateCELHandler(e.client)
 				} else {
 					return validation.NewValidateResourceHandler()
 				}
@@ -68,12 +71,8 @@ func (e *engine) validate(
 			engineapi.Validation,
 		)
 		matchedResource = resource
-		for _, ruleResp := range ruleResp {
-			ruleResp := ruleResp
-			internal.AddRuleResponse(&resp, &ruleResp, startTime)
-			logger.V(4).Info("finished processing rule", "processingTime", ruleResp.Stats.ProcessingTime.String())
-		}
-		if applyRules == kyvernov1.ApplyOne && resp.Stats.RulesAppliedCount > 0 {
+		resp.Add(engineapi.NewExecutionStats(startTime, time.Now()), ruleResp...)
+		if applyRules == kyvernov1.ApplyOne && resp.RulesAppliedCount() > 0 {
 			break
 		}
 	}

@@ -1,0 +1,24 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-image-registries
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+  - name: validate-registries
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      message: "Unknown image registry."
+      pattern:
+        spec:
+          =(ephemeralContainers):
+          - image: "eu.foo.io/* | bar.io/*"
+          =(initContainers):
+          - image: "eu.foo.io/* | bar.io/*"
+          containers:
+          - image: "eu.foo.io/* | bar.io/*"

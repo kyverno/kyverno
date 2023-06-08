@@ -21,7 +21,7 @@ func GenerateEvents(logger logr.Logger, eventGen event.Interface, config config.
 
 func generateSuccessEvents(log logr.Logger, ers ...engineapi.EngineResponse) (eventInfos []event.Info) {
 	for _, er := range ers {
-		logger := log.WithValues("policy", er.Policy.GetName(), "kind", er.Resource.GetKind(), "namespace", er.Resource.GetNamespace(), "name", er.Resource.GetName())
+		logger := log.WithValues("policy", er.Policy().GetName(), "kind", er.Resource.GetKind(), "namespace", er.Resource.GetNamespace(), "name", er.Resource.GetName())
 		if !er.IsFailed() {
 			logger.V(4).Info("generating event on policy for success rules")
 			e := event.NewPolicyAppliedEvent(event.PolicyController, er)
@@ -33,10 +33,9 @@ func generateSuccessEvents(log logr.Logger, ers ...engineapi.EngineResponse) (ev
 
 func generateExceptionEvents(log logr.Logger, ers ...engineapi.EngineResponse) (eventInfos []event.Info) {
 	for _, er := range ers {
-		for i, ruleResp := range er.PolicyResponse.Rules {
-			isException := ruleResp.Exception != nil
-			if ruleResp.Status == engineapi.RuleStatusSkip && isException {
-				eventInfos = append(eventInfos, event.NewPolicyExceptionEvents(er, &er.PolicyResponse.Rules[i], event.PolicyController)...)
+		for _, ruleResp := range er.PolicyResponse.Rules {
+			if ruleResp.Status() == engineapi.RuleStatusSkip && ruleResp.IsException() {
+				eventInfos = append(eventInfos, event.NewPolicyExceptionEvents(er, ruleResp, event.PolicyController)...)
 			}
 		}
 	}
@@ -53,16 +52,16 @@ func generateFailEvents(log logr.Logger, ers ...engineapi.EngineResponse) (event
 func generateFailEventsPerEr(log logr.Logger, er engineapi.EngineResponse) []event.Info {
 	var eventInfos []event.Info
 	logger := log.WithValues(
-		"policy", er.Policy.GetName(),
+		"policy", er.Policy().GetName(),
 		"kind", er.Resource.GetKind(),
 		"namespace", er.Resource.GetNamespace(),
 		"name", er.Resource.GetName(),
 	)
-	for i, rule := range er.PolicyResponse.Rules {
-		if rule.Status != engineapi.RuleStatusPass && rule.Status != engineapi.RuleStatusSkip {
-			eventResource := event.NewResourceViolationEvent(event.PolicyController, event.PolicyViolation, er, &er.PolicyResponse.Rules[i])
+	for _, rule := range er.PolicyResponse.Rules {
+		if rule.Status() != engineapi.RuleStatusPass && rule.Status() != engineapi.RuleStatusSkip {
+			eventResource := event.NewResourceViolationEvent(event.PolicyController, event.PolicyViolation, er, rule)
 			eventInfos = append(eventInfos, eventResource)
-			eventPolicy := event.NewPolicyFailEvent(event.PolicyController, event.PolicyViolation, er, &er.PolicyResponse.Rules[i], false)
+			eventPolicy := event.NewPolicyFailEvent(event.PolicyController, event.PolicyViolation, er, rule, false)
 			eventInfos = append(eventInfos, eventPolicy)
 		}
 	}

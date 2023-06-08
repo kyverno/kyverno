@@ -37,6 +37,10 @@ type Validation struct {
 	// by specifying exclusions for Pod Security Standards controls.
 	// +optional
 	PodSecurity *kyvernov1.PodSecurity `json:"podSecurity,omitempty" yaml:"podSecurity,omitempty"`
+
+	// CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
+	// +optional
+	CEL *kyvernov1.CEL `json:"cel,omitempty" yaml:"cel,omitempty"`
 }
 
 // ConditionOperator is the operation performed on condition key and value.
@@ -97,6 +101,9 @@ type Condition struct {
 	// or can be variables declared using JMESPath.
 	// +optional
 	RawValue *apiextv1.JSON `json:"value,omitempty" yaml:"value,omitempty"`
+
+	// Message is an optional display message
+	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 }
 
 func (c *Condition) GetKey() apiextensions.JSON {

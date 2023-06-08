@@ -83,6 +83,11 @@ func (inner AdmissionHandler) WithTrace(name string) AdmissionHandler {
 				tracing.RequestRequestResourceResourceKey.String(tracing.StringValue(request.RequestResource.Resource)),
 				tracing.RequestUserNameKey.String(tracing.StringValue(request.UserInfo.Username)),
 				tracing.RequestUserUidKey.String(tracing.StringValue(request.UserInfo.UID)),
+				tracing.RequestRolesKey.StringSlice(request.Roles),
+				tracing.RequestClusterRolesKey.StringSlice(request.ClusterRoles),
+				tracing.RequestGroupKey.String(request.GroupVersionKind.Group),
+				tracing.RequestVersionKey.String(request.GroupVersionKind.Version),
+				tracing.RequestKindKey.String(request.GroupVersionKind.Kind),
 				tracing.RequestUserGroupsKey.StringSlice(request.UserInfo.Groups),
 			),
 		)

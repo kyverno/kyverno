@@ -11,17 +11,14 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/generation"
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
 // handleBackgroundApplies applies generate and mutateExisting policies, and creates update requests for background reconcile
 func (h *resourceHandlers) handleBackgroundApplies(ctx context.Context, logger logr.Logger, request admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, generatePolicies, mutatePolicies []kyvernov1.PolicyInterface, ts time.Time) {
-	for _, username := range h.configuration.GetExcludedBackgroundUsernames() {
-		if wildcard.Match(username, policyContext.AdmissionInfo().AdmissionUserInfo.Username) {
-			return
-		}
+	if h.backgroungServiceAccountName == policyContext.AdmissionInfo().AdmissionUserInfo.Username {
+		return
 	}
 	go h.handleMutateExisting(ctx, logger, request, mutatePolicies, policyContext, ts)
 	h.handleGenerate(ctx, logger, request, generatePolicies, policyContext, ts)
@@ -30,12 +27,6 @@ func (h *resourceHandlers) handleBackgroundApplies(ctx context.Context, logger l
 func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr.Logger, request admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface, policyContext *engine.PolicyContext, admissionRequestTimestamp time.Time) {
 	if request.Operation == admissionv1.Delete {
 		policyContext = policyContext.WithNewResource(policyContext.OldResource())
-	}
-
-	resource := policyContext.NewResource()
-	if request.Operation == admissionv1.Update && resource.GetDeletionTimestamp() != nil {
-		logger.V(4).Info("skip creating UR for the trigger resource that is in termination")
-		return
 	}
 
 	var engineResponses []*engineapi.EngineResponse
@@ -50,7 +41,7 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 		engineResponse := h.engine.ApplyBackgroundChecks(ctx, policyContext)
 
 		for _, rule := range engineResponse.PolicyResponse.Rules {
-			if rule.Status == engineapi.RuleStatusPass {
+			if rule.Status() == engineapi.RuleStatusPass {
 				rules = append(rules, rule)
 			}
 		}

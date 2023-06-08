@@ -7,8 +7,11 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/kyverno/kyverno/pkg/config"
 	"gotest.tools/assert"
 )
+
+var cfg = config.NewDefaultConfiguration(false)
 
 func Test_Compare(t *testing.T) {
 	testCases := []struct {
@@ -30,7 +33,7 @@ func Test_Compare(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
-			jp, err := New(tc.jmesPath)
+			jp, err := newJMESPath(cfg, tc.jmesPath)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -57,7 +60,7 @@ func Test_ParseJsonSerde(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc, func(t *testing.T) {
-			jp, err := New(fmt.Sprintf(`to_string(parse_json('%s'))`, tc))
+			jp, err := newJMESPath(cfg, fmt.Sprintf(`to_string(parse_json('%s'))`, tc))
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -88,7 +91,7 @@ func Test_ParseJsonComplex(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.input, func(t *testing.T) {
-			jp, err := New(tc.input)
+			jp, err := newJMESPath(cfg, tc.input)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -165,7 +168,7 @@ bar: null
 	}
 	for _, tc := range testCases {
 		t.Run(tc.input, func(t *testing.T) {
-			jp, err := New(fmt.Sprintf(`parse_yaml('%s')`, tc.input))
+			jp, err := newJMESPath(cfg, fmt.Sprintf(`parse_yaml('%s')`, tc.input))
 			assert.NilError(t, err)
 			result, err := jp.Search("")
 			assert.NilError(t, err)
@@ -194,7 +197,7 @@ func Test_EqualFold(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
-			jp, err := New(tc.jmesPath)
+			jp, err := newJMESPath(cfg, tc.jmesPath)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -231,7 +234,7 @@ func Test_Replace(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
-			jp, err := New(tc.jmesPath)
+			jp, err := newJMESPath(cfg, tc.jmesPath)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -245,7 +248,7 @@ func Test_Replace(t *testing.T) {
 }
 
 func Test_ReplaceAll(t *testing.T) {
-	jp, err := New("replace_all('Lorem ipsum dolor sit amet', 'ipsum', 'muspi')")
+	jp, err := newJMESPath(cfg, "replace_all('Lorem ipsum dolor sit amet', 'ipsum', 'muspi')")
 	assert.NilError(t, err)
 
 	result, err := jp.Search("")
@@ -276,7 +279,7 @@ func Test_ToUpper(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
-			jp, err := New(tc.jmesPath)
+			jp, err := newJMESPath(cfg, tc.jmesPath)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -309,7 +312,7 @@ func Test_ToLower(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
-			jp, err := New(tc.jmesPath)
+			jp, err := newJMESPath(cfg, tc.jmesPath)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -323,7 +326,7 @@ func Test_ToLower(t *testing.T) {
 }
 
 func Test_Trim(t *testing.T) {
-	jp, err := New("trim('¡¡¡Hello, Gophers!!!', '!¡')")
+	jp, err := newJMESPath(cfg, "trim('¡¡¡Hello, Gophers!!!', '!¡')")
 	assert.NilError(t, err)
 
 	result, err := jp.Search("")
@@ -394,7 +397,7 @@ func Test_TrimPrefix(t *testing.T) {
 }
 
 func Test_Split(t *testing.T) {
-	jp, err := New("split('Hello, Gophers', ', ')")
+	jp, err := newJMESPath(cfg, "split('Hello, Gophers', ', ')")
 	assert.NilError(t, err)
 
 	result, err := jp.Search("")
@@ -407,7 +410,7 @@ func Test_Split(t *testing.T) {
 }
 
 func Test_HasPrefix(t *testing.T) {
-	jp, err := New("starts_with('Gophers', 'Go')")
+	jp, err := newJMESPath(cfg, "starts_with('Gophers', 'Go')")
 	assert.NilError(t, err)
 
 	result, err := jp.Search("")
@@ -419,7 +422,7 @@ func Test_HasPrefix(t *testing.T) {
 }
 
 func Test_HasSuffix(t *testing.T) {
-	jp, err := New("ends_with('Amigo', 'go')")
+	jp, err := newJMESPath(cfg, "ends_with('Amigo', 'go')")
 	assert.NilError(t, err)
 
 	result, err := jp.Search("")
@@ -434,7 +437,7 @@ func Test_RegexMatch(t *testing.T) {
 	data := make(map[string]interface{})
 	data["foo"] = "hgf'b1a2r'b12g"
 
-	query, err := New("regex_match('12.*', foo)")
+	query, err := newJMESPath(cfg, "regex_match('12.*', foo)")
 	assert.NilError(t, err)
 
 	result, err := query.Search(data)
@@ -446,7 +449,7 @@ func Test_RegexMatchWithNumber(t *testing.T) {
 	data := make(map[string]interface{})
 	data["foo"] = -12.0
 
-	query, err := New("regex_match('12.*', abs(foo))")
+	query, err := newJMESPath(cfg, "regex_match('12.*', abs(foo))")
 	assert.NilError(t, err)
 
 	result, err := query.Search(data)
@@ -458,7 +461,7 @@ func Test_PatternMatch(t *testing.T) {
 	data := make(map[string]interface{})
 	data["foo"] = "prefix-foo"
 
-	query, err := New("pattern_match('prefix-*', foo)")
+	query, err := newJMESPath(cfg, "pattern_match('prefix-*', foo)")
 	assert.NilError(t, err)
 
 	result, err := query.Search(data)
@@ -470,7 +473,7 @@ func Test_PatternMatchWithNumber(t *testing.T) {
 	data := make(map[string]interface{})
 	data["foo"] = -12.0
 
-	query, err := New("pattern_match('12*', abs(foo))")
+	query, err := newJMESPath(cfg, "pattern_match('12*', abs(foo))")
 	assert.NilError(t, err)
 
 	result, err := query.Search(data)
@@ -497,7 +500,7 @@ func Test_RegexReplaceAll(t *testing.T) {
 	var resource interface{}
 	err := json.Unmarshal(resourceRaw, &resource)
 	assert.NilError(t, err)
-	query, err := New(`regex_replace_all('([Hh]e|G)l', spec.field, '${2}G')`)
+	query, err := newJMESPath(cfg, `regex_replace_all('([Hh]e|G)l', spec.field, '${2}G')`)
 	assert.NilError(t, err)
 
 	res, err := query.Search(resource)
@@ -528,7 +531,7 @@ func Test_RegexReplaceAllLiteral(t *testing.T) {
 	err := json.Unmarshal(resourceRaw, &resource)
 	assert.NilError(t, err)
 
-	query, err := New(`regex_replace_all_literal('[Hh]el?', spec.field, 'G')`)
+	query, err := newJMESPath(cfg, `regex_replace_all_literal('[Hh]el?', spec.field, 'G')`)
 	assert.NilError(t, err)
 
 	res, err := query.Search(resource)
@@ -583,7 +586,7 @@ func Test_LabelMatch(t *testing.T) {
 			err := json.Unmarshal(tc.resource, &resource)
 			assert.NilError(t, err)
 
-			query, err := New("label_match(`" + tc.test + "`, metadata.labels)")
+			query, err := newJMESPath(cfg, "label_match(`"+tc.test+"`, metadata.labels)")
 			assert.NilError(t, err)
 
 			res, err := query.Search(resource)
@@ -627,7 +630,7 @@ func Test_JpToBoolean(t *testing.T) {
 }
 
 func Test_Base64Decode(t *testing.T) {
-	jp, err := New("base64_decode('SGVsbG8sIHdvcmxkIQ==')")
+	jp, err := newJMESPath(cfg, "base64_decode('SGVsbG8sIHdvcmxkIQ==')")
 	assert.NilError(t, err)
 
 	result, err := jp.Search("")
@@ -639,7 +642,7 @@ func Test_Base64Decode(t *testing.T) {
 }
 
 func Test_Base64Encode(t *testing.T) {
-	jp, err := New("base64_encode('Hello, world!')")
+	jp, err := newJMESPath(cfg, "base64_encode('Hello, world!')")
 	assert.NilError(t, err)
 
 	result, err := jp.Search("")
@@ -669,7 +672,7 @@ func Test_Base64Decode_Secret(t *testing.T) {
 	err := json.Unmarshal(resourceRaw, &resource)
 	assert.NilError(t, err)
 
-	query, err := New(`base64_decode(data.example1)`)
+	query, err := newJMESPath(cfg, `base64_decode(data.example1)`)
 	assert.NilError(t, err)
 
 	res, err := query.Search(resource)
@@ -744,7 +747,7 @@ func Test_PathCanonicalize(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
-			jp, err := New(tc.jmesPath)
+			jp, err := newJMESPath(cfg, tc.jmesPath)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -793,7 +796,7 @@ func Test_Truncate(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
-			jp, err := New(tc.jmesPath)
+			jp, err := newJMESPath(cfg, tc.jmesPath)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -830,7 +833,7 @@ func Test_SemverCompare(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
-			jp, err := New(tc.jmesPath)
+			jp, err := newJMESPath(cfg, tc.jmesPath)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -877,7 +880,7 @@ func Test_Items(t *testing.T) {
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
-			query, err := New("items(`" + tc.object + "`,`" + tc.keyName + "`,`" + tc.valName + "`)")
+			query, err := newJMESPath(cfg, "items(`"+tc.object+"`,`"+tc.keyName+"`,`"+tc.valName+"`)")
 			assert.NilError(t, err)
 
 			res, err := query.Search("")
@@ -928,7 +931,7 @@ func Test_ObjectFromLists(t *testing.T) {
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
-			query, err := New("object_from_lists(`" + tc.keys + "`,`" + tc.values + "`)")
+			query, err := newJMESPath(cfg, "object_from_lists(`"+tc.keys+"`,`"+tc.values+"`)")
 			assert.NilError(t, err)
 			res, err := query.Search("")
 			assert.NilError(t, err)
@@ -985,12 +988,30 @@ jwxUjWyvEey4qJex/EGEm5RQcMv9iy7tba1wK7sykNGn5uDELGPGIIEAa5rIHm1F
 UFOZZVoELaasWS559wy8og39Eq21dDMynb8Bndn/
 -----END CERTIFICATE-----
 `,
+		`-----BEGIN CERTIFICATE REQUEST-----
+MIICvDCCAaQCAQAwdzELMAkGA1UEBhMCVVMxDTALBgNVBAgMBFV0YWgxDzANBgNV
+BAcMBkxpbmRvbjEWMBQGA1UECgwNRGlnaUNlcnQgSW5jLjERMA8GA1UECwwIRGln
+aUNlcnQxHTAbBgNVBAMMFGV4YW1wbGUuZGlnaWNlcnQuY29tMIIBIjANBgkqhkiG
+9w0BAQEFAAOCAQ8AMIIBCgKCAQEA8+To7d+2kPWeBv/orU3LVbJwDrSQbeKamCmo
+wp5bqDxIwV20zqRb7APUOKYoVEFFOEQs6T6gImnIolhbiH6m4zgZ/CPvWBOkZc+c
+1Po2EmvBz+AD5sBdT5kzGQA6NbWyZGldxRthNLOs1efOhdnWFuhI162qmcflgpiI
+WDuwq4C9f+YkeJhNn9dF5+owm8cOQmDrV8NNdiTqin8q3qYAHHJRW28glJUCZkTZ
+wIaSR6crBQ8TbYNE0dc+Caa3DOIkz1EOsHWzTx+n0zKfqcbgXi4DJx+C1bjptYPR
+BPZL8DAeWuA8ebudVT44yEp82G96/Ggcf7F33xMxe0yc+Xa6owIDAQABoAAwDQYJ
+KoZIhvcNAQEFBQADggEBAB0kcrFccSmFDmxox0Ne01UIqSsDqHgL+XmHTXJwre6D
+hJSZwbvEtOK0G3+dr4Fs11WuUNt5qcLsx5a8uk4G6AKHMzuhLsJ7XZjgmQXGECpY
+Q4mC3yT3ZoCGpIXbw+iP3lmEEXgaQL0Tx5LFl/okKbKYwIqNiyKWOMj7ZR/wxWg/
+ZDGRs55xuoeLDJ/ZRFf9bI+IaCUd1YrfYcHIl3G87Av+r49YVwqRDT0VDV7uLgqn
+29XI1PpVUNCPQGn9p/eX6Qo7vpDaPybRtA2R7XLKjQaF9oXWeCUqy1hvJac9QFO2
+97Ob1alpHPoZ7mWiEuJwjBPii6a9M9G30nUo39lBi1w=
+-----END CERTIFICATE REQUEST-----`,
 	}
 	resList := []string{
 		`{"Raw":"MIIC7TCCAdWgAwIBAgIBADANBgkqhkiG9w0BAQsFADAYMRYwFAYDVQQDDA0qLmt5dmVybm8uc3ZjMB4XDTIyMDExMTEzMjY0M1oXDTIzMDExMTE0MjY0M1owGDEWMBQGA1UEAwwNKi5reXZlcm5vLnN2YzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMsAz85+yino+MmdKsVtHwNi3oAVjumzXHiLfUJK7xi5KU8B7goPHF/VCe/V7Y2c4afyfgY2ePw4LxSDkCYNgYwqjSwGIbcsqv5ZRazBdDxR09ri6PknNyBVGLi5RlPXIrGQ3psNuf55qwxJxLO31qCZuvktKY5YvuIR4JPmBhuSFXOnn0ZiQw8uxMcQ0QA2lz+PxWCVNk9q+31H5DH1oYZDLfU3mijIOA+AJGZbBb+ZwBmpVL0+2TXLxE74WowdKEV+WTsKojNTd0VwcuRKRKR/6ynXAAis21y1X7Ui9FJE6mDIylUD40WXOKGJ1lYY41kRnYhVhvXYN9JtNYdY3HsCAwEAAaNCMEAwDgYDVR0PAQH/BAQDAgKkMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFOnlASVD9fu3TAjptlW/gAXA4ql+MA0GCSqGSIb3DQEBCwUAA4IBAQCIpyRiChxp97crKfQ24Jt7z8P+AGpLf3sX4eL87ESa7QRoVJtXLmaut1pUEoYLQruKmh/0YFtZG9WxVgY6iuKbWnu7bOeMB/Ir+V/yrX3R+XvZOsuXiJnEbJiBW6lJzLldoW4f/71H+j1WD4tHpqmdMxq/sLqXfPIuc0/m0yFCn+ADBWGGB8Nn66vxtv+cT6p+RIVotXPQWbMilWp6pd5wSuB68FqrDwtYLNJtPwFs9MPVkuaJdYZ0eWd/rMcKD94Hgf89gvA0+qzMVFf+3BemXskjQRYy6CKsqoyC6jX4nhYjumAP/7psbzITsnpHtfCEEU+2JZwgM406aiMcsgLb","RawTBSCertificate":"MIIB1aADAgECAgEAMA0GCSqGSIb3DQEBCwUAMBgxFjAUBgNVBAMMDSoua3l2ZXJuby5zdmMwHhcNMjIwMTExMTMyNjQzWhcNMjMwMTExMTQyNjQzWjAYMRYwFAYDVQQDDA0qLmt5dmVybm8uc3ZjMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAywDPzn7KKej4yZ0qxW0fA2LegBWO6bNceIt9QkrvGLkpTwHuCg8cX9UJ79XtjZzhp/J+BjZ4/DgvFIOQJg2BjCqNLAYhtyyq/llFrMF0PFHT2uLo+Sc3IFUYuLlGU9cisZDemw25/nmrDEnEs7fWoJm6+S0pjli+4hHgk+YGG5IVc6efRmJDDy7ExxDRADaXP4/FYJU2T2r7fUfkMfWhhkMt9TeaKMg4D4AkZlsFv5nAGalUvT7ZNcvETvhajB0oRX5ZOwqiM1N3RXBy5EpEpH/rKdcACKzbXLVftSL0UkTqYMjKVQPjRZc4oYnWVhjjWRGdiFWG9dg30m01h1jcewIDAQABo0IwQDAOBgNVHQ8BAf8EBAMCAqQwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQU6eUBJUP1+7dMCOm2Vb+ABcDiqX4=","RawSubjectPublicKeyInfo":"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAywDPzn7KKej4yZ0qxW0fA2LegBWO6bNceIt9QkrvGLkpTwHuCg8cX9UJ79XtjZzhp/J+BjZ4/DgvFIOQJg2BjCqNLAYhtyyq/llFrMF0PFHT2uLo+Sc3IFUYuLlGU9cisZDemw25/nmrDEnEs7fWoJm6+S0pjli+4hHgk+YGG5IVc6efRmJDDy7ExxDRADaXP4/FYJU2T2r7fUfkMfWhhkMt9TeaKMg4D4AkZlsFv5nAGalUvT7ZNcvETvhajB0oRX5ZOwqiM1N3RXBy5EpEpH/rKdcACKzbXLVftSL0UkTqYMjKVQPjRZc4oYnWVhjjWRGdiFWG9dg30m01h1jcewIDAQAB","RawSubject":"MBgxFjAUBgNVBAMMDSoua3l2ZXJuby5zdmM=","RawIssuer":"MBgxFjAUBgNVBAMMDSoua3l2ZXJuby5zdmM=","Signature":"iKckYgocafe3Kyn0NuCbe8/D/gBqS397F+Hi/OxEmu0EaFSbVy5mrrdaVBKGC0K7ipof9GBbWRvVsVYGOorim1p7u2znjAfyK/lf8q190fl72TrLl4iZxGyYgVupScy5XaFuH/+9R/o9Vg+LR6apnTMav7C6l3zyLnNP5tMhQp/gAwVhhgfDZ+ur8bb/nE+qfkSFaLVz0FmzIpVqeqXecErgevBaqw8LWCzSbT8BbPTD1ZLmiXWGdHlnf6zHCg/eB4H/PYLwNPqszFRX/twXpl7JI0EWMugirKqMguo1+J4WI7pgD/+6bG8yE7J6R7XwhBFPtiWcIDONOmojHLIC2w==","SignatureAlgorithm":4,"PublicKeyAlgorithm":1,"PublicKey":{"N":"25626776194299809103943925293022478779550111351090439168995035251396620593900589237452364135475983088162735720467798166985191488213022186077349821145857402701723499012699772423162550319145896535355752944351742979794245171828792388153331005254201525593934122190716637483002316913539755904599370968007653484768793099970920881706651907943367212661888776583428009130496820305182341702970575924538413569026902195901329094514102681440057150490032724791460671006772434362132998853498175356133386237155854830546292463707783883111067332118558636600306550854546869660051077649500890548685566726464348535891964886136890236394619","E":65537},"Version":3,"SerialNumber":0,"Issuer":{"Country":null,"Organization":null,"OrganizationalUnit":null,"Locality":null,"Province":null,"StreetAddress":null,"PostalCode":null,"SerialNumber":"","CommonName":"*.kyverno.svc","Names":[{"Type":[2,5,4,3],"Value":"*.kyverno.svc"}],"ExtraNames":null},"Subject":{"Country":null,"Organization":null,"OrganizationalUnit":null,"Locality":null,"Province":null,"StreetAddress":null,"PostalCode":null,"SerialNumber":"","CommonName":"*.kyverno.svc","Names":[{"Type":[2,5,4,3],"Value":"*.kyverno.svc"}],"ExtraNames":null},"NotBefore":"2022-01-11T13:26:43Z","NotAfter":"2023-01-11T14:26:43Z","KeyUsage":37,"Extensions":[{"Id":[2,5,29,15],"Critical":true,"Value":"AwICpA=="},{"Id":[2,5,29,19],"Critical":true,"Value":"MAMBAf8="},{"Id":[2,5,29,14],"Critical":false,"Value":"BBTp5QElQ/X7t0wI6bZVv4AFwOKpfg=="}],"ExtraExtensions":null,"UnhandledCriticalExtensions":null,"ExtKeyUsage":null,"UnknownExtKeyUsage":null,"BasicConstraintsValid":true,"IsCA":true,"MaxPathLen":-1,"MaxPathLenZero":false,"SubjectKeyId":"6eUBJUP1+7dMCOm2Vb+ABcDiqX4=","AuthorityKeyId":null,"OCSPServer":null,"IssuingCertificateURL":null,"DNSNames":null,"EmailAddresses":null,"IPAddresses":null,"URIs":null,"PermittedDNSDomainsCritical":false,"PermittedDNSDomains":null,"ExcludedDNSDomains":null,"PermittedIPRanges":null,"ExcludedIPRanges":null,"PermittedEmailAddresses":null,"ExcludedEmailAddresses":null,"PermittedURIDomains":null,"ExcludedURIDomains":null,"CRLDistributionPoints":null,"PolicyIdentifiers":null}`,
 		`{"Raw":"MIIDSjCCAjKgAwIBAgIUWxmj40l+TDVJq98Xy7c6Leo3np8wDQYJKoZIhvcNAQELBQAwPTELMAkGA1UEBhMCeHgxCjAIBgNVBAgTAXgxCjAIBgNVBAcTAXgxCjAIBgNVBAoTAXgxCjAIBgNVBAsTAXgwHhcNMTgwMjAyMTIzODAwWhcNMjMwMjAxMTIzODAwWjA9MQswCQYDVQQGEwJ4eDEKMAgGA1UECBMBeDEKMAgGA1UEBxMBeDEKMAgGA1UEChMBeDEKMAgGA1UECxMBeDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBANHkqOmVf23KMXdaZU2eFUx1h4wb09JINBB8x/HL7UE0KFJcnOoVnNQB0gRukUopiYCzrzMFyGWWmB/pAEKool+ZiI2uMy6mcYBDtOi4pOm7U0TQQMV6L/5Yfi65xRz3RTMd/tYAoFi4aCZbJAGjxU6UWNYDzTy8E/cP6ZnlNbVHRiA6/wHsoWcXtWTXYP5yn9cf7EWQi1hOBM4BWmOIyB1f6LEgQipZWMOMPPHO3hsuSBn0rk7jovSt5XTlbgRrtxqAJiNjJUykWzIF+lLnZCioippGv5vkdGvE83JoACXvZTUwzA+MLu49fkw3bweqkbhrer8kacjfGlw3aJN37eECAwEAAaNCMEAwDgYDVR0PAQH/BAQDAgEGMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFKXcb52bv6oqnD+D9fTNFHZL8IWxMA0GCSqGSIb3DQEBCwUAA4IBAQADvKvv3ym0XAYwKxPLLl3Lc6sJYHDbTN0donduG7PXeb1dhuukJ2lfufUYp2IGSAxuLecTYeeByOVp1gaMb5LsIGt2BVDmlMMkiH29LUHsvbyi85CpJo7A5RJG6AWW2VBCiDjz5v8JFM6pMkBRFfXH+pwIge65CE+MTSQcfb1/aIIoQ226P7E/3uUGX4k4pDXG/O7GNvykF40v1DB5y7DDBTQ4JWiJfyGkT69TmdOGLFAmjwxUjWyvEey4qJex/EGEm5RQcMv9iy7tba1wK7sykNGn5uDELGPGIIEAa5rIHm1FUFOZZVoELaasWS559wy8og39Eq21dDMynb8Bndn/","RawTBSCertificate":"MIICMqADAgECAhRbGaPjSX5MNUmr3xfLtzot6jeenzANBgkqhkiG9w0BAQsFADA9MQswCQYDVQQGEwJ4eDEKMAgGA1UECBMBeDEKMAgGA1UEBxMBeDEKMAgGA1UEChMBeDEKMAgGA1UECxMBeDAeFw0xODAyMDIxMjM4MDBaFw0yMzAyMDExMjM4MDBaMD0xCzAJBgNVBAYTAnh4MQowCAYDVQQIEwF4MQowCAYDVQQHEwF4MQowCAYDVQQKEwF4MQowCAYDVQQLEwF4MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0eSo6ZV/bcoxd1plTZ4VTHWHjBvT0kg0EHzH8cvtQTQoUlyc6hWc1AHSBG6RSimJgLOvMwXIZZaYH+kAQqiiX5mIja4zLqZxgEO06Lik6btTRNBAxXov/lh+LrnFHPdFMx3+1gCgWLhoJlskAaPFTpRY1gPNPLwT9w/pmeU1tUdGIDr/AeyhZxe1ZNdg/nKf1x/sRZCLWE4EzgFaY4jIHV/osSBCKllYw4w88c7eGy5IGfSuTuOi9K3ldOVuBGu3GoAmI2MlTKRbMgX6UudkKKiKmka/m+R0a8TzcmgAJe9lNTDMD4wu7j1+TDdvB6qRuGt6vyRpyN8aXDdok3ft4QIDAQABo0IwQDAOBgNVHQ8BAf8EBAMCAQYwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUpdxvnZu/qiqcP4P19M0UdkvwhbE=","RawSubjectPublicKeyInfo":"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0eSo6ZV/bcoxd1plTZ4VTHWHjBvT0kg0EHzH8cvtQTQoUlyc6hWc1AHSBG6RSimJgLOvMwXIZZaYH+kAQqiiX5mIja4zLqZxgEO06Lik6btTRNBAxXov/lh+LrnFHPdFMx3+1gCgWLhoJlskAaPFTpRY1gPNPLwT9w/pmeU1tUdGIDr/AeyhZxe1ZNdg/nKf1x/sRZCLWE4EzgFaY4jIHV/osSBCKllYw4w88c7eGy5IGfSuTuOi9K3ldOVuBGu3GoAmI2MlTKRbMgX6UudkKKiKmka/m+R0a8TzcmgAJe9lNTDMD4wu7j1+TDdvB6qRuGt6vyRpyN8aXDdok3ft4QIDAQAB","RawSubject":"MD0xCzAJBgNVBAYTAnh4MQowCAYDVQQIEwF4MQowCAYDVQQHEwF4MQowCAYDVQQKEwF4MQowCAYDVQQLEwF4","RawIssuer":"MD0xCzAJBgNVBAYTAnh4MQowCAYDVQQIEwF4MQowCAYDVQQHEwF4MQowCAYDVQQKEwF4MQowCAYDVQQLEwF4","Signature":"A7yr798ptFwGMCsTyy5dy3OrCWBw20zdHaJ3bhuz13m9XYbrpCdpX7n1GKdiBkgMbi3nE2HngcjladYGjG+S7CBrdgVQ5pTDJIh9vS1B7L28ovOQqSaOwOUSRugFltlQQog48+b/CRTOqTJAURX1x/qcCIHuuQhPjE0kHH29f2iCKENtuj+xP97lBl+JOKQ1xvzuxjb8pBeNL9QwecuwwwU0OCVoiX8hpE+vU5nThixQJo8MVI1srxHsuKiXsfxBhJuUUHDL/Ysu7W2tcCu7MpDRp+bgxCxjxiCBAGuayB5tRVBTmWVaBC2mrFkuefcMvKIN/RKttXQzMp2/AZ3Z/w==","SignatureAlgorithm":4,"PublicKeyAlgorithm":1,"PublicKey":{"N":"26496562094779491076553211809422098021949952483515703281510813808490953126660362388109632773224118754702902108388229193869554055094778177099185065933983949693842239539154549752097759985799130804083586220803335221114269832081649712810220640441076536231140807229028981655981643835428138719795509959624793308640711388215921808921435203036357847686892066058381787405708754578605922703585581205444932036212009496723589206933777338978604488048677611723712498345752655171502746679687404543368933776929978831813434358099337112479727796701588293884856604804625411358577626503349165930794262171211166398339413648296787152727521","E":65537},"Version":3,"SerialNumber":520089955419326249038486015063014459614455897759,"Issuer":{"Country":["xx"],"Organization":["x"],"OrganizationalUnit":["x"],"Locality":["x"],"Province":["x"],"StreetAddress":null,"PostalCode":null,"SerialNumber":"","CommonName":"","Names":[{"Type":[2,5,4,6],"Value":"xx"},{"Type":[2,5,4,8],"Value":"x"},{"Type":[2,5,4,7],"Value":"x"},{"Type":[2,5,4,10],"Value":"x"},{"Type":[2,5,4,11],"Value":"x"}],"ExtraNames":null},"Subject":{"Country":["xx"],"Organization":["x"],"OrganizationalUnit":["x"],"Locality":["x"],"Province":["x"],"StreetAddress":null,"PostalCode":null,"SerialNumber":"","CommonName":"","Names":[{"Type":[2,5,4,6],"Value":"xx"},{"Type":[2,5,4,8],"Value":"x"},{"Type":[2,5,4,7],"Value":"x"},{"Type":[2,5,4,10],"Value":"x"},{"Type":[2,5,4,11],"Value":"x"}],"ExtraNames":null},"NotBefore":"2018-02-02T12:38:00Z","NotAfter":"2023-02-01T12:38:00Z","KeyUsage":96,"Extensions":[{"Id":[2,5,29,15],"Critical":true,"Value":"AwIBBg=="},{"Id":[2,5,29,19],"Critical":true,"Value":"MAMBAf8="},{"Id":[2,5,29,14],"Critical":false,"Value":"BBSl3G+dm7+qKpw/g/X0zRR2S/CFsQ=="}],"ExtraExtensions":null,"UnhandledCriticalExtensions":null,"ExtKeyUsage":null,"UnknownExtKeyUsage":null,"BasicConstraintsValid":true,"IsCA":true,"MaxPathLen":-1,"MaxPathLenZero":false,"SubjectKeyId":"pdxvnZu/qiqcP4P19M0UdkvwhbE=","AuthorityKeyId":null,"OCSPServer":null,"IssuingCertificateURL":null,"DNSNames":null,"EmailAddresses":null,"IPAddresses":null,"URIs":null,"PermittedDNSDomainsCritical":false,"PermittedDNSDomains":null,"ExcludedDNSDomains":null,"PermittedIPRanges":null,"ExcludedIPRanges":null,"PermittedEmailAddresses":null,"ExcludedEmailAddresses":null,"PermittedURIDomains":null,"ExcludedURIDomains":null,"CRLDistributionPoints":null,"PolicyIdentifiers":null}`,
+		`{"Attributes": null,"DNSNames": null,"EmailAddresses": null,"Extensions": null,"ExtraExtensions": null,"IPAddresses": null,"PublicKey": {"E": 65537,"N": "30788787775499084229626026724118719872973907471499649646184775670914346180312671906399223325409590948519743636184795333482381888453996128329396648505249062053283056069530767359210562374203250761551376585013181653210719557451154530514423713570995019036786795900989905655136970670786111875127185122973524433496741842862203002594125711406631836733656561027033024624302759714504708249269624951711291364305004897900464453081676928894280743798888738608709381777168414778329993619693869221517193116446955833233290395600921852333943656575398427367952052258926688943219100950267027328710138285403327192731641778165311310576291"},"PublicKeyAlgorithm": 1,"Raw": "MIICvDCCAaQCAQAwdzELMAkGA1UEBhMCVVMxDTALBgNVBAgMBFV0YWgxDzANBgNVBAcMBkxpbmRvbjEWMBQGA1UECgwNRGlnaUNlcnQgSW5jLjERMA8GA1UECwwIRGlnaUNlcnQxHTAbBgNVBAMMFGV4YW1wbGUuZGlnaWNlcnQuY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA8+To7d+2kPWeBv/orU3LVbJwDrSQbeKamCmowp5bqDxIwV20zqRb7APUOKYoVEFFOEQs6T6gImnIolhbiH6m4zgZ/CPvWBOkZc+c1Po2EmvBz+AD5sBdT5kzGQA6NbWyZGldxRthNLOs1efOhdnWFuhI162qmcflgpiIWDuwq4C9f+YkeJhNn9dF5+owm8cOQmDrV8NNdiTqin8q3qYAHHJRW28glJUCZkTZwIaSR6crBQ8TbYNE0dc+Caa3DOIkz1EOsHWzTx+n0zKfqcbgXi4DJx+C1bjptYPRBPZL8DAeWuA8ebudVT44yEp82G96/Ggcf7F33xMxe0yc+Xa6owIDAQABoAAwDQYJKoZIhvcNAQEFBQADggEBAB0kcrFccSmFDmxox0Ne01UIqSsDqHgL+XmHTXJwre6DhJSZwbvEtOK0G3+dr4Fs11WuUNt5qcLsx5a8uk4G6AKHMzuhLsJ7XZjgmQXGECpYQ4mC3yT3ZoCGpIXbw+iP3lmEEXgaQL0Tx5LFl/okKbKYwIqNiyKWOMj7ZR/wxWg/ZDGRs55xuoeLDJ/ZRFf9bI+IaCUd1YrfYcHIl3G87Av+r49YVwqRDT0VDV7uLgqn29XI1PpVUNCPQGn9p/eX6Qo7vpDaPybRtA2R7XLKjQaF9oXWeCUqy1hvJac9QFO297Ob1alpHPoZ7mWiEuJwjBPii6a9M9G30nUo39lBi1w=","RawSubject": "MHcxCzAJBgNVBAYTAlVTMQ0wCwYDVQQIDARVdGFoMQ8wDQYDVQQHDAZMaW5kb24xFjAUBgNVBAoMDURpZ2lDZXJ0IEluYy4xETAPBgNVBAsMCERpZ2lDZXJ0MR0wGwYDVQQDDBRleGFtcGxlLmRpZ2ljZXJ0LmNvbQ==","RawSubjectPublicKeyInfo": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA8+To7d+2kPWeBv/orU3LVbJwDrSQbeKamCmowp5bqDxIwV20zqRb7APUOKYoVEFFOEQs6T6gImnIolhbiH6m4zgZ/CPvWBOkZc+c1Po2EmvBz+AD5sBdT5kzGQA6NbWyZGldxRthNLOs1efOhdnWFuhI162qmcflgpiIWDuwq4C9f+YkeJhNn9dF5+owm8cOQmDrV8NNdiTqin8q3qYAHHJRW28glJUCZkTZwIaSR6crBQ8TbYNE0dc+Caa3DOIkz1EOsHWzTx+n0zKfqcbgXi4DJx+C1bjptYPRBPZL8DAeWuA8ebudVT44yEp82G96/Ggcf7F33xMxe0yc+Xa6owIDAQAB","RawTBSCertificateRequest": "MIIBpAIBADB3MQswCQYDVQQGEwJVUzENMAsGA1UECAwEVXRhaDEPMA0GA1UEBwwGTGluZG9uMRYwFAYDVQQKDA1EaWdpQ2VydCBJbmMuMREwDwYDVQQLDAhEaWdpQ2VydDEdMBsGA1UEAwwUZXhhbXBsZS5kaWdpY2VydC5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDz5Ojt37aQ9Z4G/+itTctVsnAOtJBt4pqYKajCnluoPEjBXbTOpFvsA9Q4pihUQUU4RCzpPqAiaciiWFuIfqbjOBn8I+9YE6Rlz5zU+jYSa8HP4APmwF1PmTMZADo1tbJkaV3FG2E0s6zV586F2dYW6EjXraqZx+WCmIhYO7CrgL1/5iR4mE2f10Xn6jCbxw5CYOtXw012JOqKfyrepgAcclFbbyCUlQJmRNnAhpJHpysFDxNtg0TR1z4JprcM4iTPUQ6wdbNPH6fTMp+pxuBeLgMnH4LVuOm1g9EE9kvwMB5a4Dx5u51VPjjISnzYb3r8aBx/sXffEzF7TJz5drqjAgMBAAGgAA==","Signature": "HSRysVxxKYUObGjHQ17TVQipKwOoeAv5eYdNcnCt7oOElJnBu8S04rQbf52vgWzXVa5Q23mpwuzHlry6TgboAoczO6EuwntdmOCZBcYQKlhDiYLfJPdmgIakhdvD6I/eWYQReBpAvRPHksWX+iQpspjAio2LIpY4yPtlH/DFaD9kMZGznnG6h4sMn9lEV/1sj4hoJR3Vit9hwciXcbzsC/6vj1hXCpENPRUNXu4uCqfb1cjU+lVQ0I9Aaf2n95fpCju+kNo/JtG0DZHtcsqNBoX2hdZ4JSrLWG8lpz1AU7b3s5vVqWkc+hnuZaIS4nCME+KLpr0z0bfSdSjf2UGLXA==","SignatureAlgorithm": 3,"Subject": {"CommonName": "example.digicert.com","Country": ["US"],"ExtraNames": null,"Locality": ["Lindon"],"Names": [{"Type": [2,5,4,6],"Value": "US"},{"Type": [2,5,4,8],"Value": "Utah"},{"Type": [2,5,4,7],"Value": "Lindon"},{"Type": [2,5,4,10],"Value": "DigiCert Inc."},{"Type": [2,5,4,11],"Value": "DigiCert"},{"Type": [2,5,4,3],"Value": "example.digicert.com"}],"Organization": ["DigiCert Inc."],"OrganizationalUnit": ["DigiCert"],"PostalCode": null,"Province": ["Utah"],"SerialNumber": "","StreetAddress": null},"URIs": null,"Version": 0}`,
 	}
-	resExpected := make([]map[string]interface{}, 2)
+	resExpected := make([]map[string]interface{}, 3)
 	for i, v := range resList {
 		err := json.Unmarshal([]byte(v), &resExpected[i])
 		assert.NilError(t, err)
@@ -1017,12 +1038,17 @@ UFOZZVoELaasWS559wy8og39Eq21dDMynb8Bndn/
 		jmesPath:       "x509_decode('" + certs[5] + "')",
 		expectedResult: resExpected[1],
 	}, {
-		jmesPath:       "x509_decode('xyz')",
-		expectedResult: map[string]interface{}{},
-	}}
+		jmesPath:       "x509_decode('" + certs[6] + "')",
+		expectedResult: resExpected[2],
+	},
+	// {
+	// 	jmesPath:       "x509_decode('xyz')",
+	// 	expectedResult: map[string]interface{}{},
+	// }
+	}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
-			jp, err := New(tc.jmesPath)
+			jp, err := newJMESPath(cfg, tc.jmesPath)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -1392,6 +1418,62 @@ func Test_jpfToLower(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("jpfToLower() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_ImageNormalize(t *testing.T) {
+	testCases := []struct {
+		jmesPath       string
+		expectedResult string
+		wantErr        bool
+	}{
+		{
+			jmesPath:       "image_normalize('nginx')",
+			expectedResult: "docker.io/nginx:latest",
+		},
+		{
+			jmesPath:       "image_normalize('docker.io/nginx')",
+			expectedResult: "docker.io/nginx:latest",
+		},
+		{
+			jmesPath:       "image_normalize('docker.io/library/nginx')",
+			expectedResult: "docker.io/library/nginx:latest",
+		},
+		{
+			jmesPath:       "image_normalize('ghcr.io/library/nginx')",
+			expectedResult: "ghcr.io/library/nginx:latest",
+		},
+		{
+			jmesPath:       "image_normalize('ghcr.io/nginx')",
+			expectedResult: "ghcr.io/nginx:latest",
+		},
+		{
+			jmesPath:       "image_normalize('ghcr.io/nginx:latest')",
+			expectedResult: "ghcr.io/nginx:latest",
+		},
+		{
+			jmesPath:       "image_normalize('ghcr.io/nginx:1.2')",
+			expectedResult: "ghcr.io/nginx:1.2",
+		},
+		{
+			jmesPath: "image_normalize('')",
+			wantErr:  true,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.jmesPath, func(t *testing.T) {
+			jp, err := newJMESPath(cfg, tc.jmesPath)
+			assert.NilError(t, err)
+			result, err := jp.Search("")
+			if tc.wantErr {
+				assert.Error(t, err, "JMESPath function 'image_normalize': bad image: docker.io/: invalid reference format")
+			} else {
+				assert.NilError(t, err)
+				res, ok := result.(string)
+				assert.Assert(t, ok)
+				assert.Equal(t, res, tc.expectedResult)
 			}
 		})
 	}

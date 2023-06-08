@@ -25,7 +25,7 @@ func Test_TimeSince(t *testing.T) {
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
-			query, err := New(tc.test)
+			query, err := newJMESPath(cfg, tc.test)
 			assert.NilError(t, err)
 
 			res, err := query.Search("")
@@ -55,7 +55,7 @@ func Test_TimeToCron(t *testing.T) {
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
-			query, err := New(tc.test)
+			query, err := newJMESPath(cfg, tc.test)
 			assert.NilError(t, err)
 
 			res, err := query.Search("")
@@ -85,7 +85,7 @@ func Test_TimeAdd(t *testing.T) {
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
-			query, err := New(tc.test)
+			query, err := newJMESPath(cfg, tc.test)
 			assert.NilError(t, err)
 
 			res, err := query.Search("")
@@ -115,7 +115,7 @@ func Test_TimeParse(t *testing.T) {
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
-			query, err := New(tc.test)
+			query, err := newJMESPath(cfg, tc.test)
 			assert.NilError(t, err)
 
 			res, err := query.Search("")
@@ -145,7 +145,7 @@ func Test_TimeUtc(t *testing.T) {
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
-			query, err := New(tc.test)
+			query, err := newJMESPath(cfg, tc.test)
 			assert.NilError(t, err)
 
 			res, err := query.Search("")
@@ -171,7 +171,7 @@ func Test_TimeDiff(t *testing.T) {
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
-			query, err := New(tc.test)
+			query, err := newJMESPath(cfg, tc.test)
 			assert.NilError(t, err)
 
 			res, err := query.Search("")

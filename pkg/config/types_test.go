@@ -5,40 +5,60 @@ import (
 	"testing"
 )
 
-func Test_parseRbac(t *testing.T) {
+func Test_parseExclusions(t *testing.T) {
 	type args struct {
 		in string
 	}
 	tests := []struct {
-		name string
-		args args
-		want []string
+		name           string
+		args           args
+		wantExclusions []string
+		wantInclusions []string
 	}{{
-		args: args{""},
-		want: nil,
+		args:           args{""},
+		wantExclusions: nil,
 	}, {
-		args: args{"abc"},
-		want: []string{"abc"},
+		args:           args{"abc"},
+		wantExclusions: []string{"abc"},
 	}, {
-		args: args{" abc "},
-		want: []string{"abc"},
+		args:           args{" abc "},
+		wantExclusions: []string{"abc"},
 	}, {
-		args: args{"abc,def"},
-		want: []string{"abc", "def"},
+		args:           args{"abc,def"},
+		wantExclusions: []string{"abc", "def"},
 	}, {
-		args: args{"abc,,,def,"},
-		want: []string{"abc", "def"},
+		args:           args{"abc,,,def,"},
+		wantExclusions: []string{"abc", "def"},
 	}, {
-		args: args{"abc, def"},
-		want: []string{"abc", "def"},
+		args:           args{"abc, def"},
+		wantExclusions: []string{"abc", "def"},
 	}, {
-		args: args{"abc ,def "},
-		want: []string{"abc", "def"},
+		args:           args{"abc ,def "},
+		wantExclusions: []string{"abc", "def"},
+	}, {
+		args:           args{"abc,!def"},
+		wantExclusions: []string{"abc"},
+		wantInclusions: []string{"def"},
+	}, {
+		args:           args{"!def,abc"},
+		wantExclusions: []string{"abc"},
+		wantInclusions: []string{"def"},
+	}, {
+		args:           args{"!,abc"},
+		wantExclusions: []string{"abc"},
+	}, {
+		args:           args{"  ! def ,abc"},
+		wantExclusions: []string{"abc"},
+		wantInclusions: []string{"def"},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := parseStrings(tt.args.in); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("parseRbac() = %v, want %v", got, tt.want)
+			gotExclusions, gotInclusions := parseExclusions(tt.args.in)
+			if !reflect.DeepEqual(gotExclusions, tt.wantExclusions) {
+				t.Errorf("parseExclusions() exclusions = %v, want %v", gotExclusions, tt.wantExclusions)
+			}
+			if !reflect.DeepEqual(gotInclusions, tt.wantInclusions) {
+				t.Errorf("parseExclusions() inclusions = %v, want %v", gotInclusions, tt.wantInclusions)
 			}
 		})
 	}
@@ -64,56 +84,76 @@ func Test_parseKinds(t *testing.T) {
 	}, {
 		args: args{"[*]"},
 		want: []filter{
-			{"*", "", ""},
+			{"*", "*", "*", "", "", ""},
+		},
+	}, {
+		args: args{"[*/*]"},
+		want: []filter{
+			{"*", "*", "*", "*", "", ""},
+		},
+	}, {
+		args: args{"[Pod/*]"},
+		want: []filter{
+			{"*", "*", "Pod", "*", "", ""},
+		},
+	}, {
+		args: args{"[v1/Pod/*]"},
+		want: []filter{
+			{"*", "v1", "Pod", "*", "", ""},
+		},
+	}, {
+		args: args{"[v1/Pod]"},
+		want: []filter{
+			{"*", "v1", "Pod", "", "", ""},
 		},
 	}, {
 		args: args{"[Node]"},
 		want: []filter{
-			{"Node", "", ""},
+			{"*", "*", "Node", "", "", ""},
 		},
 	}, {
 		args: args{"[Node,*,*]"},
 		want: []filter{
-			{"Node", "*", "*"},
+			{"*", "*", "Node", "", "*", "*"},
 		},
 	}, {
 		args: args{"[Pod,default,nginx]"},
 		want: []filter{
-			{"Pod", "default", "nginx"},
+			{"*", "*", "Pod", "", "default", "nginx"},
 		},
 	}, {
 		args: args{"[Pod,*,nginx]"},
 		want: []filter{
-			{"Pod", "*", "nginx"},
+			{"*", "*", "Pod", "", "*", "nginx"},
 		},
 	}, {
 		args: args{"[Pod,*]"},
 		want: []filter{
-			{"Pod", "*", ""},
+			{"*", "*", "Pod", "", "*", ""},
 		},
 	}, {
 		args: args{"[Pod,default,nginx][Pod,kube-system,api-server]"},
 		want: []filter{
-			{"Pod", "default", "nginx"},
-			{"Pod", "kube-system", "api-server"},
+			{"*", "*", "Pod", "", "default", "nginx"},
+			{"*", "*", "Pod", "", "kube-system", "api-server"},
 		},
 	}, {
 		args: args{"[Pod,default,nginx],[Pod,kube-system,api-server]"},
 		want: []filter{
-			{"Pod", "default", "nginx"},
-			{"Pod", "kube-system", "api-server"},
+			{"*", "*", "Pod", "", "default", "nginx"},
+			{"*", "*", "Pod", "", "kube-system", "api-server"},
 		},
 	}, {
 		args: args{"[Pod,default,nginx] [Pod,kube-system,api-server]"},
 		want: []filter{
-			{"Pod", "default", "nginx"},
-			{"Pod", "kube-system", "api-server"},
+			{"*", "*", "Pod", "", "default", "nginx"},
+			{"*", "*", "Pod", "", "kube-system", "api-server"},
 		},
 	}, {
 		args: args{"[Pod,default,nginx]Pod,kube-system,api-server[Pod,kube-system,api-server]"},
 		want: []filter{
-			{"Pod", "default", "nginx"},
-			{"Pod", "kube-system", "api-server"},
+			{"*", "*", "Pod", "", "default", "nginx"},
+			{"*", "*", "Pod", "", "kube-system", "api-server"},
 		},
 	}, {
 		args: args{"[Pod,default,nginx,unexpected]"},

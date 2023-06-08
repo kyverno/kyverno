@@ -17,6 +17,7 @@ import (
 )
 
 const (
+	LabelDomain = "kyverno.io"
 	//	resource labels
 	LabelResourceHash      = "audit.kyverno.io/resource.hash"
 	LabelResourceUid       = "audit.kyverno.io/resource.uid"
@@ -64,6 +65,15 @@ func PolicyLabelDomain(policy kyvernov1.PolicyInterface) string {
 
 func PolicyLabel(policy kyvernov1.PolicyInterface) string {
 	return PolicyLabelPrefix(policy) + policy.GetName()
+}
+
+func CleanupKyvernoLabels(obj metav1.Object) {
+	labels := obj.GetLabels()
+	for key := range labels {
+		if strings.Contains(key, LabelDomain) {
+			delete(labels, key)
+		}
+	}
 }
 
 func SetManagedByKyvernoLabel(obj metav1.Object) {

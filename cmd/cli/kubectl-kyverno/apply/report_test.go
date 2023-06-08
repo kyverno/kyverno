@@ -6,8 +6,6 @@ import (
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	preport "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
-	kyvCommon "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"gotest.tools/assert"
 	v1 "k8s.io/api/core/v1"
@@ -83,24 +81,28 @@ var rawPolicy = []byte(`
   }
 `)
 
-var rawEngRes = []byte(`{"PatchedResource":{"apiVersion":"v1","kind":"Pod","metadata":{"name":"nginx1","namespace":"default"},"spec":{"containers":[{"image":"nginx","imagePullPolicy":"IfNotPresent","name":"nginx","resources":{"limits":{"cpu":"200m","memory":"100Mi"},"requests":{"cpu":"100m","memory":"50Mi"}}}]}},"PolicyResponse":{"policy":{"name":"pod-requirements","namespace":""},"resource":{"kind":"Pod","apiVersion":"v1","namespace":"default","name":"nginx1","uid":""},"processingTime":974958,"rulesAppliedCount":2,"policyExecutionTimestamp":1630527712,"rules":[{"name":"pods-require-account","type":"Validation","message":"validation error: User pods must include an account for charging. Rule pods-require-account failed at path /metadata/labels/","status":"fail","processingTime":28833,"ruleExecutionTimestamp":1630527712},{"name":"pods-require-limits","type":"Validation","message":"validation rule 'pods-require-limits' passed.","status":"pass","processingTime":578625,"ruleExecutionTimestamp":1630527712}],"ValidationFailureAction":"audit"}}`)
-
 func Test_buildPolicyReports(t *testing.T) {
-	rc := &kyvCommon.ResultCounts{}
-	var pvInfos []common.Info
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	var er engineapi.EngineResponse
-	err = json.Unmarshal(rawEngRes, &er)
-	er.Policy = &policy
-	assert.NilError(t, err)
+	er := engineapi.EngineResponse{}
+	er = er.WithPolicy(&policy)
+	er.PolicyResponse.Add(
+		engineapi.ExecutionStats{},
+		*engineapi.RuleFail(
+			"pods-require-account",
+			engineapi.Validation,
+			"validation error: User pods must include an account for charging. Rule pods-require-account failed at path /metadata/labels/",
+		),
+		*engineapi.RulePass(
+			"pods-require-limits",
+			engineapi.Validation,
+			"validation rule 'pods-require-limits' passed.",
+		),
+	)
 
-	info := kyvCommon.ProcessValidateEngineResponse(&policy, &er, "", rc, true, false)
-	pvInfos = append(pvInfos, info)
-
-	reports := buildPolicyReports(pvInfos)
+	reports := buildPolicyReports(false, er)
 	assert.Assert(t, len(reports) == 1, len(reports))
 
 	for _, report := range reports {
@@ -123,21 +125,26 @@ func Test_buildPolicyReports(t *testing.T) {
 }
 
 func Test_buildPolicyResults(t *testing.T) {
-	rc := &kyvCommon.ResultCounts{}
-	var pvInfos []common.Info
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	var er engineapi.EngineResponse
-	err = json.Unmarshal(rawEngRes, &er)
-	er.Policy = &policy
-	assert.NilError(t, err)
+	er := engineapi.EngineResponse{}
+	er = er.WithPolicy(&policy)
+	er.PolicyResponse.Add(
+		engineapi.ExecutionStats{}, *engineapi.RuleFail(
+			"pods-require-account",
+			engineapi.Validation,
+			"validation error: User pods must include an account for charging. Rule pods-require-account failed at path /metadata/labels/",
+		),
+		*engineapi.RulePass(
+			"pods-require-limits",
+			engineapi.Validation,
+			"validation rule 'pods-require-limits' passed.",
+		),
+	)
 
-	info := kyvCommon.ProcessValidateEngineResponse(&policy, &er, "", rc, true, false)
-	pvInfos = append(pvInfos, info)
-
-	results := buildPolicyResults(pvInfos)
+	results := buildPolicyResults(false, er)
 
 	for _, result := range results {
 		assert.Assert(t, len(result) == 2, len(result))

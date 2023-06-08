@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: busybox
+  name: mypod
+  namespace: default
+spec:
+  automountServiceAccountToken: false
+  containers:
+  - name: busybox
+    image: bar.io/busybox:1.35
