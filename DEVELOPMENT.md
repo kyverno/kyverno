@@ -32,16 +32,15 @@ It contains instructions to build, run, and test Kyverno.
 - Clone the project to your local machine.
 - Make sure that you have the Visual Studio Code editor installed on your system.
 
-- Make sure that you have the Docker installed on your system.
+- Make sure that you have wsl(Ubuntu preferred) and Docker installed on your system and on wsl too (docker.sock (UNIX socket) file is necessary to enable devcontainer to communicate with docker running in host machine).
 
-- Open the project in Visual Studio Code.
+- Open the project in Visual Studio Code, once the project is opened hit F1 and type wsl, now click on "Reopen in WSL".
 
 - If you haven't already done so, install the **Dev Containers** extension in Visual Studio Code.
 
 - Once the extension is installed, you should see a green icon in the bottom left corner of the window.
 
-- After you have installed Dev Containers extension, it should automatically detect the .devcontainer folder inside the project,
-and should suggest you to open the project in container.
+- After you have installed Dev Containers extension, it should automatically detect the .devcontainer folder inside the project opened in wsl, and should suggest you to open the project in container.
 
 - If it doesn't suggest you, then press <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>p</kbd> and search "reopen in container" and click on it.
 

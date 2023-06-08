@@ -7,7 +7,7 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	utils "github.com/kyverno/kyverno/pkg/utils/match"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
-	"github.com/mattbaird/jsonpatch"
+	"gomodules.xyz/jsonpatch/v2"
 	"k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -155,9 +155,17 @@ func (er EngineResponse) IsValidatingAdmissionPolicy() bool {
 
 // GetPatches returns all the patches joined
 func (er EngineResponse) GetPatches() []jsonpatch.JsonPatchOperation {
-	var patches []jsonpatch.JsonPatchOperation
-	for _, r := range er.PolicyResponse.Rules {
-		patches = append(patches, r.Patches()...)
+	originalBytes, err := er.Resource.MarshalJSON()
+	if err != nil {
+		return nil
+	}
+	patchedBytes, err := er.PatchedResource.MarshalJSON()
+	if err != nil {
+		return nil
+	}
+	patches, err := jsonpatch.CreatePatch(originalBytes, patchedBytes)
+	if err != nil {
+		return nil
 	}
 	return patches
 }

@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-dpl1
+  namespace: reza-dev
+spec:
+  selector:
+    matchLabels:
+      app: test-dpl1
+  template:
+    metadata:
+      labels:
+        app: test-dpl1
+    spec:
+      securityContext:
+        seccompProfile:
+          type: Unconfined
+      containers:
+      - name: test-dpl1
+        image: busybox:1.35.0
+        command:
+        - sleep
+        - "infinity"

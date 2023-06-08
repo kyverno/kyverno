@@ -1,7 +1,6 @@
 package variables
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -380,7 +379,7 @@ func TestEvaluate(t *testing.T) {
 
 	ctx := context.NewContext(jmespath.New(config.NewDefaultConfiguration(false)))
 	for _, tc := range testCases {
-		if val, _ := Evaluate(logr.Discard(), ctx, tc.Condition); val != tc.Result {
+		if val, _, _ := Evaluate(logr.Discard(), ctx, tc.Condition); val != tc.Result {
 			t.Errorf("%v - expected result to be %v", tc.Condition, tc.Result)
 		}
 	}
@@ -414,21 +413,7 @@ func Test_Eval_Equal_Var_Pass(t *testing.T) {
 		RawValue: kyverno.ToJSON("temp"),
 	}
 
-	conditionJSON, err := json.Marshal(condition)
-	assert.Nil(t, err)
-
-	var conditionMap interface{}
-	err = json.Unmarshal(conditionJSON, &conditionMap)
-	assert.Nil(t, err)
-
-	conditionWithResolvedVars, _ := SubstituteAllInPreconditions(logr.Discard(), ctx, conditionMap)
-	conditionJSON, err = json.Marshal(conditionWithResolvedVars)
-	assert.Nil(t, err)
-
-	err = json.Unmarshal(conditionJSON, &condition)
-	assert.Nil(t, err)
-
-	val, _ := Evaluate(logr.Discard(), ctx, condition)
+	val, _, _ := Evaluate(logr.Discard(), ctx, condition)
 	assert.True(t, val)
 }
 
@@ -458,9 +443,9 @@ func Test_Eval_Equal_Var_Fail(t *testing.T) {
 		RawValue: kyverno.ToJSON("temp1"),
 	}
 
-	if val, _ := Evaluate(logr.Discard(), ctx, condition); val {
-		t.Error("expected to fail")
-	}
+	val, _, err := Evaluate(logr.Discard(), ctx, condition)
+	assert.Nil(t, err)
+	assert.Equal(t, false, val, "expected to fail")
 }
 
 func Test_Condition_Messages(t *testing.T) {
@@ -489,7 +474,7 @@ func Test_Condition_Messages(t *testing.T) {
 				{
 					RawKey:   kyverno.ToJSON("{{request.object.metadata.name}}"),
 					Operator: kyverno.ConditionOperators["Equal"],
-					RawValue: kyverno.ToJSON("temp"),
+					RawValue: kyverno.ToJSON("temp2"),
 					Message:  "invalid name",
 				},
 				{
@@ -502,30 +487,32 @@ func Test_Condition_Messages(t *testing.T) {
 		},
 	}
 
-	val, msg := EvaluateAnyAllConditions(logr.Discard(), ctx, conditions)
+	val, msg, err := EvaluateAnyAllConditions(logr.Discard(), ctx, conditions)
+	assert.Nil(t, err)
 	assert.Equal(t, false, val)
 	assert.Contains(t, msg, "invalid name; invalid foo")
 
+	conditions[0].AnyConditions[0].RawValue = kyverno.ToJSON("temp")
 	conditions[0].AnyConditions[1].RawValue = kyverno.ToJSON("bar")
-	conditions, err = SubstituteAllInConditions(logr.Discard(), ctx, conditions)
+	val, msg, err = EvaluateAnyAllConditions(logr.Discard(), ctx, conditions)
 	assert.Nil(t, err)
-
-	val, msg = EvaluateAnyAllConditions(logr.Discard(), ctx, conditions)
 	assert.Equal(t, true, val)
-	assert.Equal(t, msg, "")
+	assert.Equal(t, "invalid name", msg)
 
 	conditions[0].AllConditions = append(conditions[0].AllConditions, conditions[0].AnyConditions[0])
 	conditions[0].AllConditions = append(conditions[0].AllConditions, conditions[0].AnyConditions[1])
 	conditions[0].AllConditions[1].RawValue = kyverno.ToJSON("bar2")
 
-	val, msg = EvaluateAnyAllConditions(logr.Discard(), ctx, conditions)
+	val, msg, err = EvaluateAnyAllConditions(logr.Discard(), ctx, conditions)
+	assert.Nil(t, err)
 	assert.Equal(t, false, val)
 	assert.Contains(t, msg, "invalid foo")
 
 	conditions[0].AnyConditions[0].RawValue = kyverno.ToJSON("temp1")
 	conditions[0].AnyConditions[1].RawValue = kyverno.ToJSON("bar2")
 	conditions[0].AllConditions[1].Message = "invalid foo2"
-	val, msg = EvaluateAnyAllConditions(logr.Discard(), ctx, conditions)
+	val, msg, err = EvaluateAnyAllConditions(logr.Discard(), ctx, conditions)
+	assert.Nil(t, err)
 	assert.Equal(t, false, val)
 	assert.Contains(t, msg, "invalid name; invalid foo; invalid foo2")
 }

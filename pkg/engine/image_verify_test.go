@@ -21,7 +21,7 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"github.com/mattbaird/jsonpatch"
+	"gomodules.xyz/jsonpatch/v2"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubefake "k8s.io/client-go/kubernetes/fake"
@@ -184,6 +184,7 @@ func testVerifyAndPatchImages(
 		rclient,
 		engineapi.DefaultContextLoaderFactory(cmResolver),
 		nil,
+		"",
 	)
 	return e.VerifyAndPatchImages(
 		ctx,
@@ -479,9 +480,13 @@ func Test_SignatureGoodSigned(t *testing.T) {
 	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResp.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass, engineResp.PolicyResponse.Rules[0].Message())
-	assert.Equal(t, len(engineResp.PolicyResponse.Rules[0].Patches()), 1)
-	patch := engineResp.PolicyResponse.Rules[0].Patches()[0]
-	assert.Equal(t, patch.Json(), "{\"op\":\"replace\",\"path\":\"/spec/containers/0/image\",\"value\":\"ghcr.io/kyverno/test-verify-image:signed@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105\"}")
+	constainers, found, err := unstructured.NestedSlice(engineResp.PatchedResource.UnstructuredContent(), "spec", "containers")
+	assert.NilError(t, err)
+	assert.Equal(t, true, found)
+	image, found, err := unstructured.NestedString(constainers[0].(map[string]interface{}), "image")
+	assert.NilError(t, err)
+	assert.Equal(t, true, found)
+	assert.Equal(t, "ghcr.io/kyverno/test-verify-image:signed@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", image)
 }
 
 func Test_SignatureUnsigned(t *testing.T) {

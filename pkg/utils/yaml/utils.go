@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
@@ -22,7 +23,20 @@ func SplitDocuments(yamlBytes []byte) (documents [][]byte, error error) {
 		} else if err != nil {
 			return documents, fmt.Errorf("unable to read yaml")
 		}
-		documents = append(documents, b)
+		if !IsEmptyYamlDocument(b) {
+			documents = append(documents, b)
+		}
 	}
 	return documents, nil
+}
+
+// IsEmptyYamlDocument checks if a yaml document is empty (contains only comments)
+func IsEmptyYamlDocument(document []byte) bool {
+	for _, line := range strings.Split(string(document), "\n") {
+		line := strings.TrimSpace(line)
+		if line != "" && !strings.HasPrefix(line, "#") {
+			return false
+		}
+	}
+	return true
 }

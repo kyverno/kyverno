@@ -220,10 +220,6 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		if err := validateKinds(rule.ExcludeResources.Kinds, rule, mock, background, client); err != nil {
 			return warnings, fmt.Errorf("path: spec.rules[%d].exclude.kinds: %v", i, err)
 		}
-
-		if err := loopInGenerate(rule); err != nil {
-			return warnings, fmt.Errorf("path: spec.rules[%d]: %v", i, err)
-		}
 	}
 
 	for i, rule := range rules {
@@ -364,6 +360,10 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			checkForScaleSubresource(mutationJson, allKinds, &warnings)
 			checkForStatusSubresource(mutationJson, allKinds, &warnings)
 		}
+
+		if rule.HasVerifyImages() {
+			checkForDeprecatedFieldsInVerifyImages(rule, &warnings)
+		}
 	}
 	if !mock && (spec.SchemaValidation == nil || *spec.SchemaValidation) {
 		if err := openApiManager.ValidatePolicyMutation(policy); err != nil {
@@ -374,7 +374,10 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 }
 
 func ValidateVariables(p kyvernov1.PolicyInterface, backgroundMode bool) error {
-	vars := hasVariables(p)
+	vars, err := hasVariables(p)
+	if err != nil {
+		return err
+	}
 	if backgroundMode {
 		if err := containsUserVariables(p, vars); err != nil {
 			return fmt.Errorf("only select variables are allowed in background mode. Set spec.background=false to disable background mode for this policy rule: %s ", err)
@@ -402,22 +405,22 @@ func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) erro
 			}
 		}
 
-		// skip variable checks on mutate.targets, they will be validated separately
-		withoutTargets := ruleCopy.DeepCopy()
-		for i := range withoutTargets.Mutation.Targets {
-			withoutTargets.Mutation.Targets[i].RawAnyAllConditions = nil
-		}
-		ctx := buildContext(withoutTargets, background, false, nil)
-		if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *withoutTargets); !variables.CheckNotFoundErr(err) {
-			return fmt.Errorf("variable substitution failed for rule %s: %s", withoutTargets.Name, err.Error())
+		mutateTarget := false
+		if ruleCopy.Mutation.Targets != nil {
+			mutateTarget = true
+			withTargetOnly := ruleWithoutPattern(ruleCopy)
+			for i := range ruleCopy.Mutation.Targets {
+				withTargetOnly.Mutation.Targets[i].ResourceSpec = ruleCopy.Mutation.Targets[i].ResourceSpec
+				ctx := buildContext(withTargetOnly, background, false)
+				if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *withTargetOnly); !variables.CheckNotFoundErr(err) {
+					return fmt.Errorf("invalid variables defined at mutate.targets[%d]: %s", i, err.Error())
+				}
+			}
 		}
 
-		// perform variable checks with mutate.targets
-		for _, target := range r.Mutation.Targets {
-			ctx := buildContext(ruleCopy, background, true, target.Context)
-			if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *ruleCopy); !variables.CheckNotFoundErr(err) {
-				return fmt.Errorf("variable substitution failed for rule target %s: %s", ruleCopy.Name, err.Error())
-			}
+		ctx := buildContext(ruleCopy, background, mutateTarget)
+		if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *ruleCopy); !variables.CheckNotFoundErr(err) {
+			return fmt.Errorf("variable substitution failed for rule %s: %s", ruleCopy.Name, err.Error())
 		}
 	}
 
@@ -425,7 +428,10 @@ func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) erro
 }
 
 func ValidateOnPolicyUpdate(p kyvernov1.PolicyInterface, onPolicyUpdate bool) error {
-	vars := hasVariables(p)
+	vars, err := hasVariables(p)
+	if err != nil {
+		return err
+	}
 	if len(vars) == 0 {
 		return nil
 	}
@@ -469,11 +475,14 @@ func ruleForbiddenSectionsHaveVariables(rule *kyvernov1.Rule) error {
 }
 
 // hasVariables - check for variables in the policy
-func hasVariables(policy kyvernov1.PolicyInterface) [][]string {
-	policy = cleanup(policy)
-	policyRaw, _ := json.Marshal(policy)
+func hasVariables(policy kyvernov1.PolicyInterface) ([][]string, error) {
+	polCopy := cleanup(policy.CreateDeepCopy())
+	policyRaw, err := json.Marshal(polCopy)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize the policy: %v", err)
+	}
 	matches := regex.RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
-	return matches
+	return matches, nil
 }
 
 func cleanup(policy kyvernov1.PolicyInterface) kyvernov1.PolicyInterface {
@@ -546,7 +555,15 @@ func imageRefHasVariables(verifyImages []kyvernov1.ImageVerification) error {
 	return nil
 }
 
-func buildContext(rule *kyvernov1.Rule, background bool, target bool, targetContext []kyvernov1.ContextEntry) *enginecontext.MockContext {
+func ruleWithoutPattern(ruleCopy *kyvernov1.Rule) *kyvernov1.Rule {
+	withTargetOnly := new(kyvernov1.Rule)
+	withTargetOnly.Mutation.Targets = make([]kyvernov1.TargetResourceSpec, len(ruleCopy.Mutation.Targets))
+	withTargetOnly.Context = ruleCopy.Context
+	withTargetOnly.RawAnyAllConditions = ruleCopy.RawAnyAllConditions
+	return withTargetOnly
+}
+
+func buildContext(rule *kyvernov1.Rule, background bool, target bool) *enginecontext.MockContext {
 	re := getAllowedVariables(background, target)
 	ctx := enginecontext.NewMockContext(re)
 	addContextVariables(rule.Context, ctx)
@@ -1290,5 +1307,16 @@ func checkForStatusSubresource(ruleTypeJson []byte, allKinds []string, warnings 
 		}
 		msg := "You are matching on status but not including the status subresource in the policy."
 		*warnings = append(*warnings, msg)
+	}
+}
+
+func checkForDeprecatedFieldsInVerifyImages(rule kyvernov1.Rule, warnings *[]string) {
+	for _, imageVerify := range rule.VerifyImages {
+		for _, attestation := range imageVerify.Attestations {
+			if attestation.PredicateType != "" {
+				msg := fmt.Sprintf("predicateType has been deprecated use 'type: %s' instead of 'prediacteType: %s'", attestation.PredicateType, attestation.PredicateType)
+				*warnings = append(*warnings, msg)
+			}
+		}
 	}
 }
