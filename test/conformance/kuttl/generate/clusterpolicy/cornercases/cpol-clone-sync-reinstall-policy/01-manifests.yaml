@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cpol-clone-sync-single-source-multiple-targets-ns
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: regcred
+  namespace: cpol-clone-sync-single-source-multiple-targets-ns
+type: Opaque
+data:
+  foo: Zm9v
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-clone-sync-reinstall-policy
+spec:
+  rules:
+  - name: sync-image-pull-secret
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    generate:
+      apiVersion: v1
+      kind: Secret
+      name: regcred
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      clone:
+        namespace: cpol-clone-sync-single-source-multiple-targets-ns
+        name: regcred

@@ -1,0 +1,7 @@
+apiVersion: v1
+data:
+  foo: baz
+kind: ConfigMap
+metadata:
+  name: foosource
+  namespace: cpol-clone-sync-single-trigger-source-multiple-targets-ns

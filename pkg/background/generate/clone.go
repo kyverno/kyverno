@@ -40,11 +40,12 @@ func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, pol
 		return newSkipGenerateResponse(nil, target, fmt.Errorf("source resource %s not found: %v", target.String(), err))
 	}
 
-	if err := updateSourceLabel(client, sourceObj, ur.Spec.Resource, policy, rule); err != nil {
+	if err := updateSourceLabel(client, sourceObj); err != nil {
 		log.Error(err, "failed to add labels to the source", "kind", sourceObj.GetKind(), "namespace", sourceObj.GetNamespace(), "name", sourceObj.GetName())
 	}
 
 	sourceObjCopy := sourceObj.DeepCopy()
+	addSourceLabels(sourceObjCopy)
 	targetObj, err := client.GetResource(context.TODO(), target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName())
 	if err != nil {
 		if apierrors.IsNotFound(err) && len(ur.Status.GeneratedResources) != 0 && !clone.Synchronize {
