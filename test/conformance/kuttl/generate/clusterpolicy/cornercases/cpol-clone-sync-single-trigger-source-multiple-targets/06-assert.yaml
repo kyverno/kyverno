@@ -1,0 +1,15 @@
+apiVersion: v1
+data:
+  foo: baz
+kind: ConfigMap
+metadata:
+  name: footarget
+  namespace: cpol-single-trigger-source-multiple-targets-trigger-ns
+---
+apiVersion: v1
+data:
+  foo: baz
+kind: ConfigMap
+metadata:
+  name: bartarget
+  namespace: cpol-single-trigger-source-multiple-targets-trigger-ns
