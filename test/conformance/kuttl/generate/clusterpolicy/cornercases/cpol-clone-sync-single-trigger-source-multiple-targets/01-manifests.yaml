@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cpol-clone-sync-single-trigger-source-multiple-targets-ns
+---
+apiVersion: v1
+data:
+  foo: bar
+kind: ConfigMap
+metadata:
+  name: foosource
+  namespace: cpol-clone-sync-single-trigger-source-multiple-targets-ns
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-clone-sync-single-trigger-source-multiple-targets-1
+spec:
+  rules:
+  - name: rule-sync-image-pull-secret
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    generate:
+      apiVersion: v1
+      kind: ConfigMap
+      name: footarget
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      clone:
+        namespace: cpol-clone-sync-single-trigger-source-multiple-targets-ns
+        name: foosource
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-clone-sync-single-trigger-source-multiple-targets-2
+spec:
+  rules:
+  - name: rule-sync-image-pull-secret
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    generate:
+      apiVersion: v1
+      kind: ConfigMap
+      name: bartarget
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      clone:
+        namespace: cpol-clone-sync-single-trigger-source-multiple-targets-ns
+        name: foosource

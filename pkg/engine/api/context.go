@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-containerregistry/pkg/name"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
@@ -26,6 +27,7 @@ func LoadVariable(logger logr.Logger, jp jmespath.Interface, entry kyvernov1.Con
 		logger.V(4).Info("evaluated jmespath", "variable name", entry.Name, "jmespath", path)
 	}
 	var defaultValue interface{} = nil
+
 	if entry.Variable.Default != nil {
 		value, err := variables.DocumentToUntyped(entry.Variable.Default)
 		if err != nil {
@@ -57,7 +59,9 @@ func LoadVariable(logger logr.Logger, jp jmespath.Interface, entry kyvernov1.Con
 	} else {
 		if path != "" {
 			if variable, err := ctx.Query(path); err == nil {
-				output = variable
+				if variable != nil {
+					output = variable
+				}
 			} else if defaultValue == nil {
 				return fmt.Errorf("failed to apply jmespath %s to variable %v", path, err)
 			}
@@ -142,6 +146,13 @@ func fetchImageData(ctx context.Context, jp jmespath.Interface, rclient registry
 func fetchImageDataMap(ctx context.Context, rclient registryclient.Client, ref string) (interface{}, error) {
 	desc, err := rclient.FetchImageDescriptor(ctx, ref)
 	if err != nil {
+		return nil, fmt.Errorf("failed to fetch image descriptor: %s, error: %v", ref, err)
+	}
+	parsedRef, err := name.ParseReference(ref)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse image reference: %s, error: %v", ref, err)
+	}
+	if err != nil {
 		return nil, err
 	}
 	image, err := desc.Image()
@@ -169,10 +180,10 @@ func fetchImageDataMap(ctx context.Context, rclient registryclient.Client, ref s
 
 	data := map[string]interface{}{
 		"image":         ref,
-		"resolvedImage": fmt.Sprintf("%s@%s", desc.Ref.Context().Name(), desc.Digest.String()),
-		"registry":      desc.Ref.Context().RegistryStr(),
-		"repository":    desc.Ref.Context().RepositoryStr(),
-		"identifier":    desc.Ref.Identifier(),
+		"resolvedImage": fmt.Sprintf("%s@%s", parsedRef.Context().Name(), desc.Digest.String()),
+		"registry":      parsedRef.Context().RegistryStr(),
+		"repository":    parsedRef.Context().RepositoryStr(),
+		"identifier":    parsedRef.Identifier(),
 		"manifest":      manifest,
 		"configData":    configData,
 	}
