@@ -7718,6 +7718,8 @@ spec:
                             type: boolean
                         type: object
                       type: array
+                  required:
+                  - name
                   type: object
                 type: array
               schemaValidation:
@@ -11635,6 +11637,8 @@ spec:
                                 type: boolean
                             type: object
                           type: array
+                      required:
+                      - name
                       type: object
                     type: array
                 type: object
@@ -15200,6 +15204,8 @@ spec:
                             type: boolean
                         type: object
                       type: array
+                  required:
+                  - name
                   type: object
                 type: array
               schemaValidation:
@@ -19117,6 +19123,8 @@ spec:
                                 type: boolean
                             type: object
                           type: array
+                      required:
+                      - name
                       type: object
                     type: array
                 type: object
@@ -22993,6 +23001,8 @@ spec:
                             type: boolean
                         type: object
                       type: array
+                  required:
+                  - name
                   type: object
                 type: array
               schemaValidation:
@@ -26911,6 +26921,8 @@ spec:
                                 type: boolean
                             type: object
                           type: array
+                      required:
+                      - name
                       type: object
                     type: array
                 type: object
@@ -30477,6 +30489,8 @@ spec:
                             type: boolean
                         type: object
                       type: array
+                  required:
+                  - name
                   type: object
                 type: array
               schemaValidation:
@@ -34394,6 +34408,8 @@ spec:
                                 type: boolean
                             type: object
                           type: array
+                      required:
+                      - name
                       type: object
                     type: array
                 type: object
