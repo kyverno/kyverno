@@ -4,7 +4,7 @@ This is a corner case test to ensure a new downstream target is created when the
 
 ## Expected Behavior
 
-The new downstream resource should be created after the trigger is updated. Otherwises the test fails.
+The new downstream resource should be created after the trigger is updated. Otherwise the test fails.
 
 ## Reference Issue(s)
 
