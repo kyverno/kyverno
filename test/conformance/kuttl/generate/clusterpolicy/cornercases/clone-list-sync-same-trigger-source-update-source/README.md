@@ -1,10 +1,10 @@
 ## Description
 
-This is a corner case test to ensure the downstream target is deleted when the source no longer matches the rule, for a generate cloneList type of policy. This is a corner case because the source and the trigger is the same resource.
+This is a corner case test to ensure a new downstream target is created when the source matches a different namespace, for a generate cloneList type of policy. This is a corner case because the source and the trigger is the same resource.
 
 ## Expected Behavior
 
-If the downstream resource is deleted, the test passes. If not, the test fails.
+The new downstream resource should be created after the trigger is updated. Otherwises the test fails.
 
 ## Reference Issue(s)
 

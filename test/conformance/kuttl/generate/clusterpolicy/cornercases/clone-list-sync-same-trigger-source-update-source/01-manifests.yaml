@@ -6,7 +6,12 @@ metadata:
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: clone-list-sync-same-trigger-source-update-source-target-ns
+  name: clone-list-sync-same-trigger-source-update-source-target-ns-1
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: clone-list-sync-same-trigger-source-update-source-target-ns-2
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -19,7 +24,7 @@ spec:
       all:
       - resources:
           annotations:
-            myProj/cluster.addon.sync.targetNamespace: clone-list-sync-same-trigger-source-update-source-target-ns
+            myProj/cluster.addon.sync.targetNamespace: "?*"
           kinds:
           - Secret
           namespaces:
