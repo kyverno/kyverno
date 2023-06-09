@@ -60,19 +60,19 @@ func loadTargets(client dclient.Interface, targets []kyvernov1.TargetResourceSpe
 func resolveSpec(i int, target kyvernov1.TargetResourceSpec, ctx engineapi.PolicyContext, logger logr.Logger) (kyvernov1.ResourceSpec, error) {
 	kind, err := variables.SubstituteAll(logger, ctx.JSONContext(), target.Kind)
 	if err != nil {
-		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].Kind %s: %v", i, target.Kind, err)
+		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].Kind %s, value: %v, err: %v", i, target.Kind, kind, err)
 	}
 	apiversion, err := variables.SubstituteAll(logger, ctx.JSONContext(), target.APIVersion)
 	if err != nil {
-		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].APIVersion %s: %v", i, target.APIVersion, err)
+		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].APIVersion %s, value: %v, err: %v", i, target.APIVersion, apiversion, err)
 	}
 	namespace, err := variables.SubstituteAll(logger, ctx.JSONContext(), target.Namespace)
-	if err != nil {
-		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].Namespace %s: %v", i, target.Namespace, err)
+	if err != nil || namespace == nil {
+		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].Namespace %s, value: %v, err: %v", i, target.Namespace, namespace, err)
 	}
 	name, err := variables.SubstituteAll(logger, ctx.JSONContext(), target.Name)
-	if err != nil {
-		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].Name %s: %v", i, target.Name, err)
+	if err != nil || name == nil {
+		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].Name %s, value: %v, err: %v", i, target.Name, name, err)
 	}
 	return kyvernov1.ResourceSpec{
 		APIVersion: apiversion.(string),
