@@ -37,6 +37,7 @@ func createReportControllers(
 	eng engineapi.Engine,
 	backgroundScan bool,
 	admissionReports bool,
+	aggregateReports bool,
 	reportsChunkSize int,
 	backgroundScanWorkers int,
 	client dclient.Interface,
@@ -67,18 +68,20 @@ func createReportControllers(
 			resourceReportController,
 			resourcereportcontroller.Workers,
 		))
-		ctrls = append(ctrls, internal.NewController(
-			aggregatereportcontroller.ControllerName,
-			aggregatereportcontroller.NewController(
-				kyvernoClient,
-				metadataFactory,
-				kyvernoV1.Policies(),
-				kyvernoV1.ClusterPolicies(),
-				resourceReportController,
-				reportsChunkSize,
-			),
-			aggregatereportcontroller.Workers,
-		))
+		if aggregateReports {
+			ctrls = append(ctrls, internal.NewController(
+				aggregatereportcontroller.ControllerName,
+				aggregatereportcontroller.NewController(
+					kyvernoClient,
+					metadataFactory,
+					kyvernoV1.Policies(),
+					kyvernoV1.ClusterPolicies(),
+					resourceReportController,
+					reportsChunkSize,
+				),
+				aggregatereportcontroller.Workers,
+			))
+		}
 		if admissionReports {
 			ctrls = append(ctrls, internal.NewController(
 				admissionreportcontroller.ControllerName,
@@ -125,6 +128,7 @@ func createrLeaderControllers(
 	eng engineapi.Engine,
 	backgroundScan bool,
 	admissionReports bool,
+	aggregateReports bool,
 	reportsChunkSize int,
 	backgroundScanWorkers int,
 	kubeInformer kubeinformers.SharedInformerFactory,
@@ -142,6 +146,7 @@ func createrLeaderControllers(
 		eng,
 		backgroundScan,
 		admissionReports,
+		aggregateReports,
 		reportsChunkSize,
 		backgroundScanWorkers,
 		dynamicClient,
@@ -162,6 +167,7 @@ func main() {
 	var (
 		backgroundScan         bool
 		admissionReports       bool
+		aggregateReports       bool
 		reportsChunkSize       int
 		backgroundScanWorkers  int
 		backgroundScanInterval time.Duration
@@ -172,6 +178,7 @@ func main() {
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
 	flagset.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable backgound scan.")
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
+	flagset.BoolVar(&aggregateReports, "aggregateReports", true, "Enable or disable aggregated policy reports.")
 	flagset.IntVar(&reportsChunkSize, "reportsChunkSize", 1000, "Max number of results in generated reports, reports will be split accordingly if there are more results to be stored.")
 	flagset.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
 	flagset.DurationVar(&backgroundScanInterval, "backgroundScanInterval", time.Hour, "Configure background scan interval.")
@@ -262,6 +269,7 @@ func main() {
 				engine,
 				backgroundScan,
 				admissionReports,
+				aggregateReports,
 				reportsChunkSize,
 				backgroundScanWorkers,
 				kubeInformer,
