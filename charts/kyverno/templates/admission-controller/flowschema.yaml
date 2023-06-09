@@ -2,12 +2,12 @@
 apiVersion: flowcontrol.apiserver.k8s.io/v1beta3
 kind: FlowSchema
 metadata:
-  name: {{ template "kyverno.admission-controller.flowSchema" . }}
+  name: {{ template "kyverno.admission-controller.name" . }}
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 spec:
   priorityLevelConfiguration:
-    name: {{ template "kyverno.admission-controller.priorityLevelConfiguration" . }}
+    name: {{ template "kyverno.admission-controller.name" . }}
   rules:
   - resourceRules:
     - apiGroups:

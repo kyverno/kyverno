@@ -2,12 +2,12 @@
 apiVersion: flowcontrol.apiserver.k8s.io/v1beta3
 kind: FlowSchema
 metadata:
-  name: {{ template "kyverno.reports-controller.flowSchema" . }}
+  name: {{ template "kyverno.reports-controller.name" . }}
   labels:
     {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
 spec:
   priorityLevelConfiguration:
-    name: {{ template "kyverno.reports-controller.priorityLevelConfiguration" . }}
+    name: {{ template "kyverno.reports-controller.name" . }}
   rules:
   - resourceRules:
     - apiGroups:
