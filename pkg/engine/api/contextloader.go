@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"fmt"
-	"io"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -11,26 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
-
-type Resource struct {
-	Group        string
-	Version      string
-	Resource     string
-	SubResource  string
-	Unstructured unstructured.Unstructured
-}
-
-type ContextClientInterface interface {
-	RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error)
-}
-
-type ClientInterface interface {
-	ContextClientInterface
-	GetResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error)
-	GetResources(group, version, kind, subresource, namespace, name string) ([]Resource, error)
-}
 
 // ContextLoaderFactory provides a ContextLoader given a policy context and rule name
 type ContextLoaderFactory = func(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) ContextLoader
@@ -40,7 +20,7 @@ type ContextLoader interface {
 	Load(
 		ctx context.Context,
 		jp jmespath.Interface,
-		client ClientInterface,
+		client Client,
 		rclient registryclient.Client,
 		contextEntries []kyvernov1.ContextEntry,
 		jsonContext enginecontext.Interface,
@@ -66,7 +46,7 @@ type contextLoader struct {
 func (l *contextLoader) Load(
 	ctx context.Context,
 	jp jmespath.Interface,
-	client ClientInterface,
+	client Client,
 	rclient registryclient.Client,
 	contextEntries []kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
@@ -85,7 +65,7 @@ func (l *contextLoader) Load(
 func (l *contextLoader) newDeferredLoader(
 	ctx context.Context,
 	jp jmespath.Interface,
-	client ClientInterface,
+	client Client,
 	rclient registryclient.Client,
 	entry kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,

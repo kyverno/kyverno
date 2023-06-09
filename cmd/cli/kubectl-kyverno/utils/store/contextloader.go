@@ -38,7 +38,7 @@ type mockContextLoader struct {
 func (l *mockContextLoader) Load(
 	ctx context.Context,
 	jp jmespath.Interface,
-	client engineapi.ClientInterface,
+	client engineapi.Client,
 	_ registryclient.Client,
 	contextEntries []kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,

@@ -855,7 +855,7 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
 		jmespath.New(cfg),
-		adapters.ClientInterface(client),
+		adapters.Client(client),
 		nil,
 		store.ContextLoaderFactory(nil),
 		nil,

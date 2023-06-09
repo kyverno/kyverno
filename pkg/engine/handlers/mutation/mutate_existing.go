@@ -14,11 +14,11 @@ import (
 )
 
 type mutateExistingHandler struct {
-	client engineapi.ClientInterface
+	client engineapi.Client
 }
 
 func NewMutateExistingHandler(
-	client engineapi.ClientInterface,
+	client engineapi.Client,
 ) (handlers.Handler, error) {
 	return mutateExistingHandler{
 		client: client,

@@ -20,10 +20,10 @@ import (
 )
 
 type validateCELHandler struct {
-	client engineapi.ClientInterface
+	client engineapi.Client
 }
 
-func NewValidateCELHandler(client engineapi.ClientInterface) (handlers.Handler, error) {
+func NewValidateCELHandler(client engineapi.Client) (handlers.Handler, error) {
 	return validateCELHandler{
 		client: client,
 	}, nil

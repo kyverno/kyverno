@@ -29,7 +29,7 @@ type target struct {
 	preconditions apiextensions.JSON
 }
 
-func loadTargets(client engineapi.ClientInterface, targets []kyvernov1.TargetResourceSpec, ctx engineapi.PolicyContext, logger logr.Logger) ([]target, error) {
+func loadTargets(client engineapi.Client, targets []kyvernov1.TargetResourceSpec, ctx engineapi.PolicyContext, logger logr.Logger) ([]target, error) {
 	var targetObjects []target
 	var errors []error
 	for i := range targets {
@@ -80,7 +80,7 @@ func resolveSpec(i int, target kyvernov1.TargetResourceSpec, ctx engineapi.Polic
 	}, nil
 }
 
-func getTargets(client engineapi.ClientInterface, target kyvernov1.ResourceSpec, ctx engineapi.PolicyContext) ([]resourceInfo, error) {
+func getTargets(client engineapi.Client, target kyvernov1.ResourceSpec, ctx engineapi.PolicyContext) ([]resourceInfo, error) {
 	var targetObjects []resourceInfo
 	namespace := target.Namespace
 	name := target.Name

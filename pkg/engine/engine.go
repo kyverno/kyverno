@@ -30,7 +30,7 @@ type engine struct {
 	configuration            config.Configuration
 	metricsConfiguration     config.MetricsConfiguration
 	jp                       jmespath.Interface
-	client                   engineapi.ClientInterface
+	client                   engineapi.Client
 	rclient                  registryclient.Client
 	contextLoader            engineapi.ContextLoaderFactory
 	exceptionSelector        engineapi.PolicyExceptionSelector
@@ -46,7 +46,7 @@ func NewEngine(
 	configuration config.Configuration,
 	metricsConfiguration config.MetricsConfiguration,
 	jp jmespath.Interface,
-	client engineapi.ClientInterface,
+	client engineapi.Client,
 	rclient registryclient.Client,
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,

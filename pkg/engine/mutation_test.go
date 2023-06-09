@@ -35,7 +35,7 @@ func testMutate(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
 		jp,
-		adapters.ClientInterface(client),
+		adapters.Client(client),
 		rclient,
 		contextLoader,
 		nil,
