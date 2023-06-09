@@ -625,6 +625,10 @@ func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace
 		if err := g.validateTargetsScope(clusterResources, policyNamespace); err != nil {
 			errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
 		}
+	} else {
+		if g.GetNamespace() == "" && g.CloneList.Namespace == "" {
+			errs = append(errs, field.Forbidden(path.Child("generate"), "target namespace must be set in a clusterpolicy"))
+		}
 	}
 
 	generateType, _ := g.GetTypeAndSync()
