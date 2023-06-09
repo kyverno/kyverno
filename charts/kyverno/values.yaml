@@ -327,6 +327,9 @@ features:
   admissionReports:
     # -- Enables the feature
     enabled: true
+  aggregateReports:
+    # -- Enables the feature
+    enabled: true
   autoUpdateWebhooks:
     # -- Enables the feature
     enabled: true
