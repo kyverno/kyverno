@@ -9,6 +9,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	client "github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginetest "github.com/kyverno/kyverno/pkg/engine/test"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -34,7 +35,7 @@ func testMutate(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
 		jp,
-		client,
+		adapters.Client(client),
 		rclient,
 		contextLoader,
 		nil,
