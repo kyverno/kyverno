@@ -14,7 +14,7 @@ import (
 type ImageVerificationType string
 
 // ImageRegistryCredentialsHelpersType provides the list of credential helpers required.
-// +kubebuilder:validation:Enum=DEFAULT;AWS;Azure;GCP;GHCR
+// +kubebuilder:validation:Enum=DEFAULT;AWS;ACR;GCP;GHCR
 // +kubebuilder:default=DEFAULT
 type ImageRegistryCredentialsHelpersType string
 
@@ -266,7 +266,7 @@ type Attestation struct {
 
 type ImageRegistryCredentials struct {
 	// Helpers specifies a list of OCI Registry names, whose authentication helpers are provided
-	// It can be of one of these values: AWS, Azure, GCP, GHCR
+	// It can be of one of these values: AWS, ACR, GCP, GHCR
 	// +kubebuilder:validation:Optional
 	Helpers []ImageRegistryCredentialsHelpersType `json:"helpers,omitempty" yaml:"helpers,omitempty"`
 

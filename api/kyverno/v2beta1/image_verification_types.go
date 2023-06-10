@@ -11,7 +11,7 @@ import (
 type ImageVerificationType string
 
 // ImageVerificationType selects the type of verification algorithm
-// +kubebuilder:validation:Enum=DEFAULT;AWS;Azure;GCP;GHCR
+// +kubebuilder:validation:Enum=DEFAULT;AWS;ACR;GCP;GHCR
 // +kubebuilder:default=DEFAULT
 type ImageRegistryCredentialsHelpersType string
 
@@ -21,7 +21,7 @@ const (
 
 	DEFAULT ImageRegistryCredentialsHelpersType = "DEFAULT"
 	AWS     ImageRegistryCredentialsHelpersType = "AWS"
-	Azure   ImageRegistryCredentialsHelpersType = "Azure"
+	ACR     ImageRegistryCredentialsHelpersType = "ACR"
 	GCP     ImageRegistryCredentialsHelpersType = "GCP"
 	GHCR    ImageRegistryCredentialsHelpersType = "GHCR"
 )
