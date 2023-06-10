@@ -3,7 +3,7 @@ package patch
 import (
 	"fmt"
 
-	"github.com/mattbaird/jsonpatch"
+	"gomodules.xyz/jsonpatch/v2"
 	"sigs.k8s.io/yaml"
 )
 
