@@ -1,5 +1,5 @@
 {{- if .Values.admissionController.apiPriorityAndFairness }}
-apiVersion: flowcontrol.apiserver.k8s.io/v1beta3
+apiVersion: {{ template "kyverno.flowcontrol.apiVersion" . }}
 kind: FlowSchema
 metadata:
   name: {{ template "kyverno.admission-controller.name" . }}
