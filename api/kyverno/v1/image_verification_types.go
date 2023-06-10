@@ -169,7 +169,7 @@ type StaticKeyAttestor struct {
 	Secret *SecretReference `json:"secret,omitempty" yaml:"secret,omitempty"`
 
 	// Rekor provides configuration for the Rekor transparency log service. If the value is nil,
-	// Rekor is not checked. If an empty object is provided the public instance of
+	// or an empty object is provided, the public instance of
 	// Rekor (https://rekor.sigstore.dev) is used.
 	// +kubebuilder:validation:Optional
 	Rekor *CTLog `json:"rekor,omitempty" yaml:"rekor,omitempty"`
@@ -226,7 +226,7 @@ type KeylessAttestor struct {
 
 type CTLog struct {
 	// URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
-	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Required
 	// +kubebuilder:Default:=https://rekor.sigstore.dev
 	URL string `json:"url" yaml:"url"`
 

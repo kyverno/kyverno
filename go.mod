@@ -2,8 +2,6 @@ module github.com/kyverno/kyverno
 
 go 1.20
 
-replace github.com/google/go-containerregistry/0_14 => github.com/google/go-containerregistry v0.14.1-0.20230425172351-b7c6e9dc3944
-
 require (
 	github.com/IGLOU-EU/go-wildcard v1.0.3
 	github.com/aquilax/truncate v1.0.0
@@ -348,4 +346,5 @@ require (
 replace (
 	github.com/jmespath/go-jmespath => github.com/kyverno/go-jmespath v0.4.1-0.20230204162932-3ee946b9433d
 	github.com/mattbaird/jsonpatch => gomodules.xyz/jsonpatch/v2 v2.2.0
+	github.com/google/go-containerregistry/0_14 => github.com/google/go-containerregistry v0.14.1-0.20230425172351-b7c6e9dc3944
 )

@@ -6854,6 +6854,8 @@ spec:
                                                     of the transparency log. Defaults
                                                     to the public log https://rekor.sigstore.dev.
                                                   type: string
+                                              required:
+                                              - url
                                               type: object
                                           type: object
                                         keyless:
@@ -6905,6 +6907,8 @@ spec:
                                                     of the transparency log. Defaults
                                                     to the public log https://rekor.sigstore.dev.
                                                   type: string
+                                              required:
+                                              - url
                                               type: object
                                             roots:
                                               description: Roots is an optional set
@@ -6949,9 +6953,9 @@ spec:
                                             rekor:
                                               description: Rekor provides configuration
                                                 for the Rekor transparency log service.
-                                                If the value is nil, Rekor is not
-                                                checked. If an empty object is provided
-                                                the public instance of Rekor (https://rekor.sigstore.dev)
+                                                If the value is nil, or an empty object
+                                                is provided, the public instance of
+                                                Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
                                                 ignoreSCT:
@@ -6977,6 +6981,8 @@ spec:
                                                     of the transparency log. Defaults
                                                     to the public log https://rekor.sigstore.dev.
                                                   type: string
+                                              required:
+                                              - url
                                               type: object
                                             secret:
                                               description: Reference to a Secret resource
@@ -7255,6 +7261,8 @@ spec:
                                                         of the transparency log. Defaults
                                                         to the public log https://rekor.sigstore.dev.
                                                       type: string
+                                                  required:
+                                                  - url
                                                   type: object
                                               type: object
                                             keyless:
@@ -7308,6 +7316,8 @@ spec:
                                                         of the transparency log. Defaults
                                                         to the public log https://rekor.sigstore.dev.
                                                       type: string
+                                                  required:
+                                                  - url
                                                   type: object
                                                 roots:
                                                   description: Roots is an optional
@@ -7356,9 +7366,8 @@ spec:
                                                   description: Rekor provides configuration
                                                     for the Rekor transparency log
                                                     service. If the value is nil,
-                                                    Rekor is not checked. If an empty
-                                                    object is provided the public
-                                                    instance of Rekor (https://rekor.sigstore.dev)
+                                                    or an empty object is provided,
+                                                    the public instance of Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
                                                     ignoreSCT:
@@ -7385,6 +7394,8 @@ spec:
                                                         of the transparency log. Defaults
                                                         to the public log https://rekor.sigstore.dev.
                                                       type: string
+                                                  required:
+                                                  - url
                                                   type: object
                                                 secret:
                                                   description: Reference to a Secret
@@ -7638,6 +7649,8 @@ spec:
                                                   the transparency log. Defaults to
                                                   the public log https://rekor.sigstore.dev.
                                                 type: string
+                                            required:
+                                            - url
                                             type: object
                                         type: object
                                       keyless:
@@ -7688,6 +7701,8 @@ spec:
                                                   the transparency log. Defaults to
                                                   the public log https://rekor.sigstore.dev.
                                                 type: string
+                                            required:
+                                            - url
                                             type: object
                                           roots:
                                             description: Roots is an optional set
@@ -7731,10 +7746,10 @@ spec:
                                           rekor:
                                             description: Rekor provides configuration
                                               for the Rekor transparency log service.
-                                              If the value is nil, Rekor is not checked.
-                                              If an empty object is provided the public
-                                              instance of Rekor (https://rekor.sigstore.dev)
-                                              is used.
+                                              If the value is nil, or an empty object
+                                              is provided, the public instance of
+                                              Rekor (https://rekor.sigstore.dev) is
+                                              used.
                                             properties:
                                               ignoreSCT:
                                                 default: false
@@ -7759,6 +7774,8 @@ spec:
                                                   the transparency log. Defaults to
                                                   the public log https://rekor.sigstore.dev.
                                                 type: string
+                                            required:
+                                            - url
                                             type: object
                                           secret:
                                             description: Reference to a Secret resource
@@ -10879,6 +10896,8 @@ spec:
                                                         of the transparency log. Defaults
                                                         to the public log https://rekor.sigstore.dev.
                                                       type: string
+                                                  required:
+                                                  - url
                                                   type: object
                                               type: object
                                             keyless:
@@ -10932,6 +10951,8 @@ spec:
                                                         of the transparency log. Defaults
                                                         to the public log https://rekor.sigstore.dev.
                                                       type: string
+                                                  required:
+                                                  - url
                                                   type: object
                                                 roots:
                                                   description: Roots is an optional
@@ -10980,9 +11001,8 @@ spec:
                                                   description: Rekor provides configuration
                                                     for the Rekor transparency log
                                                     service. If the value is nil,
-                                                    Rekor is not checked. If an empty
-                                                    object is provided the public
-                                                    instance of Rekor (https://rekor.sigstore.dev)
+                                                    or an empty object is provided,
+                                                    the public instance of Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
                                                     ignoreSCT:
@@ -11009,6 +11029,8 @@ spec:
                                                         of the transparency log. Defaults
                                                         to the public log https://rekor.sigstore.dev.
                                                       type: string
+                                                  required:
+                                                  - url
                                                   type: object
                                                 secret:
                                                   description: Reference to a Secret
@@ -11300,6 +11322,8 @@ spec:
                                                             log. Defaults to the public
                                                             log https://rekor.sigstore.dev.
                                                           type: string
+                                                      required:
+                                                      - url
                                                       type: object
                                                   type: object
                                                 keyless:
@@ -11357,6 +11381,8 @@ spec:
                                                             log. Defaults to the public
                                                             log https://rekor.sigstore.dev.
                                                           type: string
+                                                      required:
+                                                      - url
                                                       type: object
                                                     roots:
                                                       description: Roots is an optional
@@ -11409,10 +11435,10 @@ spec:
                                                       description: Rekor provides
                                                         configuration for the Rekor
                                                         transparency log service.
-                                                        If the value is nil, Rekor
-                                                        is not checked. If an empty
-                                                        object is provided the public
-                                                        instance of Rekor (https://rekor.sigstore.dev)
+                                                        If the value is nil, or an
+                                                        empty object is provided,
+                                                        the public instance of Rekor
+                                                        (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
                                                         ignoreSCT:
@@ -11442,6 +11468,8 @@ spec:
                                                             log. Defaults to the public
                                                             log https://rekor.sigstore.dev.
                                                           type: string
+                                                      required:
+                                                      - url
                                                       type: object
                                                     secret:
                                                       description: Reference to a
@@ -11705,6 +11733,8 @@ spec:
                                                       of the transparency log. Defaults
                                                       to the public log https://rekor.sigstore.dev.
                                                     type: string
+                                                required:
+                                                - url
                                                 type: object
                                             type: object
                                           keyless:
@@ -11757,6 +11787,8 @@ spec:
                                                       of the transparency log. Defaults
                                                       to the public log https://rekor.sigstore.dev.
                                                     type: string
+                                                required:
+                                                - url
                                                 type: object
                                               roots:
                                                 description: Roots is an optional
@@ -11803,9 +11835,9 @@ spec:
                                               rekor:
                                                 description: Rekor provides configuration
                                                   for the Rekor transparency log service.
-                                                  If the value is nil, Rekor is not
-                                                  checked. If an empty object is provided
-                                                  the public instance of Rekor (https://rekor.sigstore.dev)
+                                                  If the value is nil, or an empty
+                                                  object is provided, the public instance
+                                                  of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
                                                   ignoreSCT:
@@ -11832,6 +11864,8 @@ spec:
                                                       of the transparency log. Defaults
                                                       to the public log https://rekor.sigstore.dev.
                                                     type: string
+                                                required:
+                                                - url
                                                 type: object
                                               secret:
                                                 description: Reference to a Secret
@@ -14682,6 +14716,8 @@ spec:
                                                     of the transparency log. Defaults
                                                     to the public log https://rekor.sigstore.dev.
                                                   type: string
+                                              required:
+                                              - url
                                               type: object
                                           type: object
                                         keyless:
@@ -14733,6 +14769,8 @@ spec:
                                                     of the transparency log. Defaults
                                                     to the public log https://rekor.sigstore.dev.
                                                   type: string
+                                              required:
+                                              - url
                                               type: object
                                             roots:
                                               description: Roots is an optional set
@@ -14777,9 +14815,9 @@ spec:
                                             rekor:
                                               description: Rekor provides configuration
                                                 for the Rekor transparency log service.
-                                                If the value is nil, Rekor is not
-                                                checked. If an empty object is provided
-                                                the public instance of Rekor (https://rekor.sigstore.dev)
+                                                If the value is nil, or an empty object
+                                                is provided, the public instance of
+                                                Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
                                                 ignoreSCT:
@@ -14805,6 +14843,8 @@ spec:
                                                     of the transparency log. Defaults
                                                     to the public log https://rekor.sigstore.dev.
                                                   type: string
+                                              required:
+                                              - url
                                               type: object
                                             secret:
                                               description: Reference to a Secret resource
@@ -15068,6 +15108,8 @@ spec:
                                                         of the transparency log. Defaults
                                                         to the public log https://rekor.sigstore.dev.
                                                       type: string
+                                                  required:
+                                                  - url
                                                   type: object
                                               type: object
                                             keyless:
@@ -15121,6 +15163,8 @@ spec:
                                                         of the transparency log. Defaults
                                                         to the public log https://rekor.sigstore.dev.
                                                       type: string
+                                                  required:
+                                                  - url
                                                   type: object
                                                 roots:
                                                   description: Roots is an optional
@@ -15169,9 +15213,8 @@ spec:
                                                   description: Rekor provides configuration
                                                     for the Rekor transparency log
                                                     service. If the value is nil,
-                                                    Rekor is not checked. If an empty
-                                                    object is provided the public
-                                                    instance of Rekor (https://rekor.sigstore.dev)
+                                                    or an empty object is provided,
+                                                    the public instance of Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
                                                     ignoreSCT:
@@ -15198,6 +15241,8 @@ spec:
                                                         of the transparency log. Defaults
                                                         to the public log https://rekor.sigstore.dev.
                                                       type: string
+                                                  required:
+                                                  - url
                                                   type: object
                                                 secret:
                                                   description: Reference to a Secret
@@ -15451,6 +15496,8 @@ spec:
                                                   the transparency log. Defaults to
                                                   the public log https://rekor.sigstore.dev.
                                                 type: string
+                                            required:
+                                            - url
                                             type: object
                                         type: object
                                       keyless:
@@ -15501,6 +15548,8 @@ spec:
                                                   the transparency log. Defaults to
                                                   the public log https://rekor.sigstore.dev.
                                                 type: string
+                                            required:
+                                            - url
                                             type: object
                                           roots:
                                             description: Roots is an optional set
@@ -15544,10 +15593,10 @@ spec:
                                           rekor:
                                             description: Rekor provides configuration
                                               for the Rekor transparency log service.
-                                              If the value is nil, Rekor is not checked.
-                                              If an empty object is provided the public
-                                              instance of Rekor (https://rekor.sigstore.dev)
-                                              is used.
+                                              If the value is nil, or an empty object
+                                              is provided, the public instance of
+                                              Rekor (https://rekor.sigstore.dev) is
+                                              used.
                                             properties:
                                               ignoreSCT:
                                                 default: false
@@ -15572,6 +15621,8 @@ spec:
                                                   the transparency log. Defaults to
                                                   the public log https://rekor.sigstore.dev.
                                                 type: string
+                                            required:
+                                            - url
                                             type: object
                                           secret:
                                             description: Reference to a Secret resource
@@ -18667,6 +18718,8 @@ spec:
                                                         of the transparency log. Defaults
                                                         to the public log https://rekor.sigstore.dev.
                                                       type: string
+                                                  required:
+                                                  - url
                                                   type: object
                                               type: object
                                             keyless:
@@ -18720,6 +18773,8 @@ spec:
                                                         of the transparency log. Defaults
                                                         to the public log https://rekor.sigstore.dev.
                                                       type: string
+                                                  required:
+                                                  - url
                                                   type: object
                                                 roots:
                                                   description: Roots is an optional
@@ -18768,9 +18823,8 @@ spec:
                                                   description: Rekor provides configuration
                                                     for the Rekor transparency log
                                                     service. If the value is nil,
-                                                    Rekor is not checked. If an empty
-                                                    object is provided the public
-                                                    instance of Rekor (https://rekor.sigstore.dev)
+                                                    or an empty object is provided,
+                                                    the public instance of Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
                                                     ignoreSCT:
@@ -18797,6 +18851,8 @@ spec:
                                                         of the transparency log. Defaults
                                                         to the public log https://rekor.sigstore.dev.
                                                       type: string
+                                                  required:
+                                                  - url
                                                   type: object
                                                 secret:
                                                   description: Reference to a Secret
@@ -19088,6 +19144,8 @@ spec:
                                                             log. Defaults to the public
                                                             log https://rekor.sigstore.dev.
                                                           type: string
+                                                      required:
+                                                      - url
                                                       type: object
                                                   type: object
                                                 keyless:
@@ -19145,6 +19203,8 @@ spec:
                                                             log. Defaults to the public
                                                             log https://rekor.sigstore.dev.
                                                           type: string
+                                                      required:
+                                                      - url
                                                       type: object
                                                     roots:
                                                       description: Roots is an optional
@@ -19197,10 +19257,10 @@ spec:
                                                       description: Rekor provides
                                                         configuration for the Rekor
                                                         transparency log service.
-                                                        If the value is nil, Rekor
-                                                        is not checked. If an empty
-                                                        object is provided the public
-                                                        instance of Rekor (https://rekor.sigstore.dev)
+                                                        If the value is nil, or an
+                                                        empty object is provided,
+                                                        the public instance of Rekor
+                                                        (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
                                                         ignoreSCT:
@@ -19230,6 +19290,8 @@ spec:
                                                             log. Defaults to the public
                                                             log https://rekor.sigstore.dev.
                                                           type: string
+                                                      required:
+                                                      - url
                                                       type: object
                                                     secret:
                                                       description: Reference to a
@@ -19493,6 +19555,8 @@ spec:
                                                       of the transparency log. Defaults
                                                       to the public log https://rekor.sigstore.dev.
                                                     type: string
+                                                required:
+                                                - url
                                                 type: object
                                             type: object
                                           keyless:
@@ -19545,6 +19609,8 @@ spec:
                                                       of the transparency log. Defaults
                                                       to the public log https://rekor.sigstore.dev.
                                                     type: string
+                                                required:
+                                                - url
                                                 type: object
                                               roots:
                                                 description: Roots is an optional
@@ -19591,9 +19657,9 @@ spec:
                                               rekor:
                                                 description: Rekor provides configuration
                                                   for the Rekor transparency log service.
-                                                  If the value is nil, Rekor is not
-                                                  checked. If an empty object is provided
-                                                  the public instance of Rekor (https://rekor.sigstore.dev)
+                                                  If the value is nil, or an empty
+                                                  object is provided, the public instance
+                                                  of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
                                                   ignoreSCT:
@@ -19620,6 +19686,8 @@ spec:
                                                       of the transparency log. Defaults
                                                       to the public log https://rekor.sigstore.dev.
                                                     type: string
+                                                required:
+                                                - url
                                                 type: object
                                               secret:
                                                 description: Reference to a Secret
@@ -22741,6 +22809,8 @@ spec:
                                                     of the transparency log. Defaults
                                                     to the public log https://rekor.sigstore.dev.
                                                   type: string
+                                              required:
+                                              - url
                                               type: object
                                           type: object
                                         keyless:
@@ -22792,6 +22862,8 @@ spec:
                                                     of the transparency log. Defaults
                                                     to the public log https://rekor.sigstore.dev.
                                                   type: string
+                                              required:
+                                              - url
                                               type: object
                                             roots:
                                               description: Roots is an optional set
@@ -22836,9 +22908,9 @@ spec:
                                             rekor:
                                               description: Rekor provides configuration
                                                 for the Rekor transparency log service.
-                                                If the value is nil, Rekor is not
-                                                checked. If an empty object is provided
-                                                the public instance of Rekor (https://rekor.sigstore.dev)
+                                                If the value is nil, or an empty object
+                                                is provided, the public instance of
+                                                Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
                                                 ignoreSCT:
@@ -22864,6 +22936,8 @@ spec:
                                                     of the transparency log. Defaults
                                                     to the public log https://rekor.sigstore.dev.
                                                   type: string
+                                              required:
+                                              - url
                                               type: object
                                             secret:
                                               description: Reference to a Secret resource
@@ -23142,6 +23216,8 @@ spec:
                                                         of the transparency log. Defaults
                                                         to the public log https://rekor.sigstore.dev.
                                                       type: string
+                                                  required:
+                                                  - url
                                                   type: object
                                               type: object
                                             keyless:
@@ -23195,6 +23271,8 @@ spec:
                                                         of the transparency log. Defaults
                                                         to the public log https://rekor.sigstore.dev.
                                                       type: string
+                                                  required:
+                                                  - url
                                                   type: object
                                                 roots:
                                                   description: Roots is an optional
@@ -23243,9 +23321,8 @@ spec:
                                                   description: Rekor provides configuration
                                                     for the Rekor transparency log
                                                     service. If the value is nil,
-                                                    Rekor is not checked. If an empty
-                                                    object is provided the public
-                                                    instance of Rekor (https://rekor.sigstore.dev)
+                                                    or an empty object is provided,
+                                                    the public instance of Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
                                                     ignoreSCT:
@@ -23272,6 +23349,8 @@ spec:
                                                         of the transparency log. Defaults
                                                         to the public log https://rekor.sigstore.dev.
                                                       type: string
+                                                  required:
+                                                  - url
                                                   type: object
                                                 secret:
                                                   description: Reference to a Secret
@@ -23525,6 +23604,8 @@ spec:
                                                   the transparency log. Defaults to
                                                   the public log https://rekor.sigstore.dev.
                                                 type: string
+                                            required:
+                                            - url
                                             type: object
                                         type: object
                                       keyless:
@@ -23575,6 +23656,8 @@ spec:
                                                   the transparency log. Defaults to
                                                   the public log https://rekor.sigstore.dev.
                                                 type: string
+                                            required:
+                                            - url
                                             type: object
                                           roots:
                                             description: Roots is an optional set
@@ -23618,10 +23701,10 @@ spec:
                                           rekor:
                                             description: Rekor provides configuration
                                               for the Rekor transparency log service.
-                                              If the value is nil, Rekor is not checked.
-                                              If an empty object is provided the public
-                                              instance of Rekor (https://rekor.sigstore.dev)
-                                              is used.
+                                              If the value is nil, or an empty object
+                                              is provided, the public instance of
+                                              Rekor (https://rekor.sigstore.dev) is
+                                              used.
                                             properties:
                                               ignoreSCT:
                                                 default: false
@@ -23646,6 +23729,8 @@ spec:
                                                   the transparency log. Defaults to
                                                   the public log https://rekor.sigstore.dev.
                                                 type: string
+                                            required:
+                                            - url
                                             type: object
                                           secret:
                                             description: Reference to a Secret resource
@@ -26767,6 +26852,8 @@ spec:
                                                         of the transparency log. Defaults
                                                         to the public log https://rekor.sigstore.dev.
                                                       type: string
+                                                  required:
+                                                  - url
                                                   type: object
                                               type: object
                                             keyless:
@@ -26820,6 +26907,8 @@ spec:
                                                         of the transparency log. Defaults
                                                         to the public log https://rekor.sigstore.dev.
                                                       type: string
+                                                  required:
+                                                  - url
                                                   type: object
                                                 roots:
                                                   description: Roots is an optional
@@ -26868,9 +26957,8 @@ spec:
                                                   description: Rekor provides configuration
                                                     for the Rekor transparency log
                                                     service. If the value is nil,
-                                                    Rekor is not checked. If an empty
-                                                    object is provided the public
-                                                    instance of Rekor (https://rekor.sigstore.dev)
+                                                    or an empty object is provided,
+                                                    the public instance of Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
                                                     ignoreSCT:
@@ -26897,6 +26985,8 @@ spec:
                                                         of the transparency log. Defaults
                                                         to the public log https://rekor.sigstore.dev.
                                                       type: string
+                                                  required:
+                                                  - url
                                                   type: object
                                                 secret:
                                                   description: Reference to a Secret
@@ -27188,6 +27278,8 @@ spec:
                                                             log. Defaults to the public
                                                             log https://rekor.sigstore.dev.
                                                           type: string
+                                                      required:
+                                                      - url
                                                       type: object
                                                   type: object
                                                 keyless:
@@ -27245,6 +27337,8 @@ spec:
                                                             log. Defaults to the public
                                                             log https://rekor.sigstore.dev.
                                                           type: string
+                                                      required:
+                                                      - url
                                                       type: object
                                                     roots:
                                                       description: Roots is an optional
@@ -27297,10 +27391,10 @@ spec:
                                                       description: Rekor provides
                                                         configuration for the Rekor
                                                         transparency log service.
-                                                        If the value is nil, Rekor
-                                                        is not checked. If an empty
-                                                        object is provided the public
-                                                        instance of Rekor (https://rekor.sigstore.dev)
+                                                        If the value is nil, or an
+                                                        empty object is provided,
+                                                        the public instance of Rekor
+                                                        (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
                                                         ignoreSCT:
@@ -27330,6 +27424,8 @@ spec:
                                                             log. Defaults to the public
                                                             log https://rekor.sigstore.dev.
                                                           type: string
+                                                      required:
+                                                      - url
                                                       type: object
                                                     secret:
                                                       description: Reference to a
@@ -27593,6 +27689,8 @@ spec:
                                                       of the transparency log. Defaults
                                                       to the public log https://rekor.sigstore.dev.
                                                     type: string
+                                                required:
+                                                - url
                                                 type: object
                                             type: object
                                           keyless:
@@ -27645,6 +27743,8 @@ spec:
                                                       of the transparency log. Defaults
                                                       to the public log https://rekor.sigstore.dev.
                                                     type: string
+                                                required:
+                                                - url
                                                 type: object
                                               roots:
                                                 description: Roots is an optional
@@ -27691,9 +27791,9 @@ spec:
                                               rekor:
                                                 description: Rekor provides configuration
                                                   for the Rekor transparency log service.
-                                                  If the value is nil, Rekor is not
-                                                  checked. If an empty object is provided
-                                                  the public instance of Rekor (https://rekor.sigstore.dev)
+                                                  If the value is nil, or an empty
+                                                  object is provided, the public instance
+                                                  of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
                                                   ignoreSCT:
@@ -27720,6 +27820,8 @@ spec:
                                                       of the transparency log. Defaults
                                                       to the public log https://rekor.sigstore.dev.
                                                     type: string
+                                                required:
+                                                - url
                                                 type: object
                                               secret:
                                                 description: Reference to a Secret
@@ -30571,6 +30673,8 @@ spec:
                                                     of the transparency log. Defaults
                                                     to the public log https://rekor.sigstore.dev.
                                                   type: string
+                                              required:
+                                              - url
                                               type: object
                                           type: object
                                         keyless:
@@ -30622,6 +30726,8 @@ spec:
                                                     of the transparency log. Defaults
                                                     to the public log https://rekor.sigstore.dev.
                                                   type: string
+                                              required:
+                                              - url
                                               type: object
                                             roots:
                                               description: Roots is an optional set
@@ -30666,9 +30772,9 @@ spec:
                                             rekor:
                                               description: Rekor provides configuration
                                                 for the Rekor transparency log service.
-                                                If the value is nil, Rekor is not
-                                                checked. If an empty object is provided
-                                                the public instance of Rekor (https://rekor.sigstore.dev)
+                                                If the value is nil, or an empty object
+                                                is provided, the public instance of
+                                                Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
                                                 ignoreSCT:
@@ -30694,6 +30800,8 @@ spec:
                                                     of the transparency log. Defaults
                                                     to the public log https://rekor.sigstore.dev.
                                                   type: string
+                                              required:
+                                              - url
                                               type: object
                                             secret:
                                               description: Reference to a Secret resource
@@ -30957,6 +31065,8 @@ spec:
                                                         of the transparency log. Defaults
                                                         to the public log https://rekor.sigstore.dev.
                                                       type: string
+                                                  required:
+                                                  - url
                                                   type: object
                                               type: object
                                             keyless:
@@ -31010,6 +31120,8 @@ spec:
                                                         of the transparency log. Defaults
                                                         to the public log https://rekor.sigstore.dev.
                                                       type: string
+                                                  required:
+                                                  - url
                                                   type: object
                                                 roots:
                                                   description: Roots is an optional
@@ -31058,9 +31170,8 @@ spec:
                                                   description: Rekor provides configuration
                                                     for the Rekor transparency log
                                                     service. If the value is nil,
-                                                    Rekor is not checked. If an empty
-                                                    object is provided the public
-                                                    instance of Rekor (https://rekor.sigstore.dev)
+                                                    or an empty object is provided,
+                                                    the public instance of Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
                                                     ignoreSCT:
@@ -31087,6 +31198,8 @@ spec:
                                                         of the transparency log. Defaults
                                                         to the public log https://rekor.sigstore.dev.
                                                       type: string
+                                                  required:
+                                                  - url
                                                   type: object
                                                 secret:
                                                   description: Reference to a Secret
@@ -31340,6 +31453,8 @@ spec:
                                                   the transparency log. Defaults to
                                                   the public log https://rekor.sigstore.dev.
                                                 type: string
+                                            required:
+                                            - url
                                             type: object
                                         type: object
                                       keyless:
@@ -31390,6 +31505,8 @@ spec:
                                                   the transparency log. Defaults to
                                                   the public log https://rekor.sigstore.dev.
                                                 type: string
+                                            required:
+                                            - url
                                             type: object
                                           roots:
                                             description: Roots is an optional set
@@ -31433,10 +31550,10 @@ spec:
                                           rekor:
                                             description: Rekor provides configuration
                                               for the Rekor transparency log service.
-                                              If the value is nil, Rekor is not checked.
-                                              If an empty object is provided the public
-                                              instance of Rekor (https://rekor.sigstore.dev)
-                                              is used.
+                                              If the value is nil, or an empty object
+                                              is provided, the public instance of
+                                              Rekor (https://rekor.sigstore.dev) is
+                                              used.
                                             properties:
                                               ignoreSCT:
                                                 default: false
@@ -31461,6 +31578,8 @@ spec:
                                                   the transparency log. Defaults to
                                                   the public log https://rekor.sigstore.dev.
                                                 type: string
+                                            required:
+                                            - url
                                             type: object
                                           secret:
                                             description: Reference to a Secret resource
@@ -34556,6 +34675,8 @@ spec:
                                                         of the transparency log. Defaults
                                                         to the public log https://rekor.sigstore.dev.
                                                       type: string
+                                                  required:
+                                                  - url
                                                   type: object
                                               type: object
                                             keyless:
@@ -34609,6 +34730,8 @@ spec:
                                                         of the transparency log. Defaults
                                                         to the public log https://rekor.sigstore.dev.
                                                       type: string
+                                                  required:
+                                                  - url
                                                   type: object
                                                 roots:
                                                   description: Roots is an optional
@@ -34657,9 +34780,8 @@ spec:
                                                   description: Rekor provides configuration
                                                     for the Rekor transparency log
                                                     service. If the value is nil,
-                                                    Rekor is not checked. If an empty
-                                                    object is provided the public
-                                                    instance of Rekor (https://rekor.sigstore.dev)
+                                                    or an empty object is provided,
+                                                    the public instance of Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
                                                     ignoreSCT:
@@ -34686,6 +34808,8 @@ spec:
                                                         of the transparency log. Defaults
                                                         to the public log https://rekor.sigstore.dev.
                                                       type: string
+                                                  required:
+                                                  - url
                                                   type: object
                                                 secret:
                                                   description: Reference to a Secret
@@ -34977,6 +35101,8 @@ spec:
                                                             log. Defaults to the public
                                                             log https://rekor.sigstore.dev.
                                                           type: string
+                                                      required:
+                                                      - url
                                                       type: object
                                                   type: object
                                                 keyless:
@@ -35034,6 +35160,8 @@ spec:
                                                             log. Defaults to the public
                                                             log https://rekor.sigstore.dev.
                                                           type: string
+                                                      required:
+                                                      - url
                                                       type: object
                                                     roots:
                                                       description: Roots is an optional
@@ -35086,10 +35214,10 @@ spec:
                                                       description: Rekor provides
                                                         configuration for the Rekor
                                                         transparency log service.
-                                                        If the value is nil, Rekor
-                                                        is not checked. If an empty
-                                                        object is provided the public
-                                                        instance of Rekor (https://rekor.sigstore.dev)
+                                                        If the value is nil, or an
+                                                        empty object is provided,
+                                                        the public instance of Rekor
+                                                        (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
                                                         ignoreSCT:
@@ -35119,6 +35247,8 @@ spec:
                                                             log. Defaults to the public
                                                             log https://rekor.sigstore.dev.
                                                           type: string
+                                                      required:
+                                                      - url
                                                       type: object
                                                     secret:
                                                       description: Reference to a
@@ -35382,6 +35512,8 @@ spec:
                                                       of the transparency log. Defaults
                                                       to the public log https://rekor.sigstore.dev.
                                                     type: string
+                                                required:
+                                                - url
                                                 type: object
                                             type: object
                                           keyless:
@@ -35434,6 +35566,8 @@ spec:
                                                       of the transparency log. Defaults
                                                       to the public log https://rekor.sigstore.dev.
                                                     type: string
+                                                required:
+                                                - url
                                                 type: object
                                               roots:
                                                 description: Roots is an optional
@@ -35480,9 +35614,9 @@ spec:
                                               rekor:
                                                 description: Rekor provides configuration
                                                   for the Rekor transparency log service.
-                                                  If the value is nil, Rekor is not
-                                                  checked. If an empty object is provided
-                                                  the public instance of Rekor (https://rekor.sigstore.dev)
+                                                  If the value is nil, or an empty
+                                                  object is provided, the public instance
+                                                  of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
                                                   ignoreSCT:
@@ -35509,6 +35643,8 @@ spec:
                                                       of the transparency log. Defaults
                                                       to the public log https://rekor.sigstore.dev.
                                                     type: string
+                                                required:
+                                                - url
                                                 type: object
                                               secret:
                                                 description: Reference to a Secret
