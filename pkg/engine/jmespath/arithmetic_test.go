@@ -828,7 +828,7 @@ func Test_Round(t *testing.T) {
 		// round with non int values
 		{
 			name: "Quantity roundoff Non int -> error",
-			test: "round('4', '1.3')",
+			test: "round('4', `1.3`)",
 			err:  true,
 		},
 		{
@@ -838,7 +838,7 @@ func Test_Round(t *testing.T) {
 		},
 		{
 			name: "Duration roundoff non int -> error",
-			test: "round(`12s`, `2.3`)",
+			test: "round('12s', `2.3`)",
 			err:  true,
 		},
 	}
