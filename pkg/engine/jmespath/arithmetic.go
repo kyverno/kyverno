@@ -305,8 +305,11 @@ func (op1 scalar) Modulo(op2 interface{}) (interface{}, error) {
 
 // quantity can never be floating point :- no need to round of
 func (op1 quantity) Round(op2 interface{}) (interface{}, error) {
-	switch op2.(type) {
+	switch v := op2.(type) {
 	case scalar:
+		if v.float64 != math.Trunc(v.float64){
+			return nil, formatError(nonIntRoundError, round)
+		}
 		return op1.String() , nil
 	default:
 		return nil, formatError(typeMismatchError, round)
