@@ -58,6 +58,7 @@ var (
 	multiply               = "multiply"
 	divide                 = "divide"
 	modulo                 = "modulo"
+	round				   = "round"
 	base64Decode           = "base64_decode"
 	base64Encode           = "base64_encode"
 	pathCanonicalize       = "path_canonicalize"
@@ -307,6 +308,17 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpAny},
 		Note:       "divisor must be non-zero, arguments must be integers",
 	}, {
+		FunctionEntry: gojmespath.FunctionEntry{
+			Name: round,
+			Arguments: []argSpec{
+				{Types: []jpType{jpAny}},
+				{Types: []jpType{jpAny}},
+			},
+			Handler: jpRound,
+		},
+		ReturnType: []jpType{jpAny},
+		Note:       "does roundoff to upto the given decimal places",
+	},{
 		FunctionEntry: gojmespath.FunctionEntry{
 			Name: base64Decode,
 			Arguments: []argSpec{
@@ -849,8 +861,17 @@ func jpModulo(arguments []interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return op1.Modulo(op2)
+}
+
+func jpRound(arguments []interface{}) (interface{}, error) {
+	
+	op1, op2, err := parseArithemticOperands(arguments, round)
+	if err != nil {
+		return nil, err
+	}
+
+	return op1.Round(op2)
 }
 
 func jpBase64Decode(arguments []interface{}) (interface{}, error) {
