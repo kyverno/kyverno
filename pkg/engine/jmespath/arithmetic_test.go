@@ -768,6 +768,111 @@ func Test_Modulo(t *testing.T) {
 	}
 }
 
+func Test_Round(t *testing.T) {
+	testCases := []struct {
+		name           string
+		test           string
+		expectedResult interface{}
+		err            bool
+		retFloat       bool
+	}{
+		// Quantity
+		{
+			name: "Quantity roundoff Quantity -> error",
+			test: "round('31Ki', '13Ki')",
+			err:  true,
+		},
+		{
+			name: "Quantity roundoff Duration -> error",
+			test: "round('12Ki', '13s')",
+			err:  true,
+		},
+		{
+			name:           "Quantity roundoff Scalar -> Quantity",
+			test:           "round('12Ki', `2`)",
+			expectedResult: "12Ki",
+		},
+		// Duration
+		{
+			name: "Duration roundoff Quantity -> error",
+			test: "round('13s', '12Ki')",
+			err:  true,
+		},
+		{
+			name: "Duration roundoff Duration -> error",
+			test: "round('13s', '2s')",
+			err:  true,
+		},
+		{
+			name:           "Duration roundoff Scalar -> Duration",
+			test:           "round('13.231s', `2`)",
+			expectedResult: "13.23s",
+		},
+		// Scalar
+		{
+			name: "Scalar roundoff Quantity -> error",
+			test: "round(`23`, '12Ki')",
+			err:  true,
+		},
+		{
+			name: "Scalar roundoff Duration -> error",
+			test: "round(`21`, '5s')",
+			err:  true,
+		},
+		{
+			name:           "Scalar % Scalar -> Scalar",
+			test:           "round(`9.414675`, `2`)",
+			expectedResult: 9.41,
+			retFloat:       true,
+		},
+		// round with non int values
+		{
+			name: "Quantity roundoff Non int -> error",
+			test: "round('4', '1.5')",
+			err:  true,
+		},
+		{
+			name: "Non int roundoff Quantity -> error",
+			test: "round('4.5', '1')",
+			err:  true,
+		},
+		{
+			name: "Scalar roundoff Non int -> error",
+			test: "round(`14`, `1.5`)",
+			err:  true,
+		},
+		{
+			name: "Non int roundoff Scalar -> error",
+			test: "round(`14.5`, `2`)",
+			err:  true,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			jp, err := newJMESPath(cfg, tc.test)
+			assert.NilError(t, err)
+
+			result, err := jp.Search("")
+			if !tc.err {
+				assert.NilError(t, err)
+			} else {
+				assert.Assert(t, err != nil)
+				return
+			}
+
+			if tc.retFloat {
+				equal, ok := result.(float64)
+				assert.Assert(t, ok)
+				assert.Equal(t, equal, tc.expectedResult.(float64))
+			} else {
+				equal, ok := result.(string)
+				assert.Assert(t, ok)
+				assert.Equal(t, equal, tc.expectedResult.(string))
+			}
+		})
+	}
+}
+
 func TestScalar_Multiply(t *testing.T) {
 	type fields struct {
 		float64 float64

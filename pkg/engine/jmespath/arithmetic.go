@@ -294,23 +294,25 @@ func (op1 scalar) Modulo(op2 interface{}) (interface{}, error) {
 	}
 }
 
-// Quantity / Scalar   			-> Quantity
-// Duration / Scalar   			-> Duration
-// Scalar / Scalar   			-> Scalar
+// Quantity roundoff Duration|Quantity	-> error
+// Quantity roundoff Scalar				-> Quantity
 
-func (op1 scalar) Round(op2 interface{}) (interface{}, error){
-	switch v := op2.(type) {
+// Duration roundoff Quantity|Duration	-> error
+// Duration roundoff Scalar				-> Duration
+
+// Scalar   roundoff Quantity|Duration	-> error
+// Scalar   roundoff Scalar            	-> Scalar
+
+// quantity can never be floating point :- no need to round of
+func (op1 quantity) Round(op2 interface{}) (interface{}, error) {
+	switch op2.(type) {
 	case scalar:
-		if v.float64 != math.Trunc(v.float64){
-			return nil, formatError(nonIntRoundError, round)
-		}
-		shift := math.Pow(10, v.float64)
-		rounded := math.Round(op1.float64*shift) / shift
-		return rounded , nil
+		return op1.String() , nil
 	default:
 		return nil, formatError(typeMismatchError, round)
 	}
 }
+
 func (op1 duration) Round(op2 interface{}) (interface{}, error) {
 	switch v := op2.(type) {
 	case scalar:
@@ -324,11 +326,16 @@ func (op1 duration) Round(op2 interface{}) (interface{}, error) {
 		return nil, formatError(typeMismatchError, round)
 	}
 }
-// quantity can never be floating point :- no need to round of
-func (op1 quantity) Round(op2 interface{}) (interface{}, error) {
-	switch op2.(type) {
+
+func (op1 scalar) Round(op2 interface{}) (interface{}, error){
+	switch v := op2.(type) {
 	case scalar:
-		return op1.String() , nil
+		if v.float64 != math.Trunc(v.float64){
+			return nil, formatError(nonIntRoundError, round)
+		}
+		shift := math.Pow(10, v.float64)
+		rounded := math.Round(op1.float64*shift) / shift
+		return rounded , nil
 	default:
 		return nil, formatError(typeMismatchError, round)
 	}
