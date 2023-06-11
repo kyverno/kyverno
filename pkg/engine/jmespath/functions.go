@@ -861,6 +861,7 @@ func jpModulo(arguments []interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	
 	return op1.Modulo(op2)
 }
 

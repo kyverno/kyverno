@@ -330,7 +330,6 @@ func (op1 quantity) Round(op2 interface{}) (interface{}, error) {
 	case scalar:
 		return op1.String() , nil
 	default:
-		fmt.Printf("%+v\n",op1)
 		return nil, formatError(typeMismatchError, round)
 	}
 }
