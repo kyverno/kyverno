@@ -44,6 +44,7 @@ func createrLeaderControllers(
 	metricsConfig metrics.MetricsConfigManager,
 	eventGenerator event.Interface,
 	jp jmespath.Interface,
+	backgroundScanInterval time.Duration,
 ) ([]internal.Controller, error) {
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
@@ -56,7 +57,7 @@ func createrLeaderControllers(
 		eventGenerator,
 		kubeInformer.Core().V1().Namespaces(),
 		logging.WithName("PolicyController"),
-		time.Hour,
+		backgroundScanInterval,
 		metricsConfig,
 		jp,
 	)
@@ -91,6 +92,7 @@ func main() {
 	flagset.IntVar(&genWorkers, "genWorkers", 10, "Workers for the background controller.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&omitEvents, "omit-events", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omit-events=PolicyApplied,PolicyViolation")
+
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -111,6 +113,18 @@ func main() {
 	// setup
 	signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-background-controller", false)
 	defer sdown()
+
+	var err error
+	bgscanInterval := time.Duration(time.Hour)
+	val := os.Getenv("BACKGROUND_SCAN_INTERVAL")
+	if val != "" {
+		if bgscanInterval, err = time.ParseDuration(val); err != nil {
+			setup.Logger.Error(err, "failed to set the background scan interval")
+			os.Exit(1)
+		}
+	}
+	setup.Logger.V(2).Info("setting the background scan interval", "value", bgscanInterval.String())
+
 	// THIS IS AN UGLY FIX
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
@@ -180,6 +194,7 @@ func main() {
 				setup.MetricsManager,
 				eventGenerator,
 				setup.Jp,
+				bgscanInterval,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create leader controllers")
