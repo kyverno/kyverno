@@ -8,7 +8,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/name"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
@@ -93,7 +92,7 @@ func LoadImageData(ctx context.Context, jp jmespath.Interface, rclient registryc
 	return nil
 }
 
-func LoadAPIData(ctx context.Context, jp jmespath.Interface, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface, client dclient.Interface) error {
+func LoadAPIData(ctx context.Context, jp jmespath.Interface, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface, client RawClient) error {
 	executor, err := apicall.New(logger, jp, entry, enginectx, client)
 	if err != nil {
 		return fmt.Errorf("failed to initialize APICall: %w", err)

@@ -5,7 +5,6 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
@@ -15,11 +14,11 @@ import (
 )
 
 type mutateExistingHandler struct {
-	client dclient.Interface
+	client engineapi.Client
 }
 
 func NewMutateExistingHandler(
-	client dclient.Interface,
+	client engineapi.Client,
 ) (handlers.Handler, error) {
 	return mutateExistingHandler{
 		client: client,
@@ -36,7 +35,7 @@ func (h mutateExistingHandler) Process(
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	var responses []engineapi.RuleResponse
 	logger.V(3).Info("processing mutate rule")
-	targets, err := loadTargets(h.client, rule.Mutation.Targets, policyContext, logger)
+	targets, err := loadTargets(ctx, h.client, rule.Mutation.Targets, policyContext, logger)
 	if err != nil {
 		rr := engineapi.RuleError(rule.Name, engineapi.Mutation, "", err)
 		responses = append(responses, *rr)
