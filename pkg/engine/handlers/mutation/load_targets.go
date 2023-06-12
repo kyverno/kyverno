@@ -6,7 +6,6 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -31,17 +30,17 @@ type target struct {
 	preconditions apiextensions.JSON
 }
 
-func loadTargets(client dclient.Interface, targets []kyvernov1.TargetResourceSpec, ctx engineapi.PolicyContext, logger logr.Logger) ([]target, error) {
+func loadTargets(ctx context.Context, client engineapi.Client, targets []kyvernov1.TargetResourceSpec, policyCtx engineapi.PolicyContext, logger logr.Logger) ([]target, error) {
 	var targetObjects []target
 	var errors []error
 	for i := range targets {
 		preconditions := targets[i].GetAnyAllConditions()
-		spec, err := resolveSpec(i, targets[i], ctx, logger)
+		spec, err := resolveSpec(i, targets[i], policyCtx, logger)
 		if err != nil {
 			errors = append(errors, err)
 			continue
 		}
-		objs, err := getTargets(client, spec, ctx)
+		objs, err := getTargets(ctx, client, spec, policyCtx)
 		if err != nil {
 			errors = append(errors, err)
 			continue
@@ -82,82 +81,30 @@ func resolveSpec(i int, target kyvernov1.TargetResourceSpec, ctx engineapi.Polic
 	}, nil
 }
 
-func getTargets(client dclient.Interface, target kyvernov1.ResourceSpec, ctx engineapi.PolicyContext) ([]resourceInfo, error) {
+func getTargets(ctx context.Context, client engineapi.Client, target kyvernov1.ResourceSpec, policyCtx engineapi.PolicyContext) ([]resourceInfo, error) {
 	var targetObjects []resourceInfo
 	namespace := target.Namespace
 	name := target.Name
-	policy := ctx.Policy()
+	policy := policyCtx.Policy()
 	// if it's namespaced policy, targets has to be loaded only from the policy's namespace
 	if policy.IsNamespaced() {
 		namespace = policy.GetNamespace()
 	}
 	group, version, kind, subresource := kubeutils.ParseKindSelector(target.APIVersion + "/" + target.Kind)
-	gvrss, err := client.Discovery().FindResources(group, version, kind, subresource)
+	resources, err := client.GetResources(ctx, group, version, kind, subresource, namespace, name)
 	if err != nil {
 		return nil, err
 	}
-	for gvrs := range gvrss {
-		dyn := client.GetDynamicInterface().Resource(gvrs.GroupVersionResource())
-		var sub []string
-		if gvrs.SubResource != "" {
-			sub = []string{gvrs.SubResource}
-		}
-		// we can use `GET` directly
-		if namespace != "" && name != "" && !wildcard.ContainsWildcard(namespace) && !wildcard.ContainsWildcard(name) {
-			var obj *unstructured.Unstructured
-			var err error
-			obj, err = dyn.Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{}, sub...)
-			if err != nil {
-				return nil, err
-			}
-			targetObjects = append(targetObjects, resourceInfo{
-				unstructured:      *obj,
-				subresource:       gvrs.SubResource,
-				parentResourceGVR: metav1.GroupVersionResource(gvrs.GroupVersionResource()),
-			})
-		} else {
-			// we can use `LIST`
-			if gvrs.SubResource == "" {
-				list, err := dyn.List(context.TODO(), metav1.ListOptions{})
-				if err != nil {
-					return nil, err
-				}
-				for _, obj := range list.Items {
-					if match(namespace, name, obj.GetNamespace(), obj.GetName()) {
-						targetObjects = append(targetObjects, resourceInfo{unstructured: obj})
-					}
-				}
-			} else {
-				// we need to use `LIST` / `GET`
-				list, err := dyn.List(context.TODO(), metav1.ListOptions{})
-				if err != nil {
-					return nil, err
-				}
-				var parentObjects []unstructured.Unstructured
-				for _, obj := range list.Items {
-					if match(namespace, name, obj.GetNamespace(), obj.GetName()) {
-						parentObjects = append(parentObjects, obj)
-					}
-				}
-				for _, parentObject := range parentObjects {
-					var obj *unstructured.Unstructured
-					var err error
-					if parentObject.GetNamespace() == "" {
-						obj, err = dyn.Get(context.TODO(), name, metav1.GetOptions{}, sub...)
-					} else {
-						obj, err = dyn.Namespace(parentObject.GetNamespace()).Get(context.TODO(), name, metav1.GetOptions{}, sub...)
-					}
-					if err != nil {
-						return nil, err
-					}
-					targetObjects = append(targetObjects, resourceInfo{
-						unstructured:      *obj,
-						subresource:       gvrs.SubResource,
-						parentResourceGVR: metav1.GroupVersionResource(gvrs.GroupVersionResource()),
-					})
-				}
-			}
-		}
+	for _, resource := range resources {
+		targetObjects = append(targetObjects, resourceInfo{
+			unstructured: resource.Unstructured,
+			subresource:  resource.SubResource,
+			parentResourceGVR: metav1.GroupVersionResource{
+				Group:    resource.Group,
+				Version:  resource.Version,
+				Resource: resource.Resource,
+			},
+		})
 	}
 	return targetObjects, nil
 }

@@ -6,7 +6,6 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -21,7 +20,7 @@ type ContextLoader interface {
 	Load(
 		ctx context.Context,
 		jp jmespath.Interface,
-		client dclient.Interface,
+		client Client,
 		rclient registryclient.Client,
 		contextEntries []kyvernov1.ContextEntry,
 		jsonContext enginecontext.Interface,
@@ -47,7 +46,7 @@ type contextLoader struct {
 func (l *contextLoader) Load(
 	ctx context.Context,
 	jp jmespath.Interface,
-	client dclient.Interface,
+	client Client,
 	rclient registryclient.Client,
 	contextEntries []kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
@@ -66,7 +65,7 @@ func (l *contextLoader) Load(
 func (l *contextLoader) newDeferredLoader(
 	ctx context.Context,
 	jp jmespath.Interface,
-	client dclient.Interface,
+	client Client,
 	rclient registryclient.Client,
 	entry kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
