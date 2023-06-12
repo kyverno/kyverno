@@ -20,7 +20,7 @@ type ContextLoader interface {
 	Load(
 		ctx context.Context,
 		jp jmespath.Interface,
-		client Client,
+		client RawClient,
 		rclient registryclient.Client,
 		contextEntries []kyvernov1.ContextEntry,
 		jsonContext enginecontext.Interface,
@@ -46,7 +46,7 @@ type contextLoader struct {
 func (l *contextLoader) Load(
 	ctx context.Context,
 	jp jmespath.Interface,
-	client Client,
+	client RawClient,
 	rclient registryclient.Client,
 	contextEntries []kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
@@ -65,7 +65,7 @@ func (l *contextLoader) Load(
 func (l *contextLoader) newDeferredLoader(
 	ctx context.Context,
 	jp jmespath.Interface,
-	client Client,
+	client RawClient,
 	rclient registryclient.Client,
 	entry kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
