@@ -27,13 +27,13 @@ jobs:
       reports-controller-digest: ${{ steps.publish-reports-controller.outputs.digest }}
     steps:
       - name: Checkout
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         with:
           build-cache-key: publish-images
       - name: Run Trivy vulnerability scanner in repo mode
-        uses: aquasecurity/trivy-action@b43daad0c3c96202fc5800b511dfae8e6ecce864 # v0.11.0
+        uses: aquasecurity/trivy-action@41f05d9ecffa2ed3f1580af306000f734b733e54 # v0.11.2
         with:
           scan-type: 'fs'
           ignore-unfixed: true

@@ -96,7 +96,7 @@ func (h *imageVerificationHandler) handleVerifyImages(
 			"",
 			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
 			func(ctx context.Context, span trace.Span) {
-				if policy.GetSpec().GetFailurePolicy() == kyvernov1.Fail {
+				if policy.GetSpec().GetFailurePolicy(ctx) == kyvernov1.Fail {
 					failurePolicy = kyvernov1.Fail
 				}
 
