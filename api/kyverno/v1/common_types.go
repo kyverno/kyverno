@@ -621,10 +621,6 @@ type CloneList struct {
 }
 
 func (g *Generation) Validate(path *field.Path, clusterResources sets.Set[string]) (errs field.ErrorList) {
-	if (g.Clone.Name != "" || g.CloneList.Kinds != nil) && g.RawData != nil {
-		errs = append(errs, field.Forbidden(path.Child("generate"), "cannot define both clone and data rules within the same policy"))
-	}
-
 	if err := g.validateTargetsScope(clusterResources); err != nil {
 		errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
 	}

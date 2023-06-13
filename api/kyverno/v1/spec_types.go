@@ -259,10 +259,23 @@ func (s *Spec) ValidateRuleNames(path *field.Path) (errs field.ErrorList) {
 // ValidateRules implements programmatic validation of Rules
 func (s *Spec) ValidateRules(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, s.ValidateRuleNames(path)...)
+	if ok := validateGenerateRuleType(s.Rules); !ok {
+		errs = append(errs, field.Forbidden(path.Child("generate"), "cannot define both clone and data rules within the same policy"))
+	}
+
 	for i, rule := range s.Rules {
 		errs = append(errs, rule.Validate(path.Index(i), namespaced, policyNamespace, clusterResources)...)
 	}
 	return errs
+}
+
+func validateGenerateRuleType(rules []Rule) bool {
+	var types sets.Set[string]
+	for _, rule := range rules {
+		t, _ := rule.GetGenerateTypeAndSync()
+		types.Insert(string(t))
+	}
+	return types.Len() <= 1
 }
 
 func (s *Spec) validateDeprecatedFields(path *field.Path) (errs field.ErrorList) {
