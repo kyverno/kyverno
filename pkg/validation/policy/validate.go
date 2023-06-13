@@ -165,6 +165,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		for _, resList := range res {
 			for _, r := range resList.APIResources {
 				if !r.Namespaced {
+					clusterResources.Insert(resList.GroupVersion + "/" + r.Kind)
 					clusterResources.Insert(r.Kind)
 				}
 			}
@@ -274,14 +275,6 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		} else {
 			if len(rule.MatchResources.Kinds) == 0 {
 				return warnings, validateMatchKindHelper(rule)
-			}
-		}
-
-		// validate Cluster Resources in namespaced policy
-		// For namespaced policy, ClusterResource type field and values are not allowed in match and exclude
-		if policy.IsNamespaced() {
-			if err := checkClusterResourceInMatchAndExclude(rule, clusterResources, policy.GetNamespace(), mock, res); err != nil {
-				return warnings, err
 			}
 		}
 
