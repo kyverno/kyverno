@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: >
+      kubectl --namespace cpol-clone-delete-ownerreferences-across-namespaces-target-ns get secret cpol-clone-delete-ownerreferences-across-namespaces -o json |
+      jq -e '.metadata.ownerReferences == null'
