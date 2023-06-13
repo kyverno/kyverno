@@ -115,7 +115,7 @@ func main() {
 	defer sdown()
 
 	var err error
-	bgscanInterval := time.Duration(time.Hour)
+	bgscanInterval := time.Hour
 	val := os.Getenv("BACKGROUND_SCAN_INTERVAL")
 	if val != "" {
 		if bgscanInterval, err = time.ParseDuration(val); err != nil {
