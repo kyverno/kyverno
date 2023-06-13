@@ -270,7 +270,7 @@ func (s *Spec) ValidateRules(path *field.Path, namespaced bool, policyNamespace 
 }
 
 func validateGenerateRuleType(rules []Rule) bool {
-	var types sets.Set[string]
+	types := sets.New[string]()
 	for _, rule := range rules {
 		t, _ := rule.GetGenerateTypeAndSync()
 		types.Insert(string(t))
