@@ -820,7 +820,7 @@ func Test_Round(t *testing.T) {
 			err:  true,
 		},
 		{
-			name:           "Scalar % Scalar -> Scalar",
+			name:           "Scalar roundoff Scalar -> Scalar",
 			test:           "round(`9.414675`, `2`)",
 			expectedResult: 9.41,
 			retFloat:       true,

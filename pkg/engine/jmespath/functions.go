@@ -17,6 +17,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"math"
 
 	trunc "github.com/aquilax/truncate"
 	"github.com/blang/semver/v4"
@@ -312,7 +313,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 			Name: round,
 			Arguments: []argSpec{
 				{Types: []jpType{jpAny}},
-				{Types: []jpType{jpAny}},
+				{Types: []jpType{jpNumber}},
 			},
 			Handler: jpRound,
 		},
@@ -866,13 +867,19 @@ func jpModulo(arguments []interface{}) (interface{}, error) {
 }
 
 func jpRound(arguments []interface{}) (interface{}, error) {
-	
 	op1, op2, err := parseArithemticOperands(arguments, round)
 	if err != nil {
 		return nil, err
 	}
-
-	return op1.Round(op2)
+	switch v := op2.(type){
+	case scalar:
+		if v.float64 != math.Trunc(v.float64){
+			return nil, formatError(nonIntRoundError, round)
+		}
+		return op1.Round(int(v.float64))
+	default :
+		return nil, formatError(typeMismatchError, round)
+	}
 }
 
 func jpBase64Decode(arguments []interface{}) (interface{}, error) {
