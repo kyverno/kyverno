@@ -1203,24 +1203,10 @@ func validateWildcard(kinds []string, background bool, rule kyvernov1.Rule) erro
 // validKinds verifies if an API resource that matches 'kind' is valid kind
 // and found in the cache, returns error if not found. It also returns an error if background scanning
 // is enabled for a subresource.
-
-func contains(kinds []string, kind string) bool {
-	for _, k := range kinds {
-		if k == kind {
-			return true
-		}
-	}
-	return false
-}
-
 func validKinds(kinds []string, mock, backgroundScanningEnabled, isValidationPolicy bool, client dclient.Interface) error {
 	if !mock {
 		for _, k := range kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(k)
-			allowedKinds := []string{"User", "Group", "ServiceAccount"}
-			if !contains(allowedKinds, kind) {
-				return fmt.Errorf("Invalid kind %q,allowed kinds are %v", kind, allowedKinds)
-			}
 			gvrss, err := client.Discovery().FindResources(group, version, kind, subresource)
 			if err != nil {
 				return fmt.Errorf("unable to convert GVK to GVR for kinds %s, err: %s", k, err)
