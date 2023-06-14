@@ -31,7 +31,7 @@ type engine struct {
 	jp                       jmespath.Interface
 	client                   engineapi.Client
 	imgClient                engineapi.ImageDataClient
-	rclientLoader            engineapi.RegistryClientLoader
+	rclientFactory           engineapi.RegistryClientFactory
 	contextLoader            engineapi.ContextLoaderFactory
 	exceptionSelector        engineapi.PolicyExceptionSelector
 	imageSignatureRepository string
@@ -47,8 +47,9 @@ func NewEngine(
 	metricsConfiguration config.MetricsConfiguration,
 	jp jmespath.Interface,
 	client engineapi.Client,
+	// TODO: this one should be removed
 	imgClient engineapi.ImageDataClient,
-	rclientLoader engineapi.RegistryClientLoader,
+	rclientFactory engineapi.RegistryClientFactory,
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,
 	imageSignatureRepository string,
@@ -74,7 +75,7 @@ func NewEngine(
 		jp:                       jp,
 		client:                   client,
 		imgClient:                imgClient,
-		rclientLoader:            rclientLoader,
+		rclientFactory:           rclientFactory,
 		contextLoader:            contextLoader,
 		exceptionSelector:        exceptionSelector,
 		imageSignatureRepository: imageSignatureRepository,
