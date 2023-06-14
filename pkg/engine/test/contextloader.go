@@ -45,7 +45,7 @@ func (l *mockContextLoader) Load(
 	ctx context.Context,
 	jp jmespath.Interface,
 	client engineapi.RawClient,
-	imgClient engineapi.ImageDataClient,
+	rclientFactory engineapi.RegistryClientFactory,
 	contextEntries []kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
 ) error {
@@ -62,8 +62,8 @@ func (l *mockContextLoader) Load(
 	}
 	// Context Variable should be loaded after the values loaded from values file
 	for _, entry := range contextEntries {
-		if entry.ImageRegistry != nil && imgClient != nil {
-			if err := engineapi.LoadImageData(ctx, jp, imgClient, l.logger, entry, jsonContext); err != nil {
+		if entry.ImageRegistry != nil && rclientFactory != nil {
+			if err := engineapi.LoadImageData(ctx, jp, rclientFactory, l.logger, entry, jsonContext); err != nil {
 				return err
 			}
 		} else if entry.Variable != nil {

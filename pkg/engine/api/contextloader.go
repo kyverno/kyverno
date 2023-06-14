@@ -20,7 +20,7 @@ type ContextLoader interface {
 		ctx context.Context,
 		jp jmespath.Interface,
 		client RawClient,
-		imgClient ImageDataClient,
+		rclientFactory RegistryClientFactory,
 		contextEntries []kyvernov1.ContextEntry,
 		jsonContext enginecontext.Interface,
 	) error
@@ -46,12 +46,12 @@ func (l *contextLoader) Load(
 	ctx context.Context,
 	jp jmespath.Interface,
 	client RawClient,
-	imgClient ImageDataClient,
+	rclientFactory RegistryClientFactory,
 	contextEntries []kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
 ) error {
 	for _, entry := range contextEntries {
-		deferredLoader := l.newDeferredLoader(ctx, jp, client, imgClient, entry, jsonContext)
+		deferredLoader := l.newDeferredLoader(ctx, jp, client, rclientFactory, entry, jsonContext)
 		if deferredLoader == nil {
 			return fmt.Errorf("invalid context entry %s", entry.Name)
 		}
@@ -64,7 +64,7 @@ func (l *contextLoader) newDeferredLoader(
 	ctx context.Context,
 	jp jmespath.Interface,
 	client RawClient,
-	imgClient ImageDataClient,
+	rclientFactory RegistryClientFactory,
 	entry kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
 ) enginecontext.DeferredLoader {
@@ -84,7 +84,7 @@ func (l *contextLoader) newDeferredLoader(
 		}
 	} else if entry.ImageRegistry != nil {
 		return func() error {
-			if err := LoadImageData(ctx, jp, imgClient, l.logger, entry, jsonContext); err != nil {
+			if err := LoadImageData(ctx, jp, rclientFactory, l.logger, entry, jsonContext); err != nil {
 				return err
 			}
 			return nil

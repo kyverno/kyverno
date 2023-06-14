@@ -30,7 +30,6 @@ type engine struct {
 	metricsConfiguration     config.MetricsConfiguration
 	jp                       jmespath.Interface
 	client                   engineapi.Client
-	imgClient                engineapi.ImageDataClient
 	rclientFactory           engineapi.RegistryClientFactory
 	contextLoader            engineapi.ContextLoaderFactory
 	exceptionSelector        engineapi.PolicyExceptionSelector
@@ -47,8 +46,6 @@ func NewEngine(
 	metricsConfiguration config.MetricsConfiguration,
 	jp jmespath.Interface,
 	client engineapi.Client,
-	// TODO: this one should be removed
-	imgClient engineapi.ImageDataClient,
 	rclientFactory engineapi.RegistryClientFactory,
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,
@@ -74,7 +71,6 @@ func NewEngine(
 		metricsConfiguration:     metricsConfiguration,
 		jp:                       jp,
 		client:                   client,
-		imgClient:                imgClient,
 		rclientFactory:           rclientFactory,
 		contextLoader:            contextLoader,
 		exceptionSelector:        exceptionSelector,
@@ -179,7 +175,7 @@ func (e *engine) ContextLoader(
 			ctx,
 			e.jp,
 			e.client,
-			e.imgClient,
+			e.rclientFactory,
 			contextEntries,
 			jsonContext,
 		)

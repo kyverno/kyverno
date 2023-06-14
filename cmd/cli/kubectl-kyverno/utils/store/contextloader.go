@@ -5,7 +5,6 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
@@ -39,7 +38,7 @@ func (l *mockContextLoader) Load(
 	ctx context.Context,
 	jp jmespath.Interface,
 	client engineapi.RawClient,
-	_ engineapi.ImageDataClient,
+	_ engineapi.RegistryClientFactory,
 	contextEntries []kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
 ) error {
@@ -56,8 +55,9 @@ func (l *mockContextLoader) Load(
 	// Context Variable should be loaded after the values loaded from values file
 	for _, entry := range contextEntries {
 		if entry.ImageRegistry != nil && hasRegistryAccess {
-			rclient := GetRegistryClient()
-			if err := engineapi.LoadImageData(ctx, jp, adapters.ImageDataClient(rclient), l.logger, entry, jsonContext); err != nil {
+			// rclient := GetRegistryClient()
+			// TODO
+			if err := engineapi.LoadImageData(ctx, jp, nil, l.logger, entry, jsonContext); err != nil {
 				return err
 			}
 		} else if entry.Variable != nil {

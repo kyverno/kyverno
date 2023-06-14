@@ -2,15 +2,10 @@ package api
 
 import (
 	"context"
-	"fmt"
-	"strings"
 	"time"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 
-	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -19,61 +14,61 @@ const (
 )
 
 type RegistryClientFactory interface {
-	GetClient(ctx context.Context, creds *kyvernov1.ImageRegistryCredentials) (registryclient.Client, error)
+	GetClient(ctx context.Context, creds *kyvernov1.ImageRegistryCredentials) (RegistryClient, error)
 }
 
 type registryClientFactory struct {
-	globalClient registryclient.Client
+	globalClient RegistryClient
 	kubeClient   kubernetes.Interface
 }
 
-func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.ImageRegistryCredentials) (registryclient.Client, error) {
-	if creds != nil && f.kubeClient != nil {
-		factory := kubeinformers.NewSharedInformerFactoryWithOptions(f.kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-		secretLister := factory.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
+func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.ImageRegistryCredentials) (RegistryClient, error) {
+	// if creds != nil && f.kubeClient != nil {
+	// 	factory := kubeinformers.NewSharedInformerFactoryWithOptions(f.kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
+	// 	secretLister := factory.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
 
-		// start informers and wait for cache sync
-		factory.Start(ctx.Done())
-		for t, result := range factory.WaitForCacheSync(ctx.Done()) {
-			if !result {
-				return nil, fmt.Errorf("failed to wait for cache sync %T", t)
-			}
-		}
+	// 	// start informers and wait for cache sync
+	// 	factory.Start(ctx.Done())
+	// 	for t, result := range factory.WaitForCacheSync(ctx.Done()) {
+	// 		if !result {
+	// 			return nil, fmt.Errorf("failed to wait for cache sync %T", t)
+	// 		}
+	// 	}
 
-		if len(creds.Secrets) == 0 {
-			return nil, fmt.Errorf("secrets not found")
-		}
-		secrets := make([]string, len(creds.Secrets))
-		for i, secret := range creds.Secrets {
-			secrets[i] = secret.Name
-		}
+	// 	if len(creds.Secrets) == 0 {
+	// 		return nil, fmt.Errorf("secrets not found")
+	// 	}
+	// 	secrets := make([]string, len(creds.Secrets))
+	// 	for i, secret := range creds.Secrets {
+	// 		secrets[i] = secret.Name
+	// 	}
 
-		helpers := make([]string, len(creds.Helpers))
-		for i, helper := range creds.Helpers {
-			helpers[i] = string(helper)
-		}
-		registryCredentialHelpers := strings.Join(helpers, ",")
+	// 	helpers := make([]string, len(creds.Helpers))
+	// 	for i, helper := range creds.Helpers {
+	// 		helpers[i] = string(helper)
+	// 	}
+	// 	registryCredentialHelpers := strings.Join(helpers, ",")
 
-		registryOptions := []registryclient.Option{
-			registryclient.WithTracing(),
-		}
+	// 	registryOptions := []registryclient.Option{
+	// 		registryclient.WithTracing(),
+	// 	}
 
-		if len(secrets) > 0 {
-			registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(ctx, secretLister, secrets...))
-		}
-		if len(registryCredentialHelpers) > 0 {
-			registryOptions = append(registryOptions, registryclient.WithCredentialHelpers(strings.Split(registryCredentialHelpers, ",")...))
-		}
-		registryClient, err := registryclient.New(registryOptions...)
-		if err != nil {
-			return nil, err
-		}
-		return registryClient, nil
-	}
+	// 	if len(secrets) > 0 {
+	// 		registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(ctx, secretLister, secrets...))
+	// 	}
+	// 	if len(registryCredentialHelpers) > 0 {
+	// 		registryOptions = append(registryOptions, registryclient.WithCredentialHelpers(strings.Split(registryCredentialHelpers, ",")...))
+	// 	}
+	// 	registryClient, err := registryclient.New(registryOptions...)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	return registryClient, nil
+	// }
 	return f.globalClient, nil
 }
 
-func DefaultRegistryClientFactory(globalClient registryclient.Client, kubeClient kubernetes.Interface) RegistryClientFactory {
+func DefaultRegistryClientFactory(globalClient RegistryClient, kubeClient kubernetes.Interface) RegistryClientFactory {
 	return &registryClientFactory{
 		globalClient: globalClient,
 		kubeClient:   kubeClient,

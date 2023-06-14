@@ -75,8 +75,8 @@ func LoadVariable(logger logr.Logger, jp jmespath.Interface, entry kyvernov1.Con
 	}
 }
 
-func LoadImageData(ctx context.Context, jp jmespath.Interface, client ImageDataClient, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface) error {
-	imageData, err := fetchImageData(ctx, jp, client, logger, entry, enginectx)
+func LoadImageData(ctx context.Context, jp jmespath.Interface, rclientFactory RegistryClientFactory, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface) error {
+	imageData, err := fetchImageData(ctx, jp, rclientFactory, logger, entry, enginectx)
 	if err != nil {
 		return err
 	}
@@ -113,7 +113,7 @@ func LoadConfigMap(ctx context.Context, logger logr.Logger, entry kyvernov1.Cont
 	return nil
 }
 
-func fetchImageData(ctx context.Context, jp jmespath.Interface, client ImageDataClient, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface) (interface{}, error) {
+func fetchImageData(ctx context.Context, jp jmespath.Interface, rclientFactory RegistryClientFactory, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface) (interface{}, error) {
 	ref, err := variables.SubstituteAll(logger, enginectx, entry.ImageRegistry.Reference)
 	if err != nil {
 		return nil, fmt.Errorf("ailed to substitute variables in context entry %s %s: %v", entry.Name, entry.ImageRegistry.Reference, err)
@@ -125,6 +125,10 @@ func fetchImageData(ctx context.Context, jp jmespath.Interface, client ImageData
 	path, err := variables.SubstituteAll(logger, enginectx, entry.ImageRegistry.JMESPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.ImageRegistry.JMESPath, err)
+	}
+	client, err := rclientFactory.GetClient(ctx, entry.ImageRegistry.ImageRegistryCredentials)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get registry client %s: %v", entry.Name, err)
 	}
 	imageData, err := fetchImageDataMap(ctx, client, refString)
 	if err != nil {
