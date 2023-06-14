@@ -111,6 +111,7 @@ type context struct {
 	jsonRawCheckpoints [][]byte
 	images             map[string]map[string]apiutils.ImageInfo
 	deferred           deferredLoaders
+	deferredOrder      []string
 }
 
 type deferredLoaders struct {
@@ -132,6 +133,7 @@ func NewContextFromRaw(jp jmespath.Interface, raw []byte) Interface {
 		deferred: deferredLoaders{
 			loaders: make(map[string]DeferredLoader),
 		},
+		deferredOrder: make([]string, 0),
 	}
 }
 
@@ -356,5 +358,6 @@ func (ctx *context) reset(remove bool) {
 func (ctx *context) AddDeferredLoader(name string, loader DeferredLoader) {
 	ctx.deferred.mutex.Lock()
 	defer ctx.deferred.mutex.Unlock()
+	ctx.deferredOrder = append(ctx.deferredOrder, name)
 	ctx.deferred.loaders[name] = loader
 }
