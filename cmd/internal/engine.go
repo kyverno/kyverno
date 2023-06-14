@@ -39,6 +39,7 @@ func NewEngine(
 		metricsConfiguration,
 		jp,
 		adapters.Client(client),
+		adapters.ImageDataClient(rclient),
 		rclient,
 		engineapi.DefaultContextLoaderFactory(configMapResolver),
 		exceptionsSelector,
