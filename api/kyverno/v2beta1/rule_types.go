@@ -176,20 +176,20 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 	return append(errs, field.Invalid(path, r, "Rule is matching an empty set"))
 }
 
-func (r *Rule) ValidateGenerate(path *field.Path, clusterResources sets.Set[string]) (errs field.ErrorList) {
+func (r *Rule) ValidateGenerate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if !r.HasGenerate() {
 		return nil
 	}
 
-	return r.Generation.Validate(path, clusterResources)
+	return r.Generation.Validate(path, namespaced, policyNamespace, clusterResources)
 }
 
 // Validate implements programmatic validation
-func (r *Rule) Validate(path *field.Path, namespaced bool, clusterResources sets.Set[string]) (errs field.ErrorList) {
+func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, r.ValidateRuleType(path)...)
 	errs = append(errs, r.ValidateMatchExcludeConflict(path)...)
 	errs = append(errs, r.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)
 	errs = append(errs, r.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
-	errs = append(errs, r.ValidateGenerate(path, clusterResources)...)
+	errs = append(errs, r.ValidateGenerate(path, namespaced, policyNamespace, clusterResources)...)
 	return errs
 }
