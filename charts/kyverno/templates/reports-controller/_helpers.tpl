@@ -27,7 +27,7 @@
 {{- end -}}
 
 {{- define "kyverno.reports-controller.roleName" -}}
-{{ .Release.Name }}:reports-controller
+{{ include "kyverno.fullname" . }}:reports-controller
 {{- end -}}
 
 {{- define "kyverno.reports-controller.serviceAccountName" -}}

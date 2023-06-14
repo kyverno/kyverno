@@ -9,10 +9,14 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/config"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"gotest.tools/assert"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
+
+var jp = jmespath.New(config.NewDefaultConfiguration(false))
 
 func buildTestServer(responseData []byte) *httptest.Server {
 	mux := http.NewServeMux()
@@ -38,9 +42,9 @@ func Test_serviceGetRequest(t *testing.T) {
 	defer s.Close()
 
 	entry := kyvernov1.ContextEntry{}
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 
-	_, err := New(context.TODO(), entry, ctx, nil, logr.Discard())
+	_, err := New(logr.Discard(), jp, entry, ctx, nil)
 	assert.ErrorContains(t, err, "missing APICall")
 
 	entry.Name = "test"
@@ -50,22 +54,22 @@ func Test_serviceGetRequest(t *testing.T) {
 		},
 	}
 
-	call, err := New(context.TODO(), entry, ctx, nil, logr.Discard())
+	call, err := New(logr.Discard(), jp, entry, ctx, nil)
 	assert.NilError(t, err)
-	_, err = call.Execute()
+	_, err = call.Execute(context.TODO())
 	assert.ErrorContains(t, err, "invalid request type")
 
-	entry.APICall.Service.Method = "GET"
-	call, err = New(context.TODO(), entry, ctx, nil, logr.Discard())
+	entry.APICall.Method = "GET"
+	call, err = New(logr.Discard(), jp, entry, ctx, nil)
 	assert.NilError(t, err)
-	_, err = call.Execute()
+	_, err = call.Execute(context.TODO())
 	assert.ErrorContains(t, err, "HTTP 404")
 
 	entry.APICall.Service.URL = s.URL + "/resource"
-	call, err = New(context.TODO(), entry, ctx, nil, logr.Discard())
+	call, err = New(logr.Discard(), jp, entry, ctx, nil)
 	assert.NilError(t, err)
 
-	data, err := call.Execute()
+	data, err := call.Execute(context.TODO())
 	assert.NilError(t, err)
 	assert.Assert(t, data != nil, "nil data")
 	assert.Equal(t, string(serverResponse), string(data))
@@ -79,17 +83,17 @@ func Test_servicePostRequest(t *testing.T) {
 	entry := kyvernov1.ContextEntry{
 		Name: "test",
 		APICall: &kyvernov1.APICall{
+			Method: "POST",
 			Service: &kyvernov1.ServiceCall{
-				URL:    s.URL + "/resource",
-				Method: "POST",
+				URL: s.URL + "/resource",
 			},
 		},
 	}
 
-	ctx := enginecontext.NewContext()
-	call, err := New(context.TODO(), entry, ctx, nil, logr.Discard())
+	ctx := enginecontext.NewContext(jp)
+	call, err := New(logr.Discard(), jp, entry, ctx, nil)
 	assert.NilError(t, err)
-	data, err := call.Execute()
+	data, err := call.Execute(context.TODO())
 	assert.NilError(t, err)
 	assert.Equal(t, "{}\n", string(data))
 
@@ -126,7 +130,7 @@ func Test_servicePostRequest(t *testing.T) {
 	err = ctx.AddContextEntry("images", []byte(imageData))
 	assert.NilError(t, err)
 
-	entry.APICall.Service.Data = []kyvernov1.RequestData{
+	entry.APICall.Data = []kyvernov1.RequestData{
 		{
 			Key: "images",
 			Value: &apiextensionsv1.JSON{
@@ -135,9 +139,9 @@ func Test_servicePostRequest(t *testing.T) {
 		},
 	}
 
-	call, err = New(context.TODO(), entry, ctx, nil, logr.Discard())
+	call, err = New(logr.Discard(), jp, entry, ctx, nil)
 	assert.NilError(t, err)
-	data, err = call.Execute()
+	data, err = call.Execute(context.TODO())
 	assert.NilError(t, err)
 
 	expectedResults := `{"images":["https://ghcr.io/tomcat/tomcat:9","https://ghcr.io/vault/vault:v3","https://ghcr.io/busybox/busybox:latest"]}`

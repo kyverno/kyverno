@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: busybox
+spec:
+  volumes:
+  - name: vault-secret
+    emptyDir:
+      medium: Memory
+  - projected: {}

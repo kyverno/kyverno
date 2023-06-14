@@ -174,6 +174,42 @@ func Test_Apply(t *testing.T) {
 				},
 			},
 		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/validate-deployment/policy.yaml"},
+				ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/validate-deployment/deployment1.yaml"},
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []preport.PolicyReport{
+				{
+					Summary: preport.PolicyReportSummary{
+						Pass:  1,
+						Fail:  0,
+						Skip:  0,
+						Error: 0,
+						Warn:  0,
+					},
+				},
+			},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/validate-deployment/policy.yaml"},
+				ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/validate-deployment/deployment2.yaml"},
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []preport.PolicyReport{
+				{
+					Summary: preport.PolicyReportSummary{
+						Pass:  0,
+						Fail:  1,
+						Skip:  0,
+						Error: 0,
+						Warn:  0,
+					},
+				},
+			},
+		},
 	}
 
 	compareSummary := func(expected preport.PolicyReportSummary, actual map[string]interface{}, desc string) {
@@ -206,7 +242,7 @@ func Test_Apply(t *testing.T) {
 		_, _, _, info, err := tc.config.applyCommandHelper()
 		assert.NilError(t, err, desc)
 
-		resps := buildPolicyReports(info)
+		resps := buildPolicyReports(tc.config.AuditWarn, info...)
 		assert.Assert(t, len(resps) > 0, "policy reports should not be empty: %s", desc)
 		for i, resp := range resps {
 			compareSummary(tc.expectedPolicyReports[i].Summary, resp.UnstructuredContent()["summary"].(map[string]interface{}), desc)

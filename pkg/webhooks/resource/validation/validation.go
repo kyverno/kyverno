@@ -21,7 +21,6 @@ import (
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"go.opentelemetry.io/otel/trace"
 	admissionv1 "k8s.io/api/admission/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -79,17 +78,6 @@ func (v *validationHandler) HandleValidation(
 	resourceName := admissionutils.GetResourceName(request.AdmissionRequest)
 	logger := v.log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind)
 
-	var deletionTimeStamp *metav1.Time
-	if resource := policyContext.NewResource(); resource.Object != nil {
-		deletionTimeStamp = resource.GetDeletionTimestamp()
-	} else if resource := policyContext.OldResource(); resource.Object != nil {
-		deletionTimeStamp = resource.GetDeletionTimestamp()
-	}
-
-	if deletionTimeStamp != nil && request.Operation == admissionv1.Update {
-		return true, "", nil
-	}
-
 	var engineResponses []engineapi.EngineResponse
 	failurePolicy := kyvernov1.Ignore
 	for _, policy := range policies {
@@ -99,7 +87,7 @@ func (v *validationHandler) HandleValidation(
 			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
 			func(ctx context.Context, span trace.Span) {
 				policyContext := policyContext.WithPolicy(policy)
-				if policy.GetSpec().GetFailurePolicy() == kyvernov1.Fail {
+				if policy.GetSpec().GetFailurePolicy(ctx) == kyvernov1.Fail {
 					failurePolicy = kyvernov1.Fail
 				}
 
@@ -124,10 +112,8 @@ func (v *validationHandler) HandleValidation(
 	}
 
 	blocked := webhookutils.BlockRequest(engineResponses, failurePolicy, logger)
-	if deletionTimeStamp == nil {
-		events := webhookutils.GenerateEvents(engineResponses, blocked)
-		v.eventGen.Add(events...)
-	}
+	events := webhookutils.GenerateEvents(engineResponses, blocked)
+	v.eventGen.Add(events...)
 
 	if blocked {
 		logger.V(4).Info("admission request blocked")

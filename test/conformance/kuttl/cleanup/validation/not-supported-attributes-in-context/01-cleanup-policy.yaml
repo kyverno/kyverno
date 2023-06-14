@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+  - file: cleanuppolicy-with-image-registry.yaml
+    shouldFail: true
+  - file: cleanuppolicy-with-configmap.yaml
+    shouldFail: true

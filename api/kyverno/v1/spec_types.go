@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/kyverno/kyverno/pkg/toggle"
@@ -218,8 +219,8 @@ func (s *Spec) IsGenerateExisting() bool {
 }
 
 // GetFailurePolicy returns the failure policy to be applied
-func (s *Spec) GetFailurePolicy() FailurePolicyType {
-	if toggle.ForceFailurePolicyIgnore.Enabled() {
+func (s *Spec) GetFailurePolicy(ctx context.Context) FailurePolicyType {
+	if toggle.FromContext(ctx).ForceFailurePolicyIgnore() {
 		return Ignore
 	} else if s.FailurePolicy == nil {
 		return Fail
@@ -265,8 +266,8 @@ func (s *Spec) ValidateRules(path *field.Path, namespaced bool, policyNamespace 
 }
 
 func (s *Spec) validateDeprecatedFields(path *field.Path) (errs field.ErrorList) {
-	if s.GenerateExistingOnPolicyUpdate != nil {
-		errs = append(errs, field.Forbidden(path.Child("generateExistingOnPolicyUpdate"), "deprecated field, define generateExisting instead"))
+	if s.GenerateExistingOnPolicyUpdate != nil && s.GenerateExisting {
+		errs = append(errs, field.Forbidden(path.Child("generateExistingOnPolicyUpdate"), "remove the deprecated field and use generateExisting instead"))
 	}
 	return errs
 }

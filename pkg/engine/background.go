@@ -9,7 +9,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 )
@@ -95,27 +94,21 @@ func (e *engine) filterRule(
 		return nil
 	}
 
-	ruleCopy := rule.DeepCopy()
-	if after, err := variables.SubstituteAllInPreconditions(logger, ctx, ruleCopy.GetAnyAllConditions()); err != nil {
-		logger.V(4).Info("failed to substitute vars in preconditions, skip current rule", "rule name", ruleCopy.Name)
-		return nil
-	} else {
-		ruleCopy.SetAnyAllConditions(after)
-	}
-
 	// operate on the copy of the conditions, as we perform variable substitution
-	copyConditions, err := utils.TransformConditions(ruleCopy.GetAnyAllConditions())
+	copyConditions, err := engineutils.TransformConditions(rule.GetAnyAllConditions())
 	if err != nil {
 		logger.V(4).Info("cannot copy AnyAllConditions", "reason", err.Error())
-		return nil
+		return engineapi.RuleError(rule.Name, ruleType, "failed to convert AnyAllConditions", err)
 	}
 
 	// evaluate pre-conditions
-	if !variables.EvaluateConditions(logger, ctx, copyConditions) {
-		logger.V(4).Info("skip rule as preconditions are not met", "rule", ruleCopy.Name)
-		return engineapi.RuleSkip(ruleCopy.Name, ruleType, "")
+	if val, msg, err := variables.EvaluateConditions(logger, ctx, copyConditions); err != nil {
+		return engineapi.RuleError(rule.Name, ruleType, "failed to evaluate conditions", err)
+	} else if !val {
+		logger.V(4).Info("skip rule as preconditions are not met", "rule", rule.Name, "message", msg)
+		return engineapi.RuleSkip(rule.Name, ruleType, "")
 	}
 
 	// build rule Response
-	return engineapi.RulePass(ruleCopy.Name, ruleType, "")
+	return engineapi.RulePass(rule.Name, ruleType, "")
 }
