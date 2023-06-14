@@ -2890,7 +2890,9 @@ spec:
                                                 pubkey:
                                                   description: RekorPubKey is an optional
                                                     PEM encoded public key to use
-                                                    for a custom Rekor.
+                                                    for a custom Rekor. If set, is
+                                                    used to validate signatures on
+                                                    log entries from Rekor.
                                                   type: string
                                                 url:
                                                   description: URL is the address
@@ -2943,7 +2945,9 @@ spec:
                                                 pubkey:
                                                   description: RekorPubKey is an optional
                                                     PEM encoded public key to use
-                                                    for a custom Rekor.
+                                                    for a custom Rekor. If set, is
+                                                    used to validate signatures on
+                                                    log entries from Rekor.
                                                   type: string
                                                 url:
                                                   description: URL is the address
@@ -3017,7 +3021,9 @@ spec:
                                                 pubkey:
                                                   description: RekorPubKey is an optional
                                                     PEM encoded public key to use
-                                                    for a custom Rekor.
+                                                    for a custom Rekor. If set, is
+                                                    used to validate signatures on
+                                                    log entries from Rekor.
                                                   type: string
                                                 url:
                                                   description: URL is the address
@@ -3298,6 +3304,9 @@ spec:
                                                       description: RekorPubKey is
                                                         an optional PEM encoded public
                                                         key to use for a custom Rekor.
+                                                        If set, is used to validate
+                                                        signatures on log entries
+                                                        from Rekor.
                                                       type: string
                                                     url:
                                                       description: URL is the address
@@ -3353,6 +3362,9 @@ spec:
                                                       description: RekorPubKey is
                                                         an optional PEM encoded public
                                                         key to use for a custom Rekor.
+                                                        If set, is used to validate
+                                                        signatures on log entries
+                                                        from Rekor.
                                                       type: string
                                                     url:
                                                       description: URL is the address
@@ -3431,6 +3443,9 @@ spec:
                                                       description: RekorPubKey is
                                                         an optional PEM encoded public
                                                         key to use for a custom Rekor.
+                                                        If set, is used to validate
+                                                        signatures on log entries
+                                                        from Rekor.
                                                       type: string
                                                     url:
                                                       description: URL is the address
@@ -3685,7 +3700,9 @@ spec:
                                               pubkey:
                                                 description: RekorPubKey is an optional
                                                   PEM encoded public key to use for
-                                                  a custom Rekor.
+                                                  a custom Rekor. If set, is used
+                                                  to validate signatures on log entries
+                                                  from Rekor.
                                                 type: string
                                               url:
                                                 description: URL is the address of
@@ -3737,7 +3754,9 @@ spec:
                                               pubkey:
                                                 description: RekorPubKey is an optional
                                                   PEM encoded public key to use for
-                                                  a custom Rekor.
+                                                  a custom Rekor. If set, is used
+                                                  to validate signatures on log entries
+                                                  from Rekor.
                                                 type: string
                                               url:
                                                 description: URL is the address of
@@ -3810,7 +3829,9 @@ spec:
                                               pubkey:
                                                 description: RekorPubKey is an optional
                                                   PEM encoded public key to use for
-                                                  a custom Rekor.
+                                                  a custom Rekor. If set, is used
+                                                  to validate signatures on log entries
+                                                  from Rekor.
                                                 type: string
                                               url:
                                                 description: URL is the address of
@@ -6935,6 +6956,9 @@ spec:
                                                       description: RekorPubKey is
                                                         an optional PEM encoded public
                                                         key to use for a custom Rekor.
+                                                        If set, is used to validate
+                                                        signatures on log entries
+                                                        from Rekor.
                                                       type: string
                                                     url:
                                                       description: URL is the address
@@ -6990,6 +7014,9 @@ spec:
                                                       description: RekorPubKey is
                                                         an optional PEM encoded public
                                                         key to use for a custom Rekor.
+                                                        If set, is used to validate
+                                                        signatures on log entries
+                                                        from Rekor.
                                                       type: string
                                                     url:
                                                       description: URL is the address
@@ -7068,6 +7095,9 @@ spec:
                                                       description: RekorPubKey is
                                                         an optional PEM encoded public
                                                         key to use for a custom Rekor.
+                                                        If set, is used to validate
+                                                        signatures on log entries
+                                                        from Rekor.
                                                       type: string
                                                     url:
                                                       description: URL is the address
@@ -7359,7 +7389,9 @@ spec:
                                                           description: RekorPubKey
                                                             is an optional PEM encoded
                                                             public key to use for
-                                                            a custom Rekor.
+                                                            a custom Rekor. If set,
+                                                            is used to validate signatures
+                                                            on log entries from Rekor.
                                                           type: string
                                                         url:
                                                           description: URL is the
@@ -7418,7 +7450,9 @@ spec:
                                                           description: RekorPubKey
                                                             is an optional PEM encoded
                                                             public key to use for
-                                                            a custom Rekor.
+                                                            a custom Rekor. If set,
+                                                            is used to validate signatures
+                                                            on log entries from Rekor.
                                                           type: string
                                                         url:
                                                           description: URL is the
@@ -7505,7 +7539,9 @@ spec:
                                                           description: RekorPubKey
                                                             is an optional PEM encoded
                                                             public key to use for
-                                                            a custom Rekor.
+                                                            a custom Rekor. If set,
+                                                            is used to validate signatures
+                                                            on log entries from Rekor.
                                                           type: string
                                                         url:
                                                           description: URL is the
@@ -7772,6 +7808,9 @@ spec:
                                                     description: RekorPubKey is an
                                                       optional PEM encoded public
                                                       key to use for a custom Rekor.
+                                                      If set, is used to validate
+                                                      signatures on log entries from
+                                                      Rekor.
                                                     type: string
                                                   url:
                                                     description: URL is the address
@@ -7826,6 +7865,9 @@ spec:
                                                     description: RekorPubKey is an
                                                       optional PEM encoded public
                                                       key to use for a custom Rekor.
+                                                      If set, is used to validate
+                                                      signatures on log entries from
+                                                      Rekor.
                                                     type: string
                                                   url:
                                                     description: URL is the address
@@ -7903,6 +7945,9 @@ spec:
                                                     description: RekorPubKey is an
                                                       optional PEM encoded public
                                                       key to use for a custom Rekor.
+                                                      If set, is used to validate
+                                                      signatures on log entries from
+                                                      Rekor.
                                                     type: string
                                                   url:
                                                     description: URL is the address
@@ -10756,7 +10801,9 @@ spec:
                                                 pubkey:
                                                   description: RekorPubKey is an optional
                                                     PEM encoded public key to use
-                                                    for a custom Rekor.
+                                                    for a custom Rekor. If set, is
+                                                    used to validate signatures on
+                                                    log entries from Rekor.
                                                   type: string
                                                 url:
                                                   description: URL is the address
@@ -10809,7 +10856,9 @@ spec:
                                                 pubkey:
                                                   description: RekorPubKey is an optional
                                                     PEM encoded public key to use
-                                                    for a custom Rekor.
+                                                    for a custom Rekor. If set, is
+                                                    used to validate signatures on
+                                                    log entries from Rekor.
                                                   type: string
                                                 url:
                                                   description: URL is the address
@@ -10883,7 +10932,9 @@ spec:
                                                 pubkey:
                                                   description: RekorPubKey is an optional
                                                     PEM encoded public key to use
-                                                    for a custom Rekor.
+                                                    for a custom Rekor. If set, is
+                                                    used to validate signatures on
+                                                    log entries from Rekor.
                                                   type: string
                                                 url:
                                                   description: URL is the address
@@ -11149,6 +11200,9 @@ spec:
                                                       description: RekorPubKey is
                                                         an optional PEM encoded public
                                                         key to use for a custom Rekor.
+                                                        If set, is used to validate
+                                                        signatures on log entries
+                                                        from Rekor.
                                                       type: string
                                                     url:
                                                       description: URL is the address
@@ -11204,6 +11258,9 @@ spec:
                                                       description: RekorPubKey is
                                                         an optional PEM encoded public
                                                         key to use for a custom Rekor.
+                                                        If set, is used to validate
+                                                        signatures on log entries
+                                                        from Rekor.
                                                       type: string
                                                     url:
                                                       description: URL is the address
@@ -11282,6 +11339,9 @@ spec:
                                                       description: RekorPubKey is
                                                         an optional PEM encoded public
                                                         key to use for a custom Rekor.
+                                                        If set, is used to validate
+                                                        signatures on log entries
+                                                        from Rekor.
                                                       type: string
                                                     url:
                                                       description: URL is the address
@@ -11536,7 +11596,9 @@ spec:
                                               pubkey:
                                                 description: RekorPubKey is an optional
                                                   PEM encoded public key to use for
-                                                  a custom Rekor.
+                                                  a custom Rekor. If set, is used
+                                                  to validate signatures on log entries
+                                                  from Rekor.
                                                 type: string
                                               url:
                                                 description: URL is the address of
@@ -11588,7 +11650,9 @@ spec:
                                               pubkey:
                                                 description: RekorPubKey is an optional
                                                   PEM encoded public key to use for
-                                                  a custom Rekor.
+                                                  a custom Rekor. If set, is used
+                                                  to validate signatures on log entries
+                                                  from Rekor.
                                                 type: string
                                               url:
                                                 description: URL is the address of
@@ -11661,7 +11725,9 @@ spec:
                                               pubkey:
                                                 description: RekorPubKey is an optional
                                                   PEM encoded public key to use for
-                                                  a custom Rekor.
+                                                  a custom Rekor. If set, is used
+                                                  to validate signatures on log entries
+                                                  from Rekor.
                                                 type: string
                                               url:
                                                 description: URL is the address of
@@ -14761,6 +14827,9 @@ spec:
                                                       description: RekorPubKey is
                                                         an optional PEM encoded public
                                                         key to use for a custom Rekor.
+                                                        If set, is used to validate
+                                                        signatures on log entries
+                                                        from Rekor.
                                                       type: string
                                                     url:
                                                       description: URL is the address
@@ -14816,6 +14885,9 @@ spec:
                                                       description: RekorPubKey is
                                                         an optional PEM encoded public
                                                         key to use for a custom Rekor.
+                                                        If set, is used to validate
+                                                        signatures on log entries
+                                                        from Rekor.
                                                       type: string
                                                     url:
                                                       description: URL is the address
@@ -14894,6 +14966,9 @@ spec:
                                                       description: RekorPubKey is
                                                         an optional PEM encoded public
                                                         key to use for a custom Rekor.
+                                                        If set, is used to validate
+                                                        signatures on log entries
+                                                        from Rekor.
                                                       type: string
                                                     url:
                                                       description: URL is the address
@@ -15185,7 +15260,9 @@ spec:
                                                           description: RekorPubKey
                                                             is an optional PEM encoded
                                                             public key to use for
-                                                            a custom Rekor.
+                                                            a custom Rekor. If set,
+                                                            is used to validate signatures
+                                                            on log entries from Rekor.
                                                           type: string
                                                         url:
                                                           description: URL is the
@@ -15244,7 +15321,9 @@ spec:
                                                           description: RekorPubKey
                                                             is an optional PEM encoded
                                                             public key to use for
-                                                            a custom Rekor.
+                                                            a custom Rekor. If set,
+                                                            is used to validate signatures
+                                                            on log entries from Rekor.
                                                           type: string
                                                         url:
                                                           description: URL is the
@@ -15331,7 +15410,9 @@ spec:
                                                           description: RekorPubKey
                                                             is an optional PEM encoded
                                                             public key to use for
-                                                            a custom Rekor.
+                                                            a custom Rekor. If set,
+                                                            is used to validate signatures
+                                                            on log entries from Rekor.
                                                           type: string
                                                         url:
                                                           description: URL is the
@@ -15598,6 +15679,9 @@ spec:
                                                     description: RekorPubKey is an
                                                       optional PEM encoded public
                                                       key to use for a custom Rekor.
+                                                      If set, is used to validate
+                                                      signatures on log entries from
+                                                      Rekor.
                                                     type: string
                                                   url:
                                                     description: URL is the address
@@ -15652,6 +15736,9 @@ spec:
                                                     description: RekorPubKey is an
                                                       optional PEM encoded public
                                                       key to use for a custom Rekor.
+                                                      If set, is used to validate
+                                                      signatures on log entries from
+                                                      Rekor.
                                                     type: string
                                                   url:
                                                     description: URL is the address
@@ -15729,6 +15816,9 @@ spec:
                                                     description: RekorPubKey is an
                                                       optional PEM encoded public
                                                       key to use for a custom Rekor.
+                                                      If set, is used to validate
+                                                      signatures on log entries from
+                                                      Rekor.
                                                     type: string
                                                   url:
                                                     description: URL is the address

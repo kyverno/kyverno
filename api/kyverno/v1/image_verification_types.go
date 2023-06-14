@@ -231,6 +231,7 @@ type CTLog struct {
 	URL string `json:"url" yaml:"url"`
 
 	// RekorPubKey is an optional PEM encoded public key to use for a custom Rekor.
+	// If set, is used to validate signatures on log entries from Rekor.
 	// +kubebuilder:validation:Optional
 	RekorPubKey string `json:"pubkey,omitempty" yaml:"pubkey,omitempty"`
 
