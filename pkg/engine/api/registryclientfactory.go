@@ -28,7 +28,7 @@ type registryClientFactory struct {
 }
 
 func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.ImageRegistryCredentials) (registryclient.Client, error) {
-	if creds != nil {
+	if creds != nil && f.kubeClient != nil {
 		factory := kubeinformers.NewSharedInformerFactoryWithOptions(f.kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 		secretLister := factory.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
 
