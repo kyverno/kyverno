@@ -36,6 +36,7 @@ func testMutate(
 		config.NewDefaultMetricsConfiguration(),
 		jp,
 		adapters.Client(client),
+		adapters.ImageDataClient(rclient),
 		rclient,
 		contextLoader,
 		nil,

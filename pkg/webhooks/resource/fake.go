@@ -60,6 +60,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 			config.NewDefaultMetricsConfiguration(),
 			jp,
 			adapters.Client(dclient),
+			adapters.ImageDataClient(rclient),
 			rclient,
 			engineapi.DefaultContextLoaderFactory(configMapResolver),
 			peLister,
