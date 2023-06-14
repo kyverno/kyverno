@@ -158,17 +158,7 @@ func (pc *policyController) canBackgroundProcess(p kyvernov1.PolicyInterface) bo
 
 func (pc *policyController) addPolicy(obj interface{}) {
 	logger := pc.log
-	var p kyvernov1.PolicyInterface
-
-	switch obj := obj.(type) {
-	case *kyvernov1.ClusterPolicy:
-		p = obj
-	case *kyvernov1.Policy:
-		p = obj
-	default:
-		return
-	}
-
+	p := castPolicy(obj)
 	logger.Info("policy created", "uid", p.GetUID(), "kind", p.GetKind(), "namespace", p.GetNamespace(), "name", p.GetName())
 
 	if !pc.canBackgroundProcess(p) {
@@ -181,26 +171,8 @@ func (pc *policyController) addPolicy(obj interface{}) {
 
 func (pc *policyController) updatePolicy(old, cur interface{}) {
 	logger := pc.log
-	var oldP, curP kyvernov1.PolicyInterface
-
-	switch obj := old.(type) {
-	case *kyvernov1.ClusterPolicy:
-		oldP = obj
-	case *kyvernov1.Policy:
-		oldP = obj
-	default:
-		return
-	}
-
-	switch obj := cur.(type) {
-	case *kyvernov1.ClusterPolicy:
-		curP = obj
-	case *kyvernov1.Policy:
-		curP = obj
-	default:
-		return
-	}
-
+	oldP := castPolicy(old)
+	curP := castPolicy(cur)
 	if !pc.canBackgroundProcess(curP) {
 		return
 	}
