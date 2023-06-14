@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -13,11 +14,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	dynamicclient "github.com/kyverno/kyverno/pkg/clients/dynamic"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -43,6 +43,8 @@ func createrLeaderControllers(
 	configuration config.Configuration,
 	metricsConfig metrics.MetricsConfigManager,
 	eventGenerator event.Interface,
+	jp jmespath.Interface,
+	backgroundScanInterval time.Duration,
 ) ([]internal.Controller, error) {
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
@@ -55,8 +57,9 @@ func createrLeaderControllers(
 		eventGenerator,
 		kubeInformer.Core().V1().Namespaces(),
 		logging.WithName("PolicyController"),
-		time.Hour,
+		backgroundScanInterval,
 		metricsConfig,
+		jp,
 	)
 	if err != nil {
 		return nil, err
@@ -71,6 +74,7 @@ func createrLeaderControllers(
 		kubeInformer.Core().V1().Namespaces(),
 		eventGenerator,
 		configuration,
+		jp,
 	)
 	return []internal.Controller{
 		internal.NewController("policy-controller", policyCtrl, 2),
@@ -82,10 +86,13 @@ func main() {
 	var (
 		genWorkers      int
 		maxQueuedEvents int
+		omitEvents      string
 	)
 	flagset := flag.NewFlagSet("updaterequest-controller", flag.ExitOnError)
 	flagset.IntVar(&genWorkers, "genWorkers", 10, "Workers for the background controller.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
+	flagset.StringVar(&omitEvents, "omit-events", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omit-events=PolicyApplied,PolicyViolation")
+
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -94,9 +101,11 @@ func main() {
 		internal.WithKubeconfig(),
 		internal.WithPolicyExceptions(),
 		internal.WithConfigMapCaching(),
-		internal.WithCosign(),
 		internal.WithRegistryClient(),
 		internal.WithLeaderElection(),
+		internal.WithKyvernoClient(),
+		internal.WithDynamicClient(),
+		internal.WithKyvernoDynamicClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -104,24 +113,33 @@ func main() {
 	// setup
 	signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-background-controller", false)
 	defer sdown()
-	// create instrumented clients
-	kyvernoClient := internal.CreateKyvernoClient(setup.Logger, kyvernoclient.WithMetrics(setup.MetricsManager, metrics.KyvernoClient), kyvernoclient.WithTracing())
-	dynamicClient := internal.CreateDynamicClient(setup.Logger, dynamicclient.WithMetrics(setup.MetricsManager, metrics.KyvernoClient), dynamicclient.WithTracing())
-	dClient, err := dclient.NewClient(signalCtx, dynamicClient, setup.KubeClient, 15*time.Minute)
-	if err != nil {
-		setup.Logger.Error(err, "failed to create dynamic client")
-		os.Exit(1)
+
+	var err error
+	bgscanInterval := time.Hour
+	val := os.Getenv("BACKGROUND_SCAN_INTERVAL")
+	if val != "" {
+		if bgscanInterval, err = time.ParseDuration(val); err != nil {
+			setup.Logger.Error(err, "failed to set the background scan interval")
+			os.Exit(1)
+		}
 	}
+	setup.Logger.V(2).Info("setting the background scan interval", "value", bgscanInterval.String())
+
 	// THIS IS AN UGLY FIX
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
 	// informer factories
-	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+	emitEventsValues := strings.Split(omitEvents, ",")
+	if omitEvents == "" {
+		emitEventsValues = []string{}
+	}
 	eventGenerator := event.NewEventGenerator(
-		dClient,
+		setup.KyvernoDynamicClient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		maxQueuedEvents,
+		emitEventsValues,
 		logging.WithName("EventGenerator"),
 	)
 	// this controller only subscribe to events, nothing is returned...
@@ -137,10 +155,11 @@ func main() {
 		setup.Logger,
 		setup.Configuration,
 		setup.MetricsConfiguration,
-		dClient,
+		setup.Jp,
+		setup.KyvernoDynamicClient,
 		setup.RegistryClient,
 		setup.KubeClient,
-		kyvernoClient,
+		setup.KyvernoClient,
 	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer) {
@@ -161,19 +180,21 @@ func main() {
 			logger := setup.Logger.WithName("leader")
 			// create leader factories
 			kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
-			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 			// create leader controllers
 			leaderControllers, err := createrLeaderControllers(
 				engine,
 				genWorkers,
 				kubeInformer,
 				kyvernoInformer,
-				kyvernoClient,
-				dClient,
+				setup.KyvernoClient,
+				setup.KyvernoDynamicClient,
 				setup.RegistryClient,
 				setup.Configuration,
 				setup.MetricsManager,
 				eventGenerator,
+				setup.Jp,
+				bgscanInterval,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create leader controllers")

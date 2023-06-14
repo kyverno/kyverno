@@ -1,10 +1,15 @@
 apiVersion: v1
+kind: Namespace
+metadata:
+  name: cpol-clone-sync-delete-source-ns
+---
+apiVersion: v1
 data:
   foo: YmFy
 kind: Secret
 metadata:
   name: regcred
-  namespace: default
+  namespace: cpol-clone-sync-delete-source-ns
 type: Opaque
 ---
 apiVersion: kyverno.io/v2beta1
@@ -26,6 +31,6 @@ spec:
       namespace: "{{request.object.metadata.name}}"
       synchronize: true
       clone:
-        namespace: default
+        namespace: cpol-clone-sync-delete-source-ns
         name: regcred
 ---

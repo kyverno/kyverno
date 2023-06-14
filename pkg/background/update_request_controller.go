@@ -18,6 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,6 +59,7 @@ type controller struct {
 
 	eventGen      event.Interface
 	configuration config.Configuration
+	jp            jmespath.Interface
 }
 
 // NewController returns an instance of the Generate-Request Controller
@@ -70,7 +72,8 @@ func NewController(
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,
 	namespaceInformer corev1informers.NamespaceInformer,
 	eventGen event.Interface,
-	dynamicConfig config.Configuration,
+	configuration config.Configuration,
+	jp jmespath.Interface,
 ) Controller {
 	urLister := urInformer.Lister().UpdateRequests(config.KyvernoNamespace())
 	c := controller{
@@ -83,7 +86,8 @@ func NewController(
 		nsLister:      namespaceInformer.Lister(),
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "background"),
 		eventGen:      eventGen,
-		configuration: dynamicConfig,
+		configuration: configuration,
+		jp:            jp,
 	}
 	_, _ = urInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addUR,
@@ -216,10 +220,10 @@ func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 	statusControl := common.NewStatusControl(c.kyvernoClient, c.urLister)
 	switch ur.Spec.GetRequestType() {
 	case kyvernov1beta1.Mutate:
-		ctrl := mutate.NewMutateExistingController(c.client, statusControl, c.engine, c.cpolLister, c.polLister, c.nsLister, c.configuration, c.eventGen, logger)
+		ctrl := mutate.NewMutateExistingController(c.client, statusControl, c.engine, c.cpolLister, c.polLister, c.nsLister, c.configuration, c.eventGen, logger, c.jp)
 		return ctrl.ProcessUR(ur)
 	case kyvernov1beta1.Generate:
-		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.engine, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.eventGen, logger)
+		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.engine, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.eventGen, logger, c.jp)
 		return ctrl.ProcessUR(ur)
 	}
 	return nil

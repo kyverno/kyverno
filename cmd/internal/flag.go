@@ -4,6 +4,7 @@ import (
 	"flag"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 )
@@ -37,8 +38,9 @@ var (
 	// cosign
 	imageSignatureRepository string
 	// registry client
-	imagePullSecrets      string
-	allowInsecureRegistry bool
+	imagePullSecrets          string
+	allowInsecureRegistry     bool
+	registryCredentialHelpers string
 	// leader election
 	leaderElectionRetryPeriod time.Duration
 )
@@ -70,10 +72,10 @@ func initMetricsFlags() {
 	flag.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true' to disable metrics.")
 }
 
-func initKubeconfigFlags() {
+func initKubeconfigFlags(qps float64, burst int) {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 20, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
-	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 50, "Configure the maximum burst for throttle. Uses the client default if zero.")
+	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", qps, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
+	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", burst, "Configure the maximum burst for throttle. Uses the client default if zero.")
 }
 
 func initPolicyExceptionsFlags() {
@@ -86,19 +88,52 @@ func initConfigMapCachingFlags() {
 }
 
 func initCosignFlags() {
-	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
+	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "(DEPRECATED, will be removed in 1.12) Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
 }
 
 func initRegistryClientFlags() {
 	flag.BoolVar(&allowInsecureRegistry, "allowInsecureRegistry", false, "Whether to allow insecure connections to registries. Don't use this for anything but testing.")
 	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
+	flag.StringVar(&registryCredentialHelpers, "registryCredentialHelpers", "", "Credential helpers to enable (default,google,amazon,azure,github), all will be enabled if empty.")
 }
 
 func initLeaderElectionFlags() {
 	flag.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
 }
 
-func InitFlags(config Configuration) {
+type options struct {
+	clientRateLimitQPS   float64
+	clientRateLimitBurst int
+}
+
+func newOptions() options {
+	return options{
+		clientRateLimitQPS:   20,
+		clientRateLimitBurst: 50,
+	}
+}
+
+type Option = func(*options)
+
+func WithDefaultQps(qps float64) Option {
+	return func(o *options) {
+		o.clientRateLimitQPS = qps
+	}
+}
+
+func WithDefaultBurst(burst int) Option {
+	return func(o *options) {
+		o.clientRateLimitBurst = burst
+	}
+}
+
+func initFlags(config Configuration, opts ...Option) {
+	options := newOptions()
+	for _, o := range opts {
+		if o != nil {
+			o(&options)
+		}
+	}
 	// logging
 	initLoggingFlags()
 	// profiling
@@ -115,7 +150,7 @@ func InitFlags(config Configuration) {
 	}
 	// kubeconfig
 	if config.UsesKubeconfig() {
-		initKubeconfigFlags()
+		initKubeconfigFlags(options.clientRateLimitQPS, options.clientRateLimitBurst)
 	}
 	// policy exceptions
 	if config.UsesPolicyExceptions() {
@@ -144,8 +179,16 @@ func InitFlags(config Configuration) {
 	}
 }
 
-func ParseFlags(config Configuration) {
-	InitFlags(config)
+func showWarnings(config Configuration, logger logr.Logger) {
+	if config.UsesCosign() {
+		if imageSignatureRepository != "" {
+			logger.Info("Warning: imageSignatureRepository is deprecated and will be removed in 1.12. Use per rule configuration `verifyImages.Repository` instead.")
+		}
+	}
+}
+
+func ParseFlags(config Configuration, opts ...Option) {
+	initFlags(config, opts...)
 	flag.Parse()
 }
 
@@ -159,4 +202,11 @@ func PolicyExceptionEnabled() bool {
 
 func LeaderElectionRetryPeriod() time.Duration {
 	return leaderElectionRetryPeriod
+}
+
+func printFlagSettings(logger logr.Logger) {
+	logger = logger.WithName("flag")
+	flag.VisitAll(func(f *flag.Flag) {
+		logger.V(2).Info("", f.Name, f.Value)
+	})
 }

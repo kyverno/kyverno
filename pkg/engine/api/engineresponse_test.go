@@ -14,7 +14,7 @@ func TestEngineResponse_IsEmpty(t *testing.T) {
 		PatchedResource unstructured.Unstructured
 		Policy          kyvernov1.PolicyInterface
 		PolicyResponse  PolicyResponse
-		NamespaceLabels map[string]string
+		namespaceLabels map[string]string
 	}
 	tests := []struct {
 		name   string
@@ -31,7 +31,7 @@ func TestEngineResponse_IsEmpty(t *testing.T) {
 		want: false,
 	}, {
 		fields: fields{
-			NamespaceLabels: map[string]string{
+			namespaceLabels: map[string]string{
 				"a": "b",
 			},
 		},
@@ -41,10 +41,9 @@ func TestEngineResponse_IsEmpty(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			er := EngineResponse{
 				PatchedResource: tt.fields.PatchedResource,
-				Policy:          tt.fields.Policy,
 				PolicyResponse:  tt.fields.PolicyResponse,
-				NamespaceLabels: tt.fields.NamespaceLabels,
-			}
+				namespaceLabels: tt.fields.namespaceLabels,
+			}.WithPolicy(tt.fields.Policy)
 			if got := er.IsEmpty(); got != tt.want {
 				t.Errorf("EngineResponse.IsEmpty() = %v, want %v", got, tt.want)
 			}
@@ -57,7 +56,7 @@ func TestEngineResponse_IsNil(t *testing.T) {
 		PatchedResource unstructured.Unstructured
 		Policy          kyvernov1.PolicyInterface
 		PolicyResponse  PolicyResponse
-		NamespaceLabels map[string]string
+		namespaceLabels map[string]string
 	}
 	tests := []struct {
 		name   string
@@ -74,7 +73,7 @@ func TestEngineResponse_IsNil(t *testing.T) {
 		want: false,
 	}, {
 		fields: fields{
-			NamespaceLabels: map[string]string{
+			namespaceLabels: map[string]string{
 				"a": "b",
 			},
 		},
@@ -84,10 +83,9 @@ func TestEngineResponse_IsNil(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			er := EngineResponse{
 				PatchedResource: tt.fields.PatchedResource,
-				Policy:          tt.fields.Policy,
 				PolicyResponse:  tt.fields.PolicyResponse,
-				NamespaceLabels: tt.fields.NamespaceLabels,
-			}
+				namespaceLabels: tt.fields.namespaceLabels,
+			}.WithPolicy(tt.fields.Policy)
 			if got := er.IsNil(); got != tt.want {
 				t.Errorf("EngineResponse.IsNil() = %v, want %v", got, tt.want)
 			}
@@ -100,7 +98,7 @@ func TestEngineResponse_IsOneOf(t *testing.T) {
 		PatchedResource unstructured.Unstructured
 		Policy          kyvernov1.PolicyInterface
 		PolicyResponse  PolicyResponse
-		NamespaceLabels map[string]string
+		namespaceLabels map[string]string
 	}
 	type args struct {
 		status []RuleStatus
@@ -172,10 +170,9 @@ func TestEngineResponse_IsOneOf(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			er := EngineResponse{
 				PatchedResource: tt.fields.PatchedResource,
-				Policy:          tt.fields.Policy,
 				PolicyResponse:  tt.fields.PolicyResponse,
-				NamespaceLabels: tt.fields.NamespaceLabels,
-			}
+				namespaceLabels: tt.fields.namespaceLabels,
+			}.WithPolicy(tt.fields.Policy)
 			if got := er.IsOneOf(tt.args.status...); got != tt.want {
 				t.Errorf("EngineResponse.IsOneOf() = %v, want %v", got, tt.want)
 			}
@@ -188,7 +185,7 @@ func TestEngineResponse_IsSuccessful(t *testing.T) {
 		PatchedResource unstructured.Unstructured
 		Policy          kyvernov1.PolicyInterface
 		PolicyResponse  PolicyResponse
-		NamespaceLabels map[string]string
+		namespaceLabels map[string]string
 	}
 	tests := []struct {
 		name   string
@@ -246,10 +243,9 @@ func TestEngineResponse_IsSuccessful(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			er := EngineResponse{
 				PatchedResource: tt.fields.PatchedResource,
-				Policy:          tt.fields.Policy,
 				PolicyResponse:  tt.fields.PolicyResponse,
-				NamespaceLabels: tt.fields.NamespaceLabels,
-			}
+				namespaceLabels: tt.fields.namespaceLabels,
+			}.WithPolicy(tt.fields.Policy)
 			if got := er.IsSuccessful(); got != tt.want {
 				t.Errorf("EngineResponse.IsSuccessful() = %v, want %v", got, tt.want)
 			}
@@ -262,7 +258,7 @@ func TestEngineResponse_IsSkipped(t *testing.T) {
 		PatchedResource unstructured.Unstructured
 		Policy          kyvernov1.PolicyInterface
 		PolicyResponse  PolicyResponse
-		NamespaceLabels map[string]string
+		namespaceLabels map[string]string
 	}
 	tests := []struct {
 		name   string
@@ -320,10 +316,9 @@ func TestEngineResponse_IsSkipped(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			er := EngineResponse{
 				PatchedResource: tt.fields.PatchedResource,
-				Policy:          tt.fields.Policy,
 				PolicyResponse:  tt.fields.PolicyResponse,
-				NamespaceLabels: tt.fields.NamespaceLabels,
-			}
+				namespaceLabels: tt.fields.namespaceLabels,
+			}.WithPolicy(tt.fields.Policy)
 			if got := er.IsSkipped(); got != tt.want {
 				t.Errorf("EngineResponse.IsSkipped() = %v, want %v", got, tt.want)
 			}
@@ -336,7 +331,7 @@ func TestEngineResponse_IsFailed(t *testing.T) {
 		PatchedResource unstructured.Unstructured
 		Policy          kyvernov1.PolicyInterface
 		PolicyResponse  PolicyResponse
-		NamespaceLabels map[string]string
+		namespaceLabels map[string]string
 	}
 	tests := []struct {
 		name   string
@@ -394,10 +389,9 @@ func TestEngineResponse_IsFailed(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			er := EngineResponse{
 				PatchedResource: tt.fields.PatchedResource,
-				Policy:          tt.fields.Policy,
 				PolicyResponse:  tt.fields.PolicyResponse,
-				NamespaceLabels: tt.fields.NamespaceLabels,
-			}
+				namespaceLabels: tt.fields.namespaceLabels,
+			}.WithPolicy(tt.fields.Policy)
 			if got := er.IsFailed(); got != tt.want {
 				t.Errorf("EngineResponse.IsFailed() = %v, want %v", got, tt.want)
 			}
@@ -410,7 +404,7 @@ func TestEngineResponse_IsError(t *testing.T) {
 		PatchedResource unstructured.Unstructured
 		Policy          kyvernov1.PolicyInterface
 		PolicyResponse  PolicyResponse
-		NamespaceLabels map[string]string
+		namespaceLabels map[string]string
 	}
 	tests := []struct {
 		name   string
@@ -468,10 +462,9 @@ func TestEngineResponse_IsError(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			er := EngineResponse{
 				PatchedResource: tt.fields.PatchedResource,
-				Policy:          tt.fields.Policy,
 				PolicyResponse:  tt.fields.PolicyResponse,
-				NamespaceLabels: tt.fields.NamespaceLabels,
-			}
+				namespaceLabels: tt.fields.namespaceLabels,
+			}.WithPolicy(tt.fields.Policy)
 			if got := er.IsError(); got != tt.want {
 				t.Errorf("EngineResponse.IsError() = %v, want %v", got, tt.want)
 			}
@@ -484,7 +477,7 @@ func TestEngineResponse_GetFailedRules(t *testing.T) {
 		PatchedResource unstructured.Unstructured
 		Policy          kyvernov1.PolicyInterface
 		PolicyResponse  PolicyResponse
-		NamespaceLabels map[string]string
+		namespaceLabels map[string]string
 	}
 	tests := []struct {
 		name   string
@@ -558,10 +551,9 @@ func TestEngineResponse_GetFailedRules(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			er := EngineResponse{
 				PatchedResource: tt.fields.PatchedResource,
-				Policy:          tt.fields.Policy,
 				PolicyResponse:  tt.fields.PolicyResponse,
-				NamespaceLabels: tt.fields.NamespaceLabels,
-			}
+				namespaceLabels: tt.fields.namespaceLabels,
+			}.WithPolicy(tt.fields.Policy)
 			if got := er.GetFailedRules(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("EngineResponse.GetFailedRules() = %v, want %v", got, tt.want)
 			}
@@ -574,7 +566,7 @@ func TestEngineResponse_GetSuccessRules(t *testing.T) {
 		PatchedResource unstructured.Unstructured
 		Policy          kyvernov1.PolicyInterface
 		PolicyResponse  PolicyResponse
-		NamespaceLabels map[string]string
+		namespaceLabels map[string]string
 	}
 	tests := []struct {
 		name   string
@@ -675,10 +667,9 @@ func TestEngineResponse_GetSuccessRules(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			er := EngineResponse{
 				PatchedResource: tt.fields.PatchedResource,
-				Policy:          tt.fields.Policy,
 				PolicyResponse:  tt.fields.PolicyResponse,
-				NamespaceLabels: tt.fields.NamespaceLabels,
-			}
+				namespaceLabels: tt.fields.namespaceLabels,
+			}.WithPolicy(tt.fields.Policy)
 			if got := er.GetSuccessRules(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("EngineResponse.GetSuccessRules() = %v, want %v", got, tt.want)
 			}
@@ -693,7 +684,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 		PatchedResource unstructured.Unstructured
 		Policy          kyvernov1.PolicyInterface
 		PolicyResponse  PolicyResponse
-		NamespaceLabels map[string]string
+		namespaceLabels map[string]string
 	}
 	tests := []struct {
 		name   string
@@ -773,7 +764,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 		want: kyvernov1.Enforce,
 	}, {
 		fields: fields{
-			NamespaceLabels: map[string]string{
+			namespaceLabels: map[string]string{
 				"foo": "bar",
 			},
 			PatchedResource: resource,
@@ -794,7 +785,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 		want: kyvernov1.Enforce,
 	}, {
 		fields: fields{
-			NamespaceLabels: map[string]string{
+			namespaceLabels: map[string]string{
 				"foo": "bar",
 			},
 			PatchedResource: resource,
@@ -815,7 +806,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 		want: kyvernov1.Audit,
 	}, {
 		fields: fields{
-			NamespaceLabels: map[string]string{
+			namespaceLabels: map[string]string{
 				"foo": "bar",
 			},
 			PatchedResource: resource,
@@ -837,7 +828,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 		want: kyvernov1.Enforce,
 	}, {
 		fields: fields{
-			NamespaceLabels: map[string]string{
+			namespaceLabels: map[string]string{
 				"foo": "bar",
 			},
 			PatchedResource: resource,
@@ -859,7 +850,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 		want: kyvernov1.Enforce,
 	}, {
 		fields: fields{
-			NamespaceLabels: map[string]string{
+			namespaceLabels: map[string]string{
 				"foo": "bar",
 			},
 			PatchedResource: resource,
@@ -881,7 +872,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 		want: kyvernov1.Audit,
 	}, {
 		fields: fields{
-			NamespaceLabels: map[string]string{
+			namespaceLabels: map[string]string{
 				"foo": "bar",
 			},
 			PatchedResource: resource,
@@ -904,12 +895,11 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			er := &EngineResponse{
+			er := EngineResponse{
 				PatchedResource: tt.fields.PatchedResource,
-				Policy:          tt.fields.Policy,
 				PolicyResponse:  tt.fields.PolicyResponse,
-				NamespaceLabels: tt.fields.NamespaceLabels,
-			}
+				namespaceLabels: tt.fields.namespaceLabels,
+			}.WithPolicy(tt.fields.Policy)
 			if got := er.GetValidationFailureAction(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("EngineResponse.GetValidationFailureAction() = %v, want %v", got, tt.want)
 			}
@@ -917,71 +907,110 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 	}
 }
 
-func TestEngineResponse_GetPatches(t *testing.T) {
-	type fields struct {
-		PatchedResource unstructured.Unstructured
-		Policy          kyvernov1.PolicyInterface
-		PolicyResponse  PolicyResponse
-		NamespaceLabels map[string]string
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   [][]byte
-	}{{}, {
-		fields: fields{
-			PolicyResponse: PolicyResponse{
-				Rules: nil,
-			},
-		},
-	}, {
-		fields: fields{
-			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{},
-			},
-		},
-	}, {
-		fields: fields{
-			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{}},
-			},
-		},
-	}, {
-		fields: fields{
-			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{
-					{},
-					*RuleResponse{}.WithPatches([][]byte{{0, 1, 2}, {3, 4, 5}}...),
-				},
-			},
-		},
-		want: [][]byte{{0, 1, 2}, {3, 4, 5}},
-	}, {
-		fields: fields{
-			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{
-					{},
-					*RuleResponse{}.WithPatches([][]byte{{0, 1, 2}, {3, 4, 5}}...),
-					*RuleResponse{}.WithPatches([][]byte{{7, 8, 9}}...),
-				},
-			},
-		},
-		want: [][]byte{{0, 1, 2}, {3, 4, 5}, {7, 8, 9}},
-	}}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			er := EngineResponse{
-				PatchedResource: tt.fields.PatchedResource,
-				Policy:          tt.fields.Policy,
-				PolicyResponse:  tt.fields.PolicyResponse,
-				NamespaceLabels: tt.fields.NamespaceLabels,
-			}
-			if got := er.GetPatches(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("EngineResponse.GetPatches() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
+// func TestEngineResponse_GetPatches(t *testing.T) {
+// 	type fields struct {
+// 		PatchedResource unstructured.Unstructured
+// 		Policy          kyvernov1.PolicyInterface
+// 		PolicyResponse  PolicyResponse
+// 		namespaceLabels map[string]string
+// 	}
+// 	tests := []struct {
+// 		name   string
+// 		fields fields
+// 		want   []jsonpatch.JsonPatchOperation
+// 	}{{}, {
+// 		fields: fields{
+// 			PolicyResponse: PolicyResponse{
+// 				Rules: nil,
+// 			},
+// 		},
+// 	}, {
+// 		fields: fields{
+// 			PolicyResponse: PolicyResponse{
+// 				Rules: []RuleResponse{},
+// 			},
+// 		},
+// 	}, {
+// 		fields: fields{
+// 			PolicyResponse: PolicyResponse{
+// 				Rules: []RuleResponse{{}},
+// 			},
+// 		},
+// 	}, {
+// 		fields: fields{
+// 			PolicyResponse: PolicyResponse{
+// 				Rules: []RuleResponse{
+// 					{},
+// 					*RuleResponse{}.WithPatches([]jsonpatch.JsonPatchOperation{{
+// 						Operation: "add",
+// 						Path:      "/1",
+// 						Value:     0,
+// 					}, {
+// 						Operation: "add",
+// 						Path:      "/2",
+// 						Value:     1,
+// 					}}...),
+// 				},
+// 			},
+// 		},
+// 		want: []jsonpatch.JsonPatchOperation{{
+// 			Operation: "add",
+// 			Path:      "/1",
+// 			Value:     0,
+// 		}, {
+// 			Operation: "add",
+// 			Path:      "/2",
+// 			Value:     1,
+// 		}},
+// 	}, {
+// 		fields: fields{
+// 			PolicyResponse: PolicyResponse{
+// 				Rules: []RuleResponse{
+// 					{},
+// 					*RuleResponse{}.WithPatches([]jsonpatch.JsonPatchOperation{{
+// 						Operation: "add",
+// 						Path:      "/1",
+// 						Value:     0,
+// 					}, {
+// 						Operation: "add",
+// 						Path:      "/2",
+// 						Value:     1,
+// 					}}...),
+// 					*RuleResponse{}.WithPatches([]jsonpatch.JsonPatchOperation{{
+// 						Operation: "add",
+// 						Path:      "/3",
+// 						Value:     2,
+// 					}}...),
+// 				},
+// 			},
+// 		},
+// 		want: []jsonpatch.JsonPatchOperation{{
+// 			Operation: "add",
+// 			Path:      "/1",
+// 			Value:     0,
+// 		}, {
+// 			Operation: "add",
+// 			Path:      "/2",
+// 			Value:     1,
+// 		}, {
+// 			Operation: "add",
+// 			Path:      "/3",
+// 			Value:     2,
+// 		}},
+// 	}}
+// 	for _, tt := range tests {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			er := EngineResponse{
+// 				PatchedResource: tt.fields.PatchedResource,
+// 				PolicyResponse:  tt.fields.PolicyResponse,
+// 				namespaceLabels: tt.fields.namespaceLabels,
+// 			}.WithPolicy(tt.fields.Policy)
+// 			if got := er.GetPatches(); !reflect.DeepEqual(got, tt.want) {
+// 				t.Errorf("EngineResponse.GetPatches() = %v, want %v", got, tt.want)
+// 			}
+// 		})
+// 	}
+// }
 
 func TestEngineResponse_GetResourceSpec(t *testing.T) {
 	namespacedResource := unstructured.Unstructured{}
@@ -999,7 +1028,7 @@ func TestEngineResponse_GetResourceSpec(t *testing.T) {
 		PatchedResource unstructured.Unstructured
 		Policy          kyvernov1.PolicyInterface
 		PolicyResponse  PolicyResponse
-		NamespaceLabels map[string]string
+		namespaceLabels map[string]string
 	}
 	tests := []struct {
 		name   string
@@ -1031,10 +1060,9 @@ func TestEngineResponse_GetResourceSpec(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			er := EngineResponse{
 				PatchedResource: tt.fields.PatchedResource,
-				Policy:          tt.fields.Policy,
 				PolicyResponse:  tt.fields.PolicyResponse,
-				NamespaceLabels: tt.fields.NamespaceLabels,
-			}
+				namespaceLabels: tt.fields.namespaceLabels,
+			}.WithPolicy(tt.fields.Policy)
 			if got := er.GetResourceSpec(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("EngineResponse.GetResourceSpec() = %v, want %v", got, tt.want)
 			}

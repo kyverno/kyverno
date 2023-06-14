@@ -15,7 +15,7 @@ jobs:
       results: ${{ steps.parse-results.outputs.results }}
     steps:
     - name: Scan for vulnerabilities
-      uses: aquasecurity/trivy-action@1f0aa582c8c8f5f7639610d6d38baddfea4fdcee # v0.8.0 (Trivy v0.34.0)
+      uses: aquasecurity/trivy-action@41f05d9ecffa2ed3f1580af306000f734b733e54 # v0.8.0 (Trivy v0.34.0)
       with: 
         image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         format: json
@@ -50,7 +50,7 @@ jobs:
     needs: scan
     steps:
       - name: Checkout
-        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
       - name: Download scan

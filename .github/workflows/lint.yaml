@@ -1,0 +1,41 @@
+name: Lint
+
+on:
+  push:
+    branches:
+      - '*'
+  pull_request:
+    branches:
+      - 'main'
+      - 'release*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.0
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        with:
+          build-cache-key: lint
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@639cd343e1d3b897ff35927a75193d57cfcba299 # v3.6.0
+        with:
+          version: v1.52.2
+          skip-cache: true
+      - name: go fmt check
+        run: make fmt-check
+      - name: goimports check
+        run: make imports-check
+      - name: Checking unused pkgs using go mod tidy
+        run: make unused-package-check
+      - name: Go vet
+        run: make vet

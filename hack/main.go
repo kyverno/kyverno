@@ -370,8 +370,10 @@ import (
 	{{- end }}
 )
 
+type UpstreamInterface = {{ GoType .Target.Type }}
+
 type Interface interface {
-	{{ GoType .Target.Type }}
+	UpstreamInterface
 	WithMetrics(metrics.MetricsConfigManager, metrics.ClientType) Interface
 	WithTracing() Interface
 	WithLogging(logr.Logger) Interface
