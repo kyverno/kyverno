@@ -391,7 +391,7 @@ func (pc *policyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest
 
 	for _, ruleResponse := range engineResponse.PolicyResponse.Rules {
 		if ruleResponse.Status() != engineapi.RuleStatusPass {
-			pc.log.Error(err, "can not create new UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule.Status", ruleResponse.Status())
+			pc.log.V(4).Info("skip creating URs on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule.Status", ruleResponse.Status())
 			continue
 		}
 
