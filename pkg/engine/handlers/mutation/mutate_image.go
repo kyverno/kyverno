@@ -74,8 +74,12 @@ func (h mutateImageHandler) Process(
 	var engineResponses []*engineapi.RuleResponse
 	var patches []jsonpatch.JsonPatchOperation
 	for _, imageVerify := range ruleCopy.VerifyImages {
-		// TODO: error checking
-		rclient, _ := h.rclientFactory.GetClient(ctx, imageVerify.ImageRegistryCredentials)
+		rclient, err := h.rclientFactory.GetClient(ctx, imageVerify.ImageRegistryCredentials)
+		if err != nil {
+			return resource, handlers.WithResponses(
+				engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to fetch secrets", err),
+			)
+		}
 		iv := internal.NewImageVerifier(logger, rclient, policyContext, *ruleCopy, h.ivm, h.imageSignatureRepository)
 		patch, ruleResponse := iv.Verify(ctx, imageVerify, h.images, h.configuration)
 		patches = append(patches, patch...)

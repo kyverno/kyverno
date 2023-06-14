@@ -40,7 +40,7 @@ func NewEngine(
 		jp,
 		adapters.Client(client),
 		adapters.ImageDataClient(rclient),
-		engineapi.DefaultRegistryClientFactory(rclient),
+		engineapi.DefaultRegistryClientFactory(rclient, kubeClient),
 		engineapi.DefaultContextLoaderFactory(configMapResolver),
 		exceptionsSelector,
 		imageSignatureRepository,
