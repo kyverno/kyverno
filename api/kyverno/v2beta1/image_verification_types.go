@@ -5,27 +5,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-// ImageVerificationType selects the type of verification algorithm
-// +kubebuilder:validation:Enum=Cosign;Notary
-// +kubebuilder:default=Cosign
-type ImageVerificationType string
-
-// ImageVerificationType selects the type of verification algorithm
-// +kubebuilder:validation:Enum=DEFAULT;AWS;ACR;GCP;GHCR
-// +kubebuilder:default=DEFAULT
-type ImageRegistryCredentialsHelpersType string
-
-const (
-	Cosign ImageVerificationType = "Cosign"
-	Notary ImageVerificationType = "Notary"
-
-	DEFAULT ImageRegistryCredentialsHelpersType = "DEFAULT"
-	AWS     ImageRegistryCredentialsHelpersType = "AWS"
-	ACR     ImageRegistryCredentialsHelpersType = "ACR"
-	GCP     ImageRegistryCredentialsHelpersType = "GCP"
-	GHCR    ImageRegistryCredentialsHelpersType = "GHCR"
-)
-
 // ImageVerification validates that images that match the specified pattern
 // are signed with the supplied public key. Once the image is verified it is
 // mutated to include the SHA digest retrieved during the registration.
@@ -33,7 +12,7 @@ type ImageVerification struct {
 	// Type specifies the method of signature validation. The allowed options
 	// are Cosign and Notary. By default Cosign is used if a type is not specified.
 	// +kubebuilder:validation:Optional
-	Type ImageVerificationType `json:"type,omitempty" yaml:"type,omitempty"`
+	Type kyvernov1.ImageVerificationType `json:"type,omitempty" yaml:"type,omitempty"`
 
 	// ImageReferences is a list of matching image reference patterns. At least one pattern in the
 	// list must match the image for the rule to apply. Each image reference consists of a registry
@@ -74,7 +53,7 @@ type ImageVerification struct {
 
 	// ImageRegistryCredentials provides credentials that will be used for authentication with registry
 	// +kubebuilder:validation:Optional
-	ImageRegistryCredentials kyvernov1.ImageRegistryCredentials `json:"imageRegistryCredentials,omitempty" yaml:"imageRegistryCredentials,omitempty"`
+	ImageRegistryCredentials *kyvernov1.ImageRegistryCredentials `json:"imageRegistryCredentials,omitempty" yaml:"imageRegistryCredentials,omitempty"`
 }
 
 // Validate implements programmatic validation
@@ -101,7 +80,7 @@ func (iv *ImageVerification) Validate(isAuditFailureAction bool, path *field.Pat
 		errs = append(errs, attestorErrors...)
 	}
 
-	if iv.Type == Notary {
+	if iv.Type == kyvernov1.Notary {
 		for _, attestorSet := range iv.Attestors {
 			for _, attestor := range attestorSet.Entries {
 				if attestor.Keyless != nil {

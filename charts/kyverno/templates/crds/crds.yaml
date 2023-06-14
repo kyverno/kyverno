@@ -7469,7 +7469,7 @@ spec:
                               helpers:
                                 description: 'Helpers specifies a list of OCI Registry
                                   names, whose authentication helpers are provided
-                                  It can be of one of these values: AWS, Azure, GCP,
+                                  It can be of one of these values: AWS, ACR, GCP,
                                   GHCR'
                                 items:
                                   description: ImageRegistryCredentialsHelpersType
@@ -7477,7 +7477,7 @@ spec:
                                   enum:
                                   - DEFAULT
                                   - AWS
-                                  - Azure
+                                  - ACR
                                   - GCP
                                   - GHCR
                                   type: string
@@ -11422,14 +11422,14 @@ spec:
                                     description: 'Helpers specifies a list of OCI
                                       Registry names, whose authentication helpers
                                       are provided It can be of one of these values:
-                                      AWS, Azure, GCP, GHCR'
+                                      AWS, ACR, GCP, GHCR'
                                     items:
                                       description: ImageRegistryCredentialsHelpersType
                                         provides the list of credential helpers required.
                                       enum:
                                       - DEFAULT
                                       - AWS
-                                      - Azure
+                                      - ACR
                                       - GCP
                                       - GHCR
                                       type: string
@@ -15042,7 +15042,7 @@ spec:
                               helpers:
                                 description: 'Helpers specifies a list of OCI Registry
                                   names, whose authentication helpers are provided
-                                  It can be of one of these values: AWS, Azure, GCP,
+                                  It can be of one of these values: AWS, ACR, GCP,
                                   GHCR'
                                 items:
                                   description: ImageRegistryCredentialsHelpersType
@@ -15050,7 +15050,7 @@ spec:
                                   enum:
                                   - DEFAULT
                                   - AWS
-                                  - Azure
+                                  - ACR
                                   - GCP
                                   - GHCR
                                   type: string
@@ -18976,14 +18976,14 @@ spec:
                                     description: 'Helpers specifies a list of OCI
                                       Registry names, whose authentication helpers
                                       are provided It can be of one of these values:
-                                      AWS, Azure, GCP, GHCR'
+                                      AWS, ACR, GCP, GHCR'
                                     items:
                                       description: ImageRegistryCredentialsHelpersType
                                         provides the list of credential helpers required.
                                       enum:
                                       - DEFAULT
                                       - AWS
-                                      - Azure
+                                      - ACR
                                       - GCP
                                       - GHCR
                                       type: string
@@ -22888,7 +22888,7 @@ spec:
                               helpers:
                                 description: 'Helpers specifies a list of OCI Registry
                                   names, whose authentication helpers are provided
-                                  It can be of one of these values: AWS, Azure, GCP,
+                                  It can be of one of these values: AWS, ACR, GCP,
                                   GHCR'
                                 items:
                                   description: ImageRegistryCredentialsHelpersType
@@ -22896,7 +22896,7 @@ spec:
                                   enum:
                                   - DEFAULT
                                   - AWS
-                                  - Azure
+                                  - ACR
                                   - GCP
                                   - GHCR
                                   type: string
@@ -26842,14 +26842,14 @@ spec:
                                     description: 'Helpers specifies a list of OCI
                                       Registry names, whose authentication helpers
                                       are provided It can be of one of these values:
-                                      AWS, Azure, GCP, GHCR'
+                                      AWS, ACR, GCP, GHCR'
                                     items:
                                       description: ImageRegistryCredentialsHelpersType
                                         provides the list of credential helpers required.
                                       enum:
                                       - DEFAULT
                                       - AWS
-                                      - Azure
+                                      - ACR
                                       - GCP
                                       - GHCR
                                       type: string
@@ -30463,7 +30463,7 @@ spec:
                               helpers:
                                 description: 'Helpers specifies a list of OCI Registry
                                   names, whose authentication helpers are provided
-                                  It can be of one of these values: AWS, Azure, GCP,
+                                  It can be of one of these values: AWS, ACR, GCP,
                                   GHCR'
                                 items:
                                   description: ImageRegistryCredentialsHelpersType
@@ -30471,7 +30471,7 @@ spec:
                                   enum:
                                   - DEFAULT
                                   - AWS
-                                  - Azure
+                                  - ACR
                                   - GCP
                                   - GHCR
                                   type: string
@@ -34397,14 +34397,14 @@ spec:
                                     description: 'Helpers specifies a list of OCI
                                       Registry names, whose authentication helpers
                                       are provided It can be of one of these values:
-                                      AWS, Azure, GCP, GHCR'
+                                      AWS, ACR, GCP, GHCR'
                                     items:
                                       description: ImageRegistryCredentialsHelpersType
                                         provides the list of credential helpers required.
                                       enum:
                                       - DEFAULT
                                       - AWS
-                                      - Azure
+                                      - ACR
                                       - GCP
                                       - GHCR
                                       type: string

@@ -1982,7 +1982,7 @@ the image reference.</p>
 </td>
 <td>
 <p>Helpers specifies a list of OCI Registry names, whose authentication helpers are provided
-It can be of one of these values: AWS, Azure, GCP, GHCR</p>
+It can be of one of these values: AWS, ACR, GCP, GHCR</p>
 </td>
 </tr>
 <tr>
@@ -2240,7 +2240,8 @@ ImageRegistryCredentials
 (<code>string</code> alias)</p></h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>)
+<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>, 
+<a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>)
 </p>
 <p>
 <p>ImageVerificationType selects the type of verification algorithm</p>
@@ -6455,11 +6456,6 @@ See: <a href="https://kyverno.io/docs/writing-policies/validate/#deny-rules">htt
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v2beta1.ImageRegistryCredentialsHelpersType">ImageRegistryCredentialsHelpersType
-(<code>string</code> alias)</p></h3>
-<p>
-<p>ImageVerificationType selects the type of verification algorithm</p>
-</p>
 <h3 id="kyverno.io/v2beta1.ImageVerification">ImageVerification
 </h3>
 <p>
@@ -6483,7 +6479,7 @@ mutated to include the SHA digest retrieved during the registration.</p>
 <td>
 <code>type</code><br/>
 <em>
-<a href="#kyverno.io/v2beta1.ImageVerificationType">
+<a href="#kyverno.io/v1.ImageVerificationType">
 ImageVerificationType
 </a>
 </em>
@@ -6598,15 +6594,6 @@ ImageRegistryCredentials
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v2beta1.ImageVerificationType">ImageVerificationType
-(<code>string</code> alias)</p></h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>)
-</p>
-<p>
-<p>ImageVerificationType selects the type of verification algorithm</p>
-</p>
 <h3 id="kyverno.io/v2beta1.MatchResources">MatchResources
 </h3>
 <p>

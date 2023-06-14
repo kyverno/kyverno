@@ -109,7 +109,7 @@ type ImageVerification struct {
 
 	// ImageRegistryCredentials provides credentials that will be used for authentication with registry
 	// +kubebuilder:validation:Optional
-	ImageRegistryCredentials ImageRegistryCredentials `json:"imageRegistryCredentials,omitempty" yaml:"imageRegistryCredentials,omitempty"`
+	ImageRegistryCredentials *ImageRegistryCredentials `json:"imageRegistryCredentials,omitempty" yaml:"imageRegistryCredentials,omitempty"`
 }
 
 type AttestorSet struct {
