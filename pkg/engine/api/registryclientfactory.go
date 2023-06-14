@@ -11,14 +11,21 @@ type RegistryClientFactory interface {
 	GetClient(ctx context.Context, creds *kyvernov1.ImageRegistryCredentials) (registryclient.Client, error)
 }
 
-type registryClientFactory struct{}
-
-func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.ImageRegistryCredentials) (registryclient.Client, error) {
-	return nil, nil
+type registryClientFactory struct {
+	globalClient registryclient.Client
 }
 
-func DefaultRegistryClientFactory() RegistryClientFactory {
-	return &registryClientFactory{}
+func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.ImageRegistryCredentials) (registryclient.Client, error) {
+	// TODO: lookup specific client
+	// 	if creds != nil{
+	// }
+	return f.globalClient, nil
+}
+
+func DefaultRegistryClientFactory(globalClient registryclient.Client) RegistryClientFactory {
+	return &registryClientFactory{
+		globalClient: globalClient,
+	}
 }
 
 // type RegistryClientLoaderFactory = func(imagePullSecrets string, allowInsecureRegistry bool, registryCredentialHelpers string) RegistryClientLoader
