@@ -465,10 +465,10 @@ func (iv *ImageVerifier) buildCosignVerifier(
 		repository = imageVerify.Repository
 	}
 	opts := &images.Options{
-		ImageRef:       image,
-		Repository:     repository,
-		Annotations:    imageVerify.Annotations,
-		RegistryClient: iv.rclient,
+		ImageRef:    image,
+		Repository:  repository,
+		Annotations: imageVerify.Annotations,
+		Client:      iv.rclient,
 	}
 
 	if imageVerify.Roots != "" {
@@ -536,10 +536,10 @@ func (iv *ImageVerifier) buildNotaryVerifier(
 ) (images.ImageVerifier, *images.Options, string) {
 	path := ""
 	opts := &images.Options{
-		ImageRef:       image,
-		Cert:           attestor.Certificates.Certificate,
-		CertChain:      attestor.Certificates.CertificateChain,
-		RegistryClient: iv.rclient,
+		ImageRef:  image,
+		Cert:      attestor.Certificates.Certificate,
+		CertChain: attestor.Certificates.CertificateChain,
+		Client:    iv.rclient,
 	}
 
 	if attestation != nil {
