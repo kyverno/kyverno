@@ -12,7 +12,8 @@ spec:
   - resourceRules:
     - apiGroups:
         - '*'
-      clusterScope: true
+      namespaces:
+        - '*'
       resources:
         - '*'
       verbs:
@@ -23,10 +24,24 @@ spec:
         - kyverno.io
       clusterScope: true
       resources:
-        - admissionreports
         - clusteradmissionreports
-        - backgroundscanreports
         - clusterbackgroundscanreports
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+        - deletecollection
+    - apiGroups:
+        - kyverno.io
+      namespaces:
+        - '*'
+      resources:
+        - admissionreports
+        - backgroundscanreports
       verbs:
         - create
         - delete
@@ -40,8 +55,6 @@ spec:
         - wgpolicyk8s.io
       clusterScope: true
       resources:
-        - policyreports
-        - policyreports/status
         - clusterpolicyreports
         - clusterpolicyreports/status
       verbs:
@@ -54,9 +67,26 @@ spec:
         - watch
         - deletecollection
     - apiGroups:
+        - wgpolicyk8s.io
+      namespaces:
+        - '*'
+      resources:
+        - policyreports
+        - policyreports/status
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+        - deletecollection
+    - apiGroups:
         - ''
         - events.k8s.io
-      clusterScope: true
+      namespaces:
+        - '*'
       resources:
         - events
       verbs:

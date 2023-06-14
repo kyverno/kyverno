@@ -29,10 +29,18 @@ spec:
         - rbac.authorization.k8s.io
       clusterScope: true
       resources:
-        - roles
         - clusterroles
-        - rolebindings
         - clusterrolebindings
+      verbs:
+        - watch
+        - list
+    - apiGroups:
+        - rbac.authorization.k8s.io
+      namespaces:
+        - '*'
+      resources:
+        - roles
+        - rolebindings
       verbs:
         - watch
         - list
@@ -40,16 +48,30 @@ spec:
         - kyverno.io
       clusterScope: true
       resources:
-        - policies
-        - policies/status
         - clusterpolicies
         - clusterpolicies/status
+        - clusteradmissionreports
+        - clusterbackgroundscanreports
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+        - deletecollection
+    - apiGroups:
+        - kyverno.io
+      namespaces:
+        - '*'
+      resources:
+        - policies
+        - policies/status
         - updaterequests
         - updaterequests/status
         - admissionreports
-        - clusteradmissionreports
         - backgroundscanreports
-        - clusterbackgroundscanreports
       verbs:
         - create
         - delete
@@ -63,8 +85,6 @@ spec:
         - wgpolicyk8s.io
       clusterScope: true
       resources:
-        - policyreports
-        - policyreports/status
         - clusterpolicyreports
         - clusterpolicyreports/status
       verbs:
@@ -77,9 +97,26 @@ spec:
         - watch
         - deletecollection
     - apiGroups:
+        - wgpolicyk8s.io
+      namespaces:
+        - '*'
+      resources:
+        - policyreports
+        - policyreports/status
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+        - deletecollection
+    - apiGroups:
         - ""
         - events.k8s.io
-      clusterScope: true
+      namespaces:
+        - '*'
       resources:
         - events
       verbs:
@@ -95,7 +132,8 @@ spec:
         - create
     - apiGroups:
         - '*'
-      clusterScope: true
+      namespaces:
+        - '*'
       resources:
         - '*'
       verbs:
