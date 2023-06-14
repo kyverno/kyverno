@@ -57,3 +57,14 @@ func convertlist(ulists []unstructured.Unstructured) []*unstructured.Unstructure
 	}
 	return result
 }
+
+func castPolicy(p interface{}) kyvernov1.PolicyInterface {
+	var policy kyvernov1.PolicyInterface
+	switch obj := p.(type) {
+	case *kyvernov1.ClusterPolicy:
+		policy = obj
+	case *kyvernov1.Policy:
+		policy = obj
+	}
+	return policy
+}
