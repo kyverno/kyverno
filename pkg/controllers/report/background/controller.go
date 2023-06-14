@@ -48,7 +48,7 @@ type controller struct {
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
 	engine        engineapi.Engine
-	rclientloader engineapi.RegistryClientLoader
+	// rclientFactory engineapi.RegistryClientFactory
 
 	// listers
 	polLister      kyvernov1listers.PolicyLister
@@ -83,7 +83,6 @@ func NewController(
 	config config.Configuration,
 	jp jmespath.Interface,
 	eventGen event.Interface,
-	rclientloader engineapi.RegistryClientLoader,
 ) controllers.Controller {
 	bgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("backgroundscanreports"))
 	cbgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
@@ -92,7 +91,6 @@ func NewController(
 		client:         client,
 		kyvernoClient:  kyvernoClient,
 		engine:         engine,
-		rclientloader:  rclientloader,
 		polLister:      polInformer.Lister(),
 		cpolLister:     cpolInformer.Lister(),
 		bgscanrLister:  bgscanr.Lister(),
@@ -308,7 +306,7 @@ func (c *controller) reconcileReport(
 	// calculate necessary results
 	for _, policy := range backgroundPolicies {
 		if full || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
-			scanner := utils.NewScanner(logger, c.engine, c.rclientloader, c.config, c.jp)
+			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp)
 			for _, result := range scanner.ScanResource(ctx, *target, nsLabels, policy) {
 				if result.Error != nil {
 					return result.Error

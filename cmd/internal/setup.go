@@ -12,7 +12,6 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	metadataclient "github.com/kyverno/kyverno/pkg/clients/metadata"
 	"github.com/kyverno/kyverno/pkg/config"
-	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -37,8 +36,7 @@ type SetupResult struct {
 	Jp                   jmespath.Interface
 	KubeClient           kubeclient.UpstreamInterface
 	LeaderElectionClient kubeclient.UpstreamInterface
-	// RegistryClient       registryclient.Client
-	RegistryClientLoader engineapi.RegistryClientLoader
+	RegistryClient       registryclient.Client
 	KyvernoClient        kyvernoclient.UpstreamInterface
 	DynamicClient        dynamicclient.UpstreamInterface
 	ApiServerClient      apiserverclient.UpstreamInterface
@@ -62,7 +60,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	sdownTracing := SetupTracing(logger, name, client)
 	var registryClient registryclient.Client
 	if config.UsesRegistryClient() {
-		registryClientLoader = getRegistryClientLoader(ctx, logger, client)
+		registryClient = setupRegistryClient(ctx, logger, client)
 	}
 	var leaderElectionClient kubeclient.UpstreamInterface
 	if config.UsesLeaderElection() {
@@ -97,7 +95,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 			Jp:                   jmespath.New(configuration),
 			KubeClient:           client,
 			LeaderElectionClient: leaderElectionClient,
-			RegistryClientLoader: registryClientLoader,
+			RegistryClient:       registryClient,
 			KyvernoClient:        kyvernoClient,
 			DynamicClient:        dynamicClient,
 			ApiServerClient:      apiServerClient,

@@ -35,10 +35,9 @@ import (
 
 type resourceHandlers struct {
 	// clients
-	client         dclient.Interface
-	kyvernoClient  versioned.Interface
-	rclientFactory engineapi.RegistryClientFactory
-	engine         engineapi.Engine
+	client        dclient.Interface
+	kyvernoClient versioned.Interface
+	engine        engineapi.Engine
 
 	// config
 	configuration config.Configuration
@@ -66,7 +65,6 @@ func NewHandlers(
 	engine engineapi.Engine,
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
-	rclientFactory engineapi.RegistryClientFactory,
 	configuration config.Configuration,
 	metricsConfig metrics.MetricsConfigManager,
 	pCache policycache.Cache,
@@ -85,7 +83,6 @@ func NewHandlers(
 		engine:                       engine,
 		client:                       client,
 		kyvernoClient:                kyvernoClient,
-		rclientFactory:               rclientFactory,
 		configuration:                configuration,
 		metricsConfig:                metricsConfig,
 		pCache:                       pCache,
@@ -174,7 +171,7 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.Response(request.UID, err)
 	}
-	ivh := imageverification.NewImageVerificationHandler(logger, h.kyvernoClient, h.engine, h.eventGen, h.admissionReports, h.configuration, h.nsLister, h.rclientFactory)
+	ivh := imageverification.NewImageVerificationHandler(logger, h.kyvernoClient, h.engine, h.eventGen, h.admissionReports, h.configuration, h.nsLister)
 	imagePatches, imageVerifyWarnings, err := ivh.Handle(ctx, newRequest, verifyImagesPolicies, policyContext)
 	if err != nil {
 		logger.Error(err, "image verification failed")

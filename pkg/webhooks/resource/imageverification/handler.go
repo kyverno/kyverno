@@ -39,7 +39,6 @@ type imageVerificationHandler struct {
 	admissionReports bool
 	cfg              config.Configuration
 	nsLister         corev1listers.NamespaceLister
-	rclientFactory   engineapi.RegistryClientFactory
 }
 
 func NewImageVerificationHandler(
@@ -50,7 +49,6 @@ func NewImageVerificationHandler(
 	admissionReports bool,
 	cfg config.Configuration,
 	nsLister corev1listers.NamespaceLister,
-	rclientFactory engineapi.RegistryClientFactory,
 ) ImageVerificationHandler {
 	return &imageVerificationHandler{
 		kyvernoClient:    kyvernoClient,
@@ -60,7 +58,6 @@ func NewImageVerificationHandler(
 		admissionReports: admissionReports,
 		cfg:              cfg,
 		nsLister:         nsLister,
-		rclientFactory:   rclientFactory,
 	}
 }
 

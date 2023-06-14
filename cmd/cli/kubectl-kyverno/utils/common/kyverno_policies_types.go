@@ -118,7 +118,7 @@ OuterLoop:
 		jmespath.New(cfg),
 		adapters.Client(c.Client),
 		adapters.ImageDataClient(rclient),
-		rclient,
+		engineapi.DefaultRegistryClientFactory(),
 		store.ContextLoaderFactory(nil),
 		nil,
 		"",

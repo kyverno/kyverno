@@ -17,6 +17,10 @@ func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.
 	return nil, nil
 }
 
+func DefaultRegistryClientFactory() RegistryClientFactory {
+	return &registryClientFactory{}
+}
+
 // type RegistryClientLoaderFactory = func(imagePullSecrets string, allowInsecureRegistry bool, registryCredentialHelpers string) RegistryClientLoader
 
 // type RegistryClientLoader interface {

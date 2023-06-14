@@ -21,6 +21,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
@@ -854,8 +855,9 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
 		jmespath.New(cfg),
-		client,
-		engineapi.RegistryClientLoaderNewOrDie(),
+		adapters.Client(client),
+		nil,
+		engineapi.DefaultRegistryClientFactory(),
 		store.ContextLoaderFactory(nil),
 		nil,
 		"",
