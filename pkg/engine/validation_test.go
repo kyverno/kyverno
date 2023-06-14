@@ -11,6 +11,7 @@ import (
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginetest "github.com/kyverno/kyverno/pkg/engine/test"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -36,6 +37,7 @@ func testValidate(
 		config.NewDefaultMetricsConfiguration(),
 		jp,
 		nil,
+		adapters.ImageDataClient(rclient),
 		rclient,
 		contextLoader,
 		nil,

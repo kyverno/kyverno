@@ -52,7 +52,6 @@ func (ctx *context) loadDeferred(query string) error {
 func (ctx *context) getMatchingLoaders(query string) []DeferredLoader {
 	ctx.deferred.mutex.Lock()
 	defer ctx.deferred.mutex.Unlock()
-
 	var matchingLoaders []DeferredLoader
 	for name, deferredLoader := range ctx.deferred.loaders {
 		if strings.Contains(query, name) {
