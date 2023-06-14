@@ -29,10 +29,24 @@ func (r UserInfo) IsEmpty() bool {
 		len(r.Subjects) == 0
 }
 
+// helper function for ValidateSubjects()
+func contains(kinds []string, kind string) bool {
+	for _, k := range kinds {
+		if k == kind {
+			return true
+		}
+	}
+	return false
+}
+
 // ValidateSubjects implements programmatic validation of Subjects
 func (u *UserInfo) ValidateSubjects(path *field.Path) (errs field.ErrorList) {
+	allowedKinds := []string{"User", "Group", "ServiceAccount"}
 	for index, subject := range u.Subjects {
 		entry := path.Index(index)
+		if !contains(allowedKinds, subject.Kind) {
+			errs = append(errs, field.Required(entry.Child("kind"), fmt.Sprintf("Invalid kind %q,allowed kinds are %v", subject.Kind, allowedKinds)))
+		}
 		if subject.Kind == "" {
 			errs = append(errs, field.Required(entry.Child("kind"), ""))
 		}
