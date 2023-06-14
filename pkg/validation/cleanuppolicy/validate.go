@@ -33,6 +33,7 @@ func FetchClusteredResources(logger logr.Logger, client dclient.Interface) (sets
 	for _, resList := range res {
 		for _, r := range resList.APIResources {
 			if !r.Namespaced {
+				clusterResources.Insert(resList.GroupVersion + "/" + r.Kind)
 				clusterResources.Insert(r.Kind)
 			}
 		}

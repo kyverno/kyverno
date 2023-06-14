@@ -25,11 +25,25 @@ type AuthClient interface {
 
 type ResourceClient interface {
 	GetResource(ctx context.Context, apiVersion, kind, namespace, name string, subresources ...string) (*unstructured.Unstructured, error)
-	GetResources(group, version, kind, subresource, namespace, name string) ([]Resource, error)
+	GetResources(ctx context.Context, group, version, kind, subresource, namespace, name string) ([]Resource, error)
 }
 
 type Client interface {
 	RawClient
 	AuthClient
 	ResourceClient
+}
+
+type ImageData struct {
+	Image         string
+	ResolvedImage string
+	Registry      string
+	Repository    string
+	Identifier    string
+	Manifest      []byte
+	Config        []byte
+}
+
+type ImageDataClient interface {
+	ForRef(ctx context.Context, ref string) (*ImageData, error)
 }

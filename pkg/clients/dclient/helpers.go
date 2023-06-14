@@ -16,7 +16,7 @@ type Resource struct {
 	Unstructured unstructured.Unstructured
 }
 
-func GetResources(c Interface, group, version, kind, subresource, namespace, name string) ([]Resource, error) {
+func GetResources(ctx context.Context, c Interface, group, version, kind, subresource, namespace, name string) ([]Resource, error) {
 	var resources []Resource
 	gvrss, err := c.Discovery().FindResources(group, version, kind, subresource)
 	if err != nil {
@@ -32,7 +32,7 @@ func GetResources(c Interface, group, version, kind, subresource, namespace, nam
 		if namespace != "" && name != "" && !wildcard.ContainsWildcard(namespace) && !wildcard.ContainsWildcard(name) {
 			var obj *unstructured.Unstructured
 			var err error
-			obj, err = dyn.Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{}, sub...)
+			obj, err = dyn.Namespace(namespace).Get(ctx, name, metav1.GetOptions{}, sub...)
 			if err != nil {
 				return nil, err
 			}
@@ -46,7 +46,7 @@ func GetResources(c Interface, group, version, kind, subresource, namespace, nam
 		} else {
 			// we can use `LIST`
 			if gvrs.SubResource == "" {
-				list, err := dyn.List(context.TODO(), metav1.ListOptions{})
+				list, err := dyn.List(ctx, metav1.ListOptions{})
 				if err != nil {
 					return nil, err
 				}
@@ -63,7 +63,7 @@ func GetResources(c Interface, group, version, kind, subresource, namespace, nam
 				}
 			} else {
 				// we need to use `LIST` / `GET`
-				list, err := dyn.List(context.TODO(), metav1.ListOptions{})
+				list, err := dyn.List(ctx, metav1.ListOptions{})
 				if err != nil {
 					return nil, err
 				}
@@ -77,9 +77,9 @@ func GetResources(c Interface, group, version, kind, subresource, namespace, nam
 					var obj *unstructured.Unstructured
 					var err error
 					if parentObject.GetNamespace() == "" {
-						obj, err = dyn.Get(context.TODO(), name, metav1.GetOptions{}, sub...)
+						obj, err = dyn.Get(ctx, name, metav1.GetOptions{}, sub...)
 					} else {
-						obj, err = dyn.Namespace(parentObject.GetNamespace()).Get(context.TODO(), name, metav1.GetOptions{}, sub...)
+						obj, err = dyn.Namespace(parentObject.GetNamespace()).Get(ctx, name, metav1.GetOptions{}, sub...)
 					}
 					if err != nil {
 						return nil, err

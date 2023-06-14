@@ -11,6 +11,7 @@ import (
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginetest "github.com/kyverno/kyverno/pkg/engine/test"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -36,6 +37,7 @@ func testValidate(
 		config.NewDefaultMetricsConfiguration(),
 		jp,
 		nil,
+		adapters.ImageDataClient(rclient),
 		rclient,
 		contextLoader,
 		nil,
@@ -1919,7 +1921,7 @@ func Test_Flux_Kustomization_PathNotPresent(t *testing.T) {
 			// referred variable path not present
 			resourceRaw:      []byte(`{"apiVersion":"kustomize.toolkit.fluxcd.io/v1beta1","kind":"Kustomization","metadata":{"name":"dev-team","namespace":"apps"},"spec":{"serviceAccountName":"dev-team","interval":"5m","sourceRef":{"kind":"GitRepository","name":"dev-team"},"prune":true,"validation":"client"}}`),
 			expectedResults:  []engineapi.RuleStatus{engineapi.RuleStatusPass, engineapi.RuleStatusError},
-			expectedMessages: []string{"validation rule 'serviceAccountName' passed.", "failed to check deny preconditions: failed to substitute variables in condition key: failed to resolve request.object.spec.sourceRef.namespace at path : JMESPath query failed: Unknown key \"namespace\" in path"},
+			expectedMessages: []string{"validation rule 'serviceAccountName' passed.", "failed to check deny conditions: failed to substitute variables in condition key: failed to resolve request.object.spec.sourceRef.namespace at path : JMESPath query failed: Unknown key \"namespace\" in path"},
 		},
 		{
 			name:      "resource-with-violation",
