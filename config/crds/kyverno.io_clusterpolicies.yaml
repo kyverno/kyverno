@@ -258,6 +258,42 @@ spec:
                             description: ImageRegistry defines requests to an OCI/Docker
                               V2 registry to fetch image details.
                             properties:
+                              imageRegistryCredentials:
+                                description: ImageRegistryCredentials provides credentials
+                                  that will be used for authentication with registry
+                                properties:
+                                  helpers:
+                                    description: 'Helpers specifies a list of OCI
+                                      Registry names, whose authentication helpers
+                                      are provided It can be of one of these values:
+                                      AWS, ACR, GCP, GHCR'
+                                    items:
+                                      description: ImageRegistryCredentialsHelpersType
+                                        provides the list of credential helpers required.
+                                      enum:
+                                      - DEFAULT
+                                      - AWS
+                                      - ACR
+                                      - GCP
+                                      - GHCR
+                                      type: string
+                                    type: array
+                                  secrets:
+                                    description: Secrets specifies a list of secrets
+                                      that are provided for credentials Secrets must
+                                      be in Kyverno namespace
+                                    items:
+                                      properties:
+                                        name:
+                                          description: Specifies the name of the secret
+                                            to be used for getting credentials Secrets
+                                            must be in Kyverno namespace
+                                          type: string
+                                      required:
+                                      - name
+                                      type: object
+                                    type: array
+                                type: object
                               jmesPath:
                                 description: JMESPath is an optional JSON Match Expression
                                   that can be used to transform the ImageData struct
@@ -1923,6 +1959,46 @@ spec:
                                         to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        imageRegistryCredentials:
+                                          description: ImageRegistryCredentials provides
+                                            credentials that will be used for authentication
+                                            with registry
+                                          properties:
+                                            helpers:
+                                              description: 'Helpers specifies a list
+                                                of OCI Registry names, whose authentication
+                                                helpers are provided It can be of
+                                                one of these values: AWS, ACR, GCP,
+                                                GHCR'
+                                              items:
+                                                description: ImageRegistryCredentialsHelpersType
+                                                  provides the list of credential
+                                                  helpers required.
+                                                enum:
+                                                - DEFAULT
+                                                - AWS
+                                                - ACR
+                                                - GCP
+                                                - GHCR
+                                                type: string
+                                              type: array
+                                            secrets:
+                                              description: Secrets specifies a list
+                                                of secrets that are provided for credentials
+                                                Secrets must be in Kyverno namespace
+                                              items:
+                                                properties:
+                                                  name:
+                                                    description: Specifies the name
+                                                      of the secret to be used for
+                                                      getting credentials Secrets
+                                                      must be in Kyverno namespace
+                                                    type: string
+                                                required:
+                                                - name
+                                                type: object
+                                              type: array
+                                          type: object
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
@@ -2221,6 +2297,46 @@ spec:
                                         to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        imageRegistryCredentials:
+                                          description: ImageRegistryCredentials provides
+                                            credentials that will be used for authentication
+                                            with registry
+                                          properties:
+                                            helpers:
+                                              description: 'Helpers specifies a list
+                                                of OCI Registry names, whose authentication
+                                                helpers are provided It can be of
+                                                one of these values: AWS, ACR, GCP,
+                                                GHCR'
+                                              items:
+                                                description: ImageRegistryCredentialsHelpersType
+                                                  provides the list of credential
+                                                  helpers required.
+                                                enum:
+                                                - DEFAULT
+                                                - AWS
+                                                - ACR
+                                                - GCP
+                                                - GHCR
+                                                type: string
+                                              type: array
+                                            secrets:
+                                              description: Secrets specifies a list
+                                                of secrets that are provided for credentials
+                                                Secrets must be in Kyverno namespace
+                                              items:
+                                                properties:
+                                                  name:
+                                                    description: Specifies the name
+                                                      of the secret to be used for
+                                                      getting credentials Secrets
+                                                      must be in Kyverno namespace
+                                                    type: string
+                                                required:
+                                                - name
+                                                type: object
+                                              type: array
+                                          type: object
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
@@ -2620,6 +2736,46 @@ spec:
                                         to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        imageRegistryCredentials:
+                                          description: ImageRegistryCredentials provides
+                                            credentials that will be used for authentication
+                                            with registry
+                                          properties:
+                                            helpers:
+                                              description: 'Helpers specifies a list
+                                                of OCI Registry names, whose authentication
+                                                helpers are provided It can be of
+                                                one of these values: AWS, ACR, GCP,
+                                                GHCR'
+                                              items:
+                                                description: ImageRegistryCredentialsHelpersType
+                                                  provides the list of credential
+                                                  helpers required.
+                                                enum:
+                                                - DEFAULT
+                                                - AWS
+                                                - ACR
+                                                - GCP
+                                                - GHCR
+                                                type: string
+                                              type: array
+                                            secrets:
+                                              description: Secrets specifies a list
+                                                of secrets that are provided for credentials
+                                                Secrets must be in Kyverno namespace
+                                              items:
+                                                properties:
+                                                  name:
+                                                    description: Specifies the name
+                                                      of the secret to be used for
+                                                      getting credentials Secrets
+                                                      must be in Kyverno namespace
+                                                    type: string
+                                                required:
+                                                - name
+                                                type: object
+                                              type: array
+                                          type: object
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
@@ -3739,6 +3895,8 @@ spec:
                                         to be used for getting credentials Secrets
                                         must be in Kyverno namespace
                                       type: string
+                                  required:
+                                  - name
                                   type: object
                                 type: array
                             type: object
@@ -4047,6 +4205,44 @@ spec:
                                 description: ImageRegistry defines requests to an
                                   OCI/Docker V2 registry to fetch image details.
                                 properties:
+                                  imageRegistryCredentials:
+                                    description: ImageRegistryCredentials provides
+                                      credentials that will be used for authentication
+                                      with registry
+                                    properties:
+                                      helpers:
+                                        description: 'Helpers specifies a list of
+                                          OCI Registry names, whose authentication
+                                          helpers are provided It can be of one of
+                                          these values: AWS, ACR, GCP, GHCR'
+                                        items:
+                                          description: ImageRegistryCredentialsHelpersType
+                                            provides the list of credential helpers
+                                            required.
+                                          enum:
+                                          - DEFAULT
+                                          - AWS
+                                          - ACR
+                                          - GCP
+                                          - GHCR
+                                          type: string
+                                        type: array
+                                      secrets:
+                                        description: Secrets specifies a list of secrets
+                                          that are provided for credentials Secrets
+                                          must be in Kyverno namespace
+                                        items:
+                                          properties:
+                                            name:
+                                              description: Specifies the name of the
+                                                secret to be used for getting credentials
+                                                Secrets must be in Kyverno namespace
+                                              type: string
+                                          required:
+                                          - name
+                                          type: object
+                                        type: array
+                                    type: object
                                   jmesPath:
                                     description: JMESPath is an optional JSON Match
                                       Expression that can be used to transform the
@@ -5789,6 +5985,48 @@ spec:
                                             to an OCI/Docker V2 registry to fetch
                                             image details.
                                           properties:
+                                            imageRegistryCredentials:
+                                              description: ImageRegistryCredentials
+                                                provides credentials that will be
+                                                used for authentication with registry
+                                              properties:
+                                                helpers:
+                                                  description: 'Helpers specifies
+                                                    a list of OCI Registry names,
+                                                    whose authentication helpers are
+                                                    provided It can be of one of these
+                                                    values: AWS, ACR, GCP, GHCR'
+                                                  items:
+                                                    description: ImageRegistryCredentialsHelpersType
+                                                      provides the list of credential
+                                                      helpers required.
+                                                    enum:
+                                                    - DEFAULT
+                                                    - AWS
+                                                    - ACR
+                                                    - GCP
+                                                    - GHCR
+                                                    type: string
+                                                  type: array
+                                                secrets:
+                                                  description: Secrets specifies a
+                                                    list of secrets that are provided
+                                                    for credentials Secrets must be
+                                                    in Kyverno namespace
+                                                  items:
+                                                    properties:
+                                                      name:
+                                                        description: Specifies the
+                                                          name of the secret to be
+                                                          used for getting credentials
+                                                          Secrets must be in Kyverno
+                                                          namespace
+                                                        type: string
+                                                    required:
+                                                    - name
+                                                    type: object
+                                                  type: array
+                                              type: object
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
@@ -6101,6 +6339,48 @@ spec:
                                             to an OCI/Docker V2 registry to fetch
                                             image details.
                                           properties:
+                                            imageRegistryCredentials:
+                                              description: ImageRegistryCredentials
+                                                provides credentials that will be
+                                                used for authentication with registry
+                                              properties:
+                                                helpers:
+                                                  description: 'Helpers specifies
+                                                    a list of OCI Registry names,
+                                                    whose authentication helpers are
+                                                    provided It can be of one of these
+                                                    values: AWS, ACR, GCP, GHCR'
+                                                  items:
+                                                    description: ImageRegistryCredentialsHelpersType
+                                                      provides the list of credential
+                                                      helpers required.
+                                                    enum:
+                                                    - DEFAULT
+                                                    - AWS
+                                                    - ACR
+                                                    - GCP
+                                                    - GHCR
+                                                    type: string
+                                                  type: array
+                                                secrets:
+                                                  description: Secrets specifies a
+                                                    list of secrets that are provided
+                                                    for credentials Secrets must be
+                                                    in Kyverno namespace
+                                                  items:
+                                                    properties:
+                                                      name:
+                                                        description: Specifies the
+                                                          name of the secret to be
+                                                          used for getting credentials
+                                                          Secrets must be in Kyverno
+                                                          namespace
+                                                        type: string
+                                                    required:
+                                                    - name
+                                                    type: object
+                                                  type: array
+                                              type: object
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
@@ -6523,6 +6803,48 @@ spec:
                                             to an OCI/Docker V2 registry to fetch
                                             image details.
                                           properties:
+                                            imageRegistryCredentials:
+                                              description: ImageRegistryCredentials
+                                                provides credentials that will be
+                                                used for authentication with registry
+                                              properties:
+                                                helpers:
+                                                  description: 'Helpers specifies
+                                                    a list of OCI Registry names,
+                                                    whose authentication helpers are
+                                                    provided It can be of one of these
+                                                    values: AWS, ACR, GCP, GHCR'
+                                                  items:
+                                                    description: ImageRegistryCredentialsHelpersType
+                                                      provides the list of credential
+                                                      helpers required.
+                                                    enum:
+                                                    - DEFAULT
+                                                    - AWS
+                                                    - ACR
+                                                    - GCP
+                                                    - GHCR
+                                                    type: string
+                                                  type: array
+                                                secrets:
+                                                  description: Secrets specifies a
+                                                    list of secrets that are provided
+                                                    for credentials Secrets must be
+                                                    in Kyverno namespace
+                                                  items:
+                                                    properties:
+                                                      name:
+                                                        description: Specifies the
+                                                          name of the secret to be
+                                                          used for getting credentials
+                                                          Secrets must be in Kyverno
+                                                          namespace
+                                                        type: string
+                                                    required:
+                                                    - name
+                                                    type: object
+                                                  type: array
+                                              type: object
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
@@ -7691,6 +8013,8 @@ spec:
                                             to be used for getting credentials Secrets
                                             must be in Kyverno namespace
                                           type: string
+                                      required:
+                                      - name
                                       type: object
                                     type: array
                                 type: object
@@ -8096,6 +8420,42 @@ spec:
                             description: ImageRegistry defines requests to an OCI/Docker
                               V2 registry to fetch image details.
                             properties:
+                              imageRegistryCredentials:
+                                description: ImageRegistryCredentials provides credentials
+                                  that will be used for authentication with registry
+                                properties:
+                                  helpers:
+                                    description: 'Helpers specifies a list of OCI
+                                      Registry names, whose authentication helpers
+                                      are provided It can be of one of these values:
+                                      AWS, ACR, GCP, GHCR'
+                                    items:
+                                      description: ImageRegistryCredentialsHelpersType
+                                        provides the list of credential helpers required.
+                                      enum:
+                                      - DEFAULT
+                                      - AWS
+                                      - ACR
+                                      - GCP
+                                      - GHCR
+                                      type: string
+                                    type: array
+                                  secrets:
+                                    description: Secrets specifies a list of secrets
+                                      that are provided for credentials Secrets must
+                                      be in Kyverno namespace
+                                    items:
+                                      properties:
+                                        name:
+                                          description: Specifies the name of the secret
+                                            to be used for getting credentials Secrets
+                                            must be in Kyverno namespace
+                                          type: string
+                                      required:
+                                      - name
+                                      type: object
+                                    type: array
+                                type: object
                               jmesPath:
                                 description: JMESPath is an optional JSON Match Expression
                                   that can be used to transform the ImageData struct
@@ -9335,6 +9695,46 @@ spec:
                                         to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        imageRegistryCredentials:
+                                          description: ImageRegistryCredentials provides
+                                            credentials that will be used for authentication
+                                            with registry
+                                          properties:
+                                            helpers:
+                                              description: 'Helpers specifies a list
+                                                of OCI Registry names, whose authentication
+                                                helpers are provided It can be of
+                                                one of these values: AWS, ACR, GCP,
+                                                GHCR'
+                                              items:
+                                                description: ImageRegistryCredentialsHelpersType
+                                                  provides the list of credential
+                                                  helpers required.
+                                                enum:
+                                                - DEFAULT
+                                                - AWS
+                                                - ACR
+                                                - GCP
+                                                - GHCR
+                                                type: string
+                                              type: array
+                                            secrets:
+                                              description: Secrets specifies a list
+                                                of secrets that are provided for credentials
+                                                Secrets must be in Kyverno namespace
+                                              items:
+                                                properties:
+                                                  name:
+                                                    description: Specifies the name
+                                                      of the secret to be used for
+                                                      getting credentials Secrets
+                                                      must be in Kyverno namespace
+                                                    type: string
+                                                required:
+                                                - name
+                                                type: object
+                                              type: array
+                                          type: object
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
@@ -9633,6 +10033,46 @@ spec:
                                         to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        imageRegistryCredentials:
+                                          description: ImageRegistryCredentials provides
+                                            credentials that will be used for authentication
+                                            with registry
+                                          properties:
+                                            helpers:
+                                              description: 'Helpers specifies a list
+                                                of OCI Registry names, whose authentication
+                                                helpers are provided It can be of
+                                                one of these values: AWS, ACR, GCP,
+                                                GHCR'
+                                              items:
+                                                description: ImageRegistryCredentialsHelpersType
+                                                  provides the list of credential
+                                                  helpers required.
+                                                enum:
+                                                - DEFAULT
+                                                - AWS
+                                                - ACR
+                                                - GCP
+                                                - GHCR
+                                                type: string
+                                              type: array
+                                            secrets:
+                                              description: Secrets specifies a list
+                                                of secrets that are provided for credentials
+                                                Secrets must be in Kyverno namespace
+                                              items:
+                                                properties:
+                                                  name:
+                                                    description: Specifies the name
+                                                      of the secret to be used for
+                                                      getting credentials Secrets
+                                                      must be in Kyverno namespace
+                                                    type: string
+                                                required:
+                                                - name
+                                                type: object
+                                              type: array
+                                          type: object
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
@@ -10214,6 +10654,46 @@ spec:
                                         to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        imageRegistryCredentials:
+                                          description: ImageRegistryCredentials provides
+                                            credentials that will be used for authentication
+                                            with registry
+                                          properties:
+                                            helpers:
+                                              description: 'Helpers specifies a list
+                                                of OCI Registry names, whose authentication
+                                                helpers are provided It can be of
+                                                one of these values: AWS, ACR, GCP,
+                                                GHCR'
+                                              items:
+                                                description: ImageRegistryCredentialsHelpersType
+                                                  provides the list of credential
+                                                  helpers required.
+                                                enum:
+                                                - DEFAULT
+                                                - AWS
+                                                - ACR
+                                                - GCP
+                                                - GHCR
+                                                type: string
+                                              type: array
+                                            secrets:
+                                              description: Secrets specifies a list
+                                                of secrets that are provided for credentials
+                                                Secrets must be in Kyverno namespace
+                                              items:
+                                                properties:
+                                                  name:
+                                                    description: Specifies the name
+                                                      of the secret to be used for
+                                                      getting credentials Secrets
+                                                      must be in Kyverno namespace
+                                                    type: string
+                                                required:
+                                                - name
+                                                type: object
+                                              type: array
+                                          type: object
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
@@ -11312,6 +11792,8 @@ spec:
                                         to be used for getting credentials Secrets
                                         must be in Kyverno namespace
                                       type: string
+                                  required:
+                                  - name
                                   type: object
                                 type: array
                             type: object
@@ -11601,6 +12083,44 @@ spec:
                                 description: ImageRegistry defines requests to an
                                   OCI/Docker V2 registry to fetch image details.
                                 properties:
+                                  imageRegistryCredentials:
+                                    description: ImageRegistryCredentials provides
+                                      credentials that will be used for authentication
+                                      with registry
+                                    properties:
+                                      helpers:
+                                        description: 'Helpers specifies a list of
+                                          OCI Registry names, whose authentication
+                                          helpers are provided It can be of one of
+                                          these values: AWS, ACR, GCP, GHCR'
+                                        items:
+                                          description: ImageRegistryCredentialsHelpersType
+                                            provides the list of credential helpers
+                                            required.
+                                          enum:
+                                          - DEFAULT
+                                          - AWS
+                                          - ACR
+                                          - GCP
+                                          - GHCR
+                                          type: string
+                                        type: array
+                                      secrets:
+                                        description: Secrets specifies a list of secrets
+                                          that are provided for credentials Secrets
+                                          must be in Kyverno namespace
+                                        items:
+                                          properties:
+                                            name:
+                                              description: Specifies the name of the
+                                                secret to be used for getting credentials
+                                                Secrets must be in Kyverno namespace
+                                              type: string
+                                          required:
+                                          - name
+                                          type: object
+                                        type: array
+                                    type: object
                                   jmesPath:
                                     description: JMESPath is an optional JSON Match
                                       Expression that can be used to transform the
@@ -13343,6 +13863,48 @@ spec:
                                             to an OCI/Docker V2 registry to fetch
                                             image details.
                                           properties:
+                                            imageRegistryCredentials:
+                                              description: ImageRegistryCredentials
+                                                provides credentials that will be
+                                                used for authentication with registry
+                                              properties:
+                                                helpers:
+                                                  description: 'Helpers specifies
+                                                    a list of OCI Registry names,
+                                                    whose authentication helpers are
+                                                    provided It can be of one of these
+                                                    values: AWS, ACR, GCP, GHCR'
+                                                  items:
+                                                    description: ImageRegistryCredentialsHelpersType
+                                                      provides the list of credential
+                                                      helpers required.
+                                                    enum:
+                                                    - DEFAULT
+                                                    - AWS
+                                                    - ACR
+                                                    - GCP
+                                                    - GHCR
+                                                    type: string
+                                                  type: array
+                                                secrets:
+                                                  description: Secrets specifies a
+                                                    list of secrets that are provided
+                                                    for credentials Secrets must be
+                                                    in Kyverno namespace
+                                                  items:
+                                                    properties:
+                                                      name:
+                                                        description: Specifies the
+                                                          name of the secret to be
+                                                          used for getting credentials
+                                                          Secrets must be in Kyverno
+                                                          namespace
+                                                        type: string
+                                                    required:
+                                                    - name
+                                                    type: object
+                                                  type: array
+                                              type: object
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
@@ -13655,6 +14217,48 @@ spec:
                                             to an OCI/Docker V2 registry to fetch
                                             image details.
                                           properties:
+                                            imageRegistryCredentials:
+                                              description: ImageRegistryCredentials
+                                                provides credentials that will be
+                                                used for authentication with registry
+                                              properties:
+                                                helpers:
+                                                  description: 'Helpers specifies
+                                                    a list of OCI Registry names,
+                                                    whose authentication helpers are
+                                                    provided It can be of one of these
+                                                    values: AWS, ACR, GCP, GHCR'
+                                                  items:
+                                                    description: ImageRegistryCredentialsHelpersType
+                                                      provides the list of credential
+                                                      helpers required.
+                                                    enum:
+                                                    - DEFAULT
+                                                    - AWS
+                                                    - ACR
+                                                    - GCP
+                                                    - GHCR
+                                                    type: string
+                                                  type: array
+                                                secrets:
+                                                  description: Secrets specifies a
+                                                    list of secrets that are provided
+                                                    for credentials Secrets must be
+                                                    in Kyverno namespace
+                                                  items:
+                                                    properties:
+                                                      name:
+                                                        description: Specifies the
+                                                          name of the secret to be
+                                                          used for getting credentials
+                                                          Secrets must be in Kyverno
+                                                          namespace
+                                                        type: string
+                                                    required:
+                                                    - name
+                                                    type: object
+                                                  type: array
+                                              type: object
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
@@ -14077,6 +14681,48 @@ spec:
                                             to an OCI/Docker V2 registry to fetch
                                             image details.
                                           properties:
+                                            imageRegistryCredentials:
+                                              description: ImageRegistryCredentials
+                                                provides credentials that will be
+                                                used for authentication with registry
+                                              properties:
+                                                helpers:
+                                                  description: 'Helpers specifies
+                                                    a list of OCI Registry names,
+                                                    whose authentication helpers are
+                                                    provided It can be of one of these
+                                                    values: AWS, ACR, GCP, GHCR'
+                                                  items:
+                                                    description: ImageRegistryCredentialsHelpersType
+                                                      provides the list of credential
+                                                      helpers required.
+                                                    enum:
+                                                    - DEFAULT
+                                                    - AWS
+                                                    - ACR
+                                                    - GCP
+                                                    - GHCR
+                                                    type: string
+                                                  type: array
+                                                secrets:
+                                                  description: Secrets specifies a
+                                                    list of secrets that are provided
+                                                    for credentials Secrets must be
+                                                    in Kyverno namespace
+                                                  items:
+                                                    properties:
+                                                      name:
+                                                        description: Specifies the
+                                                          name of the secret to be
+                                                          used for getting credentials
+                                                          Secrets must be in Kyverno
+                                                          namespace
+                                                        type: string
+                                                    required:
+                                                    - name
+                                                    type: object
+                                                  type: array
+                                              type: object
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
@@ -15245,6 +15891,8 @@ spec:
                                             to be used for getting credentials Secrets
                                             must be in Kyverno namespace
                                           type: string
+                                      required:
+                                      - name
                                       type: object
                                     type: array
                                 type: object
