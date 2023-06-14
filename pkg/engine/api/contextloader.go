@@ -9,7 +9,6 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 )
 
 // ContextLoaderFactory provides a ContextLoader given a policy context and rule name
@@ -21,7 +20,7 @@ type ContextLoader interface {
 		ctx context.Context,
 		jp jmespath.Interface,
 		client RawClient,
-		rclient registryclient.Client,
+		imgClient ImageDataClient,
 		contextEntries []kyvernov1.ContextEntry,
 		jsonContext enginecontext.Interface,
 	) error
@@ -47,16 +46,15 @@ func (l *contextLoader) Load(
 	ctx context.Context,
 	jp jmespath.Interface,
 	client RawClient,
-	rclient registryclient.Client,
+	imgClient ImageDataClient,
 	contextEntries []kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
 ) error {
 	for _, entry := range contextEntries {
-		deferredLoader := l.newDeferredLoader(ctx, jp, client, rclient, entry, jsonContext)
+		deferredLoader := l.newDeferredLoader(ctx, jp, client, imgClient, entry, jsonContext)
 		if deferredLoader == nil {
 			return fmt.Errorf("invalid context entry %s", entry.Name)
 		}
-
 		jsonContext.AddDeferredLoader(entry.Name, deferredLoader)
 	}
 	return nil
@@ -66,7 +64,7 @@ func (l *contextLoader) newDeferredLoader(
 	ctx context.Context,
 	jp jmespath.Interface,
 	client RawClient,
-	rclient registryclient.Client,
+	imgClient ImageDataClient,
 	entry kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
 ) enginecontext.DeferredLoader {
@@ -86,7 +84,7 @@ func (l *contextLoader) newDeferredLoader(
 		}
 	} else if entry.ImageRegistry != nil {
 		return func() error {
-			if err := LoadImageData(ctx, jp, rclient, l.logger, entry, jsonContext); err != nil {
+			if err := LoadImageData(ctx, jp, imgClient, l.logger, entry, jsonContext); err != nil {
 				return err
 			}
 			return nil
