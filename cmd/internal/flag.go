@@ -88,7 +88,7 @@ func initConfigMapCachingFlags() {
 }
 
 func initCosignFlags() {
-	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
+	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "(DEPRECATED, will be removed in 1.12) Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
 }
 
 func initRegistryClientFlags() {
@@ -176,6 +176,14 @@ func initFlags(config Configuration, opts ...Option) {
 		flagset.VisitAll(func(f *flag.Flag) {
 			flag.CommandLine.Var(f.Value, f.Name, f.Usage)
 		})
+	}
+}
+
+func showWarnings(config Configuration, logger logr.Logger) {
+	if config.UsesCosign() {
+		if imageSignatureRepository != "" {
+			logger.Info("Warning: imageSignatureRepository is deprecated and will be removed in 1.12. Use per rule configuration `verifyImages.Repository` instead.")
+		}
 	}
 }
 

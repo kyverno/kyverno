@@ -15,6 +15,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 )
 
 func shutdown(logger logr.Logger, sdowns ...context.CancelFunc) context.CancelFunc {
@@ -49,6 +50,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	logger := setupLogger()
 	showVersion(logger)
 	printFlagSettings(logger)
+	showWarnings(config, logger)
 	sdownMaxProcs := setupMaxProcs(logger)
 	setupProfiling(logger)
 	ctx, sdownSignals := setupSignals(logger)
@@ -58,8 +60,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	client = client.WithMetrics(metricsManager, metrics.KubeClient)
 	configuration := startConfigController(ctx, logger, client, skipResourceFilters)
 	sdownTracing := SetupTracing(logger, name, client)
-	setupCosign(logger)
-	var registryClientLoader engineapi.RegistryClientLoader
+	var registryClient registryclient.Client
 	if config.UsesRegistryClient() {
 		registryClientLoader = getRegistryClientLoader(ctx, logger, client)
 	}

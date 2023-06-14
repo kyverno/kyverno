@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
@@ -36,10 +37,12 @@ func NewEngine(
 		configuration,
 		metricsConfiguration,
 		jp,
-		client,
-		rclientLoader,
+		adapters.Client(client),
+		adapters.ImageDataClient(rclient),
+		rclient,
 		engineapi.DefaultContextLoaderFactory(configMapResolver),
 		exceptionsSelector,
+		imageSignatureRepository,
 	)
 }
 

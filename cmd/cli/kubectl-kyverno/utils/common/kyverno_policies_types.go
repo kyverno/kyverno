@@ -11,8 +11,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -109,14 +111,17 @@ OuterLoop:
 			}
 		}
 	}
+	rclient := registryclient.NewOrDie()
 	eng := engine.NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
 		jmespath.New(cfg),
-		c.Client,
-		engineapi.RegistryClientLoaderNewOrDie(),
+		adapters.Client(c.Client),
+		adapters.ImageDataClient(rclient),
+		rclient,
 		store.ContextLoaderFactory(nil),
 		nil,
+		"",
 	)
 	policyContext, err := engine.NewPolicyContext(
 		jp,

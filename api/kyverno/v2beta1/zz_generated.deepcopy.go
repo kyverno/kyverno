@@ -23,6 +23,7 @@ package v2beta1
 
 import (
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -406,6 +407,11 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 		*out = new(AnyAllConditions)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.CELPreconditions != nil {
+		in, out := &in.CELPreconditions, &out.CELPreconditions
+		*out = make([]admissionregistrationv1.MatchCondition, len(*in))
+		copy(*out, *in)
+	}
 	in.Mutation.DeepCopyInto(&out.Mutation)
 	in.Validation.DeepCopyInto(&out.Validation)
 	in.Generation.DeepCopyInto(&out.Generation)
@@ -520,6 +526,11 @@ func (in *Validation) DeepCopyInto(out *Validation) {
 	if in.PodSecurity != nil {
 		in, out := &in.PodSecurity, &out.PodSecurity
 		*out = new(v1.PodSecurity)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.CEL != nil {
+		in, out := &in.CEL, &out.CEL
+		*out = new(v1.CEL)
 		(*in).DeepCopyInto(*out)
 	}
 }

@@ -6,7 +6,7 @@ import (
 )
 
 // ImageVerificationType selects the type of verification algorithm
-// +kubebuilder:validation:Enum=Cosign;NotaryV2
+// +kubebuilder:validation:Enum=Cosign;Notary
 // +kubebuilder:default=Cosign
 type ImageVerificationType string
 
@@ -16,8 +16,8 @@ type ImageVerificationType string
 type ImageRegistryCredentialsHelpersType string
 
 const (
-	Cosign   ImageVerificationType = "Cosign"
-	NotaryV2 ImageVerificationType = "NotaryV2"
+	Cosign ImageVerificationType = "Cosign"
+	Notary ImageVerificationType = "Notary"
 
 	DEFAULT ImageRegistryCredentialsHelpersType = "DEFAULT"
 	AWS     ImageRegistryCredentialsHelpersType = "AWS"
@@ -31,7 +31,7 @@ const (
 // mutated to include the SHA digest retrieved during the registration.
 type ImageVerification struct {
 	// Type specifies the method of signature validation. The allowed options
-	// are Cosign and NotaryV2. By default Cosign is used if a type is not specified.
+	// are Cosign and Notary. By default Cosign is used if a type is not specified.
 	// +kubebuilder:validation:Optional
 	Type ImageVerificationType `json:"type,omitempty" yaml:"type,omitempty"`
 
@@ -99,6 +99,19 @@ func (iv *ImageVerification) Validate(isAuditFailureAction bool, path *field.Pat
 	for i, as := range copy.Attestors {
 		attestorErrors := as.Validate(attestorsPath.Index(i))
 		errs = append(errs, attestorErrors...)
+	}
+
+	if iv.Type == Notary {
+		for _, attestorSet := range iv.Attestors {
+			for _, attestor := range attestorSet.Entries {
+				if attestor.Keyless != nil {
+					errs = append(errs, field.Invalid(attestorsPath, iv, "Keyless field is not allowed for type notary"))
+				}
+				if attestor.Keys != nil {
+					errs = append(errs, field.Invalid(attestorsPath, iv, "Keys field is not allowed for type notary"))
+				}
+			}
+		}
 	}
 
 	return errs

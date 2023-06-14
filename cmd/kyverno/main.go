@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -53,19 +52,16 @@ const (
 	exceptionWebhookControllerName = "exception-webhook-controller"
 )
 
-func showWarnings(logger logr.Logger) {
+func showWarnings(ctx context.Context, logger logr.Logger) {
 	logger = logger.WithName("warnings")
 	// log if `forceFailurePolicyIgnore` flag has been set or not
-	if toggle.ForceFailurePolicyIgnore.Enabled() {
+	if toggle.FromContext(ctx).ForceFailurePolicyIgnore() {
 		logger.Info("'ForceFailurePolicyIgnore' is enabled, all policies with policy failures will be set to Ignore")
 	}
 }
 
 func sanityChecks(apiserverClient apiserver.Interface) error {
-	if !kubeutils.CRDsInstalled(apiserverClient) {
-		return fmt.Errorf("CRDs not installed")
-	}
-	return nil
+	return kubeutils.CRDsInstalled(apiserverClient)
 }
 
 func createNonLeaderControllers(
@@ -226,7 +222,7 @@ func main() {
 	signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-admission-controller", false)
 	defer sdown()
 	// show version
-	showWarnings(setup.Logger)
+	showWarnings(signalCtx, setup.Logger)
 	// THIS IS AN UGLY FIX
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
@@ -438,6 +434,7 @@ func main() {
 		Namespace: internal.ExceptionNamespace(),
 	})
 	server := webhooks.NewServer(
+		signalCtx,
 		policyHandlers,
 		resourceHandlers,
 		exceptionHandlers,

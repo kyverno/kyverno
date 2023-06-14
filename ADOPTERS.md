@@ -32,6 +32,7 @@ The list of organizations that have publicly shared the usage of Kyverno:
 | [DE-CIX](https://www.de-cix.net)                                                                              | Kyvernos policy enforcement is used to enforce the company's security guidelines. This is done using validation, mutation and generation techniques.                                                                        |
 | [Saxo Bank](https://www.home.saxo/)                                                                           | We use Kyverno to enforce security and best practises.                                                                                                                                                                      |
 | [Velux](https://www.velux.com/)                                                                               | We successfully use Kyverno in our clusters for security, best practice enforcement, resource mutation, secret copying and more!                                                                                             |
+| [HCS Company](https://www.hcs-company.com/)                                                                   | Policy enforcement and enabling selfservice for DevOps teams.                                                                                                                                                                |
 <!-- append the line below to the table
 | [name](URL) | brief description of how you are using Kyverno | 
 -->

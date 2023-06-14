@@ -22,7 +22,7 @@ type scanner struct {
 }
 
 type ScanResult struct {
-	EngineResponse engineapi.EngineResponse
+	EngineResponse *engineapi.EngineResponse
 	Error          error
 }
 
@@ -50,25 +50,26 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 	results := map[kyvernov1.PolicyInterface]ScanResult{}
 	for _, policy := range policies {
 		var errors []error
+		logger := s.logger.WithValues("kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
 		response, err := s.validateResource(ctx, resource, nsLabels, policy)
 		if err != nil {
-			s.logger.Error(err, "failed to scan resource")
+			logger.Error(err, "failed to scan resource")
 			errors = append(errors, err)
 		}
 		spec := policy.GetSpec()
 		if spec.HasVerifyImages() {
 			ivResponse, err := s.validateImages(ctx, resource, nsLabels, policy)
 			if err != nil {
-				s.logger.Error(err, "failed to scan images")
+				logger.Error(err, "failed to scan images")
 				errors = append(errors, err)
 			}
 			if response == nil {
 				response = ivResponse
-			} else {
+			} else if ivResponse != nil {
 				response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ivResponse.PolicyResponse.Rules...)
 			}
 		}
-		results[policy] = ScanResult{*response, multierr.Combine(errors...)}
+		results[policy] = ScanResult{response, multierr.Combine(errors...)}
 	}
 	return results
 }

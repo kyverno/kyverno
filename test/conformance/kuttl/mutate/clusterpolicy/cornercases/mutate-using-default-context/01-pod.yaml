@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+- file: pod.yaml
+  shouldFail: false
+assert:
+- pod-assert.yaml
