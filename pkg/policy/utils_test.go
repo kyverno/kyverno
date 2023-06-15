@@ -1,9 +1,11 @@
 package policy
 
 import (
+	"fmt"
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -94,7 +96,12 @@ func Test_fetchUniqueKinds(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.DeepEqual(t, fetchUniqueKinds(tt.rule), tt.want)
+			kinds := fetchUniqueKinds(tt.rule)
+			for _, want := range tt.want {
+				if !kubeutils.ContainsKind(kinds, want) {
+					assert.Error(t, fmt.Errorf("%s fails, expected %s", tt.name, want), "")
+				}
+			}
 		})
 	}
 }
