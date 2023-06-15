@@ -2014,14 +2014,12 @@ It can be of one of these values: AWS, ACR, GCP, GHCR</p>
 <td>
 <code>secrets</code><br/>
 <em>
-<a href="#kyverno.io/v1.Secret">
-[]Secret
-</a>
+[]string
 </em>
 </td>
 <td>
 <p>Secrets specifies a list of secrets that are provided for credentials
-Secrets must be in Kyverno namespace</p>
+Secrets must live in the Kyverno namespace</p>
 </td>
 </tr>
 </tbody>
@@ -3376,37 +3374,6 @@ int
 </td>
 <td>
 <p>Count for verify image rules in policy</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1.Secret">Secret
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.ImageRegistryCredentials">ImageRegistryCredentials</a>)
-</p>
-<p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>name</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Specifies the name of the secret to be used for getting credentials
-Secrets must be in Kyverno namespace</p>
 </td>
 </tr>
 </tbody>

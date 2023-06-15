@@ -245,18 +245,10 @@ spec:
                               type: array
                             secrets:
                               description: Secrets specifies a list of secrets that
-                                are provided for credentials Secrets must be in Kyverno
-                                namespace
+                                are provided for credentials Secrets must live in
+                                the Kyverno namespace
                               items:
-                                properties:
-                                  name:
-                                    description: Specifies the name of the secret
-                                      to be used for getting credentials Secrets must
-                                      be in Kyverno namespace
-                                    type: string
-                                required:
-                                - name
-                                type: object
+                                type: string
                               type: array
                           type: object
                         jmesPath:

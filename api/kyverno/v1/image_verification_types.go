@@ -280,15 +280,9 @@ type ImageRegistryCredentials struct {
 	Helpers []ImageRegistryCredentialsHelpersType `json:"helpers,omitempty" yaml:"helpers,omitempty"`
 
 	// Secrets specifies a list of secrets that are provided for credentials
-	// Secrets must be in Kyverno namespace
+	// Secrets must live in the Kyverno namespace
 	// +kubebuilder:validation:Optional
-	Secrets []Secret `json:"secrets,omitempty" yaml:"secrets,omitempty"`
-}
-
-type Secret struct {
-	// Specifies the name of the secret to be used for getting credentials
-	// Secrets must be in Kyverno namespace
-	Name string `json:"name" yaml:"name"`
+	Secrets []string `json:"secrets,omitempty" yaml:"secrets,omitempty"`
 }
 
 func (iv *ImageVerification) GetType() ImageVerificationType {

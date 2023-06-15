@@ -6,12 +6,12 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-
-	"k8s.io/client-go/kubernetes"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type registryClientFactory struct {
-	globalClient engineapi.RegistryClient
+	globalClient  engineapi.RegistryClient
+	secretsLister corev1listers.SecretNamespaceLister
 }
 
 func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.ImageRegistryCredentials) (engineapi.RegistryClient, error) {
@@ -29,17 +29,9 @@ func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.
 			}
 			registryOptions = append(registryOptions, registryclient.WithCredentialHelpers(helpers...))
 		}
-		// secrets := strings.Split(imagePullSecrets, ",")
-		// if imagePullSecrets != "" && len(secrets) > 0 {
-		// 	factory := kubeinformers.NewSharedInformerFactoryWithOptions(client, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-		// 	secretLister := factory.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
-		// 	// start informers and wait for cache sync
-		// 	if !StartInformersAndWaitForCacheSync(ctx, logger, factory) {
-		// 		checkError(logger, errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
-		// 	}
-		// 	registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(ctx, secretLister, secrets...))
-		// }
-
+		if len(creds.Secrets) > 0 {
+			registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(ctx, f.secretsLister, creds.Secrets...))
+		}
 		client, err := registryclient.New(registryOptions...)
 		if err != nil {
 			return nil, err
@@ -49,8 +41,9 @@ func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.
 	return f.globalClient, nil
 }
 
-func DefaultRegistryClientFactory(globalClient engineapi.RegistryClient, kubeClient kubernetes.Interface) engineapi.RegistryClientFactory {
+func DefaultRegistryClientFactory(globalClient engineapi.RegistryClient, secretsLister corev1listers.SecretNamespaceLister) engineapi.RegistryClientFactory {
 	return &registryClientFactory{
-		globalClient: globalClient,
+		globalClient:  globalClient,
+		secretsLister: secretsLister,
 	}
 }
