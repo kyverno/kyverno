@@ -1,0 +1,9 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-clone-sync-existing-update-trigger-no-precondition
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready
