@@ -163,6 +163,19 @@ func NewFailedEvent(err error, policy, rule string, source Source, resource kyve
 	}
 }
 
+func NewResourcePassedEvent(source Source, resource kyvernov1.ResourceSpec) Info {
+	msg := fmt.Sprintf("Created %s %s", resource.GetKind(), resource.GetName())
+
+	return Info{
+		Kind:      resource.GetKind(),
+		Namespace: resource.GetNamespace(),
+		Name:      resource.GetName(),
+		Source:    source,
+		Reason:    PolicyApplied,
+		Message:   msg,
+	}
+}
+
 func resourceKey(resource unstructured.Unstructured) string {
 	if resource.GetNamespace() != "" {
 		return strings.Join([]string{resource.GetKind(), resource.GetNamespace(), resource.GetName()}, "/")

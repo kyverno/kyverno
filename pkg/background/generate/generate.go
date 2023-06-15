@@ -252,7 +252,23 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 	}
 
 	// Apply the generate rule on resource
-	return c.ApplyGeneratePolicy(logger, policyContext, ur, applicableRules)
+	genResources, err := c.ApplyGeneratePolicy(logger, policyContext, ur, applicableRules)
+
+	// generate events.
+	var events []event.Info
+	for _, res := range genResources {
+		e := event.NewResourcePassedEvent(event.GeneratePolicyController, res)
+		events = append(events, e)
+	}
+
+	if unstructuredPol, err := kubeutils.ObjToUnstructured(policy); err == nil && unstructuredPol != nil {
+		e := event.NewBackgroundSuccessEvent(ur.Spec.Policy, ur.Spec.Rule, event.GeneratePolicyController, unstructuredPol)
+		events = append(events, e...)
+	}
+
+	c.eventGen.Add(events...)
+
+	return genResources, err
 }
 
 // getPolicySpec gets the policy spec from the ClusterPolicy/Policy
