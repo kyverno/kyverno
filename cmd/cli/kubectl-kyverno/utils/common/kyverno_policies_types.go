@@ -111,12 +111,14 @@ OuterLoop:
 			}
 		}
 	}
+	rclient := registryclient.NewOrDie()
 	eng := engine.NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
 		jmespath.New(cfg),
 		adapters.Client(c.Client),
-		registryclient.NewOrDie(),
+		adapters.ImageDataClient(rclient),
+		rclient,
 		store.ContextLoaderFactory(nil),
 		nil,
 		"",

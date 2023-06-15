@@ -9,6 +9,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	log "github.com/kyverno/kyverno/pkg/logging"
@@ -1051,12 +1052,14 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 	}
 	cfg := config.NewDefaultConfiguration(false)
 	jp := jmespath.New(cfg)
+	rclient := registryclient.NewOrDie()
 	eng := engine.NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
 		jp,
 		nil,
-		registryclient.NewOrDie(),
+		adapters.ImageDataClient(rclient),
+		rclient,
 		engineapi.DefaultContextLoaderFactory(nil),
 		nil,
 		"",
@@ -1152,13 +1155,14 @@ func Test_RuleSelector(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx = ctx.WithPolicy(&policy)
-
+	rclient := registryclient.NewOrDie()
 	eng := engine.NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
 		jp,
 		nil,
-		registryclient.NewOrDie(),
+		adapters.ImageDataClient(rclient),
+		rclient,
 		engineapi.DefaultContextLoaderFactory(nil),
 		nil,
 		"",
