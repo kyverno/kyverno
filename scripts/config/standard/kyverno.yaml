@@ -20,7 +20,6 @@ backgroundController:
             - nodes
             - nodes/status
             - pods
-            - poddisruptionbudgets
           verbs:
             - create
             - update
