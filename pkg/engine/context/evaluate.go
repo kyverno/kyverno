@@ -56,11 +56,13 @@ func (ctx *context) getMatchingLoaders(query string) []DeferredLoader {
 	var matchingLoaders []DeferredLoader
 	for _, name := range ctx.deferredOrder {
 		if strings.Contains(query, name) {
-			deferredLoader, ok := ctx.deferred.loaders[name]
-			if ok {
-				matchingLoaders = append(matchingLoaders, deferredLoader)
-				delete(ctx.deferred.loaders, name)
-			}
+			matchingLoaders = append(matchingLoaders, func() error {
+				if deferredLoader, ok := ctx.deferred.loaders[name]; ok {
+					delete(ctx.deferred.loaders, name)
+					return deferredLoader()
+				}
+				return nil
+			})
 		}
 	}
 
