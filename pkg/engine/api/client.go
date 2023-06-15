@@ -33,3 +33,17 @@ type Client interface {
 	AuthClient
 	ResourceClient
 }
+
+type ImageData struct {
+	Image         string
+	ResolvedImage string
+	Registry      string
+	Repository    string
+	Identifier    string
+	Manifest      []byte
+	Config        []byte
+}
+
+type ImageDataClient interface {
+	ForRef(ctx context.Context, ref string) (*ImageData, error)
+}

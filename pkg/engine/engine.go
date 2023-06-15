@@ -31,6 +31,7 @@ type engine struct {
 	metricsConfiguration     config.MetricsConfiguration
 	jp                       jmespath.Interface
 	client                   engineapi.Client
+	imgClient                engineapi.ImageDataClient
 	rclient                  registryclient.Client
 	contextLoader            engineapi.ContextLoaderFactory
 	exceptionSelector        engineapi.PolicyExceptionSelector
@@ -47,6 +48,7 @@ func NewEngine(
 	metricsConfiguration config.MetricsConfiguration,
 	jp jmespath.Interface,
 	client engineapi.Client,
+	imgClient engineapi.ImageDataClient,
 	rclient registryclient.Client,
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,
@@ -72,6 +74,7 @@ func NewEngine(
 		metricsConfiguration:     metricsConfiguration,
 		jp:                       jp,
 		client:                   client,
+		imgClient:                imgClient,
 		rclient:                  rclient,
 		contextLoader:            contextLoader,
 		exceptionSelector:        exceptionSelector,
@@ -176,7 +179,7 @@ func (e *engine) ContextLoader(
 			ctx,
 			e.jp,
 			e.client,
-			e.rclient,
+			e.imgClient,
 			contextEntries,
 			jsonContext,
 		)
