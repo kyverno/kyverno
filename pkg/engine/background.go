@@ -111,7 +111,9 @@ func (e *engine) filterRule(
 	}
 
 	if policyContext.OldResource().Object != nil {
-		policyContext.JSONContext().AddResource(policyContext.OldResource().Object)
+		if err = policyContext.JSONContext().AddResource(policyContext.OldResource().Object); err != nil {
+			return engineapi.RuleError(rule.Name, ruleType, "failed to update JSON context for old resource", err)
+		}
 		if val, msg, err := variables.EvaluateConditions(logger, policyContext.JSONContext(), copyConditions); err != nil {
 			return engineapi.RuleError(rule.Name, ruleType, "failed to evaluate conditions for old resource", err)
 		} else {

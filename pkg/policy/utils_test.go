@@ -89,7 +89,7 @@ func Test_fetchUniqueKinds(t *testing.T) {
 					},
 				},
 			},
-			want: []string{"kind1", "kind2"},
+			want: []string{"kind1", "kind2", "kind4", "kind5"},
 		},
 	}
 	for _, tt := range tests {
