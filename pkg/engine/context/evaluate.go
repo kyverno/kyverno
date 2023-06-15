@@ -54,10 +54,10 @@ func (ctx *context) getMatchingLoaders(query string) []DeferredLoader {
 	defer ctx.deferred.mutex.Unlock()
 
 	var matchingLoaders []DeferredLoader
-	for _, name := range ctx.deferredOrder {
+	for name, deferredLoader := range ctx.deferred.loaders {
 		if strings.Contains(query, name) {
 			matchingLoaders = append(matchingLoaders, func() error {
-				if deferredLoader, ok := ctx.deferred.loaders[name]; ok {
+				if _, ok := ctx.deferred.loaders[name]; ok {
 					delete(ctx.deferred.loaders, name)
 					return deferredLoader()
 				}

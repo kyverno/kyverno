@@ -111,7 +111,6 @@ type context struct {
 	jsonRawCheckpoints [][]byte
 	images             map[string]map[string]apiutils.ImageInfo
 	deferred           deferredLoaders
-	deferredOrder      []string
 }
 
 type deferredLoaders struct {
@@ -133,7 +132,6 @@ func NewContextFromRaw(jp jmespath.Interface, raw []byte) Interface {
 		deferred: deferredLoaders{
 			loaders: make(map[string]DeferredLoader),
 		},
-		deferredOrder: make([]string, 0),
 	}
 }
 
