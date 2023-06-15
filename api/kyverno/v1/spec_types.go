@@ -258,6 +258,7 @@ func (s *Spec) ValidateRuleNames(path *field.Path) (errs field.ErrorList) {
 // ValidateRules implements programmatic validation of Rules
 func (s *Spec) ValidateRules(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, s.ValidateRuleNames(path)...)
+
 	for i, rule := range s.Rules {
 		errs = append(errs, rule.Validate(path.Index(i), namespaced, policyNamespace, clusterResources)...)
 	}
