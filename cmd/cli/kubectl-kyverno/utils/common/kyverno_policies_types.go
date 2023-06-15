@@ -117,7 +117,7 @@ OuterLoop:
 		config.NewDefaultMetricsConfiguration(),
 		jmespath.New(cfg),
 		adapters.Client(c.Client),
-		engineapi.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+		adapters.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 		store.ContextLoaderFactory(nil),
 		nil,
 		"",

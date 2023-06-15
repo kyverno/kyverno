@@ -270,6 +270,10 @@ type Attestation struct {
 }
 
 type ImageRegistryCredentials struct {
+	// AllowInsecureRegistry allows insecure access to a registry
+	// +kubebuilder:validation:Optional
+	AllowInsecureRegistry bool `json:"allowInsecureRegistry,omitempty" yaml:"allowInsecureRegistry,omitempty"`
+
 	// Helpers specifies a list of OCI Registry names, whose authentication helpers are provided
 	// It can be of one of these values: AWS, ACR, GCP, GHCR
 	// +kubebuilder:validation:Optional

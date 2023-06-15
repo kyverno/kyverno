@@ -11,6 +11,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 )
 
+type RegistryClientFactory interface {
+	GetClient(ctx context.Context, creds *kyvernov1.ImageRegistryCredentials) (RegistryClient, error)
+}
+
 // ContextLoaderFactory provides a ContextLoader given a policy context and rule name
 type ContextLoaderFactory = func(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) ContextLoader
 

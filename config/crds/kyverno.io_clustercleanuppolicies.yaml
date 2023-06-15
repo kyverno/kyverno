@@ -224,6 +224,10 @@ spec:
                           description: ImageRegistryCredentials provides credentials
                             that will be used for authentication with registry
                           properties:
+                            allowInsecureRegistry:
+                              description: AllowInsecureRegistry allows insecure access
+                                to a registry
+                              type: boolean
                             helpers:
                               description: 'Helpers specifies a list of OCI Registry
                                 names, whose authentication helpers are provided It

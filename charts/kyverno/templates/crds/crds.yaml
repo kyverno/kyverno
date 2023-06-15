@@ -871,6 +871,10 @@ spec:
                           description: ImageRegistryCredentials provides credentials
                             that will be used for authentication with registry
                           properties:
+                            allowInsecureRegistry:
+                              description: AllowInsecureRegistry allows insecure access
+                                to a registry
+                              type: boolean
                             helpers:
                               description: 'Helpers specifies a list of OCI Registry
                                 names, whose authentication helpers are provided It
@@ -2781,6 +2785,10 @@ spec:
                           description: ImageRegistryCredentials provides credentials
                             that will be used for authentication with registry
                           properties:
+                            allowInsecureRegistry:
+                              description: AllowInsecureRegistry allows insecure access
+                                to a registry
+                              type: boolean
                             helpers:
                               description: 'Helpers specifies a list of OCI Registry
                                 names, whose authentication helpers are provided It
@@ -4086,6 +4094,10 @@ spec:
                                 description: ImageRegistryCredentials provides credentials
                                   that will be used for authentication with registry
                                 properties:
+                                  allowInsecureRegistry:
+                                    description: AllowInsecureRegistry allows insecure
+                                      access to a registry
+                                    type: boolean
                                   helpers:
                                     description: 'Helpers specifies a list of OCI
                                       Registry names, whose authentication helpers
@@ -5788,6 +5800,10 @@ spec:
                                             credentials that will be used for authentication
                                             with registry
                                           properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry
+                                              type: boolean
                                             helpers:
                                               description: 'Helpers specifies a list
                                                 of OCI Registry names, whose authentication
@@ -6126,6 +6142,10 @@ spec:
                                             credentials that will be used for authentication
                                             with registry
                                           properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry
+                                              type: boolean
                                             helpers:
                                               description: 'Helpers specifies a list
                                                 of OCI Registry names, whose authentication
@@ -6565,6 +6585,10 @@ spec:
                                             credentials that will be used for authentication
                                             with registry
                                           properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry
+                                              type: boolean
                                             helpers:
                                               description: 'Helpers specifies a list
                                                 of OCI Registry names, whose authentication
@@ -7692,6 +7716,10 @@ spec:
                             description: ImageRegistryCredentials provides credentials
                               that will be used for authentication with registry
                             properties:
+                              allowInsecureRegistry:
+                                description: AllowInsecureRegistry allows insecure
+                                  access to a registry
+                                type: boolean
                               helpers:
                                 description: 'Helpers specifies a list of OCI Registry
                                   names, whose authentication helpers are provided
@@ -8034,6 +8062,10 @@ spec:
                                       credentials that will be used for authentication
                                       with registry
                                     properties:
+                                      allowInsecureRegistry:
+                                        description: AllowInsecureRegistry allows
+                                          insecure access to a registry
+                                        type: boolean
                                       helpers:
                                         description: 'Helpers specifies a list of
                                           OCI Registry names, whose authentication
@@ -9814,6 +9846,10 @@ spec:
                                                 provides credentials that will be
                                                 used for authentication with registry
                                               properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry
+                                                  type: boolean
                                                 helpers:
                                                   description: 'Helpers specifies
                                                     a list of OCI Registry names,
@@ -10168,6 +10204,10 @@ spec:
                                                 provides credentials that will be
                                                 used for authentication with registry
                                               properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry
+                                                  type: boolean
                                                 helpers:
                                                   description: 'Helpers specifies
                                                     a list of OCI Registry names,
@@ -10632,6 +10672,10 @@ spec:
                                                 provides credentials that will be
                                                 used for authentication with registry
                                               properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry
+                                                  type: boolean
                                                 helpers:
                                                   description: 'Helpers specifies
                                                     a list of OCI Registry names,
@@ -11810,6 +11854,10 @@ spec:
                                 description: ImageRegistryCredentials provides credentials
                                   that will be used for authentication with registry
                                 properties:
+                                  allowInsecureRegistry:
+                                    description: AllowInsecureRegistry allows insecure
+                                      access to a registry
+                                    type: boolean
                                   helpers:
                                     description: 'Helpers specifies a list of OCI
                                       Registry names, whose authentication helpers
@@ -12248,6 +12296,10 @@ spec:
                                 description: ImageRegistryCredentials provides credentials
                                   that will be used for authentication with registry
                                 properties:
+                                  allowInsecureRegistry:
+                                    description: AllowInsecureRegistry allows insecure
+                                      access to a registry
+                                    type: boolean
                                   helpers:
                                     description: 'Helpers specifies a list of OCI
                                       Registry names, whose authentication helpers
@@ -13524,6 +13576,10 @@ spec:
                                             credentials that will be used for authentication
                                             with registry
                                           properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry
+                                              type: boolean
                                             helpers:
                                               description: 'Helpers specifies a list
                                                 of OCI Registry names, whose authentication
@@ -13862,6 +13918,10 @@ spec:
                                             credentials that will be used for authentication
                                             with registry
                                           properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry
+                                              type: boolean
                                             helpers:
                                               description: 'Helpers specifies a list
                                                 of OCI Registry names, whose authentication
@@ -14483,6 +14543,10 @@ spec:
                                             credentials that will be used for authentication
                                             with registry
                                           properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry
+                                              type: boolean
                                             helpers:
                                               description: 'Helpers specifies a list
                                                 of OCI Registry names, whose authentication
@@ -15589,6 +15653,10 @@ spec:
                             description: ImageRegistryCredentials provides credentials
                               that will be used for authentication with registry
                             properties:
+                              allowInsecureRegistry:
+                                description: AllowInsecureRegistry allows insecure
+                                  access to a registry
+                                type: boolean
                               helpers:
                                 description: 'Helpers specifies a list of OCI Registry
                                   names, whose authentication helpers are provided
@@ -15912,6 +15980,10 @@ spec:
                                       credentials that will be used for authentication
                                       with registry
                                     properties:
+                                      allowInsecureRegistry:
+                                        description: AllowInsecureRegistry allows
+                                          insecure access to a registry
+                                        type: boolean
                                       helpers:
                                         description: 'Helpers specifies a list of
                                           OCI Registry names, whose authentication
@@ -17692,6 +17764,10 @@ spec:
                                                 provides credentials that will be
                                                 used for authentication with registry
                                               properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry
+                                                  type: boolean
                                                 helpers:
                                                   description: 'Helpers specifies
                                                     a list of OCI Registry names,
@@ -18046,6 +18122,10 @@ spec:
                                                 provides credentials that will be
                                                 used for authentication with registry
                                               properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry
+                                                  type: boolean
                                                 helpers:
                                                   description: 'Helpers specifies
                                                     a list of OCI Registry names,
@@ -18510,6 +18590,10 @@ spec:
                                                 provides credentials that will be
                                                 used for authentication with registry
                                               properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry
+                                                  type: boolean
                                                 helpers:
                                                   description: 'Helpers specifies
                                                     a list of OCI Registry names,
@@ -19688,6 +19772,10 @@ spec:
                                 description: ImageRegistryCredentials provides credentials
                                   that will be used for authentication with registry
                                 properties:
+                                  allowInsecureRegistry:
+                                    description: AllowInsecureRegistry allows insecure
+                                      access to a registry
+                                    type: boolean
                                   helpers:
                                     description: 'Helpers specifies a list of OCI
                                       Registry names, whose authentication helpers
@@ -20153,6 +20241,10 @@ spec:
                                 description: ImageRegistryCredentials provides credentials
                                   that will be used for authentication with registry
                                 properties:
+                                  allowInsecureRegistry:
+                                    description: AllowInsecureRegistry allows insecure
+                                      access to a registry
+                                    type: boolean
                                   helpers:
                                     description: 'Helpers specifies a list of OCI
                                       Registry names, whose authentication helpers
@@ -21855,6 +21947,10 @@ spec:
                                             credentials that will be used for authentication
                                             with registry
                                           properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry
+                                              type: boolean
                                             helpers:
                                               description: 'Helpers specifies a list
                                                 of OCI Registry names, whose authentication
@@ -22193,6 +22289,10 @@ spec:
                                             credentials that will be used for authentication
                                             with registry
                                           properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry
+                                              type: boolean
                                             helpers:
                                               description: 'Helpers specifies a list
                                                 of OCI Registry names, whose authentication
@@ -22632,6 +22732,10 @@ spec:
                                             credentials that will be used for authentication
                                             with registry
                                           properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry
+                                              type: boolean
                                             helpers:
                                               description: 'Helpers specifies a list
                                                 of OCI Registry names, whose authentication
@@ -23759,6 +23863,10 @@ spec:
                             description: ImageRegistryCredentials provides credentials
                               that will be used for authentication with registry
                             properties:
+                              allowInsecureRegistry:
+                                description: AllowInsecureRegistry allows insecure
+                                  access to a registry
+                                type: boolean
                               helpers:
                                 description: 'Helpers specifies a list of OCI Registry
                                   names, whose authentication helpers are provided
@@ -24102,6 +24210,10 @@ spec:
                                       credentials that will be used for authentication
                                       with registry
                                     properties:
+                                      allowInsecureRegistry:
+                                        description: AllowInsecureRegistry allows
+                                          insecure access to a registry
+                                        type: boolean
                                       helpers:
                                         description: 'Helpers specifies a list of
                                           OCI Registry names, whose authentication
@@ -25882,6 +25994,10 @@ spec:
                                                 provides credentials that will be
                                                 used for authentication with registry
                                               properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry
+                                                  type: boolean
                                                 helpers:
                                                   description: 'Helpers specifies
                                                     a list of OCI Registry names,
@@ -26236,6 +26352,10 @@ spec:
                                                 provides credentials that will be
                                                 used for authentication with registry
                                               properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry
+                                                  type: boolean
                                                 helpers:
                                                   description: 'Helpers specifies
                                                     a list of OCI Registry names,
@@ -26700,6 +26820,10 @@ spec:
                                                 provides credentials that will be
                                                 used for authentication with registry
                                               properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry
+                                                  type: boolean
                                                 helpers:
                                                   description: 'Helpers specifies
                                                     a list of OCI Registry names,
@@ -27878,6 +28002,10 @@ spec:
                                 description: ImageRegistryCredentials provides credentials
                                   that will be used for authentication with registry
                                 properties:
+                                  allowInsecureRegistry:
+                                    description: AllowInsecureRegistry allows insecure
+                                      access to a registry
+                                    type: boolean
                                   helpers:
                                     description: 'Helpers specifies a list of OCI
                                       Registry names, whose authentication helpers
@@ -28317,6 +28445,10 @@ spec:
                                 description: ImageRegistryCredentials provides credentials
                                   that will be used for authentication with registry
                                 properties:
+                                  allowInsecureRegistry:
+                                    description: AllowInsecureRegistry allows insecure
+                                      access to a registry
+                                    type: boolean
                                   helpers:
                                     description: 'Helpers specifies a list of OCI
                                       Registry names, whose authentication helpers
@@ -29593,6 +29725,10 @@ spec:
                                             credentials that will be used for authentication
                                             with registry
                                           properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry
+                                              type: boolean
                                             helpers:
                                               description: 'Helpers specifies a list
                                                 of OCI Registry names, whose authentication
@@ -29931,6 +30067,10 @@ spec:
                                             credentials that will be used for authentication
                                             with registry
                                           properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry
+                                              type: boolean
                                             helpers:
                                               description: 'Helpers specifies a list
                                                 of OCI Registry names, whose authentication
@@ -30552,6 +30692,10 @@ spec:
                                             credentials that will be used for authentication
                                             with registry
                                           properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry
+                                              type: boolean
                                             helpers:
                                               description: 'Helpers specifies a list
                                                 of OCI Registry names, whose authentication
@@ -31658,6 +31802,10 @@ spec:
                             description: ImageRegistryCredentials provides credentials
                               that will be used for authentication with registry
                             properties:
+                              allowInsecureRegistry:
+                                description: AllowInsecureRegistry allows insecure
+                                  access to a registry
+                                type: boolean
                               helpers:
                                 description: 'Helpers specifies a list of OCI Registry
                                   names, whose authentication helpers are provided
@@ -31981,6 +32129,10 @@ spec:
                                       credentials that will be used for authentication
                                       with registry
                                     properties:
+                                      allowInsecureRegistry:
+                                        description: AllowInsecureRegistry allows
+                                          insecure access to a registry
+                                        type: boolean
                                       helpers:
                                         description: 'Helpers specifies a list of
                                           OCI Registry names, whose authentication
@@ -33761,6 +33913,10 @@ spec:
                                                 provides credentials that will be
                                                 used for authentication with registry
                                               properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry
+                                                  type: boolean
                                                 helpers:
                                                   description: 'Helpers specifies
                                                     a list of OCI Registry names,
@@ -34115,6 +34271,10 @@ spec:
                                                 provides credentials that will be
                                                 used for authentication with registry
                                               properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry
+                                                  type: boolean
                                                 helpers:
                                                   description: 'Helpers specifies
                                                     a list of OCI Registry names,
@@ -34579,6 +34739,10 @@ spec:
                                                 provides credentials that will be
                                                 used for authentication with registry
                                               properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry
+                                                  type: boolean
                                                 helpers:
                                                   description: 'Helpers specifies
                                                     a list of OCI Registry names,
@@ -35757,6 +35921,10 @@ spec:
                                 description: ImageRegistryCredentials provides credentials
                                   that will be used for authentication with registry
                                 properties:
+                                  allowInsecureRegistry:
+                                    description: AllowInsecureRegistry allows insecure
+                                      access to a registry
+                                    type: boolean
                                   helpers:
                                     description: 'Helpers specifies a list of OCI
                                       Registry names, whose authentication helpers

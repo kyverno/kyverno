@@ -39,7 +39,7 @@ func NewEngine(
 		metricsConfiguration,
 		jp,
 		adapters.Client(client),
-		engineapi.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), kubeClient),
+		adapters.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), kubeClient),
 		engineapi.DefaultContextLoaderFactory(configMapResolver),
 		exceptionsSelector,
 		imageSignatureRepository,
