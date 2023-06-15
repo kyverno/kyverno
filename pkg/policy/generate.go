@@ -27,6 +27,7 @@ func (pc *policyController) handleGenerate(policyKey string, policy kyvernov1.Po
 		return nil
 	}
 
+	logger.V(4).Info("reconcile policy with generateExisting enabled")
 	if err := pc.handleGenerateForExisting(policy); err != nil {
 		logger.Error(err, "failed to create UR for generateExisting")
 		return err
@@ -104,6 +105,7 @@ func (pc *policyController) syncDataRulechanges(policy kyvernov1.PolicyInterface
 		return err
 	}
 
+	pc.log.V(4).Info("sync data rule changes to downstream targets")
 	var errorList []error
 	for _, downstream := range downstreams.Items {
 		labels := downstream.GetLabels()
