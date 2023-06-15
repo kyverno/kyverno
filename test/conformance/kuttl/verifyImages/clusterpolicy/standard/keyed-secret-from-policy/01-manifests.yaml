@@ -66,10 +66,9 @@ spec:
 ---
 apiVersion: v1
 data:
-  # .dockerconfigjson: eyJhdXRocyI6eyJyZWciOnsidXNlcm5hbWUiOiJ1c2VyIiwicGFzc3dvcmQiOiJwYXNzIiwiYXV0aCI6ImRYTmxjanB3WVhOeiJ9fX0=
+  .dockerconfigjson: eyJhdXRocyI6eyJyZWciOnsidXNlcm5hbWUiOiJ1c2VyIiwicGFzc3dvcmQiOiJwYXNzIiwiYXV0aCI6ImRYTmxjanB3WVhOeiJ9fX0=
 kind: Secret
 metadata:
-  creationTimestamp: null
   name: testsecret
   namespace: kyverno
 type: kubernetes.io/dockerconfigjson
