@@ -356,6 +356,5 @@ func (ctx *context) reset(remove bool) {
 func (ctx *context) AddDeferredLoader(name string, loader DeferredLoader) {
 	ctx.deferred.mutex.Lock()
 	defer ctx.deferred.mutex.Unlock()
-	ctx.deferredOrder = append(ctx.deferredOrder, name)
 	ctx.deferred.loaders[name] = loader
 }
