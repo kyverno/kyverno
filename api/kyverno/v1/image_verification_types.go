@@ -14,19 +14,18 @@ import (
 type ImageVerificationType string
 
 // ImageRegistryCredentialsHelpersType provides the list of credential helpers required.
-// +kubebuilder:validation:Enum=DEFAULT;AWS;ACR;GCP;GHCR
-// +kubebuilder:default=DEFAULT
+// +kubebuilder:validation:Enum=default;amazon;azure;google;github
 type ImageRegistryCredentialsHelpersType string
 
 const (
 	Cosign ImageVerificationType = "Cosign"
 	Notary ImageVerificationType = "Notary"
 
-	DEFAULT ImageRegistryCredentialsHelpersType = "DEFAULT"
-	AWS     ImageRegistryCredentialsHelpersType = "AWS"
-	ACR     ImageRegistryCredentialsHelpersType = "ACR"
-	GCP     ImageRegistryCredentialsHelpersType = "GCP"
-	GHCR    ImageRegistryCredentialsHelpersType = "GHCR"
+	DEFAULT ImageRegistryCredentialsHelpersType = "default"
+	AWS     ImageRegistryCredentialsHelpersType = "amazon"
+	ACR     ImageRegistryCredentialsHelpersType = "azure"
+	GCP     ImageRegistryCredentialsHelpersType = "google"
+	GHCR    ImageRegistryCredentialsHelpersType = "github"
 )
 
 // ImageVerification validates that images that match the specified pattern

@@ -236,11 +236,11 @@ spec:
                                 description: ImageRegistryCredentialsHelpersType provides
                                   the list of credential helpers required.
                                 enum:
-                                - DEFAULT
-                                - AWS
-                                - ACR
-                                - GCP
-                                - GHCR
+                                - default
+                                - amazon
+                                - azure
+                                - google
+                                - github
                                 type: string
                               type: array
                             secrets:
