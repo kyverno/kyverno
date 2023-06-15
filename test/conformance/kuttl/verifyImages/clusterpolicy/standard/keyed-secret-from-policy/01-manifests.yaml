@@ -34,7 +34,7 @@ data:
 apiVersion: kyverno.io/v2beta1
 kind: ClusterPolicy
 metadata:
-  name: check-image-notary
+  name: secret-in-keys
 spec:
   validationFailureAction: Enforce
   webhookTimeoutSeconds: 30
