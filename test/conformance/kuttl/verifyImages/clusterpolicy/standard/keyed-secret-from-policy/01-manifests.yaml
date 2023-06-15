@@ -62,7 +62,7 @@ spec:
               cert: "{{ keys.data.certificate }}"
         imageRegistryCredentials:
         - secrets:
-          - name: testsecret
+          - testsecret
 ---
 apiVersion: v1
 data:

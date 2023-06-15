@@ -48,7 +48,6 @@ type controller struct {
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
 	engine        engineapi.Engine
-	// rclientFactory engineapi.RegistryClientFactory
 
 	// listers
 	polLister      kyvernov1listers.PolicyLister
