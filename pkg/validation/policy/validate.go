@@ -12,7 +12,6 @@ import (
 
 	"github.com/distribution/distribution/reference"
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	"github.com/jmespath/go-jmespath"
 	"github.com/jmoiron/jsonq"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
@@ -47,16 +46,13 @@ var (
 	errOperationForbidden    = errors.New("variables are forbidden in the path of a JSONPatch")
 )
 
+var allowedJsonPatch = regexp.MustCompile("^/")
+
 // validateJSONPatchPathForForwardSlash checks for forward slash
 func validateJSONPatchPathForForwardSlash(patch string) error {
 	// Replace all variables in PatchesJSON6902, all variable checks should have happened already.
 	// This prevents further checks from failing unexpectedly.
 	patch = variables.ReplaceAllVars(patch, func(s string) string { return "kyvernojsonpatchvariable" })
-
-	re, err := regexp.Compile("^/")
-	if err != nil {
-		return err
-	}
 
 	jsonPatch, err := yaml.ToJSON([]byte(patch))
 	if err != nil {
@@ -74,7 +70,7 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 			return err
 		}
 
-		val := re.MatchString(path)
+		val := allowedJsonPatch.MatchString(path)
 
 		if !val {
 			return fmt.Errorf("%s", path)
