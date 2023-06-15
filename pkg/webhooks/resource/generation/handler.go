@@ -116,7 +116,7 @@ func (h *generationHandler) handleTrigger(
 		for _, rule := range engineResponse.PolicyResponse.Rules {
 			if rule.Status() == engineapi.RuleStatusPass {
 				appliedRules = append(appliedRules, rule)
-			} else if rule.Status() == engineapi.RuleStatusFail || rule.Status() == engineapi.RuleStatusSkip {
+			} else if rule.Status() == engineapi.RuleStatusFail {
 				failedRules = append(failedRules, rule)
 			}
 		}
