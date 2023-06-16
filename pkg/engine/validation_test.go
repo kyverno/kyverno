@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/factories"
 	enginetest "github.com/kyverno/kyverno/pkg/engine/test"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -30,15 +31,14 @@ func testValidate(
 	contextLoader engineapi.ContextLoaderFactory,
 ) engineapi.EngineResponse {
 	if contextLoader == nil {
-		contextLoader = engineapi.DefaultContextLoaderFactory(nil)
+		contextLoader = factories.DefaultContextLoaderFactory(nil)
 	}
 	e := NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
 		jp,
 		nil,
-		adapters.ImageDataClient(rclient),
-		rclient,
+		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 		contextLoader,
 		nil,
 		"",

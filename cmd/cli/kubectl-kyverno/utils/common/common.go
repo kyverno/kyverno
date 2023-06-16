@@ -848,7 +848,6 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 		fmt.Printf("Failed to mock dynamic client")
 		return nil, err
 	}
-
 	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
 	cfg := config.NewDefaultConfiguration(false)
 	c := generate.NewGenerateControllerWithOnlyClient(client, engine.NewEngine(
@@ -856,7 +855,6 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 		config.NewDefaultMetricsConfiguration(),
 		jmespath.New(cfg),
 		adapters.Client(client),
-		nil,
 		nil,
 		store.ContextLoaderFactory(nil),
 		nil,

@@ -300,6 +300,7 @@ func main() {
 		setup.RegistryClient,
 		setup.KubeClient,
 		setup.KyvernoClient,
+		setup.RegistrySecretLister,
 	)
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
@@ -414,7 +415,6 @@ func main() {
 		engine,
 		setup.KyvernoDynamicClient,
 		setup.KyvernoClient,
-		setup.RegistryClient,
 		setup.Configuration,
 		setup.MetricsManager,
 		policyCache,

@@ -23,7 +23,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeinformers "k8s.io/client-go/informers"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
@@ -41,7 +40,6 @@ func createReportControllers(
 	backgroundScanWorkers int,
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
-	rclient registryclient.Client,
 	metadataFactory metadatainformers.SharedInformerFactory,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
@@ -132,7 +130,6 @@ func createrLeaderControllers(
 	metadataInformer metadatainformers.SharedInformerFactory,
 	kyvernoClient versioned.Interface,
 	dynamicClient dclient.Interface,
-	rclient registryclient.Client,
 	configuration config.Configuration,
 	jp jmespath.Interface,
 	eventGenerator event.Interface,
@@ -146,7 +143,6 @@ func createrLeaderControllers(
 		backgroundScanWorkers,
 		dynamicClient,
 		kyvernoClient,
-		rclient,
 		metadataInformer,
 		kubeInformer,
 		kyvernoInformer,
@@ -233,6 +229,7 @@ func main() {
 		setup.RegistryClient,
 		setup.KubeClient,
 		setup.KyvernoClient,
+		setup.RegistrySecretLister,
 	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kyvernoInformer) {
@@ -269,7 +266,6 @@ func main() {
 				metadataInformer,
 				setup.KyvernoClient,
 				setup.KyvernoDynamicClient,
-				setup.RegistryClient,
 				setup.Configuration,
 				setup.Jp,
 				eventGenerator,
