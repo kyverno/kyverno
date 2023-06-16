@@ -30,12 +30,12 @@ func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.
 		if creds.AllowInsecureRegistry {
 			registryOptions = append(registryOptions, registryclient.WithAllowInsecureRegistry())
 		}
-		if len(creds.Helpers) > 0 {
-			var helpers []string
-			for _, helper := range creds.Helpers {
-				helpers = append(helpers, string(helper))
+		if len(creds.Providers) > 0 {
+			var providers []string
+			for _, helper := range creds.Providers {
+				providers = append(providers, string(helper))
 			}
-			registryOptions = append(registryOptions, registryclient.WithCredentialHelpers(helpers...))
+			registryOptions = append(registryOptions, registryclient.WithCredentialProviders(providers...))
 		}
 		if len(creds.Secrets) > 0 {
 			registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(ctx, f.secretsLister, creds.Secrets...))
