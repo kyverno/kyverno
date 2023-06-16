@@ -428,6 +428,9 @@ cleanupJobs:
       seccompProfile:
         type: RuntimeDefault
 
+    # -- Job resources
+    resources: {}
+
     # -- List of node taints to tolerate
     tolerations: []
 
@@ -476,6 +479,9 @@ cleanupJobs:
           - ALL
       seccompProfile:
         type: RuntimeDefault
+
+    # -- Job resources
+    resources: {}
 
     # -- List of node taints to tolerate
     tolerations: []
