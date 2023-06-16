@@ -67,7 +67,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.27.3
-	k8s.io/apiextensions-apiserver v0.27.2
+	k8s.io/apiextensions-apiserver v0.27.3
 	k8s.io/apimachinery v0.27.3
 	k8s.io/apiserver v0.27.3
 	k8s.io/cli-runtime v0.27.2
@@ -75,7 +75,7 @@ require (
 	k8s.io/klog/v2 v2.100.1
 	k8s.io/kube-aggregator v0.27.3
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f
-	k8s.io/pod-security-admission v0.27.2
+	k8s.io/pod-security-admission v0.27.3
 	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
 	sigs.k8s.io/controller-runtime v0.15.0
 	sigs.k8s.io/kustomize/api v0.13.4
