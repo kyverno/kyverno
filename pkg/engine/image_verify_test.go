@@ -15,6 +15,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
+	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
@@ -182,8 +183,8 @@ func testVerifyAndPatchImages(
 		metricsCfg,
 		jp,
 		nil,
-		adapters.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
-		engineapi.DefaultContextLoaderFactory(cmResolver),
+		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+		factories.DefaultContextLoaderFactory(cmResolver),
 		nil,
 		"",
 	)

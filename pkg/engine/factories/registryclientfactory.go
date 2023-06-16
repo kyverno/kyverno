@@ -1,13 +1,21 @@
-package adapters
+package factories
 
 import (
 	"context"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
+
+func DefaultRegistryClientFactory(globalClient engineapi.RegistryClient, secretsLister corev1listers.SecretNamespaceLister) engineapi.RegistryClientFactory {
+	return &registryClientFactory{
+		globalClient:  globalClient,
+		secretsLister: secretsLister,
+	}
+}
 
 type registryClientFactory struct {
 	globalClient  engineapi.RegistryClient
@@ -36,14 +44,7 @@ func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.
 		if err != nil {
 			return nil, err
 		}
-		return RegistryClient(client), nil
+		return adapters.RegistryClient(client), nil
 	}
 	return f.globalClient, nil
-}
-
-func DefaultRegistryClientFactory(globalClient engineapi.RegistryClient, secretsLister corev1listers.SecretNamespaceLister) engineapi.RegistryClientFactory {
-	return &registryClientFactory{
-		globalClient:  globalClient,
-		secretsLister: secretsLister,
-	}
 }
