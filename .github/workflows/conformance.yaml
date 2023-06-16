@@ -233,10 +233,13 @@ jobs:
     needs: prepare-images
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }}
     steps:
-      - name: Checkout
+      - name: Checkout kyverno/kyverno
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+      - name: Checkout kyverno/policies
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           repository: kyverno/policies
+          path: policies
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         with:
