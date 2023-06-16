@@ -867,19 +867,18 @@ func jpModulo(arguments []interface{}) (interface{}, error) {
 }
 
 func jpRound(arguments []interface{}) (interface{}, error) {
-	op1, op2, err := parseArithemticOperands(arguments, round)
+	op1, _, err := parseArithemticOperands(arguments, round)
 	if err != nil {
 		return nil, err
 	}
-	switch v := op2.(type){
-	case scalar:
-		if v.float64 != math.Trunc(v.float64){
-			return nil, formatError(nonIntRoundError, round)
-		}
-		return op1.Round(int(v.float64))
-	default :
-		return nil, formatError(typeMismatchError, round)
+	length, err := validateArg(truncate, arguments, 1, reflect.Float64)
+	if err != nil {
+		return nil, err
 	}
+	if length.Float() != math.Trunc(length.Float()){
+		return nil, formatError(nonIntRoundError, round)
+	}
+	return op1.Round(int(length.Float()))
 }
 
 func jpBase64Decode(arguments []interface{}) (interface{}, error) {
