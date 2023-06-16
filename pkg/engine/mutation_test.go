@@ -9,7 +9,9 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	client "github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/factories"
 	enginetest "github.com/kyverno/kyverno/pkg/engine/test"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -28,14 +30,14 @@ func testMutate(
 	contextLoader engineapi.ContextLoaderFactory,
 ) engineapi.EngineResponse {
 	if contextLoader == nil {
-		contextLoader = engineapi.DefaultContextLoaderFactory(nil)
+		contextLoader = factories.DefaultContextLoaderFactory(nil)
 	}
 	e := NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
 		jp,
-		client,
-		rclient,
+		adapters.Client(client),
+		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 		contextLoader,
 		nil,
 		"",

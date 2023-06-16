@@ -9,6 +9,7 @@ runs:
       run: |
         kubectl get mutatingwebhookconfigurations
         kubectl get validatingwebhookconfigurations
+        kubectl auth can-i --list --as system:serviceaccount:kyverno:kyverno-background-controller 
     - shell: bash
       run: |
         kubectl -n kyverno get pod

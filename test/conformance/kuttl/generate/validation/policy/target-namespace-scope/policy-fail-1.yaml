@@ -1,0 +1,31 @@
+---
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: pol-target-namespace-scope-fail-1
+  namespace: default
+spec:
+  generateExistingOnPolicyUpdate: true
+  rules:
+    - generate:
+        apiVersion: iam.aws.crossplane.io/v1beta1
+        data:
+          rules:
+            - verbs:
+                - "*"
+              apiGroups:
+                - "*"
+              resources:
+                - "*"
+        kind: Role
+        name: superuser
+        namespace: default
+        synchronize: true
+      match:
+        any:
+          - resources:
+              kinds:
+                - Secret
+              names:
+                - dev-*
+      name: role-per-namespace

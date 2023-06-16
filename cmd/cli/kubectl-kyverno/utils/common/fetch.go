@@ -315,8 +315,11 @@ func GetPatchedAndGeneratedResource(resourceBytes []byte) (unstructured.Unstruct
 	if err != nil {
 		return unstructured.Unstructured{}, err
 	}
-	resource := *getResource[0]
-	return resource, nil
+	if len(getResource) > 0 && getResource[0] != nil {
+		resource := *getResource[0]
+		return resource, nil
+	}
+	return unstructured.Unstructured{}, err
 }
 
 // GetKindsFromRule will return the kinds from policy match block

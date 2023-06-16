@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cpol-clone-sync-existing-update-trigger-no-precondition-ns
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    create: "true"
+  name: test-org
+  namespace: cpol-clone-sync-existing-update-trigger-no-precondition-ns
