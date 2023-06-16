@@ -263,7 +263,7 @@ jobs:
       - name: Test policy library with kuttl
         run: |
           ./.tools/kubectl-kuttl test ./policies \
-            --config ./test/conformance/kuttl/_config/common.yaml
+            --config ./policies/kuttl-test.yaml
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
