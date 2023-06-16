@@ -13,19 +13,19 @@ import (
 // +kubebuilder:default=Cosign
 type ImageVerificationType string
 
-// ImageRegistryCredentialsHelpersType provides the list of credential helpers required.
+// ImageRegistryCredentialsProvidersType provides the list of credential providers required.
 // +kubebuilder:validation:Enum=default;amazon;azure;google;github
-type ImageRegistryCredentialsHelpersType string
+type ImageRegistryCredentialsProvidersType string
 
 const (
 	Cosign ImageVerificationType = "Cosign"
 	Notary ImageVerificationType = "Notary"
 
-	DEFAULT ImageRegistryCredentialsHelpersType = "default"
-	AWS     ImageRegistryCredentialsHelpersType = "amazon"
-	ACR     ImageRegistryCredentialsHelpersType = "azure"
-	GCP     ImageRegistryCredentialsHelpersType = "google"
-	GHCR    ImageRegistryCredentialsHelpersType = "github"
+	DEFAULT ImageRegistryCredentialsProvidersType = "default"
+	AWS     ImageRegistryCredentialsProvidersType = "amazon"
+	ACR     ImageRegistryCredentialsProvidersType = "azure"
+	GCP     ImageRegistryCredentialsProvidersType = "google"
+	GHCR    ImageRegistryCredentialsProvidersType = "github"
 )
 
 // ImageVerification validates that images that match the specified pattern
@@ -273,10 +273,10 @@ type ImageRegistryCredentials struct {
 	// +kubebuilder:validation:Optional
 	AllowInsecureRegistry bool `json:"allowInsecureRegistry,omitempty" yaml:"allowInsecureRegistry,omitempty"`
 
-	// Helpers specifies a list of OCI Registry names, whose authentication helpers are provided
+	// Providers specifies a list of OCI Registry names, whose authentication providers are provided
 	// It can be of one of these values: AWS, ACR, GCP, GHCR
 	// +kubebuilder:validation:Optional
-	Helpers []ImageRegistryCredentialsHelpersType `json:"helpers,omitempty" yaml:"helpers,omitempty"`
+	Providers []ImageRegistryCredentialsProvidersType `json:"providers,omitempty" yaml:"providers,omitempty"`
 
 	// Secrets specifies a list of secrets that are provided for credentials
 	// Secrets must live in the Kyverno namespace
