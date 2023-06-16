@@ -95,6 +95,12 @@ func (s *scanner) validateResource(ctx context.Context, resource unstructured.Un
 }
 
 func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*engineapi.EngineResponse, error) {
+	annotations := resource.GetAnnotations()
+	if annotations != nil {
+		resource = *resource.DeepCopy()
+		delete(annotations, "kyverno.io/verify-images")
+		resource.SetAnnotations(annotations)
+	}
 	enginectx := enginecontext.NewContext(s.jp)
 	if err := enginectx.AddResource(resource.Object); err != nil {
 		return nil, err
