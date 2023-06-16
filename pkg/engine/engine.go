@@ -8,7 +8,6 @@ import (
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
@@ -18,7 +17,6 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
 	"go.opentelemetry.io/otel/metric"
@@ -31,8 +29,8 @@ type engine struct {
 	configuration            config.Configuration
 	metricsConfiguration     config.MetricsConfiguration
 	jp                       jmespath.Interface
-	client                   dclient.Interface
-	rclient                  registryclient.Client
+	client                   engineapi.Client
+	rclientFactory           engineapi.RegistryClientFactory
 	contextLoader            engineapi.ContextLoaderFactory
 	exceptionSelector        engineapi.PolicyExceptionSelector
 	imageSignatureRepository string
@@ -47,8 +45,8 @@ func NewEngine(
 	configuration config.Configuration,
 	metricsConfiguration config.MetricsConfiguration,
 	jp jmespath.Interface,
-	client dclient.Interface,
-	rclient registryclient.Client,
+	client engineapi.Client,
+	rclientFactory engineapi.RegistryClientFactory,
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,
 	imageSignatureRepository string,
@@ -73,7 +71,7 @@ func NewEngine(
 		metricsConfiguration:     metricsConfiguration,
 		jp:                       jp,
 		client:                   client,
-		rclient:                  rclient,
+		rclientFactory:           rclientFactory,
 		contextLoader:            contextLoader,
 		exceptionSelector:        exceptionSelector,
 		imageSignatureRepository: imageSignatureRepository,
@@ -177,7 +175,7 @@ func (e *engine) ContextLoader(
 			ctx,
 			e.jp,
 			e.client,
-			e.rclient,
+			e.rclientFactory,
 			contextEntries,
 			jsonContext,
 		)
