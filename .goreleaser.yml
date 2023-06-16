@@ -1,7 +1,9 @@
-project_name: kyverno-cli 
+project_name: kyverno-cli
+
 before:
   hooks:
     - go mod download
+
 builds:
 - id: kyverno-cli
   main: cmd/cli/kubectl-kyverno/main.go
@@ -23,6 +25,20 @@ builds:
       goarch: s390x
     - goos: windows
       goarch: s390x
+
+signs:
+  - cmd: cosign
+    env:
+      - COSIGN_EXPERIMENTAL=1
+    certificate: '${artifact}.pem'
+    args:
+      - sign-blob
+      - --output-certificate=${certificate}
+      - --output-signature=${signature}
+      - ${artifact}
+    artifacts: all
+    output: true
+
 archives:
 - id: kyverno-cli-archive
   name_template: |-
@@ -41,11 +57,16 @@ archives:
     386: i386
     amd64: x86_64
   files: ["LICENSE"]
+
 checksum:
-  name_template: "checksums.txt"
-  algorithm: sha256
+  name_template: checksums.txt
+
+source:
+  enabled: true
+
 release:
   prerelease: auto
+
 changelog:
   sort: asc
   filters:
@@ -53,5 +74,3 @@ changelog:
       - '^docs:'
       - typo
       - '^test:'
-source:
-  enabled: true
