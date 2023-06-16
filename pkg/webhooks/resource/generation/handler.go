@@ -176,7 +176,7 @@ func (h *generationHandler) applyGeneration(
 }
 
 // handleFailedRules sync changes of the trigger to the downstream
-// it can be 1. trigger deletion; 2. trigger no longer matches, when a rule fails
+// it can be 1. trigger deletion; 2. trigger no longer matches, when a rule fails or is skipped
 func (h *generationHandler) syncTriggerAction(
 	ctx context.Context,
 	request admissionv1.AdmissionRequest,
