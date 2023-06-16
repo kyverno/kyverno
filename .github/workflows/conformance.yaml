@@ -217,7 +217,7 @@ jobs:
         config:
           - name: policy-library
             values:
-              - policy-library
+              - standard
         k8s-version:
           - name: v1.24
             version: v1.24.12
