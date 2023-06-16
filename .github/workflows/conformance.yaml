@@ -262,9 +262,8 @@ jobs:
         uses: ./.github/actions/kyverno-wait-ready
       - name: Test policy library with kuttl
         run: |
-          cd ./policies && \
-          ../.tools/kubectl-kuttl test ./ \
-            --config ./kuttl-test.yaml
+          cd policies
+          ../.tools/kubectl-kuttl test . --config ./kuttl-test.yaml
       - name: Debug failure
         if: failure()
         uses: ../.github/actions/kyverno-logs
