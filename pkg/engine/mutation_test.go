@@ -15,11 +15,24 @@ import (
 	enginetest "github.com/kyverno/kyverno/pkg/engine/test"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/stretchr/testify/require"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
+
+func loadResource[T any](t *testing.T, bytes []byte) T {
+	var result T
+	require.NoError(t, json.Unmarshal(bytes, &result))
+	return result
+}
+
+func loadUnstructured(t *testing.T, bytes []byte) unstructured.Unstructured {
+	var resource unstructured.Unstructured
+	require.NoError(t, resource.UnmarshalJSON(bytes))
+	return resource
+}
 
 func testMutate(
 	ctx context.Context,
@@ -1032,6 +1045,220 @@ func testApplyPolicyToResource(t *testing.T, policyRaw, resourceRaw []byte) engi
 
 	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
 	return er
+}
+
+func Test_patchStrategicMerge_descending(t *testing.T) {
+	policyRaw := []byte(`{
+    "apiVersion": "kyverno.io/v1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+      "name": "replace-image"
+    },
+    "spec": {
+      "background": false,
+      "rules": [
+        {
+          "name": "replace-image",
+          "match": {
+            "all": [
+              {
+                "resources": {
+                  "kinds": [
+                    "Pod"
+                  ]
+                }
+              }
+            ]
+          },
+          "mutate": {
+            "foreach": [
+              {
+                "list": "request.object.spec.containers",
+                "order": "Descending",
+                "patchStrategicMerge": {
+                  "spec": {
+                    "containers": [
+                      {
+                        "(name)": "{{ element.name }}",
+                        "image": "replaced"
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }`)
+	resourceRaw := []byte(`{
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+      "name": "mongodb",
+      "labels": {
+        "app": "mongodb"
+      }
+    },
+    "spec": {
+      "containers": [
+        {
+          "image": "docker.io/mongo:5.0.3",
+          "name": "mongod"
+        },
+        {
+          "image": "nginx",
+          "name": "nginx"
+        },
+        {
+          "image": "nginx",
+          "name": "nginx3"
+        },
+        {
+          "image": "quay.io/mongodb/mongodb-agent:11.0.5.6963-1",
+          "name": "mongodb-agent"
+        }
+      ]
+    }
+  }`)
+	policy := loadResource[kyverno.ClusterPolicy](t, policyRaw)
+	resource := loadUnstructured(t, resourceRaw)
+
+	ctx := enginecontext.NewContext(jp)
+	err := ctx.AddResource(resource.Object)
+	assert.NilError(t, err)
+
+	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).
+		WithPolicy(&policy).
+		WithNewResource(resource)
+
+	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
+
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+
+	containers, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "containers")
+	assert.NilError(t, err)
+
+	for i, c := range containers {
+		ctnr := c.(map[string]interface{})
+		switch i {
+		case 0:
+			assert.Equal(t, ctnr["name"], "mongod")
+		case 1:
+			assert.Equal(t, ctnr["name"], "nginx")
+		case 3:
+			assert.Equal(t, ctnr["name"], "mongodb-agent")
+		}
+	}
+}
+
+func Test_patchStrategicMerge_ascending(t *testing.T) {
+	policyRaw := []byte(`{
+    "apiVersion": "kyverno.io/v1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+      "name": "replace-image"
+    },
+    "spec": {
+      "background": false,
+      "rules": [
+        {
+          "name": "replace-image",
+          "match": {
+            "all": [
+              {
+                "resources": {
+                  "kinds": [
+                    "Pod"
+                  ]
+                }
+              }
+            ]
+          },
+          "mutate": {
+            "foreach": [
+              {
+                "list": "request.object.spec.containers",
+                "order": "Ascending",
+                "patchStrategicMerge": {
+                  "spec": {
+                    "containers": [
+                      {
+                        "(name)": "{{ element.name }}",
+                        "image": "replaced"
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }`)
+	resourceRaw := []byte(`{
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+      "name": "mongodb",
+      "labels": {
+        "app": "mongodb"
+      }
+    },
+    "spec": {
+      "containers": [
+        {
+          "image": "docker.io/mongo:5.0.3",
+          "name": "mongod"
+        },
+        {
+          "image": "nginx",
+          "name": "nginx"
+        },
+        {
+          "image": "nginx",
+          "name": "nginx3"
+        },
+        {
+          "image": "quay.io/mongodb/mongodb-agent:11.0.5.6963-1",
+          "name": "mongodb-agent"
+        }
+      ]
+    }
+  }`)
+	policy := loadResource[kyverno.ClusterPolicy](t, policyRaw)
+	resource := loadUnstructured(t, resourceRaw)
+
+	ctx := enginecontext.NewContext(jp)
+	err := ctx.AddResource(resource.Object)
+	assert.NilError(t, err)
+
+	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).
+		WithPolicy(&policy).
+		WithNewResource(resource)
+
+	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
+
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+
+	containers, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "containers")
+	assert.NilError(t, err)
+
+	for i, c := range containers {
+		ctnr := c.(map[string]interface{})
+		switch i {
+		case 0:
+			assert.Equal(t, ctnr["name"], "mongodb-agent")
+		case 1:
+			assert.Equal(t, ctnr["name"], "nginx3")
+		case 3:
+			assert.Equal(t, ctnr["name"], "mongod")
+		}
+	}
 }
 
 func Test_mutate_nested_foreach(t *testing.T) {
