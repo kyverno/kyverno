@@ -841,6 +841,11 @@ func Test_Round(t *testing.T) {
 			test: "round('12s', `2.3`)",
 			err:  true,
 		},
+		{
+			name: "Scalar roundoff negative int -> error",
+			test: "round('12s', `-1`)",
+			err:  true,
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {

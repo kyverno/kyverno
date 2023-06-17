@@ -871,13 +871,18 @@ func jpRound(arguments []interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	length, err := validateArg(truncate, arguments, 1, reflect.Float64)
 	if err != nil {
 		return nil, err
 	}
+	if length.Float() < 0 {
+		return nil,formatError(argOutOfBoundsError, round)
+	}
 	if length.Float() != math.Trunc(length.Float()){
 		return nil, formatError(nonIntRoundError, round)
 	}
+	
 	return op1.Round(int(length.Float()))
 }
 
