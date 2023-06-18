@@ -17,7 +17,6 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
 	"go.opentelemetry.io/otel/metric"
@@ -31,8 +30,7 @@ type engine struct {
 	metricsConfiguration     config.MetricsConfiguration
 	jp                       jmespath.Interface
 	client                   engineapi.Client
-	imgClient                engineapi.ImageDataClient
-	rclient                  registryclient.Client
+	rclientFactory           engineapi.RegistryClientFactory
 	contextLoader            engineapi.ContextLoaderFactory
 	exceptionSelector        engineapi.PolicyExceptionSelector
 	imageSignatureRepository string
@@ -48,8 +46,7 @@ func NewEngine(
 	metricsConfiguration config.MetricsConfiguration,
 	jp jmespath.Interface,
 	client engineapi.Client,
-	imgClient engineapi.ImageDataClient,
-	rclient registryclient.Client,
+	rclientFactory engineapi.RegistryClientFactory,
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,
 	imageSignatureRepository string,
@@ -74,8 +71,7 @@ func NewEngine(
 		metricsConfiguration:     metricsConfiguration,
 		jp:                       jp,
 		client:                   client,
-		imgClient:                imgClient,
-		rclient:                  rclient,
+		rclientFactory:           rclientFactory,
 		contextLoader:            contextLoader,
 		exceptionSelector:        exceptionSelector,
 		imageSignatureRepository: imageSignatureRepository,
@@ -179,7 +175,7 @@ func (e *engine) ContextLoader(
 			ctx,
 			e.jp,
 			e.client,
-			e.imgClient,
+			e.rclientFactory,
 			contextEntries,
 			jsonContext,
 		)

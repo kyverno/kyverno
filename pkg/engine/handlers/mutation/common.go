@@ -2,6 +2,7 @@ package mutation
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -36,7 +37,7 @@ func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 
 		mutateResp := f.mutateElements(ctx, foreach, elements)
 		if mutateResp.Status == engineapi.RuleStatusError {
-			return mutate.NewErrorResponse("failed to mutate elements", err)
+			return mutate.NewErrorResponse("failed to mutate elements", errors.New(mutateResp.Message))
 		}
 
 		if mutateResp.Status != engineapi.RuleStatusSkip {
