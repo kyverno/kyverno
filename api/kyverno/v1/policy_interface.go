@@ -11,7 +11,6 @@ import (
 type PolicyInterface interface {
 	metav1.Object
 	BackgroundProcessingEnabled() bool
-	HasAutoGenAnnotation() bool
 	IsNamespaced() bool
 	GetSpec() *Spec
 	GetStatus() *PolicyStatus
