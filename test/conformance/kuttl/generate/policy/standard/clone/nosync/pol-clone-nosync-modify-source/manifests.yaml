@@ -23,7 +23,7 @@ spec:
     generate:
       apiVersion: v1
       kind: Secret
-      name: newsecret
+      name: pol-clone-nosync-modify-source-newsecret
       namespace: default
       synchronize: false
       clone:

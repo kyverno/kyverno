@@ -9,13 +9,23 @@ import (
 )
 
 // ImageVerificationType selects the type of verification algorithm
-// +kubebuilder:validation:Enum=Cosign;NotaryV2
+// +kubebuilder:validation:Enum=Cosign;Notary
 // +kubebuilder:default=Cosign
 type ImageVerificationType string
 
+// ImageRegistryCredentialsProvidersType provides the list of credential providers required.
+// +kubebuilder:validation:Enum=default;amazon;azure;google;github
+type ImageRegistryCredentialsProvidersType string
+
 const (
-	Cosign   ImageVerificationType = "Cosign"
-	NotaryV2 ImageVerificationType = "NotaryV2"
+	Cosign ImageVerificationType = "Cosign"
+	Notary ImageVerificationType = "Notary"
+
+	DEFAULT ImageRegistryCredentialsProvidersType = "default"
+	AWS     ImageRegistryCredentialsProvidersType = "amazon"
+	ACR     ImageRegistryCredentialsProvidersType = "azure"
+	GCP     ImageRegistryCredentialsProvidersType = "google"
+	GHCR    ImageRegistryCredentialsProvidersType = "github"
 )
 
 // ImageVerification validates that images that match the specified pattern
@@ -23,7 +33,7 @@ const (
 // mutated to include the SHA digest retrieved during the registration.
 type ImageVerification struct {
 	// Type specifies the method of signature validation. The allowed options
-	// are Cosign and NotaryV2. By default Cosign is used if a type is not specified.
+	// are Cosign and Notary. By default Cosign is used if a type is not specified.
 	// +kubebuilder:validation:Optional
 	Type ImageVerificationType `json:"type,omitempty" yaml:"type,omitempty"`
 
@@ -95,6 +105,10 @@ type ImageVerification struct {
 	// +kubebuilder:default=true
 	// +kubebuilder:validation:Optional
 	Required bool `json:"required" yaml:"required"`
+
+	// ImageRegistryCredentials provides credentials that will be used for authentication with registry
+	// +kubebuilder:validation:Optional
+	ImageRegistryCredentials *ImageRegistryCredentials `json:"imageRegistryCredentials,omitempty" yaml:"imageRegistryCredentials,omitempty"`
 }
 
 type AttestorSet struct {
@@ -236,8 +250,13 @@ type CTLog struct {
 // OCI registry and decodes them into a list of Statements.
 type Attestation struct {
 	// PredicateType defines the type of Predicate contained within the Statement.
-	// +kubebuilder:validation:Required
+	// Deprecated in favour of 'Type', to be removed soon
+	// +kubebuilder:validation:Optional
 	PredicateType string `json:"predicateType" yaml:"predicateType"`
+
+	// Type defines the type of attestation contained within the Statement.
+	// +kubebuilder:validation:Optional
+	Type string `json:"type" yaml:"type"`
 
 	// Attestors specify the required attestors (i.e. authorities)
 	// +kubebuilder:validation:Optional
@@ -247,6 +266,22 @@ type Attestation struct {
 	// the attestation check is satisfied as long there are predicates that match the predicate type.
 	// +kubebuilder:validation:Optional
 	Conditions []AnyAllConditions `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+}
+
+type ImageRegistryCredentials struct {
+	// AllowInsecureRegistry allows insecure access to a registry
+	// +kubebuilder:validation:Optional
+	AllowInsecureRegistry bool `json:"allowInsecureRegistry,omitempty" yaml:"allowInsecureRegistry,omitempty"`
+
+	// Providers specifies a list of OCI Registry names, whose authentication providers are provided
+	// It can be of one of these values: AWS, ACR, GCP, GHCR
+	// +kubebuilder:validation:Optional
+	Providers []ImageRegistryCredentialsProvidersType `json:"providers,omitempty" yaml:"providers,omitempty"`
+
+	// Secrets specifies a list of secrets that are provided for credentials
+	// Secrets must live in the Kyverno namespace
+	// +kubebuilder:validation:Optional
+	Secrets []string `json:"secrets,omitempty" yaml:"secrets,omitempty"`
 }
 
 func (iv *ImageVerification) GetType() ImageVerificationType {
@@ -279,6 +314,19 @@ func (iv *ImageVerification) Validate(isAuditFailureAction bool, path *field.Pat
 	for i, as := range copy.Attestors {
 		attestorErrors := as.Validate(attestorsPath.Index(i))
 		errs = append(errs, attestorErrors...)
+	}
+
+	if iv.Type == Notary {
+		for _, attestorSet := range iv.Attestors {
+			for _, attestor := range attestorSet.Entries {
+				if attestor.Keyless != nil {
+					errs = append(errs, field.Invalid(attestorsPath, iv, "Keyless field is not allowed for type notary"))
+				}
+				if attestor.Keys != nil {
+					errs = append(errs, field.Invalid(attestorsPath, iv, "Keys field is not allowed for type notary"))
+				}
+			}
+		}
 	}
 
 	return errs

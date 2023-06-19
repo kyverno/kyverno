@@ -9,7 +9,9 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	log "github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -1051,14 +1053,16 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 	}
 	cfg := config.NewDefaultConfiguration(false)
 	jp := jmespath.New(cfg)
+	rclient := registryclient.NewOrDie()
 	eng := engine.NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
 		jp,
 		nil,
-		registryclient.NewOrDie(),
-		engineapi.DefaultContextLoaderFactory(nil),
+		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+		factories.DefaultContextLoaderFactory(nil),
 		nil,
+		"",
 	)
 	for i, tc := range testcases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
@@ -1151,15 +1155,16 @@ func Test_RuleSelector(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx = ctx.WithPolicy(&policy)
-
+	rclient := registryclient.NewOrDie()
 	eng := engine.NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
 		jp,
 		nil,
-		registryclient.NewOrDie(),
-		engineapi.DefaultContextLoaderFactory(nil),
+		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+		factories.DefaultContextLoaderFactory(nil),
 		nil,
+		"",
 	)
 	resp := eng.Validate(
 		context.TODO(),

@@ -1,0 +1,15 @@
+apiVersion: v1
+data:
+  foo: baz
+kind: ConfigMap
+metadata:
+  name: footarget
+  namespace: cpol-clone-sync-single-source-multiple-targets-trigger-ns-1
+---
+apiVersion: v1
+data:
+  foo: baz
+kind: ConfigMap
+metadata:
+  name: footarget
+  namespace: cpol-clone-sync-single-source-multiple-targets-trigger-ns-2

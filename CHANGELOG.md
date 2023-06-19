@@ -1,3 +1,12 @@
+## v1.11.0
+
+## v1.11.0-rc.1
+
+### Note
+
+- Deprecated flag `--imageSignatureRepository`. Will be removed in 1.12. Use per rule configuration `verifyImages.Repository` instead.
+- Added `--aggregateReports` flag to reports controller to enable/disable aggregated reports (default value is `true`).
+
 ## v1.10.0
 
 ## v1.10.0-rc.1

@@ -291,7 +291,11 @@ func generateCronJobRule(rule *kyvernov1.Rule, controllers string) *kyvernov1.Ru
 		"spec/jobTemplate/spec/template",
 		[]string{PodControllerCronJob},
 		func(r kyvernov1.ResourceFilters, kinds []string) kyvernov1.ResourceFilters {
-			return getAnyAllAutogenRule(r, "Job", kinds)
+			anyKind := r.DeepCopy()
+			for i := range anyKind {
+				anyKind[i].Kinds = kinds
+			}
+			return anyKind
 		},
 	)
 }
@@ -300,12 +304,15 @@ func updateGenRuleByte(pbyte []byte, kind string) (obj []byte) {
 	if kind == "Pod" {
 		obj = []byte(strings.ReplaceAll(string(pbyte), "request.object.spec", "request.object.spec.template.spec"))
 		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.spec", "request.oldObject.spec.template.spec"))
+		obj = []byte(strings.ReplaceAll(string(obj), "request.object.metadata", "request.object.spec.template.metadata"))
+		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.metadata", "request.oldObject.spec.template.metadata"))
 	}
 	if kind == "Cronjob" {
 		obj = []byte(strings.ReplaceAll(string(pbyte), "request.object.spec", "request.object.spec.jobTemplate.spec.template.spec"))
 		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.spec", "request.oldObject.spec.jobTemplate.spec.template.spec"))
+		obj = []byte(strings.ReplaceAll(string(obj), "request.object.metadata", "request.object.spec.jobTemplate.spec.template.metadata"))
+		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.metadata", "request.oldObject.spec.jobTemplate.spec.template.metadata"))
 	}
-	obj = []byte(strings.ReplaceAll(string(obj), "request.object.metadata", "request.object.spec.template.metadata"))
 	return obj
 }
 

@@ -5,24 +5,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-// ImageVerificationType selects the type of verification algorithm
-// +kubebuilder:validation:Enum=Cosign;NotaryV2
-// +kubebuilder:default=Cosign
-type ImageVerificationType string
-
-const (
-	Cosign   ImageVerificationType = "Cosign"
-	NotaryV2 ImageVerificationType = "NotaryV2"
-)
-
 // ImageVerification validates that images that match the specified pattern
 // are signed with the supplied public key. Once the image is verified it is
 // mutated to include the SHA digest retrieved during the registration.
 type ImageVerification struct {
 	// Type specifies the method of signature validation. The allowed options
-	// are Cosign and NotaryV2. By default Cosign is used if a type is not specified.
+	// are Cosign and Notary. By default Cosign is used if a type is not specified.
 	// +kubebuilder:validation:Optional
-	Type ImageVerificationType `json:"type,omitempty" yaml:"type,omitempty"`
+	Type kyvernov1.ImageVerificationType `json:"type,omitempty" yaml:"type,omitempty"`
 
 	// ImageReferences is a list of matching image reference patterns. At least one pattern in the
 	// list must match the image for the rule to apply. Each image reference consists of a registry
@@ -60,6 +50,10 @@ type ImageVerification struct {
 	// +kubebuilder:default=true
 	// +kubebuilder:validation:Optional
 	Required bool `json:"required" yaml:"required"`
+
+	// ImageRegistryCredentials provides credentials that will be used for authentication with registry
+	// +kubebuilder:validation:Optional
+	ImageRegistryCredentials *kyvernov1.ImageRegistryCredentials `json:"imageRegistryCredentials,omitempty" yaml:"imageRegistryCredentials,omitempty"`
 }
 
 // Validate implements programmatic validation
@@ -84,6 +78,19 @@ func (iv *ImageVerification) Validate(isAuditFailureAction bool, path *field.Pat
 	for i, as := range copy.Attestors {
 		attestorErrors := as.Validate(attestorsPath.Index(i))
 		errs = append(errs, attestorErrors...)
+	}
+
+	if iv.Type == kyvernov1.Notary {
+		for _, attestorSet := range iv.Attestors {
+			for _, attestor := range attestorSet.Entries {
+				if attestor.Keyless != nil {
+					errs = append(errs, field.Invalid(attestorsPath, iv, "Keyless field is not allowed for type notary"))
+				}
+				if attestor.Keys != nil {
+					errs = append(errs, field.Invalid(attestorsPath, iv, "Keys field is not allowed for type notary"))
+				}
+			}
+		}
 	}
 
 	return errs
