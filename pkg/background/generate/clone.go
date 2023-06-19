@@ -46,6 +46,11 @@ func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, pol
 
 	sourceObjCopy := sourceObj.DeepCopy()
 	addSourceLabels(sourceObjCopy)
+
+	if sourceObjCopy.GetNamespace() != target.GetNamespace() && sourceObjCopy.GetOwnerReferences() != nil {
+		sourceObjCopy.SetOwnerReferences(nil)
+	}
+
 	targetObj, err := client.GetResource(context.TODO(), target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName())
 	if err != nil {
 		if apierrors.IsNotFound(err) && len(ur.Status.GeneratedResources) != 0 && !clone.Synchronize {
@@ -56,10 +61,6 @@ func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, pol
 			return newCreateGenerateResponse(sourceObjCopy.UnstructuredContent(), target, nil)
 		}
 		return newSkipGenerateResponse(nil, target, fmt.Errorf("failed to get the target source: %v", err))
-	}
-
-	if sourceObjCopy.GetNamespace() != target.GetNamespace() && sourceObjCopy.GetOwnerReferences() != nil {
-		sourceObjCopy.SetOwnerReferences(nil)
 	}
 
 	if targetObj != nil {

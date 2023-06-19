@@ -19,7 +19,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
@@ -38,7 +37,6 @@ type resourceHandlers struct {
 	// clients
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
-	rclient       registryclient.Client
 	engine        engineapi.Engine
 
 	// config
@@ -67,7 +65,6 @@ func NewHandlers(
 	engine engineapi.Engine,
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
-	rclient registryclient.Client,
 	configuration config.Configuration,
 	metricsConfig metrics.MetricsConfigManager,
 	pCache policycache.Cache,
@@ -86,7 +83,6 @@ func NewHandlers(
 		engine:                       engine,
 		client:                       client,
 		kyvernoClient:                kyvernoClient,
-		rclient:                      rclient,
 		configuration:                configuration,
 		metricsConfig:                metricsConfig,
 		pCache:                       pCache,
@@ -110,10 +106,10 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 
 	// timestamp at which this admission request got triggered
 	gvr := schema.GroupVersionResource(request.Resource)
-	policies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.ValidateEnforce, gvr, request.SubResource, request.Namespace)...)
-	mutatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.Mutate, gvr, request.SubResource, request.Namespace)...)
-	generatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.Generate, gvr, request.SubResource, request.Namespace)...)
-	imageVerifyValidatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesValidate, gvr, request.SubResource, request.Namespace)...)
+	policies := filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.ValidateEnforce, gvr, request.SubResource, request.Namespace)...)
+	mutatePolicies := filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.Mutate, gvr, request.SubResource, request.Namespace)...)
+	generatePolicies := filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.Generate, gvr, request.SubResource, request.Namespace)...)
+	imageVerifyValidatePolicies := filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesValidate, gvr, request.SubResource, request.Namespace)...)
 	policies = append(policies, imageVerifyValidatePolicies...)
 
 	if len(policies) == 0 && len(mutatePolicies) == 0 && len(generatePolicies) == 0 {
@@ -150,8 +146,8 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 	logger = logger.WithValues("kind", kind)
 	logger.V(4).Info("received an admission request in mutating webhook")
 	gvr := schema.GroupVersionResource(request.Resource)
-	mutatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.Mutate, gvr, request.SubResource, request.Namespace)...)
-	verifyImagesPolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesMutate, gvr, request.SubResource, request.Namespace)...)
+	mutatePolicies := filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.Mutate, gvr, request.SubResource, request.Namespace)...)
+	verifyImagesPolicies := filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesMutate, gvr, request.SubResource, request.Namespace)...)
 	if len(mutatePolicies) == 0 && len(verifyImagesPolicies) == 0 {
 		logger.V(4).Info("no policies matched mutate admission request")
 		return admissionutils.ResponseSuccess(request.UID)
@@ -188,15 +184,15 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 	return admissionutils.MutationResponse(request.UID, patch, warnings...)
 }
 
-func filterPolicies(failurePolicy string, policies ...kyvernov1.PolicyInterface) []kyvernov1.PolicyInterface {
+func filterPolicies(ctx context.Context, failurePolicy string, policies ...kyvernov1.PolicyInterface) []kyvernov1.PolicyInterface {
 	var results []kyvernov1.PolicyInterface
 	for _, policy := range policies {
 		if failurePolicy == "fail" {
-			if policy.GetSpec().GetFailurePolicy() == kyvernov1.Fail {
+			if policy.GetSpec().GetFailurePolicy(ctx) == kyvernov1.Fail {
 				results = append(results, policy)
 			}
 		} else if failurePolicy == "ignore" {
-			if policy.GetSpec().GetFailurePolicy() == kyvernov1.Ignore {
+			if policy.GetSpec().GetFailurePolicy(ctx) == kyvernov1.Ignore {
 				results = append(results, policy)
 			}
 		} else {

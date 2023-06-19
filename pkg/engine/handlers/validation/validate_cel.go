@@ -6,7 +6,6 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
@@ -21,10 +20,10 @@ import (
 )
 
 type validateCELHandler struct {
-	client dclient.Interface
+	client engineapi.Client
 }
 
-func NewValidateCELHandler(client dclient.Interface) (handlers.Handler, error) {
+func NewValidateCELHandler(client engineapi.Client) (handlers.Handler, error) {
 	return validateCELHandler{
 		client: client,
 	}, nil

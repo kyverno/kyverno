@@ -1,0 +1,31 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-data-sync-existing-update-trigger-no-precondition
+spec:
+  generateExisting: true
+  rules:
+  - name: create-default-pdb
+    match:
+      all:
+      - resources:
+          kinds:
+          - Deployment
+          - StatefulSet
+    preconditions:
+      all:
+      - key: "{{ request.object.spec.replicas }}"
+        operator: GreaterThan
+        value: 1
+    generate:
+      synchronize: true
+      apiVersion: policy/v1
+      kind: PodDisruptionBudget
+      name: "{{request.object.metadata.name}}-default"
+      namespace: "{{request.object.metadata.namespace}}"
+      data:
+        spec:
+          minAvailable: 50%
+          selector:
+            matchLabels: >-
+              {{ not_null(request.object.spec.selector.matchLabels, request.object.spec.template.metadata.labels) }}

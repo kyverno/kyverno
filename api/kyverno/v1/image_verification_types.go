@@ -13,9 +13,19 @@ import (
 // +kubebuilder:default=Cosign
 type ImageVerificationType string
 
+// ImageRegistryCredentialsProvidersType provides the list of credential providers required.
+// +kubebuilder:validation:Enum=default;amazon;azure;google;github
+type ImageRegistryCredentialsProvidersType string
+
 const (
 	Cosign ImageVerificationType = "Cosign"
 	Notary ImageVerificationType = "Notary"
+
+	DEFAULT ImageRegistryCredentialsProvidersType = "default"
+	AWS     ImageRegistryCredentialsProvidersType = "amazon"
+	ACR     ImageRegistryCredentialsProvidersType = "azure"
+	GCP     ImageRegistryCredentialsProvidersType = "google"
+	GHCR    ImageRegistryCredentialsProvidersType = "github"
 )
 
 // ImageVerification validates that images that match the specified pattern
@@ -95,6 +105,10 @@ type ImageVerification struct {
 	// +kubebuilder:default=true
 	// +kubebuilder:validation:Optional
 	Required bool `json:"required" yaml:"required"`
+
+	// ImageRegistryCredentials provides credentials that will be used for authentication with registry
+	// +kubebuilder:validation:Optional
+	ImageRegistryCredentials *ImageRegistryCredentials `json:"imageRegistryCredentials,omitempty" yaml:"imageRegistryCredentials,omitempty"`
 }
 
 type AttestorSet struct {
@@ -252,6 +266,22 @@ type Attestation struct {
 	// the attestation check is satisfied as long there are predicates that match the predicate type.
 	// +kubebuilder:validation:Optional
 	Conditions []AnyAllConditions `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+}
+
+type ImageRegistryCredentials struct {
+	// AllowInsecureRegistry allows insecure access to a registry
+	// +kubebuilder:validation:Optional
+	AllowInsecureRegistry bool `json:"allowInsecureRegistry,omitempty" yaml:"allowInsecureRegistry,omitempty"`
+
+	// Providers specifies a list of OCI Registry names, whose authentication providers are provided
+	// It can be of one of these values: AWS, ACR, GCP, GHCR
+	// +kubebuilder:validation:Optional
+	Providers []ImageRegistryCredentialsProvidersType `json:"providers,omitempty" yaml:"providers,omitempty"`
+
+	// Secrets specifies a list of secrets that are provided for credentials
+	// Secrets must live in the Kyverno namespace
+	// +kubebuilder:validation:Optional
+	Secrets []string `json:"secrets,omitempty" yaml:"secrets,omitempty"`
 }
 
 func (iv *ImageVerification) GetType() ImageVerificationType {

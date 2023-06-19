@@ -69,6 +69,7 @@ type TlsProvider func() ([]byte, []byte, error)
 
 // NewServer creates new instance of server accordingly to given configuration
 func NewServer(
+	ctx context.Context,
 	policyHandlers PolicyHandlers,
 	resourceHandlers ResourceHandlers,
 	exceptionHandlers ExceptionHandlers,
@@ -97,7 +98,7 @@ func NewServer(
 		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
 			return handler.
 				WithFilter(configuration).
-				WithProtection(toggle.ProtectManagedResources.Enabled()).
+				WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 				WithDump(debugModeOpts.DumpPayload).
 				WithTopLevelGVK(discovery).
 				WithRoles(rbLister, crbLister).
@@ -114,7 +115,7 @@ func NewServer(
 		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
 			return handler.
 				WithFilter(configuration).
-				WithProtection(toggle.ProtectManagedResources.Enabled()).
+				WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 				WithDump(debugModeOpts.DumpPayload).
 				WithTopLevelGVK(discovery).
 				WithRoles(rbLister, crbLister).
