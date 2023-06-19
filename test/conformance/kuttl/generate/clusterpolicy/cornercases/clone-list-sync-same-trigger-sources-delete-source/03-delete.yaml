@@ -4,5 +4,5 @@ kind: TestStep
 delete:
 - apiVersion: v1
   kind: Secret
-  name: mysecret-1
+  name: mysecret-2
   namespace: clone-list-sync-same-trigger-sources-delete-source-trigger-ns
