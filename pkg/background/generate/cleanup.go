@@ -100,28 +100,11 @@ func (c *GenerateController) getDownstreams(rule kyvernov1.Rule, selector map[st
 		return nil, err
 	}
 
-	resource, err := c.getTriggerForDeleteOperation(ur.Spec)
-	if err != nil {
-		return nil, err
-	}
-
-	labels := resource.GetLabels()
-	if _, ok := labels[common.GenerateTypeCloneSourceLabel]; ok {
-		// source changes
-		selector[common.GenerateSourceNameLabel] = ur.Spec.GetResource().GetName()
-		selector[common.GenerateSourceNSLabel] = ur.Spec.GetResource().GetNamespace()
-		selector[common.GenerateSourceKindLabel] = ur.Spec.GetResource().GetKind()
-		selector[common.GenerateSourceGroupLabel] = gv.Group
-		selector[common.GenerateSourceVersionLabel] = gv.Version
-	} else {
-		// trigger changes
-		selector[common.GenerateTriggerNameLabel] = ur.Spec.GetResource().GetName()
-		selector[common.GenerateTriggerNSLabel] = ur.Spec.GetResource().GetNamespace()
-		selector[common.GenerateTriggerKindLabel] = ur.Spec.GetResource().GetKind()
-		selector[common.GenerateTriggerGroupLabel] = gv.Group
-		selector[common.GenerateTriggerVersionLabel] = gv.Version
-	}
-
+	selector[common.GenerateTriggerNameLabel] = ur.Spec.GetResource().GetName()
+	selector[common.GenerateTriggerNSLabel] = ur.Spec.GetResource().GetNamespace()
+	selector[common.GenerateTriggerKindLabel] = ur.Spec.GetResource().GetKind()
+	selector[common.GenerateTriggerGroupLabel] = gv.Group
+	selector[common.GenerateTriggerVersionLabel] = gv.Version
 	if rule.Generation.GetKind() != "" {
 		c.log.V(4).Info("fetching downstream resources", "APIVersion", rule.Generation.GetAPIVersion(), "kind", rule.Generation.GetKind(), "selector", selector)
 		return FindDownstream(c.client, rule.Generation.GetAPIVersion(), rule.Generation.GetKind(), selector)
