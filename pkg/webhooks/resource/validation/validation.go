@@ -87,7 +87,7 @@ func (v *validationHandler) HandleValidation(
 			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
 			func(ctx context.Context, span trace.Span) {
 				policyContext := policyContext.WithPolicy(policy)
-				if policy.GetSpec().GetFailurePolicy() == kyvernov1.Fail {
+				if policy.GetSpec().GetFailurePolicy(ctx) == kyvernov1.Fail {
 					failurePolicy = kyvernov1.Fail
 				}
 

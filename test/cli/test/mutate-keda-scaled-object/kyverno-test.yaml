@@ -19,6 +19,5 @@ results:
   - policy: keda-prometheus-serveraddress
     rule: keda-prometheus-serveraddress
     resources: [service-3]
-    patchedResource: patchedResource3.yaml
     kind: ScaledObject
-    result: pass
+    result: skip

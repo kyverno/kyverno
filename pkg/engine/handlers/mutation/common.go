@@ -2,6 +2,7 @@ package mutation
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -11,7 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/utils/api"
-	"github.com/mattbaird/jsonpatch"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -27,7 +28,6 @@ type forEachMutator struct {
 
 func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 	var applyCount int
-	var allPatches []jsonpatch.JsonPatchOperation
 
 	for _, foreach := range f.foreach {
 		elements, err := engineutils.EvaluateList(foreach.List, f.policyContext.JSONContext())
@@ -38,14 +38,13 @@ func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 
 		mutateResp := f.mutateElements(ctx, foreach, elements)
 		if mutateResp.Status == engineapi.RuleStatusError {
-			return mutate.NewErrorResponse("failed to mutate elements", err)
+			return mutate.NewErrorResponse("failed to mutate elements", errors.New(mutateResp.Message))
 		}
 
 		if mutateResp.Status != engineapi.RuleStatusSkip {
 			applyCount++
-			if len(mutateResp.Patches) > 0 {
+			if mutateResp.Status == engineapi.RuleStatusPass {
 				f.resource.unstructured = mutateResp.PatchedResource
-				allPatches = append(allPatches, mutateResp.Patches...)
 			}
 			f.logger.Info("mutateResp.PatchedResource", "resource", mutateResp.PatchedResource)
 			if err := f.policyContext.JSONContext().AddResource(mutateResp.PatchedResource.Object); err != nil {
@@ -56,10 +55,10 @@ func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 
 	msg := fmt.Sprintf("%d elements processed", applyCount)
 	if applyCount == 0 {
-		return mutate.NewResponse(engineapi.RuleStatusSkip, f.resource.unstructured, allPatches, msg)
+		return mutate.NewResponse(engineapi.RuleStatusSkip, f.resource.unstructured, msg)
 	}
 
-	return mutate.NewResponse(engineapi.RuleStatusPass, f.resource.unstructured, allPatches, msg)
+	return mutate.NewResponse(engineapi.RuleStatusPass, f.resource.unstructured, msg)
 }
 
 func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.ForEachMutation, elements []interface{}) *mutate.Response {
@@ -67,16 +66,18 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 	defer f.policyContext.JSONContext().Restore()
 
 	patchedResource := f.resource
-	var allPatches []jsonpatch.JsonPatchOperation
 	reverse := false
+	// if it's a patch strategic merge, reverse by default
 	if foreach.RawPatchStrategicMerge != nil {
 		reverse = true
-	} else if foreach.Order != nil && *foreach.Order == kyvernov1.Descending {
-		reverse = true
+	}
+	if foreach.Order != nil {
+		reverse = *foreach.Order == kyvernov1.Descending
 	}
 	if reverse {
 		engineutils.InvertedElement(elements)
 	}
+
 	for index, element := range elements {
 		if element == nil {
 			continue
@@ -132,12 +133,16 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 			return mutateResp
 		}
 
-		if len(mutateResp.Patches) > 0 {
+		if mutateResp.Status == engineapi.RuleStatusPass {
 			patchedResource.unstructured = mutateResp.PatchedResource
-			allPatches = append(allPatches, mutateResp.Patches...)
 		}
 	}
-	return mutate.NewResponse(engineapi.RuleStatusPass, patchedResource.unstructured, allPatches, "")
+
+	if !datautils.DeepEqual(f.resource.unstructured, patchedResource.unstructured) {
+		return mutate.NewResponse(engineapi.RuleStatusPass, patchedResource.unstructured, "")
+	}
+
+	return mutate.NewResponse(engineapi.RuleStatusSkip, patchedResource.unstructured, "no patches applied")
 }
 
 func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info resourceInfo) *engineapi.RuleResponse {
@@ -152,7 +157,6 @@ func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info r
 		mutateResp.Status,
 	)
 	if mutateResp.Status == engineapi.RuleStatusPass {
-		resp = resp.WithPatches(mutateResp.Patches...)
 		if len(rule.Mutation.Targets) != 0 {
 			resp = resp.WithPatchedTarget(&mutateResp.PatchedResource, info.parentResourceGVR, info.subresource)
 		}

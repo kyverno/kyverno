@@ -21,6 +21,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
@@ -847,17 +848,17 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 		fmt.Printf("Failed to mock dynamic client")
 		return nil, err
 	}
-
 	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
 	cfg := config.NewDefaultConfiguration(false)
 	c := generate.NewGenerateControllerWithOnlyClient(client, engine.NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
 		jmespath.New(cfg),
-		client,
+		adapters.Client(client),
 		nil,
 		store.ContextLoaderFactory(nil),
 		nil,
+		"",
 	))
 	return c, nil
 }
@@ -912,12 +913,13 @@ func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyCont
 			return nil, err
 		}
 
-		unstrGenResource, err := c.GetUnstrResource(genResource[0])
-		if err != nil {
-			return nil, err
+		if genResource != nil {
+			unstrGenResource, err := c.GetUnstrResource(genResource[0])
+			if err != nil {
+				return nil, err
+			}
+			newRuleResponse = append(newRuleResponse, *rule.WithGeneratedResource(*unstrGenResource))
 		}
-
-		newRuleResponse = append(newRuleResponse, *rule.WithGeneratedResource(*unstrGenResource))
 	}
 
 	return newRuleResponse, nil

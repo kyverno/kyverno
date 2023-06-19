@@ -16,7 +16,7 @@ import (
 type ImageInfo struct {
 	imageutils.ImageInfo
 	// Pointer is the path to the image object in the resource
-	Pointer string `json:"-"`
+	Pointer string `json:"jsonPointer"`
 }
 
 var (

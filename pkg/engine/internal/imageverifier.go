@@ -16,36 +16,38 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/images"
 	"github.com/kyverno/kyverno/pkg/notary"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
-	"github.com/mattbaird/jsonpatch"
 	"go.uber.org/multierr"
+	"gomodules.xyz/jsonpatch/v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type ImageVerifier struct {
-	logger        logr.Logger
-	rclient       registryclient.Client
-	policyContext engineapi.PolicyContext
-	rule          kyvernov1.Rule
-	ivm           *engineapi.ImageVerificationMetadata
+	logger                   logr.Logger
+	rclient                  engineapi.RegistryClient
+	policyContext            engineapi.PolicyContext
+	rule                     kyvernov1.Rule
+	ivm                      *engineapi.ImageVerificationMetadata
+	imageSignatureRepository string
 }
 
 func NewImageVerifier(
 	logger logr.Logger,
-	rclient registryclient.Client,
+	rclient engineapi.RegistryClient,
 	policyContext engineapi.PolicyContext,
 	rule kyvernov1.Rule,
 	ivm *engineapi.ImageVerificationMetadata,
+	imageSignatureRepository string,
 ) *ImageVerifier {
 	return &ImageVerifier{
-		logger:        logger,
-		rclient:       rclient,
-		policyContext: policyContext,
-		rule:          rule,
-		ivm:           ivm,
+		logger:                   logger,
+		rclient:                  rclient,
+		policyContext:            policyContext,
+		rule:                     rule,
+		ivm:                      ivm,
+		imageSignatureRepository: imageSignatureRepository,
 	}
 }
 
@@ -184,8 +186,9 @@ func (iv *ImageVerifier) Verify(
 	imageVerify kyvernov1.ImageVerification,
 	matchedImageInfos []apiutils.ImageInfo,
 	cfg config.Configuration,
-) []*engineapi.RuleResponse {
+) ([]jsonpatch.JsonPatchOperation, []*engineapi.RuleResponse) {
 	var responses []*engineapi.RuleResponse
+	var patches []jsonpatch.JsonPatchOperation
 
 	// for backward compatibility
 	imageVerify = *imageVerify.Convert()
@@ -223,7 +226,7 @@ func (iv *ImageVerifier) Verify(
 				if ruleResp == nil {
 					ruleResp = engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, "mutated image digest")
 				}
-				ruleResp = ruleResp.WithPatches(*patch)
+				patches = append(patches, *patch)
 				imageInfo.Digest = retrievedDigest
 				image = imageInfo.String()
 			}
@@ -236,7 +239,7 @@ func (iv *ImageVerifier) Verify(
 			responses = append(responses, ruleResp)
 		}
 	}
-	return responses
+	return patches, responses
 }
 
 func (iv *ImageVerifier) verifyImage(
@@ -456,15 +459,15 @@ func (iv *ImageVerifier) buildCosignVerifier(
 	attestation *kyvernov1.Attestation,
 ) (images.ImageVerifier, *images.Options, string) {
 	path := ""
-	repository := cosign.ImageSignatureRepository
+	repository := iv.imageSignatureRepository
 	if imageVerify.Repository != "" {
 		repository = imageVerify.Repository
 	}
 	opts := &images.Options{
-		ImageRef:       image,
-		Repository:     repository,
-		Annotations:    imageVerify.Annotations,
-		RegistryClient: iv.rclient,
+		ImageRef:    image,
+		Repository:  repository,
+		Annotations: imageVerify.Annotations,
+		Client:      iv.rclient,
 	}
 
 	if imageVerify.Roots != "" {
@@ -532,10 +535,10 @@ func (iv *ImageVerifier) buildNotaryVerifier(
 ) (images.ImageVerifier, *images.Options, string) {
 	path := ""
 	opts := &images.Options{
-		ImageRef:       image,
-		Cert:           attestor.Certificates.Certificate,
-		CertChain:      attestor.Certificates.CertificateChain,
-		RegistryClient: iv.rclient,
+		ImageRef:  image,
+		Cert:      attestor.Certificates.Certificate,
+		CertChain: attestor.Certificates.CertificateChain,
+		Client:    iv.rclient,
 	}
 
 	if attestation != nil {

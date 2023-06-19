@@ -27,13 +27,13 @@ jobs:
       reports-controller-digest: ${{ steps.publish-reports-controller.outputs.digest }}
     steps:
       - name: Checkout
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         with:
           build-cache-key: publish-images
       - name: Run Trivy vulnerability scanner in repo mode
-        uses: aquasecurity/trivy-action@e5f43133f6e8736992c9f3c1b3296e24b37e17f2 # v0.10.0
+        uses: aquasecurity/trivy-action@41f05d9ecffa2ed3f1580af306000f734b733e54 # v0.11.2
         with:
           scan-type: 'fs'
           ignore-unfixed: true
@@ -142,7 +142,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.6.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.7.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/kyverno
       digest: "${{ needs.publish-images.outputs.kyverno-digest }}"
@@ -157,7 +157,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.6.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.7.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/kyvernopre
       digest: "${{ needs.publish-images.outputs.kyverno-init-digest }}"
@@ -172,7 +172,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.6.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.7.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/background-controller
       digest: "${{ needs.publish-images.outputs.background-controller-digest }}"
@@ -187,7 +187,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.6.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.7.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/cleanup-controller
       digest: "${{ needs.publish-images.outputs.cleanup-controller-digest }}"
@@ -202,7 +202,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.6.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.7.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/kyverno-cli
       digest: "${{ needs.publish-images.outputs.cli-digest }}"
@@ -217,7 +217,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.6.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.7.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/reports-controller
       digest: "${{ needs.publish-images.outputs.reports-controller-digest }}"

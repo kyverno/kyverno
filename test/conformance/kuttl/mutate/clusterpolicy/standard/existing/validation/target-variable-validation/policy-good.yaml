@@ -1,0 +1,30 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: target-variable-validation-cpol
+spec:
+  mutateExistingOnPolicyUpdate: true
+  schemaValidation: false
+  background: true
+  rules:
+    - name: target-variable-validation-rule
+      match:
+        any:
+          - resources:
+              kinds:
+                - Secret
+      mutate:
+        targets:
+          - apiVersion: v1
+            kind: ConfigMap
+            name: server-external
+            # namespace: "{{target.metadata.annotations.dns}}"
+            namespace: external-dns
+          - apiVersion: v1
+            kind: ConfigMap
+            name: server-internal
+            namespace: external-dns
+        patchesJson6902: |-
+          - op: replace
+            path: "/spec/endpoints/1/targets/0"
+            value: "{{ request.object.data.prefix6 }}{{ target.metadata.annotations.dns_suffix }}"
