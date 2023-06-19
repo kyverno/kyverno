@@ -18,7 +18,7 @@ func setupMaxProcs(logger logr.Logger) func() {
 		),
 	)
 	if err != nil {
-		logger.Error(err, "WARNING: failed to configure maxprocs")
+		logger.Error(err, "failed to configure maxprocs")
 	}
 	return undo
 }
