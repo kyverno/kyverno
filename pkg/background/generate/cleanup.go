@@ -7,6 +7,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"go.uber.org/multierr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -99,19 +100,43 @@ func (c *GenerateController) getDownstreams(rule kyvernov1.Rule, selector map[st
 		return nil, err
 	}
 
-	if rule.Generation.GetData() != nil {
+	resource, err := c.getTriggerForDeleteOperation(ur.Spec)
+	if err != nil {
+		return nil, err
+	}
+
+	labels := resource.GetLabels()
+	if _, ok := labels[common.GenerateTypeCloneSourceLabel]; ok {
+		// source changes
+		selector[common.GenerateSourceNameLabel] = ur.Spec.GetResource().GetName()
+		selector[common.GenerateSourceNSLabel] = ur.Spec.GetResource().GetNamespace()
+		selector[common.GenerateSourceKindLabel] = ur.Spec.GetResource().GetKind()
+		selector[common.GenerateSourceGroupLabel] = gv.Group
+		selector[common.GenerateSourceVersionLabel] = gv.Version
+	} else {
+		// trigger changes
 		selector[common.GenerateTriggerNameLabel] = ur.Spec.GetResource().GetName()
 		selector[common.GenerateTriggerNSLabel] = ur.Spec.GetResource().GetNamespace()
 		selector[common.GenerateTriggerKindLabel] = ur.Spec.GetResource().GetKind()
 		selector[common.GenerateTriggerGroupLabel] = gv.Group
 		selector[common.GenerateTriggerVersionLabel] = gv.Version
+	}
+
+	if rule.Generation.GetKind() != "" {
+		c.log.V(4).Info("fetching downstream resources", "APIVersion", rule.Generation.GetAPIVersion(), "kind", rule.Generation.GetKind(), "selector", selector)
 		return FindDownstream(c.client, rule.Generation.GetAPIVersion(), rule.Generation.GetKind(), selector)
 	}
 
-	selector[common.GenerateSourceNameLabel] = ur.Spec.GetResource().GetName()
-	selector[common.GenerateSourceNSLabel] = ur.Spec.GetResource().GetNamespace()
-	selector[common.GenerateSourceKindLabel] = ur.Spec.GetResource().GetKind()
-	selector[common.GenerateSourceGroupLabel] = gv.Group
-	selector[common.GenerateSourceVersionLabel] = gv.Version
-	return FindDownstream(c.client, ur.Spec.GetResource().GetAPIVersion(), ur.Spec.GetResource().GetKind(), selector)
+	dsList := &unstructured.UnstructuredList{}
+	for _, kind := range rule.Generation.CloneList.Kinds {
+		apiVersion, kind := kubeutils.GetKindFromGVK(kind)
+		c.log.V(4).Info("fetching downstream resources", "APIVersion", apiVersion, "kind", kind, "selector", selector)
+		dsList, err = FindDownstream(c.client, apiVersion, kind, selector)
+		if err != nil {
+			return nil, err
+		} else {
+			dsList.Items = append(dsList.Items, dsList.Items...)
+		}
+	}
+	return dsList, nil
 }
