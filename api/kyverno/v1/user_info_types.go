@@ -35,6 +35,8 @@ func (u *UserInfo) ValidateSubjects(path *field.Path) (errs field.ErrorList) {
 		entry := path.Index(index)
 		if subject.Kind == "" {
 			errs = append(errs, field.Required(entry.Child("kind"), ""))
+		} else if subject.Kind != rbacv1.GroupKind && subject.Kind != rbacv1.ServiceAccountKind && subject.Kind != rbacv1.UserKind {
+			errs = append(errs, field.Invalid(entry.Child("kind"), subject.Kind, "kind must be 'User', 'Group', or 'ServiceAccount'"))
 		}
 		if subject.Name == "" {
 			errs = append(errs, field.Required(entry.Child("name"), ""))
