@@ -43,11 +43,11 @@ func (c *GenerateController) deleteDownstream(policy kyvernov1.PolicyInterface, 
 	if policy == nil {
 		return nil
 	}
-	// handle clone source deletion
-	return c.deleteDownstreamForClone(policy, ur)
+
+	return c.handleNonPolicyChanges(policy, ur)
 }
 
-func (c *GenerateController) deleteDownstreamForClone(policy kyvernov1.PolicyInterface, ur *kyvernov1beta1.UpdateRequest) error {
+func (c *GenerateController) handleNonPolicyChanges(policy kyvernov1.PolicyInterface, ur *kyvernov1beta1.UpdateRequest) error {
 	if !ur.Spec.DeleteDownstream {
 		return nil
 	}
@@ -113,5 +113,5 @@ func (c *GenerateController) getDownstreams(rule kyvernov1.Rule, selector map[st
 	selector[common.GenerateSourceKindLabel] = ur.Spec.GetResource().GetKind()
 	selector[common.GenerateSourceGroupLabel] = gv.Group
 	selector[common.GenerateSourceVersionLabel] = gv.Version
-	return FindDownstream(c.client, rule.Generation.GetAPIVersion(), rule.Generation.GetKind(), selector)
+	return FindDownstream(c.client, ur.Spec.GetResource().GetAPIVersion(), ur.Spec.GetResource().GetKind(), selector)
 }
