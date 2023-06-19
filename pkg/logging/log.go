@@ -25,16 +25,16 @@ const (
 	// Default logging mode is TextFormat.
 	TextFormat = "text"
 	// LogLevelController is the log level to use for controllers plumbing.
-	LogLevelController = 3
+	LogLevelController = 1
 	// LogLevelClient is the log level to use for clients.
-	LogLevelClient = 3
+	LogLevelClient = 1
 )
 
 // Initially, globalLog comes from controller-runtime/log with logger created earlier by controller-runtime.
 // When logging.Setup is called, globalLog is switched to the real logger.
 // Call depth of all loggers created before logging.Setup will not work, including package level loggers as they are created before main.
 // All loggers created after logging.Setup won't be subject to the call depth limitation and will work if the underlying sink supports it.
-var globalLog = log.Log
+var globalLog = log.Log.V(2)
 
 func InitFlags(flags *flag.FlagSet) {
 	// clear flags initialized in static dependencies
@@ -50,7 +50,7 @@ func Setup(logFormat string, level int) error {
 	switch logFormat {
 	case TextFormat:
 		// in text mode we use FormatSerialize format
-		globalLog = klogr.New()
+		globalLog = klogr.New().V(2)
 	case JSONFormat:
 		zc := zap.NewProductionConfig()
 		// Zap's levels get more and less verbose as the number gets smaller and higher respectively (DebugLevel is -1, InfoLevel is 0, WarnLevel is 1, and so on).

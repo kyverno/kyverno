@@ -52,10 +52,10 @@ const (
 	exceptionWebhookControllerName = "exception-webhook-controller"
 )
 
-func showWarnings(logger logr.Logger) {
+func showWarnings(ctx context.Context, logger logr.Logger) {
 	logger = logger.WithName("warnings")
 	// log if `forceFailurePolicyIgnore` flag has been set or not
-	if toggle.ForceFailurePolicyIgnore.Enabled() {
+	if toggle.FromContext(ctx).ForceFailurePolicyIgnore() {
 		logger.Info("'ForceFailurePolicyIgnore' is enabled, all policies with policy failures will be set to Ignore")
 	}
 }
@@ -222,7 +222,7 @@ func main() {
 	signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-admission-controller", false)
 	defer sdown()
 	// show version
-	showWarnings(setup.Logger)
+	showWarnings(signalCtx, setup.Logger)
 	// THIS IS AN UGLY FIX
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
@@ -300,6 +300,7 @@ func main() {
 		setup.RegistryClient,
 		setup.KubeClient,
 		setup.KyvernoClient,
+		setup.RegistrySecretLister,
 	)
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
@@ -414,7 +415,6 @@ func main() {
 		engine,
 		setup.KyvernoDynamicClient,
 		setup.KyvernoClient,
-		setup.RegistryClient,
 		setup.Configuration,
 		setup.MetricsManager,
 		policyCache,
@@ -434,6 +434,7 @@ func main() {
 		Namespace: internal.ExceptionNamespace(),
 	})
 	server := webhooks.NewServer(
+		signalCtx,
 		policyHandlers,
 		resourceHandlers,
 		exceptionHandlers,
