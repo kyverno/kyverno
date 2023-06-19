@@ -875,13 +875,13 @@ spec:
                               description: AllowInsecureRegistry allows insecure access
                                 to a registry
                               type: boolean
-                            helpers:
-                              description: 'Helpers specifies a list of OCI Registry
-                                names, whose authentication helpers are provided It
-                                can be of one of these values: AWS, ACR, GCP, GHCR'
+                            providers:
+                              description: 'Providers specifies a list of OCI Registry
+                                names, whose authentication providers are provided
+                                It can be of one of these values: AWS, ACR, GCP, GHCR'
                               items:
-                                description: ImageRegistryCredentialsHelpersType provides
-                                  the list of credential helpers required.
+                                description: ImageRegistryCredentialsProvidersType
+                                  provides the list of credential providers required.
                                 enum:
                                 - default
                                 - amazon
@@ -2781,13 +2781,13 @@ spec:
                               description: AllowInsecureRegistry allows insecure access
                                 to a registry
                               type: boolean
-                            helpers:
-                              description: 'Helpers specifies a list of OCI Registry
-                                names, whose authentication helpers are provided It
-                                can be of one of these values: AWS, ACR, GCP, GHCR'
+                            providers:
+                              description: 'Providers specifies a list of OCI Registry
+                                names, whose authentication providers are provided
+                                It can be of one of these values: AWS, ACR, GCP, GHCR'
                               items:
-                                description: ImageRegistryCredentialsHelpersType provides
-                                  the list of credential helpers required.
+                                description: ImageRegistryCredentialsProvidersType
+                                  provides the list of credential providers required.
                                 enum:
                                 - default
                                 - amazon
@@ -4090,14 +4090,15 @@ spec:
                                     description: AllowInsecureRegistry allows insecure
                                       access to a registry
                                     type: boolean
-                                  helpers:
-                                    description: 'Helpers specifies a list of OCI
-                                      Registry names, whose authentication helpers
+                                  providers:
+                                    description: 'Providers specifies a list of OCI
+                                      Registry names, whose authentication providers
                                       are provided It can be of one of these values:
                                       AWS, ACR, GCP, GHCR'
                                     items:
-                                      description: ImageRegistryCredentialsHelpersType
-                                        provides the list of credential helpers required.
+                                      description: ImageRegistryCredentialsProvidersType
+                                        provides the list of credential providers
+                                        required.
                                       enum:
                                       - default
                                       - amazon
@@ -5788,16 +5789,16 @@ spec:
                                               description: AllowInsecureRegistry allows
                                                 insecure access to a registry
                                               type: boolean
-                                            helpers:
-                                              description: 'Helpers specifies a list
-                                                of OCI Registry names, whose authentication
-                                                helpers are provided It can be of
-                                                one of these values: AWS, ACR, GCP,
-                                                GHCR'
+                                            providers:
+                                              description: 'Providers specifies a
+                                                list of OCI Registry names, whose
+                                                authentication providers are provided
+                                                It can be of one of these values:
+                                                AWS, ACR, GCP, GHCR'
                                               items:
-                                                description: ImageRegistryCredentialsHelpersType
+                                                description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
-                                                  helpers required.
+                                                  providers required.
                                                 enum:
                                                 - default
                                                 - amazon
@@ -6121,16 +6122,16 @@ spec:
                                               description: AllowInsecureRegistry allows
                                                 insecure access to a registry
                                               type: boolean
-                                            helpers:
-                                              description: 'Helpers specifies a list
-                                                of OCI Registry names, whose authentication
-                                                helpers are provided It can be of
-                                                one of these values: AWS, ACR, GCP,
-                                                GHCR'
+                                            providers:
+                                              description: 'Providers specifies a
+                                                list of OCI Registry names, whose
+                                                authentication providers are provided
+                                                It can be of one of these values:
+                                                AWS, ACR, GCP, GHCR'
                                               items:
-                                                description: ImageRegistryCredentialsHelpersType
+                                                description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
-                                                  helpers required.
+                                                  providers required.
                                                 enum:
                                                 - default
                                                 - amazon
@@ -6555,16 +6556,16 @@ spec:
                                               description: AllowInsecureRegistry allows
                                                 insecure access to a registry
                                               type: boolean
-                                            helpers:
-                                              description: 'Helpers specifies a list
-                                                of OCI Registry names, whose authentication
-                                                helpers are provided It can be of
-                                                one of these values: AWS, ACR, GCP,
-                                                GHCR'
+                                            providers:
+                                              description: 'Providers specifies a
+                                                list of OCI Registry names, whose
+                                                authentication providers are provided
+                                                It can be of one of these values:
+                                                AWS, ACR, GCP, GHCR'
                                               items:
-                                                description: ImageRegistryCredentialsHelpersType
+                                                description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
-                                                  helpers required.
+                                                  providers required.
                                                 enum:
                                                 - default
                                                 - amazon
@@ -7677,14 +7678,14 @@ spec:
                                 description: AllowInsecureRegistry allows insecure
                                   access to a registry
                                 type: boolean
-                              helpers:
-                                description: 'Helpers specifies a list of OCI Registry
-                                  names, whose authentication helpers are provided
+                              providers:
+                                description: 'Providers specifies a list of OCI Registry
+                                  names, whose authentication providers are provided
                                   It can be of one of these values: AWS, ACR, GCP,
                                   GHCR'
                                 items:
-                                  description: ImageRegistryCredentialsHelpersType
-                                    provides the list of credential helpers required.
+                                  description: ImageRegistryCredentialsProvidersType
+                                    provides the list of credential providers required.
                                   enum:
                                   - default
                                   - amazon
@@ -8015,14 +8016,14 @@ spec:
                                         description: AllowInsecureRegistry allows
                                           insecure access to a registry
                                         type: boolean
-                                      helpers:
-                                        description: 'Helpers specifies a list of
+                                      providers:
+                                        description: 'Providers specifies a list of
                                           OCI Registry names, whose authentication
-                                          helpers are provided It can be of one of
-                                          these values: AWS, ACR, GCP, GHCR'
+                                          providers are provided It can be of one
+                                          of these values: AWS, ACR, GCP, GHCR'
                                         items:
-                                          description: ImageRegistryCredentialsHelpersType
-                                            provides the list of credential helpers
+                                          description: ImageRegistryCredentialsProvidersType
+                                            provides the list of credential providers
                                             required.
                                           enum:
                                           - default
@@ -9791,16 +9792,17 @@ spec:
                                                   description: AllowInsecureRegistry
                                                     allows insecure access to a registry
                                                   type: boolean
-                                                helpers:
-                                                  description: 'Helpers specifies
+                                                providers:
+                                                  description: 'Providers specifies
                                                     a list of OCI Registry names,
-                                                    whose authentication helpers are
-                                                    provided It can be of one of these
-                                                    values: AWS, ACR, GCP, GHCR'
+                                                    whose authentication providers
+                                                    are provided It can be of one
+                                                    of these values: AWS, ACR, GCP,
+                                                    GHCR'
                                                   items:
-                                                    description: ImageRegistryCredentialsHelpersType
+                                                    description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
-                                                      helpers required.
+                                                      providers required.
                                                     enum:
                                                     - default
                                                     - amazon
@@ -10139,16 +10141,17 @@ spec:
                                                   description: AllowInsecureRegistry
                                                     allows insecure access to a registry
                                                   type: boolean
-                                                helpers:
-                                                  description: 'Helpers specifies
+                                                providers:
+                                                  description: 'Providers specifies
                                                     a list of OCI Registry names,
-                                                    whose authentication helpers are
-                                                    provided It can be of one of these
-                                                    values: AWS, ACR, GCP, GHCR'
+                                                    whose authentication providers
+                                                    are provided It can be of one
+                                                    of these values: AWS, ACR, GCP,
+                                                    GHCR'
                                                   items:
-                                                    description: ImageRegistryCredentialsHelpersType
+                                                    description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
-                                                      helpers required.
+                                                      providers required.
                                                     enum:
                                                     - default
                                                     - amazon
@@ -10597,16 +10600,17 @@ spec:
                                                   description: AllowInsecureRegistry
                                                     allows insecure access to a registry
                                                   type: boolean
-                                                helpers:
-                                                  description: 'Helpers specifies
+                                                providers:
+                                                  description: 'Providers specifies
                                                     a list of OCI Registry names,
-                                                    whose authentication helpers are
-                                                    provided It can be of one of these
-                                                    values: AWS, ACR, GCP, GHCR'
+                                                    whose authentication providers
+                                                    are provided It can be of one
+                                                    of these values: AWS, ACR, GCP,
+                                                    GHCR'
                                                   items:
-                                                    description: ImageRegistryCredentialsHelpersType
+                                                    description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
-                                                      helpers required.
+                                                      providers required.
                                                     enum:
                                                     - default
                                                     - amazon
@@ -11769,14 +11773,15 @@ spec:
                                     description: AllowInsecureRegistry allows insecure
                                       access to a registry
                                     type: boolean
-                                  helpers:
-                                    description: 'Helpers specifies a list of OCI
-                                      Registry names, whose authentication helpers
+                                  providers:
+                                    description: 'Providers specifies a list of OCI
+                                      Registry names, whose authentication providers
                                       are provided It can be of one of these values:
                                       AWS, ACR, GCP, GHCR'
                                     items:
-                                      description: ImageRegistryCredentialsHelpersType
-                                        provides the list of credential helpers required.
+                                      description: ImageRegistryCredentialsProvidersType
+                                        provides the list of credential providers
+                                        required.
                                       enum:
                                       - default
                                       - amazon
@@ -12211,14 +12216,15 @@ spec:
                                     description: AllowInsecureRegistry allows insecure
                                       access to a registry
                                     type: boolean
-                                  helpers:
-                                    description: 'Helpers specifies a list of OCI
-                                      Registry names, whose authentication helpers
+                                  providers:
+                                    description: 'Providers specifies a list of OCI
+                                      Registry names, whose authentication providers
                                       are provided It can be of one of these values:
                                       AWS, ACR, GCP, GHCR'
                                     items:
-                                      description: ImageRegistryCredentialsHelpersType
-                                        provides the list of credential helpers required.
+                                      description: ImageRegistryCredentialsProvidersType
+                                        provides the list of credential providers
+                                        required.
                                       enum:
                                       - default
                                       - amazon
@@ -13483,16 +13489,16 @@ spec:
                                               description: AllowInsecureRegistry allows
                                                 insecure access to a registry
                                               type: boolean
-                                            helpers:
-                                              description: 'Helpers specifies a list
-                                                of OCI Registry names, whose authentication
-                                                helpers are provided It can be of
-                                                one of these values: AWS, ACR, GCP,
-                                                GHCR'
+                                            providers:
+                                              description: 'Providers specifies a
+                                                list of OCI Registry names, whose
+                                                authentication providers are provided
+                                                It can be of one of these values:
+                                                AWS, ACR, GCP, GHCR'
                                               items:
-                                                description: ImageRegistryCredentialsHelpersType
+                                                description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
-                                                  helpers required.
+                                                  providers required.
                                                 enum:
                                                 - default
                                                 - amazon
@@ -13816,16 +13822,16 @@ spec:
                                               description: AllowInsecureRegistry allows
                                                 insecure access to a registry
                                               type: boolean
-                                            helpers:
-                                              description: 'Helpers specifies a list
-                                                of OCI Registry names, whose authentication
-                                                helpers are provided It can be of
-                                                one of these values: AWS, ACR, GCP,
-                                                GHCR'
+                                            providers:
+                                              description: 'Providers specifies a
+                                                list of OCI Registry names, whose
+                                                authentication providers are provided
+                                                It can be of one of these values:
+                                                AWS, ACR, GCP, GHCR'
                                               items:
-                                                description: ImageRegistryCredentialsHelpersType
+                                                description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
-                                                  helpers required.
+                                                  providers required.
                                                 enum:
                                                 - default
                                                 - amazon
@@ -14432,16 +14438,16 @@ spec:
                                               description: AllowInsecureRegistry allows
                                                 insecure access to a registry
                                               type: boolean
-                                            helpers:
-                                              description: 'Helpers specifies a list
-                                                of OCI Registry names, whose authentication
-                                                helpers are provided It can be of
-                                                one of these values: AWS, ACR, GCP,
-                                                GHCR'
+                                            providers:
+                                              description: 'Providers specifies a
+                                                list of OCI Registry names, whose
+                                                authentication providers are provided
+                                                It can be of one of these values:
+                                                AWS, ACR, GCP, GHCR'
                                               items:
-                                                description: ImageRegistryCredentialsHelpersType
+                                                description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
-                                                  helpers required.
+                                                  providers required.
                                                 enum:
                                                 - default
                                                 - amazon
@@ -15533,14 +15539,14 @@ spec:
                                 description: AllowInsecureRegistry allows insecure
                                   access to a registry
                                 type: boolean
-                              helpers:
-                                description: 'Helpers specifies a list of OCI Registry
-                                  names, whose authentication helpers are provided
+                              providers:
+                                description: 'Providers specifies a list of OCI Registry
+                                  names, whose authentication providers are provided
                                   It can be of one of these values: AWS, ACR, GCP,
                                   GHCR'
                                 items:
-                                  description: ImageRegistryCredentialsHelpersType
-                                    provides the list of credential helpers required.
+                                  description: ImageRegistryCredentialsProvidersType
+                                    provides the list of credential providers required.
                                   enum:
                                   - default
                                   - amazon
@@ -15852,14 +15858,14 @@ spec:
                                         description: AllowInsecureRegistry allows
                                           insecure access to a registry
                                         type: boolean
-                                      helpers:
-                                        description: 'Helpers specifies a list of
+                                      providers:
+                                        description: 'Providers specifies a list of
                                           OCI Registry names, whose authentication
-                                          helpers are provided It can be of one of
-                                          these values: AWS, ACR, GCP, GHCR'
+                                          providers are provided It can be of one
+                                          of these values: AWS, ACR, GCP, GHCR'
                                         items:
-                                          description: ImageRegistryCredentialsHelpersType
-                                            provides the list of credential helpers
+                                          description: ImageRegistryCredentialsProvidersType
+                                            provides the list of credential providers
                                             required.
                                           enum:
                                           - default
@@ -17628,16 +17634,17 @@ spec:
                                                   description: AllowInsecureRegistry
                                                     allows insecure access to a registry
                                                   type: boolean
-                                                helpers:
-                                                  description: 'Helpers specifies
+                                                providers:
+                                                  description: 'Providers specifies
                                                     a list of OCI Registry names,
-                                                    whose authentication helpers are
-                                                    provided It can be of one of these
-                                                    values: AWS, ACR, GCP, GHCR'
+                                                    whose authentication providers
+                                                    are provided It can be of one
+                                                    of these values: AWS, ACR, GCP,
+                                                    GHCR'
                                                   items:
-                                                    description: ImageRegistryCredentialsHelpersType
+                                                    description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
-                                                      helpers required.
+                                                      providers required.
                                                     enum:
                                                     - default
                                                     - amazon
@@ -17976,16 +17983,17 @@ spec:
                                                   description: AllowInsecureRegistry
                                                     allows insecure access to a registry
                                                   type: boolean
-                                                helpers:
-                                                  description: 'Helpers specifies
+                                                providers:
+                                                  description: 'Providers specifies
                                                     a list of OCI Registry names,
-                                                    whose authentication helpers are
-                                                    provided It can be of one of these
-                                                    values: AWS, ACR, GCP, GHCR'
+                                                    whose authentication providers
+                                                    are provided It can be of one
+                                                    of these values: AWS, ACR, GCP,
+                                                    GHCR'
                                                   items:
-                                                    description: ImageRegistryCredentialsHelpersType
+                                                    description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
-                                                      helpers required.
+                                                      providers required.
                                                     enum:
                                                     - default
                                                     - amazon
@@ -18434,16 +18442,17 @@ spec:
                                                   description: AllowInsecureRegistry
                                                     allows insecure access to a registry
                                                   type: boolean
-                                                helpers:
-                                                  description: 'Helpers specifies
+                                                providers:
+                                                  description: 'Providers specifies
                                                     a list of OCI Registry names,
-                                                    whose authentication helpers are
-                                                    provided It can be of one of these
-                                                    values: AWS, ACR, GCP, GHCR'
+                                                    whose authentication providers
+                                                    are provided It can be of one
+                                                    of these values: AWS, ACR, GCP,
+                                                    GHCR'
                                                   items:
-                                                    description: ImageRegistryCredentialsHelpersType
+                                                    description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
-                                                      helpers required.
+                                                      providers required.
                                                     enum:
                                                     - default
                                                     - amazon
@@ -19606,14 +19615,15 @@ spec:
                                     description: AllowInsecureRegistry allows insecure
                                       access to a registry
                                     type: boolean
-                                  helpers:
-                                    description: 'Helpers specifies a list of OCI
-                                      Registry names, whose authentication helpers
+                                  providers:
+                                    description: 'Providers specifies a list of OCI
+                                      Registry names, whose authentication providers
                                       are provided It can be of one of these values:
                                       AWS, ACR, GCP, GHCR'
                                     items:
-                                      description: ImageRegistryCredentialsHelpersType
-                                        provides the list of credential helpers required.
+                                      description: ImageRegistryCredentialsProvidersType
+                                        provides the list of credential providers
+                                        required.
                                       enum:
                                       - default
                                       - amazon
@@ -20075,14 +20085,15 @@ spec:
                                     description: AllowInsecureRegistry allows insecure
                                       access to a registry
                                     type: boolean
-                                  helpers:
-                                    description: 'Helpers specifies a list of OCI
-                                      Registry names, whose authentication helpers
+                                  providers:
+                                    description: 'Providers specifies a list of OCI
+                                      Registry names, whose authentication providers
                                       are provided It can be of one of these values:
                                       AWS, ACR, GCP, GHCR'
                                     items:
-                                      description: ImageRegistryCredentialsHelpersType
-                                        provides the list of credential helpers required.
+                                      description: ImageRegistryCredentialsProvidersType
+                                        provides the list of credential providers
+                                        required.
                                       enum:
                                       - default
                                       - amazon
@@ -21773,16 +21784,16 @@ spec:
                                               description: AllowInsecureRegistry allows
                                                 insecure access to a registry
                                               type: boolean
-                                            helpers:
-                                              description: 'Helpers specifies a list
-                                                of OCI Registry names, whose authentication
-                                                helpers are provided It can be of
-                                                one of these values: AWS, ACR, GCP,
-                                                GHCR'
+                                            providers:
+                                              description: 'Providers specifies a
+                                                list of OCI Registry names, whose
+                                                authentication providers are provided
+                                                It can be of one of these values:
+                                                AWS, ACR, GCP, GHCR'
                                               items:
-                                                description: ImageRegistryCredentialsHelpersType
+                                                description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
-                                                  helpers required.
+                                                  providers required.
                                                 enum:
                                                 - default
                                                 - amazon
@@ -22106,16 +22117,16 @@ spec:
                                               description: AllowInsecureRegistry allows
                                                 insecure access to a registry
                                               type: boolean
-                                            helpers:
-                                              description: 'Helpers specifies a list
-                                                of OCI Registry names, whose authentication
-                                                helpers are provided It can be of
-                                                one of these values: AWS, ACR, GCP,
-                                                GHCR'
+                                            providers:
+                                              description: 'Providers specifies a
+                                                list of OCI Registry names, whose
+                                                authentication providers are provided
+                                                It can be of one of these values:
+                                                AWS, ACR, GCP, GHCR'
                                               items:
-                                                description: ImageRegistryCredentialsHelpersType
+                                                description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
-                                                  helpers required.
+                                                  providers required.
                                                 enum:
                                                 - default
                                                 - amazon
@@ -22540,16 +22551,16 @@ spec:
                                               description: AllowInsecureRegistry allows
                                                 insecure access to a registry
                                               type: boolean
-                                            helpers:
-                                              description: 'Helpers specifies a list
-                                                of OCI Registry names, whose authentication
-                                                helpers are provided It can be of
-                                                one of these values: AWS, ACR, GCP,
-                                                GHCR'
+                                            providers:
+                                              description: 'Providers specifies a
+                                                list of OCI Registry names, whose
+                                                authentication providers are provided
+                                                It can be of one of these values:
+                                                AWS, ACR, GCP, GHCR'
                                               items:
-                                                description: ImageRegistryCredentialsHelpersType
+                                                description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
-                                                  helpers required.
+                                                  providers required.
                                                 enum:
                                                 - default
                                                 - amazon
@@ -23662,14 +23673,14 @@ spec:
                                 description: AllowInsecureRegistry allows insecure
                                   access to a registry
                                 type: boolean
-                              helpers:
-                                description: 'Helpers specifies a list of OCI Registry
-                                  names, whose authentication helpers are provided
+                              providers:
+                                description: 'Providers specifies a list of OCI Registry
+                                  names, whose authentication providers are provided
                                   It can be of one of these values: AWS, ACR, GCP,
                                   GHCR'
                                 items:
-                                  description: ImageRegistryCredentialsHelpersType
-                                    provides the list of credential helpers required.
+                                  description: ImageRegistryCredentialsProvidersType
+                                    provides the list of credential providers required.
                                   enum:
                                   - default
                                   - amazon
@@ -24001,14 +24012,14 @@ spec:
                                         description: AllowInsecureRegistry allows
                                           insecure access to a registry
                                         type: boolean
-                                      helpers:
-                                        description: 'Helpers specifies a list of
+                                      providers:
+                                        description: 'Providers specifies a list of
                                           OCI Registry names, whose authentication
-                                          helpers are provided It can be of one of
-                                          these values: AWS, ACR, GCP, GHCR'
+                                          providers are provided It can be of one
+                                          of these values: AWS, ACR, GCP, GHCR'
                                         items:
-                                          description: ImageRegistryCredentialsHelpersType
-                                            provides the list of credential helpers
+                                          description: ImageRegistryCredentialsProvidersType
+                                            provides the list of credential providers
                                             required.
                                           enum:
                                           - default
@@ -25777,16 +25788,17 @@ spec:
                                                   description: AllowInsecureRegistry
                                                     allows insecure access to a registry
                                                   type: boolean
-                                                helpers:
-                                                  description: 'Helpers specifies
+                                                providers:
+                                                  description: 'Providers specifies
                                                     a list of OCI Registry names,
-                                                    whose authentication helpers are
-                                                    provided It can be of one of these
-                                                    values: AWS, ACR, GCP, GHCR'
+                                                    whose authentication providers
+                                                    are provided It can be of one
+                                                    of these values: AWS, ACR, GCP,
+                                                    GHCR'
                                                   items:
-                                                    description: ImageRegistryCredentialsHelpersType
+                                                    description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
-                                                      helpers required.
+                                                      providers required.
                                                     enum:
                                                     - default
                                                     - amazon
@@ -26125,16 +26137,17 @@ spec:
                                                   description: AllowInsecureRegistry
                                                     allows insecure access to a registry
                                                   type: boolean
-                                                helpers:
-                                                  description: 'Helpers specifies
+                                                providers:
+                                                  description: 'Providers specifies
                                                     a list of OCI Registry names,
-                                                    whose authentication helpers are
-                                                    provided It can be of one of these
-                                                    values: AWS, ACR, GCP, GHCR'
+                                                    whose authentication providers
+                                                    are provided It can be of one
+                                                    of these values: AWS, ACR, GCP,
+                                                    GHCR'
                                                   items:
-                                                    description: ImageRegistryCredentialsHelpersType
+                                                    description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
-                                                      helpers required.
+                                                      providers required.
                                                     enum:
                                                     - default
                                                     - amazon
@@ -26583,16 +26596,17 @@ spec:
                                                   description: AllowInsecureRegistry
                                                     allows insecure access to a registry
                                                   type: boolean
-                                                helpers:
-                                                  description: 'Helpers specifies
+                                                providers:
+                                                  description: 'Providers specifies
                                                     a list of OCI Registry names,
-                                                    whose authentication helpers are
-                                                    provided It can be of one of these
-                                                    values: AWS, ACR, GCP, GHCR'
+                                                    whose authentication providers
+                                                    are provided It can be of one
+                                                    of these values: AWS, ACR, GCP,
+                                                    GHCR'
                                                   items:
-                                                    description: ImageRegistryCredentialsHelpersType
+                                                    description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
-                                                      helpers required.
+                                                      providers required.
                                                     enum:
                                                     - default
                                                     - amazon
@@ -27755,14 +27769,15 @@ spec:
                                     description: AllowInsecureRegistry allows insecure
                                       access to a registry
                                     type: boolean
-                                  helpers:
-                                    description: 'Helpers specifies a list of OCI
-                                      Registry names, whose authentication helpers
+                                  providers:
+                                    description: 'Providers specifies a list of OCI
+                                      Registry names, whose authentication providers
                                       are provided It can be of one of these values:
                                       AWS, ACR, GCP, GHCR'
                                     items:
-                                      description: ImageRegistryCredentialsHelpersType
-                                        provides the list of credential helpers required.
+                                      description: ImageRegistryCredentialsProvidersType
+                                        provides the list of credential providers
+                                        required.
                                       enum:
                                       - default
                                       - amazon
@@ -28198,14 +28213,15 @@ spec:
                                     description: AllowInsecureRegistry allows insecure
                                       access to a registry
                                     type: boolean
-                                  helpers:
-                                    description: 'Helpers specifies a list of OCI
-                                      Registry names, whose authentication helpers
+                                  providers:
+                                    description: 'Providers specifies a list of OCI
+                                      Registry names, whose authentication providers
                                       are provided It can be of one of these values:
                                       AWS, ACR, GCP, GHCR'
                                     items:
-                                      description: ImageRegistryCredentialsHelpersType
-                                        provides the list of credential helpers required.
+                                      description: ImageRegistryCredentialsProvidersType
+                                        provides the list of credential providers
+                                        required.
                                       enum:
                                       - default
                                       - amazon
@@ -29470,16 +29486,16 @@ spec:
                                               description: AllowInsecureRegistry allows
                                                 insecure access to a registry
                                               type: boolean
-                                            helpers:
-                                              description: 'Helpers specifies a list
-                                                of OCI Registry names, whose authentication
-                                                helpers are provided It can be of
-                                                one of these values: AWS, ACR, GCP,
-                                                GHCR'
+                                            providers:
+                                              description: 'Providers specifies a
+                                                list of OCI Registry names, whose
+                                                authentication providers are provided
+                                                It can be of one of these values:
+                                                AWS, ACR, GCP, GHCR'
                                               items:
-                                                description: ImageRegistryCredentialsHelpersType
+                                                description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
-                                                  helpers required.
+                                                  providers required.
                                                 enum:
                                                 - default
                                                 - amazon
@@ -29803,16 +29819,16 @@ spec:
                                               description: AllowInsecureRegistry allows
                                                 insecure access to a registry
                                               type: boolean
-                                            helpers:
-                                              description: 'Helpers specifies a list
-                                                of OCI Registry names, whose authentication
-                                                helpers are provided It can be of
-                                                one of these values: AWS, ACR, GCP,
-                                                GHCR'
+                                            providers:
+                                              description: 'Providers specifies a
+                                                list of OCI Registry names, whose
+                                                authentication providers are provided
+                                                It can be of one of these values:
+                                                AWS, ACR, GCP, GHCR'
                                               items:
-                                                description: ImageRegistryCredentialsHelpersType
+                                                description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
-                                                  helpers required.
+                                                  providers required.
                                                 enum:
                                                 - default
                                                 - amazon
@@ -30419,16 +30435,16 @@ spec:
                                               description: AllowInsecureRegistry allows
                                                 insecure access to a registry
                                               type: boolean
-                                            helpers:
-                                              description: 'Helpers specifies a list
-                                                of OCI Registry names, whose authentication
-                                                helpers are provided It can be of
-                                                one of these values: AWS, ACR, GCP,
-                                                GHCR'
+                                            providers:
+                                              description: 'Providers specifies a
+                                                list of OCI Registry names, whose
+                                                authentication providers are provided
+                                                It can be of one of these values:
+                                                AWS, ACR, GCP, GHCR'
                                               items:
-                                                description: ImageRegistryCredentialsHelpersType
+                                                description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
-                                                  helpers required.
+                                                  providers required.
                                                 enum:
                                                 - default
                                                 - amazon
@@ -31520,14 +31536,14 @@ spec:
                                 description: AllowInsecureRegistry allows insecure
                                   access to a registry
                                 type: boolean
-                              helpers:
-                                description: 'Helpers specifies a list of OCI Registry
-                                  names, whose authentication helpers are provided
+                              providers:
+                                description: 'Providers specifies a list of OCI Registry
+                                  names, whose authentication providers are provided
                                   It can be of one of these values: AWS, ACR, GCP,
                                   GHCR'
                                 items:
-                                  description: ImageRegistryCredentialsHelpersType
-                                    provides the list of credential helpers required.
+                                  description: ImageRegistryCredentialsProvidersType
+                                    provides the list of credential providers required.
                                   enum:
                                   - default
                                   - amazon
@@ -31839,14 +31855,14 @@ spec:
                                         description: AllowInsecureRegistry allows
                                           insecure access to a registry
                                         type: boolean
-                                      helpers:
-                                        description: 'Helpers specifies a list of
+                                      providers:
+                                        description: 'Providers specifies a list of
                                           OCI Registry names, whose authentication
-                                          helpers are provided It can be of one of
-                                          these values: AWS, ACR, GCP, GHCR'
+                                          providers are provided It can be of one
+                                          of these values: AWS, ACR, GCP, GHCR'
                                         items:
-                                          description: ImageRegistryCredentialsHelpersType
-                                            provides the list of credential helpers
+                                          description: ImageRegistryCredentialsProvidersType
+                                            provides the list of credential providers
                                             required.
                                           enum:
                                           - default
@@ -33615,16 +33631,17 @@ spec:
                                                   description: AllowInsecureRegistry
                                                     allows insecure access to a registry
                                                   type: boolean
-                                                helpers:
-                                                  description: 'Helpers specifies
+                                                providers:
+                                                  description: 'Providers specifies
                                                     a list of OCI Registry names,
-                                                    whose authentication helpers are
-                                                    provided It can be of one of these
-                                                    values: AWS, ACR, GCP, GHCR'
+                                                    whose authentication providers
+                                                    are provided It can be of one
+                                                    of these values: AWS, ACR, GCP,
+                                                    GHCR'
                                                   items:
-                                                    description: ImageRegistryCredentialsHelpersType
+                                                    description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
-                                                      helpers required.
+                                                      providers required.
                                                     enum:
                                                     - default
                                                     - amazon
@@ -33963,16 +33980,17 @@ spec:
                                                   description: AllowInsecureRegistry
                                                     allows insecure access to a registry
                                                   type: boolean
-                                                helpers:
-                                                  description: 'Helpers specifies
+                                                providers:
+                                                  description: 'Providers specifies
                                                     a list of OCI Registry names,
-                                                    whose authentication helpers are
-                                                    provided It can be of one of these
-                                                    values: AWS, ACR, GCP, GHCR'
+                                                    whose authentication providers
+                                                    are provided It can be of one
+                                                    of these values: AWS, ACR, GCP,
+                                                    GHCR'
                                                   items:
-                                                    description: ImageRegistryCredentialsHelpersType
+                                                    description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
-                                                      helpers required.
+                                                      providers required.
                                                     enum:
                                                     - default
                                                     - amazon
@@ -34421,16 +34439,17 @@ spec:
                                                   description: AllowInsecureRegistry
                                                     allows insecure access to a registry
                                                   type: boolean
-                                                helpers:
-                                                  description: 'Helpers specifies
+                                                providers:
+                                                  description: 'Providers specifies
                                                     a list of OCI Registry names,
-                                                    whose authentication helpers are
-                                                    provided It can be of one of these
-                                                    values: AWS, ACR, GCP, GHCR'
+                                                    whose authentication providers
+                                                    are provided It can be of one
+                                                    of these values: AWS, ACR, GCP,
+                                                    GHCR'
                                                   items:
-                                                    description: ImageRegistryCredentialsHelpersType
+                                                    description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
-                                                      helpers required.
+                                                      providers required.
                                                     enum:
                                                     - default
                                                     - amazon
@@ -35593,14 +35612,15 @@ spec:
                                     description: AllowInsecureRegistry allows insecure
                                       access to a registry
                                     type: boolean
-                                  helpers:
-                                    description: 'Helpers specifies a list of OCI
-                                      Registry names, whose authentication helpers
+                                  providers:
+                                    description: 'Providers specifies a list of OCI
+                                      Registry names, whose authentication providers
                                       are provided It can be of one of these values:
                                       AWS, ACR, GCP, GHCR'
                                     items:
-                                      description: ImageRegistryCredentialsHelpersType
-                                        provides the list of credential helpers required.
+                                      description: ImageRegistryCredentialsProvidersType
+                                        provides the list of credential providers
+                                        required.
                                       enum:
                                       - default
                                       - amazon

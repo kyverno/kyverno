@@ -102,7 +102,7 @@ func (p *ClusterPolicy) GetStatus() *PolicyStatus {
 
 // IsNamespaced indicates if the policy is namespace scoped
 func (p *ClusterPolicy) IsNamespaced() bool {
-	return p.GetNamespace() != ""
+	return false
 }
 
 // IsReady indicates if the policy is ready to serve the admission request
@@ -125,7 +125,7 @@ func (p *ClusterPolicy) Validate(clusterResources sets.Set[string]) (errs field.
 }
 
 func (p *ClusterPolicy) GetKind() string {
-	return p.Kind
+	return "ClusterPolicy"
 }
 
 func (p *ClusterPolicy) CreateDeepCopy() PolicyInterface {
