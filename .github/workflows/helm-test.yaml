@@ -9,6 +9,8 @@ on:
       - charts/**
       - .github/workflows/helm-test.yaml
 
+permissions: {}
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
