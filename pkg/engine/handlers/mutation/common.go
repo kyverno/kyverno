@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/utils/api"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -76,6 +77,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 	if reverse {
 		engineutils.InvertedElement(elements)
 	}
+
 	for index, element := range elements {
 		if element == nil {
 			continue
@@ -135,7 +137,12 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 			patchedResource.unstructured = mutateResp.PatchedResource
 		}
 	}
-	return mutate.NewResponse(engineapi.RuleStatusPass, patchedResource.unstructured, "")
+
+	if !datautils.DeepEqual(f.resource.unstructured, patchedResource.unstructured) {
+		return mutate.NewResponse(engineapi.RuleStatusPass, patchedResource.unstructured, "")
+	}
+
+	return mutate.NewResponse(engineapi.RuleStatusSkip, patchedResource.unstructured, "no patches applied")
 }
 
 func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info resourceInfo) *engineapi.RuleResponse {
