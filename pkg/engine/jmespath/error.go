@@ -6,7 +6,7 @@ import (
 
 const (
 	errorPrefix              = "JMESPath function '%s': "
-	invalidArgumentTypeError = errorPrefix + "%d argument is expected of %s type"
+	invalidArgumentTypeError = errorPrefix + "argument #%d is not of type %s"
 	genericError             = errorPrefix + "%s"
 	argOutOfBoundsError      = errorPrefix + "%d argument is out of bounds (%d)"
 	zeroDivisionError        = errorPrefix + "Zero divisor passed"
