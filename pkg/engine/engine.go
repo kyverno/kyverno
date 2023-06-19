@@ -19,8 +19,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -51,7 +51,7 @@ func NewEngine(
 	exceptionSelector engineapi.PolicyExceptionSelector,
 	imageSignatureRepository string,
 ) engineapi.Engine {
-	meter := global.MeterProvider().Meter(metrics.MeterName)
+	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
 	resultCounter, err := meter.Int64Counter(
 		"kyverno_policy_results",
 		metric.WithDescription("can be used to track the results associated with the policies applied in the user's cluster, at the level from rule to policy to admission requests"),
