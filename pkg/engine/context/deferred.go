@@ -2,7 +2,6 @@ package context
 
 import (
 	"regexp"
-	"sync"
 )
 
 type deferredLoader struct {
@@ -52,7 +51,6 @@ func (d *deferredLoader) Matches(query string) bool {
 }
 
 type deferredLoaders struct {
-	mutex                 sync.Mutex
 	enableDeferredLoading bool
 	currentLevel          int
 	loaders               []DeferredLoader
@@ -70,21 +68,15 @@ func (d *deferredLoaders) Enabled() bool {
 }
 
 func (d *deferredLoaders) Add(dl DeferredLoader, level int) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
 	dl.SetLevel(level)
 	d.loaders = append(d.loaders, dl)
 }
 
 func (d *deferredLoaders) Checkpoint(level int) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
 	d.currentLevel = level
 }
 
 func (d *deferredLoaders) Reset(remove bool, level int) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
 	d.currentLevel = level
 
 	for i, dl := range d.loaders {
@@ -102,9 +94,6 @@ func (d *deferredLoaders) Reset(remove bool, level int) {
 }
 
 func (d *deferredLoaders) Match(query string) DeferredLoader {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
 	for i, dl := range d.loaders {
 		if dl.HasLoaded() {
 			continue
