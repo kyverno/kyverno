@@ -74,12 +74,12 @@ require (
 	k8s.io/client-go v0.27.3
 	k8s.io/klog/v2 v2.100.1
 	k8s.io/kube-aggregator v0.27.3
-	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f
+	k8s.io/kube-openapi v0.0.0-20230601164746-7562a1006961
 	k8s.io/pod-security-admission v0.27.3
-	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
+	k8s.io/utils v0.0.0-20230505201702-9f6742963106
 	sigs.k8s.io/controller-runtime v0.15.0
-	sigs.k8s.io/kustomize/api v0.13.4
-	sigs.k8s.io/kustomize/kyaml v0.14.2
+	sigs.k8s.io/kustomize/api v0.14.0
+	sigs.k8s.io/kustomize/kyaml v0.14.3
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -198,6 +198,7 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/certificate-transparency-go v1.1.4 // indirect
+	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/go-github/v45 v45.2.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
