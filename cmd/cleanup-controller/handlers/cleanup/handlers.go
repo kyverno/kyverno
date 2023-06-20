@@ -20,9 +20,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"github.com/kyverno/kyverno/pkg/utils/match"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/metric/global"
 	"go.uber.org/multierr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -50,7 +50,7 @@ type cleanupMetrics struct {
 }
 
 func newCleanupMetrics(logger logr.Logger) cleanupMetrics {
-	meter := global.MeterProvider().Meter(metrics.MeterName)
+	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
 	deletedObjectsTotal, err := meter.Int64Counter(
 		"kyverno_cleanup_controller_deletedobjects",
 		metric.WithDescription("can be used to track number of deleted objects."),

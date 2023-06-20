@@ -25,7 +25,7 @@ func Test_ClusterPolicy_Name(t *testing.T) {
 }
 
 func Test_ClusterPolicy_IsNamespaced(t *testing.T) {
-	namespaced := ClusterPolicy{
+	namespaced := Policy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "this-is-a-way-too-long-policy-name-that-should-trigger-an-error-when-calling-the-policy-validation-method",
 			Namespace: "abcd",
