@@ -31,10 +31,8 @@ jobs:
         if [[ $VULNS -eq 0 ]]
         then
           echo "No vulnerabilities found, halting"
-          echo "results=nothing" >> $GITHUB_OUTPUT
         else
           echo "Vulnerabilities found, creating issue"
-          echo "results=$(cat scan.json)" >> $GITHUB_OUTPUT
         fi
 
     - name: Upload vulnerability scan report
