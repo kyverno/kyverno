@@ -255,18 +255,15 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 	genResources, err := c.ApplyGeneratePolicy(logger, policyContext, ur, applicableRules)
 
 	// generate events.
-	var events []event.Info
 	for _, res := range genResources {
 		e := event.NewResourcePassedEvent(event.GeneratePolicyController, res)
-		events = append(events, e)
+		c.eventGen.Add(e)
 	}
 
 	if unstructuredPol, err := kubeutils.ObjToUnstructured(policy); err == nil && unstructuredPol != nil {
 		e := event.NewBackgroundSuccessEvent(ur.Spec.Policy, ur.Spec.Rule, event.GeneratePolicyController, unstructuredPol)
-		events = append(events, e...)
+		c.eventGen.Add(e...)
 	}
-
-	c.eventGen.Add(events...)
 
 	return genResources, err
 }
