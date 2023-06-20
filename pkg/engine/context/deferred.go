@@ -87,8 +87,11 @@ func (d *deferredLoaders) Reset(remove bool, level int) {
 			d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
 		} else if dl.HasLoaded() {
 			// reload data into the current context
-			dl.LoadData()
-			d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
+			if err := dl.LoadData(); err != nil {
+				logger.Error(err, "failed to reload context entry", "name", dl.Name())
+			} else {
+				d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
+			}
 		}
 	}
 }

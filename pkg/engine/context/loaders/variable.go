@@ -1,7 +1,6 @@
 package loaders
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
@@ -13,7 +12,6 @@ import (
 )
 
 type variableLoader struct {
-	ctx       context.Context
 	logger    logr.Logger
 	entry     kyvernov1.ContextEntry
 	enginectx enginecontext.Interface
@@ -22,14 +20,12 @@ type variableLoader struct {
 }
 
 func NewVariableLoader(
-	ctx context.Context,
 	logger logr.Logger,
 	entry kyvernov1.ContextEntry,
 	enginectx enginecontext.Interface,
 	jp jmespath.Interface,
 ) enginecontext.Loader {
 	return &variableLoader{
-		ctx:       ctx,
 		logger:    logger,
 		entry:     entry,
 		enginectx: enginectx,
@@ -105,7 +101,6 @@ func (vl *variableLoader) loadVariable() (err error) {
 	logger.V(4).Info("evaluated output", "variable name", entry.Name, "output", output)
 	if output == nil {
 		return fmt.Errorf("failed to add context entry for variable %s since it evaluated to nil", entry.Name)
-
 	}
 
 	vl.data, err = json.Marshal(output)

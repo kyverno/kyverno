@@ -14,7 +14,6 @@ import (
 )
 
 type imageDataLoader struct {
-	ctx            context.Context
 	logger         logr.Logger
 	entry          kyvernov1.ContextEntry
 	enginectx      enginecontext.Interface
@@ -24,7 +23,6 @@ type imageDataLoader struct {
 }
 
 func NewImageDataLoader(
-	ctx context.Context,
 	logger logr.Logger,
 	entry kyvernov1.ContextEntry,
 	enginectx enginecontext.Interface,
@@ -32,7 +30,6 @@ func NewImageDataLoader(
 	rclientFactory engineapi.RegistryClientFactory,
 ) enginecontext.Loader {
 	return &imageDataLoader{
-		ctx:            ctx,
 		logger:         logger,
 		entry:          entry,
 		enginectx:      enginectx,
@@ -71,7 +68,7 @@ func (idl *imageDataLoader) loadImageData() error {
 
 func (idl *imageDataLoader) fetchImageData() (interface{}, error) {
 	logger := idl.logger
-	ctx := idl.ctx
+	ctx := context.Background()
 	enginectx := idl.enginectx
 	entry := idl.entry
 	rclientFactory := idl.rclientFactory
@@ -113,7 +110,7 @@ func (idl *imageDataLoader) fetchImageData() (interface{}, error) {
 
 // FetchImageDataMap fetches image information from the remote registry.
 func (idl *imageDataLoader) fetchImageDataMap(client engineapi.ImageDataClient, ref string) (interface{}, error) {
-	desc, err := client.ForRef(idl.ctx, ref)
+	desc, err := client.ForRef(context.Background(), ref)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch image descriptor: %s, error: %v", ref, err)
 	}
