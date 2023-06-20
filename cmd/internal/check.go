@@ -11,11 +11,9 @@ func check(logger logr.Logger) {
 	checkEnvVar(logger, "KYVERNO_NAMESPACE")
 	checkEnvVar(logger, "KYVERNO_SERVICEACCOUNT_NAME")
 	checkEnvVar(logger, "KYVERNO_DEPLOYMENT")
-	// checkEnvVar(logger, "KYVERNO_SVC")
 	checkEnvVar(logger, "KYVERNO_POD_NAME")
 	checkEnvVar(logger, "INIT_CONFIG")
 	checkEnvVar(logger, "METRICS_CONFIG")
-	// checkEnvVar(logger, "KYVERNO_DRYRUN_NAMESPACE")
 }
 
 func checkEnvVar(logger logr.Logger, name string) {
