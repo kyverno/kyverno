@@ -10,3 +10,8 @@ updates:
     schedule:
       interval: daily
     rebase-strategy: disabled
+  - package-ecosystem: docker
+    directory: /.devcontainer
+    schedule:
+      interval: daily
+    rebase-strategy: disabled
