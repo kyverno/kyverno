@@ -51,7 +51,21 @@ func New(
 	}, nil
 }
 
-func (a *apiCall) Execute(ctx context.Context) ([]byte, error) {
+func (a *apiCall) FetchAndLoad(ctx context.Context) ([]byte, error) {
+	data, err := a.Fetch(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	results, err := a.Store(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return results, nil
+}
+
+func (a *apiCall) Fetch(ctx context.Context) ([]byte, error) {
 	call, err := variables.SubstituteAllInType(a.logger, a.jsonCtx, a.entry.APICall)
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", a.entry.Name, a.entry.APICall.URLPath, err)
@@ -62,12 +76,16 @@ func (a *apiCall) Execute(ctx context.Context) ([]byte, error) {
 		return nil, err
 	}
 
-	result, err := a.transformAndStore(data)
+	return data, nil
+}
+
+func (a *apiCall) Store(data []byte) ([]byte, error) {
+	results, err := a.transformAndStore(data)
 	if err != nil {
 		return nil, err
 	}
 
-	return result, nil
+	return results, nil
 }
 
 func (a *apiCall) execute(ctx context.Context, call *kyvernov1.APICall) ([]byte, error) {

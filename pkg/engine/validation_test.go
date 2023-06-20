@@ -7,14 +7,12 @@ import (
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
-	enginetest "github.com/kyverno/kyverno/pkg/engine/test"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -31,7 +29,7 @@ func testValidate(
 	contextLoader engineapi.ContextLoaderFactory,
 ) engineapi.EngineResponse {
 	if contextLoader == nil {
-		contextLoader = factories.DefaultContextLoaderFactory(nil)
+		contextLoader = factories.DefaultContextLoaderFactory()
 	}
 	e := NewEngine(
 		cfg,
@@ -52,7 +50,7 @@ func testValidate(
 func newPolicyContext(
 	t *testing.T,
 	resource unstructured.Unstructured,
-	operation kyvernov1.AdmissionOperation,
+	operation kyverno.AdmissionOperation,
 	admissionInfo *kyvernov1beta1.RequestInfo,
 ) *PolicyContext {
 	t.Helper()
@@ -2133,7 +2131,7 @@ func executeTest(t *testing.T, test testCase) {
 		t.Fatal(err)
 	}
 
-	var userInfo urkyverno.RequestInfo
+	var userInfo kyvernov1beta1.RequestInfo
 	err = json.Unmarshal(test.userInfo, &userInfo)
 	if err != nil {
 		t.Fatal(err)
@@ -2144,7 +2142,7 @@ func executeTest(t *testing.T, test testCase) {
 		t.Fatal(err)
 	}
 
-	pc := newPolicyContext(t, newR, kyvernov1.AdmissionOperation(request.Operation), &userInfo).
+	pc := newPolicyContext(t, newR, kyverno.AdmissionOperation(request.Operation), &userInfo).
 		WithPolicy(&policy).
 		WithOldResource(oldR)
 
@@ -2228,25 +2226,23 @@ func TestValidate_context_variable_substitution_CLI(t *testing.T) {
 	msgs := []string{
 		"restrict pod counts to be no more than 10 on node minikube",
 	}
+
+	ctxLoaderFactory := factories.DefaultContextLoaderFactory(
+		factories.WithInitializer(func(jsonContext enginecontext.Interface) error {
+			if err := jsonContext.AddVariable("podcounts", "12"); err != nil {
+				return err
+			}
+
+			return nil
+		}),
+	)
+
 	er := testValidate(
 		context.TODO(),
-		registryclient.NewOrDie(),
+		nil,
 		newPolicyContext(t, *resourceUnstructured, kyverno.Create, nil).WithPolicy(&policy),
 		cfg,
-		enginetest.ContextLoaderFactory(
-			nil,
-			map[string]enginetest.Policy{
-				"restrict-pod-count": {
-					Rules: map[string]enginetest.Rule{
-						"restrict-pod-count": {
-							Values: map[string]interface{}{
-								"podcounts": "12",
-							},
-						},
-					},
-				},
-			},
-		),
+		ctxLoaderFactory,
 	)
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message(), msgs[index])
@@ -2731,27 +2727,25 @@ func Test_foreach_context_preconditions(t *testing.T) {
 		}
 	  }`)
 
+	ctxLoaderFactory := factories.DefaultContextLoaderFactory(
+		factories.WithInitializer(func(jsonContext enginecontext.Interface) error {
+			if err := jsonContext.AddVariable("img.data.podvalid", "nginx/nginx:v1"); err != nil {
+				return err
+			}
+			if err := jsonContext.AddVariable("img.data.podinvalid", "nginx/nginx:v2"); err != nil {
+				return err
+			}
+			return nil
+		}),
+	)
+
 	testForEach(
 		t,
 		policyraw,
 		resourceRaw,
 		"",
 		engineapi.RuleStatusPass,
-		enginetest.ContextLoaderFactory(
-			nil,
-			map[string]enginetest.Policy{
-				"test": {
-					Rules: map[string]enginetest.Rule{
-						"test": {
-							Values: map[string]interface{}{
-								"img.data.podvalid":   "nginx/nginx:v1",
-								"img.data.podinvalid": "nginx/nginx:v2",
-							},
-						},
-					},
-				},
-			},
-		),
+		ctxLoaderFactory,
 	)
 }
 
@@ -2826,27 +2820,25 @@ func Test_foreach_context_preconditions_fail(t *testing.T) {
 		}
 	  }`)
 
+	ctxLoaderFactory := factories.DefaultContextLoaderFactory(
+		factories.WithInitializer(func(jsonContext enginecontext.Interface) error {
+			if err := jsonContext.AddVariable("img.data.podvalid", "nginx/nginx:v1"); err != nil {
+				return err
+			}
+			if err := jsonContext.AddVariable("img.data.podinvalid", "nginx/nginx:v1"); err != nil {
+				return err
+			}
+			return nil
+		}),
+	)
+
 	testForEach(
 		t,
 		policyraw,
 		resourceRaw,
 		"",
 		engineapi.RuleStatusFail,
-		enginetest.ContextLoaderFactory(
-			nil,
-			map[string]enginetest.Policy{
-				"test": {
-					Rules: map[string]enginetest.Rule{
-						"test": {
-							Values: map[string]interface{}{
-								"img.data.podvalid":   "nginx/nginx:v1",
-								"img.data.podinvalid": "nginx/nginx:v1",
-							},
-						},
-					},
-				},
-			},
-		),
+		ctxLoaderFactory,
 	)
 }
 

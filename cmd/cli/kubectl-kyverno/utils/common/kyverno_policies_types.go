@@ -112,6 +112,7 @@ OuterLoop:
 			}
 		}
 	}
+
 	rclient := registryclient.NewOrDie()
 	eng := engine.NewEngine(
 		cfg,
@@ -119,7 +120,7 @@ OuterLoop:
 		jmespath.New(cfg),
 		adapters.Client(c.Client),
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
-		store.ContextLoaderFactory(nil),
+		store.ContextLoaderFactory(c.Client, nil, nil),
 		nil,
 		"",
 	)

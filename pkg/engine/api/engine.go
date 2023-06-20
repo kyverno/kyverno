@@ -50,7 +50,7 @@ type Engine interface {
 	) EngineResponse
 
 	ContextLoader(
-		policy kyvernov1.PolicyInterface,
-		rule kyvernov1.Rule,
+		policy string,
+		rule string,
 	) EngineContextLoader
 }

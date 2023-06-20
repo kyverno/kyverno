@@ -1060,7 +1060,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 		jp,
 		nil,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
-		factories.DefaultContextLoaderFactory(nil),
+		factories.DefaultContextLoaderFactory(),
 		nil,
 		"",
 	)
@@ -1162,7 +1162,7 @@ func Test_RuleSelector(t *testing.T) {
 		jp,
 		nil,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
-		factories.DefaultContextLoaderFactory(nil),
+		factories.DefaultContextLoaderFactory(),
 		nil,
 		"",
 	)

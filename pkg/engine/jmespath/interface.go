@@ -15,6 +15,10 @@ type implementation struct {
 	configuration config.Configuration
 }
 
+func NewWithDefaults() Interface {
+	return New(config.NewDefaultConfiguration(false))
+}
+
 func New(configuration config.Configuration) Interface {
 	return implementation{
 		configuration: configuration,

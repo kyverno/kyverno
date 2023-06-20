@@ -396,7 +396,7 @@ func Test_ReplacingPathWhenDeleting(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	ctx := context.NewContextFromRaw(jp, resourceRaw)
+	ctx := context.NewContextFromRaw(jp, resourceRaw, true)
 	assert.NilError(t, err)
 
 	pattern, err = SubstituteAll(logr.Discard(), ctx, pattern)
@@ -431,7 +431,7 @@ func Test_ReplacingNestedVariableWhenDeleting(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	ctx := context.NewContextFromRaw(jp, resourceRaw)
+	ctx := context.NewContextFromRaw(jp, resourceRaw, true)
 	assert.NilError(t, err)
 
 	pattern, err = SubstituteAll(logr.Discard(), ctx, pattern)
@@ -633,7 +633,7 @@ func Test_variableSubstitution_array(t *testing.T) {
 	err := json.Unmarshal(ruleRaw, &rule)
 	assert.NilError(t, err)
 
-	ctx := context.NewContextFromRaw(jp, configmapRaw)
+	ctx := context.NewContextFromRaw(jp, configmapRaw, true)
 	context.AddResource(ctx, resourceRaw)
 
 	vars, err := SubstituteAllInRule(logr.Discard(), ctx, rule)
@@ -1171,7 +1171,7 @@ func Test_ReplacingEscpNestedVariableWhenDeleting(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	ctx := context.NewContextFromRaw(jp, resourceRaw)
+	ctx := context.NewContextFromRaw(jp, resourceRaw, true)
 	assert.NilError(t, err)
 
 	pattern, err = SubstituteAll(logr.Discard(), ctx, pattern)

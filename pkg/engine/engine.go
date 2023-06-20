@@ -165,20 +165,10 @@ func (e *engine) ApplyBackgroundChecks(
 	return response
 }
 
-func (e *engine) ContextLoader(
-	policy kyvernov1.PolicyInterface,
-	rule kyvernov1.Rule,
-) engineapi.EngineContextLoader {
+func (e *engine) ContextLoader(policy, rule string) engineapi.EngineContextLoader {
 	loader := e.contextLoader(policy, rule)
-	return func(ctx context.Context, contextEntries []kyvernov1.ContextEntry, jsonContext enginecontext.Interface) error {
-		return loader.Load(
-			ctx,
-			e.jp,
-			e.client,
-			e.rclientFactory,
-			contextEntries,
-			jsonContext,
-		)
+	return func(ctx context.Context, entries []kyvernov1.ContextEntry, jc enginecontext.Interface) error {
+		return loader.Load(ctx, entries, jc)
 	}
 }
 
@@ -256,7 +246,7 @@ func (e *engine) invokeRuleHandler(
 					return resource, handlers.WithResponses(ruleResp)
 				}
 				// load rule context
-				contextLoader := e.ContextLoader(policyContext.Policy(), rule)
+				contextLoader := e.ContextLoader(policyContext.Policy().GetName(), rule.Name)
 				if err := contextLoader(ctx, rule.Context, policyContext.JSONContext()); err != nil {
 					if _, ok := err.(gojmespath.NotFoundError); ok {
 						logger.V(3).Info("failed to load context", "reason", err.Error())

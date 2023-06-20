@@ -10,11 +10,14 @@ import (
 	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
+	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"github.com/kyverno/kyverno/pkg/utils/match"
 	"go.opentelemetry.io/otel/attribute"
@@ -35,6 +38,7 @@ type handlers struct {
 	cpolLister kyvernov2alpha1listers.ClusterCleanupPolicyLister
 	polLister  kyvernov2alpha1listers.CleanupPolicyLister
 	nsLister   corev1listers.NamespaceLister
+	cmLister   corev1listers.ConfigMapLister
 	recorder   record.EventRecorder
 	jp         jmespath.Interface
 	metrics    cleanupMetrics
@@ -73,6 +77,7 @@ func New(
 	cpolLister kyvernov2alpha1listers.ClusterCleanupPolicyLister,
 	polLister kyvernov2alpha1listers.CleanupPolicyLister,
 	nsLister corev1listers.NamespaceLister,
+	cmLister corev1listers.ConfigMapLister,
 	jp jmespath.Interface,
 ) *handlers {
 	return &handlers{
@@ -80,6 +85,7 @@ func New(
 		cpolLister: cpolLister,
 		polLister:  polLister,
 		nsLister:   nsLister,
+		cmLister:   cmLister,
 		recorder:   event.NewRecorder(event.CleanupController, client.GetEventsInterface()),
 		metrics:    newCleanupMetrics(logger),
 		jp:         jp,
@@ -108,25 +114,43 @@ func (h *handlers) lookupPolicy(namespace, name string) (kyvernov2alpha1.Cleanup
 	}
 }
 
-func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy kyvernov2alpha1.CleanupPolicyInterface, cfg config.Configuration) error {
+func (h *handlers) executePolicy(
+	ctx context.Context,
+	logger logr.Logger,
+	policy kyvernov2alpha1.CleanupPolicyInterface,
+	cfg config.Configuration,
+) error {
 	spec := policy.GetSpec()
 	kinds := sets.New(spec.MatchResources.GetKinds()...)
 	debug := logger.V(4)
 	var errs []error
 	enginectx := enginecontext.NewContext(h.jp)
 
-	if spec.Context != nil {
-		for _, entry := range spec.Context {
-			if entry.APICall != nil {
-				if err := engineapi.LoadAPIData(ctx, h.jp, logger, entry, enginectx, h.client); err != nil {
-					return err
-				}
-			} else if entry.Variable != nil {
-				if err := engineapi.LoadVariable(logger, h.jp, entry, enginectx); err != nil {
-					return err
-				}
-			}
-		}
+	rclient, err := registryclient.New()
+	if err != nil {
+		return err
+	}
+
+	registryClientFactory := factories.DefaultRegistryClientFactory(
+		adapters.RegistryClient(rclient),
+		nil,
+	)
+
+	configMapResolver, err := resolvers.NewInformerBasedResolver(h.cmLister)
+	if err != nil {
+		return err
+	}
+
+	ctxFactory := factories.DefaultContextLoaderFactory(
+		factories.WithAPIClient(h.client),
+		factories.WithRegistryClientFactory(registryClientFactory),
+		factories.WithJMESPath(h.jp),
+		factories.WithConfigMapResolver(configMapResolver),
+	)
+
+	loader := ctxFactory(policy.GetName(), "")
+	if err := loader.Load(ctx, spec.Context, enginectx); err != nil {
+		return err
 	}
 
 	for kind := range kinds {
