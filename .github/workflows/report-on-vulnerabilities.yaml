@@ -13,7 +13,7 @@ env:
 
 jobs:
   scan:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     outputs:
@@ -60,8 +60,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
       - name: Download scan
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
