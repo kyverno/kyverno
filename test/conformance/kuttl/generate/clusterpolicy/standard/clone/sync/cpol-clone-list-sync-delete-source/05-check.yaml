@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+assert:
+- target-2.yaml
+error:
+- target-1.yaml
+
