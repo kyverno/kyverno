@@ -44,7 +44,10 @@ func createLocalContextLoaderFactory(
 	if IsApiCallAllowed() {
 		opts = append(opts, factories.WithAPIClient(apiClient))
 	}
-	if GetRegistryAccess() {
+
+	if registryClient != nil {
+		opts = append(opts, factories.WithRegistryClientFactory(registryClient))
+	} else if GetRegistryAccess() {
 		rclient := GetRegistryClient()
 		rcf := factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil)
 		opts = append(opts, factories.WithRegistryClientFactory(rcf))

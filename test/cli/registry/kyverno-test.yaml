@@ -1,4 +1,4 @@
-name: test-variables
+name: test-registry
 policies:
   - image-example.yaml
 resources:

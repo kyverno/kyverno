@@ -32,11 +32,12 @@ func NewImageDataLoader(
 	rclientFactory engineapi.RegistryClientFactory,
 ) enginecontext.Loader {
 	return &imageDataLoader{
-		ctx:       ctx,
-		logger:    logger,
-		entry:     entry,
-		enginectx: enginectx,
-		jp:        jp,
+		ctx:            ctx,
+		logger:         logger,
+		entry:          entry,
+		enginectx:      enginectx,
+		jp:             jp,
+		rclientFactory: rclientFactory,
 	}
 }
 

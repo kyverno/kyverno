@@ -114,13 +114,14 @@ OuterLoop:
 	}
 
 	rclient := registryclient.NewOrDie()
+	rcf := factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil)
 	eng := engine.NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
 		jmespath.New(cfg),
 		adapters.Client(c.Client),
-		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
-		store.ContextLoaderFactory(c.Client, nil, nil),
+		rcf,
+		store.ContextLoaderFactory(c.Client, rcf, nil),
 		nil,
 		"",
 	)
