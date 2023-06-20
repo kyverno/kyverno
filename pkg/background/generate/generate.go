@@ -256,7 +256,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 
 	// generate events.
 	for _, res := range genResources {
-		e := event.NewResourcePassedEvent(event.GeneratePolicyController, res)
+		e := event.NewResourceGenerationEvent(event.GeneratePolicyController, res)
 		c.eventGen.Add(e)
 	}
 
