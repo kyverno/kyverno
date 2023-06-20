@@ -192,7 +192,7 @@ func NewPolicyContext(
 	admissionInfo *kyvernov1beta1.RequestInfo,
 	configuration config.Configuration,
 ) (*PolicyContext, error) {
-	enginectx := enginectx.NewContext(jp)
+	enginectx := enginectx.NewContext(jp, true)
 	if err := enginectx.AddResource(resource.Object); err != nil {
 		return nil, err
 	}
@@ -232,7 +232,7 @@ func NewPolicyContextFromAdmissionRequest(
 	gvk schema.GroupVersionKind,
 	configuration config.Configuration,
 ) (*PolicyContext, error) {
-	ctx, err := newVariablesContext(jp, request, &admissionInfo)
+	ctx, err := newJsonContext(jp, request, &admissionInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create policy rule context: %w", err)
 	}
@@ -253,12 +253,12 @@ func NewPolicyContextFromAdmissionRequest(
 	return policyContext, nil
 }
 
-func newVariablesContext(
+func newJsonContext(
 	jp jmespath.Interface,
 	request admissionv1.AdmissionRequest,
 	userRequestInfo *kyvernov1beta1.RequestInfo,
 ) (enginectx.Interface, error) {
-	ctx := enginectx.NewContext(jp)
+	ctx := enginectx.NewContext(jp, true)
 	if err := ctx.AddRequest(request); err != nil {
 		return nil, fmt.Errorf("failed to load incoming request in context: %w", err)
 	}

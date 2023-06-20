@@ -124,8 +124,7 @@ func (h *handlers) executePolicy(
 	kinds := sets.New(spec.MatchResources.GetKinds()...)
 	debug := logger.V(4)
 	var errs []error
-	enginectx := enginecontext.NewContext(h.jp)
-
+	enginectx := enginecontext.NewContext(h.jp, cfg.GetEnableDeferredLoading())
 	rclient, err := registryclient.New()
 	if err != nil {
 		return err

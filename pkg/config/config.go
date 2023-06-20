@@ -76,6 +76,7 @@ const (
 	resourceFilters               = "resourceFilters"
 	defaultRegistry               = "defaultRegistry"
 	enableDefaultRegistryMutation = "enableDefaultRegistryMutation"
+	enableDeferredLoading         = "enableDeferredLoading"
 	excludeGroups                 = "excludeGroups"
 	excludeUsernames              = "excludeUsernames"
 	excludeRoles                  = "excludeRoles"
@@ -144,8 +145,10 @@ func KyvernoUserName(serviceaccount string) string {
 type Configuration interface {
 	// GetDefaultRegistry return default image registry
 	GetDefaultRegistry() string
-	// GetEnableDefaultRegistryMutation return if should mutate image registry
+	// GetEnableDefaultRegistryMutation returns true if image references should be mutated
 	GetEnableDefaultRegistryMutation() bool
+	// GetDisableDeferredLoading returns true if image references are mutated
+	GetEnableDeferredLoading() bool
 	// IsExcluded checks exlusions/inclusions to determine if the admission request should be excluded or not
 	IsExcluded(username string, groups []string, roles []string, clusterroles []string) bool
 	// ToFilter checks if the given resource is set to be filtered in the configuration
@@ -167,6 +170,7 @@ type configuration struct {
 	skipResourceFilters           bool
 	defaultRegistry               string
 	enableDefaultRegistryMutation bool
+	enableDeferredLoading         bool
 	exclusions                    match
 	inclusions                    match
 	filters                       []filter
@@ -224,6 +228,7 @@ func NewDefaultConfiguration(skipResourceFilters bool) *configuration {
 		skipResourceFilters:           skipResourceFilters,
 		defaultRegistry:               "docker.io",
 		enableDefaultRegistryMutation: true,
+		enableDeferredLoading:         true,
 	}
 }
 
@@ -273,6 +278,12 @@ func (cd *configuration) GetEnableDefaultRegistryMutation() bool {
 	return cd.enableDefaultRegistryMutation
 }
 
+func (cd *configuration) GetEnableDeferredLoading() bool {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.enableDeferredLoading
+}
+
 func (cd *configuration) GetGenerateSuccessEvents() bool {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
@@ -311,6 +322,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	// reset
 	cd.defaultRegistry = "docker.io"
 	cd.enableDefaultRegistryMutation = true
+	cd.enableDeferredLoading = true
 	cd.exclusions = match{}
 	cd.inclusions = match{}
 	cd.filters = []filter{}
@@ -333,20 +345,10 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 			logger.Error(errors.New("defaultRegistry is not a valid DNS hostname"), "failed to configure defaultRegistry")
 		}
 	}
-	// load enableDefaultRegistryMutation
-	enableDefaultRegistryMutation, ok := data[enableDefaultRegistryMutation]
-	if !ok {
-		logger.Info("enableDefaultRegistryMutation not set")
-	} else {
-		logger := logger.WithValues("enableDefaultRegistryMutation", enableDefaultRegistryMutation)
-		enableDefaultRegistryMutation, err := strconv.ParseBool(enableDefaultRegistryMutation)
-		if err != nil {
-			logger.Error(err, "enableDefaultRegistryMutation is not a boolean")
-		} else {
-			cd.enableDefaultRegistryMutation = enableDefaultRegistryMutation
-			logger.Info("enableDefaultRegistryMutation configured")
-		}
-	}
+
+	cd.enableDefaultRegistryMutation = cd.loadBoolean(data, enableDefaultRegistryMutation, true)
+	cd.enableDeferredLoading = cd.loadBoolean(data, enableDeferredLoading, true)
+
 	// load excludeGroupRole
 	excludedGroups, ok := data[excludeGroups]
 	if !ok {
@@ -421,6 +423,24 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 			logger.Info("webhookAnnotations configured")
 		}
 	}
+}
+
+func (cd *configuration) loadBoolean(data map[string]string, key string, defaultVal bool) bool {
+	strVal, ok := data[key]
+	if !ok {
+		logger.Info("using default configuration", "key", key, "default", defaultVal)
+		return defaultVal
+	}
+
+	logger := logger.WithValues(key, strVal)
+	val, err := strconv.ParseBool(strVal)
+	if err != nil {
+		logger.Error(err, "invalid boolean configuration", "key", key)
+		return defaultVal
+	}
+
+	logger.Info("configuration applied")
+	return val
 }
 
 func (cd *configuration) unload() {
