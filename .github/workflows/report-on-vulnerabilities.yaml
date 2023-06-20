@@ -1,11 +1,16 @@
 name: report-on-vulnerabilities
+
 on:
   workflow_dispatch: {}
   schedule:
     - cron: '23 2 * * *' # Every day at 02:23
+
+permissions: {}
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+
 jobs:
   scan:
     runs-on: ubuntu-20.04
@@ -49,6 +54,9 @@ jobs:
     runs-on: ubuntu-latest
     if: contains(needs.scan.outputs.results, 'found')
     needs: scan
+    permissions:
+      contents: read
+      issues: write
     steps:
       - name: Checkout
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
