@@ -244,7 +244,6 @@ func main() {
 	var wg sync.WaitGroup
 	certRenewer := tls.NewCertRenewer(
 		setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
-		secretLister,
 		tls.CertRenewalInterval,
 		tls.CAValidityDuration,
 		tls.TLSValidityDuration,
