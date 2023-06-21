@@ -19,7 +19,7 @@ const (
 	// enable deferred context loading
 	EnableDeferredLoadingFlagName    = "enableDeferredLoading"
 	EnableDeferredLoadingDescription = "enable deferred loading of context variables"
-	enableDeferredLoadingEnvVar      = "FLAG_DEFERRED_LOADING"
+	enableDeferredLoadingEnvVar      = "FLAG_ENABLE_DEFERRED_LOADING"
 	defaultEnableDeferredLoading     = true
 )
 
