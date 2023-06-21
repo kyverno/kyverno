@@ -9,6 +9,7 @@ var defaults Toggles = defaultToggles{}
 type Toggles interface {
 	ProtectManagedResources() bool
 	ForceFailurePolicyIgnore() bool
+	DeferredLoading() bool
 }
 
 type defaultToggles struct{}
@@ -19,6 +20,10 @@ func (defaultToggles) ProtectManagedResources() bool {
 
 func (defaultToggles) ForceFailurePolicyIgnore() bool {
 	return ForceFailurePolicyIgnore.enabled()
+}
+
+func (defaultToggles) DeferredLoading() bool {
+	return DeferredLoading.enabled()
 }
 
 type contextKey struct{}

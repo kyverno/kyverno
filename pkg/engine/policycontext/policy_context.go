@@ -1,6 +1,7 @@
 package policycontext
 
 import (
+	"context"
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -9,6 +10,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -192,7 +194,8 @@ func NewPolicyContext(
 	admissionInfo *kyvernov1beta1.RequestInfo,
 	configuration config.Configuration,
 ) (*PolicyContext, error) {
-	enginectx := enginectx.NewContext(jp, true)
+	enableDeferredLoading := toggle.FromContext(context.TODO()).DeferredLoading()
+	enginectx := enginectx.NewContext(jp, enableDeferredLoading)
 	if err := enginectx.AddResource(resource.Object); err != nil {
 		return nil, err
 	}
@@ -258,7 +261,8 @@ func newJsonContext(
 	request admissionv1.AdmissionRequest,
 	userRequestInfo *kyvernov1beta1.RequestInfo,
 ) (enginectx.Interface, error) {
-	ctx := enginectx.NewContext(jp, true)
+	enableDeferredLoading := toggle.FromContext(context.TODO()).DeferredLoading()
+	ctx := enginectx.NewContext(jp, enableDeferredLoading)
 	if err := ctx.AddRequest(request); err != nil {
 		return nil, fmt.Errorf("failed to load incoming request in context: %w", err)
 	}

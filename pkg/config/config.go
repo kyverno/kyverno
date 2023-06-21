@@ -76,7 +76,6 @@ const (
 	resourceFilters               = "resourceFilters"
 	defaultRegistry               = "defaultRegistry"
 	enableDefaultRegistryMutation = "enableDefaultRegistryMutation"
-	enableDeferredLoading         = "enableDeferredLoading"
 	excludeGroups                 = "excludeGroups"
 	excludeUsernames              = "excludeUsernames"
 	excludeRoles                  = "excludeRoles"
@@ -147,8 +146,6 @@ type Configuration interface {
 	GetDefaultRegistry() string
 	// GetEnableDefaultRegistryMutation returns true if image references should be mutated
 	GetEnableDefaultRegistryMutation() bool
-	// GetDisableDeferredLoading returns true if image references are mutated
-	GetEnableDeferredLoading() bool
 	// IsExcluded checks exlusions/inclusions to determine if the admission request should be excluded or not
 	IsExcluded(username string, groups []string, roles []string, clusterroles []string) bool
 	// ToFilter checks if the given resource is set to be filtered in the configuration
@@ -170,7 +167,6 @@ type configuration struct {
 	skipResourceFilters           bool
 	defaultRegistry               string
 	enableDefaultRegistryMutation bool
-	enableDeferredLoading         bool
 	exclusions                    match
 	inclusions                    match
 	filters                       []filter
@@ -228,7 +224,6 @@ func NewDefaultConfiguration(skipResourceFilters bool) *configuration {
 		skipResourceFilters:           skipResourceFilters,
 		defaultRegistry:               "docker.io",
 		enableDefaultRegistryMutation: true,
-		enableDeferredLoading:         true,
 	}
 }
 
@@ -278,12 +273,6 @@ func (cd *configuration) GetEnableDefaultRegistryMutation() bool {
 	return cd.enableDefaultRegistryMutation
 }
 
-func (cd *configuration) GetEnableDeferredLoading() bool {
-	cd.mux.RLock()
-	defer cd.mux.RUnlock()
-	return cd.enableDeferredLoading
-}
-
 func (cd *configuration) GetGenerateSuccessEvents() bool {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
@@ -322,7 +311,6 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	// reset
 	cd.defaultRegistry = "docker.io"
 	cd.enableDefaultRegistryMutation = true
-	cd.enableDeferredLoading = true
 	cd.exclusions = match{}
 	cd.inclusions = match{}
 	cd.filters = []filter{}
@@ -347,7 +335,6 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	}
 
 	cd.enableDefaultRegistryMutation = cd.loadBoolean(data, enableDefaultRegistryMutation, true)
-	cd.enableDeferredLoading = cd.loadBoolean(data, enableDeferredLoading, true)
 
 	// load excludeGroupRole
 	excludedGroups, ok := data[excludeGroups]

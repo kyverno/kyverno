@@ -16,11 +16,17 @@ const (
 	ForceFailurePolicyIgnoreDescription = "Set the flag to 'true', to force set Failure Policy to 'ignore'."
 	forceFailurePolicyIgnoreEnvVar      = "FLAG_FORCE_FAILURE_POLICY_IGNORE"
 	defaultForceFailurePolicyIgnore     = false
+	// disable deferred context loading
+	DeferredLoadingFlagName    = "deferredLoading"
+	DeferredLoadingDescription = "defer context variable loading until first use"
+	deferredLoadingEnvVar      = "FLAG_DEFERRED_LOADING"
+	defaultDeferredLoading     = true
 )
 
 var (
 	ProtectManagedResources  = newToggle(defaultProtectManagedResources, protectManagedResourcesEnvVar)
 	ForceFailurePolicyIgnore = newToggle(defaultForceFailurePolicyIgnore, forceFailurePolicyIgnoreEnvVar)
+	DeferredLoading          = newToggle(defaultDeferredLoading, deferredLoadingEnvVar)
 )
 
 type ToggleFlag interface {

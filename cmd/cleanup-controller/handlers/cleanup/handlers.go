@@ -18,6 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"github.com/kyverno/kyverno/pkg/utils/match"
 	"go.opentelemetry.io/otel"
@@ -124,7 +125,9 @@ func (h *handlers) executePolicy(
 	kinds := sets.New(spec.MatchResources.GetKinds()...)
 	debug := logger.V(4)
 	var errs []error
-	enginectx := enginecontext.NewContext(h.jp, cfg.GetEnableDeferredLoading())
+
+	enableDeferredLoading := toggle.FromContext(ctx).DeferredLoading()
+	enginectx := enginecontext.NewContext(h.jp, enableDeferredLoading)
 	rclient, err := registryclient.New()
 	if err != nil {
 		return err
