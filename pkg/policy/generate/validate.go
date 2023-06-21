@@ -3,6 +3,7 @@ package generate
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -93,13 +94,12 @@ func (g *Generate) Validate(ctx context.Context) (string, error) {
 	// If kind and namespace contain variables, then we cannot resolve then so we skip the processing
 	if len(rule.CloneList.Kinds) != 0 {
 		for _, kind = range rule.CloneList.Kinds {
-			_, kind = kubeutils.GetKindFromGVK(kind)
 			if err := g.canIGenerate(ctx, kind, namespace); err != nil {
 				return "", err
 			}
 		}
 	} else {
-		if err := g.canIGenerate(ctx, kind, namespace); err != nil {
+		if err := g.canIGenerate(ctx, strings.Join([]string{apiVersion, kind}, "/"), namespace); err != nil {
 			return "", err
 		}
 	}
@@ -113,19 +113,15 @@ func (g *Generate) validateClone(c kyvernov1.CloneFrom, cl kyvernov1.CloneList, 
 		}
 	}
 
-	namespace := c.Namespace
-	if !regex.IsVariable(namespace) {
-		namespace = ""
-	}
 	// Skip if there is variable defined
 	if !regex.IsVariable(kind) {
-		// GET
-		ok, err := g.authCheck.CanIGet(context.TODO(), kind, namespace)
+		_, _, _, sub := kubeutils.ParseKindSelector(kind)
+		ok, err := g.authCheck.CanIGet(context.TODO(), kind, c.Namespace, sub)
 		if err != nil {
 			return "", err
 		}
 		if !ok {
-			return "", fmt.Errorf("kyverno does not have permissions to 'get' resource %s/%s. Grant proper permissions to the background controller", kind, namespace)
+			return "", fmt.Errorf("kyverno does not have permissions to 'get' resource %s/%s. Grant proper permissions to the background controller", kind, c.Namespace)
 		}
 	} else {
 		g.log.V(2).Info("resource Kind uses variables, so cannot be resolved. Skipping Auth Checks.")
@@ -134,49 +130,42 @@ func (g *Generate) validateClone(c kyvernov1.CloneFrom, cl kyvernov1.CloneList, 
 }
 
 // canIGenerate returns a error if kyverno cannot perform operations
-func (g *Generate) canIGenerate(ctx context.Context, kind, namespace string) error {
+func (g *Generate) canIGenerate(ctx context.Context, gvk, namespace string) error {
 	// Skip if there is variable defined
 	authCheck := g.authCheck
-	if !regex.IsVariable(namespace) {
-		namespace = ""
-	}
-	if !regex.IsVariable(kind) {
-		// CREATE
-		ok, err := authCheck.CanICreate(ctx, kind, namespace)
+	if !regex.IsVariable(gvk) {
+		g, v, k, sub := kubeutils.ParseKindSelector(gvk)
+		gvk = strings.Join([]string{g, v, k}, "/")
+		ok, err := authCheck.CanICreate(ctx, gvk, namespace, sub)
 		if err != nil {
-			// machinery error
 			return err
 		}
 		if !ok {
-			return fmt.Errorf("kyverno does not have permissions to 'create' resource %s/%s. Grant proper permissions to the background controller", kind, namespace)
-		}
-		// UPDATE
-		ok, err = authCheck.CanIUpdate(ctx, kind, namespace)
-		if err != nil {
-			// machinery error
-			return err
-		}
-		if !ok {
-			return fmt.Errorf("kyverno does not have permissions to 'update' resource %s/%s. Grant proper permissions to the background controller", kind, namespace)
-		}
-		// GET
-		ok, err = authCheck.CanIGet(ctx, kind, namespace)
-		if err != nil {
-			// machinery error
-			return err
-		}
-		if !ok {
-			return fmt.Errorf("kyverno does not have permissions to 'get' resource %s/%s. Grant proper permissions to the background controller", kind, namespace)
+			return fmt.Errorf("kyverno does not have permissions to 'create' resource %s/%s/%s. Grant proper permissions to the background controller", gvk, sub, namespace)
 		}
 
-		// DELETE
-		ok, err = authCheck.CanIDelete(ctx, kind, namespace)
+		ok, err = authCheck.CanIUpdate(ctx, gvk, namespace, sub)
 		if err != nil {
-			// machinery error
 			return err
 		}
 		if !ok {
-			return fmt.Errorf("kyverno does not have permissions to 'delete' resource %s/%s. Grant proper permissions to the background controller", kind, namespace)
+			return fmt.Errorf("kyverno does not have permissions to 'update' resource %s/%s/%s. Grant proper permissions to the background controller", gvk, sub, namespace)
+		}
+
+		ok, err = authCheck.CanIGet(ctx, gvk, namespace, sub)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return fmt.Errorf("kyverno does not have permissions to 'get' resource %s/%s/%s. Grant proper permissions to the background controller", gvk, sub, namespace)
+		}
+
+		ok, err = authCheck.CanIDelete(ctx, gvk, namespace, sub)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return fmt.Errorf("kyverno does not have permissions to 'delete' resource %s/%s/%s. Grant proper permissions to the background controller", gvk, sub, namespace)
 		}
 	} else {
 		g.log.V(2).Info("resource Kind uses variables, so cannot be resolved. Skipping Auth Checks.")
