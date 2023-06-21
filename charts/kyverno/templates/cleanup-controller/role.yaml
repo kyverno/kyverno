@@ -35,9 +35,16 @@ rules:
       - leases
     verbs:
       - create
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
       - delete
       - get
       - patch
       - update
+    resourceNames:
+      - kyverno-cleanup-controller
 {{- end -}}
 {{- end -}}
