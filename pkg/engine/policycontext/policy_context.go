@@ -194,7 +194,7 @@ func NewPolicyContext(
 	admissionInfo *kyvernov1beta1.RequestInfo,
 	configuration config.Configuration,
 ) (*PolicyContext, error) {
-	enableDeferredLoading := toggle.FromContext(context.TODO()).DeferredLoading()
+	enableDeferredLoading := toggle.FromContext(context.TODO()).EnableDeferredLoading()
 	enginectx := enginectx.NewContext(jp, enableDeferredLoading)
 	if err := enginectx.AddResource(resource.Object); err != nil {
 		return nil, err
@@ -261,7 +261,7 @@ func newJsonContext(
 	request admissionv1.AdmissionRequest,
 	userRequestInfo *kyvernov1beta1.RequestInfo,
 ) (enginectx.Interface, error) {
-	enableDeferredLoading := toggle.FromContext(context.TODO()).DeferredLoading()
+	enableDeferredLoading := toggle.FromContext(context.TODO()).EnableDeferredLoading()
 	ctx := enginectx.NewContext(jp, enableDeferredLoading)
 	if err := ctx.AddRequest(request); err != nil {
 		return nil, fmt.Errorf("failed to load incoming request in context: %w", err)

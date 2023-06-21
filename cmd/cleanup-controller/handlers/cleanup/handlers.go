@@ -126,7 +126,7 @@ func (h *handlers) executePolicy(
 	debug := logger.V(4)
 	var errs []error
 
-	enableDeferredLoading := toggle.FromContext(ctx).DeferredLoading()
+	enableDeferredLoading := toggle.FromContext(ctx).EnableDeferredLoading()
 	enginectx := enginecontext.NewContext(h.jp, enableDeferredLoading)
 	rclient, err := registryclient.New()
 	if err != nil {
