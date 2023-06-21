@@ -38738,6 +38738,8 @@ spec:
             seccompProfile:
               type: RuntimeDefault
           env:
+          - name: KYVERNO_SERVICEACCOUNT_NAME
+            value: kyverno-admission-controller
           - name: INIT_CONFIG
             value: kyverno
           - name: METRICS_CONFIG
@@ -38917,6 +38919,10 @@ spec:
             - --v=2
             - --enablePolicyException=false
           env:
+          - name: KYVERNO_SERVICEACCOUNT_NAME
+            value: kyverno-background-controller
+          - name: KYVERNO_DEPLOYMENT
+            value: kyverno-background-controller
           - name: INIT_CONFIG
             value: kyverno
           - name: METRICS_CONFIG
@@ -39009,6 +39015,10 @@ spec:
             - --loggingFormat=text
             - --v=2
           env:
+          - name: KYVERNO_SERVICEACCOUNT_NAME
+            value: kyverno-cleanup-controller
+          - name: KYVERNO_DEPLOYMENT
+            value: kyverno-cleanup-controller
           - name: INIT_CONFIG
             value: kyverno
           - name: METRICS_CONFIG
@@ -39142,6 +39152,10 @@ spec:
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
           env:
+          - name: KYVERNO_SERVICEACCOUNT_NAME
+            value: kyverno-reports-controller
+          - name: KYVERNO_DEPLOYMENT
+            value: kyverno-reports-controller
           - name: INIT_CONFIG
             value: kyverno
           - name: METRICS_CONFIG
