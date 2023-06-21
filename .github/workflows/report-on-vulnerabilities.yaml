@@ -44,7 +44,7 @@ jobs:
 
     - name: Upload vulnerability scan report
       uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
-      if: contains(steps.parse-results.outputs.results, 'found')
+      if: steps.parse-results.outputs.results == 'found'
       with:
         name: scan.json
         path: scan.json
@@ -52,7 +52,7 @@ jobs:
 
   open-issue:
     runs-on: ubuntu-latest
-    if: contains(needs.scan.outputs.results, 'found')
+    if: needs.scan.outputs.results == 'found'
     needs: scan
     permissions:
       contents: read
