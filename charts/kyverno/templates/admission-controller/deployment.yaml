@@ -98,6 +98,8 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           env:
+          - name: KYVERNO_SERVICEACCOUNT_NAME
+            value: {{ template "kyverno.admission-controller.serviceAccountName" . }}
           - name: INIT_CONFIG
             value: {{ template "kyverno.config.configMapName" . }}
           - name: METRICS_CONFIG
