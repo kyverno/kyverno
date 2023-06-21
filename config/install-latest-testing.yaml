@@ -39015,8 +39015,6 @@ spec:
             - --loggingFormat=text
             - --v=2
           env:
-          - name: KYVERNO_SERVICEACCOUNT_NAME
-            value: kyverno-cleanup-controller
           - name: KYVERNO_DEPLOYMENT
             value: kyverno-cleanup-controller
           - name: INIT_CONFIG
