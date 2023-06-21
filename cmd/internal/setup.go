@@ -51,6 +51,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	showVersion(logger)
 	printFlagSettings(logger)
 	showWarnings(config, logger)
+	check(logger)
 	sdownMaxProcs := setupMaxProcs(logger)
 	setupProfiling(logger)
 	ctx, sdownSignals := setupSignals(logger)
