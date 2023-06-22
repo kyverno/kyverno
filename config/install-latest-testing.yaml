@@ -39286,34 +39286,3 @@ spec:
               seccompProfile:
                 type: RuntimeDefault
           restartPolicy: OnFailure
----
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: kyverno-hook-pre-delete
-  namespace: kyverno
-  labels:
-    app.kubernetes.io/component: hooks
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-  annotations:
-    "helm.sh/hook": pre-delete
-    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
-spec:
-  backoffLimit: 2
-  template:
-    spec:
-      serviceAccount: kyverno-admission-controller
-      restartPolicy: Never
-      containers:
-        - name: kubectl
-          image: bitnami/kubectl:latest
-          command:
-            - sh
-            - '-c'
-            - |-
-              kubectl scale -n kyverno deployment --all --replicas=0
-              sleep 30
-              kubectl delete validatingwebhookconfiguration -l webhook.kyverno.io/managed-by=kyverno
-              kubectl delete mutatingwebhookconfiguration -l webhook.kyverno.io/managed-by=kyverno
