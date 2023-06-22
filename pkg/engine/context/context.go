@@ -342,7 +342,6 @@ func (ctx *context) resetCheckpoint(remove bool) {
 	defer ctx.mutex.Unlock()
 
 	if len(ctx.jsonRawCheckpoints) == 0 {
-		ctx.mutex.Unlock()
 		return
 	}
 
