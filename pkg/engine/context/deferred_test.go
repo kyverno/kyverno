@@ -239,14 +239,39 @@ func TestDeferredForloop(t *testing.T) {
 	assert.Equal(t, float64(-1), val)
 }
 
-func TestDeferredReset(t *testing.T) {
+func TestDeferredInvalidReset(t *testing.T) {
+	ctx := newContext()
+
+	addDeferred(ctx, "value", "0")
+	ctx.Reset() // no checkpoint
+	val, err := ctx.Query("value")
+	assert.NilError(t, err)
+	assert.Equal(t, "0", val)
+
+	addDeferred(ctx, "value", "0")
+	ctx.Restore() // no checkpoint
+	val, err = ctx.Query("value")
+	assert.NilError(t, err)
+	assert.Equal(t, "0", val)
+}
+
+func TestDeferredValidResetRestore(t *testing.T) {
 	ctx := newContext()
 	addDeferred(ctx, "value", "0")
 
+	ctx.Checkpoint()
 	addDeferred(ctx, "leak", "leak")
 	ctx.Reset()
 
 	_, err := ctx.Query("leak")
+	assert.ErrorContains(t, err, `Unknown key "leak" in path`)
+
+	addDeferred(ctx, "value", "0")
+	ctx.Checkpoint()
+	addDeferred(ctx, "leak", "leak")
+	ctx.Restore()
+
+	_, err = ctx.Query("leak")
 	assert.ErrorContains(t, err, `Unknown key "leak" in path`)
 }
 

@@ -331,17 +331,18 @@ func (ctx *context) Reset() {
 	ctx.reset(false)
 }
 
-func (ctx *context) reset(removeCheckpoint bool) {
-	ctx.resetCheckpoint(removeCheckpoint)
-	ctx.deferred.Reset(removeCheckpoint, len(ctx.jsonRawCheckpoints))
+func (ctx *context) reset(restore bool) {
+	if ctx.resetCheckpoint(restore) {
+		ctx.deferred.Reset(restore, len(ctx.jsonRawCheckpoints))
+	}
 }
 
-func (ctx *context) resetCheckpoint(removeCheckpoint bool) {
+func (ctx *context) resetCheckpoint(removeCheckpoint bool) bool {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
 
 	if len(ctx.jsonRawCheckpoints) == 0 {
-		return
+		return false
 	}
 
 	n := len(ctx.jsonRawCheckpoints) - 1
@@ -351,6 +352,8 @@ func (ctx *context) resetCheckpoint(removeCheckpoint bool) {
 	if removeCheckpoint {
 		ctx.jsonRawCheckpoints = ctx.jsonRawCheckpoints[:n]
 	}
+
+	return true
 }
 
 func (ctx *context) AddDeferredLoader(dl DeferredLoader) error {
