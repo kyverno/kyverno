@@ -217,26 +217,26 @@ func TestDeferredCheckpointRestore(t *testing.T) {
 
 func TestDeferredForloop(t *testing.T) {
 	ctx := newContext()
-	addDeferred(ctx, "value", "0")
-	val, err := ctx.Query("value")
-	assert.NilError(t, err)
-	assert.Equal(t, "0", val)
+	addDeferred(ctx, "value", -1)
 
 	ctx.Checkpoint()
 	for i := 0; i < 5; i++ {
-		ctx.Reset()
-		expectedVal := fmt.Sprintf("%d", i)
-		mock, _ := addDeferred(ctx, "value", expectedVal)
 		val, err := ctx.Query("value")
 		assert.NilError(t, err)
-		assert.Equal(t, expectedVal, val)
+		assert.Equal(t, float64(i-1), val)
+
+		ctx.Reset()
+		mock, _ := addDeferred(ctx, "value", i)
+		val, err = ctx.Query("value")
+		assert.NilError(t, err)
+		assert.Equal(t, float64(i), val)
 		assert.Equal(t, 1, mock.invocations)
 	}
 
 	ctx.Restore()
-	val, err = ctx.Query("value")
+	val, err := ctx.Query("value")
 	assert.NilError(t, err)
-	assert.Equal(t, "0", val)
+	assert.Equal(t, float64(-1), val)
 }
 
 func TestDeferredReset(t *testing.T) {
