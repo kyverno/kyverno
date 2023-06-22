@@ -38,11 +38,11 @@ const (
 
 type probes struct{}
 
-func (probes) IsReady() bool {
+func (probes) IsReady(context.Context) bool {
 	return true
 }
 
-func (probes) IsLive() bool {
+func (probes) IsLive(context.Context) bool {
 	return true
 }
 
@@ -86,12 +86,9 @@ func main() {
 			kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod)
 			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 			kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-			// listers
-			secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
 			// controllers
 			renewer := tls.NewCertRenewer(
 				setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
-				secretLister,
 				tls.CertRenewalInterval,
 				tls.CAValidityDuration,
 				tls.TLSValidityDuration,
