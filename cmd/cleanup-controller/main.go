@@ -116,7 +116,7 @@ func main() {
 					webhookControllerName,
 					setup.KubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 					kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
-					tlsSecret,
+					caSecret,
 					config.CleanupValidatingWebhookConfigurationName,
 					config.CleanupValidatingWebhookServicePath,
 					serverIP,
