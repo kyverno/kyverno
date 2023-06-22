@@ -11,8 +11,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -39,7 +39,7 @@ type handlers struct {
 	cpolLister kyvernov2alpha1listers.ClusterCleanupPolicyLister
 	polLister  kyvernov2alpha1listers.CleanupPolicyLister
 	nsLister   corev1listers.NamespaceLister
-	cmLister   corev1listers.ConfigMapLister
+	cmResolver engineapi.ConfigmapResolver
 	recorder   record.EventRecorder
 	jp         jmespath.Interface
 	metrics    cleanupMetrics
@@ -78,7 +78,7 @@ func New(
 	cpolLister kyvernov2alpha1listers.ClusterCleanupPolicyLister,
 	polLister kyvernov2alpha1listers.CleanupPolicyLister,
 	nsLister corev1listers.NamespaceLister,
-	cmLister corev1listers.ConfigMapLister,
+	cmResolver engineapi.ConfigmapResolver,
 	jp jmespath.Interface,
 ) *handlers {
 	return &handlers{
@@ -86,7 +86,7 @@ func New(
 		cpolLister: cpolLister,
 		polLister:  polLister,
 		nsLister:   nsLister,
-		cmLister:   cmLister,
+		cmResolver: cmResolver,
 		recorder:   event.NewRecorder(event.CleanupController, client.GetEventsInterface()),
 		metrics:    newCleanupMetrics(logger),
 		jp:         jp,
@@ -138,16 +138,11 @@ func (h *handlers) executePolicy(
 		nil,
 	)
 
-	configMapResolver, err := resolvers.NewInformerBasedResolver(h.cmLister)
-	if err != nil {
-		return err
-	}
-
 	ctxFactory := factories.DefaultContextLoaderFactory(
 		factories.WithAPIClient(h.client),
 		factories.WithRegistryClientFactory(registryClientFactory),
 		factories.WithJMESPath(h.jp),
-		factories.WithConfigMapResolver(configMapResolver),
+		factories.WithConfigMapResolver(h.cmResolver),
 	)
 
 	loader := ctxFactory(policy.GetName(), "")

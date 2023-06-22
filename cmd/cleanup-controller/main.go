@@ -65,6 +65,7 @@ func main() {
 		internal.WithLeaderElection(),
 		internal.WithKyvernoClient(),
 		internal.WithKyvernoDynamicClient(),
+		internal.WithConfigMapCaching(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -172,7 +173,6 @@ func main() {
 	cpolLister := kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies().Lister()
 	polLister := kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies().Lister()
 	nsLister := kubeInformer.Core().V1().Namespaces().Lister()
-	cmLister := kubeInformer.Core().V1().ConfigMaps().Lister()
 	// log policy changes
 	genericloggingcontroller.NewController(
 		setup.Logger.WithName("cleanup-policy"),
@@ -192,13 +192,14 @@ func main() {
 	}
 	// create handlers
 	admissionHandlers := admissionhandlers.New(setup.KyvernoDynamicClient)
+	cmResolver := internal.NewConfigMapResolver(ctx, setup.Logger, setup.KubeClient, resyncPeriod)
 	cleanupHandlers := cleanuphandlers.New(
 		setup.Logger.WithName("cleanup-handler"),
 		setup.KyvernoDynamicClient,
 		cpolLister,
 		polLister,
 		nsLister,
-		cmLister,
+		cmResolver,
 		setup.Jp,
 	)
 	// create server

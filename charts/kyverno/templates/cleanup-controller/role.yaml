@@ -19,6 +19,17 @@ rules:
       - create
       - update
   - apiGroups:
+      - ''
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+    resourceNames:
+      - {{ include "kyverno.config.configMapName" . }}
+      - {{ include "kyverno.config.metricsConfigMapName" . }}
+  - apiGroups:
       - coordination.k8s.io
     resources:
       - leases
