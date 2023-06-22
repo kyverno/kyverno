@@ -10,14 +10,12 @@ import (
 	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"github.com/kyverno/kyverno/pkg/utils/match"
@@ -128,19 +126,8 @@ func (h *handlers) executePolicy(
 
 	enableDeferredLoading := toggle.FromContext(ctx).EnableDeferredLoading()
 	enginectx := enginecontext.NewContext(h.jp, enableDeferredLoading)
-	rclient, err := registryclient.New()
-	if err != nil {
-		return err
-	}
-
-	registryClientFactory := factories.DefaultRegistryClientFactory(
-		adapters.RegistryClient(rclient),
-		nil,
-	)
-
 	ctxFactory := factories.DefaultContextLoaderFactory(
 		factories.WithAPIClient(h.client),
-		factories.WithRegistryClientFactory(registryClientFactory),
 		factories.WithJMESPath(h.jp),
 		factories.WithConfigMapResolver(h.cmResolver),
 	)
