@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -49,6 +50,7 @@ func NewBackgroundContext(
 	var policyContext *engine.PolicyContext
 	if ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest == nil {
 		policyContext, err = engine.NewPolicyContext(
+			context.TODO(),
 			jp,
 			*trigger,
 			kyvernov1.AdmissionOperation(ur.Spec.Context.AdmissionRequestInfo.Operation),
@@ -57,6 +59,7 @@ func NewBackgroundContext(
 		)
 	} else {
 		policyContext, err = engine.NewPolicyContextFromAdmissionRequest(
+			context.TODO(),
 			jp,
 			*ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest,
 			ur.Spec.Context.UserRequestInfo,

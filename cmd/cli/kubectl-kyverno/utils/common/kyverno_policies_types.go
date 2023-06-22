@@ -126,6 +126,7 @@ OuterLoop:
 		"",
 	)
 	policyContext, err := engine.NewPolicyContext(
+		context.TODO(),
 		jp,
 		*updatedResource,
 		operation,

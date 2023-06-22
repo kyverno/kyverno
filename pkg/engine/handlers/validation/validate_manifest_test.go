@@ -789,6 +789,7 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) eng
 	assert.NilError(t, err)
 
 	policyContext, err := policycontext.NewPolicyContext(
+		context.TODO(),
 		jp,
 		*resourceUnstructured,
 		kyvernov1.Create,

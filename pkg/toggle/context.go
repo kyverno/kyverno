@@ -29,12 +29,17 @@ func (defaultToggles) EnableDeferredLoading() bool {
 type contextKey struct{}
 
 func NewContext(ctx context.Context, toggles Toggles) context.Context {
+	if ctx == nil {
+		return nil
+	}
 	return context.WithValue(ctx, contextKey{}, toggles)
 }
 
 func FromContext(ctx context.Context) Toggles {
-	if toggles, ok := ctx.Value(contextKey{}).(Toggles); ok {
-		return toggles
+	if ctx != nil {
+		if toggles, ok := ctx.Value(contextKey{}).(Toggles); ok {
+			return toggles
+		}
 	}
 	return defaults
 }

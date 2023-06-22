@@ -188,13 +188,14 @@ func newPolicyContextWithJsonContext(operation kyvernov1.AdmissionOperation, jso
 }
 
 func NewPolicyContext(
+	ctx context.Context,
 	jp jmespath.Interface,
 	resource unstructured.Unstructured,
 	operation kyvernov1.AdmissionOperation,
 	admissionInfo *kyvernov1beta1.RequestInfo,
 	configuration config.Configuration,
 ) (*PolicyContext, error) {
-	enableDeferredLoading := toggle.FromContext(context.TODO()).EnableDeferredLoading()
+	enableDeferredLoading := toggle.FromContext(ctx).EnableDeferredLoading()
 	enginectx := enginectx.NewContext(jp, enableDeferredLoading)
 	if err := enginectx.AddResource(resource.Object); err != nil {
 		return nil, err
@@ -229,13 +230,14 @@ func NewPolicyContext(
 }
 
 func NewPolicyContextFromAdmissionRequest(
+	ctx context.Context,
 	jp jmespath.Interface,
 	request admissionv1.AdmissionRequest,
 	admissionInfo kyvernov1beta1.RequestInfo,
 	gvk schema.GroupVersionKind,
 	configuration config.Configuration,
 ) (*PolicyContext, error) {
-	ctx, err := newJsonContext(jp, request, &admissionInfo)
+	engineCtx, err := newJsonContext(ctx, jp, request, &admissionInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create policy rule context: %w", err)
 	}
@@ -243,10 +245,10 @@ func NewPolicyContextFromAdmissionRequest(
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse resource: %w", err)
 	}
-	if err := ctx.AddImageInfos(&newResource, configuration); err != nil {
+	if err := engineCtx.AddImageInfos(&newResource, configuration); err != nil {
 		return nil, fmt.Errorf("failed to add image information to the policy rule context: %w", err)
 	}
-	policyContext := newPolicyContextWithJsonContext(kyvernov1.AdmissionOperation(request.Operation), ctx).
+	policyContext := newPolicyContextWithJsonContext(kyvernov1.AdmissionOperation(request.Operation), engineCtx).
 		WithNewResource(newResource).
 		WithOldResource(oldResource).
 		WithAdmissionInfo(admissionInfo).
@@ -257,20 +259,21 @@ func NewPolicyContextFromAdmissionRequest(
 }
 
 func newJsonContext(
+	ctx context.Context,
 	jp jmespath.Interface,
 	request admissionv1.AdmissionRequest,
 	userRequestInfo *kyvernov1beta1.RequestInfo,
 ) (enginectx.Interface, error) {
-	enableDeferredLoading := toggle.FromContext(context.TODO()).EnableDeferredLoading()
-	ctx := enginectx.NewContext(jp, enableDeferredLoading)
-	if err := ctx.AddRequest(request); err != nil {
+	enableDeferredLoading := toggle.FromContext(ctx).EnableDeferredLoading()
+	engineCtx := enginectx.NewContext(jp, enableDeferredLoading)
+	if err := engineCtx.AddRequest(request); err != nil {
 		return nil, fmt.Errorf("failed to load incoming request in context: %w", err)
 	}
-	if err := ctx.AddUserInfo(*userRequestInfo); err != nil {
+	if err := engineCtx.AddUserInfo(*userRequestInfo); err != nil {
 		return nil, fmt.Errorf("failed to load userInfo in context: %w", err)
 	}
-	if err := ctx.AddServiceAccount(userRequestInfo.AdmissionUserInfo.Username); err != nil {
+	if err := engineCtx.AddServiceAccount(userRequestInfo.AdmissionUserInfo.Username); err != nil {
 		return nil, fmt.Errorf("failed to load service account in context: %w", err)
 	}
-	return ctx, nil
+	return engineCtx, nil
 }

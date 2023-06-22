@@ -62,6 +62,7 @@ func loadUnstructured(t *testing.T, bytes []byte) unstructured.Unstructured {
 
 func createContext(t *testing.T, policy kyverno.PolicyInterface, resource unstructured.Unstructured, operation kyverno.AdmissionOperation) *PolicyContext {
 	ctx, err := NewPolicyContext(
+		context.TODO(),
 		jp,
 		resource,
 		kyverno.Create,
@@ -617,6 +618,7 @@ func Test_foreach(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext, err := NewPolicyContext(
+		context.TODO(),
 		jp,
 		*resource,
 		kyverno.Create,
@@ -718,6 +720,7 @@ func Test_foreach_element_mutation(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext, err := NewPolicyContext(
+		context.TODO(),
 		jp,
 		*resource,
 		kyverno.Create,
@@ -838,6 +841,7 @@ func Test_Container_InitContainer_foreach(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext, err := NewPolicyContext(
+		context.TODO(),
 		jp,
 		*resource,
 		kyverno.Create,
@@ -1956,6 +1960,7 @@ func Test_RuleSelectorMutate(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext, err := NewPolicyContext(
+		context.TODO(),
 		jp,
 		*resourceUnstructured,
 		kyverno.Create,
@@ -2377,6 +2382,7 @@ func Test_SpecialCharacters(t *testing.T) {
 
 			// Create policy context.
 			policyContext, err := NewPolicyContext(
+				context.TODO(),
 				jp,
 				*resource,
 				kyverno.Create,
