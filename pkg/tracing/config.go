@@ -44,12 +44,12 @@ func NewTraceConfig(log logr.Logger, tracerName, address, certs string, kubeClie
 		return nil, err
 	}
 	res, err := resource.Merge(
-		resource.Default(),
 		resource.NewWithAttributes(
 			semconv.SchemaURL,
 			semconv.ServiceNameKey.String(tracerName),
 			semconv.ServiceVersionKey.String(version.BuildVersion),
 		),
+		resource.Default(),
 	)
 	if err != nil {
 		log.Error(err, "failed creating resource")
