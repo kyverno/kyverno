@@ -21,13 +21,13 @@ jobs:
       reports-controller-digest: ${{ steps.release-reports-controller.outputs.digest }}
     steps:
       - name: Checkout
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         with:
           build-cache-key: release-images
       - name: Run Trivy vulnerability scanner in repo mode
-        uses: aquasecurity/trivy-action@b43daad0c3c96202fc5800b511dfae8e6ecce864 # v0.11.0
+        uses: aquasecurity/trivy-action@41f05d9ecffa2ed3f1580af306000f734b733e54 # v0.11.2
         with:
           scan-type: 'fs'
           ignore-unfixed: true
@@ -224,7 +224,7 @@ jobs:
     needs: release-images
     steps:
       - name: Checkout
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
       - uses: creekorful/goreportcard-action@1f35ced8cdac2cba28c9a2f2288a16aacfd507f9 # v1.0
@@ -241,7 +241,7 @@ jobs:
           make release-notes > release/release-notes.out
           cat release/release-notes.out
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@f82d6c1c344bcacabba2c841718984797f664a6b # v4.2.0
+        uses: goreleaser/goreleaser-action@336e29918d653399e599bfca99fadc1d7ffbc9f7 # v4.3.0
         with:
           version: latest
           args: release --rm-dist --debug --release-notes=release/release-notes.out
@@ -257,7 +257,7 @@ jobs:
       packages: write # needed for ghcr access  
     steps:
       - name: Checkout
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
       - name: Setup Flux CLI
@@ -313,7 +313,7 @@ jobs:
     needs: create-release
     steps:
       - name: Checkout
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
       - name: Check Tag

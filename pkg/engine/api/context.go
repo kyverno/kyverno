@@ -6,13 +6,11 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/google/go-containerregistry/pkg/name"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 )
 
 func LoadVariable(logger logr.Logger, jp jmespath.Interface, entry kyvernov1.ContextEntry, ctx enginecontext.Interface) (err error) {
@@ -77,8 +75,8 @@ func LoadVariable(logger logr.Logger, jp jmespath.Interface, entry kyvernov1.Con
 	}
 }
 
-func LoadImageData(ctx context.Context, jp jmespath.Interface, rclient registryclient.Client, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface) error {
-	imageData, err := fetchImageData(ctx, jp, rclient, logger, entry, enginectx)
+func LoadImageData(ctx context.Context, jp jmespath.Interface, rclientFactory RegistryClientFactory, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface) error {
+	imageData, err := fetchImageData(ctx, jp, rclientFactory, logger, entry, enginectx)
 	if err != nil {
 		return err
 	}
@@ -115,7 +113,7 @@ func LoadConfigMap(ctx context.Context, logger logr.Logger, entry kyvernov1.Cont
 	return nil
 }
 
-func fetchImageData(ctx context.Context, jp jmespath.Interface, rclient registryclient.Client, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface) (interface{}, error) {
+func fetchImageData(ctx context.Context, jp jmespath.Interface, rclientFactory RegistryClientFactory, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface) (interface{}, error) {
 	ref, err := variables.SubstituteAll(logger, enginectx, entry.ImageRegistry.Reference)
 	if err != nil {
 		return nil, fmt.Errorf("ailed to substitute variables in context entry %s %s: %v", entry.Name, entry.ImageRegistry.Reference, err)
@@ -128,7 +126,11 @@ func fetchImageData(ctx context.Context, jp jmespath.Interface, rclient registry
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.ImageRegistry.JMESPath, err)
 	}
-	imageData, err := fetchImageDataMap(ctx, rclient, refString)
+	client, err := rclientFactory.GetClient(ctx, entry.ImageRegistry.ImageRegistryCredentials)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get registry client %s: %v", entry.Name, err)
+	}
+	imageData, err := fetchImageDataMap(ctx, client, refString)
 	if err != nil {
 		return nil, err
 	}
@@ -142,8 +144,8 @@ func fetchImageData(ctx context.Context, jp jmespath.Interface, rclient registry
 }
 
 // FetchImageDataMap fetches image information from the remote registry.
-func fetchImageDataMap(ctx context.Context, rclient registryclient.Client, ref string) (interface{}, error) {
-	desc, err := rclient.FetchImageDescriptor(ctx, ref)
+func fetchImageDataMap(ctx context.Context, client ImageDataClient, ref string) (interface{}, error) {
+	desc, err := client.ForRef(ctx, ref)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch image descriptor: %s, error: %v", ref, err)
 	}
@@ -162,24 +164,19 @@ func fetchImageDataMap(ctx context.Context, rclient registryclient.Client, ref s
 		return nil, fmt.Errorf("failed to fetch manifest for image reference: %s, error: %v", ref, err)
 	}
 	var manifest interface{}
-	if err := json.Unmarshal(rawManifest, &manifest); err != nil {
+	if err := json.Unmarshal(desc.Manifest, &manifest); err != nil {
 		return nil, fmt.Errorf("failed to decode manifest for image reference: %s, error: %v", ref, err)
 	}
-	rawConfig, err := image.RawConfigFile()
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch config for image reference: %s, error: %v", ref, err)
-	}
 	var configData interface{}
-	if err := json.Unmarshal(rawConfig, &configData); err != nil {
+	if err := json.Unmarshal(desc.Config, &configData); err != nil {
 		return nil, fmt.Errorf("failed to decode config for image reference: %s, error: %v", ref, err)
 	}
-
 	data := map[string]interface{}{
-		"image":         ref,
-		"resolvedImage": fmt.Sprintf("%s@%s", parsedRef.Context().Name(), desc.Digest.String()),
-		"registry":      parsedRef.Context().RegistryStr(),
-		"repository":    parsedRef.Context().RepositoryStr(),
-		"identifier":    parsedRef.Identifier(),
+		"image":         desc.Image,
+		"resolvedImage": desc.ResolvedImage,
+		"registry":      desc.Registry,
+		"repository":    desc.Repository,
+		"identifier":    desc.Identifier,
 		"manifest":      manifest,
 		"configData":    configData,
 	}

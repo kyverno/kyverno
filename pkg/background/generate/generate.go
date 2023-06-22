@@ -133,9 +133,9 @@ func (c *GenerateController) getTrigger(spec kyvernov1beta1.UpdateRequestSpec) (
 	} else {
 		operation := spec.Context.AdmissionRequestInfo.Operation
 		if operation == admissionv1.Delete {
-			return getTriggerForDeleteOperation(spec, c)
+			return c.getTriggerForDeleteOperation(spec)
 		} else if operation == admissionv1.Create {
-			return getTriggerForCreateOperation(spec, c)
+			return c.getTriggerForCreateOperation(spec)
 		} else {
 			newResource, oldResource, err := admissionutils.ExtractResources(nil, *admissionRequest)
 			if err != nil {
@@ -152,7 +152,7 @@ func (c *GenerateController) getTrigger(spec kyvernov1beta1.UpdateRequestSpec) (
 	}
 }
 
-func getTriggerForDeleteOperation(spec kyvernov1beta1.UpdateRequestSpec, c *GenerateController) (*unstructured.Unstructured, error) {
+func (c *GenerateController) getTriggerForDeleteOperation(spec kyvernov1beta1.UpdateRequestSpec) (*unstructured.Unstructured, error) {
 	request := spec.Context.AdmissionRequestInfo.AdmissionRequest
 	_, oldResource, err := admissionutils.ExtractResources(nil, *request)
 	if err != nil {
@@ -167,7 +167,7 @@ func getTriggerForDeleteOperation(spec kyvernov1beta1.UpdateRequestSpec, c *Gene
 	return &oldResource, nil
 }
 
-func getTriggerForCreateOperation(spec kyvernov1beta1.UpdateRequestSpec, c *GenerateController) (*unstructured.Unstructured, error) {
+func (c *GenerateController) getTriggerForCreateOperation(spec kyvernov1beta1.UpdateRequestSpec) (*unstructured.Unstructured, error) {
 	admissionRequest := spec.Context.AdmissionRequestInfo.AdmissionRequest
 	trigger, err := common.GetResource(c.client, spec, c.log)
 	if err != nil || trigger == nil {

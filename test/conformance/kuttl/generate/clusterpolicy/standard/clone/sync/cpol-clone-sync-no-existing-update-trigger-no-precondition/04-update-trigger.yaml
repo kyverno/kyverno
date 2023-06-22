@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    create: "false"
+  name: test-org
+  namespace: cpol-clone-sync-no-existing-update-trigger-no-precondition-ns

@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -111,12 +112,13 @@ OuterLoop:
 			}
 		}
 	}
+	rclient := registryclient.NewOrDie()
 	eng := engine.NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
 		jmespath.New(cfg),
 		adapters.Client(c.Client),
-		registryclient.NewOrDie(),
+		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 		store.ContextLoaderFactory(nil),
 		nil,
 		"",

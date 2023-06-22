@@ -52,7 +52,7 @@ func (v *notaryVerifier) VerifySignature(ctx context.Context, opts images.Option
 	}
 
 	v.log.V(4).Info("creating notation repo", "reference", opts.ImageRef)
-	parsedRef, err := parseReferenceCrane(ctx, opts.ImageRef, opts.RegistryClient)
+	parsedRef, err := parseReferenceCrane(ctx, opts.ImageRef, opts.Client)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
 	}
@@ -135,7 +135,7 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
 	}
-	authenticator, err := getAuthenticator(ctx, opts.ImageRef, opts.RegistryClient)
+	authenticator, err := getAuthenticator(ctx, opts.ImageRef, opts.Client)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse authenticator: %s", opts.ImageRef)
 	}
@@ -238,7 +238,7 @@ func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Referenc
 
 	v.log.V(4).Info("created verifier")
 	reference := ref.Context().RegistryStr() + "/" + ref.Context().RepositoryStr() + "@" + desc.Digest.String()
-	parsedRef, err := parseReferenceCrane(ctx, reference, opts.RegistryClient)
+	parsedRef, err := parseReferenceCrane(ctx, reference, opts.Client)
 	if err != nil {
 		return ocispec.Descriptor{}, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
 	}

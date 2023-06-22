@@ -133,10 +133,10 @@ func WithKeychainPullSecrets(ctx context.Context, lister corev1listers.SecretNam
 }
 
 // WithKeychainPullSecrets provides initialize registry client option that allows to use insecure registries.
-func WithCredentialHelpers(credentialHelpers ...string) Option {
+func WithCredentialProviders(credentialProviders ...string) Option {
 	return func(c *config) error {
 		var chains []authn.Keychain
-		helpers := sets.New(credentialHelpers...)
+		helpers := sets.New(credentialProviders...)
 		if helpers.Has("default") {
 			chains = append(chains, authn.DefaultKeychain)
 		}

@@ -9,6 +9,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/kyverno/kyverno/pkg/images"
 	notationregistry "github.com/notaryproject/notation-go/registry"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
@@ -22,7 +24,7 @@ type parsedReference struct {
 	Desc       ocispec.Descriptor
 }
 
-func parseReferenceCrane(ctx context.Context, ref string, registryClient registryclient.Client) (*parsedReference, error) {
+func parseReferenceCrane(ctx context.Context, ref string, registryClient images.Client) (*parsedReference, error) {
 	nameRef, err := name.ParseReference(ref)
 	if err != nil {
 		return nil, err
@@ -78,7 +80,7 @@ func (ir *imageResource) RegistryStr() string {
 	return ir.ref.Context().RegistryStr()
 }
 
-func getAuthenticator(ctx context.Context, ref string, registryClient registryclient.Client) (*authn.Authenticator, error) {
+func getAuthenticator(ctx context.Context, ref string, registryClient images.Client) (*authn.Authenticator, error) {
 	parsedRef, err := name.ParseReference(ref)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse registry reference %s", ref)

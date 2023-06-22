@@ -11,9 +11,11 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/cosign"
+	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
+	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
@@ -186,8 +188,8 @@ func testVerifyAndPatchImages(
 		metricsCfg,
 		jp,
 		nil,
-		rclient,
-		engineapi.DefaultContextLoaderFactory(cmResolver),
+		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+		factories.DefaultContextLoaderFactory(cmResolver),
 		nil,
 		"",
 	)

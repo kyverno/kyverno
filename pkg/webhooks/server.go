@@ -18,8 +18,6 @@ import (
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionv1 "k8s.io/api/admission/v1"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	coordinationv1 "k8s.io/api/coordination/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
@@ -60,15 +58,16 @@ type ResourceHandlers interface {
 type server struct {
 	server      *http.Server
 	runtime     runtimeutils.Runtime
-	mwcClient   controllerutils.DeleteCollectionClient[*admissionregistrationv1.MutatingWebhookConfiguration]
-	vwcClient   controllerutils.DeleteCollectionClient[*admissionregistrationv1.ValidatingWebhookConfiguration]
-	leaseClient controllerutils.DeleteClient[*coordinationv1.Lease]
+	mwcClient   controllerutils.DeleteCollectionClient
+	vwcClient   controllerutils.DeleteCollectionClient
+	leaseClient controllerutils.DeleteClient
 }
 
 type TlsProvider func() ([]byte, []byte, error)
 
 // NewServer creates new instance of server accordingly to given configuration
 func NewServer(
+	ctx context.Context,
 	policyHandlers PolicyHandlers,
 	resourceHandlers ResourceHandlers,
 	exceptionHandlers ExceptionHandlers,
@@ -76,9 +75,9 @@ func NewServer(
 	metricsConfig metrics.MetricsConfigManager,
 	debugModeOpts DebugModeOptions,
 	tlsProvider TlsProvider,
-	mwcClient controllerutils.DeleteCollectionClient[*admissionregistrationv1.MutatingWebhookConfiguration],
-	vwcClient controllerutils.DeleteCollectionClient[*admissionregistrationv1.ValidatingWebhookConfiguration],
-	leaseClient controllerutils.DeleteClient[*coordinationv1.Lease],
+	mwcClient controllerutils.DeleteCollectionClient,
+	vwcClient controllerutils.DeleteCollectionClient,
+	leaseClient controllerutils.DeleteClient,
 	runtime runtimeutils.Runtime,
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
@@ -97,7 +96,7 @@ func NewServer(
 		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
 			return handler.
 				WithFilter(configuration).
-				WithProtection(toggle.ProtectManagedResources.Enabled()).
+				WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 				WithDump(debugModeOpts.DumpPayload).
 				WithTopLevelGVK(discovery).
 				WithRoles(rbLister, crbLister).
@@ -114,7 +113,7 @@ func NewServer(
 		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
 			return handler.
 				WithFilter(configuration).
-				WithProtection(toggle.ProtectManagedResources.Enabled()).
+				WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 				WithDump(debugModeOpts.DumpPayload).
 				WithTopLevelGVK(discovery).
 				WithRoles(rbLister, crbLister).

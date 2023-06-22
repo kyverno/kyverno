@@ -291,6 +291,7 @@ The chart values are organised per component.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | features.admissionReports.enabled | bool | `true` | Enables the feature |
+| features.aggregateReports.enabled | bool | `true` | Enables the feature |
 | features.autoUpdateWebhooks.enabled | bool | `true` | Enables the feature |
 | features.backgroundScan.enabled | bool | `true` | Enables the feature |
 | features.backgroundScan.backgroundScanWorkers | int | `2` | Number of background scan workers |
@@ -324,6 +325,8 @@ The chart values are organised per component.
 | admissionController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | admissionController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | admissionController.priorityClassName | string | `""` | Optional priority class |
+| admissionController.apiPriorityAndFairness | bool | `false` | Change `apiPriorityAndFairness` to `true` if you want to insulate the API calls made by Kyverno admission controller activities. This will help ensure Kyverno stability in busy clusters. Ref: https://kubernetes.io/docs/concepts/cluster-administration/flow-control/ |
+| admissionController.priorityLevelConfigurationSpec | object | See [values.yaml](values.yaml) | Priority level configuration. The block is directly forwarded into the priorityLevelConfiguration, so you can use whatever specification you want. ref: https://kubernetes.io/docs/concepts/cluster-administration/flow-control/#prioritylevelconfiguration |
 | admissionController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
 | admissionController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
 | admissionController.startupProbe | object | See [values.yaml](values.yaml) | Startup probe. The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
@@ -540,6 +543,8 @@ The chart values are organised per component.
 | reportsController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | reportsController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | reportsController.priorityClassName | string | `""` | Optional priority class |
+| reportsController.apiPriorityAndFairness | bool | `false` | Change `apiPriorityAndFairness` to `true` if you want to insulate the API calls made by Kyverno reports controller activities. This will help ensure Kyverno reports stability in busy clusters. Ref: https://kubernetes.io/docs/concepts/cluster-administration/flow-control/ |
+| reportsController.priorityLevelConfigurationSpec | object | See [values.yaml](values.yaml) | Priority level configuration. The block is directly forwarded into the priorityLevelConfiguration, so you can use whatever specification you want. ref: https://kubernetes.io/docs/concepts/cluster-administration/flow-control/#prioritylevelconfiguration |
 | reportsController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
 | reportsController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
 | reportsController.extraArgs | object | `{}` | Extra arguments passed to the container on the command line |
@@ -596,7 +601,7 @@ The chart values are organised per component.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| webhooksCleanup.enabled | bool | `false` | Create a helm pre-delete hook to cleanup webhooks. |
+| webhooksCleanup.enabled | bool | `true` | Create a helm pre-delete hook to cleanup webhooks. |
 | webhooksCleanup.image | string | `"bitnami/kubectl:latest"` | `kubectl` image to run commands for deleting webhooks. |
 | webhooksCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
 

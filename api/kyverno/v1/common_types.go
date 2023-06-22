@@ -118,6 +118,10 @@ type ImageRegistry struct {
 	// the image reference.
 	// +optional
 	JMESPath string `json:"jmesPath,omitempty" yaml:"jmesPath,omitempty"`
+
+	// ImageRegistryCredentials provides credentials that will be used for authentication with registry
+	// +kubebuilder:validation:Optional
+	ImageRegistryCredentials *ImageRegistryCredentials `json:"imageRegistryCredentials,omitempty" yaml:"imageRegistryCredentials,omitempty"`
 }
 
 // ConfigMapReference refers to a ConfigMap
@@ -620,9 +624,15 @@ type CloneList struct {
 	Selector *metav1.LabelSelector `json:"selector,omitempty" yaml:"selector,omitempty"`
 }
 
-func (g *Generation) Validate(path *field.Path, clusterResources sets.Set[string]) (errs field.ErrorList) {
-	if err := g.validateTargetsScope(clusterResources); err != nil {
-		errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
+func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+	if namespaced {
+		if err := g.validateTargetsScope(clusterResources, policyNamespace); err != nil {
+			errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
+		}
+	} else {
+		if g.GetNamespace() == "" && g.CloneList.Namespace == "" {
+			errs = append(errs, field.Forbidden(path.Child("generate"), "target namespace must be set in a clusterpolicy"))
+		}
 	}
 
 	generateType, _ := g.GetTypeAndSync()
@@ -662,15 +672,28 @@ func (g *Generation) SetData(in apiextensions.JSON) {
 	g.RawData = ToJSON(in)
 }
 
-func (g *Generation) validateTargetsScope(clusterResources sets.Set[string]) error {
+func (g *Generation) validateTargetsScope(clusterResources sets.Set[string], policyNamespace string) error {
 	target := g.ResourceSpec
-	if clusterResources.Has(target.GetKind()) {
-		if target.GetNamespace() != "" {
-			return fmt.Errorf("the target namespace must not be set for cluster-wide resource: %v", target.GetKind())
+	if clusterResources.Has(target.GetAPIVersion() + "/" + target.GetKind()) {
+		return fmt.Errorf("the target must be a namespaced resource: %v/%v", target.GetAPIVersion(), target.GetKind())
+	}
+
+	if g.GetNamespace() != policyNamespace {
+		return fmt.Errorf("a namespaced policy cannot generate resources in other namespaces, expected: %v, received: %v", policyNamespace, g.GetNamespace())
+	}
+
+	if g.Clone.Name != "" {
+		if g.Clone.Namespace != policyNamespace {
+			return fmt.Errorf("a namespaced policy cannot clone resources from other namespaces, expected: %v, received: %v", policyNamespace, g.Clone.Namespace)
 		}
-	} else {
-		if target.GetNamespace() == "" {
-			return fmt.Errorf("the target namespace must be set for namespaced resource: %v", target.GetKind())
+	}
+
+	for _, kind := range g.CloneList.Kinds {
+		if clusterResources.Has(kind) {
+			return fmt.Errorf("the source in cloneList must be a namespaced resource: %v/%v", target.GetAPIVersion(), target.GetKind())
+		}
+		if g.CloneList.Namespace != policyNamespace {
+			return fmt.Errorf("a namespaced policy cannot clone resources from other namespace, expected: %v, received: %v", policyNamespace, g.CloneList.Namespace)
 		}
 	}
 

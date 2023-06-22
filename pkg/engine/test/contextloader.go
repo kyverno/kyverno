@@ -9,7 +9,6 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 )
 
 type Policy struct {
@@ -45,8 +44,8 @@ type mockContextLoader struct {
 func (l *mockContextLoader) Load(
 	ctx context.Context,
 	jp jmespath.Interface,
-	client engineapi.Client,
-	rclient registryclient.Client,
+	client engineapi.RawClient,
+	rclientFactory engineapi.RegistryClientFactory,
 	contextEntries []kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
 ) error {
@@ -63,8 +62,8 @@ func (l *mockContextLoader) Load(
 	}
 	// Context Variable should be loaded after the values loaded from values file
 	for _, entry := range contextEntries {
-		if entry.ImageRegistry != nil && rclient != nil {
-			if err := engineapi.LoadImageData(ctx, jp, rclient, l.logger, entry, jsonContext); err != nil {
+		if entry.ImageRegistry != nil && rclientFactory != nil {
+			if err := engineapi.LoadImageData(ctx, jp, rclientFactory, l.logger, entry, jsonContext); err != nil {
 				return err
 			}
 		} else if entry.Variable != nil {

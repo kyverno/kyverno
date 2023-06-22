@@ -4,4 +4,6 @@ apply:
 - file: policy-namespaced-target.yaml
   shouldFail: true
 - file: policy-cluster-target.yaml
-  shouldFail: true
+  shouldFail: false
+- file: policy-pass.yaml
+  shouldFail: false

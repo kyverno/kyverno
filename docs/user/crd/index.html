@@ -1985,9 +1985,89 @@ transform the ImageData struct returned as a result of processing
 the image reference.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>imageRegistryCredentials</code><br/>
+<em>
+<a href="#kyverno.io/v1.ImageRegistryCredentials">
+ImageRegistryCredentials
+</a>
+</em>
+</td>
+<td>
+<p>ImageRegistryCredentials provides credentials that will be used for authentication with registry</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.ImageRegistryCredentials">ImageRegistryCredentials
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ImageRegistry">ImageRegistry</a>, 
+<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>, 
+<a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>allowInsecureRegistry</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>AllowInsecureRegistry allows insecure access to a registry</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>providers</code><br/>
+<em>
+<a href="#kyverno.io/v1.ImageRegistryCredentialsProvidersType">
+[]ImageRegistryCredentialsProvidersType
+</a>
+</em>
+</td>
+<td>
+<p>Providers specifies a list of OCI Registry names, whose authentication providers are provided
+It can be of one of these values: AWS, ACR, GCP, GHCR</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>secrets</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>Secrets specifies a list of secrets that are provided for credentials
+Secrets must live in the Kyverno namespace</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.ImageRegistryCredentialsProvidersType">ImageRegistryCredentialsProvidersType
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ImageRegistryCredentials">ImageRegistryCredentials</a>)
+</p>
+<p>
+<p>ImageRegistryCredentialsProvidersType provides the list of credential providers required.</p>
+</p>
 <h3 id="kyverno.io/v1.ImageVerification">ImageVerification
 </h3>
 <p>
@@ -2197,6 +2277,19 @@ bool
 <p>Required validates that images are verified i.e. have matched passed a signature or attestation check.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>imageRegistryCredentials</code><br/>
+<em>
+<a href="#kyverno.io/v1.ImageRegistryCredentials">
+ImageRegistryCredentials
+</a>
+</em>
+</td>
+<td>
+<p>ImageRegistryCredentials provides credentials that will be used for authentication with registry</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -2204,7 +2297,8 @@ bool
 (<code>string</code> alias)</p></h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>)
+<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>, 
+<a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>)
 </p>
 <p>
 <p>ImageVerificationType selects the type of verification algorithm</p>
@@ -6411,7 +6505,7 @@ mutated to include the SHA digest retrieved during the registration.</p>
 <td>
 <code>type</code><br/>
 <em>
-<a href="#kyverno.io/v2beta1.ImageVerificationType">
+<a href="#kyverno.io/v1.ImageVerificationType">
 ImageVerificationType
 </a>
 </em>
@@ -6510,18 +6604,22 @@ bool
 <p>Required validates that images are verified i.e. have matched passed a signature or attestation check.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>imageRegistryCredentials</code><br/>
+<em>
+<a href="#kyverno.io/v1.ImageRegistryCredentials">
+ImageRegistryCredentials
+</a>
+</em>
+</td>
+<td>
+<p>ImageRegistryCredentials provides credentials that will be used for authentication with registry</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v2beta1.ImageVerificationType">ImageVerificationType
-(<code>string</code> alias)</p></h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>)
-</p>
-<p>
-<p>ImageVerificationType selects the type of verification algorithm</p>
-</p>
 <h3 id="kyverno.io/v2beta1.MatchResources">MatchResources
 </h3>
 <p>

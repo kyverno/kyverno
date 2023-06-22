@@ -47,16 +47,13 @@ var (
 	errOperationForbidden    = errors.New("variables are forbidden in the path of a JSONPatch")
 )
 
+var allowedJsonPatch = regexp.MustCompile("^/")
+
 // validateJSONPatchPathForForwardSlash checks for forward slash
 func validateJSONPatchPathForForwardSlash(patch string) error {
 	// Replace all variables in PatchesJSON6902, all variable checks should have happened already.
 	// This prevents further checks from failing unexpectedly.
 	patch = variables.ReplaceAllVars(patch, func(s string) string { return "kyvernojsonpatchvariable" })
-
-	re, err := regexp.Compile("^/")
-	if err != nil {
-		return err
-	}
 
 	jsonPatch, err := yaml.ToJSON([]byte(patch))
 	if err != nil {
@@ -74,7 +71,7 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 			return err
 		}
 
-		val := re.MatchString(path)
+		val := allowedJsonPatch.MatchString(path)
 
 		if !val {
 			return fmt.Errorf("%s", path)
@@ -165,6 +162,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		for _, resList := range res {
 			for _, r := range resList.APIResources {
 				if !r.Namespaced {
+					clusterResources.Insert(resList.GroupVersion + "/" + r.Kind)
 					clusterResources.Insert(r.Kind)
 				}
 			}
@@ -274,14 +272,6 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		} else {
 			if len(rule.MatchResources.Kinds) == 0 {
 				return warnings, validateMatchKindHelper(rule)
-			}
-		}
-
-		// validate Cluster Resources in namespaced policy
-		// For namespaced policy, ClusterResource type field and values are not allowed in match and exclude
-		if policy.IsNamespaced() {
-			if err := checkClusterResourceInMatchAndExclude(rule, clusterResources, policy.GetNamespace(), mock, res); err != nil {
-				return warnings, err
 			}
 		}
 

@@ -115,6 +115,8 @@ spec:
             {{- end }}
             {{- end }}
           env:
+          - name: KYVERNO_DEPLOYMENT
+            value: {{ template "kyverno.cleanup-controller.name" . }}
           - name: INIT_CONFIG
             value: {{ template "kyverno.config.configMapName" . }}
           - name: METRICS_CONFIG

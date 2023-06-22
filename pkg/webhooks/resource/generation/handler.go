@@ -15,9 +15,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
+	utils "github.com/kyverno/kyverno/pkg/utils/engine"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -109,7 +110,7 @@ func (h *generationHandler) handleTrigger(
 		var appliedRules, failedRules []engineapi.RuleResponse
 		policyContext := policyContext.WithPolicy(policy)
 		if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-			policyContext = policyContext.WithNamespaceLabels(engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
+			policyContext = policyContext.WithNamespaceLabels(utils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
 		}
 		engineResponse := h.engine.ApplyBackgroundChecks(ctx, policyContext)
 		for _, rule := range engineResponse.PolicyResponse.Rules {
@@ -175,7 +176,7 @@ func (h *generationHandler) applyGeneration(
 }
 
 // handleFailedRules sync changes of the trigger to the downstream
-// it can be 1. trigger deletion; 2. trigger no longer matches, when a rule fails
+// it can be 1. trigger deletion; 2. trigger no longer matches, when a rule fails or is skipped
 func (h *generationHandler) syncTriggerAction(
 	ctx context.Context,
 	request admissionv1.AdmissionRequest,
@@ -282,6 +283,21 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 		pKey := common.PolicyKey(pNamespace, pName)
 		for _, rule := range policy.GetSpec().Rules {
 			if rule.Name == pRuleName && rule.Generation.Synchronize {
+				gvk, subresource := policyContext.ResourceKind()
+				if err := engineutils.MatchesResourceDescription(
+					old,
+					rule,
+					policyContext.AdmissionInfo(),
+					policyContext.NamespaceLabels(),
+					policy.GetNamespace(),
+					gvk,
+					subresource,
+					policyContext.Operation(),
+				); err == nil {
+					h.log.V(4).Info("skip creating UR as the admission resource is both the source and the trigger")
+					continue
+				}
+
 				ur := buildURSpec(kyvernov1beta1.Generate, pKey, rule.Name, generateutils.TriggerFromLabels(labels), deleteDownstream)
 				if err := h.urGenerator.Apply(ctx, ur); err != nil {
 					e := event.NewBackgroundFailedEvent(err, pKey, pRuleName, event.GeneratePolicyController, &new)

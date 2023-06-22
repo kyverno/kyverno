@@ -35,7 +35,7 @@ func (h mutateExistingHandler) Process(
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	var responses []engineapi.RuleResponse
 	logger.V(3).Info("processing mutate rule")
-	targets, err := loadTargets(h.client, rule.Mutation.Targets, policyContext, logger)
+	targets, err := loadTargets(ctx, h.client, rule.Mutation.Targets, policyContext, logger)
 	if err != nil {
 		rr := engineapi.RuleError(rule.Name, engineapi.Mutation, "", err)
 		responses = append(responses, *rr)

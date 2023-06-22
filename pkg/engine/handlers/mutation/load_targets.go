@@ -1,6 +1,7 @@
 package mutation
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -29,17 +30,17 @@ type target struct {
 	preconditions apiextensions.JSON
 }
 
-func loadTargets(client engineapi.Client, targets []kyvernov1.TargetResourceSpec, ctx engineapi.PolicyContext, logger logr.Logger) ([]target, error) {
+func loadTargets(ctx context.Context, client engineapi.Client, targets []kyvernov1.TargetResourceSpec, policyCtx engineapi.PolicyContext, logger logr.Logger) ([]target, error) {
 	var targetObjects []target
 	var errors []error
 	for i := range targets {
 		preconditions := targets[i].GetAnyAllConditions()
-		spec, err := resolveSpec(i, targets[i], ctx, logger)
+		spec, err := resolveSpec(i, targets[i], policyCtx, logger)
 		if err != nil {
 			errors = append(errors, err)
 			continue
 		}
-		objs, err := getTargets(client, spec, ctx)
+		objs, err := getTargets(ctx, client, spec, policyCtx)
 		if err != nil {
 			errors = append(errors, err)
 			continue
@@ -80,17 +81,17 @@ func resolveSpec(i int, target kyvernov1.TargetResourceSpec, ctx engineapi.Polic
 	}, nil
 }
 
-func getTargets(client engineapi.Client, target kyvernov1.ResourceSpec, ctx engineapi.PolicyContext) ([]resourceInfo, error) {
+func getTargets(ctx context.Context, client engineapi.Client, target kyvernov1.ResourceSpec, policyCtx engineapi.PolicyContext) ([]resourceInfo, error) {
 	var targetObjects []resourceInfo
 	namespace := target.Namespace
 	name := target.Name
-	policy := ctx.Policy()
+	policy := policyCtx.Policy()
 	// if it's namespaced policy, targets has to be loaded only from the policy's namespace
 	if policy.IsNamespaced() {
 		namespace = policy.GetNamespace()
 	}
 	group, version, kind, subresource := kubeutils.ParseKindSelector(target.APIVersion + "/" + target.Kind)
-	resources, err := client.GetResources(group, version, kind, subresource, namespace, name)
+	resources, err := client.GetResources(ctx, group, version, kind, subresource, namespace, name)
 	if err != nil {
 		return nil, err
 	}
