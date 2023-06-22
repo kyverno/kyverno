@@ -2,65 +2,14 @@ package controller
 
 import (
 	"context"
-	"errors"
-	"time"
 
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
-	corev1informers "k8s.io/client-go/informers/core/v1"
-	"k8s.io/client-go/kubernetes"
-	corev1listers "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
 )
-
-type SecretClient interface {
-	Informer() cache.SharedIndexInformer
-	Lister() corev1listers.SecretLister
-}
-
-type secretClient struct {
-	informer cache.SharedIndexInformer
-	lister   corev1listers.SecretLister
-	name     string
-}
-
-func (i *secretClient) Informer() cache.SharedIndexInformer {
-	return i.informer
-}
-
-func (i *secretClient) Lister() corev1listers.SecretLister {
-	return i.lister
-}
-
-func NewSecretClient(client kubernetes.Interface, namespace, name string) (SecretClient, error) {
-	indexers := cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}
-	options := func(lo *metav1.ListOptions) {
-		lo.FieldSelector = fields.OneTermEqualSelector(metav1.ObjectNameField, name).String()
-	}
-	informer := corev1informers.NewFilteredSecretInformer(
-		client,
-		namespace,
-		15*time.Minute,
-		indexers,
-		options,
-	)
-	lister := corev1listers.NewSecretLister(informer.GetIndexer())
-	ctx := context.TODO()
-	go informer.Run(ctx.Done())
-	if synced := cache.WaitForCacheSync(ctx.Done(), informer.HasSynced); !synced {
-		return nil, errors.New("configmap informer cache failed to sync")
-	}
-	return &secretClient{
-		informer,
-		lister,
-		name,
-	}, nil
-}
 
 type CreateClient[T metav1.Object] interface {
 	Create(context.Context, T, metav1.CreateOptions) (T, error)
