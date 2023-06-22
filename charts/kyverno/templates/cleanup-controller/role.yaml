@@ -18,9 +18,6 @@ rules:
       - watch
       - create
       - update
-    resourceNames:
-      - {{ include "kyverno.config.configMapName" . }}
-      - {{ include "kyverno.config.metricsConfigMapName" . }}
   - apiGroups:
       - coordination.k8s.io
     resources:
