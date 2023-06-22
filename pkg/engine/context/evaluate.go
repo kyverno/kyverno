@@ -39,7 +39,8 @@ func (ctx *context) Query(query string) (interface{}, error) {
 }
 
 func (ctx *context) loadDeferred(query string) error {
-	for loader := ctx.deferred.Match(query); loader != nil; loader = ctx.deferred.Match(query) {
+	level := len(ctx.jsonRawCheckpoints)
+	for loader := ctx.deferred.Match(query, level); loader != nil; loader = ctx.deferred.Match(query, level) {
 		if err := loader.LoadData(); err != nil {
 			return err
 		}

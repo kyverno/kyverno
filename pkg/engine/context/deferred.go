@@ -8,7 +8,6 @@ type deferredLoader struct {
 	name    string
 	matcher regexp.Regexp
 	loader  Loader
-	level   int
 }
 
 func NewDeferredLoader(name string, loader Loader) (DeferredLoader, error) {
@@ -30,14 +29,6 @@ func (dl *deferredLoader) Name() string {
 	return dl.name
 }
 
-func (dl *deferredLoader) SetLevel(level int) {
-	dl.level = level
-}
-
-func (dl *deferredLoader) GetLevel() int {
-	return dl.level
-}
-
 func (dl *deferredLoader) HasLoaded() bool {
 	return dl.loader.HasLoaded()
 }
@@ -50,16 +41,20 @@ func (d *deferredLoader) Matches(query string) bool {
 	return d.matcher.MatchString(query)
 }
 
+type byLevel struct {
+	level  int
+	loader DeferredLoader
+}
+
 type deferredLoaders struct {
 	enableDeferredLoading bool
-	currentLevel          int
-	loaders               []DeferredLoader
+	loaders               []byLevel
 }
 
 func NewDeferredLoaders(enableDeferredLoading bool) DeferredLoaders {
 	return &deferredLoaders{
 		enableDeferredLoading: enableDeferredLoading,
-		loaders:               make([]DeferredLoader, 0),
+		loaders:               make([]byLevel, 0),
 	}
 }
 
@@ -68,28 +63,21 @@ func (d *deferredLoaders) Enabled() bool {
 }
 
 func (d *deferredLoaders) Add(dl DeferredLoader, level int) {
-	dl.SetLevel(level)
-	d.loaders = append(d.loaders, dl)
-}
-
-func (d *deferredLoaders) Checkpoint(level int) {
-	d.currentLevel = level
+	d.loaders = append(d.loaders, byLevel{level, dl})
 }
 
 func (d *deferredLoaders) Reset(remove bool, level int) {
-	d.currentLevel = level
-
 	for i := len(d.loaders) - 1; i >= 0; i-- {
-		if d.loaders[i].GetLevel() > d.currentLevel {
+		if d.loaders[i].level > level {
 			// remove loaders from a nested context (level > current)
 			d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
 		} else {
-			if d.loaders[i].HasLoaded() {
+			if d.loaders[i].loader.HasLoaded() {
 				// reload data into the current context
-				if err := d.loaders[i].LoadData(); err != nil {
-					logger.Error(err, "failed to reload context entry", "name", d.loaders[i].Name())
+				if err := d.loaders[i].loader.LoadData(); err != nil {
+					logger.Error(err, "failed to reload context entry", "name", d.loaders[i].loader.Name())
 				}
-				if d.loaders[i].GetLevel() == d.currentLevel {
+				if d.loaders[i].level == level {
 					d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
 				}
 			}
@@ -97,18 +85,18 @@ func (d *deferredLoaders) Reset(remove bool, level int) {
 	}
 }
 
-func (d *deferredLoaders) Match(query string) DeferredLoader {
+func (d *deferredLoaders) Match(query string, level int) DeferredLoader {
 	for i, dl := range d.loaders {
-		if dl.HasLoaded() {
+		if dl.loader.HasLoaded() {
 			continue
 		}
 
-		if dl.Matches(query) {
-			if dl.GetLevel() == d.currentLevel {
+		if dl.loader.Matches(query) {
+			if dl.level == level {
 				d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
 			}
 
-			return dl
+			return dl.loader
 		}
 	}
 

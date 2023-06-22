@@ -41,7 +41,7 @@ func TestDeferredLoaderMatch(t *testing.T) {
 }
 
 func testCheckMatch(t *testing.T, ctx *context, query, name string) {
-	loader := ctx.deferred.Match(query)
+	loader := ctx.deferred.Match(query, len(ctx.jsonRawCheckpoints))
 	assert.Assert(t, loader != nil, "deferred loader %s not resolved for query `%s`", name, query)
 	assert.Equal(t, name, loader.Name(), "deferred loader %s name mismatch for query %s", name, query)
 }
@@ -151,16 +151,16 @@ func TestDeferredCheckpointRestore(t *testing.T) {
 	mock, _ := addDeferred(ctx, "one", "1")
 	ctx.Restore()
 	assert.Equal(t, 0, mock.invocations)
-	assert.Assert(t, ctx.deferred.Match("unused") == nil)
-	assert.Assert(t, ctx.deferred.Match("one") == nil)
+	assert.Assert(t, ctx.deferred.Match("unused", len(ctx.jsonRawCheckpoints)) == nil)
+	assert.Assert(t, ctx.deferred.Match("one", len(ctx.jsonRawCheckpoints)) == nil)
 
 	_, _ = addDeferred(ctx, "one", "1")
 	ctx.Checkpoint()
-	assert.Assert(t, ctx.deferred.Match("one") != nil)
+	assert.Assert(t, ctx.deferred.Match("one", len(ctx.jsonRawCheckpoints)) != nil)
 	ctx.Restore()
-	assert.Assert(t, ctx.deferred.Match("one") != nil)
+	assert.Assert(t, ctx.deferred.Match("one", len(ctx.jsonRawCheckpoints)) != nil)
 	_, _ = ctx.Query("one")
-	assert.Assert(t, ctx.deferred.Match("one") == nil)
+	assert.Assert(t, ctx.deferred.Match("one", len(ctx.jsonRawCheckpoints)) == nil)
 
 	mock, _ = addDeferred(ctx, "one", "1")
 	ctx.Checkpoint()

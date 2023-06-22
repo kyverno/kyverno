@@ -319,7 +319,6 @@ func (ctx *context) Checkpoint() {
 	jsonRawCheckpoint := make([]byte, len(ctx.jsonRaw))
 	copy(jsonRawCheckpoint, ctx.jsonRaw)
 	ctx.jsonRawCheckpoints = append(ctx.jsonRawCheckpoints, jsonRawCheckpoint)
-	ctx.deferred.Checkpoint(len(ctx.jsonRawCheckpoints))
 }
 
 // Restore sets the internal state to the last checkpoint, and removes the checkpoint.

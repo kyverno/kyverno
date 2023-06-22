@@ -26,15 +26,12 @@ type DeferredLoader interface {
 	Matches(query string) bool
 	HasLoaded() bool
 	LoadData() error
-	GetLevel() int
-	SetLevel(level int)
 }
 
 // DeferredLoaders manages a list of DeferredLoader instances
 type DeferredLoaders interface {
 	Enabled() bool
 	Add(loader DeferredLoader, level int)
-	Match(query string) DeferredLoader
-	Checkpoint(level int)
+	Match(query string, level int) DeferredLoader
 	Reset(remove bool, level int)
 }
