@@ -125,7 +125,7 @@ func TestRekorPubkeys(t *testing.T) {
 
 	rc, err := registryclient.New()
 	assert.NilError(t, err)
-	opts.RegistryClient = rc
+	opts.Client = rc
 
 	verifier := &cosignVerifier{}
 	_, err = verifier.VerifySignature(context.TODO(), opts)

@@ -149,17 +149,6 @@ func fetchImageDataMap(ctx context.Context, client ImageDataClient, ref string) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch image descriptor: %s, error: %v", ref, err)
 	}
-	parsedRef, err := name.ParseReference(ref)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse image reference: %s, error: %v", ref, err)
-	}
-	image, err := desc.Image()
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve image reference: %s, error: %v", ref, err)
-	}
-	// We need to use the raw config and manifest to avoid dropping unknown keys
-	// which are not defined in GGCR structs.
-	rawManifest, err := image.RawManifest()
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch manifest for image reference: %s, error: %v", ref, err)
 	}

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/sigstore/cosign/pkg/oci/remote"
+	"github.com/sigstore/cosign/v2/pkg/oci/remote"
 )
 
 type ImageVerifier interface {

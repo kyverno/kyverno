@@ -8,8 +8,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/kyverno/kyverno/pkg/registryclient"
-	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/images"
 	notationregistry "github.com/notaryproject/notation-go/registry"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
