@@ -58,7 +58,7 @@ func NewController(
 func (c *controller) Run(ctx context.Context, workers int) {
 	// we need to enqueue our secrets in case they don't exist yet in the cluster
 	// this way we ensure the reconcile happens (hence renewal/creation)
-	if err := c.caEnqueue(&corev1.Secret{
+	if err := c.tlsEnqueue(&corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: config.KyvernoNamespace(),
 			Name:      tls.GenerateTLSPairSecretName(),
@@ -66,7 +66,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	}); err != nil {
 		logger.Error(err, "failed to enqueue secret", "name", tls.GenerateTLSPairSecretName())
 	}
-	if err := c.tlsEnqueue(&corev1.Secret{
+	if err := c.caEnqueue(&corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: config.KyvernoNamespace(),
 			Name:      tls.GenerateRootCASecretName(),
