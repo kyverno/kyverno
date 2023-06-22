@@ -30,3 +30,5 @@ annotations:
       description: incorrect config map names
     - kind: added
       description: define resources for cleanupJobs
+    - kind: changed
+      description: change to enable webhook cleanup hook by default
