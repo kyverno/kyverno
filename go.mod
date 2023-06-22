@@ -11,7 +11,7 @@ require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20230304212654-82a0ddb27589
 	github.com/cyphar/filepath-securejoin v0.2.3
-	github.com/distribution/distribution v2.8.2+incompatible
+	github.com/distribution/distribution v2.8.2-beta.1+incompatible
 	github.com/evanphx/json-patch/v5 v5.6.0
 	github.com/fatih/color v1.15.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
