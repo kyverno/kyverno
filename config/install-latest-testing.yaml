@@ -37892,6 +37892,14 @@ rules:
       - list
       - watch
   - apiGroups:
+      - ''
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
       - batch
     resources:
       - cronjobs
@@ -38398,14 +38406,6 @@ rules:
       - watch
       - create
       - update
-  - apiGroups:
-      - ''
-    resources:
-      - configmaps
-    verbs:
-      - get
-      - list
-      - watch
     resourceNames:
       - kyverno
       - kyverno-metrics
