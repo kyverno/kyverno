@@ -80,15 +80,19 @@ func (d *deferredLoaders) Reset(remove bool, level int) {
 	d.currentLevel = level
 
 	for i := len(d.loaders) - 1; i >= 0; i-- {
-		// remove loaders whose level >= than the current level
-		if d.loaders[i].GetLevel() >= d.currentLevel {
+		if d.loaders[i].GetLevel() > d.currentLevel {
+			// remove loaders from a nested context (level > current)
+			d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
+		} else {
 			if d.loaders[i].HasLoaded() {
 				// reload data into the current context
 				if err := d.loaders[i].LoadData(); err != nil {
 					logger.Error(err, "failed to reload context entry", "name", d.loaders[i].Name())
 				}
+				if d.loaders[i].GetLevel() == d.currentLevel {
+					d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
+				}
 			}
-			d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
 		}
 	}
 }
