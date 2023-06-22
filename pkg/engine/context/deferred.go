@@ -66,7 +66,7 @@ func (d *deferredLoaders) Add(dl DeferredLoader, level int) {
 	d.loaders = append(d.loaders, byLevel{level, dl})
 }
 
-func (d *deferredLoaders) Reset(remove bool, level int) {
+func (d *deferredLoaders) Reset(removeCheckpoint bool, level int) {
 	for i := len(d.loaders) - 1; i >= 0; i-- {
 		if d.loaders[i].level > level {
 			// remove loaders from a nested context (level > current)
@@ -77,6 +77,11 @@ func (d *deferredLoaders) Reset(remove bool, level int) {
 				if err := d.loaders[i].loader.LoadData(); err != nil {
 					logger.Error(err, "failed to reload context entry", "name", d.loaders[i].loader.Name())
 				}
+				if d.loaders[i].level == level {
+					d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
+				}
+			}
+			if !removeCheckpoint {
 				if d.loaders[i].level == level {
 					d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
 				}

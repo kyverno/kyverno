@@ -331,12 +331,12 @@ func (ctx *context) Reset() {
 	ctx.reset(false)
 }
 
-func (ctx *context) reset(remove bool) {
-	ctx.resetCheckpoint(remove)
-	ctx.deferred.Reset(remove, len(ctx.jsonRawCheckpoints))
+func (ctx *context) reset(removeCheckpoint bool) {
+	ctx.resetCheckpoint(removeCheckpoint)
+	ctx.deferred.Reset(removeCheckpoint, len(ctx.jsonRawCheckpoints))
 }
 
-func (ctx *context) resetCheckpoint(remove bool) {
+func (ctx *context) resetCheckpoint(removeCheckpoint bool) {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
 
@@ -348,7 +348,7 @@ func (ctx *context) resetCheckpoint(remove bool) {
 	jsonRawCheckpoint := ctx.jsonRawCheckpoints[n]
 	ctx.jsonRaw = make([]byte, len(jsonRawCheckpoint))
 	copy(ctx.jsonRaw, jsonRawCheckpoint)
-	if remove {
+	if removeCheckpoint {
 		ctx.jsonRawCheckpoints = ctx.jsonRawCheckpoints[:n]
 	}
 }

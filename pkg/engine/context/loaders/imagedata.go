@@ -14,6 +14,7 @@ import (
 )
 
 type imageDataLoader struct {
+	ctx            context.Context //nolint:containedctx
 	logger         logr.Logger
 	entry          kyvernov1.ContextEntry
 	enginectx      enginecontext.Interface
@@ -23,6 +24,7 @@ type imageDataLoader struct {
 }
 
 func NewImageDataLoader(
+	ctx context.Context,
 	logger logr.Logger,
 	entry kyvernov1.ContextEntry,
 	enginectx enginecontext.Interface,
@@ -30,6 +32,7 @@ func NewImageDataLoader(
 	rclientFactory engineapi.RegistryClientFactory,
 ) enginecontext.Loader {
 	return &imageDataLoader{
+		ctx:            ctx,
 		logger:         logger,
 		entry:          entry,
 		enginectx:      enginectx,
@@ -67,13 +70,8 @@ func (idl *imageDataLoader) loadImageData() error {
 }
 
 func (idl *imageDataLoader) fetchImageData() (interface{}, error) {
-	logger := idl.logger
-	ctx := context.Background()
-	enginectx := idl.enginectx
 	entry := idl.entry
-	rclientFactory := idl.rclientFactory
-
-	ref, err := variables.SubstituteAll(logger, enginectx, entry.ImageRegistry.Reference)
+	ref, err := variables.SubstituteAll(idl.logger, idl.enginectx, entry.ImageRegistry.Reference)
 	if err != nil {
 		return nil, fmt.Errorf("ailed to substitute variables in context entry %s %s: %v", entry.Name, entry.ImageRegistry.Reference, err)
 	}
@@ -83,12 +81,12 @@ func (idl *imageDataLoader) fetchImageData() (interface{}, error) {
 		return nil, fmt.Errorf("invalid image reference %s, image reference must be a string", ref)
 	}
 
-	path, err := variables.SubstituteAll(logger, enginectx, entry.ImageRegistry.JMESPath)
+	path, err := variables.SubstituteAll(idl.logger, idl.enginectx, entry.ImageRegistry.JMESPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.ImageRegistry.JMESPath, err)
 	}
 
-	client, err := rclientFactory.GetClient(ctx, entry.ImageRegistry.ImageRegistryCredentials)
+	client, err := idl.rclientFactory.GetClient(idl.ctx, entry.ImageRegistry.ImageRegistryCredentials)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get registry client %s: %v", entry.Name, err)
 	}

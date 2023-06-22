@@ -13,6 +13,7 @@ import (
 )
 
 type apiLoader struct {
+	ctx       context.Context //nolint:containedctx
 	logger    logr.Logger
 	entry     kyvernov1.ContextEntry
 	enginectx enginecontext.Interface
@@ -22,6 +23,7 @@ type apiLoader struct {
 }
 
 func NewAPILoader(
+	ctx context.Context,
 	logger logr.Logger,
 	entry kyvernov1.ContextEntry,
 	enginectx enginecontext.Interface,
@@ -29,6 +31,7 @@ func NewAPILoader(
 	client engineapi.RawClient,
 ) enginecontext.Loader {
 	return &apiLoader{
+		ctx:       ctx,
 		logger:    logger,
 		entry:     entry,
 		enginectx: enginectx,
@@ -49,7 +52,7 @@ func (a *apiLoader) LoadData() error {
 
 	if a.data == nil {
 		var err error
-		if a.data, err = executor.Fetch(context.Background()); err != nil {
+		if a.data, err = executor.Fetch(a.ctx); err != nil {
 			return fmt.Errorf("failed to fetch data for APICall: %w", err)
 		}
 	}

@@ -239,6 +239,17 @@ func TestDeferredForloop(t *testing.T) {
 	assert.Equal(t, "0", val)
 }
 
+func TestDeferredReset(t *testing.T) {
+	ctx := newContext()
+	addDeferred(ctx, "value", "0")
+
+	addDeferred(ctx, "leak", "leak")
+	ctx.Reset()
+
+	_, err := ctx.Query("leak")
+	assert.ErrorContains(t, err, `Unknown key "leak" in path`)
+}
+
 func TestDeferredSameName(t *testing.T) {
 	ctx := newContext()
 	var sequence []string

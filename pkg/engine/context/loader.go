@@ -33,5 +33,5 @@ type DeferredLoaders interface {
 	Enabled() bool
 	Add(loader DeferredLoader, level int)
 	Match(query string, level int) DeferredLoader
-	Reset(remove bool, level int)
+	Reset(removeCheckpoint bool, level int)
 }

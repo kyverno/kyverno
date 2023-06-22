@@ -13,6 +13,7 @@ import (
 )
 
 type configMapLoader struct {
+	ctx       context.Context //nolint:containedctx
 	logger    logr.Logger
 	entry     kyvernov1.ContextEntry
 	resolver  engineapi.ConfigmapResolver
@@ -21,12 +22,14 @@ type configMapLoader struct {
 }
 
 func NewConfigMapLoader(
+	ctx context.Context,
 	logger logr.Logger,
 	entry kyvernov1.ContextEntry,
 	resolver engineapi.ConfigmapResolver,
 	enginectx enginecontext.Interface,
 ) enginecontext.Loader {
 	return &configMapLoader{
+		ctx:       ctx,
 		logger:    logger,
 		entry:     entry,
 		resolver:  resolver,
@@ -77,7 +80,7 @@ func (cml *configMapLoader) fetchConfigMap() ([]byte, error) {
 	if namespace == "" {
 		namespace = "default"
 	}
-	obj, err := cml.resolver.Get(context.Background(), namespace.(string), name.(string))
+	obj, err := cml.resolver.Get(cml.ctx, namespace.(string), name.(string))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get configmap %s/%s : %v", namespace, name, err)
 	}
