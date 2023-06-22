@@ -145,8 +145,13 @@ func addDeferred(ctx *context, name string, value interface{}) (*mockLoader, err
 
 func TestDeferredCheckpointRestore(t *testing.T) {
 	ctx := newContext()
+	ctx.Checkpoint()
+	_, _ = addDeferred(ctx, "unused", "unused")
 	mock, _ := addDeferred(ctx, "one", "1")
+	ctx.Restore()
+	assert.Equal(t, 0, mock.invocations)
 
+	mock, _ = addDeferred(ctx, "one", "1")
 	ctx.Checkpoint()
 	val, err := ctx.Query("one")
 	assert.NilError(t, err)

@@ -79,19 +79,16 @@ func (d *deferredLoaders) Checkpoint(level int) {
 func (d *deferredLoaders) Reset(remove bool, level int) {
 	d.currentLevel = level
 
-	for i, dl := range d.loaders {
-		level := dl.GetLevel()
-		if level > d.currentLevel {
-			// remove if the loader's level is higher than the current
-			// level after a checkpoint reset
-			d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
-		} else if dl.HasLoaded() {
-			// reload data into the current context
-			if err := dl.LoadData(); err != nil {
-				logger.Error(err, "failed to reload context entry", "name", dl.Name())
-			} else {
-				d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
+	for i := len(d.loaders) - 1; i >= 0; i-- {
+		// remove loaders whose level >= than the current level
+		if d.loaders[i].GetLevel() >= d.currentLevel {
+			if d.loaders[i].HasLoaded() {
+				// reload data into the current context
+				if err := d.loaders[i].LoadData(); err != nil {
+					logger.Error(err, "failed to reload context entry", "name", d.loaders[i].Name())
+				}
 			}
+			d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
 		}
 	}
 }
