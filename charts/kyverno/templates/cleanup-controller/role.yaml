@@ -13,11 +13,19 @@ rules:
     resources:
       - secrets
     verbs:
+      - create
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    verbs:
       - get
       - list
       - watch
-      - create
       - update
+    resourceNames:
+      - {{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-ca
+      - {{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-pair
   - apiGroups:
       - ''
     resources:
