@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
+	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/webhooks"
@@ -73,6 +74,13 @@ func main() {
 	// setup
 	ctx, setup, sdown := internal.Setup(appConfig, "kyverno-cleanup-controller", false)
 	defer sdown()
+	// certificates informers
+	caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tls.GenerateRootCASecretName(), resyncPeriod)
+	tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tls.GenerateTLSPairSecretName(), resyncPeriod)
+	if !informers.StartInformersAndWaitForCacheSync(ctx, setup.Logger, caSecret, tlsSecret) {
+		setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
+		os.Exit(1)
+	}
 	// setup leader election
 	le, err := leaderelection.New(
 		setup.Logger.WithName("leader-election"),
@@ -86,7 +94,6 @@ func main() {
 			// informer factories
 			kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod)
 			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
-			kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 			// controllers
 			renewer := tls.NewCertRenewer(
 				setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
@@ -98,7 +105,8 @@ func main() {
 			certController := internal.NewController(
 				certmanager.ControllerName,
 				certmanager.NewController(
-					kubeKyvernoInformer.Core().V1().Secrets(),
+					caSecret,
+					tlsSecret,
 					renewer,
 				),
 				certmanager.Workers,
@@ -109,7 +117,7 @@ func main() {
 					webhookControllerName,
 					setup.KubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 					kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
-					kubeKyvernoInformer.Core().V1().Secrets(),
+					caSecret,
 					config.CleanupValidatingWebhookConfigurationName,
 					config.CleanupValidatingWebhookServicePath,
 					serverIP,
@@ -146,7 +154,7 @@ func main() {
 				cleanup.Workers,
 			)
 			// start informers and wait for cache sync
-			if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
+			if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kyvernoInformer, kubeInformer) {
 				logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 				os.Exit(1)
 			}
@@ -166,10 +174,8 @@ func main() {
 	}
 	// informer factories
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod)
-	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 	// listers
-	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
 	cpolLister := kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies().Lister()
 	polLister := kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies().Lister()
 	nsLister := kubeInformer.Core().V1().Namespaces().Lister()
@@ -187,7 +193,7 @@ func main() {
 		genericloggingcontroller.CheckGeneration,
 	)
 	// start informers and wait for cache sync
-	if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kubeKyvernoInformer, kubeInformer, kyvernoInformer) {
+	if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kubeInformer, kyvernoInformer) {
 		os.Exit(1)
 	}
 	// create handlers
@@ -205,7 +211,7 @@ func main() {
 	// create server
 	server := NewServer(
 		func() ([]byte, []byte, error) {
-			secret, err := secretLister.Get(tls.GenerateTLSPairSecretName())
+			secret, err := tlsSecret.Lister().Secrets(config.KyvernoNamespace()).Get(tls.GenerateTLSPairSecretName())
 			if err != nil {
 				return nil, nil, err
 			}

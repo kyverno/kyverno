@@ -38401,11 +38401,19 @@ rules:
     resources:
       - secrets
     verbs:
+      - create
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    verbs:
       - get
       - list
       - watch
-      - create
       - update
+    resourceNames:
+      - kyverno-cleanup-controller.kyverno.svc.kyverno-tls-ca
+      - kyverno-cleanup-controller.kyverno.svc.kyverno-tls-pair
   - apiGroups:
       - ''
     resources:

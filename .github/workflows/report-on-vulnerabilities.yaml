@@ -72,4 +72,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RESULTS: ${{ steps.set-scan-output.outputs.results }}
         with:
-          filename: .github/VULN_TEMPLATE.md
+          filename: .github/ISSUE_TEMPLATE/VULN-TEMPLATE.md
