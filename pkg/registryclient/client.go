@@ -28,7 +28,7 @@ var (
 		authn.DefaultKeychain,
 		google.Keychain,
 		authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard))),
-		// authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()),
+		authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()),
 		github.Keychain,
 	)
 	defaultTransport = &http.Transport{
