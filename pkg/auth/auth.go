@@ -29,7 +29,7 @@ type CanIOptions interface {
 type canIOptions struct {
 	namespace   string
 	verb        string
-	kind        string
+	gvk         string
 	subresource string
 	user        string
 	discovery   Discovery
@@ -37,11 +37,11 @@ type canIOptions struct {
 }
 
 // NewCanI returns a new instance of operation access controller evaluator
-func NewCanI(discovery Discovery, sarClient authorizationv1client.SubjectAccessReviewInterface, kind, namespace, verb, subresource string, user string) CanIOptions {
+func NewCanI(discovery Discovery, sarClient authorizationv1client.SubjectAccessReviewInterface, gvk, namespace, verb, subresource string, user string) CanIOptions {
 	return &canIOptions{
 		namespace:   namespace,
 		verb:        verb,
-		kind:        kind,
+		gvk:         gvk,
 		subresource: subresource,
 		user:        user,
 		discovery:   discovery,
@@ -58,18 +58,18 @@ func NewCanI(discovery Discovery, sarClient authorizationv1client.SubjectAccessR
 func (o *canIOptions) RunAccessCheck(ctx context.Context) (bool, error) {
 	// get GroupVersionResource from RESTMapper
 	// get GVR from kind
-	apiVersion, kind := kubeutils.GetKindFromGVK(o.kind)
+	apiVersion, kind := kubeutils.GetKindFromGVK(o.gvk)
 	gv, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {
 		return false, fmt.Errorf("failed to parse group/version %s", apiVersion)
 	}
 	gvr, err := o.discovery.GetGVRFromGVK(gv.WithKind(kind))
 	if err != nil {
-		return false, fmt.Errorf("failed to get GVR for kind %s", o.kind)
+		return false, fmt.Errorf("failed to get GVR for kind %s", o.gvk)
 	}
 	if gvr.Empty() {
 		// cannot find GVR
-		return false, fmt.Errorf("failed to get the Group Version Resource for kind %s", o.kind)
+		return false, fmt.Errorf("failed to get the Group Version Resource for kind %s", o.gvk)
 	}
 	logger := logger.WithValues("kind", kind, "namespace", o.namespace, "gvr", gvr.String(), "verb", o.verb)
 	result, err := o.checker.Check(ctx, gvr.Group, gvr.Version, gvr.Resource, o.subresource, o.namespace, o.verb)
