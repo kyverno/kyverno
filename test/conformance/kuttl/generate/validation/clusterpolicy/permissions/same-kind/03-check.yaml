@@ -1,0 +1,11 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+- file: policy-1.yaml
+  shouldFail: false
+- file: policy-1-subresource.yaml
+  shouldFail: false
+- file: policy-2.yaml
+  shouldFail: true
+- file: policy-2-subresource.yaml
+  shouldFail: true
