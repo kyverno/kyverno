@@ -143,11 +143,7 @@ REPORTS_BIN    := $(REPORTS_DIR)/reports-controller
 BACKGROUND_BIN := $(BACKGROUND_DIR)/background-controller
 PACKAGE        ?= github.com/kyverno/kyverno
 CGO_ENABLED    ?= 0
-ifdef VERSION
-LD_FLAGS       := "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_SHA) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
-else
-LD_FLAGS       := "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_SHA) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_SHA) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
-endif
+LD_FLAGS       := "-s -w"
 
 .PHONY: fmt
 fmt: ## Run go fmt
