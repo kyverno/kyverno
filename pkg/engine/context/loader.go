@@ -10,8 +10,8 @@ package context
 type Loader interface {
 	// Load data fetches or produces data and stores it in the context
 	LoadData() error
-	// Has loaded indicates if the loader has previously executed
-	// and stored data in the context
+	// Has loaded indicates if the loader has previously
+	// executed and stored data in a context
 	HasLoaded() bool
 }
 

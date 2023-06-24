@@ -41,20 +41,21 @@ func (d *deferredLoader) Matches(query string) bool {
 	return d.matcher.MatchString(query)
 }
 
-type byLevel struct {
-	level  int
-	loader DeferredLoader
+type cachedLoader struct {
+	level   int
+	matched bool
+	loader  DeferredLoader
 }
 
 type deferredLoaders struct {
 	enableDeferredLoading bool
-	loaders               []byLevel
+	loaders               []cachedLoader
 }
 
 func NewDeferredLoaders(enableDeferredLoading bool) DeferredLoaders {
 	return &deferredLoaders{
 		enableDeferredLoading: enableDeferredLoading,
-		loaders:               make([]byLevel, 0),
+		loaders:               make([]cachedLoader, 0),
 	}
 }
 
@@ -63,11 +64,12 @@ func (d *deferredLoaders) Enabled() bool {
 }
 
 func (d *deferredLoaders) Add(dl DeferredLoader, level int) {
-	d.loaders = append(d.loaders, byLevel{level, dl})
+	d.loaders = append(d.loaders, cachedLoader{level, false, dl})
 }
 
 func (d *deferredLoaders) Reset(restore bool, level int) {
 	for i := len(d.loaders) - 1; i >= 0; i-- {
+		d.loaders[i].matched = false
 		if d.loaders[i].level > level {
 			// remove loaders from a nested context (level > current)
 			d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
@@ -91,13 +93,15 @@ func (d *deferredLoaders) Reset(restore bool, level int) {
 
 func (d *deferredLoaders) Match(query string, level int) DeferredLoader {
 	for i, dl := range d.loaders {
-		if dl.loader.HasLoaded() {
+		if dl.matched || dl.loader.HasLoaded() {
 			continue
 		}
 
 		if dl.loader.Matches(query) {
 			if dl.level == level {
 				d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
+			} else {
+				d.loaders[i].matched = true
 			}
 
 			return dl.loader

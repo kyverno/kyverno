@@ -326,8 +326,8 @@ func TestDeferredSameName(t *testing.T) {
 
 func TestDeferredRecursive(t *testing.T) {
 	ctx := newContext()
-	ctx.Checkpoint()
 	addDeferredWithQuery(ctx, "value", "0", "value")
+	ctx.Checkpoint()
 	val, err := ctx.Query("value")
 	assert.NilError(t, err)
 	assert.Equal(t, "0", val)
