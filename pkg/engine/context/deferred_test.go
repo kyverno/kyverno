@@ -89,6 +89,7 @@ type mockLoader struct {
 	name         string
 	level        int
 	value        interface{}
+	query        string
 	hasLoaded    bool
 	invocations  int
 	eventHandler func(event string)
@@ -112,12 +113,31 @@ func (ml *mockLoader) HasLoaded() bool {
 }
 
 func (ml *mockLoader) LoadData() error {
+	// simulate a JMESPath prior to loading
+	ml.executeQuery()
+
 	ml.invocations++
 	ml.ctx.AddVariable(ml.name, ml.value)
+
+	// simulate a JMESPath prior after loading
+	ml.executeQuery()
+
 	ml.hasLoaded = true
 	if ml.eventHandler != nil {
 		event := fmt.Sprintf("%s=%v", ml.name, ml.value)
 		ml.eventHandler(event)
+	}
+
+	return nil
+}
+
+func (ml *mockLoader) executeQuery() error {
+	if ml.query != "" {
+		if results, err := ml.ctx.Query(ml.query); err != nil {
+			return err
+		} else {
+			fmt.Printf("query results: %v \n", results)
+		}
 	}
 
 	return nil
@@ -128,10 +148,15 @@ func (ml *mockLoader) setEventHandler(eventHandler func(string)) {
 }
 
 func addDeferred(ctx *context, name string, value interface{}) (*mockLoader, error) {
+	return addDeferredWithQuery(ctx, name, value, "")
+}
+
+func addDeferredWithQuery(ctx *context, name string, value interface{}, query string) (*mockLoader, error) {
 	loader := &mockLoader{
 		name:  name,
 		value: value,
 		ctx:   ctx,
+		query: query,
 	}
 
 	d, err := NewDeferredLoader(name, loader)
@@ -297,4 +322,13 @@ func TestDeferredSameName(t *testing.T) {
 	assert.Equal(t, 2, len(sequence))
 	assert.Equal(t, sequence[0], "value=0")
 	assert.Equal(t, sequence[1], "value=1")
+}
+
+func TestDeferredRecursive(t *testing.T) {
+	ctx := newContext()
+	ctx.Checkpoint()
+	addDeferredWithQuery(ctx, "value", "0", "value")
+	val, err := ctx.Query("value")
+	assert.NilError(t, err)
+	assert.Equal(t, "0", val)
 }
