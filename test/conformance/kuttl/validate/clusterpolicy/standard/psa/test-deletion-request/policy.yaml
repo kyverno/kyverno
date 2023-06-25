@@ -1,0 +1,25 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: kyverno-psa-policy-test-deletion
+spec:
+  background: true
+  validationFailureAction: Enforce
+  rules:
+  - name: kyverno-psa-policy-test-deletion
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      podSecurity:
+        level: baseline
+        version: latest
+        exclude:
+        - controlName: "HostPath Volumes"
+        - controlName: "Host Namespaces"
+        - controlName: "Host Ports"
+          images:
+          - datadog/*
+          

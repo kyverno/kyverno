@@ -13,7 +13,7 @@ spec:
           kinds:
           - ConfigMap
     generate:
-      namespace: "{{request.object.metadata.name}}"
+      namespace: default
       synchronize : true
       cloneList:
         namespace: update-clonelist-ns

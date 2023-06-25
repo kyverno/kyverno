@@ -122,7 +122,7 @@ func doesResourceMatchConditionBlock(
 			errs = append(errs, fmt.Errorf("failed to parse namespace selector: %v", err))
 		} else {
 			if !hasPassed {
-				errs = append(errs, fmt.Errorf("namespace selector does not match"))
+				errs = append(errs, fmt.Errorf("namespace selector does not match labels"))
 			}
 		}
 	}

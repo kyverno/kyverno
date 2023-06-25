@@ -1,0 +1,8 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+- trigger-1.yaml
+- trigger-others.yaml
+assert:
+- target-1.yaml
+- target-others.yaml

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	gojmespath "github.com/jmespath/go-jmespath"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
@@ -162,11 +163,12 @@ func loadInput(file string) (interface{}, error) {
 }
 
 func evaluate(input interface{}, query string) (interface{}, error) {
-	jp, err := jmespath.New(query)
+	jp := jmespath.New(config.NewDefaultConfiguration(false))
+	q, err := jp.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile JMESPath: %s, error: %v", query, err)
 	}
-	result, err := jp.Search(input)
+	result, err := q.Search(input)
 	if err != nil {
 		if syntaxError, ok := err.(gojmespath.SyntaxError); ok {
 			return nil, fmt.Errorf("%s\n%s", syntaxError, syntaxError.HighlightLocation())

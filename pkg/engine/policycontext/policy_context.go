@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -165,7 +166,7 @@ func (c *PolicyContext) WithResources(newResource unstructured.Unstructured, old
 	return c.WithNewResource(newResource).WithOldResource(oldResource)
 }
 
-func (c *PolicyContext) withAdmissionOperation(admissionOperation bool) *PolicyContext {
+func (c *PolicyContext) WithAdmissionOperation(admissionOperation bool) *PolicyContext {
 	copy := c.copy()
 	copy.admissionOperation = admissionOperation
 	return copy
@@ -177,24 +178,61 @@ func (c PolicyContext) copy() *PolicyContext {
 
 // Constructors
 
-func NewPolicyContextWithJsonContext(operation kyvernov1.AdmissionOperation, jsonContext enginectx.Interface) *PolicyContext {
+func newPolicyContextWithJsonContext(operation kyvernov1.AdmissionOperation, jsonContext enginectx.Interface) *PolicyContext {
 	return &PolicyContext{
 		operation:   operation,
 		jsonContext: jsonContext,
 	}
 }
 
-func NewPolicyContext(operation kyvernov1.AdmissionOperation) *PolicyContext {
-	return NewPolicyContextWithJsonContext(operation, enginectx.NewContext())
+func NewPolicyContext(
+	jp jmespath.Interface,
+	resource unstructured.Unstructured,
+	operation kyvernov1.AdmissionOperation,
+	admissionInfo *kyvernov1beta1.RequestInfo,
+	configuration config.Configuration,
+) (*PolicyContext, error) {
+	enginectx := enginectx.NewContext(jp)
+	if err := enginectx.AddResource(resource.Object); err != nil {
+		return nil, err
+	}
+	if err := enginectx.AddNamespace(resource.GetNamespace()); err != nil {
+		return nil, err
+	}
+	if err := enginectx.AddImageInfos(&resource, configuration); err != nil {
+		return nil, err
+	}
+	if admissionInfo != nil {
+		if err := enginectx.AddUserInfo(*admissionInfo); err != nil {
+			return nil, err
+		}
+		if err := enginectx.AddServiceAccount(admissionInfo.AdmissionUserInfo.Username); err != nil {
+			return nil, err
+		}
+	}
+	if err := enginectx.AddOperation(string(operation)); err != nil {
+		return nil, err
+	}
+	policyContext := newPolicyContextWithJsonContext(operation, enginectx)
+	if operation != kyvernov1.Delete {
+		policyContext = policyContext.WithNewResource(resource)
+	} else {
+		policyContext = policyContext.WithOldResource(resource)
+	}
+	if admissionInfo != nil {
+		policyContext = policyContext.WithAdmissionInfo(*admissionInfo)
+	}
+	return policyContext, nil
 }
 
 func NewPolicyContextFromAdmissionRequest(
+	jp jmespath.Interface,
 	request admissionv1.AdmissionRequest,
 	admissionInfo kyvernov1beta1.RequestInfo,
 	gvk schema.GroupVersionKind,
 	configuration config.Configuration,
 ) (*PolicyContext, error) {
-	ctx, err := newVariablesContext(request, &admissionInfo)
+	ctx, err := newVariablesContext(jp, request, &admissionInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create policy rule context: %w", err)
 	}
@@ -205,18 +243,22 @@ func NewPolicyContextFromAdmissionRequest(
 	if err := ctx.AddImageInfos(&newResource, configuration); err != nil {
 		return nil, fmt.Errorf("failed to add image information to the policy rule context: %w", err)
 	}
-	policyContext := NewPolicyContextWithJsonContext(kyvernov1.AdmissionOperation(request.Operation), ctx).
+	policyContext := newPolicyContextWithJsonContext(kyvernov1.AdmissionOperation(request.Operation), ctx).
 		WithNewResource(newResource).
 		WithOldResource(oldResource).
 		WithAdmissionInfo(admissionInfo).
-		withAdmissionOperation(true).
+		WithAdmissionOperation(true).
 		WithResourceKind(gvk, request.SubResource).
 		WithRequestResource(request.Resource)
 	return policyContext, nil
 }
 
-func newVariablesContext(request admissionv1.AdmissionRequest, userRequestInfo *kyvernov1beta1.RequestInfo) (enginectx.Interface, error) {
-	ctx := enginectx.NewContext()
+func newVariablesContext(
+	jp jmespath.Interface,
+	request admissionv1.AdmissionRequest,
+	userRequestInfo *kyvernov1beta1.RequestInfo,
+) (enginectx.Interface, error) {
+	ctx := enginectx.NewContext(jp)
 	if err := ctx.AddRequest(request); err != nil {
 		return nil, fmt.Errorf("failed to load incoming request in context: %w", err)
 	}

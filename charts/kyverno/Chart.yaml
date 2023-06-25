@@ -42,3 +42,7 @@ annotations:
       description: missing image pull secrets in helm hooks
     - kind: added
       description: support `excludeRoles` and `excludeClusterRoles` in config
+    - kind: added
+      description: define resources for cleanupJobs
+    - kind: changed
+      description: change to enable webhook cleanup hook by default

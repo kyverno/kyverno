@@ -82,7 +82,7 @@ func Test_Add(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			jp, err := New(tc.test)
+			jp, err := newJMESPath(cfg, tc.test)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -228,7 +228,7 @@ func Test_Sum(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			jp, err := New(tc.test)
+			jp, err := newJMESPath(cfg, tc.test)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -327,7 +327,7 @@ func Test_Subtract(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			jp, err := New(tc.test)
+			jp, err := newJMESPath(cfg, tc.test)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -426,7 +426,7 @@ func Test_Multiply(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			jp, err := New(tc.test)
+			jp, err := newJMESPath(cfg, tc.test)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -588,7 +588,7 @@ func Test_Divide(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			jp, err := New(tc.test)
+			jp, err := newJMESPath(cfg, tc.test)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -744,7 +744,7 @@ func Test_Modulo(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			jp, err := New(tc.test)
+			jp, err := newJMESPath(cfg, tc.test)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -792,7 +792,7 @@ func TestScalar_Multiply(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			op1 := Scalar{
+			op1 := scalar{
 				float64: tt.fields.float64,
 			}
 			got, err := op1.Multiply(tt.args.op2)
@@ -815,8 +815,8 @@ func TestParseArithemticOperands(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    Operand
-		want1   Operand
+		want    operand
+		want1   operand
 		wantErr bool
 	}{{
 		args: args{
@@ -837,7 +837,7 @@ func TestParseArithemticOperands(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, err := ParseArithemticOperands(tt.args.arguments, tt.args.operator)
+			got, got1, err := parseArithemticOperands(tt.args.arguments, tt.args.operator)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseArithemticOperands() error = %v, wantErr %v", err, tt.wantErr)
 				return

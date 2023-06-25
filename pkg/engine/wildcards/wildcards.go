@@ -115,7 +115,10 @@ func getValueAsStringMap(key string, data interface{}) (string, map[string]strin
 		return "", nil
 	}
 
-	dataMap := data.(map[string]interface{})
+	dataMap, ok := data.(map[string]interface{})
+	if !ok {
+		return "", nil
+	}
 	patternKey, val := getPatternValue(key, dataMap)
 
 	if val == nil {
@@ -123,7 +126,13 @@ func getValueAsStringMap(key string, data interface{}) (string, map[string]strin
 	}
 
 	result := map[string]string{}
-	for k, v := range val.(map[string]interface{}) {
+
+	valMap, ok := val.(map[string]interface{})
+	if !ok {
+		return "", nil
+	}
+
+	for k, v := range valMap {
 		result[k] = v.(string)
 	}
 

@@ -8,7 +8,7 @@ GIT_SHA              := $(shell git rev-parse HEAD)
 TIMESTAMP            := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 REGISTRY             ?= ghcr.io
 REPO                 ?= kyverno
-KIND_IMAGE           ?= kindest/node:v1.26.2
+KIND_IMAGE           ?= kindest/node:v1.26.3
 KIND_NAME            ?= kind
 GOOS                 ?= $(shell go env GOOS)
 GOARCH               ?= $(shell go env GOARCH)
@@ -199,7 +199,7 @@ $(KYVERNO_BIN): fmt vet
 
 $(CLI_BIN): fmt vet
 	@echo Build cli binary... >&2
-	CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
 		go build -o ./$(CLI_BIN) -ldflags=$(LD_FLAGS) ./$(CLI_DIR)
 
 $(CLEANUP_BIN): fmt vet
@@ -261,7 +261,7 @@ KO_BACKGROUND_REPO  := $(PACKAGE)/$(BACKGROUND_DIR)
 .PHONY: ko-build-kyverno-init
 ko-build-kyverno-init: $(KO) ## Build kyvernopre local image (with ko)
 	@echo Build kyvernopre local image with ko... >&2
-	LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
 		$(KO) build ./$(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-kyverno
@@ -644,6 +644,7 @@ test-cli: test-cli-policies test-cli-local test-cli-local-mutate test-cli-local-
 
 .PHONY: test-cli-policies
 test-cli-policies: $(CLI_BIN)
+	@echo Testing against branch $(TEST_GIT_BRANCH)...
 	@$(CLI_BIN) test https://github.com/kyverno/policies/$(TEST_GIT_BRANCH)
 
 .PHONY: test-cli-local
@@ -789,7 +790,7 @@ kind-load-image-archive: $(KIND) ## Load docker images from archive
 .PHONY: kind-install-kyverno
 kind-install-kyverno: $(HELM) ## Install kyverno helm chart
 	@echo Install kyverno chart... >&2
-	$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
+	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
 		--set admissionController.container.image.registry=$(LOCAL_REGISTRY) \
 		--set admissionController.container.image.repository=$(LOCAL_KYVERNO_REPO) \
 		--set admissionController.container.image.tag=$(GIT_SHA) \
@@ -809,7 +810,7 @@ kind-install-kyverno: $(HELM) ## Install kyverno helm chart
 
 .PHONY: kind-deploy-kyverno
 kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
-	$(MAKE) kind-install-kyverno
+	@$(MAKE) kind-install-kyverno
 
 .PHONY: kind-deploy-kyverno-policies
 kind-deploy-kyverno-policies: $(HELM) ## Deploy kyverno-policies helm chart
@@ -887,6 +888,9 @@ dev-lab-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 		--repo https://charts.bitnami.com/bitnami metrics-server \
 		--values ./scripts/config/dev/metrics-server.yaml
 
+.PHONY: dev-lab-all
+dev-lab-all: dev-lab-ingress-ngingx dev-lab-metrics-server dev-lab-prometheus dev-lab-loki dev-lab-tempo ## Deploy all dev lab components
+
 .PHONY: dev-lab-policy-reporter
 dev-lab-policy-reporter: $(HELM) ## Deploy policy-reporter helm chart
 	@echo Install policy-reporter chart... >&2
@@ -894,8 +898,9 @@ dev-lab-policy-reporter: $(HELM) ## Deploy policy-reporter helm chart
 		--repo https://kyverno.github.io/policy-reporter policy-reporter \
 		--values ./scripts/config/dev/policy-reporter.yaml
 
-.PHONY: dev-lab-all
-dev-lab-all: dev-lab-ingress-ngingx dev-lab-metrics-server dev-lab-prometheus dev-lab-loki dev-lab-tempo dev-lab-policy-reporter ## Deploy all dev lab components
+.PHONY: dev-lab-kwok
+dev-lab-kwok: ## Deploy kwok
+	@kubectl apply -k ./scripts/config/kwok
 
 ########
 # HELP #

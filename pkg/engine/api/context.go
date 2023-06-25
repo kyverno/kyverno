@@ -7,15 +7,13 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 )
 
-func LoadVariable(logger logr.Logger, entry kyvernov1.ContextEntry, ctx enginecontext.Interface) (err error) {
+func LoadVariable(logger logr.Logger, jp jmespath.Interface, entry kyvernov1.ContextEntry, ctx enginecontext.Interface) (err error) {
 	path := ""
 	if entry.Variable.JMESPath != "" {
 		jp, err := variables.SubstituteAll(logger, ctx, entry.Variable.JMESPath)
@@ -26,6 +24,7 @@ func LoadVariable(logger logr.Logger, entry kyvernov1.ContextEntry, ctx engineco
 		logger.V(4).Info("evaluated jmespath", "variable name", entry.Name, "jmespath", path)
 	}
 	var defaultValue interface{} = nil
+
 	if entry.Variable.Default != nil {
 		value, err := variables.DocumentToUntyped(entry.Variable.Default)
 		if err != nil {
@@ -45,7 +44,7 @@ func LoadVariable(logger logr.Logger, entry kyvernov1.ContextEntry, ctx engineco
 			return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.Variable.Value, err)
 		}
 		if path != "" {
-			variable, err := applyJMESPath(path, variable)
+			variable, err := applyJMESPath(jp, path, variable)
 			if err == nil {
 				output = variable
 			} else if defaultValue == nil {
@@ -57,7 +56,9 @@ func LoadVariable(logger logr.Logger, entry kyvernov1.ContextEntry, ctx engineco
 	} else {
 		if path != "" {
 			if variable, err := ctx.Query(path); err == nil {
-				output = variable
+				if variable != nil {
+					output = variable
+				}
 			} else if defaultValue == nil {
 				return fmt.Errorf("failed to apply jmespath %s to variable %v", path, err)
 			}
@@ -74,8 +75,8 @@ func LoadVariable(logger logr.Logger, entry kyvernov1.ContextEntry, ctx engineco
 	}
 }
 
-func LoadImageData(ctx context.Context, rclient registryclient.Client, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface) error {
-	imageData, err := fetchImageData(ctx, rclient, logger, entry, enginectx)
+func LoadImageData(ctx context.Context, jp jmespath.Interface, rclientFactory RegistryClientFactory, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface) error {
+	imageData, err := fetchImageData(ctx, jp, rclientFactory, logger, entry, enginectx)
 	if err != nil {
 		return err
 	}
@@ -89,12 +90,12 @@ func LoadImageData(ctx context.Context, rclient registryclient.Client, logger lo
 	return nil
 }
 
-func LoadAPIData(ctx context.Context, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface, client dclient.Interface) error {
-	executor, err := apicall.New(ctx, entry, enginectx, client, logger)
+func LoadAPIData(ctx context.Context, jp jmespath.Interface, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface, client RawClient) error {
+	executor, err := apicall.New(logger, jp, entry, enginectx, client)
 	if err != nil {
 		return fmt.Errorf("failed to initialize APICall: %w", err)
 	}
-	if _, err := executor.Execute(); err != nil {
+	if _, err := executor.Execute(ctx); err != nil {
 		return fmt.Errorf("failed to execute APICall: %w", err)
 	}
 	return nil
@@ -112,7 +113,7 @@ func LoadConfigMap(ctx context.Context, logger logr.Logger, entry kyvernov1.Cont
 	return nil
 }
 
-func fetchImageData(ctx context.Context, rclient registryclient.Client, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface) (interface{}, error) {
+func fetchImageData(ctx context.Context, jp jmespath.Interface, rclientFactory RegistryClientFactory, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface) (interface{}, error) {
 	ref, err := variables.SubstituteAll(logger, enginectx, entry.ImageRegistry.Reference)
 	if err != nil {
 		return nil, fmt.Errorf("ailed to substitute variables in context entry %s %s: %v", entry.Name, entry.ImageRegistry.Reference, err)
@@ -125,12 +126,16 @@ func fetchImageData(ctx context.Context, rclient registryclient.Client, logger l
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.ImageRegistry.JMESPath, err)
 	}
-	imageData, err := fetchImageDataMap(ctx, rclient, refString)
+	client, err := rclientFactory.GetClient(ctx, entry.ImageRegistry.ImageRegistryCredentials)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get registry client %s: %v", entry.Name, err)
+	}
+	imageData, err := fetchImageDataMap(ctx, client, refString)
 	if err != nil {
 		return nil, err
 	}
 	if path != "" {
-		imageData, err = applyJMESPath(path.(string), imageData)
+		imageData, err = applyJMESPath(jp, path.(string), imageData)
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply JMESPath (%s) results to context entry %s, error: %v", entry.ImageRegistry.JMESPath, entry.Name, err)
 		}
@@ -139,40 +144,25 @@ func fetchImageData(ctx context.Context, rclient registryclient.Client, logger l
 }
 
 // FetchImageDataMap fetches image information from the remote registry.
-func fetchImageDataMap(ctx context.Context, rclient registryclient.Client, ref string) (interface{}, error) {
-	desc, err := rclient.FetchImageDescriptor(ctx, ref)
+func fetchImageDataMap(ctx context.Context, client ImageDataClient, ref string) (interface{}, error) {
+	desc, err := client.ForRef(ctx, ref)
 	if err != nil {
-		return nil, err
-	}
-	image, err := desc.Image()
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve image reference: %s, error: %v", ref, err)
-	}
-	// We need to use the raw config and manifest to avoid dropping unknown keys
-	// which are not defined in GGCR structs.
-	rawManifest, err := image.RawManifest()
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch manifest for image reference: %s, error: %v", ref, err)
+		return nil, fmt.Errorf("failed to fetch image descriptor: %s, error: %v", ref, err)
 	}
 	var manifest interface{}
-	if err := json.Unmarshal(rawManifest, &manifest); err != nil {
+	if err := json.Unmarshal(desc.Manifest, &manifest); err != nil {
 		return nil, fmt.Errorf("failed to decode manifest for image reference: %s, error: %v", ref, err)
 	}
-	rawConfig, err := image.RawConfigFile()
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch config for image reference: %s, error: %v", ref, err)
-	}
 	var configData interface{}
-	if err := json.Unmarshal(rawConfig, &configData); err != nil {
+	if err := json.Unmarshal(desc.Config, &configData); err != nil {
 		return nil, fmt.Errorf("failed to decode config for image reference: %s, error: %v", ref, err)
 	}
-
 	data := map[string]interface{}{
-		"image":         ref,
-		"resolvedImage": fmt.Sprintf("%s@%s", desc.Ref.Context().Name(), desc.Digest.String()),
-		"registry":      desc.Ref.Context().RegistryStr(),
-		"repository":    desc.Ref.Context().RepositoryStr(),
-		"identifier":    desc.Ref.Identifier(),
+		"image":         desc.Image,
+		"resolvedImage": desc.ResolvedImage,
+		"registry":      desc.Registry,
+		"repository":    desc.Repository,
+		"identifier":    desc.Identifier,
 		"manifest":      manifest,
 		"configData":    configData,
 	}
@@ -193,12 +183,12 @@ func fetchImageDataMap(ctx context.Context, rclient registryclient.Client, ref s
 	return untyped, nil
 }
 
-func applyJMESPath(jmesPath string, data interface{}) (interface{}, error) {
-	jp, err := jmespath.New(jmesPath)
+func applyJMESPath(jp jmespath.Interface, query string, data interface{}) (interface{}, error) {
+	q, err := jp.Query(query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compile JMESPath: %s, error: %v", jmesPath, err)
+		return nil, fmt.Errorf("failed to compile JMESPath: %s, error: %v", query, err)
 	}
-	return jp.Search(data)
+	return q.Search(data)
 }
 
 func fetchConfigMap(ctx context.Context, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface, resolver ConfigmapResolver) ([]byte, error) {

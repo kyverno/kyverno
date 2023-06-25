@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -101,12 +102,13 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 	if err := v.loadContext(ctx); err != nil {
 		return engineapi.RuleError(v.rule.Name, engineapi.Validation, "failed to load context", err)
 	}
-	preconditionsPassed, err := internal.CheckPreconditions(v.log, v.policyContext.JSONContext(), v.anyAllConditions)
+	preconditionsPassed, msg, err := internal.CheckPreconditions(v.log, v.policyContext.JSONContext(), v.anyAllConditions)
 	if err != nil {
 		return engineapi.RuleError(v.rule.Name, engineapi.Validation, "failed to evaluate preconditions", err)
 	}
 	if !preconditionsPassed {
-		return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "preconditions not met")
+		s := stringutils.JoinNonEmpty([]string{"preconditions not met", msg}, "; ")
+		return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, s)
 	}
 
 	if v.deny != nil {
@@ -127,7 +129,7 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 		return ruleResponse
 	}
 
-	v.log.V(2).Info("invalid validation rule: podSecurity, patterns, or deny expected")
+	v.log.V(2).Info("invalid validation rule: podSecurity, cel, patterns, or deny expected")
 	return nil
 }
 
@@ -217,28 +219,31 @@ func (v *validator) loadContext(ctx context.Context) error {
 }
 
 func (v *validator) validateDeny() *engineapi.RuleResponse {
-	if deny, err := internal.CheckDenyPreconditions(v.log, v.policyContext.JSONContext(), v.deny.GetAnyAllConditions()); err != nil {
-		return engineapi.RuleError(v.rule.Name, engineapi.Validation, "failed to check deny preconditions", err)
+	if deny, msg, err := internal.CheckDenyPreconditions(v.log, v.policyContext.JSONContext(), v.deny.GetAnyAllConditions()); err != nil {
+		return engineapi.RuleError(v.rule.Name, engineapi.Validation, "failed to check deny conditions", err)
 	} else {
 		if deny {
-			return engineapi.RuleFail(v.rule.Name, engineapi.Validation, v.getDenyMessage(deny))
+			return engineapi.RuleFail(v.rule.Name, engineapi.Validation, v.getDenyMessage(deny, msg))
 		}
-		return engineapi.RulePass(v.rule.Name, engineapi.Validation, v.getDenyMessage(deny))
+		return engineapi.RulePass(v.rule.Name, engineapi.Validation, v.getDenyMessage(deny, msg))
 	}
 }
 
-func (v *validator) getDenyMessage(deny bool) string {
+func (v *validator) getDenyMessage(deny bool, msg string) string {
 	if !deny {
 		return fmt.Sprintf("validation rule '%s' passed.", v.rule.Name)
 	}
-	msg := v.rule.Validation.Message
-	if msg == "" {
+
+	if v.rule.Validation.Message == "" && msg == "" {
 		return fmt.Sprintf("validation error: rule %s failed", v.rule.Name)
 	}
-	raw, err := variables.SubstituteAll(v.log, v.policyContext.JSONContext(), msg)
+
+	s := stringutils.JoinNonEmpty([]string{v.rule.Validation.Message, msg}, "; ")
+	raw, err := variables.SubstituteAll(v.log, v.policyContext.JSONContext(), s)
 	if err != nil {
 		return msg
 	}
+
 	switch typed := raw.(type) {
 	case string:
 		return typed

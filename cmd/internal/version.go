@@ -5,7 +5,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/version"
 )
 
-func ShowVersion(logger logr.Logger) {
+func showVersion(logger logr.Logger) {
 	logger = logger.WithName("version")
 	version.PrintVersionInfo(logger)
 }

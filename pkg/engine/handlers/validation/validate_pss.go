@@ -33,6 +33,9 @@ func (h validatePssHandler) Process(
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	// Marshal pod metadata and spec
 	podSecurity := rule.Validation.PodSecurity
+	if resource.Object == nil {
+		resource = policyContext.OldResource()
+	}
 	podSpec, metadata, err := getSpec(resource)
 	if err != nil {
 		return resource, handlers.WithError(rule, engineapi.Validation, "Error while getting new resource", err)

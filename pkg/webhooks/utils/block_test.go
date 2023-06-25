@@ -209,7 +209,7 @@ func TestGetBlockedMessages(t *testing.T) {
 				}),
 			},
 		},
-		want: "\n\npolicy foo/bar/baz for resource violation: \n\ntest:\n  rule-fail: message fail\n",
+		want: "\n\nresource foo/bar/baz was blocked due to the following policies \n\ntest:\n  rule-fail: message fail\n",
 	}, {
 		name: "error - enforce",
 		args: args{
@@ -221,7 +221,7 @@ func TestGetBlockedMessages(t *testing.T) {
 				}),
 			},
 		},
-		want: "\n\npolicy foo/bar/baz for resource error: \n\ntest:\n  rule-error: message error\n",
+		want: "\n\nresource foo/bar/baz was blocked due to the following policies \n\ntest:\n  rule-error: message error\n",
 	}, {
 		name: "error and failure - enforce",
 		args: args{
@@ -234,7 +234,7 @@ func TestGetBlockedMessages(t *testing.T) {
 				}),
 			},
 		},
-		want: "\n\npolicy foo/bar/baz for resource violation: \n\ntest:\n  rule-error: message error\n  rule-fail: message fail\n",
+		want: "\n\nresource foo/bar/baz was blocked due to the following policies \n\ntest:\n  rule-error: message error\n  rule-fail: message fail\n",
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -2,14 +2,17 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/pod-security-admission/api"
 )
 
@@ -33,6 +36,17 @@ const (
 	ApplyAll ApplyRulesType = "All"
 	// ApplyOne applies only the first matching rule in the policy.
 	ApplyOne ApplyRulesType = "One"
+)
+
+// ForeachOrder specifies the iteration order in foreach statements.
+// +kubebuilder:validation:Enum=Ascending;Descending
+type ForeachOrder string
+
+const (
+	// Ascending means iterating from first to last element.
+	Ascending ForeachOrder = "Ascending"
+	// Descending means iterating from last to first element.
+	Descending ForeachOrder = "Descending"
 )
 
 // AnyAllConditions consists of conditions wrapped denoting a logical criteria to be fulfilled.
@@ -104,6 +118,10 @@ type ImageRegistry struct {
 	// the image reference.
 	// +optional
 	JMESPath string `json:"jmesPath,omitempty" yaml:"jmesPath,omitempty"`
+
+	// ImageRegistryCredentials provides credentials that will be used for authentication with registry
+	// +kubebuilder:validation:Optional
+	ImageRegistryCredentials *ImageRegistryCredentials `json:"imageRegistryCredentials,omitempty" yaml:"imageRegistryCredentials,omitempty"`
 }
 
 // ConfigMapReference refers to a ConfigMap
@@ -116,11 +134,21 @@ type ConfigMapReference struct {
 }
 
 type APICall struct {
-	// URLPath is the URL path to be used in the HTTP GET request to the
+	// URLPath is the URL path to be used in the HTTP GET or POST request to the
 	// Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
 	// The format required is the same format used by the `kubectl get --raw` command.
+	// See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+	// for details.
 	// +kubebuilder:validation:Optional
 	URLPath string `json:"urlPath" yaml:"urlPath"`
+
+	// Method is the HTTP request type (GET or POST).
+	// +kubebuilder:default=GET
+	Method Method `json:"method,omitempty" yaml:"method,omitempty"`
+
+	// Data specifies the POST data sent to the server.
+	// +kubebuilder:validation:Optional
+	Data []RequestData `json:"data,omitempty" yaml:"data,omitempty"`
 
 	// Service is an API call to a JSON web service
 	// +kubebuilder:validation:Optional
@@ -136,22 +164,14 @@ type APICall struct {
 }
 
 type ServiceCall struct {
-	// URL is the JSON web service URL.
-	// The typical format is `https://{service}.{namespace}:{port}/{path}`.
-	URL string `json:"urlPath" yaml:"urlPath"`
+	// URL is the JSON web service URL. A typical form is
+	// `https://{service}.{namespace}:{port}/{path}`.
+	URL string `json:"url" yaml:"url"`
 
 	// CABundle is a PEM encoded CA bundle which will be used to validate
 	// the server certificate.
 	// +kubebuilder:validation:Optional
 	CABundle string `json:"caBundle" yaml:"caBundle"`
-
-	// Method is the HTTP request type (GET or POST).
-	// +kubebuilder:default=GET
-	Method Method `json:"requestType" yaml:"requestType"`
-
-	// Data specifies the POST data sent to the server.
-	// +kubebuilder:validation:Optional
-	Data []RequestData `json:"data" yaml:"data"`
 }
 
 // Method is a HTTP request type.
@@ -164,7 +184,7 @@ type RequestData struct {
 	Key string `json:"key" yaml:"key"`
 
 	// Value is the data value
-	Value *apiextensionsv1.JSON `json:"value" yaml:"value"`
+	Value *apiextv1.JSON `json:"value" yaml:"value"`
 }
 
 // Condition defines variable-based conditional criteria for rule execution.
@@ -182,6 +202,9 @@ type Condition struct {
 	// or can be variables declared using JMESPath.
 	// +optional
 	RawValue *apiextv1.JSON `json:"value,omitempty" yaml:"value,omitempty"`
+
+	// Message is an optional display message
+	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 }
 
 func (c *Condition) GetKey() apiextensions.JSON {
@@ -298,6 +321,11 @@ type ForEachMutation struct {
 	// to which the validation logic is applied.
 	List string `json:"list,omitempty" yaml:"list,omitempty"`
 
+	// Order defines the iteration order on the list.
+	// Can be Ascending to iterate from first to last element or Descending to iterate in from last to first element.
+	// +optional
+	Order *ForeachOrder `json:"order,omitempty" yaml:"order,omitempty"`
+
 	// Context defines variables and data sources that can be used during rule execution.
 	// +optional
 	Context []ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
@@ -364,6 +392,10 @@ type Validation struct {
 	// by specifying exclusions for Pod Security Standards controls.
 	// +optional
 	PodSecurity *PodSecurity `json:"podSecurity,omitempty" yaml:"podSecurity,omitempty"`
+
+	// CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
+	// +optional
+	CEL *CEL `json:"cel,omitempty" yaml:"cel,omitempty"`
 }
 
 // PodSecurity applies exemptions for Kubernetes Pod Security admission
@@ -397,6 +429,36 @@ type PodSecurityStandard struct {
 	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
 	// +optional
 	Images []string `json:"images,omitempty" yaml:"images,omitempty"`
+}
+
+// CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
+type CEL struct {
+	// Expressions is a list of CELExpression types.
+	Expressions []v1alpha1.Validation `json:"expressions,omitempty" yaml:"expressions,omitempty"`
+
+	// ParamKind is a tuple of Group Kind and Version.
+	// +optional
+	ParamKind *v1alpha1.ParamKind `json:"paramKind,omitempty" yaml:"paramKind,omitempty"`
+
+	// ParamRef references a parameter resource.
+	// +optional
+	ParamRef *v1alpha1.ParamRef `json:"paramRef,omitempty" yaml:"paramRef,omitempty"`
+
+	// AuditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the API request.
+	// +optional
+	AuditAnnotations []v1alpha1.AuditAnnotation `json:"auditAnnotations,omitempty" yaml:"auditAnnotations,omitempty"`
+}
+
+func (c *CEL) HasParam() bool {
+	return c.ParamKind != nil && c.ParamRef != nil
+}
+
+func (c *CEL) GetParamKind() v1alpha1.ParamKind {
+	return *c.ParamKind
+}
+
+func (c *CEL) GetParamRef() v1alpha1.ParamRef {
+	return *c.ParamRef
 }
 
 // DeserializeAnyPattern deserialize apiextensions.JSON to []interface{}
@@ -562,10 +624,20 @@ type CloneList struct {
 	Selector *metav1.LabelSelector `json:"selector,omitempty" yaml:"selector,omitempty"`
 }
 
-func (g *Generation) Validate() error {
+func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+	if namespaced {
+		if err := g.validateTargetsScope(clusterResources, policyNamespace); err != nil {
+			errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
+		}
+	} else {
+		if g.GetNamespace() == "" && g.CloneList.Namespace == "" {
+			errs = append(errs, field.Forbidden(path.Child("generate"), "target namespace must be set in a clusterpolicy"))
+		}
+	}
+
 	generateType, _ := g.GetTypeAndSync()
 	if generateType == Data {
-		return nil
+		return errs
 	}
 
 	newGeneration := Generation{
@@ -577,7 +649,19 @@ func (g *Generation) Validate() error {
 		CloneList: g.CloneList,
 	}
 
-	return regex.ObjectHasVariables(newGeneration)
+	if err := regex.ObjectHasVariables(newGeneration); err != nil {
+		errs = append(errs, field.Forbidden(path.Child("generate").Child("clone/cloneList"), "Generation Rule Clone/CloneList should not have variables"))
+	}
+
+	if len(g.CloneList.Kinds) == 0 {
+		if g.Kind == "" {
+			errs = append(errs, field.Forbidden(path.Child("generate").Child("kind"), "kind can not be empty"))
+		}
+		if g.Name == "" {
+			errs = append(errs, field.Forbidden(path.Child("generate").Child("name"), "name can not be empty"))
+		}
+	}
+	return errs
 }
 
 func (g *Generation) GetData() apiextensions.JSON {
@@ -586,6 +670,34 @@ func (g *Generation) GetData() apiextensions.JSON {
 
 func (g *Generation) SetData(in apiextensions.JSON) {
 	g.RawData = ToJSON(in)
+}
+
+func (g *Generation) validateTargetsScope(clusterResources sets.Set[string], policyNamespace string) error {
+	target := g.ResourceSpec
+	if clusterResources.Has(target.GetAPIVersion() + "/" + target.GetKind()) {
+		return fmt.Errorf("the target must be a namespaced resource: %v/%v", target.GetAPIVersion(), target.GetKind())
+	}
+
+	if g.GetNamespace() != policyNamespace {
+		return fmt.Errorf("a namespaced policy cannot generate resources in other namespaces, expected: %v, received: %v", policyNamespace, g.GetNamespace())
+	}
+
+	if g.Clone.Name != "" {
+		if g.Clone.Namespace != policyNamespace {
+			return fmt.Errorf("a namespaced policy cannot clone resources from other namespaces, expected: %v, received: %v", policyNamespace, g.Clone.Namespace)
+		}
+	}
+
+	for _, kind := range g.CloneList.Kinds {
+		if clusterResources.Has(kind) {
+			return fmt.Errorf("the source in cloneList must be a namespaced resource: %v/%v", target.GetAPIVersion(), target.GetKind())
+		}
+		if g.CloneList.Namespace != policyNamespace {
+			return fmt.Errorf("a namespaced policy cannot clone resources from other namespace, expected: %v, received: %v", policyNamespace, g.CloneList.Namespace)
+		}
+	}
+
+	return nil
 }
 
 type GenerateType string

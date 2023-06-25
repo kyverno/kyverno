@@ -1,8 +1,8 @@
 package config
 
 import (
-	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"sync"
 
@@ -10,10 +10,7 @@ import (
 	osutils "github.com/kyverno/kyverno/pkg/utils/os"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/kubernetes"
 )
 
 // These constants MUST be equal to the corresponding names in service definition in definitions/install.yaml
@@ -74,14 +71,18 @@ const (
 	MetricsPath = "/metrics"
 )
 
+// keys in config map
 const (
-	// Due to kubernetes issue, we must use next literal constants instead of deployment TypeMeta fields
-	// Issue: https://github.com/kubernetes/kubernetes/pull/63972
-	// When the issue is closed, we should use TypeMeta struct instead of this constants
-	// ClusterRoleAPIVersion define the default clusterrole resource apiVersion
-	ClusterRoleAPIVersion = "rbac.authorization.k8s.io/v1"
-	// ClusterRoleKind define the default clusterrole resource kind
-	ClusterRoleKind = "ClusterRole"
+	resourceFilters               = "resourceFilters"
+	defaultRegistry               = "defaultRegistry"
+	enableDefaultRegistryMutation = "enableDefaultRegistryMutation"
+	excludeGroups                 = "excludeGroups"
+	excludeUsernames              = "excludeUsernames"
+	excludeRoles                  = "excludeRoles"
+	excludeClusterRoles           = "excludeClusterRoles"
+	generateSuccessEvents         = "generateSuccessEvents"
+	webhooks                      = "webhooks"
+	webhookAnnotations            = "webhookAnnotations"
 )
 
 var (
@@ -97,6 +98,8 @@ var (
 	kyvernoPodName = osutils.GetEnvWithFallback("KYVERNO_POD_NAME", "kyverno")
 	// kyvernoConfigMapName is the Kyverno configmap name
 	kyvernoConfigMapName = osutils.GetEnvWithFallback("INIT_CONFIG", "kyverno")
+	// kyvernoMetricsConfigMapName is the Kyverno metrics configmap name
+	kyvernoMetricsConfigMapName = osutils.GetEnvWithFallback("METRICS_CONFIG", "kyverno-metrics")
 	// kyvernoDryRunNamespace is the namespace for DryRun option of YAML verification
 	kyvernoDryrunNamespace = osutils.GetEnvWithFallback("KYVERNO_DRYRUN_NAMESPACE", "kyverno-dryrun")
 )
@@ -129,22 +132,24 @@ func KyvernoConfigMapName() string {
 	return kyvernoConfigMapName
 }
 
+func KyvernoMetricsConfigMapName() string {
+	return kyvernoMetricsConfigMapName
+}
+
+func KyvernoUserName(serviceaccount string) string {
+	return fmt.Sprintf("system:serviceaccount:%s:%s", kyvernoNamespace, serviceaccount)
+}
+
 // Configuration to be used by consumer to check filters
 type Configuration interface {
 	// GetDefaultRegistry return default image registry
 	GetDefaultRegistry() string
 	// GetEnableDefaultRegistryMutation return if should mutate image registry
 	GetEnableDefaultRegistryMutation() bool
+	// IsExcluded checks exlusions/inclusions to determine if the admission request should be excluded or not
+	IsExcluded(username string, groups []string, roles []string, clusterroles []string) bool
 	// ToFilter checks if the given resource is set to be filtered in the configuration
 	ToFilter(kind schema.GroupVersionKind, subresource, namespace, name string) bool
-	// GetExcludedGroups return excluded groups
-	GetExcludedGroups() []string
-	// GetExcludedUsernames return excluded usernames
-	GetExcludedUsernames() []string
-	// GetExcludedRoles return excluded roles
-	GetExcludedRoles() []string
-	// GetExcludedClusterRoles return excluded roles
-	GetExcludedClusterRoles() []string
 	// GetGenerateSuccessEvents return if should generate success events
 	GetGenerateSuccessEvents() bool
 	// GetWebhooks returns the webhook configs
@@ -162,16 +167,55 @@ type configuration struct {
 	skipResourceFilters           bool
 	defaultRegistry               string
 	enableDefaultRegistryMutation bool
-	excludedGroups                []string
-	excludedUsernames             []string
-	excludedRoles                 []string
-	excludedClusterRoles          []string
+	exclusions                    match
+	inclusions                    match
 	filters                       []filter
 	generateSuccessEvents         bool
 	webhooks                      []WebhookConfig
 	webhookAnnotations            map[string]string
 	mux                           sync.RWMutex
 	callbacks                     []func()
+}
+
+type match struct {
+	groups       []string
+	usernames    []string
+	roles        []string
+	clusterroles []string
+}
+
+func (c match) matches(username string, groups []string, roles []string, clusterroles []string) bool {
+	// filter by username
+	for _, pattern := range c.usernames {
+		if wildcard.Match(pattern, username) {
+			return true
+		}
+	}
+	// filter by groups
+	for _, pattern := range c.groups {
+		for _, candidate := range groups {
+			if wildcard.Match(pattern, candidate) {
+				return true
+			}
+		}
+	}
+	// filter by roles
+	for _, pattern := range c.roles {
+		for _, candidate := range roles {
+			if wildcard.Match(pattern, candidate) {
+				return true
+			}
+		}
+	}
+	// filter by cluster roles
+	for _, pattern := range c.clusterroles {
+		for _, candidate := range clusterroles {
+			if wildcard.Match(pattern, candidate) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // NewDefaultConfiguration ...
@@ -183,23 +227,17 @@ func NewDefaultConfiguration(skipResourceFilters bool) *configuration {
 	}
 }
 
-// NewConfiguration ...
-func NewConfiguration(client kubernetes.Interface, skipResourceFilters bool) (Configuration, error) {
-	cd := NewDefaultConfiguration(skipResourceFilters)
-	if cm, err := client.CoreV1().ConfigMaps(kyvernoNamespace).Get(context.TODO(), kyvernoConfigMapName, metav1.GetOptions{}); err != nil {
-		if !apierrors.IsNotFound(err) {
-			return nil, err
-		}
-	} else {
-		cd.load(cm)
-	}
-	return cd, nil
-}
-
 func (cd *configuration) OnChanged(callback func()) {
 	cd.mux.Lock()
 	defer cd.mux.Unlock()
 	cd.callbacks = append(cd.callbacks, callback)
+}
+
+func (c *configuration) IsExcluded(username string, groups []string, roles []string, clusterroles []string) bool {
+	if c.inclusions.matches(username, groups, roles, clusterroles) {
+		return false
+	}
+	return c.exclusions.matches(username, groups, roles, clusterroles)
 }
 
 func (cd *configuration) ToFilter(gvk schema.GroupVersionKind, subresource, namespace, name string) bool {
@@ -235,30 +273,6 @@ func (cd *configuration) GetEnableDefaultRegistryMutation() bool {
 	return cd.enableDefaultRegistryMutation
 }
 
-func (cd *configuration) GetExcludedUsernames() []string {
-	cd.mux.RLock()
-	defer cd.mux.RUnlock()
-	return cd.excludedUsernames
-}
-
-func (cd *configuration) GetExcludedRoles() []string {
-	cd.mux.RLock()
-	defer cd.mux.RUnlock()
-	return cd.excludedRoles
-}
-
-func (cd *configuration) GetExcludedClusterRoles() []string {
-	cd.mux.RLock()
-	defer cd.mux.RUnlock()
-	return cd.excludedClusterRoles
-}
-
-func (cd *configuration) GetExcludedGroups() []string {
-	cd.mux.RLock()
-	defer cd.mux.RUnlock()
-	return cd.excludedGroups
-}
-
 func (cd *configuration) GetGenerateSuccessEvents() bool {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
@@ -287,28 +301,27 @@ func (cd *configuration) Load(cm *corev1.ConfigMap) {
 
 func (cd *configuration) load(cm *corev1.ConfigMap) {
 	logger := logger.WithValues("name", cm.Name, "namespace", cm.Namespace)
-	if cm.Data == nil {
-		return
-	}
 	cd.mux.Lock()
 	defer cd.mux.Unlock()
 	defer cd.notify()
+	data := cm.Data
+	if data == nil {
+		data = map[string]string{}
+	}
 	// reset
 	cd.defaultRegistry = "docker.io"
 	cd.enableDefaultRegistryMutation = true
-	cd.excludedUsernames = []string{}
-	cd.excludedGroups = []string{}
-	cd.excludedRoles = []string{}
-	cd.excludedClusterRoles = []string{}
+	cd.exclusions = match{}
+	cd.inclusions = match{}
 	cd.filters = []filter{}
 	cd.generateSuccessEvents = false
 	cd.webhooks = nil
 	cd.webhookAnnotations = nil
 	// load filters
-	cd.filters = parseKinds(cm.Data["resourceFilters"])
+	cd.filters = parseKinds(data[resourceFilters])
 	logger.Info("filters configured", "filters", cd.filters)
 	// load defaultRegistry
-	defaultRegistry, ok := cm.Data["defaultRegistry"]
+	defaultRegistry, ok := data[defaultRegistry]
 	if !ok {
 		logger.Info("defaultRegistry not set")
 	} else {
@@ -321,7 +334,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		}
 	}
 	// load enableDefaultRegistryMutation
-	enableDefaultRegistryMutation, ok := cm.Data["enableDefaultRegistryMutation"]
+	enableDefaultRegistryMutation, ok := data[enableDefaultRegistryMutation]
 	if !ok {
 		logger.Info("enableDefaultRegistryMutation not set")
 	} else {
@@ -335,39 +348,39 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		}
 	}
 	// load excludeGroupRole
-	excludedGroups, ok := cm.Data["excludeGroups"]
+	excludedGroups, ok := data[excludeGroups]
 	if !ok {
 		logger.Info("excludeGroups not set")
 	} else {
-		cd.excludedGroups = parseStrings(excludedGroups)
-		logger.Info("excludedGroups configured", "excludeGroups", cd.excludedGroups)
+		cd.exclusions.groups, cd.inclusions.groups = parseExclusions(excludedGroups)
+		logger.Info("excludedGroups configured", "excludeGroups", cd.exclusions.groups, "includeGroups", cd.inclusions.groups)
 	}
 	// load excludeUsername
-	excludedUsernames, ok := cm.Data["excludeUsernames"]
+	excludedUsernames, ok := data[excludeUsernames]
 	if !ok {
 		logger.Info("excludeUsernames not set")
 	} else {
-		cd.excludedUsernames = parseStrings(excludedUsernames)
-		logger.Info("excludedUsernames configured", "excludeUsernames", cd.excludedUsernames)
+		cd.exclusions.usernames, cd.inclusions.usernames = parseExclusions(excludedUsernames)
+		logger.Info("excludedUsernames configured", "excludeUsernames", cd.exclusions.usernames, "includeUsernames", cd.inclusions.usernames)
 	}
 	// load excludeRoles
-	excludedRoles, ok := cm.Data["excludeRoles"]
+	excludedRoles, ok := data[excludeRoles]
 	if !ok {
 		logger.Info("excludeRoles not set")
 	} else {
-		cd.excludedRoles = parseStrings(excludedRoles)
-		logger.Info("excludedRoles configured", "excludeRoles", cd.excludedRoles)
+		cd.exclusions.roles, cd.inclusions.roles = parseExclusions(excludedRoles)
+		logger.Info("excludedRoles configured", "excludeRoles", cd.exclusions.roles, "includeRoles", cd.inclusions.roles)
 	}
 	// load excludeClusterRoles
-	excludedClusterRoles, ok := cm.Data["excludeClusterRoles"]
+	excludedClusterRoles, ok := data[excludeClusterRoles]
 	if !ok {
 		logger.Info("excludeClusterRoles not set")
 	} else {
-		cd.excludedClusterRoles = parseStrings(excludedClusterRoles)
-		logger.Info("excludedClusterRoles configured", "excludeClusterRoles", cd.excludedClusterRoles)
+		cd.exclusions.clusterroles, cd.inclusions.clusterroles = parseExclusions(excludedClusterRoles)
+		logger.Info("excludedClusterRoles configured", "excludeClusterRoles", cd.exclusions.clusterroles, "includeClusterRoles", cd.inclusions.clusterroles)
 	}
 	// load generateSuccessEvents
-	generateSuccessEvents, ok := cm.Data["generateSuccessEvents"]
+	generateSuccessEvents, ok := data[generateSuccessEvents]
 	if !ok {
 		logger.Info("generateSuccessEvents not set")
 	} else {
@@ -381,7 +394,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		}
 	}
 	// load webhooks
-	webhooks, ok := cm.Data["webhooks"]
+	webhooks, ok := data[webhooks]
 	if !ok {
 		logger.Info("webhooks not set")
 	} else {
@@ -395,7 +408,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		}
 	}
 	// load webhook annotations
-	webhookAnnotations, ok := cm.Data["webhookAnnotations"]
+	webhookAnnotations, ok := data[webhookAnnotations]
 	if !ok {
 		logger.Info("webhookAnnotations not set")
 	} else {
@@ -416,14 +429,13 @@ func (cd *configuration) unload() {
 	defer cd.notify()
 	cd.defaultRegistry = "docker.io"
 	cd.enableDefaultRegistryMutation = true
-	cd.excludedUsernames = []string{}
-	cd.excludedGroups = []string{}
-	cd.excludedRoles = []string{}
-	cd.excludedClusterRoles = []string{}
+	cd.exclusions = match{}
+	cd.inclusions = match{}
 	cd.filters = []filter{}
 	cd.generateSuccessEvents = false
 	cd.webhooks = nil
 	cd.webhookAnnotations = nil
+	logger.Info("configuration unloaded")
 }
 
 func (cd *configuration) notify() {

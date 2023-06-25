@@ -15,6 +15,6 @@ data:
   namespaces: {{ toJson . | quote }}
   {{- end }}
   {{- with .Values.metricsConfig.metricsRefreshInterval }}
-  metricsRefreshInterval: {{ .Values.metricsConfig.metricsRefreshInterval }}
+  metricsRefreshInterval: {{ . }}
   {{- end }}
 {{- end -}}

@@ -18,7 +18,13 @@ type TestResults struct {
 	// Policy mentions the name of the policy.
 	Policy string `json:"policy"`
 	// Rule mentions the name of the rule in the policy.
-	Rule string `json:"rule"`
+	// It's required in case policy is a kyverno policy.
+	// +optional
+	Rule string `json:"rule,omitempty"`
+	// IsVap indicates if the policy is a validating admission policy.
+	// It's required in case policy is a validating admission policy.
+	// +optional
+	IsVap bool `json:"isVap"`
 	// Result mentions the result that the user is expecting.
 	// Possible values are pass, fail and skip.
 	Result policyreportv1alpha2.PolicyResult `json:"result"`

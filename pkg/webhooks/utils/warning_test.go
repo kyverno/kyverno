@@ -28,18 +28,17 @@ func TestGetWarningMessages(t *testing.T) {
 	}, {
 		name: "warning",
 		args: args{[]engineapi.EngineResponse{
-			{
-				Policy: &v1.ClusterPolicy{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "test",
-					},
-				},
+			engineapi.EngineResponse{
 				PolicyResponse: engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
 						*engineapi.NewRuleResponse("rule", engineapi.Validation, "message warn", engineapi.RuleStatusWarn),
 					},
 				},
-			},
+			}.WithPolicy(&v1.ClusterPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+			}),
 		}},
 		want: []string{
 			"policy test.rule: message warn",
@@ -47,12 +46,7 @@ func TestGetWarningMessages(t *testing.T) {
 	}, {
 		name: "multiple rules",
 		args: args{[]engineapi.EngineResponse{
-			{
-				Policy: &v1.ClusterPolicy{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "test",
-					},
-				},
+			engineapi.EngineResponse{
 				PolicyResponse: engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
 						*engineapi.RulePass("rule-pass", engineapi.Validation, "message pass"),
@@ -62,7 +56,11 @@ func TestGetWarningMessages(t *testing.T) {
 						*engineapi.RuleSkip("rule-skip", engineapi.Validation, "message skip"),
 					},
 				},
-			},
+			}.WithPolicy(&v1.ClusterPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+			}),
 		}},
 		want: []string{
 			"policy test.rule-warn: message warn",

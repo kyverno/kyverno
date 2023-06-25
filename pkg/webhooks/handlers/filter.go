@@ -8,7 +8,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
-	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -34,39 +33,9 @@ func filtered(ctx context.Context, logger logr.Logger, request AdmissionRequest,
 
 func (inner AdmissionHandler) withFilter(c config.Configuration) AdmissionHandler {
 	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
-		// filter by username
-		excludeUsernames := c.GetExcludedUsernames()
-		for _, username := range excludeUsernames {
-			if wildcard.Match(username, request.UserInfo.Username) {
-				return filtered(ctx, logger, request, "admission request filtered because user is excluded", "config.exlude.usernames", excludeUsernames)
-			}
-		}
-		// filter by groups
-		excludeGroups := c.GetExcludedGroups()
-		for _, group := range excludeGroups {
-			for _, candidate := range request.UserInfo.Groups {
-				if wildcard.Match(group, candidate) {
-					return filtered(ctx, logger, request, "admission request filtered because group is excluded", "config.exlude.groups", excludeGroups)
-				}
-			}
-		}
-		// filter by roles
-		excludeRoles := c.GetExcludedRoles()
-		for _, role := range excludeRoles {
-			for _, candidate := range request.Roles {
-				if wildcard.Match(role, candidate) {
-					return filtered(ctx, logger, request, "admission request filtered because role is excluded", "config.exlude.roles", excludeRoles)
-				}
-			}
-		}
-		// filter by cluster roles
-		excludeClusterRoles := c.GetExcludedClusterRoles()
-		for _, clusterRole := range excludeClusterRoles {
-			for _, candidate := range request.ClusterRoles {
-				if wildcard.Match(clusterRole, candidate) {
-					return filtered(ctx, logger, request, "admission request filtered because role is excluded", "config.exlude.cluster-roles", excludeClusterRoles)
-				}
-			}
+		// filter by exclusions/inclusions
+		if c.IsExcluded(request.UserInfo.Username, request.UserInfo.Groups, request.Roles, request.ClusterRoles) {
+			return filtered(ctx, logger, request, "admission request filtered")
 		}
 		// filter by resource filters
 		if c.ToFilter(request.GroupVersionKind, request.SubResource, request.Namespace, request.Name) {

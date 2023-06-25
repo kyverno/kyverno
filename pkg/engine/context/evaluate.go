@@ -5,18 +5,21 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 )
 
 // Query the JSON context with JMESPATH search path
 func (ctx *context) Query(query string) (interface{}, error) {
+	if err := ctx.loadDeferred(query); err != nil {
+		return nil, err
+	}
+
 	query = strings.TrimSpace(query)
 	if query == "" {
 		return nil, fmt.Errorf("invalid query (nil)")
 	}
 	// compile the query
-	queryPath, err := jmespath.New(query)
+	queryPath, err := ctx.jp.Query(query)
 	if err != nil {
 		logger.Error(err, "incorrect query", "query", query)
 		return nil, fmt.Errorf("incorrect query %s: %v", query, err)
@@ -33,6 +36,38 @@ func (ctx *context) Query(query string) (interface{}, error) {
 		return nil, fmt.Errorf("JMESPath query failed: %w", err)
 	}
 	return result, nil
+}
+
+func (ctx *context) loadDeferred(query string) error {
+	loaders := ctx.getMatchingLoaders(query)
+	for _, loader := range loaders {
+		err := ctx.evaluateLoader(loader)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (ctx *context) getMatchingLoaders(query string) []string {
+	ctx.deferred.mutex.Lock()
+	defer ctx.deferred.mutex.Unlock()
+	var matchingLoaders []string
+	for name := range ctx.deferred.loaders {
+		if strings.Contains(query, name) {
+			matchingLoaders = append(matchingLoaders, name)
+		}
+	}
+	return matchingLoaders
+}
+
+func (ctx *context) evaluateLoader(name string) error {
+	loader, ok := ctx.deferred.loaders[name]
+	if !ok {
+		return nil
+	}
+	delete(ctx.deferred.loaders, name)
+	return loader()
 }
 
 func (ctx *context) HasChanged(jmespath string) (bool, error) {

@@ -120,7 +120,7 @@ func (p *Policy) Validate(clusterResources sets.Set[string]) (errs field.ErrorLi
 }
 
 func (p *Policy) GetKind() string {
-	return p.Kind
+	return "Policy"
 }
 
 func (p *Policy) CreateDeepCopy() PolicyInterface {

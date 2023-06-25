@@ -7,21 +7,23 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/openapi"
-	policyvalidate "github.com/kyverno/kyverno/pkg/policy"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	policyvalidate "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 )
 
 type policyHandlers struct {
-	client         dclient.Interface
-	openApiManager openapi.Manager
+	client                       dclient.Interface
+	openApiManager               openapi.Manager
+	backgroungServiceAccountName string
 }
 
-func NewHandlers(client dclient.Interface, openApiManager openapi.Manager) webhooks.PolicyHandlers {
+func NewHandlers(client dclient.Interface, openApiManager openapi.Manager, serviceaccount string) webhooks.PolicyHandlers {
 	return &policyHandlers{
-		client:         client,
-		openApiManager: openApiManager,
+		client:                       client,
+		openApiManager:               openApiManager,
+		backgroungServiceAccountName: serviceaccount,
 	}
 }
 
@@ -31,7 +33,7 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 		logger.Error(err, "failed to unmarshal policies from admission request")
 		return admissionutils.Response(request.UID, err)
 	}
-	warnings, err := policyvalidate.Validate(policy, oldPolicy, h.client, false, h.openApiManager)
+	warnings, err := policyvalidate.Validate(policy, oldPolicy, h.client, false, h.openApiManager, h.backgroungServiceAccountName)
 	if err != nil {
 		logger.Error(err, "policy validation errors")
 	}

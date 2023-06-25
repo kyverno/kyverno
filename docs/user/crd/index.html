@@ -545,9 +545,37 @@ string
 </em>
 </td>
 <td>
-<p>URLPath is the URL path to be used in the HTTP GET request to the
+<p>URLPath is the URL path to be used in the HTTP GET or POST request to the
 Kubernetes API server (e.g. &ldquo;/api/v1/namespaces&rdquo; or  &ldquo;/apis/apps/v1/deployments&rdquo;).
-The format required is the same format used by the <code>kubectl get --raw</code> command.</p>
+The format required is the same format used by the <code>kubectl get --raw</code> command.
+See <a href="https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls">https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls</a>
+for details.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>method</code><br/>
+<em>
+<a href="#kyverno.io/v1.Method">
+Method
+</a>
+</em>
+</td>
+<td>
+<p>Method is the HTTP request type (GET or POST).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>data</code><br/>
+<em>
+<a href="#kyverno.io/v1.RequestData">
+[]RequestData
+</a>
+</em>
+</td>
+<td>
+<p>Data specifies the POST data sent to the server.</p>
 </td>
 </tr>
 <tr>
@@ -687,7 +715,19 @@ string
 </em>
 </td>
 <td>
-<p>PredicateType defines the type of Predicate contained within the Statement.</p>
+<p>PredicateType defines the type of Predicate contained within the Statement.
+Deprecated in favour of &lsquo;Type&rsquo;, to be removed soon</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>type</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Type defines the type of attestation contained within the Statement.</p>
 </td>
 </tr>
 <tr>
@@ -899,6 +939,82 @@ attributes for keyless verification, or a nested attestor declaration.</p>
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.CEL">CEL
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Validation">Validation</a>, 
+<a href="#kyverno.io/v2beta1.Validation">Validation</a>)
+</p>
+<p>
+<p>CEL allows validation checks using the Common Expression Language (<a href="https://kubernetes.io/docs/reference/using-api/cel/">https://kubernetes.io/docs/reference/using-api/cel/</a>).</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>expressions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validation-v1alpha1-admissionregistration">
+[]Kubernetes admissionregistration/v1alpha1.Validation
+</a>
+</em>
+</td>
+<td>
+<p>Expressions is a list of CELExpression types.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>paramKind</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#paramkind-v1alpha1-admissionregistration">
+Kubernetes admissionregistration/v1alpha1.ParamKind
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ParamKind is a tuple of Group Kind and Version.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>paramRef</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#paramref-v1alpha1-admissionregistration">
+Kubernetes admissionregistration/v1alpha1.ParamRef
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ParamRef references a parameter resource.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>auditAnnotations</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#auditannotation-v1alpha1-admissionregistration">
+[]Kubernetes admissionregistration/v1alpha1.AuditAnnotation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AuditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the API request.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v1.CTLog">CTLog
 </h3>
 <p>
@@ -1092,6 +1208,17 @@ Kubernetes apiextensions/v1.JSON
 or can be variables declared using JMESPath.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>message</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Message is an optional display message</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -1154,6 +1281,7 @@ string
 <a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>, 
 <a href="#kyverno.io/v1.Rule">Rule</a>, 
 <a href="#kyverno.io/v1.TargetResourceSpec">TargetResourceSpec</a>, 
+<a href="#kyverno.io/v2alpha1.CleanupPolicySpec">CleanupPolicySpec</a>, 
 <a href="#kyverno.io/v2beta1.Rule">Rule</a>)
 </p>
 <p>
@@ -1353,6 +1481,21 @@ string
 <td>
 <p>List specifies a JMESPath expression that results in one or more elements
 to which the validation logic is applied.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>order</code><br/>
+<em>
+<a href="#kyverno.io/v1.ForeachOrder">
+ForeachOrder
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Order defines the iteration order on the list.
+Can be Ascending to iterate from first to last element or Descending to iterate in from last to first element.</p>
 </td>
 </tr>
 <tr>
@@ -1565,6 +1708,15 @@ Kubernetes apiextensions/v1.JSON
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.ForeachOrder">ForeachOrder
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ForEachMutation">ForEachMutation</a>)
+</p>
+<p>
+<p>ForeachOrder specifies the iteration order in foreach statements.</p>
+</p>
 <h3 id="kyverno.io/v1.GenerateType">GenerateType
 (<code>string</code> alias)</p></h3>
 <p>
@@ -1799,9 +1951,89 @@ transform the ImageData struct returned as a result of processing
 the image reference.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>imageRegistryCredentials</code><br/>
+<em>
+<a href="#kyverno.io/v1.ImageRegistryCredentials">
+ImageRegistryCredentials
+</a>
+</em>
+</td>
+<td>
+<p>ImageRegistryCredentials provides credentials that will be used for authentication with registry</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.ImageRegistryCredentials">ImageRegistryCredentials
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ImageRegistry">ImageRegistry</a>, 
+<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>, 
+<a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>allowInsecureRegistry</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>AllowInsecureRegistry allows insecure access to a registry</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>providers</code><br/>
+<em>
+<a href="#kyverno.io/v1.ImageRegistryCredentialsProvidersType">
+[]ImageRegistryCredentialsProvidersType
+</a>
+</em>
+</td>
+<td>
+<p>Providers specifies a list of OCI Registry names, whose authentication providers are provided
+It can be of one of these values: AWS, ACR, GCP, GHCR</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>secrets</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>Secrets specifies a list of secrets that are provided for credentials
+Secrets must live in the Kyverno namespace</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.ImageRegistryCredentialsProvidersType">ImageRegistryCredentialsProvidersType
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ImageRegistryCredentials">ImageRegistryCredentials</a>)
+</p>
+<p>
+<p>ImageRegistryCredentialsProvidersType provides the list of credential providers required.</p>
+</p>
 <h3 id="kyverno.io/v1.ImageVerification">ImageVerification
 </h3>
 <p>
@@ -1832,7 +2064,7 @@ ImageVerificationType
 </td>
 <td>
 <p>Type specifies the method of signature validation. The allowed options
-are Cosign and NotaryV2. By default Cosign is used if a type is not specified.</p>
+are Cosign and Notary. By default Cosign is used if a type is not specified.</p>
 </td>
 </tr>
 <tr>
@@ -2011,6 +2243,19 @@ bool
 <p>Required validates that images are verified i.e. have matched passed a signature or attestation check.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>imageRegistryCredentials</code><br/>
+<em>
+<a href="#kyverno.io/v1.ImageRegistryCredentials">
+ImageRegistryCredentials
+</a>
+</em>
+</td>
+<td>
+<p>ImageRegistryCredentials provides credentials that will be used for authentication with registry</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -2018,7 +2263,8 @@ bool
 (<code>string</code> alias)</p></h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>)
+<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>, 
+<a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>)
 </p>
 <p>
 <p>ImageVerificationType selects the type of verification algorithm</p>
@@ -2273,7 +2519,7 @@ Please specify under &ldquo;any&rdquo; or &ldquo;all&rdquo; instead.</p>
 (<code>string</code> alias)</p></h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ServiceCall">ServiceCall</a>)
+<a href="#kyverno.io/v1.APICall">APICall</a>)
 </p>
 <p>
 <p>Method is a HTTP request type.</p>
@@ -2586,7 +2832,7 @@ RuleCountStatus
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ServiceCall">ServiceCall</a>)
+<a href="#kyverno.io/v1.APICall">APICall</a>)
 </p>
 <p>
 <p>RequestData contains the HTTP POST data</p>
@@ -2996,6 +3242,21 @@ See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://k
 </tr>
 <tr>
 <td>
+<code>celPreconditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CELPreconditions are used to determine if a policy rule should be applied by evaluating a
+set of CEL conditions. It can only be used with the validate.cel subrule</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>mutate</code><br/>
 <em>
 <a href="#kyverno.io/v1.Mutation">
@@ -3177,14 +3438,14 @@ string
 <tbody>
 <tr>
 <td>
-<code>urlPath</code><br/>
+<code>url</code><br/>
 <em>
 string
 </em>
 </td>
 <td>
-<p>URL is the JSON web service URL.
-The typical format is <code>https://{service}.{namespace}:{port}/{path}</code>.</p>
+<p>URL is the JSON web service URL. A typical form is
+<code>https://{service}.{namespace}:{port}/{path}</code>.</p>
 </td>
 </tr>
 <tr>
@@ -3197,32 +3458,6 @@ string
 <td>
 <p>CABundle is a PEM encoded CA bundle which will be used to validate
 the server certificate.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>requestType</code><br/>
-<em>
-<a href="#kyverno.io/v1.Method">
-Method
-</a>
-</em>
-</td>
-<td>
-<p>Method is the HTTP request type (GET or POST).</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>data</code><br/>
-<em>
-<a href="#kyverno.io/v1.RequestData">
-[]RequestData
-</a>
-</em>
-</td>
-<td>
-<p>Data specifies the POST data sent to the server.</p>
 </td>
 </tr>
 </tbody>
@@ -3736,6 +3971,20 @@ PodSecurity
 by specifying exclusions for Pod Security Standards controls.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>cel</code><br/>
+<em>
+<a href="#kyverno.io/v1.CEL">
+CEL
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CEL allows validation checks using the Common Expression Language (<a href="https://kubernetes.io/docs/reference/using-api/cel/">https://kubernetes.io/docs/reference/using-api/cel/</a>).</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -3861,67 +4110,6 @@ Kubernetes apiextensions/v1.JSON
 <em>(Optional)</em>
 <p>Default is an optional arbitrary JSON object that the variable may take if the JMESPath
 expression evaluates to nil</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1.ViolatedRule">ViolatedRule
-</h3>
-<p>
-<p>ViolatedRule stores the information regarding the rule.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>name</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Name specifies violated rule name.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>type</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Type specifies violated rule type.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>message</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Message specifies violation message.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>status</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Status shows the rule response status</p>
 </td>
 </tr>
 </tbody>
@@ -5031,6 +5219,20 @@ CleanupPolicySpec
 <table class="table table-striped">
 <tr>
 <td>
+<code>context</code><br/>
+<em>
+<a href="#kyverno.io/v1.ContextEntry">
+[]ContextEntry
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Context defines variables and data sources that can be used during rule execution.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>match</code><br/>
 <em>
 <a href="#kyverno.io/v2beta1.MatchResources">
@@ -5164,6 +5366,20 @@ CleanupPolicySpec
 <br/>
 <br/>
 <table class="table table-striped">
+<tr>
+<td>
+<code>context</code><br/>
+<em>
+<a href="#kyverno.io/v1.ContextEntry">
+[]ContextEntry
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Context defines variables and data sources that can be used during rule execution.</p>
+</td>
+</tr>
 <tr>
 <td>
 <code>match</code><br/>
@@ -5383,6 +5599,20 @@ and schedule when the matching resources needs deleted.</p>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>
+<code>context</code><br/>
+<em>
+<a href="#kyverno.io/v1.ContextEntry">
+[]ContextEntry
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Context defines variables and data sources that can be used during rule execution.</p>
+</td>
+</tr>
 <tr>
 <td>
 <code>match</code><br/>
@@ -6190,6 +6420,17 @@ Kubernetes apiextensions/v1.JSON
 or can be variables declared using JMESPath.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>message</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Message is an optional display message</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -6260,14 +6501,14 @@ mutated to include the SHA digest retrieved during the registration.</p>
 <td>
 <code>type</code><br/>
 <em>
-<a href="#kyverno.io/v2beta1.ImageVerificationType">
+<a href="#kyverno.io/v1.ImageVerificationType">
 ImageVerificationType
 </a>
 </em>
 </td>
 <td>
 <p>Type specifies the method of signature validation. The allowed options
-are Cosign and NotaryV2. By default Cosign is used if a type is not specified.</p>
+are Cosign and Notary. By default Cosign is used if a type is not specified.</p>
 </td>
 </tr>
 <tr>
@@ -6359,18 +6600,22 @@ bool
 <p>Required validates that images are verified i.e. have matched passed a signature or attestation check.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>imageRegistryCredentials</code><br/>
+<em>
+<a href="#kyverno.io/v1.ImageRegistryCredentials">
+ImageRegistryCredentials
+</a>
+</em>
+</td>
+<td>
+<p>ImageRegistryCredentials provides credentials that will be used for authentication with registry</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v2beta1.ImageVerificationType">ImageVerificationType
-(<code>string</code> alias)</p></h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>)
-</p>
-<p>
-<p>ImageVerificationType selects the type of verification algorithm</p>
-</p>
 <h3 id="kyverno.io/v2beta1.MatchResources">MatchResources
 </h3>
 <p>
@@ -6697,6 +6942,21 @@ AnyAllConditions
 set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements. A direct list
 of conditions (without <code>any</code> or <code>all</code> statements is supported for backwards compatibility but
 See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>celPreconditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CELPreconditions are used to determine if a policy rule should be applied by evaluating a
+set of CEL conditions. It can only be used with the validate.cel subrule</p>
 </td>
 </tr>
 <tr>
@@ -7050,6 +7310,20 @@ PodSecurity
 <em>(Optional)</em>
 <p>PodSecurity applies exemptions for Kubernetes Pod Security admission
 by specifying exclusions for Pod Security Standards controls.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>cel</code><br/>
+<em>
+<a href="#kyverno.io/v1.CEL">
+CEL
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CEL allows validation checks using the Common Expression Language (<a href="https://kubernetes.io/docs/reference/using-api/cel/">https://kubernetes.io/docs/reference/using-api/cel/</a>).</p>
 </td>
 </tr>
 </tbody>

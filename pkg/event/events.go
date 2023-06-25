@@ -11,9 +11,9 @@ import (
 
 func NewPolicyFailEvent(source Source, reason Reason, engineResponse engineapi.EngineResponse, ruleResp engineapi.RuleResponse, blocked bool) Info {
 	return Info{
-		Kind:      getPolicyKind(engineResponse.Policy),
-		Name:      engineResponse.Policy.GetName(),
-		Namespace: engineResponse.Policy.GetNamespace(),
+		Kind:      getPolicyKind(engineResponse.Policy()),
+		Name:      engineResponse.Policy().GetName(),
+		Namespace: engineResponse.Policy().GetNamespace(),
 		Reason:    reason,
 		Source:    source,
 		Message:   buildPolicyEventMessage(ruleResp, engineResponse.GetResourceSpec(), blocked),
@@ -59,9 +59,9 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 	}
 
 	return Info{
-		Kind:      getPolicyKind(engineResponse.Policy),
-		Name:      engineResponse.Policy.GetName(),
-		Namespace: engineResponse.Policy.GetNamespace(),
+		Kind:      getPolicyKind(engineResponse.Policy()),
+		Name:      engineResponse.Policy().GetName(),
+		Namespace: engineResponse.Policy().GetNamespace(),
 		Reason:    PolicyApplied,
 		Source:    source,
 		Message:   bldr.String(),
@@ -72,7 +72,7 @@ func NewResourceViolationEvent(source Source, reason Reason, engineResponse engi
 	var bldr strings.Builder
 	defer bldr.Reset()
 
-	fmt.Fprintf(&bldr, "policy %s/%s %s: %s", engineResponse.Policy.GetName(),
+	fmt.Fprintf(&bldr, "policy %s/%s %s: %s", engineResponse.Policy().GetName(),
 		ruleResp.Name(), ruleResp.Status(), ruleResp.Message())
 	resource := engineResponse.GetResourceSpec()
 
@@ -128,15 +128,15 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 	exceptionName, exceptionNamespace := exception.GetName(), exception.GetNamespace()
 	policyMessage := fmt.Sprintf("resource %s was skipped from rule %s due to policy exception %s/%s", resourceKey(engineResponse.PatchedResource), ruleResp.Name(), exceptionNamespace, exceptionName)
 	var exceptionMessage string
-	if engineResponse.Policy.GetNamespace() == "" {
-		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s", resourceKey(engineResponse.PatchedResource), engineResponse.Policy.GetName(), ruleResp.Name())
+	if engineResponse.Policy().GetNamespace() == "" {
+		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s", resourceKey(engineResponse.PatchedResource), engineResponse.Policy().GetName(), ruleResp.Name())
 	} else {
-		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s/%s", resourceKey(engineResponse.PatchedResource), engineResponse.Policy.GetNamespace(), engineResponse.Policy.GetName(), ruleResp.Name())
+		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s/%s", resourceKey(engineResponse.PatchedResource), engineResponse.Policy().GetNamespace(), engineResponse.Policy().GetName(), ruleResp.Name())
 	}
 	policyEvent := Info{
-		Kind:      getPolicyKind(engineResponse.Policy),
-		Name:      engineResponse.Policy.GetName(),
-		Namespace: engineResponse.Policy.GetNamespace(),
+		Kind:      getPolicyKind(engineResponse.Policy()),
+		Name:      engineResponse.Policy().GetName(),
+		Namespace: engineResponse.Policy().GetNamespace(),
 		Reason:    PolicySkipped,
 		Message:   policyMessage,
 		Source:    source,

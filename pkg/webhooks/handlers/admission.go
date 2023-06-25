@@ -12,7 +12,7 @@ import (
 )
 
 func (inner AdmissionHandler) WithAdmission(logger logr.Logger) HttpHandler {
-	return inner.withAdmission(logger).WithTrace("ADMISSION")
+	return inner.withAdmission(logger).WithMetrics(logger).WithTrace("ADMISSION")
 }
 
 func (inner AdmissionHandler) withAdmission(logger logr.Logger) HttpHandler {

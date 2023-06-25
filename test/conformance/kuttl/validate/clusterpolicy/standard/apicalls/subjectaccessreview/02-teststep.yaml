@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+  - file: cm-default-ns.yaml
+    shouldFail: true
+  - file: cm-test-ns.yaml
+    shouldFail: false

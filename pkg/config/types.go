@@ -22,15 +22,26 @@ func parseWebhooks(in string) ([]WebhookConfig, error) {
 	return webhookCfgs, nil
 }
 
-func parseStrings(in string) []string {
-	var out []string
+func parseExclusions(in string) (exclusions, inclusions []string) {
 	for _, in := range strings.Split(in, ",") {
 		in := strings.TrimSpace(in)
-		if in != "" {
-			out = append(out, in)
+		if in == "" {
+			continue
+		}
+		inclusion := strings.HasPrefix(in, "!")
+		if inclusion {
+			in = strings.TrimSpace(in[1:])
+			if in == "" {
+				continue
+			}
+		}
+		if inclusion {
+			inclusions = append(inclusions, in)
+		} else {
+			exclusions = append(exclusions, in)
 		}
 	}
-	return out
+	return
 }
 
 func parseWebhookAnnotations(in string) (map[string]string, error) {
@@ -76,13 +87,14 @@ func newFilter(kind, namespace, name string) filter {
 	}
 }
 
+var submatchallRegex = regexp.MustCompile(`\[([^\[\]]*)\]`)
+
 // ParseKinds parses the kinds if a single string contains comma separated kinds
 // {"1,2,3","4","5"} => {"1","2","3","4","5"}
 func parseKinds(in string) []filter {
 	resources := []filter{}
 	var resource filter
-	re := regexp.MustCompile(`\[([^\[\]]*)\]`)
-	submatchall := re.FindAllString(in, -1)
+	submatchall := submatchallRegex.FindAllString(in, -1)
 	for _, element := range submatchall {
 		element = strings.Trim(element, "[")
 		element = strings.Trim(element, "]")
