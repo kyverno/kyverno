@@ -469,12 +469,12 @@ codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 	@cat $(CRDS_PATH)/* \
 		| $(SED) -e '1i{{- if .Values.crds.install }}' \
 		| $(SED) -e '$$a{{- end }}' \
- 		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- with .Values.crds.annotations }}' \
- 		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- toYaml . | nindent 4 }}' \
- 		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- end }}' \
- 		| $(SED) -e '/^  creationTimestamp: null/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
- 		| $(SED) -e '/^  creationTimestamp: null/a \ \ labels:' \
- 		| $(SED) -e '/^  creationTimestamp: null/d' \
+ 		| $(SED) -e '/^  /i \ \ \ \ {{- with .Values.crds.annotations }}' \
+ 		| $(SED) -e '/^  /i \ \ \ \ {{- toYaml . | nindent 4 }}' \
+ 		| $(SED) -e '/^  /i \ \ \ \ {{- end }}' \
+ 		| $(SED) -e '/^  /a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
+ 		| $(SED) -e '/^  /a \ \ labels:' \
+ 		| $(SED) -e '/^  /d' \
  		> ./charts/kyverno/templates/crds/crds.yaml
 
 .PHONY: codegen-helm-all
