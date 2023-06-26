@@ -54,7 +54,7 @@ func (v *notaryVerifier) VerifySignature(ctx context.Context, opts images.Option
 	}
 
 	ref := parsedRef.String()
-	remoteVerifyOptions := notation.RemoteVerifyOptions{
+	remoteVerifyOptions := notation.VerifyOptions{
 		ArtifactReference:    ref,
 		MaxSignatureAttempts: 10,
 	}
