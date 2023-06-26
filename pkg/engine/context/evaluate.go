@@ -67,7 +67,7 @@ func (ctx *context) evaluateLoader(name string) error {
 		return nil
 	}
 	delete(ctx.deferred.loaders, name)
-	return loader()
+	return loader.LoadData()
 }
 
 func (ctx *context) HasChanged(jmespath string) (bool, error) {
