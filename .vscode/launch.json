@@ -12,7 +12,7 @@
                 "--serverIP=<SERVER-IP>:9443",
                 "-v=2",
             ],
-            "env": {                 
+            "env": {
                 "KYVERNO_NAMESPACE": "kyverno",
                 "KYVERNO_SERVICEACCOUNT_NAME": "kyverno-admission-controller",
                 "KYVERNO_DEPLOYMENT": "dummy",
