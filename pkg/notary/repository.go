@@ -30,7 +30,7 @@ func NewRepository(craneOpts crane.Option, remoteOpts []remote.Option, ref name.
 }
 
 func (c *repositoryClient) Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error) {
-	head, err := crane.Head(reference)
+	head, err := crane.Head(c.getReferenceFromDigest(reference))
 	if err != nil {
 		return ocispec.Descriptor{}, nil
 	}
@@ -120,6 +120,10 @@ func v1ToOciSpecDescriptor(v1desc v1.Descriptor) ocispec.Descriptor {
 
 func (c *repositoryClient) getReferenceFromDescriptor(desc ocispec.Descriptor) string {
 	return GetReferenceFromDescriptor(desc, c.ref)
+}
+
+func (c *repositoryClient) getReferenceFromDigest(digest string) string {
+	return c.ref.Context().RegistryStr() + "/" + c.ref.Context().RepositoryStr() + "@" + digest
 }
 
 func GetReferenceFromDescriptor(desc ocispec.Descriptor, ref name.Reference) string {

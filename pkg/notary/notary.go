@@ -59,7 +59,7 @@ func (v *notaryVerifier) VerifySignature(ctx context.Context, opts images.Option
 	v.log.V(4).Info("created parsedRef", "reference", opts.ImageRef)
 
 	ref := parsedRef.Ref.Name()
-	remoteVerifyOptions := notation.RemoteVerifyOptions{
+	remoteVerifyOptions := notation.VerifyOptions{
 		ArtifactReference:    ref,
 		MaxSignatureAttempts: 10,
 	}
@@ -244,7 +244,7 @@ func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Referenc
 	}
 	v.log.V(4).Info("created notation repo", "reference", opts.ImageRef)
 
-	remoteVerifyOptions := notation.RemoteVerifyOptions{
+	remoteVerifyOptions := notation.VerifyOptions{
 		ArtifactReference:    reference,
 		MaxSignatureAttempts: 10,
 	}
