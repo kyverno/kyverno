@@ -36,25 +36,14 @@ func NewEngine(
 	configMapResolver := NewConfigMapResolver(ctx, logger, kubeClient, 15*time.Minute)
 	exceptionsSelector := NewExceptionSelector(ctx, logger, kyvernoClient, 15*time.Minute)
 	logger = logger.WithName("engine")
-
 	logger.Info("setup engine...")
-	regClientFactory := factories.DefaultRegistryClientFactory(
-		adapters.RegistryClient(rclient),
-		secretLister,
-	)
-	ctxFactory := factories.DefaultContextLoaderFactory(
-		factories.WithAPIClient(client),
-		factories.WithRegistryClientFactory(regClientFactory),
-		factories.WithJMESPath(jp),
-		factories.WithConfigMapResolver(configMapResolver),
-	)
 	return engine.NewEngine(
 		configuration,
 		metricsConfiguration,
 		jp,
 		adapters.Client(client),
-		regClientFactory,
-		ctxFactory,
+		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), secretLister),
+		factories.DefaultContextLoaderFactory(configMapResolver),
 		exceptionsSelector,
 		imageSignatureRepository,
 	)

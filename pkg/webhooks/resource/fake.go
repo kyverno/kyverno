@@ -60,7 +60,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 			jp,
 			adapters.Client(dclient),
 			factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
-			factories.DefaultContextLoaderFactory(factories.WithJMESPath(jp), factories.WithConfigMapResolver(configMapResolver)),
+			factories.DefaultContextLoaderFactory(configMapResolver),
 			peLister,
 			"",
 		),

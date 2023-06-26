@@ -15,40 +15,16 @@ import (
 
 type ContextLoaderFactoryOptions func(*contextLoader)
 
-func DefaultContextLoaderFactory(opts ...ContextLoaderFactoryOptions) engineapi.ContextLoaderFactory {
+func DefaultContextLoaderFactory(cmResolver engineapi.ConfigmapResolver, opts ...ContextLoaderFactoryOptions) engineapi.ContextLoaderFactory {
 	return func(_ kyvernov1.PolicyInterface, _ kyvernov1.Rule) engineapi.ContextLoader {
 		cl := &contextLoader{
-			logger:       logging.WithName("DefaultContextLoaderFactory"),
-			initializers: make([]engineapi.Initializer, 0),
+			logger:     logging.WithName("DefaultContextLoaderFactory"),
+			cmResolver: cmResolver,
 		}
 		for _, o := range opts {
 			o(cl)
 		}
-		if cl.jp == nil {
-			cl.jp = jmespath.NewWithDefaults()
-		}
 		return cl
-	}
-}
-
-// WithAPIClient enables loading of APICall context entries
-func WithAPIClient(client engineapi.RawClient) ContextLoaderFactoryOptions {
-	return func(cl *contextLoader) {
-		cl.client = client
-	}
-}
-
-// WithRegistryClientFactory enables loading of ImageData context entries
-func WithRegistryClientFactory(rcf engineapi.RegistryClientFactory) ContextLoaderFactoryOptions {
-	return func(cl *contextLoader) {
-		cl.rclientFactory = rcf
-	}
-}
-
-// WithConfigMapResolver enables loading of ConfigMap context entries
-func WithConfigMapResolver(cmResolver engineapi.ConfigmapResolver) ContextLoaderFactoryOptions {
-	return func(cl *contextLoader) {
-		cl.cmResolver = cmResolver
 	}
 }
 
@@ -58,24 +34,17 @@ func WithInitializer(initializer engineapi.Initializer) ContextLoaderFactoryOpti
 	}
 }
 
-// WithJMESPath sets the JMESPath engine
-func WithJMESPath(jp jmespath.Interface) ContextLoaderFactoryOptions {
-	return func(cl *contextLoader) {
-		cl.jp = jp
-	}
-}
-
 type contextLoader struct {
-	logger         logr.Logger
-	jp             jmespath.Interface
-	client         engineapi.RawClient
-	rclientFactory engineapi.RegistryClientFactory
-	cmResolver     engineapi.ConfigmapResolver
-	initializers   []engineapi.Initializer
+	logger       logr.Logger
+	cmResolver   engineapi.ConfigmapResolver
+	initializers []engineapi.Initializer
 }
 
 func (l *contextLoader) Load(
 	ctx context.Context,
+	jp jmespath.Interface,
+	client engineapi.RawClient,
+	rclientFactory engineapi.RegistryClientFactory,
 	contextEntries []kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
 ) error {
@@ -84,13 +53,11 @@ func (l *contextLoader) Load(
 			return err
 		}
 	}
-
 	for _, entry := range contextEntries {
-		deferredLoader, err := l.newDeferredLoader(ctx, entry, jsonContext)
+		deferredLoader, err := l.newDeferredLoader(ctx, jp, client, rclientFactory, entry, jsonContext)
 		if err != nil {
 			return fmt.Errorf("failed to create deferred loader for context entry %s", entry.Name)
 		}
-
 		if deferredLoader != nil {
 			if err := jsonContext.AddDeferredLoader(deferredLoader); err != nil {
 				return err
@@ -102,6 +69,9 @@ func (l *contextLoader) Load(
 
 func (l *contextLoader) newDeferredLoader(
 	ctx context.Context,
+	jp jmespath.Interface,
+	client engineapi.RawClient,
+	rclientFactory engineapi.RegistryClientFactory,
 	entry kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
 ) (enginecontext.DeferredLoader, error) {
@@ -114,25 +84,24 @@ func (l *contextLoader) newDeferredLoader(
 			return nil, nil
 		}
 	} else if entry.APICall != nil {
-		if l.client != nil {
-			l := loaders.NewAPILoader(ctx, l.logger, entry, jsonContext, l.jp, l.client)
+		if client != nil {
+			l := loaders.NewAPILoader(ctx, l.logger, entry, jsonContext, jp, client)
 			return enginecontext.NewDeferredLoader(entry.Name, l)
 		} else {
 			l.logger.Info("disabled loading of APICall context entry %s", entry.Name)
 			return nil, nil
 		}
 	} else if entry.ImageRegistry != nil {
-		if l.rclientFactory != nil {
-			l := loaders.NewImageDataLoader(ctx, l.logger, entry, jsonContext, l.jp, l.rclientFactory)
+		if rclientFactory != nil {
+			l := loaders.NewImageDataLoader(ctx, l.logger, entry, jsonContext, jp, rclientFactory)
 			return enginecontext.NewDeferredLoader(entry.Name, l)
 		} else {
 			l.logger.Info("disabled loading of ImageRegistry context entry %s", entry.Name)
 			return nil, nil
 		}
 	} else if entry.Variable != nil {
-		l := loaders.NewVariableLoader(l.logger, entry, jsonContext, l.jp)
+		l := loaders.NewVariableLoader(l.logger, entry, jsonContext, jp)
 		return enginecontext.NewDeferredLoader(entry.Name, l)
 	}
-
 	return nil, fmt.Errorf("missing ConfigMap|APICall|ImageRegistry|Variable in context entry %s", entry.Name)
 }

@@ -170,8 +170,15 @@ func (e *engine) ContextLoader(
 	rule kyvernov1.Rule,
 ) engineapi.EngineContextLoader {
 	loader := e.contextLoader(policy, rule)
-	return func(ctx context.Context, entries []kyvernov1.ContextEntry, jc enginecontext.Interface) error {
-		return loader.Load(ctx, entries, jc)
+	return func(ctx context.Context, contextEntries []kyvernov1.ContextEntry, jsonContext enginecontext.Interface) error {
+		return loader.Load(
+			ctx,
+			e.jp,
+			e.client,
+			e.rclientFactory,
+			contextEntries,
+			jsonContext,
+		)
 	}
 }
 

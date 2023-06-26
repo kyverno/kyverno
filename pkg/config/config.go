@@ -333,9 +333,20 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 			logger.Error(errors.New("defaultRegistry is not a valid DNS hostname"), "failed to configure defaultRegistry")
 		}
 	}
-
-	cd.enableDefaultRegistryMutation = cd.loadBoolean(data, enableDefaultRegistryMutation, true)
-
+	// load enableDefaultRegistryMutation
+	enableDefaultRegistryMutation, ok := data[enableDefaultRegistryMutation]
+	if !ok {
+		logger.Info("enableDefaultRegistryMutation not set")
+	} else {
+		logger := logger.WithValues("enableDefaultRegistryMutation", enableDefaultRegistryMutation)
+		enableDefaultRegistryMutation, err := strconv.ParseBool(enableDefaultRegistryMutation)
+		if err != nil {
+			logger.Error(err, "enableDefaultRegistryMutation is not a boolean")
+		} else {
+			cd.enableDefaultRegistryMutation = enableDefaultRegistryMutation
+			logger.Info("enableDefaultRegistryMutation configured")
+		}
+	}
 	// load excludeGroupRole
 	excludedGroups, ok := data[excludeGroups]
 	if !ok {
@@ -410,24 +421,6 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 			logger.Info("webhookAnnotations configured")
 		}
 	}
-}
-
-func (cd *configuration) loadBoolean(data map[string]string, key string, defaultVal bool) bool {
-	strVal, ok := data[key]
-	if !ok {
-		logger.Info("using default configuration", "key", key, "default", defaultVal)
-		return defaultVal
-	}
-
-	logger := logger.WithValues(key, strVal)
-	val, err := strconv.ParseBool(strVal)
-	if err != nil {
-		logger.Error(err, "invalid boolean configuration", "key", key)
-		return defaultVal
-	}
-
-	logger.Info("configuration applied")
-	return val
 }
 
 func (cd *configuration) unload() {

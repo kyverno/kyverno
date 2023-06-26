@@ -127,14 +127,17 @@ func (h *handlers) executePolicy(
 
 	enableDeferredLoading := toggle.FromContext(ctx).EnableDeferredLoading()
 	enginectx := enginecontext.NewContext(h.jp, enableDeferredLoading)
-	ctxFactory := factories.DefaultContextLoaderFactory(
-		factories.WithAPIClient(h.client),
-		factories.WithJMESPath(h.jp),
-		factories.WithConfigMapResolver(h.cmResolver),
-	)
+	ctxFactory := factories.DefaultContextLoaderFactory(h.cmResolver)
 
 	loader := ctxFactory(nil, kyvernov1.Rule{})
-	if err := loader.Load(ctx, spec.Context, enginectx); err != nil {
+	if err := loader.Load(
+		ctx,
+		h.jp,
+		h.client,
+		nil,
+		spec.Context,
+		enginectx,
+	); err != nil {
 		return err
 	}
 

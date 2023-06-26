@@ -5,6 +5,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 )
 
 type RegistryClientFactory interface {
@@ -20,6 +21,9 @@ type ContextLoaderFactory = func(policy kyvernov1.PolicyInterface, rule kyvernov
 type ContextLoader interface {
 	Load(
 		ctx context.Context,
+		jp jmespath.Interface,
+		client RawClient,
+		rclientFactory RegistryClientFactory,
 		contextEntries []kyvernov1.ContextEntry,
 		jsonContext enginecontext.Interface,
 	) error
