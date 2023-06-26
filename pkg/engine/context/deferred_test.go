@@ -21,29 +21,44 @@ func TestDeferredLoaderMatch(t *testing.T) {
 	assert.Equal(t, 1, mockLoader.invocations)
 
 	ctx = newContext()
-	addDeferred(ctx, "one", "1")
-	testCheckMatch(t, ctx, "one<two", "one")
+	ml, _ := addDeferred(ctx, "one", "1")
+	testCheckMatch(t, ctx, "one<two", "one", "1", ml)
 
-	addDeferred(ctx, "one", "1")
-	testCheckMatch(t, ctx, "(one)", "one")
+	ml, _ = addDeferred(ctx, "one", "1")
+	testCheckMatch(t, ctx, "(one)", "one", "1", ml)
 
-	addDeferred(ctx, "one", "1")
-	testCheckMatch(t, ctx, "one.two.three", "one")
+	ml, _ = addDeferred(ctx, "one", "1")
+	testCheckMatch(t, ctx, "one.two.three", "one", "1", ml)
 
-	addDeferred(ctx, "one", "1")
-	testCheckMatch(t, ctx, "one-two", "one")
+	ml, _ = addDeferred(ctx, "one", "1")
+	testCheckMatch(t, ctx, "one-two", "one", "1", ml)
 
-	addDeferred(ctx, "one", "1")
-	testCheckMatch(t, ctx, "one; two; three", "one")
+	ml, _ = addDeferred(ctx, "one", "1")
+	testCheckMatch(t, ctx, "one; two; three", "one", "1", ml)
 
-	addDeferred(ctx, "one1", "11")
-	testCheckMatch(t, ctx, "one1; two; three", "one1")
+	ml, _ = addDeferred(ctx, "one", "1")
+	testCheckMatch(t, ctx, "one>two", "one", "1", ml)
+
+	ml, _ = addDeferred(ctx, "one", "1")
+	testCheckMatch(t, ctx, "one, two, three", "one", "1", ml)
+
+	ml, _ = addDeferred(ctx, "one1", "11")
+	testCheckMatch(t, ctx, "one1", "one1", "11", ml)
 }
 
-func testCheckMatch(t *testing.T, ctx *context, query, name string) {
-	loader := ctx.deferred.Match(query, len(ctx.jsonRawCheckpoints))
-	assert.Assert(t, loader != nil, "deferred loader %s not resolved for query `%s`", name, query)
-	assert.Equal(t, name, loader.Name(), "deferred loader %s name mismatch for query %s", name, query)
+func testCheckMatch(t *testing.T, ctx *context, query, name, value string, ml *mockLoader) {
+	var events []string
+	hdlr := func(name string) {
+		events = append(events, name)
+	}
+
+	ml.setEventHandler(hdlr)
+
+	err := ctx.deferred.LoadMatching(query, len(ctx.jsonRawCheckpoints))
+	assert.NilError(t, err)
+	assert.Equal(t, 1, len(events), "deferred loader %s not executed for query %s", name, query)
+	expected := fmt.Sprintf("%s=%s", name, value)
+	assert.Equal(t, expected, events[0], "deferred loader %s name mismatch for query %s; received %s", name, query, events[0])
 }
 
 func TestDeferredLoaderMismatch(t *testing.T) {
@@ -113,13 +128,10 @@ func (ml *mockLoader) HasLoaded() bool {
 }
 
 func (ml *mockLoader) LoadData() error {
-	// simulate a JMESPath prior to loading
-	ml.executeQuery()
-
 	ml.invocations++
 	ml.ctx.AddVariable(ml.name, ml.value)
 
-	// simulate a JMESPath prior after loading
+	// simulate a JMESPath evaluation after loading
 	ml.executeQuery()
 
 	ml.hasLoaded = true
@@ -132,15 +144,16 @@ func (ml *mockLoader) LoadData() error {
 }
 
 func (ml *mockLoader) executeQuery() error {
-	if ml.query != "" {
-		if results, err := ml.ctx.Query(ml.query); err != nil {
-			return err
-		} else {
-			fmt.Printf("query results: %v \n", results)
-		}
+	if ml.query == "" {
+		return nil
 	}
 
-	return nil
+	results, err := ml.ctx.Query(ml.query)
+	if err != nil {
+		return err
+	}
+
+	return ml.ctx.AddVariable(ml.name, results)
 }
 
 func (ml *mockLoader) setEventHandler(eventHandler func(string)) {
@@ -172,20 +185,37 @@ func TestDeferredCheckpointRestore(t *testing.T) {
 	ctx := newContext()
 
 	ctx.Checkpoint()
-	_, _ = addDeferred(ctx, "unused", "unused")
+	unused, _ := addDeferred(ctx, "unused", "unused")
 	mock, _ := addDeferred(ctx, "one", "1")
 	ctx.Restore()
 	assert.Equal(t, 0, mock.invocations)
-	assert.Assert(t, ctx.deferred.Match("unused", len(ctx.jsonRawCheckpoints)) == nil)
-	assert.Assert(t, ctx.deferred.Match("one", len(ctx.jsonRawCheckpoints)) == nil)
+	assert.Equal(t, 0, unused.invocations)
+
+	err := ctx.deferred.LoadMatching("unused", len(ctx.jsonRawCheckpoints))
+	assert.NilError(t, err)
+	_, err = ctx.Query("unused")
+	assert.ErrorContains(t, err, "Unknown key \"unused\" in path")
+
+	err = ctx.deferred.LoadMatching("one", len(ctx.jsonRawCheckpoints))
+	assert.NilError(t, err)
+	_, err = ctx.Query("one")
+	assert.ErrorContains(t, err, "Unknown key \"one\" in path")
 
 	_, _ = addDeferred(ctx, "one", "1")
 	ctx.Checkpoint()
-	assert.Assert(t, ctx.deferred.Match("one", len(ctx.jsonRawCheckpoints)) != nil)
+	one, err := ctx.Query("one")
+	assert.NilError(t, err)
+	assert.Equal(t, "1", one)
+
 	ctx.Restore()
-	assert.Assert(t, ctx.deferred.Match("one", len(ctx.jsonRawCheckpoints)) != nil)
-	_, _ = ctx.Query("one")
-	assert.Assert(t, ctx.deferred.Match("one", len(ctx.jsonRawCheckpoints)) == nil)
+	_, err = ctx.Query("one")
+	assert.NilError(t, err)
+	assert.Equal(t, "1", one)
+
+	ctx.Restore()
+	_, err = ctx.Query("one")
+	assert.NilError(t, err)
+	assert.Equal(t, "1", one)
 
 	mock, _ = addDeferred(ctx, "one", "1")
 	ctx.Checkpoint()
@@ -331,4 +361,39 @@ func TestDeferredRecursive(t *testing.T) {
 	val, err := ctx.Query("value")
 	assert.NilError(t, err)
 	assert.Equal(t, "0", val)
+}
+
+func TestJMESPathDependency(t *testing.T) {
+	ctx := newContext()
+	addDeferred(ctx, "foo", "foo")
+	addDeferredWithQuery(ctx, "one", "1", "foo")
+
+	val, err := ctx.Query("one")
+	assert.NilError(t, err)
+	assert.Equal(t, "foo", val)
+}
+
+func TestDeferredHiddenEval(t *testing.T) {
+	ctx := newContext()
+	addDeferred(ctx, "foo", "foo")
+
+	ctx.Checkpoint()
+	addDeferred(ctx, "foo", "bar")
+
+	val, err := ctx.Query("foo")
+	assert.NilError(t, err)
+	assert.Equal(t, "bar", val)
+}
+
+func TestDeferredNotHidden(t *testing.T) {
+	ctx := newContext()
+	addDeferred(ctx, "foo", "foo")
+	addDeferredWithQuery(ctx, "one", "1", "foo")
+
+	ctx.Checkpoint()
+	addDeferred(ctx, "foo", "bar")
+
+	val, err := ctx.Query("one")
+	assert.NilError(t, err)
+	assert.Equal(t, "foo", val)
 }

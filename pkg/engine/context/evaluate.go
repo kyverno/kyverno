@@ -40,13 +40,7 @@ func (ctx *context) Query(query string) (interface{}, error) {
 
 func (ctx *context) loadDeferred(query string) error {
 	level := len(ctx.jsonRawCheckpoints)
-	for loader := ctx.deferred.Match(query, level); loader != nil; loader = ctx.deferred.Match(query, level) {
-		if err := loader.LoadData(); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return ctx.deferred.LoadMatching(query, level)
 }
 
 func (ctx *context) HasChanged(jmespath string) (bool, error) {

@@ -41,21 +41,42 @@ func (d *deferredLoader) Matches(query string) bool {
 	return d.matcher.MatchString(query)
 }
 
-type cachedLoader struct {
+type leveledLoader struct {
 	level   int
 	matched bool
 	loader  DeferredLoader
 }
 
+func (cl *leveledLoader) Level() int {
+	return cl.level
+}
+
+func (cl *leveledLoader) Name() string {
+	return cl.loader.Name()
+}
+
+func (cl *leveledLoader) Matches(query string) bool {
+	return cl.loader.Matches(query)
+}
+
+func (cl *leveledLoader) HasLoaded() bool {
+	return cl.loader.HasLoaded()
+}
+
+func (cl *leveledLoader) LoadData() error {
+	return cl.loader.LoadData()
+}
+
 type deferredLoaders struct {
 	enableDeferredLoading bool
-	loaders               []cachedLoader
+	level                 *int
+	loaders               []*leveledLoader
 }
 
 func NewDeferredLoaders(enableDeferredLoading bool) DeferredLoaders {
 	return &deferredLoaders{
 		enableDeferredLoading: enableDeferredLoading,
-		loaders:               make([]cachedLoader, 0),
+		loaders:               make([]*leveledLoader, 0),
 	}
 }
 
@@ -64,7 +85,7 @@ func (d *deferredLoaders) Enabled() bool {
 }
 
 func (d *deferredLoaders) Add(dl DeferredLoader, level int) {
-	d.loaders = append(d.loaders, cachedLoader{level, false, dl})
+	d.loaders = append(d.loaders, &leveledLoader{level, false, dl})
 }
 
 func (d *deferredLoaders) Reset(restore bool, level int) {
@@ -91,20 +112,40 @@ func (d *deferredLoaders) Reset(restore bool, level int) {
 	}
 }
 
-func (d *deferredLoaders) Match(query string, level int) DeferredLoader {
+func (d *deferredLoaders) LoadMatching(query string, level int) error {
+	if d.level != nil {
+		level = *d.level
+	}
+
+	for loader := d.match(query, level); loader != nil; loader = d.match(query, level) {
+		l := loader.Level()
+		d.level = &l
+
+		if err := loader.LoadData(); err != nil {
+			return err
+		}
+
+		d.level = nil
+	}
+
+	return nil
+}
+
+func (d *deferredLoaders) match(query string, level int) LeveledLoader {
 	for i, dl := range d.loaders {
 		if dl.matched || dl.loader.HasLoaded() {
 			continue
 		}
 
-		if dl.loader.Matches(query) {
+		if dl.Matches(query) && dl.level <= level {
 			if dl.level == level {
+				// remove loaders at current level after execution
 				d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
 			} else {
 				d.loaders[i].matched = true
 			}
 
-			return dl.loader
+			return dl
 		}
 	}
 

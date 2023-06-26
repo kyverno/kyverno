@@ -28,10 +28,17 @@ type DeferredLoader interface {
 	LoadData() error
 }
 
+// LeveledLoader is a DeferredLoader with a Level
+type LeveledLoader interface {
+	// Level provides the declaration level for the DeferredLoader
+	Level() int
+	DeferredLoader
+}
+
 // DeferredLoaders manages a list of DeferredLoader instances
 type DeferredLoaders interface {
 	Enabled() bool
 	Add(loader DeferredLoader, level int)
-	Match(query string, level int) DeferredLoader
+	LoadMatching(query string, level int) error
 	Reset(removeCheckpoint bool, level int)
 }
