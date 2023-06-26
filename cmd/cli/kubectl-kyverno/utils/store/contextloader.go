@@ -1,14 +1,18 @@
 package store
 
 import (
+	"context"
+
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 )
 
 func ContextLoaderFactory(cmResolver engineapi.ConfigmapResolver) engineapi.ContextLoaderFactory {
-	if !IsMock() {
+	if !IsLocal() {
 		return factories.DefaultContextLoaderFactory(cmResolver)
 	}
 	return func(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) engineapi.ContextLoader {
@@ -22,7 +26,6 @@ func ContextLoaderFactory(cmResolver engineapi.ConfigmapResolver) engineapi.Cont
 					}
 				}
 			}
-
 			if rule != nil && len(rule.ForEachValues) > 0 {
 				for key, value := range rule.ForEachValues {
 					if err := jsonContext.AddVariable(key, value[GetForeachElement()]); err != nil {
@@ -34,6 +37,28 @@ func ContextLoaderFactory(cmResolver engineapi.ConfigmapResolver) engineapi.Cont
 			return nil
 		}
 		factory := factories.DefaultContextLoaderFactory(cmResolver, factories.WithInitializer(init))
-		return factory(policy, rule)
+		return wrapper{factory(policy, rule)}
 	}
+}
+
+type wrapper struct {
+	inner engineapi.ContextLoader
+}
+
+func (w wrapper) Load(
+	ctx context.Context,
+	jp jmespath.Interface,
+	client engineapi.RawClient,
+	rclientFactory engineapi.RegistryClientFactory,
+	contextEntries []kyvernov1.ContextEntry,
+	jsonContext enginecontext.Interface,
+) error {
+	if !IsApiCallAllowed() {
+		client = nil
+	}
+	if GetRegistryAccess() {
+		rc := GetRegistryClient()
+		rclientFactory = factories.DefaultRegistryClientFactory(adapters.RegistryClient(rc), nil)
+	}
+	return w.inner.Load(ctx, jp, client, rclientFactory, contextEntries, jsonContext)
 }
