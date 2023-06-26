@@ -97,7 +97,7 @@ func LoadAPIData(ctx context.Context, jp jmespath.Interface, logger logr.Logger,
 	if err != nil {
 		return fmt.Errorf("failed to initialize APICall: %w", err)
 	}
-	if _, err := executor.Execute(ctx); err != nil {
+	if _, err := executor.FetchAndLoad(ctx); err != nil {
 		return fmt.Errorf("failed to execute APICall: %w", err)
 	}
 	return nil
