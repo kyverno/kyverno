@@ -101,15 +101,19 @@ func (d *deferredLoaders) Reset(restore bool, level int) {
 			i--
 			continue
 		} else {
-			if !restore {
+			if l.loader.HasLoaded() {
+				// reload data into the current context for restore, and
+				// reset if loader is at a prior level
+				if restore || (l.level < level) {
+					if err := d.loadData(l, i); err != nil {
+						logger.Error(err, "failed to reload context entry", "name", l.loader.Name())
+					}
+				}
 				if l.level == level {
 					d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
+					i--
 				}
-			} else if l.loader.HasLoaded() {
-				// reload data into the current context
-				if err := d.loadData(l, i); err != nil {
-					logger.Error(err, "failed to reload context entry", "name", l.loader.Name())
-				}
+			} else if !restore {
 				if l.level == level {
 					d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
 					i--

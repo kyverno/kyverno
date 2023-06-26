@@ -183,6 +183,21 @@ func addDeferredWithQuery(ctx *context, name string, value interface{}, query st
 	return loader, nil
 }
 
+func TestDeferredReset(t *testing.T) {
+	ctx := newContext()
+	addDeferred(ctx, "value", "0")
+
+	ctx.Checkpoint()
+	val, err := ctx.Query("value")
+	assert.NilError(t, err)
+	assert.Equal(t, "0", val)
+	ctx.Reset()
+
+	val, err = ctx.Query("value")
+	assert.NilError(t, err)
+	assert.Equal(t, "0", val)
+}
+
 func TestDeferredCheckpointRestore(t *testing.T) {
 	ctx := newContext()
 
