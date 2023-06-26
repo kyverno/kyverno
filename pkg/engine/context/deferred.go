@@ -103,7 +103,7 @@ func (d *deferredLoaders) Reset(restore bool, level int) {
 		} else {
 			if l.loader.HasLoaded() {
 				// reload data into the current context for restore, and
-				// reset if loader is at a prior level
+				// for a reset but only if loader is at a prior level
 				if restore || (l.level < level) {
 					if err := d.loadData(l, i); err != nil {
 						logger.Error(err, "failed to reload context entry", "name", l.loader.Name())
