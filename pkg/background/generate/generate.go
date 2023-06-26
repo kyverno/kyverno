@@ -255,14 +255,16 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 	genResources, err := c.ApplyGeneratePolicy(logger, policyContext, ur, applicableRules)
 
 	// generate events.
-	for _, res := range genResources {
-		e := event.NewResourceGenerationEvent(event.GeneratePolicyController, res)
-		c.eventGen.Add(e)
-	}
+	if err == nil {
+		for _, res := range genResources {
+			e := event.NewResourceGenerationEvent(ur.Spec.Policy, ur.Spec.Rule, event.GeneratePolicyController, res)
+			c.eventGen.Add(e)
+		}
 
-	if unstructuredPol, err := kubeutils.ObjToUnstructured(policy); err == nil && unstructuredPol != nil {
-		e := event.NewBackgroundSuccessEvent(ur.Spec.Policy, ur.Spec.Rule, event.GeneratePolicyController, unstructuredPol)
-		c.eventGen.Add(e...)
+		if unstructuredPol, polErr := kubeutils.ObjToUnstructured(policy); polErr == nil && unstructuredPol != nil {
+			e := event.NewBackgroundSuccessEvent(ur.Spec.Policy, ur.Spec.Rule, event.GeneratePolicyController, unstructuredPol)
+			c.eventGen.Add(e...)
+		}
 	}
 
 	return genResources, err

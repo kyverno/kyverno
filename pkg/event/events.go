@@ -86,8 +86,8 @@ func NewResourceViolationEvent(source Source, reason Reason, engineResponse engi
 	}
 }
 
-func NewResourceGenerationEvent(source Source, resource kyvernov1.ResourceSpec) Info {
-	msg := fmt.Sprintf("Created %s %s", resource.GetKind(), resource.GetName())
+func NewResourceGenerationEvent(policy, rule string, source Source, resource kyvernov1.ResourceSpec) Info {
+	msg := fmt.Sprintf("Created %s %s as a result of applying policy %s/%s", resource.GetKind(), resource.GetName(), policy, rule)
 
 	return Info{
 		Kind:      resource.GetKind(),
@@ -123,7 +123,12 @@ func NewBackgroundSuccessEvent(policy, rule string, source Source, r *unstructur
 	}
 
 	var events []Info
-	msg := fmt.Sprintf("policy %s/%s applied", policy, rule)
+	msg := "resource generated"
+
+	if source == MutateExistingController {
+		msg = "resource mutated"
+	}
+
 	events = append(events, Info{
 		Kind:      r.GetKind(),
 		Namespace: r.GetNamespace(),
