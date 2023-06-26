@@ -50,7 +50,7 @@ func NewTraceConfig(log logr.Logger, tracerName, address, certs string, kubeClie
 		resource.WithTelemetrySDK(),
 		resource.WithAttributes(
 			semconv.ServiceNameKey.String(tracerName),
-		    semconv.ServiceVersionKey.String(version.BuildVersion),
+			semconv.ServiceVersionKey.String(version.BuildVersion),
 		),
 		resource.WithFromEnv(),
 	)
