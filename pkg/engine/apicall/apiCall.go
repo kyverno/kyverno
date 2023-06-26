@@ -70,12 +70,10 @@ func (a *apiCall) Fetch(ctx context.Context) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", a.entry.Name, a.entry.APICall.URLPath, err)
 	}
-
 	data, err := a.execute(ctx, call)
 	if err != nil {
 		return nil, err
 	}
-
 	return data, nil
 }
 
@@ -84,7 +82,6 @@ func (a *apiCall) Store(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return results, nil
 }
 

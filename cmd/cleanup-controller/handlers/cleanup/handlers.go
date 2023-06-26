@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
@@ -132,7 +133,7 @@ func (h *handlers) executePolicy(
 		factories.WithConfigMapResolver(h.cmResolver),
 	)
 
-	loader := ctxFactory(policy.GetName(), "")
+	loader := ctxFactory(nil, kyvernov1.Rule{})
 	if err := loader.Load(ctx, spec.Context, enginectx); err != nil {
 		return err
 	}

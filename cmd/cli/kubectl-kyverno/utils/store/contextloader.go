@@ -1,6 +1,7 @@
 package store
 
 import (
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
@@ -12,23 +13,23 @@ func ContextLoaderFactory(
 	registryClient engineapi.RegistryClientFactory,
 	cmResolver engineapi.ConfigmapResolver,
 ) engineapi.ContextLoaderFactory {
-	return func(policyName, ruleName string) engineapi.ContextLoader {
+	return func(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) engineapi.ContextLoader {
 		if IsLocal() {
 			contextLoaderFactory := createLocalContextLoaderFactory(
 				apiClient,
 				registryClient,
 				cmResolver,
-				policyName,
-				ruleName,
+				policy.GetName(),
+				rule.Name,
 			)
-			return contextLoaderFactory(policyName, ruleName)
+			return contextLoaderFactory(policy, rule)
 		} else {
 			contextLoader := factories.DefaultContextLoaderFactory(
 				factories.WithAPIClient(apiClient),
 				factories.WithRegistryClientFactory(registryClient),
 				factories.WithConfigMapResolver(cmResolver),
 			)
-			return contextLoader(policyName, ruleName)
+			return contextLoader(policy, rule)
 		}
 	}
 }

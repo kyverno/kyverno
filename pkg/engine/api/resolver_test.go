@@ -143,9 +143,7 @@ func checkError(wantErr, err error) bool {
 		if err == nil {
 			return false
 		}
-
 		return wantErr.Error() == err.Error()
 	}
-
 	return err == nil
 }
