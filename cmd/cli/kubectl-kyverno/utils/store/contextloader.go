@@ -4,7 +4,6 @@ import (
 	"context"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
@@ -33,7 +32,6 @@ func ContextLoaderFactory(cmResolver engineapi.ConfigmapResolver) engineapi.Cont
 					}
 				}
 			}
-
 			return nil
 		}
 		factory := factories.DefaultContextLoaderFactory(cmResolver, factories.WithInitializer(init))
@@ -56,9 +54,8 @@ func (w wrapper) Load(
 	if !IsApiCallAllowed() {
 		client = nil
 	}
-	if GetRegistryAccess() {
-		rc := GetRegistryClient()
-		rclientFactory = factories.DefaultRegistryClientFactory(adapters.RegistryClient(rc), nil)
+	if !GetRegistryAccess() {
+		rclientFactory = nil
 	}
 	return w.inner.Load(ctx, jp, client, rclientFactory, contextEntries, jsonContext)
 }
