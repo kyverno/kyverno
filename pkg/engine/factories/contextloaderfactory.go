@@ -63,7 +63,6 @@ func (l *contextLoader) Load(
 				return err
 			}
 		}
-		jsonContext.AddDeferredLoader(entry.Name, deferredLoader)
 	}
 	return nil
 }
