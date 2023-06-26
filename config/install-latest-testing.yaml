@@ -38414,10 +38414,11 @@ rules:
     resources:
       - secrets
     verbs:
+      - delete
       - get
       - list
-      - watch
       - update
+      - watch
     resourceNames:
       - kyverno-cleanup-controller.kyverno.svc.kyverno-tls-ca
       - kyverno-cleanup-controller.kyverno.svc.kyverno-tls-pair
