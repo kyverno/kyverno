@@ -200,7 +200,7 @@ func Command() *cobra.Command {
 }
 
 func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, resources []*unstructured.Unstructured, skipInvalidPolicies SkippedInvalidPolicies, pvInfos []common.Info, err error) {
-	store.SetMock(true)
+	store.SetLocal(true)
 	store.SetRegistryAccess(c.RegistryAccess)
 	if c.Cluster {
 		store.AllowApiCall(true)
