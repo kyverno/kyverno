@@ -132,7 +132,9 @@ func (ml *mockLoader) LoadData() error {
 	ml.ctx.AddVariable(ml.name, ml.value)
 
 	// simulate a JMESPath evaluation after loading
-	ml.executeQuery()
+	if err := ml.executeQuery(); err != nil {
+		return err
+	}
 
 	ml.hasLoaded = true
 	if ml.eventHandler != nil {
@@ -396,4 +398,26 @@ func TestDeferredNotHidden(t *testing.T) {
 	val, err := ctx.Query("one")
 	assert.NilError(t, err)
 	assert.Equal(t, "foo", val)
+}
+
+func TestDeferredNotHiddenOrdered(t *testing.T) {
+	ctx := newContext()
+	addDeferred(ctx, "foo", "foo")
+	addDeferredWithQuery(ctx, "one", "1", "foo")
+	addDeferred(ctx, "foo", "baz")
+
+	ctx.Checkpoint()
+	addDeferred(ctx, "foo", "bar")
+	val, err := ctx.Query("one")
+	assert.NilError(t, err)
+	assert.Equal(t, "foo", val)
+	ctx.Restore()
+
+	val, err = ctx.Query("one")
+	assert.NilError(t, err)
+	assert.Equal(t, "foo", val)
+
+	val, err = ctx.Query("foo")
+	assert.NilError(t, err)
+	assert.Equal(t, "baz", val)
 }

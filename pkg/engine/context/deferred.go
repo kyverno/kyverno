@@ -69,7 +69,8 @@ func (cl *leveledLoader) LoadData() error {
 
 type deferredLoaders struct {
 	enableDeferredLoading bool
-	level                 *int
+	level                 int
+	index                 int
 	loaders               []*leveledLoader
 }
 
@@ -77,6 +78,8 @@ func NewDeferredLoaders(enableDeferredLoading bool) DeferredLoaders {
 	return &deferredLoaders{
 		enableDeferredLoading: enableDeferredLoading,
 		loaders:               make([]*leveledLoader, 0),
+		level:                 -1,
+		index:                 -1,
 	}
 }
 
@@ -89,65 +92,86 @@ func (d *deferredLoaders) Add(dl DeferredLoader, level int) {
 }
 
 func (d *deferredLoaders) Reset(restore bool, level int) {
-	for i := len(d.loaders) - 1; i >= 0; i-- {
-		d.loaders[i].matched = false
-		if d.loaders[i].level > level {
+	d.clearMatches()
+	for i := 0; i < len(d.loaders); i++ {
+		l := d.loaders[i]
+		if l.level > level {
 			// remove loaders from a nested context (level > current)
 			d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
+			i--
+			continue
 		} else {
-			if d.loaders[i].loader.HasLoaded() {
+			if !restore {
+				if l.level == level {
+					d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
+				}
+			} else if l.loader.HasLoaded() {
 				// reload data into the current context
-				if err := d.loaders[i].loader.LoadData(); err != nil {
-					logger.Error(err, "failed to reload context entry", "name", d.loaders[i].loader.Name())
+				if err := d.loadData(l, i); err != nil {
+					logger.Error(err, "failed to reload context entry", "name", l.loader.Name())
 				}
-				if d.loaders[i].level == level {
+				if l.level == level {
 					d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
-				}
-			} else if !restore {
-				if d.loaders[i].level == level {
-					d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
+					i--
 				}
 			}
 		}
 	}
 }
 
+func (d *deferredLoaders) clearMatches() {
+	for _, dl := range d.loaders {
+		dl.matched = false
+	}
+}
+
 func (d *deferredLoaders) LoadMatching(query string, level int) error {
-	if d.level != nil {
-		level = *d.level
+	if d.level >= 0 {
+		level = d.level
 	}
 
-	for loader := d.match(query, level); loader != nil; loader = d.match(query, level) {
-		l := loader.Level()
-		d.level = &l
+	index := len(d.loaders)
+	if d.index >= 0 {
+		index = d.index
+	}
 
-		if err := loader.LoadData(); err != nil {
-			return err
+	for l, idx := d.match(query, level, index); l != nil; l, idx = d.match(query, level, index) {
+		if err := d.loadData(l, idx); err != nil {
+			return nil
 		}
-
-		d.level = nil
 	}
 
 	return nil
 }
 
-func (d *deferredLoaders) match(query string, level int) LeveledLoader {
-	for i, dl := range d.loaders {
+func (d *deferredLoaders) loadData(l *leveledLoader, index int) error {
+	d.setLevelAndIndex(l.level, index)
+	defer d.setLevelAndIndex(-1, -1)
+	if err := l.LoadData(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *deferredLoaders) setLevelAndIndex(level, index int) {
+	d.level = level
+	d.index = index
+}
+
+func (d *deferredLoaders) match(query string, level, index int) (*leveledLoader, int) {
+	for i := 0; i < index; i++ {
+		dl := d.loaders[i]
 		if dl.matched || dl.loader.HasLoaded() {
 			continue
 		}
 
 		if dl.Matches(query) && dl.level <= level {
-			if dl.level == level {
-				// remove loaders at current level after execution
-				d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
-			} else {
-				d.loaders[i].matched = true
-			}
-
-			return dl
+			idx := i
+			d.loaders[i].matched = true
+			return dl, idx
 		}
 	}
 
-	return nil
+	return nil, -1
 }
