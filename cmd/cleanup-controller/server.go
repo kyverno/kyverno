@@ -35,8 +35,8 @@ type (
 )
 
 type Probes interface {
-	IsReady() bool
-	IsLive() bool
+	IsReady(context.Context) bool
+	IsLive(context.Context) bool
 }
 
 // NewServer creates new instance of server accordingly to given configuration

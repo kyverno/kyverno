@@ -13,3 +13,5 @@
 /pkg/validation         @realshuting
 /pkg/webhooks           @marcelmue @realshuting
 /test                   @chipzoller @eddycharly @realshuting
+/pkg/cosign             @Vishal-Chdhry
+/pkg/notary             @Vishal-Chdhry

@@ -37920,17 +37920,9 @@ rules:
     resources:
       - clustercleanuppolicies
       - cleanuppolicies
-      - clustercleanuppolicies/*
-      - cleanuppolicies/*
     verbs:
-      - create
-      - delete
-      - get
       - list
-      - patch
-      - update
       - watch
-      - deletecollection
   - apiGroups:
       - batch
     resources:
@@ -37943,14 +37935,14 @@ rules:
       - update
       - watch
   - apiGroups:
-    - ''
-    - events.k8s.io
+      - ''
+      - events.k8s.io
     resources:
-    - events
+      - events
     verbs:
-    - create
-    - patch
-    - update
+      - create
+      - patch
+      - update
   - apiGroups:
       - authorization.k8s.io
     resources:
@@ -38412,10 +38404,17 @@ rules:
       - leases
     verbs:
       - create
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
       - delete
       - get
       - patch
       - update
+    resourceNames:
+      - kyverno-background-controller
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -38433,11 +38432,19 @@ rules:
     resources:
       - secrets
     verbs:
+      - create
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    verbs:
       - get
       - list
       - watch
-      - create
       - update
+    resourceNames:
+      - kyverno-cleanup-controller.kyverno.svc.kyverno-tls-ca
+      - kyverno-cleanup-controller.kyverno.svc.kyverno-tls-pair
   - apiGroups:
       - ''
     resources:
@@ -38455,10 +38462,17 @@ rules:
       - leases
     verbs:
       - create
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
       - delete
       - get
       - patch
       - update
+    resourceNames:
+      - kyverno-cleanup-controller
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -38488,10 +38502,17 @@ rules:
       - leases
     verbs:
       - create
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
       - delete
       - get
       - patch
       - update
+    resourceNames:
+      - kyverno-reports-controller
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -38770,6 +38791,8 @@ spec:
             seccompProfile:
               type: RuntimeDefault
           env:
+          - name: KYVERNO_SERVICEACCOUNT_NAME
+            value: kyverno-admission-controller
           - name: INIT_CONFIG
             value: kyverno
           - name: METRICS_CONFIG
@@ -38949,6 +38972,10 @@ spec:
             - --v=2
             - --enablePolicyException=false
           env:
+          - name: KYVERNO_SERVICEACCOUNT_NAME
+            value: kyverno-background-controller
+          - name: KYVERNO_DEPLOYMENT
+            value: kyverno-background-controller
           - name: INIT_CONFIG
             value: kyverno
           - name: METRICS_CONFIG
@@ -39041,6 +39068,8 @@ spec:
             - --loggingFormat=text
             - --v=2
           env:
+          - name: KYVERNO_DEPLOYMENT
+            value: kyverno-cleanup-controller
           - name: INIT_CONFIG
             value: kyverno
           - name: METRICS_CONFIG
@@ -39174,6 +39203,10 @@ spec:
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
           env:
+          - name: KYVERNO_SERVICEACCOUNT_NAME
+            value: kyverno-reports-controller
+          - name: KYVERNO_DEPLOYMENT
+            value: kyverno-reports-controller
           - name: INIT_CONFIG
             value: kyverno
           - name: METRICS_CONFIG
