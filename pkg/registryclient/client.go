@@ -140,7 +140,7 @@ func WithCredentialProviders(credentialProviders ...string) Option {
 			chains = append(chains, authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()))
 		}
 		if helpers.Has("github") {
-			chains = append(chains, authn.NewKeychainFromHelper(credHelper))
+			chains = append(chains, authn.NewKeychainFromHelper(credHelper{}))
 		}
 		c.keychain = append(c.keychain, chains...)
 		return nil
