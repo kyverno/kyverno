@@ -61,11 +61,13 @@ func (l *contextLoader) Load(
 		}
 		if loader != nil {
 			if toggle.FromContext(ctx).EnableDeferredLoading() {
-				if err := jsonContext.AddDeferredLoader(entry.Name, loader); err != nil {
+				if err := jsonContext.AddDeferredLoader(loader); err != nil {
 					return err
 				}
 			} else {
-				return loader.LoadData()
+				if err := loader.LoadData(); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -79,11 +81,11 @@ func (l *contextLoader) newLoader(
 	rclientFactory engineapi.RegistryClientFactory,
 	entry kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
-) (enginecontext.Loader, error) {
+) (enginecontext.DeferredLoader, error) {
 	if entry.ConfigMap != nil {
 		if l.cmResolver != nil {
 			l := loaders.NewConfigMapLoader(ctx, l.logger, entry, l.cmResolver, jsonContext)
-			return l, nil
+			return enginecontext.NewDeferredLoader(entry.Name, l)
 		} else {
 			l.logger.Info("disabled loading of ConfigMap context entry %s", entry.Name)
 			return nil, nil
@@ -91,7 +93,7 @@ func (l *contextLoader) newLoader(
 	} else if entry.APICall != nil {
 		if client != nil {
 			l := loaders.NewAPILoader(ctx, l.logger, entry, jsonContext, jp, client)
-			return l, nil
+			return enginecontext.NewDeferredLoader(entry.Name, l)
 		} else {
 			l.logger.Info("disabled loading of APICall context entry %s", entry.Name)
 			return nil, nil
@@ -99,14 +101,14 @@ func (l *contextLoader) newLoader(
 	} else if entry.ImageRegistry != nil {
 		if rclientFactory != nil {
 			l := loaders.NewImageDataLoader(ctx, l.logger, entry, jsonContext, jp, rclientFactory)
-			return l, nil
+			return enginecontext.NewDeferredLoader(entry.Name, l)
 		} else {
 			l.logger.Info("disabled loading of ImageRegistry context entry %s", entry.Name)
 			return nil, nil
 		}
 	} else if entry.Variable != nil {
 		l := loaders.NewVariableLoader(l.logger, entry, jsonContext, jp)
-		return l, nil
+		return enginecontext.NewDeferredLoader(entry.Name, l)
 	}
 	return nil, fmt.Errorf("missing ConfigMap|APICall|ImageRegistry|Variable in context entry %s", entry.Name)
 }

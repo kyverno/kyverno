@@ -1,0 +1,33 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: one
+spec:
+  validationFailureAction: Enforce
+  rules:
+  - name: one
+    match:
+      all:
+      - resources:
+          kinds:
+          - v1/ConfigMap
+    context:
+    - name: foo
+      variable:
+        value: foo
+    - name: one
+      variable:
+        jmesPath: foo
+    - name: foo
+      variable:
+        value: baz
+    mutate:
+      foreach:
+      - list: "['dummy']"
+        context:
+        - name: foo
+          variable:
+            value: bar
+        patchStrategicMerge:
+          data:
+            one: "{{ one }}"

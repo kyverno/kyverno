@@ -269,6 +269,7 @@ func Test_variableSubstitutionCLI(t *testing.T) {
 		policyContext,
 		ctxLoaderFactory,
 	)
+
 	require.Equal(t, 1, len(er.PolicyResponse.Rules))
 
 	patched := er.PatchedResource
