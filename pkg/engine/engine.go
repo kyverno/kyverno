@@ -241,6 +241,8 @@ func (e *engine) invokeRuleHandler(
 		"pkg/engine",
 		fmt.Sprintf("RULE %s", rule.Name),
 		func(ctx context.Context, span trace.Span) (unstructured.Unstructured, []engineapi.RuleResponse) {
+			policyContext.JSONContext().Checkpoint()
+			defer policyContext.JSONContext().Restore()
 			// check if resource and rule match
 			if err := e.matches(rule, policyContext, resource); err != nil {
 				logger.V(4).Info("rule not matched", "reason", err.Error())
