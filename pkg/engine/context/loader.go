@@ -37,7 +37,6 @@ type LeveledLoader interface {
 
 // DeferredLoaders manages a list of DeferredLoader instances
 type DeferredLoaders interface {
-	Enabled() bool
 	Add(loader DeferredLoader, level int)
 	LoadMatching(query string, level int) error
 	Reset(removeCheckpoint bool, level int)

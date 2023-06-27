@@ -68,10 +68,9 @@ func (cl *leveledLoader) LoadData() error {
 }
 
 type deferredLoaders struct {
-	enableDeferredLoading bool
-	level                 int
-	index                 int
-	loaders               []*leveledLoader
+	level   int
+	index   int
+	loaders []*leveledLoader
 }
 
 func NewDeferredLoaders() DeferredLoaders {
@@ -80,10 +79,6 @@ func NewDeferredLoaders() DeferredLoaders {
 		level:   -1,
 		index:   -1,
 	}
-}
-
-func (d *deferredLoaders) Enabled() bool {
-	return d.enableDeferredLoading
 }
 
 func (d *deferredLoaders) Add(dl DeferredLoader, level int) {

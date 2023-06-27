@@ -357,9 +357,6 @@ func (ctx *context) resetCheckpoint(removeCheckpoint bool) bool {
 }
 
 func (ctx *context) AddDeferredLoader(dl DeferredLoader) error {
-	if !ctx.deferred.Enabled() {
-		return dl.LoadData()
-	}
 	ctx.deferred.Add(dl, len(ctx.jsonRawCheckpoints))
 	return nil
 }
