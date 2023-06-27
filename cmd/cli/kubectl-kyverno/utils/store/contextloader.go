@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -17,7 +18,7 @@ func ContextLoaderFactory(
 	cmResolver engineapi.ConfigmapResolver,
 ) engineapi.ContextLoaderFactory {
 	return func(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) engineapi.ContextLoader {
-		inner := engineapi.DefaultContextLoaderFactory(cmResolver)
+		inner := factories.DefaultContextLoaderFactory(cmResolver)
 		if IsMock() {
 			return &mockContextLoader{
 				logger:     logging.WithName("MockContextLoaderFactory"),

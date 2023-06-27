@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
+	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"k8s.io/client-go/kubernetes"
@@ -39,7 +40,7 @@ func NewEngine(
 		jp,
 		client,
 		rclient,
-		engineapi.DefaultContextLoaderFactory(configMapResolver),
+		factories.DefaultContextLoaderFactory(configMapResolver),
 		exceptionsSelector,
 	)
 }
