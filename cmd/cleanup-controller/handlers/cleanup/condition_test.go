@@ -15,7 +15,7 @@ import (
 var jp = jmespath.New(config.NewDefaultConfiguration(false))
 
 func Test_checkCondition(t *testing.T) {
-	ctx := enginecontext.NewContext(jp, true)
+	ctx := enginecontext.NewContext(jp)
 	ctx.AddResource(map[string]interface{}{
 		"name": "dummy",
 	})

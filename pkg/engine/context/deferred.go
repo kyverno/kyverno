@@ -74,12 +74,11 @@ type deferredLoaders struct {
 	loaders               []*leveledLoader
 }
 
-func NewDeferredLoaders(enableDeferredLoading bool) DeferredLoaders {
+func NewDeferredLoaders() DeferredLoaders {
 	return &deferredLoaders{
-		enableDeferredLoading: enableDeferredLoading,
-		loaders:               make([]*leveledLoader, 0),
-		level:                 -1,
-		index:                 -1,
+		loaders: make([]*leveledLoader, 0),
+		level:   -1,
+		index:   -1,
 	}
 }
 

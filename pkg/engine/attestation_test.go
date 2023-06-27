@@ -247,7 +247,7 @@ func Test_Conditions(t *testing.T) {
 		},
 	}
 
-	ctx := context.NewContext(jmespath.New(config.NewDefaultConfiguration(false)), true)
+	ctx := context.NewContext(jmespath.New(config.NewDefaultConfiguration(false)))
 	img := api.ImageInfo{Pointer: "/spec/containers/0/image"}
 	img.ImageInfo = image.ImageInfo{
 		Registry: "docker.io",

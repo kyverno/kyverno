@@ -42,7 +42,7 @@ func Test_serviceGetRequest(t *testing.T) {
 	defer s.Close()
 
 	entry := kyvernov1.ContextEntry{}
-	ctx := enginecontext.NewContext(jp, true)
+	ctx := enginecontext.NewContext(jp)
 
 	_, err := New(logr.Discard(), jp, entry, ctx, nil)
 	assert.ErrorContains(t, err, "missing APICall")
@@ -90,7 +90,7 @@ func Test_servicePostRequest(t *testing.T) {
 		},
 	}
 
-	ctx := enginecontext.NewContext(jp, true)
+	ctx := enginecontext.NewContext(jp)
 	call, err := New(logr.Discard(), jp, entry, ctx, nil)
 	assert.NilError(t, err)
 	data, err := call.FetchAndLoad(context.TODO())

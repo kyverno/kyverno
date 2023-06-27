@@ -78,7 +78,7 @@ func Test_variablesub1(t *testing.T) {
 		t.Error(err)
 	}
 	// context
-	ctx := context.NewContext(jp, true)
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -168,7 +168,7 @@ func Test_variablesub_multiple(t *testing.T) {
 	}
 
 	// context
-	ctx := context.NewContext(jp, true)
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -256,7 +256,7 @@ func Test_variablesubstitution(t *testing.T) {
 	}
 
 	// context
-	ctx := context.NewContext(jp, true)
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -321,7 +321,7 @@ func Test_variableSubstitutionValue(t *testing.T) {
 	}
 
 	// context
-	ctx := context.NewContext(jp, true)
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -378,7 +378,7 @@ func Test_variableSubstitutionValueOperatorNotEqual(t *testing.T) {
 	}
 
 	// context
-	ctx := context.NewContext(jp, true)
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -436,7 +436,7 @@ func Test_variableSubstitutionValueFail(t *testing.T) {
 	}
 
 	// context
-	ctx := context.NewContext(jp, true)
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -493,7 +493,7 @@ func Test_variableSubstitutionObject(t *testing.T) {
 	}
 
 	// context
-	ctx := context.NewContext(jp, true)
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -557,7 +557,7 @@ func Test_variableSubstitutionObjectOperatorNotEqualFail(t *testing.T) {
 	}
 
 	// context
-	ctx := context.NewContext(jp, true)
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -632,7 +632,7 @@ func Test_variableSubstitutionMultipleObject(t *testing.T) {
 	}
 
 	// context
-	ctx := context.NewContext(jp, true)
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)

@@ -55,7 +55,7 @@ func newPolicyContext(
 	admissionInfo *kyvernov1beta1.RequestInfo,
 ) *PolicyContext {
 	t.Helper()
-	p, err := NewPolicyContext(context.TODO(), jp, resource, operation, admissionInfo, cfg)
+	p, err := NewPolicyContext(jp, resource, operation, admissionInfo, cfg)
 	assert.NilError(t, err)
 	return p
 }

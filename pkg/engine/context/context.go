@@ -114,17 +114,17 @@ type context struct {
 }
 
 // NewContext returns a new context
-func NewContext(jp jmespath.Interface, enableDeferredLoading bool) Interface {
-	return NewContextFromRaw(jp, []byte(`{}`), true)
+func NewContext(jp jmespath.Interface) Interface {
+	return NewContextFromRaw(jp, []byte(`{}`))
 }
 
 // NewContextFromRaw returns a new context initialized with raw data
-func NewContextFromRaw(jp jmespath.Interface, raw []byte, enableDeferredLoading bool) Interface {
+func NewContextFromRaw(jp jmespath.Interface, raw []byte) Interface {
 	return &context{
 		jp:                 jp,
 		jsonRaw:            raw,
 		jsonRawCheckpoints: make([][]byte, 0),
-		deferred:           NewDeferredLoaders(enableDeferredLoading),
+		deferred:           NewDeferredLoaders(),
 	}
 }
 

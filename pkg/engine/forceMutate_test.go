@@ -103,7 +103,7 @@ func Test_ForceMutateSubstituteVars(t *testing.T) {
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
 	jp := jmespath.New(config.NewDefaultConfiguration(false))
-	ctx := context.NewContext(jp, true)
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, rawResource)
 	assert.NilError(t, err)
 
@@ -209,7 +209,7 @@ func Test_ForceMutateSubstituteVarsWithPatchesJson6902(t *testing.T) {
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
 	jp := jmespath.New(config.NewDefaultConfiguration(false))
-	ctx := context.NewContext(jp, true)
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, rawResource)
 	assert.NilError(t, err)
 
@@ -296,7 +296,7 @@ func Test_ForceMutateSubstituteVarsWithPatchStrategicMerge(t *testing.T) {
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
 	jp := jmespath.New(config.NewDefaultConfiguration(false))
-	ctx := context.NewContext(jp, true)
+	ctx := context.NewContext(jp)
 	err = context.AddResource(ctx, rawResource)
 	assert.NilError(t, err)
 

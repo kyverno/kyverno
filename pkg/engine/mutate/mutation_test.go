@@ -33,7 +33,7 @@ type jsonPatch struct {
 }
 
 func applyPatches(rule *types.Rule, resource unstructured.Unstructured) (*engineapi.RuleResponse, unstructured.Unstructured) {
-	mutateResp := Mutate(rule, context.NewContext(jmespath.New(config.NewDefaultConfiguration(false)), true), resource, logr.Discard())
+	mutateResp := Mutate(rule, context.NewContext(jmespath.New(config.NewDefaultConfiguration(false))), resource, logr.Discard())
 	if mutateResp.Status != engineapi.RuleStatusPass {
 		return engineapi.NewRuleResponse("", engineapi.Mutation, mutateResp.Message, mutateResp.Status), resource
 	}

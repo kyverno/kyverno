@@ -377,7 +377,7 @@ func TestEvaluate(t *testing.T) {
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{1, 5, 7}), Operator: kyverno.ConditionOperators["AnyNotIn"], RawValue: kyverno.ToJSON("0-10")}, false},
 	}
 
-	ctx := context.NewContext(jmespath.New(config.NewDefaultConfiguration(false)), true)
+	ctx := context.NewContext(jmespath.New(config.NewDefaultConfiguration(false)))
 	for _, tc := range testCases {
 		if val, _, _ := Evaluate(logr.Discard(), ctx, tc.Condition); val != tc.Result {
 			t.Errorf("%v - expected result to be %v", tc.Condition, tc.Result)
@@ -402,7 +402,7 @@ func Test_Eval_Equal_Var_Pass(t *testing.T) {
 		`)
 
 	// context
-	ctx := context.NewContext(jmespath.New(config.NewDefaultConfiguration(false)), true)
+	ctx := context.NewContext(jmespath.New(config.NewDefaultConfiguration(false)))
 	err := context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -432,7 +432,7 @@ func Test_Eval_Equal_Var_Fail(t *testing.T) {
 		`)
 
 	// context
-	ctx := context.NewContext(jmespath.New(config.NewDefaultConfiguration(false)), true)
+	ctx := context.NewContext(jmespath.New(config.NewDefaultConfiguration(false)))
 	err := context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
@@ -462,7 +462,7 @@ func Test_Condition_Messages(t *testing.T) {
 	}
 	`)
 
-	ctx := context.NewContext(jmespath.New(config.NewDefaultConfiguration(false)), true)
+	ctx := context.NewContext(jmespath.New(config.NewDefaultConfiguration(false)))
 	err := context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)

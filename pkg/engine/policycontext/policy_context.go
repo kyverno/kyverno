@@ -1,7 +1,6 @@
 package policycontext
 
 import (
-	"context"
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -10,7 +9,6 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
-	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -188,15 +186,13 @@ func newPolicyContextWithJsonContext(operation kyvernov1.AdmissionOperation, jso
 }
 
 func NewPolicyContext(
-	ctx context.Context,
 	jp jmespath.Interface,
 	resource unstructured.Unstructured,
 	operation kyvernov1.AdmissionOperation,
 	admissionInfo *kyvernov1beta1.RequestInfo,
 	configuration config.Configuration,
 ) (*PolicyContext, error) {
-	enableDeferredLoading := toggle.FromContext(ctx).EnableDeferredLoading()
-	enginectx := enginectx.NewContext(jp, enableDeferredLoading)
+	enginectx := enginectx.NewContext(jp)
 	if err := enginectx.AddResource(resource.Object); err != nil {
 		return nil, err
 	}
@@ -230,14 +226,13 @@ func NewPolicyContext(
 }
 
 func NewPolicyContextFromAdmissionRequest(
-	ctx context.Context,
 	jp jmespath.Interface,
 	request admissionv1.AdmissionRequest,
 	admissionInfo kyvernov1beta1.RequestInfo,
 	gvk schema.GroupVersionKind,
 	configuration config.Configuration,
 ) (*PolicyContext, error) {
-	engineCtx, err := newJsonContext(ctx, jp, request, &admissionInfo)
+	engineCtx, err := newJsonContext(jp, request, &admissionInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create policy rule context: %w", err)
 	}
@@ -259,13 +254,11 @@ func NewPolicyContextFromAdmissionRequest(
 }
 
 func newJsonContext(
-	ctx context.Context,
 	jp jmespath.Interface,
 	request admissionv1.AdmissionRequest,
 	userRequestInfo *kyvernov1beta1.RequestInfo,
 ) (enginectx.Interface, error) {
-	enableDeferredLoading := toggle.FromContext(ctx).EnableDeferredLoading()
-	engineCtx := enginectx.NewContext(jp, enableDeferredLoading)
+	engineCtx := enginectx.NewContext(jp)
 	if err := engineCtx.AddRequest(request); err != nil {
 		return nil, fmt.Errorf("failed to load incoming request in context: %w", err)
 	}

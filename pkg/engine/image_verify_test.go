@@ -227,7 +227,6 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) *Po
 	assert.NilError(t, err)
 
 	policyContext, err := policycontext.NewPolicyContext(
-		context.TODO(),
 		jp,
 		*resourceUnstructured,
 		kyverno.Create,

@@ -17,7 +17,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/toggle"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"github.com/kyverno/kyverno/pkg/utils/match"
 	"go.opentelemetry.io/otel"
@@ -125,8 +124,7 @@ func (h *handlers) executePolicy(
 	debug := logger.V(4)
 	var errs []error
 
-	enableDeferredLoading := toggle.FromContext(ctx).EnableDeferredLoading()
-	enginectx := enginecontext.NewContext(h.jp, enableDeferredLoading)
+	enginectx := enginecontext.NewContext(h.jp)
 	ctxFactory := factories.DefaultContextLoaderFactory(h.cmResolver)
 
 	loader := ctxFactory(nil, kyvernov1.Rule{})

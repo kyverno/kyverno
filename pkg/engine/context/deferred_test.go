@@ -96,7 +96,7 @@ func newContext() *context {
 		jp:                 jp,
 		jsonRaw:            []byte(`{}`),
 		jsonRawCheckpoints: make([][]byte, 0),
-		deferred:           NewDeferredLoaders(true),
+		deferred:           NewDeferredLoaders(),
 	}
 }
 

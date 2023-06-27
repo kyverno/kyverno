@@ -1073,7 +1073,6 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			assert.NilError(t, err)
 
 			ctx, err := engine.NewPolicyContext(
-				context.TODO(),
 				jp,
 				*resourceUnstructured,
 				kyvernov1.Create,
@@ -1147,7 +1146,6 @@ func Test_RuleSelector(t *testing.T) {
 	cfg := config.NewDefaultConfiguration(false)
 	jp := jmespath.New(cfg)
 	ctx, err := engine.NewPolicyContext(
-		context.TODO(),
 		jp,
 		*resourceUnstructured,
 		kyvernov1.Create,
