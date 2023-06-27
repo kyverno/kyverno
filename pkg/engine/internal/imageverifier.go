@@ -207,12 +207,14 @@ func (iv *ImageVerifier) Verify(
 		changed, err := iv.policyContext.JSONContext().HasChanged(pointer)
 		if err == nil && !changed {
 			iv.logger.V(4).Info("no change in image, skipping check", "image", image)
+			iv.ivm.Add(image, true)
 			continue
 		}
 
 		verified, err := isImageVerified(iv.policyContext.NewResource(), image, iv.logger)
 		if err == nil && verified {
 			iv.logger.Info("image was previously verified, skipping check", "image", image)
+			iv.ivm.Add(image, true)
 			continue
 		}
 
