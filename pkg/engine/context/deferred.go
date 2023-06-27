@@ -96,10 +96,7 @@ func (d *deferredLoaders) Reset(restore bool, level int) {
 	for i := 0; i < len(d.loaders); i++ {
 		l := d.loaders[i]
 		if l.level > level {
-			// remove loaders from a nested context (level > current)
-			d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
-			i--
-			continue
+			i = d.removeLoader(i)
 		} else {
 			if l.loader.HasLoaded() {
 				// reload data into the current context for restore, and
@@ -110,17 +107,22 @@ func (d *deferredLoaders) Reset(restore bool, level int) {
 					}
 				}
 				if l.level == level {
-					d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
-					i--
+					i = d.removeLoader(i)
 				}
 			} else if !restore {
 				if l.level == level {
-					d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
-					i--
+					i = d.removeLoader(i)
 				}
 			}
 		}
 	}
+}
+
+// removeLoader removes loader at the specified index
+// and returns the prior index
+func (d *deferredLoaders) removeLoader(i int) int {
+	d.loaders = append(d.loaders[:i], d.loaders[i+1:]...)
+	return i - 1
 }
 
 func (d *deferredLoaders) clearMatches() {
