@@ -67,6 +67,7 @@ func main() {
 		internal.WithKyvernoClient(),
 		internal.WithKyvernoDynamicClient(),
 		internal.WithConfigMapCaching(),
+		internal.WithDeferredLoading(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
