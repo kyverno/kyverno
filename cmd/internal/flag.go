@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/toggle"
 )
 
 var (
@@ -87,6 +88,10 @@ func initConfigMapCachingFlags() {
 	flag.BoolVar(&enableConfigMapCaching, "enableConfigMapCaching", true, "Enable config maps caching.")
 }
 
+func initDeferredLoadingFlags() {
+	flag.Func(toggle.EnableDeferredLoadingFlagName, toggle.EnableDeferredLoadingDescription, toggle.EnableDeferredLoading.Parse)
+}
+
 func initCosignFlags() {
 	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
 }
@@ -159,6 +164,10 @@ func initFlags(config Configuration, opts ...Option) {
 	// config map caching
 	if config.UsesConfigMapCaching() {
 		initConfigMapCachingFlags()
+	}
+	// deferred loading
+	if config.UsesDeferredLoading() {
+		initDeferredLoadingFlags()
 	}
 	// cosign
 	if config.UsesCosign() {

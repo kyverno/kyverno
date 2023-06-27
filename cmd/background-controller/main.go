@@ -101,6 +101,7 @@ func main() {
 		internal.WithKubeconfig(),
 		internal.WithPolicyExceptions(),
 		internal.WithConfigMapCaching(),
+		internal.WithDeferredLoading(),
 		internal.WithRegistryClient(),
 		internal.WithLeaderElection(),
 		internal.WithKyvernoClient(),
