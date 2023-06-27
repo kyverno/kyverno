@@ -259,7 +259,9 @@ func (e *engine) invokeRuleHandler(
 				defer func() {
 					policyContext.JSONContext().Restore()
 					if patchedResource.Object != nil {
-						_ = policyContext.JSONContext().AddResource(patchedResource.Object)
+						if err := policyContext.JSONContext().AddResource(patchedResource.Object); err != nil {
+							logger.Error(err, "failed to add resource in the json context")
+						}
 					}
 				}()
 				// load rule context
