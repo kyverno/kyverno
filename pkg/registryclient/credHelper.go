@@ -1,13 +1,12 @@
 package registryclient
 
 import (
-	"net/url"
 	"os"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 )
 
-var (
+const (
 	ghcrHostName = "ghcr.io"
 	dockerhostName = "docker.io"
 	gcrHostName = "gcr.io"
@@ -18,11 +17,7 @@ var credentialHelper authn.Helper = credHelper{}
 type credHelper struct{}
 
 func (ch credHelper) Get(serverUrl string) (string, string, error) {
-	serverURL, err := url.Parse(serverUrl)
-	if err != nil {
-		return "", "", nil
-	}
-	if serverURL.Hostname() == ghcrHostName {
+	if serverUrl == ghcrHostName {
 		username := os.Getenv("GITHUB_ACTOR")
 		if username == "" {
 			username = "unset"
@@ -31,11 +26,12 @@ func (ch credHelper) Get(serverUrl string) (string, string, error) {
 			return username, tok, nil
 		}
 	}
-	if serverURL.Hostname == dockerhostName {
+
+	if serverUrl == dockerhostName {
 		// TODO
 	}
 
-	if serverURL.HostName == gcrHostName {
+	if serverUrl == gcrHostName {
 		// TODO
 	}
 	
