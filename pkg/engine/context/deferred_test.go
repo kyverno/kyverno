@@ -297,7 +297,7 @@ func TestDeferredForloop(t *testing.T) {
 		assert.NilError(t, err)
 		assert.Equal(t, float64(i-1), val)
 
-		ctx.Restore()
+		ctx.Reset()
 		mock, _ := addDeferred(ctx, "value", i)
 		val, err = ctx.Query("value")
 		assert.NilError(t, err)
