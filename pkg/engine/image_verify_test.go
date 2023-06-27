@@ -14,6 +14,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
+	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
@@ -180,7 +181,7 @@ func testVerifyAndPatchImages(
 		jp,
 		nil,
 		rclient,
-		engineapi.DefaultContextLoaderFactory(cmResolver),
+		factories.DefaultContextLoaderFactory(cmResolver),
 		nil,
 	)
 	return e.VerifyAndPatchImages(

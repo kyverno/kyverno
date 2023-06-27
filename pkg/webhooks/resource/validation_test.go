@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	log "github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -1057,7 +1058,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 		jp,
 		nil,
 		registryclient.NewOrDie(),
-		engineapi.DefaultContextLoaderFactory(nil),
+		factories.DefaultContextLoaderFactory(nil),
 		nil,
 	)
 	for i, tc := range testcases {
@@ -1140,7 +1141,7 @@ func Test_RuleSelector(t *testing.T) {
 		jp,
 		nil,
 		registryclient.NewOrDie(),
-		engineapi.DefaultContextLoaderFactory(nil),
+		factories.DefaultContextLoaderFactory(nil),
 		nil,
 	)
 	resp := eng.Validate(
