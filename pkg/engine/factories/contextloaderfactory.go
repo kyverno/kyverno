@@ -65,7 +65,9 @@ func (l *contextLoader) Load(
 					return err
 				}
 			} else {
-				return loader.LoadData()
+				if err := loader.LoadData(); err != nil {
+					return err
+				}
 			}
 		}
 	}
