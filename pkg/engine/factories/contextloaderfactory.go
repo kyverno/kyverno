@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context/loaders"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/toggle"
 )
 
 type ContextLoaderFactoryOptions func(*contextLoader)
@@ -54,20 +55,24 @@ func (l *contextLoader) Load(
 		}
 	}
 	for _, entry := range contextEntries {
-		deferredLoader, err := l.newDeferredLoader(ctx, jp, client, rclientFactory, entry, jsonContext)
+		loader, err := l.newLoader(ctx, jp, client, rclientFactory, entry, jsonContext)
 		if err != nil {
 			return fmt.Errorf("failed to create deferred loader for context entry %s", entry.Name)
 		}
-		if deferredLoader != nil {
-			if err := jsonContext.AddDeferredLoader(deferredLoader); err != nil {
-				return err
+		if loader != nil {
+			if toggle.FromContext(ctx).EnableDeferredLoading() {
+				if err := jsonContext.AddDeferredLoader(loader); err != nil {
+					return err
+				}
+			} else {
+				return loader.LoadData()
 			}
 		}
 	}
 	return nil
 }
 
-func (l *contextLoader) newDeferredLoader(
+func (l *contextLoader) newLoader(
 	ctx context.Context,
 	jp jmespath.Interface,
 	client engineapi.RawClient,
