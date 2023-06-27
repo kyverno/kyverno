@@ -112,6 +112,7 @@ spec:
               "aggregateReports"
               "backgroundScan"
               "configMapCaching"
+              "deferredLoading"
               "logging"
               "omitEvents"
               "policyExceptions"
