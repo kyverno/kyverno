@@ -76,7 +76,7 @@ type Interface interface {
 	AddImageInfos(resource *unstructured.Unstructured, cfg config.Configuration) error
 
 	// AddDeferredLoader adds a loader that is executed on first use (query)
-	AddDeferredLoader(name string, loader DeferredLoader)
+	AddDeferredLoader(name string, loader Loader) error
 
 	// ImageInfo returns image infos present in the context
 	ImageInfo() map[string]map[string]apiutils.ImageInfo
@@ -100,9 +100,6 @@ type Interface interface {
 	addJSON(dataRaw []byte) error
 }
 
-// DeferredLoader loads the context data on first use (query)
-type DeferredLoader func() error
-
 // Context stores the data resources as JSON
 type context struct {
 	jp                 jmespath.Interface
@@ -115,7 +112,7 @@ type context struct {
 
 type deferredLoaders struct {
 	mutex   sync.Mutex
-	loaders map[string]DeferredLoader
+	loaders map[string]Loader
 }
 
 // NewContext returns a new context
@@ -130,7 +127,7 @@ func NewContextFromRaw(jp jmespath.Interface, raw []byte) Interface {
 		jsonRaw:            raw,
 		jsonRawCheckpoints: make([][]byte, 0),
 		deferred: deferredLoaders{
-			loaders: make(map[string]DeferredLoader),
+			loaders: make(map[string]Loader),
 		},
 	}
 }
@@ -353,8 +350,9 @@ func (ctx *context) reset(remove bool) {
 	}
 }
 
-func (ctx *context) AddDeferredLoader(name string, loader DeferredLoader) {
+func (ctx *context) AddDeferredLoader(name string, loader Loader) error {
 	ctx.deferred.mutex.Lock()
 	defer ctx.deferred.mutex.Unlock()
 	ctx.deferred.loaders[name] = loader
+	return nil
 }

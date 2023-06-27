@@ -46,7 +46,7 @@ func applyPoliciesFromPath(
 	var variablesString string
 	var resultCounts common.ResultCounts
 
-	store.SetMock(true)
+	store.SetLocal(true)
 	if err := json.Unmarshal(policyBytes, values); err != nil {
 		return nil, nil, sanitizederror.NewWithError("failed to decode yaml", err)
 	}
