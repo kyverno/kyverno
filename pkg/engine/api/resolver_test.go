@@ -130,6 +130,7 @@ func Test_namespacedResourceResolverChain_Get(t *testing.T) {
 			if !checkError(tt.wantErr, err) {
 				t.Errorf("ConfigmapResolver.Get() %s error = %v, wantErr %v", tt.name, err, tt.wantErr)
 			}
+
 			if !reflect.DeepEqual(got, tt.wantCm) {
 				t.Errorf("ConfigmapResolver.Get() = %v, want %v", got, tt.wantCm)
 			}
