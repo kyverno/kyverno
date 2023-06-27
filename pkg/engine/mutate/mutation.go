@@ -70,6 +70,7 @@ func Mutate(rule *kyvernov1.Rule, ctx context.Interface, resource unstructured.U
 			return NewErrorResponse("failed to update patched resource in the JSON context", err)
 		}
 	}
+	ctx.Checkpoint()
 	return NewResponse(engineapi.RuleStatusPass, resource, "resource patched")
 }
 
