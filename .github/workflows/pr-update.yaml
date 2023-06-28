@@ -6,10 +6,12 @@ on:
       - 'main'
       - 'release-*'
 
+permissions: {}
+
 jobs:
   autoupdate:
     permissions:
-      pull-requests: write
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

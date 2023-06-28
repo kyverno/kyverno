@@ -17,11 +17,10 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -31,8 +30,7 @@ type engine struct {
 	metricsConfiguration     config.MetricsConfiguration
 	jp                       jmespath.Interface
 	client                   engineapi.Client
-	imgClient                engineapi.ImageDataClient
-	rclient                  registryclient.Client
+	rclientFactory           engineapi.RegistryClientFactory
 	contextLoader            engineapi.ContextLoaderFactory
 	exceptionSelector        engineapi.PolicyExceptionSelector
 	imageSignatureRepository string
@@ -48,13 +46,12 @@ func NewEngine(
 	metricsConfiguration config.MetricsConfiguration,
 	jp jmespath.Interface,
 	client engineapi.Client,
-	imgClient engineapi.ImageDataClient,
-	rclient registryclient.Client,
+	rclientFactory engineapi.RegistryClientFactory,
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,
 	imageSignatureRepository string,
 ) engineapi.Engine {
-	meter := global.MeterProvider().Meter(metrics.MeterName)
+	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
 	resultCounter, err := meter.Int64Counter(
 		"kyverno_policy_results",
 		metric.WithDescription("can be used to track the results associated with the policies applied in the user's cluster, at the level from rule to policy to admission requests"),
@@ -74,8 +71,7 @@ func NewEngine(
 		metricsConfiguration:     metricsConfiguration,
 		jp:                       jp,
 		client:                   client,
-		imgClient:                imgClient,
-		rclient:                  rclient,
+		rclientFactory:           rclientFactory,
 		contextLoader:            contextLoader,
 		exceptionSelector:        exceptionSelector,
 		imageSignatureRepository: imageSignatureRepository,
@@ -179,7 +175,7 @@ func (e *engine) ContextLoader(
 			ctx,
 			e.jp,
 			e.client,
-			e.imgClient,
+			e.rclientFactory,
 			contextEntries,
 			jsonContext,
 		)
@@ -244,7 +240,7 @@ func (e *engine) invokeRuleHandler(
 		ctx,
 		"pkg/engine",
 		fmt.Sprintf("RULE %s", rule.Name),
-		func(ctx context.Context, span trace.Span) (unstructured.Unstructured, []engineapi.RuleResponse) {
+		func(ctx context.Context, span trace.Span) (patchedResource unstructured.Unstructured, results []engineapi.RuleResponse) {
 			// check if resource and rule match
 			if err := e.matches(rule, policyContext, resource); err != nil {
 				logger.V(4).Info("rule not matched", "reason", err.Error())
@@ -259,6 +255,15 @@ func (e *engine) invokeRuleHandler(
 				if ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule); ruleResp != nil {
 					return resource, handlers.WithResponses(ruleResp)
 				}
+				policyContext.JSONContext().Checkpoint()
+				defer func() {
+					policyContext.JSONContext().Restore()
+					if patchedResource.Object != nil {
+						if err := policyContext.JSONContext().AddResource(patchedResource.Object); err != nil {
+							logger.Error(err, "failed to add resource in the json context")
+						}
+					}
+				}()
 				// load rule context
 				contextLoader := e.ContextLoader(policyContext.Policy(), rule)
 				if err := contextLoader(ctx, rule.Context, policyContext.JSONContext()); err != nil {

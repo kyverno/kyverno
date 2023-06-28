@@ -19,7 +19,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
@@ -38,7 +37,6 @@ type resourceHandlers struct {
 	// clients
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
-	rclient       registryclient.Client
 	engine        engineapi.Engine
 
 	// config
@@ -67,7 +65,6 @@ func NewHandlers(
 	engine engineapi.Engine,
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
-	rclient registryclient.Client,
 	configuration config.Configuration,
 	metricsConfig metrics.MetricsConfigManager,
 	pCache policycache.Cache,
@@ -86,7 +83,6 @@ func NewHandlers(
 		engine:                       engine,
 		client:                       client,
 		kyvernoClient:                kyvernoClient,
-		rclient:                      rclient,
 		configuration:                configuration,
 		metricsConfig:                metricsConfig,
 		pCache:                       pCache,

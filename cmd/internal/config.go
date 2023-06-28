@@ -11,6 +11,7 @@ type Configuration interface {
 	UsesKubeconfig() bool
 	UsesPolicyExceptions() bool
 	UsesConfigMapCaching() bool
+	UsesDeferredLoading() bool
 	UsesCosign() bool
 	UsesRegistryClient() bool
 	UsesLeaderElection() bool
@@ -65,6 +66,12 @@ func WithPolicyExceptions() ConfigurationOption {
 func WithConfigMapCaching() ConfigurationOption {
 	return func(c *configuration) {
 		c.usesConfigMapCaching = true
+	}
+}
+
+func WithDeferredLoading() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesDeferredLoading = true
 	}
 }
 
@@ -131,6 +138,7 @@ type configuration struct {
 	usesKubeconfig           bool
 	usesPolicyExceptions     bool
 	usesConfigMapCaching     bool
+	usesDeferredLoading      bool
 	usesCosign               bool
 	usesRegistryClient       bool
 	usesLeaderElection       bool
@@ -164,6 +172,10 @@ func (c *configuration) UsesPolicyExceptions() bool {
 
 func (c *configuration) UsesConfigMapCaching() bool {
 	return c.usesConfigMapCaching
+}
+
+func (c *configuration) UsesDeferredLoading() bool {
+	return c.usesDeferredLoading
 }
 
 func (c *configuration) UsesCosign() bool {

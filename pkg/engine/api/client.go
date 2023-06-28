@@ -4,6 +4,9 @@ import (
 	"context"
 	"io"
 
+	"github.com/google/go-containerregistry/pkg/authn"
+	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/sigstore/cosign/pkg/oci/remote"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -46,4 +49,20 @@ type ImageData struct {
 
 type ImageDataClient interface {
 	ForRef(ctx context.Context, ref string) (*ImageData, error)
+	FetchImageDescriptor(context.Context, string) (*gcrremote.Descriptor, error)
+}
+
+type KeychainClient interface {
+	Keychain() authn.Keychain
+	RefreshKeychainPullSecrets(ctx context.Context) error
+}
+
+type CosignClient interface {
+	BuildRemoteOption(context.Context) remote.Option
+}
+
+type RegistryClient interface {
+	ImageDataClient
+	KeychainClient
+	CosignClient
 }

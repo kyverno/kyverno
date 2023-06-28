@@ -1,4 +1,5 @@
 {{- if .Values.webhooksCleanup.enabled -}}
+  {{- if not .Values.templating.enabled -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -30,4 +31,5 @@ spec:
               sleep 30
               kubectl delete validatingwebhookconfiguration -l webhook.kyverno.io/managed-by=kyverno
               kubectl delete mutatingwebhookconfiguration -l webhook.kyverno.io/managed-by=kyverno
+  {{- end -}}
 {{- end -}}

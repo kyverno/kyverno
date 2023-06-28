@@ -106,6 +106,7 @@ spec:
             {{- end }}
             {{- end }}
             {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.cleanupController.featuresOverride)
+              "deferredLoading"
               "dumpPayload"
               "logging"
             ) | nindent 12 }}
@@ -115,6 +116,8 @@ spec:
             {{- end }}
             {{- end }}
           env:
+          - name: KYVERNO_DEPLOYMENT
+            value: {{ template "kyverno.cleanup-controller.name" . }}
           - name: INIT_CONFIG
             value: {{ template "kyverno.config.configMapName" . }}
           - name: METRICS_CONFIG

@@ -291,12 +291,14 @@ The chart values are organised per component.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | features.admissionReports.enabled | bool | `true` | Enables the feature |
+| features.aggregateReports.enabled | bool | `true` | Enables the feature |
 | features.autoUpdateWebhooks.enabled | bool | `true` | Enables the feature |
 | features.backgroundScan.enabled | bool | `true` | Enables the feature |
 | features.backgroundScan.backgroundScanWorkers | int | `2` | Number of background scan workers |
 | features.backgroundScan.backgroundScanInterval | string | `"1h"` | Background scan interval |
 | features.backgroundScan.skipResourceFilters | bool | `true` | Skips resource filters in background scan |
 | features.configMapCaching.enabled | bool | `true` | Enables the feature |
+| features.deferredLoading.enabled | bool | `true` | Enables the feature |
 | features.dumpPayload.enabled | bool | `false` | Enables the feature |
 | features.forceFailurePolicyIgnore.enabled | bool | `false` | Enables the feature |
 | features.logging.format | string | `"text"` | Logging format |
@@ -382,6 +384,8 @@ The chart values are organised per component.
 | admissionController.serviceMonitor.scrapeTimeout | string | `"25s"` | Timeout if metrics can't be retrieved in given time interval |
 | admissionController.serviceMonitor.secure | bool | `false` | Is TLS required for endpoint |
 | admissionController.serviceMonitor.tlsConfig | object | `{}` | TLS Configuration for endpoint |
+| admissionController.serviceMonitor.relabelings | list | `[]` | RelabelConfigs to apply to samples before scraping |
+| admissionController.serviceMonitor.metricRelabelings | list | `[]` | MetricRelabelConfigs to apply to samples before ingestion. |
 | admissionController.tracing.enabled | bool | `false` | Enable tracing |
 | admissionController.tracing.address | string | `nil` | Traces receiver address |
 | admissionController.tracing.port | string | `nil` | Traces receiver port |
@@ -443,6 +447,8 @@ The chart values are organised per component.
 | backgroundController.serviceMonitor.scrapeTimeout | string | `"25s"` | Timeout if metrics can't be retrieved in given time interval |
 | backgroundController.serviceMonitor.secure | bool | `false` | Is TLS required for endpoint |
 | backgroundController.serviceMonitor.tlsConfig | object | `{}` | TLS Configuration for endpoint |
+| backgroundController.serviceMonitor.relabelings | list | `[]` | RelabelConfigs to apply to samples before scraping |
+| backgroundController.serviceMonitor.metricRelabelings | list | `[]` | MetricRelabelConfigs to apply to samples before ingestion. |
 | backgroundController.tracing.enabled | bool | `false` | Enable tracing |
 | backgroundController.tracing.address | string | `nil` | Traces receiver address |
 | backgroundController.tracing.port | string | `nil` | Traces receiver port |
@@ -512,6 +518,8 @@ The chart values are organised per component.
 | cleanupController.serviceMonitor.scrapeTimeout | string | `"25s"` | Timeout if metrics can't be retrieved in given time interval |
 | cleanupController.serviceMonitor.secure | bool | `false` | Is TLS required for endpoint |
 | cleanupController.serviceMonitor.tlsConfig | object | `{}` | TLS Configuration for endpoint |
+| cleanupController.serviceMonitor.relabelings | list | `[]` | RelabelConfigs to apply to samples before scraping |
+| cleanupController.serviceMonitor.metricRelabelings | list | `[]` | MetricRelabelConfigs to apply to samples before ingestion. |
 | cleanupController.tracing.enabled | bool | `false` | Enable tracing |
 | cleanupController.tracing.address | string | `nil` | Traces receiver address |
 | cleanupController.tracing.port | string | `nil` | Traces receiver port |
@@ -577,6 +585,8 @@ The chart values are organised per component.
 | reportsController.serviceMonitor.scrapeTimeout | string | `"25s"` | Timeout if metrics can't be retrieved in given time interval |
 | reportsController.serviceMonitor.secure | bool | `false` | Is TLS required for endpoint |
 | reportsController.serviceMonitor.tlsConfig | object | `{}` | TLS Configuration for endpoint |
+| reportsController.serviceMonitor.relabelings | list | `[]` | RelabelConfigs to apply to samples before scraping |
+| reportsController.serviceMonitor.metricRelabelings | list | `[]` | MetricRelabelConfigs to apply to samples before ingestion. |
 | reportsController.tracing.enabled | bool | `false` | Enable tracing |
 | reportsController.tracing.address | string | `nil` | Traces receiver address |
 | reportsController.tracing.port | string | `nil` | Traces receiver port |
@@ -595,12 +605,13 @@ The chart values are organised per component.
 | grafana.configMapName | string | `"{{ include \"kyverno.fullname\" . }}-grafana"` | Configmap name template. |
 | grafana.namespace | string | `nil` | Namespace to create the grafana dashboard configmap. If not set, it will be created in the same namespace where the chart is deployed. |
 | grafana.annotations | object | `{}` | Grafana dashboard configmap annotations. |
+| grafana.labels | object | `{"grafana_dashboard":"1"}` | Grafana dashboard configmap labels |
 
 ### Webhooks cleanup
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| webhooksCleanup.enabled | bool | `false` | Create a helm pre-delete hook to cleanup webhooks. |
+| webhooksCleanup.enabled | bool | `true` | Create a helm pre-delete hook to cleanup webhooks. |
 | webhooksCleanup.image | string | `"bitnami/kubectl:latest"` | `kubectl` image to run commands for deleting webhooks. |
 | webhooksCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
 

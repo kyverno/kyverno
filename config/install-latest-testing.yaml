@@ -1070,6 +1070,37 @@ spec:
                       description: ImageRegistry defines requests to an OCI/Docker
                         V2 registry to fetch image details.
                       properties:
+                        imageRegistryCredentials:
+                          description: ImageRegistryCredentials provides credentials
+                            that will be used for authentication with registry
+                          properties:
+                            allowInsecureRegistry:
+                              description: AllowInsecureRegistry allows insecure access
+                                to a registry
+                              type: boolean
+                            providers:
+                              description: 'Providers specifies a list of OCI Registry
+                                names, whose authentication providers are provided
+                                It can be of one of these values: AWS, ACR, GCP, GHCR'
+                              items:
+                                description: ImageRegistryCredentialsProvidersType
+                                  provides the list of credential providers required.
+                                enum:
+                                - default
+                                - amazon
+                                - azure
+                                - google
+                                - github
+                                type: string
+                              type: array
+                            secrets:
+                              description: Secrets specifies a list of secrets that
+                                are provided for credentials Secrets must live in
+                                the Kyverno namespace
+                              items:
+                                type: string
+                              type: array
+                          type: object
                         jmesPath:
                           description: JMESPath is an optional JSON Match Expression
                             that can be used to transform the ImageData struct returned
@@ -2945,6 +2976,37 @@ spec:
                       description: ImageRegistry defines requests to an OCI/Docker
                         V2 registry to fetch image details.
                       properties:
+                        imageRegistryCredentials:
+                          description: ImageRegistryCredentials provides credentials
+                            that will be used for authentication with registry
+                          properties:
+                            allowInsecureRegistry:
+                              description: AllowInsecureRegistry allows insecure access
+                                to a registry
+                              type: boolean
+                            providers:
+                              description: 'Providers specifies a list of OCI Registry
+                                names, whose authentication providers are provided
+                                It can be of one of these values: AWS, ACR, GCP, GHCR'
+                              items:
+                                description: ImageRegistryCredentialsProvidersType
+                                  provides the list of credential providers required.
+                                enum:
+                                - default
+                                - amazon
+                                - azure
+                                - google
+                                - github
+                                type: string
+                              type: array
+                            secrets:
+                              description: Secrets specifies a list of secrets that
+                                are provided for credentials Secrets must live in
+                                the Kyverno namespace
+                              items:
+                                type: string
+                              type: array
+                          type: object
                         jmesPath:
                           description: JMESPath is an optional JSON Match Expression
                             that can be used to transform the ImageData struct returned
@@ -3977,36 +4039,39 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.admission
+      name: ADMISSION
+      type: boolean
     - jsonPath: .spec.background
-      name: Background
+      name: BACKGROUND
       type: boolean
     - jsonPath: .spec.validationFailureAction
-      name: Validate Action
-      type: string
-    - jsonPath: .spec.failurePolicy
-      name: Failure Policy
-      priority: 1
+      name: VALIDATE ACTION
       type: string
     - jsonPath: .status.conditions[?(@.type == "Ready")].status
-      name: Ready
+      name: READY
       type: string
     - jsonPath: .metadata.creationTimestamp
-      name: Age
+      name: AGE
       type: date
+    - jsonPath: .spec.failurePolicy
+      name: FAILURE POLICY
+      priority: 1
+      type: string
     - jsonPath: .status.rulecount.validate
-      name: Validate
+      name: VALIDATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.mutate
-      name: Mutate
+      name: MUTATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.generate
-      name: Generate
+      name: GENERATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.verifyimages
-      name: Verifyimages
+      name: VERIFY IMAGES
       priority: 1
       type: integer
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
@@ -4033,6 +4098,11 @@ spec:
           spec:
             description: Spec declares policy behaviors.
             properties:
+              admission:
+                default: true
+                description: Admission controls if rules are applied during admission.
+                  Optional. Default value is "true".
+                type: boolean
               applyRules:
                 description: ApplyRules controls how rules in a policy are applied.
                   Rule are processed in the order of declaration. When set to `One`
@@ -4215,6 +4285,39 @@ spec:
                             description: ImageRegistry defines requests to an OCI/Docker
                               V2 registry to fetch image details.
                             properties:
+                              imageRegistryCredentials:
+                                description: ImageRegistryCredentials provides credentials
+                                  that will be used for authentication with registry
+                                properties:
+                                  allowInsecureRegistry:
+                                    description: AllowInsecureRegistry allows insecure
+                                      access to a registry
+                                    type: boolean
+                                  providers:
+                                    description: 'Providers specifies a list of OCI
+                                      Registry names, whose authentication providers
+                                      are provided It can be of one of these values:
+                                      AWS, ACR, GCP, GHCR'
+                                    items:
+                                      description: ImageRegistryCredentialsProvidersType
+                                        provides the list of credential providers
+                                        required.
+                                      enum:
+                                      - default
+                                      - amazon
+                                      - azure
+                                      - google
+                                      - github
+                                      type: string
+                                    type: array
+                                  secrets:
+                                    description: Secrets specifies a list of secrets
+                                      that are provided for credentials Secrets must
+                                      live in the Kyverno namespace
+                                    items:
+                                      type: string
+                                    type: array
+                                type: object
                               jmesPath:
                                 description: JMESPath is an optional JSON Match Expression
                                   that can be used to transform the ImageData struct
@@ -5880,6 +5983,41 @@ spec:
                                         to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        imageRegistryCredentials:
+                                          description: ImageRegistryCredentials provides
+                                            credentials that will be used for authentication
+                                            with registry
+                                          properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry
+                                              type: boolean
+                                            providers:
+                                              description: 'Providers specifies a
+                                                list of OCI Registry names, whose
+                                                authentication providers are provided
+                                                It can be of one of these values:
+                                                AWS, ACR, GCP, GHCR'
+                                              items:
+                                                description: ImageRegistryCredentialsProvidersType
+                                                  provides the list of credential
+                                                  providers required.
+                                                enum:
+                                                - default
+                                                - amazon
+                                                - azure
+                                                - google
+                                                - github
+                                                type: string
+                                              type: array
+                                            secrets:
+                                              description: Secrets specifies a list
+                                                of secrets that are provided for credentials
+                                                Secrets must live in the Kyverno namespace
+                                              items:
+                                                type: string
+                                              type: array
+                                          type: object
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
@@ -6178,6 +6316,41 @@ spec:
                                         to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        imageRegistryCredentials:
+                                          description: ImageRegistryCredentials provides
+                                            credentials that will be used for authentication
+                                            with registry
+                                          properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry
+                                              type: boolean
+                                            providers:
+                                              description: 'Providers specifies a
+                                                list of OCI Registry names, whose
+                                                authentication providers are provided
+                                                It can be of one of these values:
+                                                AWS, ACR, GCP, GHCR'
+                                              items:
+                                                description: ImageRegistryCredentialsProvidersType
+                                                  provides the list of credential
+                                                  providers required.
+                                                enum:
+                                                - default
+                                                - amazon
+                                                - azure
+                                                - google
+                                                - github
+                                                type: string
+                                              type: array
+                                            secrets:
+                                              description: Secrets specifies a list
+                                                of secrets that are provided for credentials
+                                                Secrets must live in the Kyverno namespace
+                                              items:
+                                                type: string
+                                              type: array
+                                          type: object
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
@@ -6577,6 +6750,41 @@ spec:
                                         to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        imageRegistryCredentials:
+                                          description: ImageRegistryCredentials provides
+                                            credentials that will be used for authentication
+                                            with registry
+                                          properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry
+                                              type: boolean
+                                            providers:
+                                              description: 'Providers specifies a
+                                                list of OCI Registry names, whose
+                                                authentication providers are provided
+                                                It can be of one of these values:
+                                                AWS, ACR, GCP, GHCR'
+                                              items:
+                                                description: ImageRegistryCredentialsProvidersType
+                                                  provides the list of credential
+                                                  providers required.
+                                                enum:
+                                                - default
+                                                - amazon
+                                                - azure
+                                                - google
+                                                - github
+                                                type: string
+                                              type: array
+                                            secrets:
+                                              description: Secrets specifies a list
+                                                of secrets that are provided for credentials
+                                                Secrets must live in the Kyverno namespace
+                                              items:
+                                                type: string
+                                              type: array
+                                          type: object
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
@@ -7665,6 +7873,38 @@ spec:
                             items:
                               type: string
                             type: array
+                          imageRegistryCredentials:
+                            description: ImageRegistryCredentials provides credentials
+                              that will be used for authentication with registry
+                            properties:
+                              allowInsecureRegistry:
+                                description: AllowInsecureRegistry allows insecure
+                                  access to a registry
+                                type: boolean
+                              providers:
+                                description: 'Providers specifies a list of OCI Registry
+                                  names, whose authentication providers are provided
+                                  It can be of one of these values: AWS, ACR, GCP,
+                                  GHCR'
+                                items:
+                                  description: ImageRegistryCredentialsProvidersType
+                                    provides the list of credential providers required.
+                                  enum:
+                                  - default
+                                  - amazon
+                                  - azure
+                                  - google
+                                  - github
+                                  type: string
+                                type: array
+                              secrets:
+                                description: Secrets specifies a list of secrets that
+                                  are provided for credentials Secrets must live in
+                                  the Kyverno namespace
+                                items:
+                                  type: string
+                                type: array
+                            type: object
                           issuer:
                             description: Issuer is the certificate issuer used for
                               keyless signing. Deprecated. Use KeylessAttestor instead.
@@ -7970,6 +8210,40 @@ spec:
                                 description: ImageRegistry defines requests to an
                                   OCI/Docker V2 registry to fetch image details.
                                 properties:
+                                  imageRegistryCredentials:
+                                    description: ImageRegistryCredentials provides
+                                      credentials that will be used for authentication
+                                      with registry
+                                    properties:
+                                      allowInsecureRegistry:
+                                        description: AllowInsecureRegistry allows
+                                          insecure access to a registry
+                                        type: boolean
+                                      providers:
+                                        description: 'Providers specifies a list of
+                                          OCI Registry names, whose authentication
+                                          providers are provided It can be of one
+                                          of these values: AWS, ACR, GCP, GHCR'
+                                        items:
+                                          description: ImageRegistryCredentialsProvidersType
+                                            provides the list of credential providers
+                                            required.
+                                          enum:
+                                          - default
+                                          - amazon
+                                          - azure
+                                          - google
+                                          - github
+                                          type: string
+                                        type: array
+                                      secrets:
+                                        description: Secrets specifies a list of secrets
+                                          that are provided for credentials Secrets
+                                          must live in the Kyverno namespace
+                                        items:
+                                          type: string
+                                        type: array
+                                    type: object
                                   jmesPath:
                                     description: JMESPath is an optional JSON Match
                                       Expression that can be used to transform the
@@ -9712,6 +9986,43 @@ spec:
                                             to an OCI/Docker V2 registry to fetch
                                             image details.
                                           properties:
+                                            imageRegistryCredentials:
+                                              description: ImageRegistryCredentials
+                                                provides credentials that will be
+                                                used for authentication with registry
+                                              properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry
+                                                  type: boolean
+                                                providers:
+                                                  description: 'Providers specifies
+                                                    a list of OCI Registry names,
+                                                    whose authentication providers
+                                                    are provided It can be of one
+                                                    of these values: AWS, ACR, GCP,
+                                                    GHCR'
+                                                  items:
+                                                    description: ImageRegistryCredentialsProvidersType
+                                                      provides the list of credential
+                                                      providers required.
+                                                    enum:
+                                                    - default
+                                                    - amazon
+                                                    - azure
+                                                    - google
+                                                    - github
+                                                    type: string
+                                                  type: array
+                                                secrets:
+                                                  description: Secrets specifies a
+                                                    list of secrets that are provided
+                                                    for credentials Secrets must live
+                                                    in the Kyverno namespace
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                              type: object
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
@@ -10024,6 +10335,43 @@ spec:
                                             to an OCI/Docker V2 registry to fetch
                                             image details.
                                           properties:
+                                            imageRegistryCredentials:
+                                              description: ImageRegistryCredentials
+                                                provides credentials that will be
+                                                used for authentication with registry
+                                              properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry
+                                                  type: boolean
+                                                providers:
+                                                  description: 'Providers specifies
+                                                    a list of OCI Registry names,
+                                                    whose authentication providers
+                                                    are provided It can be of one
+                                                    of these values: AWS, ACR, GCP,
+                                                    GHCR'
+                                                  items:
+                                                    description: ImageRegistryCredentialsProvidersType
+                                                      provides the list of credential
+                                                      providers required.
+                                                    enum:
+                                                    - default
+                                                    - amazon
+                                                    - azure
+                                                    - google
+                                                    - github
+                                                    type: string
+                                                  type: array
+                                                secrets:
+                                                  description: Secrets specifies a
+                                                    list of secrets that are provided
+                                                    for credentials Secrets must live
+                                                    in the Kyverno namespace
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                              type: object
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
@@ -10446,6 +10794,43 @@ spec:
                                             to an OCI/Docker V2 registry to fetch
                                             image details.
                                           properties:
+                                            imageRegistryCredentials:
+                                              description: ImageRegistryCredentials
+                                                provides credentials that will be
+                                                used for authentication with registry
+                                              properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry
+                                                  type: boolean
+                                                providers:
+                                                  description: 'Providers specifies
+                                                    a list of OCI Registry names,
+                                                    whose authentication providers
+                                                    are provided It can be of one
+                                                    of these values: AWS, ACR, GCP,
+                                                    GHCR'
+                                                  items:
+                                                    description: ImageRegistryCredentialsProvidersType
+                                                      provides the list of credential
+                                                      providers required.
+                                                    enum:
+                                                    - default
+                                                    - amazon
+                                                    - azure
+                                                    - google
+                                                    - github
+                                                    type: string
+                                                  type: array
+                                                secrets:
+                                                  description: Secrets specifies a
+                                                    list of secrets that are provided
+                                                    for credentials Secrets must live
+                                                    in the Kyverno namespace
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                              type: object
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
@@ -11583,6 +11968,39 @@ spec:
                                 items:
                                   type: string
                                 type: array
+                              imageRegistryCredentials:
+                                description: ImageRegistryCredentials provides credentials
+                                  that will be used for authentication with registry
+                                properties:
+                                  allowInsecureRegistry:
+                                    description: AllowInsecureRegistry allows insecure
+                                      access to a registry
+                                    type: boolean
+                                  providers:
+                                    description: 'Providers specifies a list of OCI
+                                      Registry names, whose authentication providers
+                                      are provided It can be of one of these values:
+                                      AWS, ACR, GCP, GHCR'
+                                    items:
+                                      description: ImageRegistryCredentialsProvidersType
+                                        provides the list of credential providers
+                                        required.
+                                      enum:
+                                      - default
+                                      - amazon
+                                      - azure
+                                      - google
+                                      - github
+                                      type: string
+                                    type: array
+                                  secrets:
+                                    description: Secrets specifies a list of secrets
+                                      that are provided for credentials Secrets must
+                                      live in the Kyverno namespace
+                                    items:
+                                      type: string
+                                    type: array
+                                type: object
                               issuer:
                                 description: Issuer is the certificate issuer used
                                   for keyless signing. Deprecated. Use KeylessAttestor
@@ -11748,36 +12166,39 @@ spec:
     subresources:
       status: {}
   - additionalPrinterColumns:
+    - jsonPath: .spec.admission
+      name: ADMISSION
+      type: boolean
     - jsonPath: .spec.background
-      name: Background
+      name: BACKGROUND
       type: boolean
     - jsonPath: .spec.validationFailureAction
-      name: Validate Action
-      type: string
-    - jsonPath: .spec.failurePolicy
-      name: Failure Policy
-      priority: 1
+      name: VALIDATE ACTION
       type: string
     - jsonPath: .status.conditions[?(@.type == "Ready")].status
-      name: Ready
+      name: READY
       type: string
     - jsonPath: .metadata.creationTimestamp
-      name: Age
+      name: AGE
       type: date
+    - jsonPath: .spec.failurePolicy
+      name: FAILURE POLICY
+      priority: 1
+      type: string
     - jsonPath: .status.rulecount.validate
-      name: Validate
+      name: VALIDATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.mutate
-      name: Mutate
+      name: MUTATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.generate
-      name: Generate
+      name: GENERATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.verifyimages
-      name: Verifyimages
+      name: VERIFY IMAGES
       priority: 1
       type: integer
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
@@ -11804,6 +12225,11 @@ spec:
           spec:
             description: Spec declares policy behaviors.
             properties:
+              admission:
+                default: true
+                description: Admission controls if rules are applied during admission.
+                  Optional. Default value is "true".
+                type: boolean
               applyRules:
                 description: ApplyRules controls how rules in a policy are applied.
                   Rule are processed in the order of declaration. When set to `One`
@@ -11985,6 +12411,39 @@ spec:
                             description: ImageRegistry defines requests to an OCI/Docker
                               V2 registry to fetch image details.
                             properties:
+                              imageRegistryCredentials:
+                                description: ImageRegistryCredentials provides credentials
+                                  that will be used for authentication with registry
+                                properties:
+                                  allowInsecureRegistry:
+                                    description: AllowInsecureRegistry allows insecure
+                                      access to a registry
+                                    type: boolean
+                                  providers:
+                                    description: 'Providers specifies a list of OCI
+                                      Registry names, whose authentication providers
+                                      are provided It can be of one of these values:
+                                      AWS, ACR, GCP, GHCR'
+                                    items:
+                                      description: ImageRegistryCredentialsProvidersType
+                                        provides the list of credential providers
+                                        required.
+                                      enum:
+                                      - default
+                                      - amazon
+                                      - azure
+                                      - google
+                                      - github
+                                      type: string
+                                    type: array
+                                  secrets:
+                                    description: Secrets specifies a list of secrets
+                                      that are provided for credentials Secrets must
+                                      live in the Kyverno namespace
+                                    items:
+                                      type: string
+                                    type: array
+                                type: object
                               jmesPath:
                                 description: JMESPath is an optional JSON Match Expression
                                   that can be used to transform the ImageData struct
@@ -13224,6 +13683,41 @@ spec:
                                         to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        imageRegistryCredentials:
+                                          description: ImageRegistryCredentials provides
+                                            credentials that will be used for authentication
+                                            with registry
+                                          properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry
+                                              type: boolean
+                                            providers:
+                                              description: 'Providers specifies a
+                                                list of OCI Registry names, whose
+                                                authentication providers are provided
+                                                It can be of one of these values:
+                                                AWS, ACR, GCP, GHCR'
+                                              items:
+                                                description: ImageRegistryCredentialsProvidersType
+                                                  provides the list of credential
+                                                  providers required.
+                                                enum:
+                                                - default
+                                                - amazon
+                                                - azure
+                                                - google
+                                                - github
+                                                type: string
+                                              type: array
+                                            secrets:
+                                              description: Secrets specifies a list
+                                                of secrets that are provided for credentials
+                                                Secrets must live in the Kyverno namespace
+                                              items:
+                                                type: string
+                                              type: array
+                                          type: object
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
@@ -13522,6 +14016,41 @@ spec:
                                         to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        imageRegistryCredentials:
+                                          description: ImageRegistryCredentials provides
+                                            credentials that will be used for authentication
+                                            with registry
+                                          properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry
+                                              type: boolean
+                                            providers:
+                                              description: 'Providers specifies a
+                                                list of OCI Registry names, whose
+                                                authentication providers are provided
+                                                It can be of one of these values:
+                                                AWS, ACR, GCP, GHCR'
+                                              items:
+                                                description: ImageRegistryCredentialsProvidersType
+                                                  provides the list of credential
+                                                  providers required.
+                                                enum:
+                                                - default
+                                                - amazon
+                                                - azure
+                                                - google
+                                                - github
+                                                type: string
+                                              type: array
+                                            secrets:
+                                              description: Secrets specifies a list
+                                                of secrets that are provided for credentials
+                                                Secrets must live in the Kyverno namespace
+                                              items:
+                                                type: string
+                                              type: array
+                                          type: object
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
@@ -14103,6 +14632,41 @@ spec:
                                         to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        imageRegistryCredentials:
+                                          description: ImageRegistryCredentials provides
+                                            credentials that will be used for authentication
+                                            with registry
+                                          properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry
+                                              type: boolean
+                                            providers:
+                                              description: 'Providers specifies a
+                                                list of OCI Registry names, whose
+                                                authentication providers are provided
+                                                It can be of one of these values:
+                                                AWS, ACR, GCP, GHCR'
+                                              items:
+                                                description: ImageRegistryCredentialsProvidersType
+                                                  provides the list of credential
+                                                  providers required.
+                                                enum:
+                                                - default
+                                                - amazon
+                                                - azure
+                                                - google
+                                                - github
+                                                type: string
+                                              type: array
+                                            secrets:
+                                              description: Secrets specifies a list
+                                                of secrets that are provided for credentials
+                                                Secrets must live in the Kyverno namespace
+                                              items:
+                                                type: string
+                                              type: array
+                                          type: object
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
@@ -15170,6 +15734,38 @@ spec:
                             items:
                               type: string
                             type: array
+                          imageRegistryCredentials:
+                            description: ImageRegistryCredentials provides credentials
+                              that will be used for authentication with registry
+                            properties:
+                              allowInsecureRegistry:
+                                description: AllowInsecureRegistry allows insecure
+                                  access to a registry
+                                type: boolean
+                              providers:
+                                description: 'Providers specifies a list of OCI Registry
+                                  names, whose authentication providers are provided
+                                  It can be of one of these values: AWS, ACR, GCP,
+                                  GHCR'
+                                items:
+                                  description: ImageRegistryCredentialsProvidersType
+                                    provides the list of credential providers required.
+                                  enum:
+                                  - default
+                                  - amazon
+                                  - azure
+                                  - google
+                                  - github
+                                  type: string
+                                type: array
+                              secrets:
+                                description: Secrets specifies a list of secrets that
+                                  are provided for credentials Secrets must live in
+                                  the Kyverno namespace
+                                items:
+                                  type: string
+                                type: array
+                            type: object
                           mutateDigest:
                             default: true
                             description: MutateDigest enables replacement of image
@@ -15456,6 +16052,40 @@ spec:
                                 description: ImageRegistry defines requests to an
                                   OCI/Docker V2 registry to fetch image details.
                                 properties:
+                                  imageRegistryCredentials:
+                                    description: ImageRegistryCredentials provides
+                                      credentials that will be used for authentication
+                                      with registry
+                                    properties:
+                                      allowInsecureRegistry:
+                                        description: AllowInsecureRegistry allows
+                                          insecure access to a registry
+                                        type: boolean
+                                      providers:
+                                        description: 'Providers specifies a list of
+                                          OCI Registry names, whose authentication
+                                          providers are provided It can be of one
+                                          of these values: AWS, ACR, GCP, GHCR'
+                                        items:
+                                          description: ImageRegistryCredentialsProvidersType
+                                            provides the list of credential providers
+                                            required.
+                                          enum:
+                                          - default
+                                          - amazon
+                                          - azure
+                                          - google
+                                          - github
+                                          type: string
+                                        type: array
+                                      secrets:
+                                        description: Secrets specifies a list of secrets
+                                          that are provided for credentials Secrets
+                                          must live in the Kyverno namespace
+                                        items:
+                                          type: string
+                                        type: array
+                                    type: object
                                   jmesPath:
                                     description: JMESPath is an optional JSON Match
                                       Expression that can be used to transform the
@@ -17198,6 +17828,43 @@ spec:
                                             to an OCI/Docker V2 registry to fetch
                                             image details.
                                           properties:
+                                            imageRegistryCredentials:
+                                              description: ImageRegistryCredentials
+                                                provides credentials that will be
+                                                used for authentication with registry
+                                              properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry
+                                                  type: boolean
+                                                providers:
+                                                  description: 'Providers specifies
+                                                    a list of OCI Registry names,
+                                                    whose authentication providers
+                                                    are provided It can be of one
+                                                    of these values: AWS, ACR, GCP,
+                                                    GHCR'
+                                                  items:
+                                                    description: ImageRegistryCredentialsProvidersType
+                                                      provides the list of credential
+                                                      providers required.
+                                                    enum:
+                                                    - default
+                                                    - amazon
+                                                    - azure
+                                                    - google
+                                                    - github
+                                                    type: string
+                                                  type: array
+                                                secrets:
+                                                  description: Secrets specifies a
+                                                    list of secrets that are provided
+                                                    for credentials Secrets must live
+                                                    in the Kyverno namespace
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                              type: object
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
@@ -17510,6 +18177,43 @@ spec:
                                             to an OCI/Docker V2 registry to fetch
                                             image details.
                                           properties:
+                                            imageRegistryCredentials:
+                                              description: ImageRegistryCredentials
+                                                provides credentials that will be
+                                                used for authentication with registry
+                                              properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry
+                                                  type: boolean
+                                                providers:
+                                                  description: 'Providers specifies
+                                                    a list of OCI Registry names,
+                                                    whose authentication providers
+                                                    are provided It can be of one
+                                                    of these values: AWS, ACR, GCP,
+                                                    GHCR'
+                                                  items:
+                                                    description: ImageRegistryCredentialsProvidersType
+                                                      provides the list of credential
+                                                      providers required.
+                                                    enum:
+                                                    - default
+                                                    - amazon
+                                                    - azure
+                                                    - google
+                                                    - github
+                                                    type: string
+                                                  type: array
+                                                secrets:
+                                                  description: Secrets specifies a
+                                                    list of secrets that are provided
+                                                    for credentials Secrets must live
+                                                    in the Kyverno namespace
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                              type: object
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
@@ -17932,6 +18636,43 @@ spec:
                                             to an OCI/Docker V2 registry to fetch
                                             image details.
                                           properties:
+                                            imageRegistryCredentials:
+                                              description: ImageRegistryCredentials
+                                                provides credentials that will be
+                                                used for authentication with registry
+                                              properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry
+                                                  type: boolean
+                                                providers:
+                                                  description: 'Providers specifies
+                                                    a list of OCI Registry names,
+                                                    whose authentication providers
+                                                    are provided It can be of one
+                                                    of these values: AWS, ACR, GCP,
+                                                    GHCR'
+                                                  items:
+                                                    description: ImageRegistryCredentialsProvidersType
+                                                      provides the list of credential
+                                                      providers required.
+                                                    enum:
+                                                    - default
+                                                    - amazon
+                                                    - azure
+                                                    - google
+                                                    - github
+                                                    type: string
+                                                  type: array
+                                                secrets:
+                                                  description: Secrets specifies a
+                                                    list of secrets that are provided
+                                                    for credentials Secrets must live
+                                                    in the Kyverno namespace
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                              type: object
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
@@ -19069,6 +19810,39 @@ spec:
                                 items:
                                   type: string
                                 type: array
+                              imageRegistryCredentials:
+                                description: ImageRegistryCredentials provides credentials
+                                  that will be used for authentication with registry
+                                properties:
+                                  allowInsecureRegistry:
+                                    description: AllowInsecureRegistry allows insecure
+                                      access to a registry
+                                    type: boolean
+                                  providers:
+                                    description: 'Providers specifies a list of OCI
+                                      Registry names, whose authentication providers
+                                      are provided It can be of one of these values:
+                                      AWS, ACR, GCP, GHCR'
+                                    items:
+                                      description: ImageRegistryCredentialsProvidersType
+                                        provides the list of credential providers
+                                        required.
+                                      enum:
+                                      - default
+                                      - amazon
+                                      - azure
+                                      - google
+                                      - github
+                                      type: string
+                                    type: array
+                                  secrets:
+                                    description: Secrets specifies a list of secrets
+                                      that are provided for credentials Secrets must
+                                      live in the Kyverno namespace
+                                    items:
+                                      type: string
+                                    type: array
+                                type: object
                               issuer:
                                 description: Issuer is the certificate issuer used
                                   for keyless signing. Deprecated. Use KeylessAttestor
@@ -19259,36 +20033,39 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.admission
+      name: ADMISSION
+      type: boolean
     - jsonPath: .spec.background
-      name: Background
+      name: BACKGROUND
       type: boolean
     - jsonPath: .spec.validationFailureAction
-      name: Validate Action
-      type: string
-    - jsonPath: .spec.failurePolicy
-      name: Failure Policy
-      priority: 1
+      name: VALIDATE ACTION
       type: string
     - jsonPath: .status.conditions[?(@.type == "Ready")].status
-      name: Ready
+      name: READY
       type: string
     - jsonPath: .metadata.creationTimestamp
-      name: Age
+      name: AGE
       type: date
+    - jsonPath: .spec.failurePolicy
+      name: FAILURE POLICY
+      priority: 1
+      type: string
     - jsonPath: .status.rulecount.validate
-      name: Validate
+      name: VALIDATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.mutate
-      name: Mutate
+      name: MUTATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.generate
-      name: Generate
+      name: GENERATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.verifyimages
-      name: Verifyimages
+      name: VERIFY IMAGES
       priority: 1
       type: integer
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
@@ -19316,6 +20093,11 @@ spec:
           spec:
             description: Spec defines policy behaviors and contains one or more rules.
             properties:
+              admission:
+                default: true
+                description: Admission controls if rules are applied during admission.
+                  Optional. Default value is "true".
+                type: boolean
               applyRules:
                 description: ApplyRules controls how rules in a policy are applied.
                   Rule are processed in the order of declaration. When set to `One`
@@ -19498,6 +20280,39 @@ spec:
                             description: ImageRegistry defines requests to an OCI/Docker
                               V2 registry to fetch image details.
                             properties:
+                              imageRegistryCredentials:
+                                description: ImageRegistryCredentials provides credentials
+                                  that will be used for authentication with registry
+                                properties:
+                                  allowInsecureRegistry:
+                                    description: AllowInsecureRegistry allows insecure
+                                      access to a registry
+                                    type: boolean
+                                  providers:
+                                    description: 'Providers specifies a list of OCI
+                                      Registry names, whose authentication providers
+                                      are provided It can be of one of these values:
+                                      AWS, ACR, GCP, GHCR'
+                                    items:
+                                      description: ImageRegistryCredentialsProvidersType
+                                        provides the list of credential providers
+                                        required.
+                                      enum:
+                                      - default
+                                      - amazon
+                                      - azure
+                                      - google
+                                      - github
+                                      type: string
+                                    type: array
+                                  secrets:
+                                    description: Secrets specifies a list of secrets
+                                      that are provided for credentials Secrets must
+                                      live in the Kyverno namespace
+                                    items:
+                                      type: string
+                                    type: array
+                                type: object
                               jmesPath:
                                 description: JMESPath is an optional JSON Match Expression
                                   that can be used to transform the ImageData struct
@@ -21163,6 +21978,41 @@ spec:
                                         to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        imageRegistryCredentials:
+                                          description: ImageRegistryCredentials provides
+                                            credentials that will be used for authentication
+                                            with registry
+                                          properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry
+                                              type: boolean
+                                            providers:
+                                              description: 'Providers specifies a
+                                                list of OCI Registry names, whose
+                                                authentication providers are provided
+                                                It can be of one of these values:
+                                                AWS, ACR, GCP, GHCR'
+                                              items:
+                                                description: ImageRegistryCredentialsProvidersType
+                                                  provides the list of credential
+                                                  providers required.
+                                                enum:
+                                                - default
+                                                - amazon
+                                                - azure
+                                                - google
+                                                - github
+                                                type: string
+                                              type: array
+                                            secrets:
+                                              description: Secrets specifies a list
+                                                of secrets that are provided for credentials
+                                                Secrets must live in the Kyverno namespace
+                                              items:
+                                                type: string
+                                              type: array
+                                          type: object
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
@@ -21461,6 +22311,41 @@ spec:
                                         to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        imageRegistryCredentials:
+                                          description: ImageRegistryCredentials provides
+                                            credentials that will be used for authentication
+                                            with registry
+                                          properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry
+                                              type: boolean
+                                            providers:
+                                              description: 'Providers specifies a
+                                                list of OCI Registry names, whose
+                                                authentication providers are provided
+                                                It can be of one of these values:
+                                                AWS, ACR, GCP, GHCR'
+                                              items:
+                                                description: ImageRegistryCredentialsProvidersType
+                                                  provides the list of credential
+                                                  providers required.
+                                                enum:
+                                                - default
+                                                - amazon
+                                                - azure
+                                                - google
+                                                - github
+                                                type: string
+                                              type: array
+                                            secrets:
+                                              description: Secrets specifies a list
+                                                of secrets that are provided for credentials
+                                                Secrets must live in the Kyverno namespace
+                                              items:
+                                                type: string
+                                              type: array
+                                          type: object
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
@@ -21860,6 +22745,41 @@ spec:
                                         to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        imageRegistryCredentials:
+                                          description: ImageRegistryCredentials provides
+                                            credentials that will be used for authentication
+                                            with registry
+                                          properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry
+                                              type: boolean
+                                            providers:
+                                              description: 'Providers specifies a
+                                                list of OCI Registry names, whose
+                                                authentication providers are provided
+                                                It can be of one of these values:
+                                                AWS, ACR, GCP, GHCR'
+                                              items:
+                                                description: ImageRegistryCredentialsProvidersType
+                                                  provides the list of credential
+                                                  providers required.
+                                                enum:
+                                                - default
+                                                - amazon
+                                                - azure
+                                                - google
+                                                - github
+                                                type: string
+                                              type: array
+                                            secrets:
+                                              description: Secrets specifies a list
+                                                of secrets that are provided for credentials
+                                                Secrets must live in the Kyverno namespace
+                                              items:
+                                                type: string
+                                              type: array
+                                          type: object
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
@@ -22948,6 +23868,38 @@ spec:
                             items:
                               type: string
                             type: array
+                          imageRegistryCredentials:
+                            description: ImageRegistryCredentials provides credentials
+                              that will be used for authentication with registry
+                            properties:
+                              allowInsecureRegistry:
+                                description: AllowInsecureRegistry allows insecure
+                                  access to a registry
+                                type: boolean
+                              providers:
+                                description: 'Providers specifies a list of OCI Registry
+                                  names, whose authentication providers are provided
+                                  It can be of one of these values: AWS, ACR, GCP,
+                                  GHCR'
+                                items:
+                                  description: ImageRegistryCredentialsProvidersType
+                                    provides the list of credential providers required.
+                                  enum:
+                                  - default
+                                  - amazon
+                                  - azure
+                                  - google
+                                  - github
+                                  type: string
+                                type: array
+                              secrets:
+                                description: Secrets specifies a list of secrets that
+                                  are provided for credentials Secrets must live in
+                                  the Kyverno namespace
+                                items:
+                                  type: string
+                                type: array
+                            type: object
                           issuer:
                             description: Issuer is the certificate issuer used for
                               keyless signing. Deprecated. Use KeylessAttestor instead.
@@ -23254,6 +24206,40 @@ spec:
                                 description: ImageRegistry defines requests to an
                                   OCI/Docker V2 registry to fetch image details.
                                 properties:
+                                  imageRegistryCredentials:
+                                    description: ImageRegistryCredentials provides
+                                      credentials that will be used for authentication
+                                      with registry
+                                    properties:
+                                      allowInsecureRegistry:
+                                        description: AllowInsecureRegistry allows
+                                          insecure access to a registry
+                                        type: boolean
+                                      providers:
+                                        description: 'Providers specifies a list of
+                                          OCI Registry names, whose authentication
+                                          providers are provided It can be of one
+                                          of these values: AWS, ACR, GCP, GHCR'
+                                        items:
+                                          description: ImageRegistryCredentialsProvidersType
+                                            provides the list of credential providers
+                                            required.
+                                          enum:
+                                          - default
+                                          - amazon
+                                          - azure
+                                          - google
+                                          - github
+                                          type: string
+                                        type: array
+                                      secrets:
+                                        description: Secrets specifies a list of secrets
+                                          that are provided for credentials Secrets
+                                          must live in the Kyverno namespace
+                                        items:
+                                          type: string
+                                        type: array
+                                    type: object
                                   jmesPath:
                                     description: JMESPath is an optional JSON Match
                                       Expression that can be used to transform the
@@ -24996,6 +25982,43 @@ spec:
                                             to an OCI/Docker V2 registry to fetch
                                             image details.
                                           properties:
+                                            imageRegistryCredentials:
+                                              description: ImageRegistryCredentials
+                                                provides credentials that will be
+                                                used for authentication with registry
+                                              properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry
+                                                  type: boolean
+                                                providers:
+                                                  description: 'Providers specifies
+                                                    a list of OCI Registry names,
+                                                    whose authentication providers
+                                                    are provided It can be of one
+                                                    of these values: AWS, ACR, GCP,
+                                                    GHCR'
+                                                  items:
+                                                    description: ImageRegistryCredentialsProvidersType
+                                                      provides the list of credential
+                                                      providers required.
+                                                    enum:
+                                                    - default
+                                                    - amazon
+                                                    - azure
+                                                    - google
+                                                    - github
+                                                    type: string
+                                                  type: array
+                                                secrets:
+                                                  description: Secrets specifies a
+                                                    list of secrets that are provided
+                                                    for credentials Secrets must live
+                                                    in the Kyverno namespace
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                              type: object
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
@@ -25308,6 +26331,43 @@ spec:
                                             to an OCI/Docker V2 registry to fetch
                                             image details.
                                           properties:
+                                            imageRegistryCredentials:
+                                              description: ImageRegistryCredentials
+                                                provides credentials that will be
+                                                used for authentication with registry
+                                              properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry
+                                                  type: boolean
+                                                providers:
+                                                  description: 'Providers specifies
+                                                    a list of OCI Registry names,
+                                                    whose authentication providers
+                                                    are provided It can be of one
+                                                    of these values: AWS, ACR, GCP,
+                                                    GHCR'
+                                                  items:
+                                                    description: ImageRegistryCredentialsProvidersType
+                                                      provides the list of credential
+                                                      providers required.
+                                                    enum:
+                                                    - default
+                                                    - amazon
+                                                    - azure
+                                                    - google
+                                                    - github
+                                                    type: string
+                                                  type: array
+                                                secrets:
+                                                  description: Secrets specifies a
+                                                    list of secrets that are provided
+                                                    for credentials Secrets must live
+                                                    in the Kyverno namespace
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                              type: object
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
@@ -25730,6 +26790,43 @@ spec:
                                             to an OCI/Docker V2 registry to fetch
                                             image details.
                                           properties:
+                                            imageRegistryCredentials:
+                                              description: ImageRegistryCredentials
+                                                provides credentials that will be
+                                                used for authentication with registry
+                                              properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry
+                                                  type: boolean
+                                                providers:
+                                                  description: 'Providers specifies
+                                                    a list of OCI Registry names,
+                                                    whose authentication providers
+                                                    are provided It can be of one
+                                                    of these values: AWS, ACR, GCP,
+                                                    GHCR'
+                                                  items:
+                                                    description: ImageRegistryCredentialsProvidersType
+                                                      provides the list of credential
+                                                      providers required.
+                                                    enum:
+                                                    - default
+                                                    - amazon
+                                                    - azure
+                                                    - google
+                                                    - github
+                                                    type: string
+                                                  type: array
+                                                secrets:
+                                                  description: Secrets specifies a
+                                                    list of secrets that are provided
+                                                    for credentials Secrets must live
+                                                    in the Kyverno namespace
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                              type: object
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
@@ -26867,6 +27964,39 @@ spec:
                                 items:
                                   type: string
                                 type: array
+                              imageRegistryCredentials:
+                                description: ImageRegistryCredentials provides credentials
+                                  that will be used for authentication with registry
+                                properties:
+                                  allowInsecureRegistry:
+                                    description: AllowInsecureRegistry allows insecure
+                                      access to a registry
+                                    type: boolean
+                                  providers:
+                                    description: 'Providers specifies a list of OCI
+                                      Registry names, whose authentication providers
+                                      are provided It can be of one of these values:
+                                      AWS, ACR, GCP, GHCR'
+                                    items:
+                                      description: ImageRegistryCredentialsProvidersType
+                                        provides the list of credential providers
+                                        required.
+                                      enum:
+                                      - default
+                                      - amazon
+                                      - azure
+                                      - google
+                                      - github
+                                      type: string
+                                    type: array
+                                  secrets:
+                                    description: Secrets specifies a list of secrets
+                                      that are provided for credentials Secrets must
+                                      live in the Kyverno namespace
+                                    items:
+                                      type: string
+                                    type: array
+                                type: object
                               issuer:
                                 description: Issuer is the certificate issuer used
                                   for keyless signing. Deprecated. Use KeylessAttestor
@@ -27032,36 +28162,39 @@ spec:
     subresources:
       status: {}
   - additionalPrinterColumns:
+    - jsonPath: .spec.admission
+      name: ADMISSION
+      type: boolean
     - jsonPath: .spec.background
-      name: Background
+      name: BACKGROUND
       type: boolean
     - jsonPath: .spec.validationFailureAction
-      name: Validate Action
-      type: string
-    - jsonPath: .spec.failurePolicy
-      name: Failure Policy
-      priority: 1
+      name: VALIDATE ACTION
       type: string
     - jsonPath: .status.conditions[?(@.type == "Ready")].status
-      name: Ready
+      name: READY
       type: string
     - jsonPath: .metadata.creationTimestamp
-      name: Age
+      name: AGE
       type: date
+    - jsonPath: .spec.failurePolicy
+      name: FAILURE POLICY
+      priority: 1
+      type: string
     - jsonPath: .status.rulecount.validate
-      name: Validate
+      name: VALIDATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.mutate
-      name: Mutate
+      name: MUTATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.generate
-      name: Generate
+      name: GENERATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.verifyimages
-      name: Verifyimages
+      name: VERIFY IMAGES
       priority: 1
       type: integer
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
@@ -27089,6 +28222,11 @@ spec:
           spec:
             description: Spec defines policy behaviors and contains one or more rules.
             properties:
+              admission:
+                default: true
+                description: Admission controls if rules are applied during admission.
+                  Optional. Default value is "true".
+                type: boolean
               applyRules:
                 description: ApplyRules controls how rules in a policy are applied.
                   Rule are processed in the order of declaration. When set to `One`
@@ -27270,6 +28408,39 @@ spec:
                             description: ImageRegistry defines requests to an OCI/Docker
                               V2 registry to fetch image details.
                             properties:
+                              imageRegistryCredentials:
+                                description: ImageRegistryCredentials provides credentials
+                                  that will be used for authentication with registry
+                                properties:
+                                  allowInsecureRegistry:
+                                    description: AllowInsecureRegistry allows insecure
+                                      access to a registry
+                                    type: boolean
+                                  providers:
+                                    description: 'Providers specifies a list of OCI
+                                      Registry names, whose authentication providers
+                                      are provided It can be of one of these values:
+                                      AWS, ACR, GCP, GHCR'
+                                    items:
+                                      description: ImageRegistryCredentialsProvidersType
+                                        provides the list of credential providers
+                                        required.
+                                      enum:
+                                      - default
+                                      - amazon
+                                      - azure
+                                      - google
+                                      - github
+                                      type: string
+                                    type: array
+                                  secrets:
+                                    description: Secrets specifies a list of secrets
+                                      that are provided for credentials Secrets must
+                                      live in the Kyverno namespace
+                                    items:
+                                      type: string
+                                    type: array
+                                type: object
                               jmesPath:
                                 description: JMESPath is an optional JSON Match Expression
                                   that can be used to transform the ImageData struct
@@ -28509,6 +29680,41 @@ spec:
                                         to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        imageRegistryCredentials:
+                                          description: ImageRegistryCredentials provides
+                                            credentials that will be used for authentication
+                                            with registry
+                                          properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry
+                                              type: boolean
+                                            providers:
+                                              description: 'Providers specifies a
+                                                list of OCI Registry names, whose
+                                                authentication providers are provided
+                                                It can be of one of these values:
+                                                AWS, ACR, GCP, GHCR'
+                                              items:
+                                                description: ImageRegistryCredentialsProvidersType
+                                                  provides the list of credential
+                                                  providers required.
+                                                enum:
+                                                - default
+                                                - amazon
+                                                - azure
+                                                - google
+                                                - github
+                                                type: string
+                                              type: array
+                                            secrets:
+                                              description: Secrets specifies a list
+                                                of secrets that are provided for credentials
+                                                Secrets must live in the Kyverno namespace
+                                              items:
+                                                type: string
+                                              type: array
+                                          type: object
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
@@ -28807,6 +30013,41 @@ spec:
                                         to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        imageRegistryCredentials:
+                                          description: ImageRegistryCredentials provides
+                                            credentials that will be used for authentication
+                                            with registry
+                                          properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry
+                                              type: boolean
+                                            providers:
+                                              description: 'Providers specifies a
+                                                list of OCI Registry names, whose
+                                                authentication providers are provided
+                                                It can be of one of these values:
+                                                AWS, ACR, GCP, GHCR'
+                                              items:
+                                                description: ImageRegistryCredentialsProvidersType
+                                                  provides the list of credential
+                                                  providers required.
+                                                enum:
+                                                - default
+                                                - amazon
+                                                - azure
+                                                - google
+                                                - github
+                                                type: string
+                                              type: array
+                                            secrets:
+                                              description: Secrets specifies a list
+                                                of secrets that are provided for credentials
+                                                Secrets must live in the Kyverno namespace
+                                              items:
+                                                type: string
+                                              type: array
+                                          type: object
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
@@ -29388,6 +30629,41 @@ spec:
                                         to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        imageRegistryCredentials:
+                                          description: ImageRegistryCredentials provides
+                                            credentials that will be used for authentication
+                                            with registry
+                                          properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry
+                                              type: boolean
+                                            providers:
+                                              description: 'Providers specifies a
+                                                list of OCI Registry names, whose
+                                                authentication providers are provided
+                                                It can be of one of these values:
+                                                AWS, ACR, GCP, GHCR'
+                                              items:
+                                                description: ImageRegistryCredentialsProvidersType
+                                                  provides the list of credential
+                                                  providers required.
+                                                enum:
+                                                - default
+                                                - amazon
+                                                - azure
+                                                - google
+                                                - github
+                                                type: string
+                                              type: array
+                                            secrets:
+                                              description: Secrets specifies a list
+                                                of secrets that are provided for credentials
+                                                Secrets must live in the Kyverno namespace
+                                              items:
+                                                type: string
+                                              type: array
+                                          type: object
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
@@ -30455,6 +31731,38 @@ spec:
                             items:
                               type: string
                             type: array
+                          imageRegistryCredentials:
+                            description: ImageRegistryCredentials provides credentials
+                              that will be used for authentication with registry
+                            properties:
+                              allowInsecureRegistry:
+                                description: AllowInsecureRegistry allows insecure
+                                  access to a registry
+                                type: boolean
+                              providers:
+                                description: 'Providers specifies a list of OCI Registry
+                                  names, whose authentication providers are provided
+                                  It can be of one of these values: AWS, ACR, GCP,
+                                  GHCR'
+                                items:
+                                  description: ImageRegistryCredentialsProvidersType
+                                    provides the list of credential providers required.
+                                  enum:
+                                  - default
+                                  - amazon
+                                  - azure
+                                  - google
+                                  - github
+                                  type: string
+                                type: array
+                              secrets:
+                                description: Secrets specifies a list of secrets that
+                                  are provided for credentials Secrets must live in
+                                  the Kyverno namespace
+                                items:
+                                  type: string
+                                type: array
+                            type: object
                           mutateDigest:
                             default: true
                             description: MutateDigest enables replacement of image
@@ -30741,6 +32049,40 @@ spec:
                                 description: ImageRegistry defines requests to an
                                   OCI/Docker V2 registry to fetch image details.
                                 properties:
+                                  imageRegistryCredentials:
+                                    description: ImageRegistryCredentials provides
+                                      credentials that will be used for authentication
+                                      with registry
+                                    properties:
+                                      allowInsecureRegistry:
+                                        description: AllowInsecureRegistry allows
+                                          insecure access to a registry
+                                        type: boolean
+                                      providers:
+                                        description: 'Providers specifies a list of
+                                          OCI Registry names, whose authentication
+                                          providers are provided It can be of one
+                                          of these values: AWS, ACR, GCP, GHCR'
+                                        items:
+                                          description: ImageRegistryCredentialsProvidersType
+                                            provides the list of credential providers
+                                            required.
+                                          enum:
+                                          - default
+                                          - amazon
+                                          - azure
+                                          - google
+                                          - github
+                                          type: string
+                                        type: array
+                                      secrets:
+                                        description: Secrets specifies a list of secrets
+                                          that are provided for credentials Secrets
+                                          must live in the Kyverno namespace
+                                        items:
+                                          type: string
+                                        type: array
+                                    type: object
                                   jmesPath:
                                     description: JMESPath is an optional JSON Match
                                       Expression that can be used to transform the
@@ -32483,6 +33825,43 @@ spec:
                                             to an OCI/Docker V2 registry to fetch
                                             image details.
                                           properties:
+                                            imageRegistryCredentials:
+                                              description: ImageRegistryCredentials
+                                                provides credentials that will be
+                                                used for authentication with registry
+                                              properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry
+                                                  type: boolean
+                                                providers:
+                                                  description: 'Providers specifies
+                                                    a list of OCI Registry names,
+                                                    whose authentication providers
+                                                    are provided It can be of one
+                                                    of these values: AWS, ACR, GCP,
+                                                    GHCR'
+                                                  items:
+                                                    description: ImageRegistryCredentialsProvidersType
+                                                      provides the list of credential
+                                                      providers required.
+                                                    enum:
+                                                    - default
+                                                    - amazon
+                                                    - azure
+                                                    - google
+                                                    - github
+                                                    type: string
+                                                  type: array
+                                                secrets:
+                                                  description: Secrets specifies a
+                                                    list of secrets that are provided
+                                                    for credentials Secrets must live
+                                                    in the Kyverno namespace
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                              type: object
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
@@ -32795,6 +34174,43 @@ spec:
                                             to an OCI/Docker V2 registry to fetch
                                             image details.
                                           properties:
+                                            imageRegistryCredentials:
+                                              description: ImageRegistryCredentials
+                                                provides credentials that will be
+                                                used for authentication with registry
+                                              properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry
+                                                  type: boolean
+                                                providers:
+                                                  description: 'Providers specifies
+                                                    a list of OCI Registry names,
+                                                    whose authentication providers
+                                                    are provided It can be of one
+                                                    of these values: AWS, ACR, GCP,
+                                                    GHCR'
+                                                  items:
+                                                    description: ImageRegistryCredentialsProvidersType
+                                                      provides the list of credential
+                                                      providers required.
+                                                    enum:
+                                                    - default
+                                                    - amazon
+                                                    - azure
+                                                    - google
+                                                    - github
+                                                    type: string
+                                                  type: array
+                                                secrets:
+                                                  description: Secrets specifies a
+                                                    list of secrets that are provided
+                                                    for credentials Secrets must live
+                                                    in the Kyverno namespace
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                              type: object
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
@@ -33217,6 +34633,43 @@ spec:
                                             to an OCI/Docker V2 registry to fetch
                                             image details.
                                           properties:
+                                            imageRegistryCredentials:
+                                              description: ImageRegistryCredentials
+                                                provides credentials that will be
+                                                used for authentication with registry
+                                              properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry
+                                                  type: boolean
+                                                providers:
+                                                  description: 'Providers specifies
+                                                    a list of OCI Registry names,
+                                                    whose authentication providers
+                                                    are provided It can be of one
+                                                    of these values: AWS, ACR, GCP,
+                                                    GHCR'
+                                                  items:
+                                                    description: ImageRegistryCredentialsProvidersType
+                                                      provides the list of credential
+                                                      providers required.
+                                                    enum:
+                                                    - default
+                                                    - amazon
+                                                    - azure
+                                                    - google
+                                                    - github
+                                                    type: string
+                                                  type: array
+                                                secrets:
+                                                  description: Secrets specifies a
+                                                    list of secrets that are provided
+                                                    for credentials Secrets must live
+                                                    in the Kyverno namespace
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                              type: object
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
@@ -34354,6 +35807,39 @@ spec:
                                 items:
                                   type: string
                                 type: array
+                              imageRegistryCredentials:
+                                description: ImageRegistryCredentials provides credentials
+                                  that will be used for authentication with registry
+                                properties:
+                                  allowInsecureRegistry:
+                                    description: AllowInsecureRegistry allows insecure
+                                      access to a registry
+                                    type: boolean
+                                  providers:
+                                    description: 'Providers specifies a list of OCI
+                                      Registry names, whose authentication providers
+                                      are provided It can be of one of these values:
+                                      AWS, ACR, GCP, GHCR'
+                                    items:
+                                      description: ImageRegistryCredentialsProvidersType
+                                        provides the list of credential providers
+                                        required.
+                                      enum:
+                                      - default
+                                      - amazon
+                                      - azure
+                                      - google
+                                      - github
+                                      type: string
+                                    type: array
+                                  secrets:
+                                    description: Secrets specifies a list of secrets
+                                      that are provided for credentials Secrets must
+                                      live in the Kyverno namespace
+                                    items:
+                                      type: string
+                                    type: array
+                                type: object
                               issuer:
                                 description: Issuer is the certificate issuer used
                                   for keyless signing. Deprecated. Use KeylessAttestor
@@ -36434,17 +37920,17 @@ rules:
     resources:
       - clustercleanuppolicies
       - cleanuppolicies
-      - clustercleanuppolicies/*
-      - cleanuppolicies/*
     verbs:
-      - create
-      - delete
+      - list
+      - watch
+  - apiGroups:
+      - ''
+    resources:
+      - configmaps
+    verbs:
       - get
       - list
-      - patch
-      - update
       - watch
-      - deletecollection
   - apiGroups:
       - batch
     resources:
@@ -36457,14 +37943,14 @@ rules:
       - update
       - watch
   - apiGroups:
-    - ''
-    - events.k8s.io
+      - ''
+      - events.k8s.io
     resources:
-    - events
+      - events
     verbs:
-    - create
-    - patch
-    - update
+      - create
+      - patch
+      - update
   - apiGroups:
       - authorization.k8s.io
     resources:
@@ -36866,6 +38352,7 @@ rules:
       - watch
       - create
       - update
+      - delete
   - apiGroups:
       - ''
     resources:
@@ -36925,10 +38412,17 @@ rules:
       - leases
     verbs:
       - create
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
       - delete
       - get
       - patch
       - update
+    resourceNames:
+      - kyverno-background-controller
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -36946,11 +38440,20 @@ rules:
     resources:
       - secrets
     verbs:
+      - create
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    verbs:
+      - delete
       - get
       - list
-      - watch
-      - create
       - update
+      - watch
+    resourceNames:
+      - kyverno-cleanup-controller.kyverno.svc.kyverno-tls-ca
+      - kyverno-cleanup-controller.kyverno.svc.kyverno-tls-pair
   - apiGroups:
       - ''
     resources:
@@ -36968,10 +38471,17 @@ rules:
       - leases
     verbs:
       - create
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
       - delete
       - get
       - patch
       - update
+    resourceNames:
+      - kyverno-cleanup-controller
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -37001,10 +38511,17 @@ rules:
       - leases
     verbs:
       - create
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
       - delete
       - get
       - patch
       - update
+    resourceNames:
+      - kyverno-reports-controller
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -37283,6 +38800,8 @@ spec:
             seccompProfile:
               type: RuntimeDefault
           env:
+          - name: KYVERNO_SERVICEACCOUNT_NAME
+            value: kyverno-admission-controller
           - name: INIT_CONFIG
             value: kyverno
           - name: METRICS_CONFIG
@@ -37312,6 +38831,7 @@ spec:
             - --admissionReports=true
             - --autoUpdateWebhooks=true
             - --enableConfigMapCaching=true
+            - --enableDeferredLoading=true
             - --dumpPayload=false
             - --forceFailurePolicyIgnore=false
             - --loggingFormat=text
@@ -37458,10 +38978,15 @@ spec:
             - --otelConfig=prometheus
             - --metricsPort=8000
             - --enableConfigMapCaching=true
+            - --enableDeferredLoading=true
             - --loggingFormat=text
             - --v=2
             - --enablePolicyException=false
           env:
+          - name: KYVERNO_SERVICEACCOUNT_NAME
+            value: kyverno-background-controller
+          - name: KYVERNO_DEPLOYMENT
+            value: kyverno-background-controller
           - name: INIT_CONFIG
             value: kyverno
           - name: METRICS_CONFIG
@@ -37550,10 +39075,13 @@ spec:
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
+            - --enableDeferredLoading=true
             - --dumpPayload=false
             - --loggingFormat=text
             - --v=2
           env:
+          - name: KYVERNO_DEPLOYMENT
+            value: kyverno-cleanup-controller
           - name: INIT_CONFIG
             value: kyverno
           - name: METRICS_CONFIG
@@ -37674,11 +39202,13 @@ spec:
             - --otelConfig=prometheus
             - --metricsPort=8000
             - --admissionReports=true
+            - --aggregateReports=true
             - --backgroundScan=true
             - --backgroundScanWorkers=2
             - --backgroundScanInterval=1h
             - --skipResourceFilters=true
             - --enableConfigMapCaching=true
+            - --enableDeferredLoading=true
             - --loggingFormat=text
             - --v=2
             - --enablePolicyException=false
@@ -37686,6 +39216,10 @@ spec:
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
           env:
+          - name: KYVERNO_SERVICEACCOUNT_NAME
+            value: kyverno-reports-controller
+          - name: KYVERNO_DEPLOYMENT
+            value: kyverno-reports-controller
           - name: INIT_CONFIG
             value: kyverno
           - name: METRICS_CONFIG

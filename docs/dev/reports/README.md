@@ -21,7 +21,7 @@ Keep in mind that only validation and image verification rules are recorded in t
 
 ## Report types
 
-In the following sections we will dicuss the different report types, how they are managed and how Kyverno uses them.
+In the following sections we will discuss the different report types, how they are managed and how Kyverno uses them.
 
 ### Admission reports
 
@@ -43,7 +43,7 @@ It's important to note that a resource can be admitted multiple times, CREATE/UP
 One consequence of this is that Kyverno can produce a lot of admission reports for the same resource.
 
 Keeping all those admission reports would be highly inefficient and they would accumulate in the cluster as new admission reports come in.
-To prevent admission reports from piling up in the cluster, Kyverno contiuously aggregates admission reports into a single one per underlying resource.
+To prevent admission reports from piling up in the cluster, Kyverno continuously aggregates admission reports into a single one per underlying resource.
 
 ```mermaid
 flowchart LR
@@ -62,10 +62,10 @@ B(Admission reports controller) -->|delete| D4(Admission report - ephemeral)
 With that in mind, it's important to note that most admission reports should be short lived and exist only until they have been aggregated.
 Aggregated admission reports can be identified by the `audit.kyverno.io/report.aggregate` label.
 
-Only the aggregated report is expected to be long lived and evtually share the same lifecycle as the underlying resource.
-To aggergate reports together, Kyverno groups results per policy/rule and keeps the most recent one.
+Only the aggregated report is expected to be long lived and eventually share the same lifecycle as the underlying resource.
+To aggregate reports together, Kyverno groups results per policy/rule and keeps the most recent one.
 
-### Backgroud scan reports
+### Background scan reports
 
 Background scan reports are produced in the background at regular intervals or when something changes in the policy or the resource.
 There is always a one-to-one relationship between a resource and a background scan report.
@@ -145,7 +145,7 @@ The system stores everything in etcd, admission reports (aggregated and short li
 
 ### Admission reports and background scan reports
 
-If we omit the short lived admission reports, this usually means 2 additionnal resources per managed resource:
+If we omit the short lived admission reports, this usually means 2 additional resources per managed resource:
 - one aggregated admission report
 - one background scan report
 
@@ -168,7 +168,7 @@ Sometimes they are too big to be stored in etcd and we split them into multiple 
 
 ### Reports deletion
 
-Quick note about reports deletion, we use the builtin Kubernetes garbage collection mecanism for that. Reports are owned by the resource they apply to and when the resource goes away, reports are garbage collected and deleted automatically.
+Quick note about reports deletion, we use the builtin Kubernetes garbage collection mechanism for that. Reports are owned by the resource they apply to and when the resource goes away, reports are garbage collected and deleted automatically.
 
 ### Conclusion
 
@@ -191,7 +191,7 @@ When deploying PSS policies (with `restricted` profile), it creates:
 - 17 policies
 - all together, it's 19 rules in total
 
-For every `Pod` in the cluster it will create a background scan report like this and a similar addmission report (aggregated):
+For every `Pod` in the cluster it will create a background scan report like this and a similar admission report (aggregated):
 
 ```yaml
 apiVersion: kyverno.io/v1alpha2
@@ -466,4 +466,4 @@ The number of policy reports is usually inferior to the number of other reports 
 
 In the end, to use PSS policies (with `restricted` profile) on a 1000 pods cluster, you should budget around 25MB of etcd storage, spread across ~2000 reports.
 
-In comparison, an average `Pod` is around 5KB (at least for a pod with a single container). The storage for 1000 pods is around 5MB. We can see that reports has a significant stoage impact. Fortunately ETCD stores data on disk and associated cost should be neglictible.
+In comparison, an average `Pod` is around 5KB (at least for a pod with a single container). The storage for 1000 pods is around 5MB. We can see that reports has a significant storage impact. Fortunately ETCD stores data on disk and associated cost should be negligible.

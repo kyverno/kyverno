@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	log "github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -1058,9 +1059,8 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 		config.NewDefaultMetricsConfiguration(),
 		jp,
 		nil,
-		adapters.ImageDataClient(rclient),
-		rclient,
-		engineapi.DefaultContextLoaderFactory(nil),
+		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+		factories.DefaultContextLoaderFactory(nil),
 		nil,
 		"",
 	)
@@ -1161,9 +1161,8 @@ func Test_RuleSelector(t *testing.T) {
 		config.NewDefaultMetricsConfiguration(),
 		jp,
 		nil,
-		adapters.ImageDataClient(rclient),
-		rclient,
-		engineapi.DefaultContextLoaderFactory(nil),
+		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+		factories.DefaultContextLoaderFactory(nil),
 		nil,
 		"",
 	)

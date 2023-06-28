@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gomodules.xyz/jsonpatch/v2"
@@ -23,7 +22,7 @@ import (
 
 type mutateImageHandler struct {
 	configuration            config.Configuration
-	rclient                  registryclient.Client
+	rclientFactory           engineapi.RegistryClientFactory
 	ivm                      *engineapi.ImageVerificationMetadata
 	images                   []apiutils.ImageInfo
 	imageSignatureRepository string
@@ -34,7 +33,7 @@ func NewMutateImageHandler(
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
 	configuration config.Configuration,
-	rclient registryclient.Client,
+	rclientFactory engineapi.RegistryClientFactory,
 	ivm *engineapi.ImageVerificationMetadata,
 	imageSignatureRepository string,
 ) (handlers.Handler, error) {
@@ -50,7 +49,7 @@ func NewMutateImageHandler(
 	}
 	return mutateImageHandler{
 		configuration:            configuration,
-		rclient:                  rclient,
+		rclientFactory:           rclientFactory,
 		ivm:                      ivm,
 		images:                   ruleImages,
 		imageSignatureRepository: imageSignatureRepository,
@@ -72,10 +71,16 @@ func (h mutateImageHandler) Process(
 			engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to substitute variables", err),
 		)
 	}
-	iv := internal.NewImageVerifier(logger, h.rclient, policyContext, *ruleCopy, h.ivm, h.imageSignatureRepository)
 	var engineResponses []*engineapi.RuleResponse
 	var patches []jsonpatch.JsonPatchOperation
 	for _, imageVerify := range ruleCopy.VerifyImages {
+		rclient, err := h.rclientFactory.GetClient(ctx, imageVerify.ImageRegistryCredentials)
+		if err != nil {
+			return resource, handlers.WithResponses(
+				engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to fetch secrets", err),
+			)
+		}
+		iv := internal.NewImageVerifier(logger, rclient, policyContext, *ruleCopy, h.ivm, h.imageSignatureRepository)
 		patch, ruleResponse := iv.Verify(ctx, imageVerify, h.images, h.configuration)
 		patches = append(patches, patch...)
 		engineResponses = append(engineResponses, ruleResponse...)

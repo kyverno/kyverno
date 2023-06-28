@@ -846,6 +846,203 @@ func Test_SemverCompare(t *testing.T) {
 	}
 }
 
+func Test_Lookup(t *testing.T) {
+	testCases := []struct {
+		collection     string
+		key            string
+		expectedResult string
+	}{
+		// objects
+		/////////////////
+
+		// not found
+		{
+			collection:     `{}`,
+			key:            `"key1"`,
+			expectedResult: `null`,
+		},
+		{
+			collection:     `{"key1": "value1"}`,
+			key:            `"key2"`,
+			expectedResult: `null`,
+		},
+
+		// found
+		{
+			collection:     `{"key1": "value1"}`,
+			key:            `"key1"`,
+			expectedResult: `"value1"`,
+		},
+		{
+			collection:     `{"": "value1"}`,
+			key:            `""`,
+			expectedResult: `"value1"`,
+		},
+
+		// result types
+		{
+			collection:     `{"k": 123}`,
+			key:            `"k"`,
+			expectedResult: `123`,
+		},
+		{
+			collection:     `{"k": 12.34}`,
+			key:            `"k"`,
+			expectedResult: `12.34`,
+		},
+		{
+			collection:     `{"k": true}`,
+			key:            `"k"`,
+			expectedResult: `true`,
+		},
+		{
+			collection:     `{"k": false}`,
+			key:            `"k"`,
+			expectedResult: `false`,
+		},
+		{
+			collection:     `{"k": null}`,
+			key:            `"k"`,
+			expectedResult: `null`,
+		},
+		{
+			collection:     `{"k":  [7, "x", true] }`,
+			key:            `"k"`,
+			expectedResult: `[7, "x", true]`,
+		},
+		{
+			collection:     `{"k": {"key1":true}}`,
+			key:            `"k"`,
+			expectedResult: `{"key1":true}`,
+		},
+
+		// arrays
+		/////////////////
+
+		// not found
+		{
+			collection:     `[]`,
+			key:            `0`,
+			expectedResult: `null`,
+		},
+		{
+			collection:     `["item0"]`,
+			key:            `-1`,
+			expectedResult: `null`,
+		},
+		{
+			collection:     `["item0"]`,
+			key:            `1`,
+			expectedResult: `null`,
+		},
+
+		// found
+		{
+			collection:     `["item0"]`,
+			key:            `0`,
+			expectedResult: `"item0"`,
+		},
+		{
+			collection:     `["item0", "item1", "item2", "item3"]`,
+			key:            `2`,
+			expectedResult: `"item2"`,
+		},
+		{
+			collection:     `["item0", "item1"]`,
+			key:            `0.99999999999999999999999999999999999999999999`,
+			expectedResult: `"item1"`,
+		},
+
+		// result types
+		{
+			collection:     `[123]`,
+			key:            `0`,
+			expectedResult: `123`,
+		},
+		{
+			collection:     `[12.34]`,
+			key:            `0`,
+			expectedResult: `12.34`,
+		},
+		{
+			collection:     `[true]`,
+			key:            `0`,
+			expectedResult: `true`,
+		},
+		{
+			collection:     `[false]`,
+			key:            `0`,
+			expectedResult: `false`,
+		},
+		{
+			collection:     `[null]`,
+			key:            `0`,
+			expectedResult: `null`,
+		},
+		{
+			collection:     `[ [7, "x", true] ]`,
+			key:            `0`,
+			expectedResult: `[7, "x", true]`,
+		},
+		{
+			collection:     `[{"key1":true}]`,
+			key:            `0`,
+			expectedResult: `{"key1":true}`,
+		},
+	}
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			query, err := newJMESPath(cfg, "lookup(`"+tc.collection+"`,`"+tc.key+"`)")
+			assert.NilError(t, err)
+
+			result, err := query.Search("")
+			assert.NilError(t, err)
+
+			var expectedResult interface{}
+			err = json.Unmarshal([]byte(tc.expectedResult), &expectedResult)
+			assert.NilError(t, err)
+
+			assert.DeepEqual(t, result, expectedResult)
+		})
+	}
+}
+
+func Test_Lookup_InvalidArgs(t *testing.T) {
+	testCases := []struct {
+		collection  string
+		key         string
+		expectedMsg string
+	}{
+		// invalid key type
+		{
+			collection:  `{}`,
+			key:         `123`,
+			expectedMsg: `argument #2 is not of type String`,
+		},
+		{
+			collection:  `[]`,
+			key:         `"abc"`,
+			expectedMsg: `argument #2 is not of type Number`,
+		},
+
+		// invalid value
+		{
+			collection:  `[]`,
+			key:         `1.5`,
+			expectedMsg: `JMESPath function 'lookup': argument #2: expected an integer number but got: 1.5`,
+		},
+	}
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			query, err := newJMESPath(cfg, "lookup(`"+tc.collection+"`,`"+tc.key+"`)")
+			assert.NilError(t, err)
+
+			_, err = query.Search("")
+			assert.ErrorContains(t, err, tc.expectedMsg)
+		})
+	}
+}
+
 func Test_Items(t *testing.T) {
 	testCases := []struct {
 		object         string

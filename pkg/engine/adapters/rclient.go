@@ -10,10 +10,10 @@ import (
 )
 
 type rclientAdapter struct {
-	client registryclient.Client
+	registryclient.Client
 }
 
-func ImageDataClient(client registryclient.Client) engineapi.ImageDataClient {
+func RegistryClient(client registryclient.Client) engineapi.RegistryClient {
 	if client == nil {
 		return nil
 	}
@@ -21,7 +21,7 @@ func ImageDataClient(client registryclient.Client) engineapi.ImageDataClient {
 }
 
 func (a *rclientAdapter) ForRef(ctx context.Context, ref string) (*engineapi.ImageData, error) {
-	desc, err := a.client.FetchImageDescriptor(ctx, ref)
+	desc, err := a.Client.FetchImageDescriptor(ctx, ref)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch image descriptor: %s, error: %v", ref, err)
 	}

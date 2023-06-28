@@ -3,7 +3,8 @@ name: cli
 on:
   push:
     branches:
-      - '*'
+      - 'main'
+      - 'release*'
   pull_request:
     branches:
       - 'main'
@@ -30,10 +31,10 @@ jobs:
         run: |
           if [[ ${{ github.event_name }} == "push" ]]
           then
-            export TEST_GIT_BRANCH=${GITHUB_REF##*/}
+            echo "TEST_GIT_BRANCH=${GITHUB_REF##*/}" >> $GITHUB_ENV
           elif [[ ${{ github.event_name }} == "pull_request" ]]
           then
-            export TEST_GIT_BRANCH=${{ github.event.pull_request.base.ref }}
+            echo "TEST_GIT_BRANCH=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
           fi
       - name: Test CLI
         run: |

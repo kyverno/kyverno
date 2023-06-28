@@ -302,7 +302,7 @@ customLabels: {}
 
 webhooksCleanup:
   # -- Create a helm pre-delete hook to cleanup webhooks.
-  enabled: false
+  enabled: true
   # -- `kubectl` image to run commands for deleting webhooks.
   image: bitnami/kubectl:latest
   # -- Image pull secrets
@@ -322,9 +322,16 @@ grafana:
   # -- Grafana dashboard configmap annotations.
   annotations: {}
 
+  # -- Grafana dashboard configmap labels
+  labels:
+    grafana_dashboard: "1"
+
 # Features configuration
 features:
   admissionReports:
+    # -- Enables the feature
+    enabled: true
+  aggregateReports:
     # -- Enables the feature
     enabled: true
   autoUpdateWebhooks:
@@ -340,6 +347,9 @@ features:
     # -- Skips resource filters in background scan
     skipResourceFilters: true
   configMapCaching:
+    # -- Enables the feature
+    enabled: true
+  deferredLoading:
     # -- Enables the feature
     enabled: true
   dumpPayload:
@@ -814,6 +824,10 @@ admissionController:
     secure: false
     # -- TLS Configuration for endpoint
     tlsConfig: {}
+    # -- RelabelConfigs to apply to samples before scraping
+    relabelings: []
+    # -- MetricRelabelConfigs to apply to samples before ingestion.
+    metricRelabelings: []
 
   tracing:
     # -- Enable tracing
@@ -1029,6 +1043,10 @@ backgroundController:
     secure: false
     # -- TLS Configuration for endpoint
     tlsConfig: {}
+    # -- RelabelConfigs to apply to samples before scraping
+    relabelings: []
+    # -- MetricRelabelConfigs to apply to samples before ingestion.
+    metricRelabelings: []
 
   tracing:
     # -- Enable tracing
@@ -1297,6 +1315,10 @@ cleanupController:
     secure: false
     # -- TLS Configuration for endpoint
     tlsConfig: {}
+    # -- RelabelConfigs to apply to samples before scraping
+    relabelings: []
+    # -- MetricRelabelConfigs to apply to samples before ingestion.
+    metricRelabelings: []
 
   tracing:
     # -- Enable tracing
@@ -1532,6 +1554,10 @@ reportsController:
     secure: false
     # -- TLS Configuration for endpoint
     tlsConfig: {}
+    # -- RelabelConfigs to apply to samples before scraping
+    relabelings: []
+    # -- MetricRelabelConfigs to apply to samples before ingestion.
+    metricRelabelings: []
 
   tracing:
     # -- Enable tracing
