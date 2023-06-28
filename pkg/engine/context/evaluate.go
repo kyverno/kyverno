@@ -39,35 +39,8 @@ func (ctx *context) Query(query string) (interface{}, error) {
 }
 
 func (ctx *context) loadDeferred(query string) error {
-	loaders := ctx.getMatchingLoaders(query)
-	for _, loader := range loaders {
-		err := ctx.evaluateLoader(loader)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (ctx *context) getMatchingLoaders(query string) []string {
-	ctx.deferred.mutex.Lock()
-	defer ctx.deferred.mutex.Unlock()
-	var matchingLoaders []string
-	for name := range ctx.deferred.loaders {
-		if strings.Contains(query, name) {
-			matchingLoaders = append(matchingLoaders, name)
-		}
-	}
-	return matchingLoaders
-}
-
-func (ctx *context) evaluateLoader(name string) error {
-	loader, ok := ctx.deferred.loaders[name]
-	if !ok {
-		return nil
-	}
-	delete(ctx.deferred.loaders, name)
-	return loader()
+	level := len(ctx.jsonRawCheckpoints)
+	return ctx.deferred.LoadMatching(query, level)
 }
 
 func (ctx *context) HasChanged(jmespath string) (bool, error) {

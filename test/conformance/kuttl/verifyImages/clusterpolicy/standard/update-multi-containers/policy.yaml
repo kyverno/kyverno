@@ -1,0 +1,31 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-image-signature
+spec:
+  background: false
+  failurePolicy: Fail
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: verify-image
+    verifyImages:
+    - attestors:
+      - count: 1
+        entries:
+        - keys:
+            publicKeys: |
+              -----BEGIN PUBLIC KEY-----
+              MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEMKLYTatU9CUsrA5Td6jXiZTolwsx
+              HZKwYP5XkHhU436FGDD5Zi2nVFem6AbzXWHssIQRkAI3yJgKkB4J6Qe4OQ==
+              -----END PUBLIC KEY-----
+      imageReferences:
+        - ghcr.io/seankhliao/*
+      mutateDigest: false
+      required: true
+      verifyDigest: false
+  validationFailureAction: Enforce
+  webhookTimeoutSeconds: 30

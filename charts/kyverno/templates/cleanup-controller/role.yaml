@@ -19,10 +19,11 @@ rules:
     resources:
       - secrets
     verbs:
+      - delete
       - get
       - list
-      - watch
       - update
+      - watch
     resourceNames:
       - {{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-ca
       - {{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-pair
