@@ -67,7 +67,7 @@ func hasUserMatchExclude(idx int, rule *kyvernov1.Rule) error {
 	if len(rule.ExcludeResources.All) > 0 {
 		for i, value := range rule.ExcludeResources.All {
 			if path := userInfoDefined(value.UserInfo); path != "" {
-				return fmt.Errorf("invalid variable used at path: spec/rules[%d]/exclude/any[%d]/%s", idx, i, path)
+				return fmt.Errorf("invalid variable used at path: spec/rules[%d]/exclude/all[%d]/%s", idx, i, path)
 			}
 		}
 	}
@@ -75,7 +75,7 @@ func hasUserMatchExclude(idx int, rule *kyvernov1.Rule) error {
 	if len(rule.ExcludeResources.Any) > 0 {
 		for i, value := range rule.ExcludeResources.Any {
 			if path := userInfoDefined(value.UserInfo); path != "" {
-				return fmt.Errorf("invalid variable used at path: spec/rules[%d]/exclude/all[%d]/%s", idx, i, path)
+				return fmt.Errorf("invalid variable used at path: spec/rules[%d]/exclude/any[%d]/%s", idx, i, path)
 			}
 		}
 	}
