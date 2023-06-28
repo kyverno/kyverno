@@ -43,7 +43,6 @@ func NewTraceConfig(log logr.Logger, tracerName, address, certs string, kubeClie
 		log.Error(err, "Failed to create the collector exporter")
 		return nil, err
 	}
-
 	res, err := resource.New(
 		ctx,
 		resource.WithSchemaURL(semconv.SchemaURL),
