@@ -111,6 +111,7 @@ spec:
               "admissionReports"
               "backgroundScan"
               "configMapCaching"
+              "deferredLoading"
               "logging"
               "omitEvents"
               "policyExceptions"

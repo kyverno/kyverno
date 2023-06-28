@@ -49,17 +49,14 @@ func (a *apiLoader) LoadData() error {
 	if err != nil {
 		return fmt.Errorf("failed to initiaize APICal: %w", err)
 	}
-
 	if a.data == nil {
 		var err error
 		if a.data, err = executor.Fetch(a.ctx); err != nil {
 			return fmt.Errorf("failed to fetch data for APICall: %w", err)
 		}
 	}
-
 	if _, err := executor.Store(a.data); err != nil {
 		return fmt.Errorf("failed to store data for APICall: %w", err)
 	}
-
 	return nil
 }

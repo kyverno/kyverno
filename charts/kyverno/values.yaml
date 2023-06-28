@@ -346,6 +346,9 @@ features:
   configMapCaching:
     # -- Enables the feature
     enabled: true
+  deferredLoading:
+    # -- Enables the feature
+    enabled: true
   dumpPayload:
     # -- Enables the feature
     enabled: false

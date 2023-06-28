@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/kyverno/pkg/toggle"
 )
 
 type ContextLoaderFactoryOptions func(*contextLoader)
@@ -56,20 +57,24 @@ func (l *contextLoader) Load(
 		}
 	}
 	for _, entry := range contextEntries {
-		deferredLoader, err := l.newDeferredLoader(ctx, jp, client, rclient, entry, jsonContext)
+		loader, err := l.newLoader(ctx, jp, client, rclient, entry, jsonContext)
 		if err != nil {
 			return fmt.Errorf("failed to create deferred loader for context entry %s", entry.Name)
 		}
-		if deferredLoader != nil {
-			if err := jsonContext.AddDeferredLoader(entry.Name, deferredLoader); err != nil {
-				return err
+		if loader != nil {
+			if toggle.EnableDeferredLoading.Enabled() {
+				if err := jsonContext.AddDeferredLoader(entry.Name, loader); err != nil {
+					return err
+				}
+			} else {
+				return loader.LoadData()
 			}
 		}
 	}
 	return nil
 }
 
-func (l *contextLoader) newDeferredLoader(
+func (l *contextLoader) newLoader(
 	ctx context.Context,
 	jp jmespath.Interface,
 	client dclient.Interface,
@@ -105,6 +110,5 @@ func (l *contextLoader) newDeferredLoader(
 		l := loaders.NewVariableLoader(l.logger, entry, jsonContext, jp)
 		return l, nil
 	}
-
 	return nil, fmt.Errorf("missing ConfigMap|APICall|ImageRegistry|Variable in context entry %s", entry.Name)
 }
