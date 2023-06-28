@@ -653,7 +653,7 @@ test-cli-local: $(CLI_BIN)
 
 .PHONY: test-cli-local-mutate
 test-cli-local-mutate: $(CLI_BIN)
-	# @$(CLI_BIN) test ./test/cli/test-mutate
+	@$(CLI_BIN) test ./test/cli/test-mutate
 
 .PHONY: test-cli-local-generate
 test-cli-local-generate: $(CLI_BIN)

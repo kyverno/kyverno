@@ -51,6 +51,7 @@ jobs:
         tests:
           - autogen
           - cleanup
+          - deferred
           - events
           - exceptions
           - generate/clusterpolicy

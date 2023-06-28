@@ -231,7 +231,7 @@ func (e *engine) invokeRuleHandler(
 		ctx,
 		"pkg/engine",
 		fmt.Sprintf("RULE %s", rule.Name),
-		func(ctx context.Context, span trace.Span) (unstructured.Unstructured, []engineapi.RuleResponse) {
+		func(ctx context.Context, span trace.Span) (patchedResource unstructured.Unstructured, results []engineapi.RuleResponse) {
 			// check if resource and rule match
 			if err := matches(rule, policyContext, resource); err != nil {
 				logger.V(4).Info("rule not matched", "reason", err.Error())
@@ -246,6 +246,15 @@ func (e *engine) invokeRuleHandler(
 				if ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule); ruleResp != nil {
 					return resource, handlers.WithResponses(ruleResp)
 				}
+				policyContext.JSONContext().Checkpoint()
+				defer func() {
+					policyContext.JSONContext().Restore()
+					if patchedResource.Object != nil {
+						if err := policyContext.JSONContext().AddResource(patchedResource.Object); err != nil {
+							logger.Error(err, "failed to add resource in the json context")
+						}
+					}
+				}()
 				// load rule context
 				contextLoader := e.ContextLoader(policyContext.Policy(), rule)
 				if err := contextLoader(ctx, rule.Context, policyContext.JSONContext()); err != nil {

@@ -196,7 +196,7 @@ func NewPolicyContextFromAdmissionRequest(
 	gvk schema.GroupVersionKind,
 	configuration config.Configuration,
 ) (*PolicyContext, error) {
-	ctx, err := newVariablesContext(jp, request, &admissionInfo)
+	engineCtx, err := newJsonContext(jp, request, &admissionInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create policy rule context: %w", err)
 	}
@@ -204,10 +204,10 @@ func NewPolicyContextFromAdmissionRequest(
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse resource: %w", err)
 	}
-	if err := ctx.AddImageInfos(&newResource, configuration); err != nil {
+	if err := engineCtx.AddImageInfos(&newResource, configuration); err != nil {
 		return nil, fmt.Errorf("failed to add image information to the policy rule context: %w", err)
 	}
-	policyContext := NewPolicyContextWithJsonContext(kyvernov1.AdmissionOperation(request.Operation), ctx).
+	policyContext := NewPolicyContextWithJsonContext(kyvernov1.AdmissionOperation(request.Operation), engineCtx).
 		WithNewResource(newResource).
 		WithOldResource(oldResource).
 		WithAdmissionInfo(admissionInfo).
@@ -217,20 +217,20 @@ func NewPolicyContextFromAdmissionRequest(
 	return policyContext, nil
 }
 
-func newVariablesContext(
+func newJsonContext(
 	jp jmespath.Interface,
 	request admissionv1.AdmissionRequest,
 	userRequestInfo *kyvernov1beta1.RequestInfo,
 ) (enginectx.Interface, error) {
-	ctx := enginectx.NewContext(jp)
-	if err := ctx.AddRequest(request); err != nil {
+	engineCtx := enginectx.NewContext(jp)
+	if err := engineCtx.AddRequest(request); err != nil {
 		return nil, fmt.Errorf("failed to load incoming request in context: %w", err)
 	}
-	if err := ctx.AddUserInfo(*userRequestInfo); err != nil {
+	if err := engineCtx.AddUserInfo(*userRequestInfo); err != nil {
 		return nil, fmt.Errorf("failed to load userInfo in context: %w", err)
 	}
-	if err := ctx.AddServiceAccount(userRequestInfo.AdmissionUserInfo.Username); err != nil {
+	if err := engineCtx.AddServiceAccount(userRequestInfo.AdmissionUserInfo.Username); err != nil {
 		return nil, fmt.Errorf("failed to load service account in context: %w", err)
 	}
-	return ctx, nil
+	return engineCtx, nil
 }
