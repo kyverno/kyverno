@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: background-vars-serviceaccountname
 spec:
-  validationFailureAction: audit
+  validationFailureAction: Audit
   background: true
   rules:
   - name: ns-vars-serviceaccountname

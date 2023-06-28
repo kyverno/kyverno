@@ -9,7 +9,10 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/factories"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	log "github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -1048,13 +1051,18 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			},
 		},
 	}
-
+	cfg := config.NewDefaultConfiguration(false)
+	jp := jmespath.New(cfg)
+	rclient := registryclient.NewOrDie()
 	eng := engine.NewEngine(
-		config.NewDefaultConfiguration(),
+		cfg,
+		config.NewDefaultMetricsConfiguration(),
+		jp,
 		nil,
-		registryclient.NewOrDie(),
-		engineapi.DefaultContextLoaderFactory(nil),
+		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+		factories.DefaultContextLoaderFactory(nil),
 		nil,
+		"",
 	)
 	for i, tc := range testcases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
@@ -1064,15 +1072,24 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			resourceUnstructured, err := kubeutils.BytesToUnstructured(tc.rawResource)
 			assert.NilError(t, err)
 
-			ctx := engine.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured).WithNamespaceLabels(tc.rawResourceNamespaceLabels)
+			ctx, err := engine.NewPolicyContext(
+				jp,
+				*resourceUnstructured,
+				kyvernov1.Create,
+				nil,
+				cfg,
+			)
+			assert.NilError(t, err)
+
+			ctx = ctx.WithPolicy(&policy).WithNamespaceLabels(tc.rawResourceNamespaceLabels)
 			er := eng.Validate(
 				context.TODO(),
 				ctx,
 			)
 			if tc.blocked && tc.messages != nil {
 				for _, r := range er.PolicyResponse.Rules {
-					msg := tc.messages[r.Name]
-					assert.Equal(t, r.Message, msg)
+					msg := tc.messages[r.Name()]
+					assert.Equal(t, r.Message(), msg)
 				}
 			}
 
@@ -1126,21 +1143,35 @@ func Test_RuleSelector(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Assert(t, resourceUnstructured != nil)
 
-	ctx := engine.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured)
+	cfg := config.NewDefaultConfiguration(false)
+	jp := jmespath.New(cfg)
+	ctx, err := engine.NewPolicyContext(
+		jp,
+		*resourceUnstructured,
+		kyvernov1.Create,
+		nil,
+		cfg,
+	)
+	assert.NilError(t, err)
 
+	ctx = ctx.WithPolicy(&policy)
+	rclient := registryclient.NewOrDie()
 	eng := engine.NewEngine(
-		config.NewDefaultConfiguration(),
+		cfg,
+		config.NewDefaultMetricsConfiguration(),
+		jp,
 		nil,
-		registryclient.NewOrDie(),
-		engineapi.DefaultContextLoaderFactory(nil),
+		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+		factories.DefaultContextLoaderFactory(nil),
 		nil,
+		"",
 	)
 	resp := eng.Validate(
 		context.TODO(),
 		ctx,
 	)
-	assert.Assert(t, resp.PolicyResponse.Stats.RulesAppliedCount == 2)
-	assert.Assert(t, resp.PolicyResponse.Stats.RulesErrorCount == 0)
+	assert.Assert(t, resp.PolicyResponse.RulesAppliedCount() == 2)
+	assert.Assert(t, resp.PolicyResponse.RulesErrorCount() == 0)
 
 	log := log.WithName("Test_RuleSelector")
 	blocked := webhookutils.BlockRequest([]engineapi.EngineResponse{resp}, kyvernov1.Fail, log)
@@ -1152,8 +1183,8 @@ func Test_RuleSelector(t *testing.T) {
 		context.TODO(),
 		ctx,
 	)
-	assert.Assert(t, resp.PolicyResponse.Stats.RulesAppliedCount == 1)
-	assert.Assert(t, resp.PolicyResponse.Stats.RulesErrorCount == 0)
+	assert.Assert(t, resp.PolicyResponse.RulesAppliedCount() == 1)
+	assert.Assert(t, resp.PolicyResponse.RulesErrorCount() == 0)
 
 	blocked = webhookutils.BlockRequest([]engineapi.EngineResponse{resp}, kyvernov1.Fail, log)
 	assert.Assert(t, blocked == false)

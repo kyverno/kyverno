@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: require-owner
 spec:
-  validationFailureAction: enforce
+  validationFailureAction: Enforce
   background: false
   rules:
   - name: check-owner

@@ -7,6 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/pss/utils"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -46,7 +47,7 @@ type ImageExtractorConfig struct {
 type Rule struct {
 	// Name is a label to identify the rule, It must be unique within the policy.
 	// +kubebuilder:validation:MaxLength=63
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+	Name string `json:"name" yaml:"name"`
 
 	// Context defines variables and data sources that can be used during rule execution.
 	// +optional
@@ -76,6 +77,11 @@ type Rule struct {
 	// See: https://kyverno.io/docs/writing-policies/preconditions/
 	// +optional
 	RawAnyAllConditions *apiextv1.JSON `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+
+	// CELPreconditions are used to determine if a policy rule should be applied by evaluating a
+	// set of CEL conditions. It can only be used with the validate.cel subrule
+	// +optional
+	CELPreconditions []admissionregistrationv1.MatchCondition `json:"celPreconditions,omitempty" yaml:"celPreconditions,omitempty"`
 
 	// Mutation is used to modify matching resources.
 	// +optional
@@ -109,31 +115,29 @@ func (r *Rule) HasVerifyImages() bool {
 	return false
 }
 
-// HasYAMLSignatureVerify checks for validate.manifests rule
-func (r Rule) HasYAMLSignatureVerify() bool {
+// HasVerifyImageChecks checks whether the verifyImages rule has validation checks
+func (r *Rule) HasVerifyImageChecks() bool {
+	for _, verifyImage := range r.VerifyImages {
+		if verifyImage.VerifyDigest || verifyImage.Required {
+			return true
+		}
+	}
+	return false
+}
+
+// HasVerifyManifests checks for validate.manifests rule
+func (r Rule) HasVerifyManifests() bool {
 	return r.Validation.Manifests != nil && len(r.Validation.Manifests.Attestors) != 0
 }
 
-// HasImagesValidationChecks checks whether the verifyImages rule has validation checks
-func (r *Rule) HasImagesValidationChecks() bool {
-	for _, v := range r.VerifyImages {
-		if v.VerifyDigest || v.Required {
-			return true
-		}
-	}
-
-	return false
+// HasValidatePodSecurity checks for validate.podSecurity rule
+func (r Rule) HasValidatePodSecurity() bool {
+	return r.Validation.PodSecurity != nil && !datautils.DeepEqual(r.Validation.PodSecurity, &PodSecurity{})
 }
 
-// HasYAMLSignatureVerify checks for validate rule
-func (p *ClusterPolicy) HasYAMLSignatureVerify() bool {
-	for _, rule := range p.Spec.Rules {
-		if rule.HasYAMLSignatureVerify() {
-			return true
-		}
-	}
-
-	return false
+// HasValidateCEL checks for validate.cel rule
+func (r *Rule) HasValidateCEL() bool {
+	return r.Validation.CEL != nil && !datautils.DeepEqual(r.Validation.CEL, &CEL{})
 }
 
 // HasValidate checks for validate rule
@@ -400,15 +404,12 @@ func (r *Rule) ValidatePSaControlNames(path *field.Path) (errs field.ErrorList) 
 	return errs
 }
 
-func (r *Rule) ValidateGenerateVariables(path *field.Path) (errs field.ErrorList) {
+func (r *Rule) ValidateGenerate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if !r.HasGenerate() {
 		return nil
 	}
 
-	if err := r.Generation.Validate(); err != nil {
-		errs = append(errs, field.Forbidden(path.Child("generate").Child("clone/cloneList"), fmt.Sprintf("Generation Rule Clone/CloneList \"%s\" should not have variables", r.Name)))
-	}
-	return errs
+	return r.Generation.Validate(path, namespaced, policyNamespace, clusterResources)
 }
 
 // Validate implements programmatic validation
@@ -419,6 +420,6 @@ func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace strin
 	errs = append(errs, r.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
 	errs = append(errs, r.ValidateMutationRuleTargetNamespace(path, namespaced, policyNamespace)...)
 	errs = append(errs, r.ValidatePSaControlNames(path)...)
-	errs = append(errs, r.ValidateGenerateVariables(path)...)
+	errs = append(errs, r.ValidateGenerate(path, namespaced, policyNamespace, clusterResources)...)
 	return errs
 }

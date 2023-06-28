@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	"go.opentelemetry.io/otel/trace"
@@ -42,4 +43,8 @@ func IsInSpan(ctx context.Context) bool {
 
 func CurrentSpan(ctx context.Context) trace.Span {
 	return trace.SpanFromContext(ctx)
+}
+
+func SetAttributes(ctx context.Context, kv ...attribute.KeyValue) {
+	CurrentSpan(ctx).SetAttributes(kv...)
 }

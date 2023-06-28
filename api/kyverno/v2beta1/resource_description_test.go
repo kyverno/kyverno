@@ -25,7 +25,7 @@ func Test_ResourceDescription(t *testing.T) {
 			Names: []string{"bar", "baz"},
 		},
 		errors: []string{
-			`dummy: Invalid value: v2beta1.ResourceDescription{Kinds:[]string(nil), Names:[]string{"bar", "baz"}, Namespaces:[]string(nil), Annotations:map[string]string(nil), Selector:(*v1.LabelSelector)(nil), NamespaceSelector:(*v1.LabelSelector)(nil)}: Both name and names can not be specified together`,
+			`dummy: Invalid value: v2beta1.ResourceDescription{Kinds:[]string(nil), Names:[]string{"bar", "baz"}, Namespaces:[]string(nil), Annotations:map[string]string(nil), Selector:(*v1.LabelSelector)(nil), NamespaceSelector:(*v1.LabelSelector)(nil), Operations:[]v1.AdmissionOperation(nil)}: Both name and names can not be specified together`,
 		},
 	}, {
 		name:       "selector",

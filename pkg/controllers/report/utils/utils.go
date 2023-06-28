@@ -5,8 +5,8 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/policy"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -15,7 +15,7 @@ func CanBackgroundProcess(p kyvernov1.PolicyInterface) bool {
 	if !p.BackgroundProcessingEnabled() {
 		return false
 	}
-	if err := policy.ValidateVariables(p, true); err != nil {
+	if err := policyvalidation.ValidateVariables(p, true); err != nil {
 		return false
 	}
 	return true
@@ -47,7 +47,7 @@ func RemoveNonValidationPolicies(policies ...kyvernov1.PolicyInterface) []kyvern
 	var validationPolicies []kyvernov1.PolicyInterface
 	for _, pol := range policies {
 		spec := pol.GetSpec()
-		if spec.HasVerifyImages() || spec.HasValidate() || spec.HasYAMLSignatureVerify() {
+		if spec.HasVerifyImages() || spec.HasValidate() || spec.HasVerifyManifests() {
 			validationPolicies = append(validationPolicies, pol)
 		}
 	}

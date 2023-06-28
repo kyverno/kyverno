@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: validate-resources
 spec:
-  validationFailureAction: enforce
+  validationFailureAction: Enforce
   background: false
   webhookTimeoutSeconds: 30
   failurePolicy: Fail  

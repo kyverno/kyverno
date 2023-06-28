@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl delete cpol zk-kafka-address --force --wait=true --ignore-not-found=true
+  - command: kubectl delete pod nginx -n test-generate-exec --wait=true --ignore-not-found=true
+  - command: kubectl delete cm zk-kafka-address -n test-generate-exec --wait=true --ignore-not-found=true
+  - command: kubectl delete ns test-generate-exec --wait=true --ignore-not-found=true

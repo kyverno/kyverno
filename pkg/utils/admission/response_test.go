@@ -17,14 +17,14 @@ func TestResponse(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want *admissionv1.AdmissionResponse
+		want admissionv1.AdmissionResponse
 	}{{
 		name: "no error, no warnings",
 		args: args{
 			err:      nil,
 			warnings: nil,
 		},
-		want: &admissionv1.AdmissionResponse{
+		want: admissionv1.AdmissionResponse{
 			Allowed: true,
 		},
 	}, {
@@ -33,7 +33,7 @@ func TestResponse(t *testing.T) {
 			err:      nil,
 			warnings: []string{"foo", "bar"},
 		},
-		want: &admissionv1.AdmissionResponse{
+		want: admissionv1.AdmissionResponse{
 			Allowed:  true,
 			Warnings: []string{"foo", "bar"},
 		},
@@ -43,7 +43,7 @@ func TestResponse(t *testing.T) {
 			err:      errors.New("an error has occured"),
 			warnings: nil,
 		},
-		want: &admissionv1.AdmissionResponse{
+		want: admissionv1.AdmissionResponse{
 			Allowed: false,
 			Result: &metav1.Status{
 				Status:  metav1.StatusFailure,
@@ -56,7 +56,7 @@ func TestResponse(t *testing.T) {
 			err:      errors.New("an error has occured"),
 			warnings: []string{"foo", "bar"},
 		},
-		want: &admissionv1.AdmissionResponse{
+		want: admissionv1.AdmissionResponse{
 			Allowed: false,
 			Result: &metav1.Status{
 				Status:  metav1.StatusFailure,
@@ -81,13 +81,13 @@ func TestResponseSuccess(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want *admissionv1.AdmissionResponse
+		want admissionv1.AdmissionResponse
 	}{{
 		name: "no warnings",
 		args: args{
 			warnings: nil,
 		},
-		want: &admissionv1.AdmissionResponse{
+		want: admissionv1.AdmissionResponse{
 			Allowed: true,
 		},
 	}, {
@@ -95,7 +95,7 @@ func TestResponseSuccess(t *testing.T) {
 		args: args{
 			warnings: []string{"foo", "bar"},
 		},
-		want: &admissionv1.AdmissionResponse{
+		want: admissionv1.AdmissionResponse{
 			Allowed:  true,
 			Warnings: []string{"foo", "bar"},
 		},
@@ -117,14 +117,14 @@ func TestMutationResponse(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want *admissionv1.AdmissionResponse
+		want admissionv1.AdmissionResponse
 	}{{
 		name: "no patch, no warnings",
 		args: args{
 			patch:    nil,
 			warnings: nil,
 		},
-		want: &admissionv1.AdmissionResponse{
+		want: admissionv1.AdmissionResponse{
 			Allowed: true,
 		},
 	}, {
@@ -133,7 +133,7 @@ func TestMutationResponse(t *testing.T) {
 			patch:    nil,
 			warnings: []string{"foo", "bar"},
 		},
-		want: &admissionv1.AdmissionResponse{
+		want: admissionv1.AdmissionResponse{
 			Allowed:  true,
 			Warnings: []string{"foo", "bar"},
 		},
@@ -143,7 +143,7 @@ func TestMutationResponse(t *testing.T) {
 			patch:    []byte{1, 2, 3, 4},
 			warnings: nil,
 		},
-		want: &admissionv1.AdmissionResponse{
+		want: admissionv1.AdmissionResponse{
 			Allowed:   true,
 			Patch:     []byte{1, 2, 3, 4},
 			PatchType: &patchTypeJSONPatch,
@@ -154,7 +154,7 @@ func TestMutationResponse(t *testing.T) {
 			patch:    []byte{1, 2, 3, 4},
 			warnings: []string{"foo", "bar"},
 		},
-		want: &admissionv1.AdmissionResponse{
+		want: admissionv1.AdmissionResponse{
 			Allowed:   true,
 			Patch:     []byte{1, 2, 3, 4},
 			Warnings:  []string{"foo", "bar"},

@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    location: europe
+  annotations:
+    myProj/cluster.addon.sync.targetNamespace: clone-sync-same-trigger-source-update-source-target-ns-1
+  name: mysecret
+  namespace: clone-sync-same-trigger-source-update-source-trigger-ns
+type: Opaque
+data:
+  foo: YmFy

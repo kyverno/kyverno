@@ -15,7 +15,7 @@ data:
   foo: YmFy
 kind: Secret
 metadata:
-  name: cpol-clone-create-on-trigger-deletion-secret
+  name: regcred
   namespace: cpol-clone-create-on-trigger-deletion-manifest-ns
 type: Opaque
 ---
@@ -31,15 +31,12 @@ spec:
       - resources:
           kinds:
           - Namespace
-    preconditions:
-      any:
-      - key: "{{ request.operation }}"
-        operator: Equals
-        value: DELETE
+          operations:
+          - DELETE
     generate:
       apiVersion: v1
       kind: Secret
-      name: regcred
+      name: cpol-clone-create-on-trigger-deletion-secret
       namespace: "{{request.object.metadata.labels.downstream}}"
       synchronize: true
       clone:

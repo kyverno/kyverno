@@ -43,6 +43,12 @@ const (
 	RequestUserNameKey                = attribute.Key("admission.request.user.name")
 	RequestUserUidKey                 = attribute.Key("admission.request.user.uid")
 	RequestUserGroupsKey              = attribute.Key("admission.request.user.groups")
+	RequestRolesKey                   = attribute.Key("admission.request.roles")
+	RequestClusterRolesKey            = attribute.Key("admission.request.clusterroles")
+	RequestGroupKey                   = attribute.Key("admission.request.group")
+	RequestVersionKey                 = attribute.Key("admission.request.version")
+	RequestKindKey                    = attribute.Key("admission.request.kind")
+	RequestFilteredKey                = attribute.Key("admission.request.filtered")
 	// admission response attributes
 	ResponseUidKey           = attribute.Key("admission.response.uid")
 	ResponseAllowedKey       = attribute.Key("admission.response.allowed")

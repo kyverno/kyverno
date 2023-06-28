@@ -6,6 +6,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func MatchPolicyContext(logger logr.Logger, policyContext engineapi.PolicyContext, configuration config.Configuration) bool {
@@ -16,18 +17,19 @@ func MatchPolicyContext(logger logr.Logger, policyContext engineapi.PolicyContex
 		logger.V(2).Info("policy namespace doesn't match resource namespace")
 		return false
 	}
-	if !checkResourceFilters(configuration, new, old) {
+	gvk, subresource := policyContext.ResourceKind()
+	if !checkResourceFilters(configuration, gvk, subresource, new, old) {
 		logger.V(2).Info("configuration resource filters doesn't match resource")
 		return false
 	}
 	return true
 }
 
-func checkResourceFilters(configuration config.Configuration, resources ...unstructured.Unstructured) bool {
+func checkResourceFilters(configuration config.Configuration, gvk schema.GroupVersionKind, subresource string, resources ...unstructured.Unstructured) bool {
 	for _, resource := range resources {
 		if resource.Object != nil {
 			// TODO: account for generate name here ?
-			if configuration.ToFilter(resource.GetKind(), resource.GetNamespace(), resource.GetName()) {
+			if configuration.ToFilter(gvk, subresource, resource.GetNamespace(), resource.GetName()) {
 				return false
 			}
 		}

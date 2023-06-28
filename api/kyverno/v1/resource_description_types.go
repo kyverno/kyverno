@@ -51,6 +51,10 @@ type ResourceDescription struct {
 	// does not match an empty label set.
 	// +optional
 	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty" yaml:"namespaceSelector,omitempty"`
+
+	// Operations can contain values ["CREATE, "UPDATE", "CONNECT", "DELETE"], which are used to match a specific action.
+	// +optional
+	Operations []AdmissionOperation `json:"operations,omitempty" yaml:"operations,omitempty"`
 }
 
 func (r ResourceDescription) IsEmpty() bool {
@@ -61,6 +65,14 @@ func (r ResourceDescription) IsEmpty() bool {
 		len(r.Annotations) == 0 &&
 		r.Selector == nil &&
 		r.NamespaceSelector == nil
+}
+
+func (r ResourceDescription) GetOperations() []string {
+	ops := []string{}
+	for _, op := range r.Operations {
+		ops = append(ops, string(op))
+	}
+	return ops
 }
 
 // Validate implements programmatic validation

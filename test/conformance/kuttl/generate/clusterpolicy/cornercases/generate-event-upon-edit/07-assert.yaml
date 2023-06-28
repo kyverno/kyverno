@@ -1,0 +1,43 @@
+apiVersion: v1
+involvedObject:
+  apiVersion: v1
+  kind: ConfigMap
+  name: generate-event-on-edit-configmap
+  namespace: generate-event-on-edit-ns
+kind: Event
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+    generate.kyverno.io/policy-name: generate-event-upon-edit
+    generate.kyverno.io/policy-namespace: ""
+    generate.kyverno.io/rule-name: generate-event-on-edit
+    generate.kyverno.io/trigger-version: v1
+    generate.kyverno.io/trigger-group: ""
+    generate.kyverno.io/trigger-kind: ConfigMap
+    generate.kyverno.io/trigger-name: generate-event-on-edit-configmap
+    generate.kyverno.io/trigger-namespace: generate-event-on-edit-ns
+  namespace: generate-event-on-edit-ns
+source:
+  component: kyverno
+---
+apiVersion: v1
+involvedObject:
+  apiVersion: v1
+  kind: ConfigMap
+  name: generate-event-on-edit-configmap
+  namespace: generate-event-on-edit-ns
+kind: Event
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+    generate.kyverno.io/policy-name: generate-event-upon-edit
+    generate.kyverno.io/policy-namespace: ""
+    generate.kyverno.io/rule-name: generate-event-on-edit
+    generate.kyverno.io/trigger-version: v1
+    generate.kyverno.io/trigger-group: ""
+    generate.kyverno.io/trigger-kind: ConfigMap
+    generate.kyverno.io/trigger-name: generate-event-on-edit-configmap
+    generate.kyverno.io/trigger-namespace: generate-event-on-edit-ns
+  namespace: generate-event-on-edit-ns
+source:
+  component: kyverno

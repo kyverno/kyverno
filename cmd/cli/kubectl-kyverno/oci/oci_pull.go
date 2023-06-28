@@ -92,7 +92,7 @@ kyverno oci pull -i <imgref> -d policies`,
 					if err != nil {
 						return fmt.Errorf("reading layer blob: %v", err)
 					}
-					policies, err := yamlutils.GetPolicy(layerBytes)
+					policies, _, err := yamlutils.GetPolicy(layerBytes)
 					if err != nil {
 						return fmt.Errorf("unmarshaling layer blob: %v", err)
 					}

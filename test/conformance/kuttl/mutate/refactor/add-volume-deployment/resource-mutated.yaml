@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: myapp
+  name: mydeploy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      annotations:
+        vault.k8s.corp.net/inject: enabled
+      labels:
+        app: myapp
+    spec:
+      containers:
+      - image: somedummyimagehere:latest
+        name: container01
+        volumeMounts:
+        - mountPath: /secret
+          name: vault-secret
+      - image: anotherdummyimagehere:1.2.3
+        name: container02
+        volumeMounts:
+        - mountPath: /extra
+          name: foobar
+      volumes:
+      - hostPath:
+          path: /foo/bar
+          type: ""
+        name: foobar
+      - emptyDir:
+          medium: Memory
+        name: vault-secret

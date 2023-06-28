@@ -3,6 +3,7 @@ package v2beta1
 import (
 	"fmt"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -45,6 +46,18 @@ type ResourceDescription struct {
 	// does not match an empty label set.
 	// +optional
 	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty" yaml:"namespaceSelector,omitempty"`
+
+	// Operations can contain values ["CREATE, "UPDATE", "CONNECT", "DELETE"], which are used to match a specific action.
+	// +optional
+	Operations []kyvernov1.AdmissionOperation `json:"operations,omitempty" yaml:"operations,omitempty"`
+}
+
+func (r ResourceDescription) GetOperations() []string {
+	ops := []string{}
+	for _, op := range r.Operations {
+		ops = append(ops, string(op))
+	}
+	return ops
 }
 
 // Validate implements programmatic validation

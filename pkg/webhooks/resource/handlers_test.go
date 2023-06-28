@@ -9,11 +9,11 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	log "github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/policycache"
+	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"gotest.tools/assert"
 	v1 "k8s.io/api/admission/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 var policyCheckLabel = `{
@@ -264,7 +264,7 @@ func Test_AdmissionResponseValid(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	handlers := NewFakeHandlers(ctx, policyCache)
+	resourceHandlers := NewFakeHandlers(ctx, policyCache)
 
 	var validPolicy kyverno.ClusterPolicy
 	err := json.Unmarshal([]byte(policyCheckLabel), &validPolicy)
@@ -273,28 +273,29 @@ func Test_AdmissionResponseValid(t *testing.T) {
 	key := makeKey(&validPolicy)
 	policyCache.Set(key, &validPolicy, policycache.TestResourceFinder{})
 
-	request := &v1.AdmissionRequest{
-		Operation: v1.Create,
-		Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
-		Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
-		Object: runtime.RawExtension{
-			Raw: []byte(pod),
+	request := handlers.AdmissionRequest{
+		AdmissionRequest: v1.AdmissionRequest{
+			Operation: v1.Create,
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Object: runtime.RawExtension{
+				Raw: []byte(pod),
+			},
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 		},
-		RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 	}
 
-	response := handlers.Mutate(ctx, logger, request, "", time.Now())
-	assert.Assert(t, response != nil)
+	response := resourceHandlers.Mutate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, true)
 
-	response = handlers.Validate(ctx, logger, request, "", time.Now())
+	response = resourceHandlers.Validate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, true)
 	assert.Equal(t, len(response.Warnings), 0)
 
 	validPolicy.Spec.ValidationFailureAction = "Enforce"
 	policyCache.Set(key, &validPolicy, policycache.TestResourceFinder{})
 
-	response = handlers.Validate(ctx, logger, request, "", time.Now())
+	response = resourceHandlers.Validate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
 	assert.Equal(t, len(response.Warnings), 0)
 
@@ -308,27 +309,29 @@ func Test_AdmissionResponseInvalid(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	handlers := NewFakeHandlers(ctx, policyCache)
+	resourceHandlers := NewFakeHandlers(ctx, policyCache)
 
 	var invalidPolicy kyverno.ClusterPolicy
 	err := json.Unmarshal([]byte(policyInvalid), &invalidPolicy)
 	assert.NilError(t, err)
 
-	request := &v1.AdmissionRequest{
-		Operation: v1.Create,
-		Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
-		Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
-		Object: runtime.RawExtension{
-			Raw: []byte(pod),
+	request := handlers.AdmissionRequest{
+		AdmissionRequest: v1.AdmissionRequest{
+			Operation: v1.Create,
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Object: runtime.RawExtension{
+				Raw: []byte(pod),
+			},
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 		},
-		RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 	}
 
 	keyInvalid := makeKey(&invalidPolicy)
 	invalidPolicy.Spec.ValidationFailureAction = "Enforce"
 	policyCache.Set(keyInvalid, &invalidPolicy, policycache.TestResourceFinder{})
 
-	response := handlers.Validate(ctx, logger, request, "", time.Now())
+	response := resourceHandlers.Validate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
 	assert.Equal(t, len(response.Warnings), 0)
 
@@ -336,7 +339,7 @@ func Test_AdmissionResponseInvalid(t *testing.T) {
 	invalidPolicy.Spec.FailurePolicy = &ignore
 	policyCache.Set(keyInvalid, &invalidPolicy, policycache.TestResourceFinder{})
 
-	response = handlers.Validate(ctx, logger, request, "", time.Now())
+	response = resourceHandlers.Validate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, true)
 	assert.Equal(t, len(response.Warnings), 1)
 }
@@ -348,7 +351,7 @@ func Test_ImageVerify(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	handlers := NewFakeHandlers(ctx, policyCache)
+	resourceHandlers := NewFakeHandlers(ctx, policyCache)
 
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal([]byte(policyVerifySignature), &policy)
@@ -357,20 +360,22 @@ func Test_ImageVerify(t *testing.T) {
 	key := makeKey(&policy)
 	policyCache.Set(key, &policy, policycache.TestResourceFinder{})
 
-	request := &v1.AdmissionRequest{
-		Operation: v1.Create,
-		Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
-		Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
-		Object: runtime.RawExtension{
-			Raw: []byte(pod),
+	request := handlers.AdmissionRequest{
+		AdmissionRequest: v1.AdmissionRequest{
+			Operation: v1.Create,
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Object: runtime.RawExtension{
+				Raw: []byte(pod),
+			},
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 		},
-		RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 	}
 
 	policy.Spec.ValidationFailureAction = "Enforce"
 	policyCache.Set(key, &policy, policycache.TestResourceFinder{})
 
-	response := handlers.Mutate(ctx, logger, request, "", time.Now())
+	response := resourceHandlers.Mutate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
 	assert.Equal(t, len(response.Warnings), 0)
 
@@ -378,7 +383,7 @@ func Test_ImageVerify(t *testing.T) {
 	policy.Spec.FailurePolicy = &ignore
 	policyCache.Set(key, &policy, policycache.TestResourceFinder{})
 
-	response = handlers.Mutate(ctx, logger, request, "", time.Now())
+	response = resourceHandlers.Mutate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
 	assert.Equal(t, len(response.Warnings), 0)
 }
@@ -390,7 +395,7 @@ func Test_MutateAndVerify(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	handlers := NewFakeHandlers(ctx, policyCache)
+	resourceHandlers := NewFakeHandlers(ctx, policyCache)
 
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal([]byte(policyMutateAndVerify), &policy)
@@ -399,17 +404,19 @@ func Test_MutateAndVerify(t *testing.T) {
 	key := makeKey(&policy)
 	policyCache.Set(key, &policy, policycache.TestResourceFinder{})
 
-	request := &v1.AdmissionRequest{
-		Operation: v1.Create,
-		Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
-		Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "Pod"},
-		Object: runtime.RawExtension{
-			Raw: []byte(resourceMutateAndVerify),
+	request := handlers.AdmissionRequest{
+		AdmissionRequest: v1.AdmissionRequest{
+			Operation: v1.Create,
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "Pod"},
+			Object: runtime.RawExtension{
+				Raw: []byte(resourceMutateAndVerify),
+			},
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 		},
-		RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 	}
 
-	response := handlers.Mutate(ctx, logger, request, "", time.Now())
+	response := resourceHandlers.Mutate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, true)
 	assert.Equal(t, len(response.Warnings), 0)
 }

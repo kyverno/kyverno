@@ -11,7 +11,6 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -906,7 +905,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		resource, _ := kubeutils.BytesToUnstructured(tc.Resource)
 
 		for _, rule := range autogen.ComputeRules(&policy) {
-			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, []string{}, nil, "", resource.GroupVersionKind(), "")
+			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, nil, "", resource.GroupVersionKind(), "", "CREATE")
 			if err != nil {
 				if !tc.areErrorsExpected {
 					t.Errorf("Testcase %d Unexpected error: %v\nmsg: %s", i+1, err, tc.Description)
@@ -1811,7 +1810,7 @@ func TestMatchesResourceDescription_GenerateName(t *testing.T) {
 		resource, _ := kubeutils.BytesToUnstructured(tc.Resource)
 
 		for _, rule := range autogen.ComputeRules(&policy) {
-			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, []string{}, nil, "", resource.GroupVersionKind(), "")
+			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, nil, "", resource.GroupVersionKind(), "", "CREATE")
 			if err != nil {
 				if !tc.areErrorsExpected {
 					t.Errorf("Testcase %d Unexpected error: %v\nmsg: %s", i+1, err, tc.Description)
@@ -1878,7 +1877,7 @@ func TestResourceDescriptionMatch_MultipleKind(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", resource.GroupVersionKind(), ""); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -1967,15 +1966,6 @@ func TestResourceDescriptionMatch_ExcludeDefaultGroups(t *testing.T) {
 		ExcludeResources: v1.MatchResources{},
 	}
 
-	// the following groups are added by default to ensure that these groups or users are always excluded
-	// these should not affect the rule in our case, we expect our rule to NOT match with the nginx pod.
-
-	dynamicConfig := []string{
-		"system:serviceaccounts:kube-system",
-		"system:nodes",
-		"system:kube-scheduler",
-	}
-
 	// this is the request info that was also passed with the mocked pod
 	requestInfo := v1beta1.RequestInfo{
 		AdmissionUserInfo: authenticationv1.UserInfo{
@@ -1990,7 +1980,7 @@ func TestResourceDescriptionMatch_ExcludeDefaultGroups(t *testing.T) {
 	}
 
 	// First test: confirm that this above rule produces errors (and raise an error if err == nil)
-	if err := MatchesResourceDescription(*resource, rule, requestInfo, dynamicConfig, nil, "", resource.GroupVersionKind(), ""); err == nil {
+	if err := MatchesResourceDescription(*resource, rule, requestInfo, nil, "", resource.GroupVersionKind(), "", "CREATE"); err == nil {
 		t.Error("Testcase was expected to fail, but err was nil")
 	}
 
@@ -2010,7 +2000,7 @@ func TestResourceDescriptionMatch_ExcludeDefaultGroups(t *testing.T) {
 	}
 
 	// Second test: confirm that matching this rule does not create any errors (and raise if err != nil)
-	if err := MatchesResourceDescription(*resource, rule2, requestInfo, dynamicConfig, nil, "", resource.GroupVersionKind(), ""); err != nil {
+	if err := MatchesResourceDescription(*resource, rule2, requestInfo, nil, "", resource.GroupVersionKind(), "", "CREATE"); err != nil {
 		t.Errorf("Testcase was expected to not fail, but err was %s", err)
 	}
 
@@ -2024,7 +2014,7 @@ func TestResourceDescriptionMatch_ExcludeDefaultGroups(t *testing.T) {
 	}}
 
 	// Third test: confirm that now the custom exclude-snippet should run in CheckSubjects() and that should result in this rule failing (raise if err == nil for that reason)
-	if err := MatchesResourceDescription(*resource, rule2, requestInfo, dynamicConfig, nil, "", resource.GroupVersionKind(), ""); err == nil {
+	if err := MatchesResourceDescription(*resource, rule2, requestInfo, nil, "", resource.GroupVersionKind(), "", "CREATE"); err == nil {
 		t.Error("Testcase was expected to fail, but err was nil #1!")
 	}
 }
@@ -2083,7 +2073,7 @@ func TestResourceDescriptionMatch_Name(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", resource.GroupVersionKind(), ""); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2141,7 +2131,7 @@ func TestResourceDescriptionMatch_GenerateName(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", resource.GroupVersionKind(), ""); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2200,7 +2190,7 @@ func TestResourceDescriptionMatch_Name_Regex(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", resource.GroupVersionKind(), ""); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2258,7 +2248,7 @@ func TestResourceDescriptionMatch_GenerateName_Regex(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", resource.GroupVersionKind(), ""); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2325,7 +2315,7 @@ func TestResourceDescriptionMatch_Label_Expression_NotMatch(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", resource.GroupVersionKind(), ""); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2393,7 +2383,7 @@ func TestResourceDescriptionMatch_Label_Expression_Match(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", resource.GroupVersionKind(), ""); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2474,75 +2464,7 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 		ExcludeResources: v1.MatchResources{ResourceDescription: resourceDescriptionExclude},
 	}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", resource.GroupVersionKind(), ""); err == nil {
+	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err == nil {
 		t.Errorf("Testcase has failed due to the following:\n Function has returned no error, even though it was supposed to fail")
-	}
-}
-
-func TestManagedPodResource(t *testing.T) {
-	testCases := []struct {
-		name           string
-		policy         []byte
-		resource       []byte
-		expectedResult bool
-	}{
-		{
-			name:           "disable-autogen-pod-without-owner",
-			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "none"}}}`),
-			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test"}}`),
-			expectedResult: false,
-		},
-		{
-			name:           "disable-autogen-pod-with-owner",
-			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "none"}}}`),
-			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test","ownerReferences": [{"kind": "Deployment"}]}}`),
-			expectedResult: false,
-		},
-		{
-			name:           "disable-autogen",
-			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod"}}`),
-			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test","ownerReferences": [{"kind": "Deployment"}]}}`),
-			expectedResult: false,
-		},
-		{
-			name:           "enable-autogen-pod-without-owner",
-			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "Deployment"}}}`),
-			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test"}}`),
-			expectedResult: false,
-		},
-		{
-			name:           "enable-autogen-pod-with-matched-owner",
-			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "Deployment"}}}`),
-			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test","ownerReferences": [{"kind": "Deployment"}]}}`),
-			expectedResult: true,
-		},
-		{
-			name:           "enable-autogen-pod-with-unmatched-owner",
-			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "Deployment"}}}`),
-			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test","ownerReferences": [{"kind": "Challenge"}]}}`),
-			expectedResult: false,
-		},
-		{
-			name:           "enable-autogen-pod-with-owner-rs",
-			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "Deployment,StatefulSet"}}}`),
-			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test","ownerReferences": [{"kind": "ReplicaSet"}]}}`),
-			expectedResult: true,
-		},
-		{
-			name:           "enable-autogen-pod-with-multiple-owners",
-			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "Deployment,StatefulSet"}}}`),
-			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test","ownerReferences": [{"kind": "Deployment"},{"kind": "Challenge"}]}}`),
-			expectedResult: false,
-		},
-	}
-
-	for i, tc := range testCases {
-		var policy v1.ClusterPolicy
-		err := json.Unmarshal(tc.policy, &policy)
-		assert.Assert(t, err == nil, "Test %d/%s invalid policy raw: %v", i+1, tc.name, err)
-
-		resource, _ := kubeutils.BytesToUnstructured(tc.resource)
-		res := ManagedPodResource(&policy, *resource)
-		assert.Equal(t, res, tc.expectedResult, "test %d/%s failed, expect %v, got %v", i+1, tc.name, tc.expectedResult, res)
 	}
 }

@@ -199,9 +199,116 @@ func Test_ImageVerification(t *testing.T) {
 		},
 	}
 
+	isAuditFailureAction := false
 	for _, test := range testCases {
 		subject := test.subject.Convert()
-		errs := subject.Validate(path)
+		errs := subject.Validate(isAuditFailureAction, path)
+		var expectedErrs field.ErrorList
+		if test.errors != nil {
+			expectedErrs = test.errors(subject)
+		}
+
+		assert.Equal(t, len(errs), len(expectedErrs), fmt.Sprintf("test `%s` error count mismatch, errors %v", test.name, errs))
+		if len(errs) != 0 {
+			assert.DeepEqual(t, errs, expectedErrs)
+		}
+	}
+}
+
+func Test_Audit_VerifyImageRule(t *testing.T) {
+	path := field.NewPath("dummy")
+	testCases := []struct {
+		name    string
+		subject ImageVerification
+		errors  func(*ImageVerification) field.ErrorList
+	}{
+		{
+			name: "mutateDigest set to true for audit failure action",
+			subject: ImageVerification{
+				ImageReferences: []string{"*"},
+				Attestations: []Attestation{
+					{
+						PredicateType: "foo",
+					},
+				},
+				MutateDigest: true,
+			},
+			errors: func(i *ImageVerification) field.ErrorList {
+				return field.ErrorList{
+					field.Invalid(
+						path.Child("mutateDigest"),
+						i.MutateDigest,
+						"mutateDigest must be set to false for ‘Audit’ failure action"),
+				}
+			},
+		},
+		{
+			name: "mutateDigest set to false for audit failure action",
+			subject: ImageVerification{
+				ImageReferences: []string{"*"},
+				Attestations: []Attestation{
+					{
+						PredicateType: "foo",
+					},
+				},
+				MutateDigest: false,
+			},
+		},
+	}
+
+	isAuditFailureAction := true // indicates validateFailureAction set to Audit
+	for _, test := range testCases {
+		subject := test.subject.Convert()
+		errs := subject.Validate(isAuditFailureAction, path)
+		var expectedErrs field.ErrorList
+		if test.errors != nil {
+			expectedErrs = test.errors(subject)
+		}
+
+		assert.Equal(t, len(errs), len(expectedErrs), fmt.Sprintf("test `%s` error count mismatch, errors %v", test.name, errs))
+		if len(errs) != 0 {
+			assert.DeepEqual(t, errs, expectedErrs)
+		}
+	}
+}
+
+func Test_Enforce_VerifyImageRule(t *testing.T) {
+	path := field.NewPath("dummy")
+	testCases := []struct {
+		name    string
+		subject ImageVerification
+		errors  func(*ImageVerification) field.ErrorList
+	}{
+		{
+			name: "mutateDigest set to true for enforce failure action",
+			subject: ImageVerification{
+				ImageReferences: []string{"*"},
+				Attestations: []Attestation{
+					{
+						PredicateType: "foo",
+					},
+				},
+				MutateDigest: true,
+			},
+		},
+		{
+			name: "mutateDigest set to false for enforce failure action",
+			subject: ImageVerification{
+				ImageReferences: []string{"*"},
+				Attestations: []Attestation{
+					{
+						PredicateType: "foo",
+					},
+				},
+				MutateDigest: false,
+			},
+		},
+	}
+
+	isAuditFailureAction := false // indicates validateFailureAction set to Enforce
+	for _, test := range testCases {
+		subject := test.subject.Convert()
+		errs := subject.Validate(isAuditFailureAction, path)
 		var expectedErrs field.ErrorList
 		if test.errors != nil {
 			expectedErrs = test.errors(subject)

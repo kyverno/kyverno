@@ -1,11 +1,11 @@
 grafana:
   enabled: true
 
-admissionController:
-  container:
-    extraArgs:
-      enablePolicyException: true
+features:
+  policyExceptions:
+    enabled: true
 
+admissionController:
   serviceMonitor:
     enabled: true
 
@@ -42,9 +42,6 @@ cleanupController:
     format: json
 
 reportsController:
-  extraArgs:
-    enablePolicyException: true
-
   serviceMonitor:
     enabled: true
 

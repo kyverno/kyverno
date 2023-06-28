@@ -15,4 +15,4 @@ spec:
       podSecurity:
         level: restricted
         version: latest
-  validationFailureAction: audit
+  validationFailureAction: Audit

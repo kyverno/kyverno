@@ -1,0 +1,7 @@
+# This clean-up stage is necessary because of https://github.com/kyverno/kyverno/issues/5101
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      kubectl patch service podinfo -p '{"metadata":{"finalizers":["bburky.com/hax"]}}' -n apply-on-deletion-ns
+      kubectl delete service podinfo --wait=false -n apply-on-deletion-ns

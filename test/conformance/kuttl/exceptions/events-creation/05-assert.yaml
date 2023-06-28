@@ -1,0 +1,26 @@
+apiVersion: v1
+involvedObject:
+  apiVersion: kyverno.io/v2alpha1
+  kind: PolicyException
+  name: policy-exception-allow-latest
+  namespace: policy-exception-events-creation-polex-ns
+kind: Event
+metadata:
+  namespace: policy-exception-events-creation-polex-ns
+reason: PolicySkipped
+source:
+  component: kyverno-admission
+type: Normal
+---
+apiVersion: v1
+involvedObject:
+  apiVersion: kyverno.io/v1
+  kind: ClusterPolicy
+  name: disallow-latest-tag-events-creation
+kind: Event
+metadata:
+  namespace: default
+reason: PolicySkipped
+source:
+  component: kyverno-admission
+type: Normal

@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: tomcat
+  name: tomcat-deployment
+  namespace: add-node-affinity
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tomcat
+  template:
+    metadata:
+      labels:
+        app: tomcat
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: zone_weight
+                operator: Lt
+                values:
+                - "400"
+      containers:
+      - image: thisisdefinitelynottomcat:9.0
+        name: tomcat
+        ports:
+        - containerPort: 80
+          protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx
+  name: nginx-deployment
+  namespace: add-node-affinity
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: fookey
+                operator: In
+                values:
+                - bar
+              - key: zone_weight
+                operator: Lt
+                values:
+                - "400"
+      containers:
+      - image: thisisdefinitelynotnginx:1.0.1
+        name: nginx
+        ports:
+        - containerPort: 80
+          protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: redis
+  name: redis-deployment
+  namespace: add-node-affinity
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: zone_weight
+                operator: Lt
+                values:
+                - "400"
+              matchFields:
+              - key: metadata.name
+                operator: In
+                values:
+                - red
+      containers:
+      - image: thisisdefinitelynotredis:latest
+        name: redis
+        ports:
+        - containerPort: 80
+          protocol: TCP

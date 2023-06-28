@@ -10,8 +10,8 @@ import (
 // +kubebuilder:object:generate=false
 type PolicyInterface interface {
 	metav1.Object
+	AdmissionProcessingEnabled() bool
 	BackgroundProcessingEnabled() bool
-	HasAutoGenAnnotation() bool
 	IsNamespaced() bool
 	GetSpec() *Spec
 	GetStatus() *PolicyStatus

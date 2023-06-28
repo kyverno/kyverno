@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/kyverno/kyverno/pkg/toggle"
@@ -79,6 +80,12 @@ type Spec struct {
 	// +optional
 	ValidationFailureActionOverrides []ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty" yaml:"validationFailureActionOverrides,omitempty"`
 
+	// Admission controls if rules are applied during admission.
+	// Optional. Default value is "true".
+	// +optional
+	// +kubebuilder:default=true
+	Admission *bool `json:"admission,omitempty" yaml:"admission,omitempty"`
+
 	// Background controls if rules are applied to existing resources during a background scan.
 	// Optional. Default value is "true". The value must be set to "false" if the policy rule
 	// uses variables that are only available in the admission review request (e.g. user name).
@@ -133,7 +140,6 @@ func (s *Spec) HasMutate() bool {
 			return true
 		}
 	}
-
 	return false
 }
 
@@ -144,7 +150,6 @@ func (s *Spec) HasValidate() bool {
 			return true
 		}
 	}
-
 	return false
 }
 
@@ -155,18 +160,16 @@ func (s *Spec) HasGenerate() bool {
 			return true
 		}
 	}
-
 	return false
 }
 
-// HasImagesValidationChecks checks for image verification rules invoked during resource validation
-func (s *Spec) HasImagesValidationChecks() bool {
+// HasVerifyImageChecks checks for image verification rules invoked during resource validation
+func (s *Spec) HasVerifyImageChecks() bool {
 	for _, rule := range s.Rules {
-		if rule.HasImagesValidationChecks() {
+		if rule.HasVerifyImageChecks() {
 			return true
 		}
 	}
-
 	return false
 }
 
@@ -177,19 +180,26 @@ func (s *Spec) HasVerifyImages() bool {
 			return true
 		}
 	}
-
 	return false
 }
 
-// HasYAMLSignatureVerify checks for image verification rules invoked during resource mutation
-func (s *Spec) HasYAMLSignatureVerify() bool {
+// HasVerifyManifests checks for image verification rules invoked during resource mutation
+func (s *Spec) HasVerifyManifests() bool {
 	for _, rule := range s.Rules {
-		if rule.HasYAMLSignatureVerify() {
+		if rule.HasVerifyManifests() {
 			return true
 		}
 	}
-
 	return false
+}
+
+// AdmissionProcessingEnabled checks if admission is set to true
+func (s *Spec) AdmissionProcessingEnabled() bool {
+	if s.Admission == nil {
+		return true
+	}
+
+	return *s.Admission
 }
 
 // BackgroundProcessingEnabled checks if background is set to true
@@ -197,7 +207,6 @@ func (s *Spec) BackgroundProcessingEnabled() bool {
 	if s.Background == nil {
 		return true
 	}
-
 	return *s.Background
 }
 
@@ -225,8 +234,8 @@ func (s *Spec) IsGenerateExisting() bool {
 }
 
 // GetFailurePolicy returns the failure policy to be applied
-func (s *Spec) GetFailurePolicy() FailurePolicyType {
-	if toggle.ForceFailurePolicyIgnore.Enabled() {
+func (s *Spec) GetFailurePolicy(ctx context.Context) FailurePolicyType {
+	if toggle.FromContext(ctx).ForceFailurePolicyIgnore() {
 		return Ignore
 	} else if s.FailurePolicy == nil {
 		return Fail
@@ -265,23 +274,44 @@ func (s *Spec) ValidateRuleNames(path *field.Path) (errs field.ErrorList) {
 // ValidateRules implements programmatic validation of Rules
 func (s *Spec) ValidateRules(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, s.ValidateRuleNames(path)...)
+
 	for i, rule := range s.Rules {
 		errs = append(errs, rule.Validate(path.Index(i), namespaced, policyNamespace, clusterResources)...)
 	}
 	return errs
 }
 
-func (s *Spec) ValidateDeprecatedFields(path *field.Path) (errs field.ErrorList) {
-	if s.GenerateExistingOnPolicyUpdate != nil {
-		errs = append(errs, field.Forbidden(path.Child("generateExistingOnPolicyUpdate"), "deprecated field, define generateExisting instead"))
+func (s *Spec) validateDeprecatedFields(path *field.Path) (errs field.ErrorList) {
+	if s.GenerateExistingOnPolicyUpdate != nil && s.GenerateExisting {
+		errs = append(errs, field.Forbidden(path.Child("generateExistingOnPolicyUpdate"), "remove the deprecated field and use generateExisting instead"))
+	}
+	return errs
+}
+
+func (s *Spec) validateMutateTargets(path *field.Path) (errs field.ErrorList) {
+	if s.MutateExistingOnPolicyUpdate {
+		for i, rule := range s.Rules {
+			if !rule.HasMutate() {
+				continue
+			}
+			if len(rule.Mutation.Targets) == 0 {
+				errs = append(errs, field.Forbidden(path.Child("mutateExistingOnPolicyUpdate"), fmt.Sprintf("rules[%v].mutate.targets has to be specified when mutateExistingOnPolicyUpdate is set", i)))
+			}
+		}
 	}
 	return errs
 }
 
 // Validate implements programmatic validation
 func (s *Spec) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
-	if err := s.ValidateDeprecatedFields(path); err != nil {
+	if err := s.validateDeprecatedFields(path); err != nil {
 		errs = append(errs, err...)
+	}
+	if err := s.validateMutateTargets(path); err != nil {
+		errs = append(errs, err...)
+	}
+	if s.WebhookTimeoutSeconds != nil && (*s.WebhookTimeoutSeconds < 1 || *s.WebhookTimeoutSeconds > 30) {
+		errs = append(errs, field.Invalid(path.Child("webhookTimeoutSeconds"), s.WebhookTimeoutSeconds, "the timeout value must be between 1 and 30 seconds"))
 	}
 	errs = append(errs, s.ValidateRules(path.Child("rules"), namespaced, policyNamespace, clusterResources)...)
 	if namespaced && len(s.ValidationFailureActionOverrides) > 0 {

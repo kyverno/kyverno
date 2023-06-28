@@ -8,21 +8,21 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	validation "github.com/kyverno/kyverno/pkg/validation/cleanuppolicy"
-	admissionv1 "k8s.io/api/admission/v1"
+	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 )
 
-type handlers struct {
+type clenaupHandlers struct {
 	client dclient.Interface
 }
 
-func New(client dclient.Interface) *handlers {
-	return &handlers{
+func New(client dclient.Interface) *clenaupHandlers {
+	return &clenaupHandlers{
 		client: client,
 	}
 }
 
-func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
-	policy, _, err := admissionutils.GetCleanupPolicies(request)
+func (h *clenaupHandlers) Validate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, _ time.Time) handlers.AdmissionResponse {
+	policy, _, err := admissionutils.GetCleanupPolicies(request.AdmissionRequest)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal policies from admission request")
 		return admissionutils.Response(request.UID, err)
@@ -31,5 +31,5 @@ func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *ad
 		logger.Error(err, "policy validation errors")
 		return admissionutils.Response(request.UID, err)
 	}
-	return nil
+	return admissionutils.ResponseSuccess(request.UID)
 }

@@ -2,12 +2,9 @@ package autogen
 
 import (
 	"encoding/json"
-	"fmt"
-	"strconv"
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -72,6 +69,11 @@ func CanAutoGen(spec *kyvernov1.Spec) (applyAutoGen bool, controllers string) {
 	for _, rule := range spec.Rules {
 		if rule.Mutation.PatchesJSON6902 != "" || rule.HasGenerate() {
 			return false, "none"
+		}
+		for _, foreach := range rule.Mutation.ForEachMutation {
+			if foreach.PatchesJSON6902 != "" {
+				return false, "none"
+			}
 		}
 		match, exclude := rule.MatchResources, rule.ExcludeResources
 		if !checkAutogenSupport(&needed, match.ResourceDescription, exclude.ResourceDescription) {
@@ -151,55 +153,6 @@ func GetControllers(meta *metav1.ObjectMeta, spec *kyvernov1.Spec) ([]string, []
 		}
 	}
 	return requested, supported, activated
-}
-
-// podControllersKey annotation could be:
-// scenario A: not exist, set default to "all", which generates on all pod controllers
-//               - if name / selector exist in resource description -> skip
-//                 as these fields may not be applicable to pod controllers
-// scenario B: "none", user explicitly disable this feature -> skip
-// scenario C: some certain controllers that user set -> generate on defined controllers
-//             copy entire match / exclude block, it's users' responsibility to
-//             make sure all fields are applicable to pod controllers
-
-// GenerateRulePatches generates rule for podControllers based on scenario A and C
-func GenerateRulePatches(spec *kyvernov1.Spec, controllers string) (rulePatches [][]byte, errs []error) {
-	ruleIndex := make(map[string]int)
-	for index, rule := range spec.Rules {
-		ruleIndex[rule.Name] = index
-	}
-	insertIdx := len(spec.Rules)
-	genRules := generateRules(spec, controllers)
-	for i := range genRules {
-		patchPostion := insertIdx
-		convertToPatches := func(genRule kyvernoRule, patchPostion int) []byte {
-			operation := "add"
-			if existingIndex, alreadyExists := ruleIndex[genRule.Name]; alreadyExists {
-				operation = "replace"
-				patchPostion = existingIndex
-			}
-			patch := jsonutils.NewPatchOperation(fmt.Sprintf("/spec/rules/%s", strconv.Itoa(patchPostion)), operation, genRule)
-			pbytes, err := patch.Marshal()
-			if err != nil {
-				errs = append(errs, err)
-				return nil
-			}
-			if err := jsonutils.CheckPatch(pbytes); err != nil {
-				errs = append(errs, err)
-				return nil
-			}
-			return pbytes
-		}
-		genRule := createRule(&genRules[i])
-		if genRule != nil {
-			pbytes := convertToPatches(*genRule, patchPostion)
-			if pbytes != nil {
-				rulePatches = append(rulePatches, pbytes)
-			}
-			insertIdx++
-		}
-	}
-	return
 }
 
 // podControllersKey annotation could be:

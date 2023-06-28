@@ -20,8 +20,14 @@ spec:
     metadata:
       labels:
         {{- include "kyverno.cleanup-controller.labels" . | nindent 8 }}
+        {{- with .Values.cleanupController.podLabels }}
+        {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- end }}
+      {{- with .Values.cleanupController.podAnnotations }}
+      annotations: {{ tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
     spec:
-      {{- with .Values.cleanupController.image.pullSecrets }}
+      {{- with .Values.cleanupController.imagePullSecrets }}
       imagePullSecrets: 
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
@@ -80,7 +86,6 @@ spec:
             protocol: TCP
           args:
             - --servicePort={{ .Values.cleanupController.service.port }}
-            - --loggingFormat={{ .Values.cleanupController.logging.format }}
             {{- if .Values.cleanupController.tracing.enabled }}
             - --enableTracing
             - --tracingAddress={{ .Values.cleanupController.tracing.address }}
@@ -100,26 +105,41 @@ spec:
             - --transportCreds={{ . }}
             {{- end }}
             {{- end }}
+            {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.cleanupController.featuresOverride)
+              "deferredLoading"
+              "dumpPayload"
+              "logging"
+            ) | nindent 12 }}
             {{- range $key, $value := .Values.cleanupController.extraArgs }}
             {{- if $value }}
             - --{{ $key }}={{ $value }}
             {{- end }}
             {{- end }}
           env:
+          - name: KYVERNO_DEPLOYMENT
+            value: {{ template "kyverno.cleanup-controller.name" . }}
+          - name: INIT_CONFIG
+            value: {{ template "kyverno.config.configMapName" . }}
           - name: METRICS_CONFIG
             value: {{ template "kyverno.config.metricsConfigMapName" . }}
           - name: KYVERNO_POD_NAME
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name
+          - name: KYVERNO_SERVICEACCOUNT_NAME
+            value: {{ template "kyverno.cleanup-controller.serviceAccountName" . }}
           - name: KYVERNO_NAMESPACE
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
           - name: KYVERNO_SVC
             value: {{ template "kyverno.cleanup-controller.name" . }}
+          {{- with .Values.cleanupController.extraEnvVars }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
           {{- with .Values.cleanupController.resources }}
-          resources: {{ tpl (toYaml .) $ | nindent 12 }}
+          resources:
+            {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           {{- with .Values.cleanupController.securityContext }}
           securityContext:

@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
-	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
@@ -31,13 +30,13 @@ type server struct {
 
 type (
 	TlsProvider       = func() ([]byte, []byte, error)
-	ValidationHandler = func(context.Context, logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
+	ValidationHandler = func(context.Context, logr.Logger, handlers.AdmissionRequest, time.Time) handlers.AdmissionResponse
 	CleanupHandler    = func(context.Context, logr.Logger, string, time.Time, config.Configuration) error
 )
 
 type Probes interface {
-	IsReady() bool
-	IsLive() bool
+	IsReady(context.Context) bool
+	IsLive(context.Context) bool
 }
 
 // NewServer creates new instance of server accordingly to given configuration
@@ -71,7 +70,7 @@ func NewServer(
 		"POST",
 		config.CleanupValidatingWebhookServicePath,
 		handlers.FromAdmissionFunc("VALIDATE", validationHandler).
-			WithDump(debugModeOpts.DumpPayload, nil, nil).
+			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
 			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookValidating).
 			WithAdmission(policyLogger.WithName("validate")).
@@ -103,6 +102,15 @@ func NewServer(
 					return &pair, nil
 				},
 				MinVersion: tls.VersionTLS12,
+				CipherSuites: []uint16{
+					// AEADs w/ ECDHE
+					tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+					tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+					tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+					tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+					tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+					tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+				},
 			},
 			Handler:           mux,
 			ReadTimeout:       30 * time.Second,

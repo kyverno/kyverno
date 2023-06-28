@@ -1,0 +1,13 @@
+## Checks that the manifests.yaml file CANNOT be successfully created. If it can, fail the test as this is incorrect.
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+- script: |
+    if kubectl patch service podinfo -p '{"spec":{"type":"NodePort","ports":[{"port":9898,"nodePort":32000}]}}' -n apply-on-deletion-ns
+    then 
+      echo "Tested failed. The service type cannot be changed to NodePort"
+      exit 1 
+    else 
+      echo "Test succeeded. The service update is blocked"
+      exit 0
+    fi

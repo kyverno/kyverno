@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+delete:
+- apiVersion: apps/v1
+  kind: DaemonSet
+  name: test-deletion-request-datadog-operator
+  namespace: cpol-validate-psa-test-deletion-request

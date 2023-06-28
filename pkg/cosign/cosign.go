@@ -31,9 +31,6 @@ import (
 	"go.uber.org/multierr"
 )
 
-// ImageSignatureRepository is an alternate signature repository
-var ImageSignatureRepository string
-
 func NewVerifier() images.ImageVerifier {
 	return &cosignVerifier{}
 }
@@ -79,7 +76,7 @@ func (v *cosignVerifier) VerifySignature(ctx context.Context, opts images.Option
 	}
 
 	var digest string
-	if opts.PredicateType == "" {
+	if opts.Type == "" {
 		digest, err = extractDigest(opts.ImageRef, payload)
 		if err != nil {
 			return nil, err
@@ -102,7 +99,7 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 	if err != nil {
 		return nil, fmt.Errorf("constructing client options: %w", err)
 	}
-	remoteOpts = append(remoteOpts, opts.RegistryClient.BuildRemoteOption(ctx))
+	remoteOpts = append(remoteOpts, opts.Client.BuildRemoteOption(ctx))
 	cosignOpts := &cosign.CheckOpts{
 		Annotations:        map[string]interface{}{},
 		RegistryClientOpts: remoteOpts,
@@ -265,13 +262,13 @@ func (v *cosignVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 	}
 
 	for _, signature := range signatures {
-		match, predicateType, err := matchPredicateType(signature, opts.PredicateType)
+		match, predicateType, err := matchType(signature, opts.Type)
 		if err != nil {
 			return nil, err
 		}
 
 		if !match {
-			logger.V(4).Info("predicateType doesn't match, continue", "expected", opts.PredicateType, "received", predicateType)
+			logger.V(4).Info("type doesn't match, continue", "expected", opts.Type, "received", predicateType)
 			continue
 		}
 
@@ -294,15 +291,15 @@ func (v *cosignVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 	return &images.Response{Digest: digest, Statements: inTotoStatements}, nil
 }
 
-func matchPredicateType(sig oci.Signature, expectedPredicateType string) (bool, string, error) {
-	if expectedPredicateType != "" {
+func matchType(sig oci.Signature, expectedType string) (bool, string, error) {
+	if expectedType != "" {
 		statement, _, err := decodeStatement(sig)
 		if err != nil {
-			return false, "", fmt.Errorf("failed to decode predicateType: %w", err)
+			return false, "", fmt.Errorf("failed to decode type: %w", err)
 		}
 
-		if pType, ok := statement["predicateType"]; ok {
-			if pType.(string) == expectedPredicateType {
+		if pType, ok := statement["type"]; ok {
+			if pType.(string) == expectedType {
 				return true, pType.(string), nil
 			}
 		}
@@ -360,6 +357,7 @@ func decodeStatement(sig oci.Signature) (map[string]interface{}, string, error) 
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to decode statement %s: %w", string(pld), err)
 		}
+		decodedStatement["type"] = decodedStatement["predicateType"]
 
 		return decodedStatement, digest, nil
 	}
@@ -376,7 +374,7 @@ func decodePayload(payloadBase64 string) (map[string]interface{}, error) {
 		return nil, err
 	}
 
-	if statement.PredicateType != attestation.CosignCustomProvenanceV01 {
+	if statement.Type != attestation.CosignCustomProvenanceV01 {
 		// This assumes that the following statements are JSON objects:
 		// - in_toto.PredicateSLSAProvenanceV01
 		// - in_toto.PredicateLinkV1
@@ -389,7 +387,7 @@ func decodePayload(payloadBase64 string) (map[string]interface{}, error) {
 }
 
 func decodeCosignCustomProvenanceV01(statement in_toto.Statement) (map[string]interface{}, error) {
-	if statement.PredicateType != attestation.CosignCustomProvenanceV01 {
+	if statement.Type != attestation.CosignCustomProvenanceV01 {
 		return nil, fmt.Errorf("invalid statement type %s", attestation.CosignCustomProvenanceV01)
 	}
 

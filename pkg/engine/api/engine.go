@@ -4,11 +4,14 @@ import (
 	"context"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 )
 
+// EngineContextLoader provides a function to load context entries from the various clients initialised with the engine ones
 type EngineContextLoader = func(ctx context.Context, contextEntries []kyvernov1.ContextEntry, jsonContext enginecontext.Interface) error
+
+// EngineContextLoaderFactory provides an EngineContextLoader given a policy and rule name
+type EngineContextLoaderFactory = func(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) EngineContextLoader
 
 // Engine is the main interface to run policies against resources
 type Engine interface {
@@ -20,6 +23,12 @@ type Engine interface {
 
 	// Mutate performs mutation. Overlay first and then mutation patches
 	Mutate(
+		ctx context.Context,
+		policyContext PolicyContext,
+	) EngineResponse
+
+	// Generate checks for validity of generate rule on the resource
+	Generate(
 		ctx context.Context,
 		policyContext PolicyContext,
 	) EngineResponse
@@ -38,13 +47,6 @@ type Engine interface {
 	ApplyBackgroundChecks(
 		ctx context.Context,
 		policyContext PolicyContext,
-	) EngineResponse
-
-	// GenerateResponse checks for validity of generate rule on the resource
-	GenerateResponse(
-		ctx context.Context,
-		policyContext PolicyContext,
-		gr kyvernov1beta1.UpdateRequest,
 	) EngineResponse
 
 	ContextLoader(

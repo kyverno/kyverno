@@ -97,10 +97,10 @@ func ParsePath(rawPath string) Pointer {
 		sb.Reset()
 	}
 
-	var pos int
+	var pos, width int
 	var escaped, quoted bool
 
-	for i, width := 0, 0; i <= len(rawPath); i += width {
+	for i := 0; i <= len(rawPath); i += width {
 		var r rune
 		r, width = utf8.DecodeRuneInString(rawPath[i:])
 		if r == utf8.RuneError && width == 1 {

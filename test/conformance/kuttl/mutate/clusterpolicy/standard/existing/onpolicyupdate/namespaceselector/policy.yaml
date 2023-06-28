@@ -6,7 +6,7 @@ metadata:
     pod-policies.kyverno.io/autogen-controllers: none
 spec:
   mutateExistingOnPolicyUpdate: true
-  validationFailureAction: enforce
+  validationFailureAction: Enforce
   rules:
   - name: propagate org label from namespace
     match:

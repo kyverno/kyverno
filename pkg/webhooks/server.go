@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -17,8 +18,6 @@ import (
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionv1 "k8s.io/api/admission/v1"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	coordinationv1 "k8s.io/api/coordination/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
@@ -39,35 +38,36 @@ type Server interface {
 
 type ExceptionHandlers interface {
 	// Validate performs the validation check on exception resources
-	Validate(context.Context, logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
+	Validate(context.Context, logr.Logger, handlers.AdmissionRequest, time.Time) admissionv1.AdmissionResponse
 }
 
 type PolicyHandlers interface {
 	// Mutate performs the mutation of policy resources
-	Mutate(context.Context, logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
+	Mutate(context.Context, logr.Logger, handlers.AdmissionRequest, time.Time) admissionv1.AdmissionResponse
 	// Validate performs the validation check on policy resources
-	Validate(context.Context, logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
+	Validate(context.Context, logr.Logger, handlers.AdmissionRequest, time.Time) admissionv1.AdmissionResponse
 }
 
 type ResourceHandlers interface {
 	// Mutate performs the mutation of kube resources
-	Mutate(context.Context, logr.Logger, *admissionv1.AdmissionRequest, string, time.Time) *admissionv1.AdmissionResponse
+	Mutate(context.Context, logr.Logger, handlers.AdmissionRequest, string, time.Time) admissionv1.AdmissionResponse
 	// Validate performs the validation check on kube resources
-	Validate(context.Context, logr.Logger, *admissionv1.AdmissionRequest, string, time.Time) *admissionv1.AdmissionResponse
+	Validate(context.Context, logr.Logger, handlers.AdmissionRequest, string, time.Time) admissionv1.AdmissionResponse
 }
 
 type server struct {
 	server      *http.Server
 	runtime     runtimeutils.Runtime
-	mwcClient   controllerutils.DeleteCollectionClient[*admissionregistrationv1.MutatingWebhookConfiguration]
-	vwcClient   controllerutils.DeleteCollectionClient[*admissionregistrationv1.ValidatingWebhookConfiguration]
-	leaseClient controllerutils.DeleteClient[*coordinationv1.Lease]
+	mwcClient   controllerutils.DeleteCollectionClient
+	vwcClient   controllerutils.DeleteCollectionClient
+	leaseClient controllerutils.DeleteClient
 }
 
 type TlsProvider func() ([]byte, []byte, error)
 
 // NewServer creates new instance of server accordingly to given configuration
 func NewServer(
+	ctx context.Context,
 	policyHandlers PolicyHandlers,
 	resourceHandlers ResourceHandlers,
 	exceptionHandlers ExceptionHandlers,
@@ -75,12 +75,13 @@ func NewServer(
 	metricsConfig metrics.MetricsConfigManager,
 	debugModeOpts DebugModeOptions,
 	tlsProvider TlsProvider,
-	mwcClient controllerutils.DeleteCollectionClient[*admissionregistrationv1.MutatingWebhookConfiguration],
-	vwcClient controllerutils.DeleteCollectionClient[*admissionregistrationv1.ValidatingWebhookConfiguration],
-	leaseClient controllerutils.DeleteClient[*coordinationv1.Lease],
+	mwcClient controllerutils.DeleteCollectionClient,
+	vwcClient controllerutils.DeleteCollectionClient,
+	leaseClient controllerutils.DeleteClient,
 	runtime runtimeutils.Runtime,
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
+	discovery dclient.IDiscovery,
 ) Server {
 	mux := httprouter.New()
 	resourceLogger := logger.WithName("resource")
@@ -95,8 +96,10 @@ func NewServer(
 		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
 			return handler.
 				WithFilter(configuration).
-				WithProtection(toggle.ProtectManagedResources.Enabled()).
-				WithDump(debugModeOpts.DumpPayload, rbLister, crbLister).
+				WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+				WithDump(debugModeOpts.DumpPayload).
+				WithTopLevelGVK(discovery).
+				WithRoles(rbLister, crbLister).
 				WithOperationFilter(admissionv1.Create, admissionv1.Update, admissionv1.Connect).
 				WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookMutating).
 				WithAdmission(resourceLogger.WithName("mutate"))
@@ -110,8 +113,10 @@ func NewServer(
 		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
 			return handler.
 				WithFilter(configuration).
-				WithProtection(toggle.ProtectManagedResources.Enabled()).
-				WithDump(debugModeOpts.DumpPayload, rbLister, crbLister).
+				WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+				WithDump(debugModeOpts.DumpPayload).
+				WithTopLevelGVK(discovery).
+				WithRoles(rbLister, crbLister).
 				WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
 				WithAdmission(resourceLogger.WithName("validate"))
 		},
@@ -120,7 +125,7 @@ func NewServer(
 		"POST",
 		config.PolicyMutatingWebhookServicePath,
 		handlers.FromAdmissionFunc("MUTATE", policyHandlers.Mutate).
-			WithDump(debugModeOpts.DumpPayload, rbLister, crbLister).
+			WithDump(debugModeOpts.DumpPayload).
 			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookMutating).
 			WithAdmission(policyLogger.WithName("mutate")).
 			ToHandlerFunc(),
@@ -129,7 +134,7 @@ func NewServer(
 		"POST",
 		config.PolicyValidatingWebhookServicePath,
 		handlers.FromAdmissionFunc("VALIDATE", policyHandlers.Validate).
-			WithDump(debugModeOpts.DumpPayload, rbLister, crbLister).
+			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
 			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookValidating).
 			WithAdmission(policyLogger.WithName("validate")).
@@ -139,7 +144,7 @@ func NewServer(
 		"POST",
 		config.ExceptionValidatingWebhookServicePath,
 		handlers.FromAdmissionFunc("VALIDATE", exceptionHandlers.Validate).
-			WithDump(debugModeOpts.DumpPayload, rbLister, crbLister).
+			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
 			WithMetrics(exceptionLogger, metricsConfig.Config(), metrics.WebhookValidating).
 			WithAdmission(exceptionLogger.WithName("validate")).
@@ -170,6 +175,15 @@ func NewServer(
 					return &pair, nil
 				},
 				MinVersion: tls.VersionTLS12,
+				CipherSuites: []uint16{
+					// AEADs w/ ECDHE
+					tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+					tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+					tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+					tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+					tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+					tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+				},
 			},
 			Handler:           mux,
 			ReadTimeout:       30 * time.Second,
@@ -245,24 +259,24 @@ func registerWebhookHandlers(
 	mux *httprouter.Router,
 	name string,
 	basePath string,
-	handlerFunc func(context.Context, logr.Logger, *admissionv1.AdmissionRequest, string, time.Time) *admissionv1.AdmissionResponse,
+	handlerFunc func(context.Context, logr.Logger, handlers.AdmissionRequest, string, time.Time) admissionv1.AdmissionResponse,
 	builder func(handler handlers.AdmissionHandler) handlers.HttpHandler,
 ) {
 	all := handlers.FromAdmissionFunc(
 		name,
-		func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+		func(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, startTime time.Time) admissionv1.AdmissionResponse {
 			return handlerFunc(ctx, logger, request, "all", startTime)
 		},
 	)
 	ignore := handlers.FromAdmissionFunc(
 		name,
-		func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+		func(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, startTime time.Time) admissionv1.AdmissionResponse {
 			return handlerFunc(ctx, logger, request, "ignore", startTime)
 		},
 	)
 	fail := handlers.FromAdmissionFunc(
 		name,
-		func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+		func(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, startTime time.Time) admissionv1.AdmissionResponse {
 			return handlerFunc(ctx, logger, request, "fail", startTime)
 		},
 	)

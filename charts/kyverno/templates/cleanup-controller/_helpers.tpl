@@ -27,7 +27,7 @@
 {{- end -}}
 
 {{- define "kyverno.cleanup-controller.roleName" -}}
-{{ .Release.Name }}:cleanup-controller
+{{ include "kyverno.fullname" . }}:cleanup-controller
 {{- end -}}
 
 {{- define "kyverno.cleanup-controller.serviceAccountName" -}}

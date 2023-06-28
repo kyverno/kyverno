@@ -1,0 +1,18 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: temp
+spec:
+  background: false
+  rules:
+    - name: test-rule
+      match:
+        any:
+        - resources:
+            kinds:
+            - ConfigMap
+          subjects:
+          - name: foo
+            kind: Foo
+      validate:
+        deny: {}

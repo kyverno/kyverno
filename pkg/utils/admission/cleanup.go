@@ -25,7 +25,7 @@ func UnmarshalCleanupPolicy(kind string, raw []byte) (kyvernov2alpha1.CleanupPol
 	return nil, fmt.Errorf("admission request does not contain a cleanuppolicy")
 }
 
-func GetCleanupPolicies(request *admissionv1.AdmissionRequest) (kyvernov2alpha1.CleanupPolicyInterface, kyvernov2alpha1.CleanupPolicyInterface, error) {
+func GetCleanupPolicies(request admissionv1.AdmissionRequest) (kyvernov2alpha1.CleanupPolicyInterface, kyvernov2alpha1.CleanupPolicyInterface, error) {
 	var emptypolicy kyvernov2alpha1.CleanupPolicyInterface
 	policy, err := UnmarshalCleanupPolicy(request.Kind.Kind, request.Object.Raw)
 	if err != nil {

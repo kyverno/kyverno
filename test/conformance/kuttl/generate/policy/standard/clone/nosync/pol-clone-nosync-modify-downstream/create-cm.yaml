@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: mycm
-  namespace: default
+  namespace: pol-clone-nosync-modify-downstream-ns
 data:
   food: cheese
   day: monday

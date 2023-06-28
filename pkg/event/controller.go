@@ -43,6 +43,8 @@ type generator struct {
 
 	maxQueuedEvents int
 
+	omitEvents []string
+
 	log logr.Logger
 }
 
@@ -64,6 +66,7 @@ func NewEventGenerator(
 	cpInformer kyvernov1informers.ClusterPolicyInformer,
 	pInformer kyvernov1informers.PolicyInformer,
 	maxQueuedEvents int,
+	omitEvents []string,
 	log logr.Logger,
 ) Controller {
 	gen := generator{
@@ -76,6 +79,7 @@ func NewEventGenerator(
 		genPolicyRecorder:      NewRecorder(GeneratePolicyController, client.GetEventsInterface()),
 		mutateExistingRecorder: NewRecorder(MutateExistingController, client.GetEventsInterface()),
 		maxQueuedEvents:        maxQueuedEvents,
+		omitEvents:             omitEvents,
 		log:                    log,
 	}
 	return &gen
@@ -96,7 +100,19 @@ func (gen *generator) Add(infos ...Info) {
 			logger.V(3).Info("skipping event creation for resource without a name", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace)
 			continue
 		}
-		gen.queue.Add(info)
+
+		shouldEmitEvent := true
+		for _, eventReason := range gen.omitEvents {
+			if info.Reason == Reason(eventReason) {
+				shouldEmitEvent = false
+				logger.V(6).Info("omitting event", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace, "reason", info.Reason)
+			}
+		}
+
+		if shouldEmitEvent {
+			gen.queue.Add(info)
+			logger.V(6).Info("creating event", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace, "reason", info.Reason)
+		}
 	}
 }
 
@@ -196,6 +212,7 @@ func (gen *generator) syncHandler(key Info) error {
 		eventType = corev1.EventTypeNormal
 	}
 
+	logger.V(3).Info("creating the event", "source", key.Source, "type", eventType, "resource", key.Resource())
 	// based on the source of event generation, use different event recorders
 	switch key.Source {
 	case AdmissionController:

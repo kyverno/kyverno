@@ -36,3 +36,13 @@ annotations:
       description: view aggregated cluster role support
     - kind: added
       description: support for webhook annotations in config map
+    - kind: added
+      description: allow overriding PDB api version
+    - kind: fixed
+      description: missing image pull secrets in helm hooks
+    - kind: added
+      description: support `excludeRoles` and `excludeClusterRoles` in config
+    - kind: added
+      description: define resources for cleanupJobs
+    - kind: changed
+      description: change to enable webhook cleanup hook by default

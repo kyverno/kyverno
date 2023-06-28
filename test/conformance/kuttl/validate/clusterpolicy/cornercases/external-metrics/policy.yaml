@@ -4,7 +4,7 @@ metadata:
     name: external-metrics-policy-default
     namespace: default
 spec:
-  validationFailureAction: enforce
+  validationFailureAction: Enforce
   background: false
   rules:
   - name: external-metrics-rule-default

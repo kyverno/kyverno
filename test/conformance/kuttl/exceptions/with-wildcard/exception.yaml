@@ -1,0 +1,17 @@
+apiVersion: kyverno.io/v2alpha1
+kind: PolicyException
+metadata:
+  name: mynewpolex
+spec:
+  exceptions:
+    - policyName: require-labels
+      ruleNames:
+        - another-rule
+        - require-*
+  match:
+    any:
+      - resources:
+          kinds:
+            - ConfigMap
+          names:
+            - emergency

@@ -3,12 +3,13 @@ kind: ClusterPolicy
 metadata:
   name: disallow-latest-tag
 spec:
-  validationFailureAction: audit
+  validationFailureAction: Audit
   rules:
   - match:
-      resources:
-        kinds:
-        - Pod
+      any:
+        - resources:
+            kinds:
+            - Pod
     name: require-image-tag
     validate:
       message: An image tag is required.
@@ -17,9 +18,10 @@ spec:
           containers:
           - image: '*:*'
   - match:
-      resources:
-        kinds:
-        - Pod
+      any:
+        - resources:
+            kinds:
+            - Pod
     name: validate-image-tag
     validate:
       message: Using a mutable image tag e.g. 'latest' is not allowed.
@@ -35,14 +37,15 @@ status:
   autogen:
     rules:
     - match:
-        resources:
-          kinds:
-          - DaemonSet
-          - Deployment
-          - Job
-          - StatefulSet
-          - ReplicaSet
-          - ReplicationController
+        any:
+        - resources:
+            kinds:
+            - DaemonSet
+            - Deployment
+            - Job
+            - StatefulSet
+            - ReplicaSet
+            - ReplicationController
       name: autogen-require-image-tag
       validate:
         message: An image tag is required.
@@ -53,9 +56,10 @@ status:
                 containers:
                 - image: '*:*'
     - match:
-        resources:
-          kinds:
-          - CronJob
+        any:
+        - resources:
+            kinds:
+            - CronJob
       name: autogen-cronjob-require-image-tag
       validate:
         message: An image tag is required.
@@ -68,14 +72,15 @@ status:
                     containers:
                     - image: '*:*'
     - match:
-        resources:
-          kinds:
-          - DaemonSet
-          - Deployment
-          - Job
-          - StatefulSet
-          - ReplicaSet
-          - ReplicationController
+        any:
+        - resources:
+            kinds:
+            - DaemonSet
+            - Deployment
+            - Job
+            - StatefulSet
+            - ReplicaSet
+            - ReplicationController
       name: autogen-validate-image-tag
       validate:
         message: Using a mutable image tag e.g. 'latest' is not allowed.
@@ -86,9 +91,10 @@ status:
                 containers:
                 - image: '!*:latest'
     - match:
-        resources:
-          kinds:
-          - CronJob
+        any:
+        - resources:
+            kinds:
+            - CronJob
       name: autogen-cronjob-validate-image-tag
       validate:
         message: Using a mutable image tag e.g. 'latest' is not allowed.

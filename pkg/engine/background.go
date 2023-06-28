@@ -9,7 +9,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 )
@@ -23,7 +22,7 @@ func (e *engine) applyBackgroundChecks(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
-) engineapi.EngineResponse {
+) engineapi.PolicyResponse {
 	return e.filterRules(policyContext, logger, time.Now())
 }
 
@@ -31,22 +30,15 @@ func (e *engine) filterRules(
 	policyContext engineapi.PolicyContext,
 	logger logr.Logger,
 	startTime time.Time,
-) engineapi.EngineResponse {
+) engineapi.PolicyResponse {
 	policy := policyContext.Policy()
-	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
-	resp.PolicyResponse = engineapi.PolicyResponse{
-		Stats: engineapi.PolicyStats{
-			ExecutionStats: engineapi.ExecutionStats{
-				Timestamp: startTime.Unix(),
-			},
-		},
-	}
+	resp := engineapi.NewPolicyResponse()
 	applyRules := policy.GetSpec().GetApplyRules()
 	for _, rule := range autogen.ComputeRules(policy) {
 		logger := internal.LoggerWithRule(logger, rule)
 		if ruleResp := e.filterRule(rule, logger, policyContext); ruleResp != nil {
-			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
-			if applyRules == kyvernov1.ApplyOne && ruleResp.Status != engineapi.RuleStatusSkip {
+			resp.Rules = append(resp.Rules, *ruleResp)
+			if applyRules == kyvernov1.ApplyOne && ruleResp.Status() != engineapi.RuleStatusSkip {
 				break
 			}
 		}
@@ -69,35 +61,23 @@ func (e *engine) filterRule(
 	}
 
 	// check if there is a corresponding policy exception
-	ruleResp := hasPolicyExceptions(logger, ruleType, e.exceptionSelector, policyContext, &rule, e.configuration)
+	ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule)
 	if ruleResp != nil {
 		return ruleResp
 	}
 
-	startTime := time.Now()
-
 	newResource := policyContext.NewResource()
 	oldResource := policyContext.OldResource()
 	admissionInfo := policyContext.AdmissionInfo()
-	ctx := policyContext.JSONContext()
-	excludeGroupRole := e.configuration.GetExcludedGroups()
 	namespaceLabels := policyContext.NamespaceLabels()
 	policy := policyContext.Policy()
 	gvk, subresource := policyContext.ResourceKind()
 
-	if err := engineutils.MatchesResourceDescription(newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, policy.GetNamespace(), gvk, subresource); err != nil {
+	if err := engineutils.MatchesResourceDescription(newResource, rule, admissionInfo, namespaceLabels, policy.GetNamespace(), gvk, subresource, policyContext.Operation()); err != nil {
 		if ruleType == engineapi.Generation {
 			// if the oldResource matched, return "false" to delete GR for it
-			if err = engineutils.MatchesResourceDescription(oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, policy.GetNamespace(), gvk, subresource); err == nil {
-				return &engineapi.RuleResponse{
-					Name:   rule.Name,
-					Type:   ruleType,
-					Status: engineapi.RuleStatusFail,
-					Stats: engineapi.ExecutionStats{
-						ProcessingTime: time.Since(startTime),
-						Timestamp:      startTime.Unix(),
-					},
-				}
+			if err = engineutils.MatchesResourceDescription(oldResource, rule, admissionInfo, namespaceLabels, policy.GetNamespace(), gvk, subresource, policyContext.Operation()); err == nil {
+				return engineapi.RuleFail(rule.Name, ruleType, "")
 			}
 		}
 		logger.V(4).Info("rule not matched", "reason", err.Error())
@@ -107,40 +87,42 @@ func (e *engine) filterRule(
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
 
-	if err := internal.LoadContext(context.TODO(), e, policyContext, rule); err != nil {
+	contextLoader := e.ContextLoader(policyContext.Policy(), rule)
+	if err := contextLoader(context.TODO(), rule.Context, policyContext.JSONContext()); err != nil {
 		logger.V(4).Info("cannot add external data to the context", "reason", err.Error())
 		return nil
 	}
 
-	ruleCopy := rule.DeepCopy()
-	if after, err := variables.SubstituteAllInPreconditions(logger, ctx, ruleCopy.GetAnyAllConditions()); err != nil {
-		logger.V(4).Info("failed to substitute vars in preconditions, skip current rule", "rule name", ruleCopy.Name)
-		return nil
-	} else {
-		ruleCopy.SetAnyAllConditions(after)
-	}
-
 	// operate on the copy of the conditions, as we perform variable substitution
-	copyConditions, err := utils.TransformConditions(ruleCopy.GetAnyAllConditions())
+	copyConditions, err := engineutils.TransformConditions(rule.GetAnyAllConditions())
 	if err != nil {
 		logger.V(4).Info("cannot copy AnyAllConditions", "reason", err.Error())
-		return nil
+		return engineapi.RuleError(rule.Name, ruleType, "failed to convert AnyAllConditions", err)
 	}
 
 	// evaluate pre-conditions
-	if !variables.EvaluateConditions(logger, ctx, copyConditions) {
-		logger.V(4).Info("skip rule as preconditions are not met", "rule", ruleCopy.Name)
-		return internal.RuleSkip(ruleCopy, ruleType, "")
+	pass, msg, err := variables.EvaluateConditions(logger, policyContext.JSONContext(), copyConditions)
+	if err != nil {
+		return engineapi.RuleError(rule.Name, ruleType, "failed to evaluate conditions", err)
 	}
 
-	// build rule Response
-	return &engineapi.RuleResponse{
-		Name:   ruleCopy.Name,
-		Type:   ruleType,
-		Status: engineapi.RuleStatusPass,
-		Stats: engineapi.ExecutionStats{
-			ProcessingTime: time.Since(startTime),
-			Timestamp:      startTime.Unix(),
-		},
+	if pass {
+		return engineapi.RulePass(rule.Name, ruleType, "")
 	}
+
+	if policyContext.OldResource().Object != nil {
+		if err = policyContext.JSONContext().AddResource(policyContext.OldResource().Object); err != nil {
+			return engineapi.RuleError(rule.Name, ruleType, "failed to update JSON context for old resource", err)
+		}
+		if val, msg, err := variables.EvaluateConditions(logger, policyContext.JSONContext(), copyConditions); err != nil {
+			return engineapi.RuleError(rule.Name, ruleType, "failed to evaluate conditions for old resource", err)
+		} else {
+			if val {
+				return engineapi.RuleFail(rule.Name, ruleType, msg)
+			}
+		}
+	}
+
+	logger.V(4).Info("skip rule as preconditions are not met", "rule", rule.Name, "message", msg)
+	return engineapi.RuleSkip(rule.Name, ruleType, "")
 }

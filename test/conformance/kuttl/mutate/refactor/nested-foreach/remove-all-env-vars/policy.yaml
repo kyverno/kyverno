@@ -1,0 +1,23 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: foreach-remove-elements
+spec:
+  background: false
+  schemaValidation: false
+  rules:
+    - name: dummy-1
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      mutate:
+        foreach:
+          - list: request.object.spec.containers
+            foreach:
+              - list: element0.env
+                order: Descending
+                patchesJson6902: |-
+                  - path: /spec/containers/{{elementIndex0}}/env/{{elementIndex1}}
+                    op: remove

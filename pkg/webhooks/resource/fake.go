@@ -8,8 +8,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
-	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
+	"github.com/kyverno/kyverno/pkg/engine/factories"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
@@ -35,16 +37,14 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 	kyvernoInformers.Start(ctx.Done())
 
 	dclient := dclient.NewEmptyFakeClient()
-	configuration := config.NewDefaultConfiguration()
-	rbLister := informers.Rbac().V1().RoleBindings().Lister()
-	crbLister := informers.Rbac().V1().ClusterRoleBindings().Lister()
+	configuration := config.NewDefaultConfiguration(false)
 	urLister := kyvernoInformers.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace())
 	peLister := kyvernoInformers.Kyverno().V2alpha1().PolicyExceptions().Lister()
+	jp := jmespath.New(configuration)
 	rclient := registryclient.NewOrDie()
 
-	return &handlers{
+	return &resourceHandlers{
 		client:         dclient,
-		rclient:        rclient,
 		configuration:  configuration,
 		metricsConfig:  metricsConfig,
 		pCache:         policyCache,
@@ -53,13 +53,16 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 		urGenerator:    updaterequest.NewFake(),
 		eventGen:       event.NewFake(),
 		openApiManager: openapi.NewFake(),
-		pcBuilder:      webhookutils.NewPolicyContextBuilder(configuration, dclient, rbLister, crbLister),
+		pcBuilder:      webhookutils.NewPolicyContextBuilder(configuration, jp),
 		engine: engine.NewEngine(
 			configuration,
-			dclient,
-			rclient,
-			engineapi.DefaultContextLoaderFactory(configMapResolver),
+			config.NewDefaultMetricsConfiguration(),
+			jp,
+			adapters.Client(dclient),
+			factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+			factories.DefaultContextLoaderFactory(configMapResolver),
 			peLister,
+			"",
 		),
 	}
 }

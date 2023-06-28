@@ -5,13 +5,17 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	"github.com/kyverno/kyverno/pkg/config"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/logging"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
+var jp = jmespath.New(config.NewDefaultConfiguration(false))
+
 func Test_checkCondition(t *testing.T) {
-	ctx := enginecontext.NewContext()
+	ctx := enginecontext.NewContext(jp)
 	ctx.AddResource(map[string]interface{}{
 		"name": "dummy",
 	})

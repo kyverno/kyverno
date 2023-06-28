@@ -1,0 +1,3 @@
+features:
+  forceFailurePolicyIgnore:
+    enabled: true
