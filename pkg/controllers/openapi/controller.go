@@ -72,6 +72,8 @@ func (c *controller) Run(ctx context.Context, workers int) {
 }
 
 func (c *controller) sync() {
+	c.manager.Lock()
+	defer c.manager.Unlock()
 	c.client.Discovery().DiscoveryCache().Invalidate()
 	crds, err := c.client.GetDynamicInterface().Resource(runtimeSchema.GroupVersionResource{
 		Group:    "apiextensions.k8s.io",
