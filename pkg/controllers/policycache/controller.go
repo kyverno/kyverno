@@ -99,7 +99,12 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		}
 		return err
 	}
-	return c.cache.Set(key, policy, c.client.Discovery())
+	if policy.AdmissionProcessingEnabled() {
+		return c.cache.Set(key, policy, c.client.Discovery())
+	} else {
+		c.cache.Unset(key)
+		return nil
+	}
 }
 
 func (c *controller) loadPolicy(namespace, name string) (kyvernov1.PolicyInterface, error) {

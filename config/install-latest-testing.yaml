@@ -4039,36 +4039,39 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.admission
+      name: ADMISSION
+      type: boolean
     - jsonPath: .spec.background
-      name: Background
+      name: BACKGROUND
       type: boolean
     - jsonPath: .spec.validationFailureAction
-      name: Validate Action
-      type: string
-    - jsonPath: .spec.failurePolicy
-      name: Failure Policy
-      priority: 1
+      name: VALIDATE ACTION
       type: string
     - jsonPath: .status.conditions[?(@.type == "Ready")].status
-      name: Ready
+      name: READY
       type: string
     - jsonPath: .metadata.creationTimestamp
-      name: Age
+      name: AGE
       type: date
+    - jsonPath: .spec.failurePolicy
+      name: FAILURE POLICY
+      priority: 1
+      type: string
     - jsonPath: .status.rulecount.validate
-      name: Validate
+      name: VALIDATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.mutate
-      name: Mutate
+      name: MUTATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.generate
-      name: Generate
+      name: GENERATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.verifyimages
-      name: Verifyimages
+      name: VERIFY IMAGES
       priority: 1
       type: integer
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
@@ -4095,6 +4098,11 @@ spec:
           spec:
             description: Spec declares policy behaviors.
             properties:
+              admission:
+                default: true
+                description: Admission controls if rules are applied during admission.
+                  Optional. Default value is "true".
+                type: boolean
               applyRules:
                 description: ApplyRules controls how rules in a policy are applied.
                   Rule are processed in the order of declaration. When set to `One`
@@ -12543,36 +12551,39 @@ spec:
     subresources:
       status: {}
   - additionalPrinterColumns:
+    - jsonPath: .spec.admission
+      name: ADMISSION
+      type: boolean
     - jsonPath: .spec.background
-      name: Background
+      name: BACKGROUND
       type: boolean
     - jsonPath: .spec.validationFailureAction
-      name: Validate Action
-      type: string
-    - jsonPath: .spec.failurePolicy
-      name: Failure Policy
-      priority: 1
+      name: VALIDATE ACTION
       type: string
     - jsonPath: .status.conditions[?(@.type == "Ready")].status
-      name: Ready
+      name: READY
       type: string
     - jsonPath: .metadata.creationTimestamp
-      name: Age
+      name: AGE
       type: date
+    - jsonPath: .spec.failurePolicy
+      name: FAILURE POLICY
+      priority: 1
+      type: string
     - jsonPath: .status.rulecount.validate
-      name: Validate
+      name: VALIDATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.mutate
-      name: Mutate
+      name: MUTATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.generate
-      name: Generate
+      name: GENERATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.verifyimages
-      name: Verifyimages
+      name: VERIFY IMAGES
       priority: 1
       type: integer
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
@@ -12599,6 +12610,11 @@ spec:
           spec:
             description: Spec declares policy behaviors.
             properties:
+              admission:
+                default: true
+                description: Admission controls if rules are applied during admission.
+                  Optional. Default value is "true".
+                type: boolean
               applyRules:
                 description: ApplyRules controls how rules in a policy are applied.
                   Rule are processed in the order of declaration. When set to `One`
@@ -20787,36 +20803,39 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.admission
+      name: ADMISSION
+      type: boolean
     - jsonPath: .spec.background
-      name: Background
+      name: BACKGROUND
       type: boolean
     - jsonPath: .spec.validationFailureAction
-      name: Validate Action
-      type: string
-    - jsonPath: .spec.failurePolicy
-      name: Failure Policy
-      priority: 1
+      name: VALIDATE ACTION
       type: string
     - jsonPath: .status.conditions[?(@.type == "Ready")].status
-      name: Ready
+      name: READY
       type: string
     - jsonPath: .metadata.creationTimestamp
-      name: Age
+      name: AGE
       type: date
+    - jsonPath: .spec.failurePolicy
+      name: FAILURE POLICY
+      priority: 1
+      type: string
     - jsonPath: .status.rulecount.validate
-      name: Validate
+      name: VALIDATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.mutate
-      name: Mutate
+      name: MUTATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.generate
-      name: Generate
+      name: GENERATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.verifyimages
-      name: Verifyimages
+      name: VERIFY IMAGES
       priority: 1
       type: integer
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
@@ -20844,6 +20863,11 @@ spec:
           spec:
             description: Spec defines policy behaviors and contains one or more rules.
             properties:
+              admission:
+                default: true
+                description: Admission controls if rules are applied during admission.
+                  Optional. Default value is "true".
+                type: boolean
               applyRules:
                 description: ApplyRules controls how rules in a policy are applied.
                   Rule are processed in the order of declaration. When set to `One`
@@ -29293,36 +29317,39 @@ spec:
     subresources:
       status: {}
   - additionalPrinterColumns:
+    - jsonPath: .spec.admission
+      name: ADMISSION
+      type: boolean
     - jsonPath: .spec.background
-      name: Background
+      name: BACKGROUND
       type: boolean
     - jsonPath: .spec.validationFailureAction
-      name: Validate Action
-      type: string
-    - jsonPath: .spec.failurePolicy
-      name: Failure Policy
-      priority: 1
+      name: VALIDATE ACTION
       type: string
     - jsonPath: .status.conditions[?(@.type == "Ready")].status
-      name: Ready
+      name: READY
       type: string
     - jsonPath: .metadata.creationTimestamp
-      name: Age
+      name: AGE
       type: date
+    - jsonPath: .spec.failurePolicy
+      name: FAILURE POLICY
+      priority: 1
+      type: string
     - jsonPath: .status.rulecount.validate
-      name: Validate
+      name: VALIDATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.mutate
-      name: Mutate
+      name: MUTATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.generate
-      name: Generate
+      name: GENERATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.verifyimages
-      name: Verifyimages
+      name: VERIFY IMAGES
       priority: 1
       type: integer
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
@@ -29350,6 +29377,11 @@ spec:
           spec:
             description: Spec defines policy behaviors and contains one or more rules.
             properties:
+              admission:
+                default: true
+                description: Admission controls if rules are applied during admission.
+                  Optional. Default value is "true".
+                type: boolean
               applyRules:
                 description: ApplyRules controls how rules in a policy are applied.
                   Rule are processed in the order of declaration. When set to `One`

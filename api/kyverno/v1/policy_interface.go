@@ -10,6 +10,7 @@ import (
 // +kubebuilder:object:generate=false
 type PolicyInterface interface {
 	metav1.Object
+	AdmissionProcessingEnabled() bool
 	BackgroundProcessingEnabled() bool
 	IsNamespaced() bool
 	GetSpec() *Spec
