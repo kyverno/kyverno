@@ -1,0 +1,73 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: acme-fitness
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforce-company-budget
+spec:
+  validationFailureAction: Enforce
+  rules:
+  - name: check-kubecost-budget
+    match:
+      any:
+      - resources:
+          kinds:
+          - Deployment
+          operations:
+          - CREATE
+    context:
+    # Mocked response from the Kubecost prediction API until it natively supports JSON input. 
+    # Get the predicted amount of the Deployment and transform to get the totalMonthlyRate.
+    - name: predictedcost
+      variable:
+        jmesPath: '[0].costChange.totalMonthlyRate'
+        value:
+          - namespace: acme-fitness
+            controllerKind: deployment
+            controllerName: test
+            costBefore:
+              totalMonthlyRate: 0
+              cpuMonthlyRate: 0
+              ramMonthlyRate: 0
+              gpuMonthlyRate: 0
+              monthlyCPUCoreHours: 0
+              monthlyRAMByteHours: 0
+              monthlyGPUHours: 0
+            costAfter:
+              totalMonthlyRate: 28.839483652409793
+              cpuMonthlyRate: 24.295976357646456
+              ramMonthlyRate: 4.543507294763337
+              gpuMonthlyRate: 0
+              monthlyCPUCoreHours: 766.5
+              monthlyRAMByteHours: 1.14819072e+12
+              monthlyGPUHours: 0
+            costChange:
+              totalMonthlyRate: 92.839483652409793
+              cpuMonthlyRate: 24.295976357646456
+              ramMonthlyRate: 4.543507294763337
+              gpuMonthlyRate: 0
+              monthlyCPUCoreHours: 766.5
+              monthlyRAMByteHours: 1.14819072e+12
+              monthlyGPUHours: 0
+    - name: budget
+      variable:
+        value:
+          spendLimit: 100.0
+          currentSpend: 73.0
+    # Calculate the budget that remains from the window by subtracting the currentSpend from the spendLimit.
+    - name: remainingbudget
+      variable:
+        jmesPath: subtract(`{{budget.spendLimit}}`,`{{budget.currentSpend}}`)
+    validate:
+      # Need to improve this by rounding.
+      message: "This Deployment, which costs ${{ predictedcost }} to run for a month, will overrun the remaining budget of ${{ remainingbudget }}. Please seek approval."
+      deny:
+        conditions:
+          all:
+          - key: "{{ predictedcost }}"
+            operator: GreaterThan
+            value: "{{ remainingbudget }}"

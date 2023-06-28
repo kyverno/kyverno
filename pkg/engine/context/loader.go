@@ -14,3 +14,30 @@ type Loader interface {
 	// executed and stored data in a context
 	HasLoaded() bool
 }
+
+// DeferredLoader wraps a Loader and implements context specific behaviors.
+// A `level` is used to track the checkpoint level at which the loader was
+// created. If the level when loading occurs matches the loader's creation
+// level, the loader is discarded after execution. Otherwise, the loader is
+// retained so that it can be applied to the prior level when the checkpoint
+// is restored or reset.
+type DeferredLoader interface {
+	Name() string
+	Matches(query string) bool
+	HasLoaded() bool
+	LoadData() error
+}
+
+// LeveledLoader is a DeferredLoader with a Level
+type LeveledLoader interface {
+	// Level provides the declaration level for the DeferredLoader
+	Level() int
+	DeferredLoader
+}
+
+// DeferredLoaders manages a list of DeferredLoader instances
+type DeferredLoaders interface {
+	Add(loader DeferredLoader, level int)
+	LoadMatching(query string, level int) error
+	Reset(removeCheckpoint bool, level int)
+}

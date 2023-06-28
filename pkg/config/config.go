@@ -144,7 +144,7 @@ func KyvernoUserName(serviceaccount string) string {
 type Configuration interface {
 	// GetDefaultRegistry return default image registry
 	GetDefaultRegistry() string
-	// GetEnableDefaultRegistryMutation return if should mutate image registry
+	// GetEnableDefaultRegistryMutation returns true if image references should be mutated
 	GetEnableDefaultRegistryMutation() bool
 	// IsExcluded checks exlusions/inclusions to determine if the admission request should be excluded or not
 	IsExcluded(username string, groups []string, roles []string, clusterroles []string) bool
