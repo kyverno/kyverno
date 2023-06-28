@@ -739,7 +739,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	var pvInfos []common.Info
 	var resultCounts common.ResultCounts
 
-	store.SetMock(true)
+	store.SetLocal(true)
 	if err := json.Unmarshal(policyBytes, values); err != nil {
 		return sanitizederror.NewWithError("failed to decode yaml", err)
 	}

@@ -13,7 +13,6 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
-	enginetest "github.com/kyverno/kyverno/pkg/engine/test"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/stretchr/testify/require"
@@ -208,7 +207,7 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 		WithPolicy(&policy).
 		WithNewResource(*resourceUnstructured)
 
-	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
+	er := testMutate(context.TODO(), nil, nil, policyContext, nil)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message(), "Unknown key \"name1\" in path"))
 }
@@ -284,26 +283,22 @@ func Test_variableSubstitutionCLI(t *testing.T) {
 	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).
 		WithPolicy(&policy).
 		WithNewResource(*resourceUnstructured)
+	ctxLoaderFactory := factories.DefaultContextLoaderFactory(
+		nil,
+		factories.WithInitializer(func(jsonContext enginecontext.Interface) error {
+			if err := jsonContext.AddVariable("dictionary.data.env", "dev1"); err != nil {
+				return err
+			}
+			return nil
+		}),
+	)
 
 	er := testMutate(
 		context.TODO(),
 		nil,
-		registryclient.NewOrDie(),
+		nil,
 		policyContext,
-		enginetest.ContextLoaderFactory(
-			nil,
-			map[string]enginetest.Policy{
-				"cm-variable-example": {
-					Rules: map[string]enginetest.Rule{
-						"example-configmap-lookup": {
-							Values: map[string]interface{}{
-								"dictionary.data.env": "dev1",
-							},
-						},
-					},
-				},
-			},
-		),
+		ctxLoaderFactory,
 	)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches()), 1)
@@ -493,7 +488,7 @@ func Test_precondition(t *testing.T) {
 		WithPolicy(&policy).
 		WithNewResource(*resourceUnstructured)
 
-	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, enginetest.ContextLoaderFactory(nil, nil))
+	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
 	t.Log(string(expectedPatch))
 	t.Log(string(er.PolicyResponse.Rules[0].Patches()[0]))
 	if !reflect.DeepEqual(expectedPatch, er.PolicyResponse.Rules[0].Patches()[0]) {
@@ -587,7 +582,7 @@ func Test_nonZeroIndexNumberPatchesJson6902(t *testing.T) {
 		WithPolicy(&policy).
 		WithNewResource(*resourceUnstructured)
 
-	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, enginetest.ContextLoaderFactory(nil, nil))
+	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
 	t.Log(string(expectedPatch))
 	t.Log(string(er.PolicyResponse.Rules[0].Patches()[0]))
 	if !reflect.DeepEqual(expectedPatch, er.PolicyResponse.Rules[0].Patches()[0]) {
@@ -676,7 +671,7 @@ func Test_foreach(t *testing.T) {
 	err = ctx.AddImageInfos(resource, cfg)
 	assert.NilError(t, err)
 
-	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
+	er := testMutate(context.TODO(), nil, nil, policyContext, nil)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
@@ -778,7 +773,7 @@ func Test_foreach_element_mutation(t *testing.T) {
 	err = ctx.AddImageInfos(resource, cfg)
 	assert.NilError(t, err)
 
-	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
+	er := testMutate(context.TODO(), nil, nil, policyContext, nil)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
@@ -899,7 +894,7 @@ func Test_Container_InitContainer_foreach(t *testing.T) {
 	err = ctx.AddImageInfos(resource, cfg)
 	assert.NilError(t, err)
 
-	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
+	er := testMutate(context.TODO(), nil, nil, policyContext, nil)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
@@ -1134,7 +1129,7 @@ func Test_patchStrategicMerge_descending(t *testing.T) {
 		WithPolicy(&policy).
 		WithNewResource(resource)
 
-	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
+	er := testMutate(context.TODO(), nil, nil, policyContext, nil)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
@@ -1241,7 +1236,7 @@ func Test_patchStrategicMerge_ascending(t *testing.T) {
 		WithPolicy(&policy).
 		WithNewResource(resource)
 
-	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
+	er := testMutate(context.TODO(), nil, nil, policyContext, nil)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
@@ -1913,7 +1908,7 @@ func Test_RuleSelectorMutate(t *testing.T) {
 		WithPolicy(&policy).
 		WithNewResource(*resourceUnstructured)
 
-	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
+	er := testMutate(context.TODO(), nil, nil, policyContext, nil)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 2)
 	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches()), 1)
 	assert.Equal(t, len(er.PolicyResponse.Rules[1].Patches()), 1)
@@ -1928,7 +1923,7 @@ func Test_RuleSelectorMutate(t *testing.T) {
 	applyOne := kyverno.ApplyOne
 	policyContext.Policy().GetSpec().ApplyRules = &applyOne
 
-	er = testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
+	er = testMutate(context.TODO(), nil, nil, policyContext, nil)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches()), 1)
 
