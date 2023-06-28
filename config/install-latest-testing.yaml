@@ -35090,6 +35090,7 @@ spec:
             - --admissionReports=true
             - --autoUpdateWebhooks=true
             - --enableConfigMapCaching=true
+            - --enableDeferredLoading=true
             - --dumpPayload=false
             - --forceFailurePolicyIgnore=false
             - --loggingFormat=text
@@ -35236,6 +35237,7 @@ spec:
             - --otelConfig=prometheus
             - --metricsPort=8000
             - --enableConfigMapCaching=true
+            - --enableDeferredLoading=true
             - --loggingFormat=text
             - --v=2
             - --enablePolicyException=false
@@ -35328,6 +35330,7 @@ spec:
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
+            - --enableDeferredLoading=true
             - --dumpPayload=false
             - --loggingFormat=text
             - --v=2
@@ -35457,6 +35460,7 @@ spec:
             - --backgroundScanInterval=1h
             - --skipResourceFilters=true
             - --enableConfigMapCaching=true
+            - --enableDeferredLoading=true
             - --loggingFormat=text
             - --v=2
             - --enablePolicyException=false

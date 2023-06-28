@@ -106,6 +106,7 @@ spec:
             {{- end }}
             {{- end }}
             {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.cleanupController.featuresOverride)
+              "deferredLoading"
               "dumpPayload"
               "logging"
             ) | nindent 12 }}

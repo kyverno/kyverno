@@ -25,6 +25,9 @@
 {{- with .configMapCaching -}}
   {{- $flags = append $flags (print "--enableConfigMapCaching=" .enabled) -}}
 {{- end -}}
+{{- with .deferredLoading -}}
+  {{- $flags = append $flags (print "--enableDeferredLoading=" .enabled) -}}
+{{- end -}}
 {{- with .dumpPayload -}}
   {{- $flags = append $flags (print "--dumpPayload=" .enabled) -}}
 {{- end -}}
