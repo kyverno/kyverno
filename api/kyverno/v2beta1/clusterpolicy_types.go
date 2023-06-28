@@ -15,15 +15,16 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=clusterpolicies,scope="Cluster",shortName=cpol,categories=kyverno
-// +kubebuilder:printcolumn:name="Background",type=boolean,JSONPath=".spec.background"
-// +kubebuilder:printcolumn:name="Validate Action",type=string,JSONPath=".spec.validationFailureAction"
-// +kubebuilder:printcolumn:name="Failure Policy",type=string,JSONPath=".spec.failurePolicy",priority=1
-// +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type == "Ready")].status`
-// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:printcolumn:name="Validate",type=integer,JSONPath=`.status.rulecount.validate`,priority=1
-// +kubebuilder:printcolumn:name="Mutate",type=integer,JSONPath=`.status.rulecount.mutate`,priority=1
-// +kubebuilder:printcolumn:name="Generate",type=integer,JSONPath=`.status.rulecount.generate`,priority=1
-// +kubebuilder:printcolumn:name="Verifyimages",type=integer,JSONPath=`.status.rulecount.verifyimages`,priority=1
+// +kubebuilder:printcolumn:name="ADMISSION",type=boolean,JSONPath=".spec.admission"
+// +kubebuilder:printcolumn:name="BACKGROUND",type=boolean,JSONPath=".spec.background"
+// +kubebuilder:printcolumn:name="VALIDATE ACTION",type=string,JSONPath=".spec.validationFailureAction"
+// +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditions[?(@.type == "Ready")].status`
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="FAILURE POLICY",type=string,JSONPath=".spec.failurePolicy",priority=1
+// +kubebuilder:printcolumn:name="VALIDATE",type=integer,JSONPath=`.status.rulecount.validate`,priority=1
+// +kubebuilder:printcolumn:name="MUTATE",type=integer,JSONPath=`.status.rulecount.mutate`,priority=1
+// +kubebuilder:printcolumn:name="GENERATE",type=integer,JSONPath=`.status.rulecount.generate`,priority=1
+// +kubebuilder:printcolumn:name="VERIFY IMAGES",type=integer,JSONPath=`.status.rulecount.verifyimages`,priority=1
 // +kubebuilder:printcolumn:name="MESSAGE",type=string,JSONPath=`.status.conditions[?(@.type == "Ready")].message`
 
 // ClusterPolicy declares validation, mutation, and generation behaviors for matching resources.
@@ -77,6 +78,11 @@ func (p *ClusterPolicy) HasGenerate() bool {
 // HasVerifyImages checks for image verification rule types
 func (p *ClusterPolicy) HasVerifyImages() bool {
 	return p.Spec.HasVerifyImages()
+}
+
+// AdmissionProcessingEnabled checks if admission is set to true
+func (p *ClusterPolicy) AdmissionProcessingEnabled() bool {
+	return p.Spec.AdmissionProcessingEnabled()
 }
 
 // BackgroundProcessingEnabled checks if background is set to true
