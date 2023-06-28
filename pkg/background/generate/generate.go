@@ -388,7 +388,11 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, t
 		common.ManageLabels(newResource, trigger, policy, rule.Name)
 		if response.GetAction() == Create {
 			newResource.SetResourceVersion("")
-			_, err = client.CreateResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), newResource, false)
+			if policy.GetSpec().UseServerSideApply {
+				_, err = client.ApplyResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), targetMeta.GetName(), newResource, false, "generate")
+			} else {
+				_, err = client.CreateResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), newResource, false)
+			}
 			if err != nil {
 				if !apierrors.IsAlreadyExists(err) {
 					return newGenResources, err
@@ -400,7 +404,11 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, t
 			generatedObj, err := client.GetResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), targetMeta.GetName())
 			if err != nil {
 				logger.V(2).Info("target resource not found, creating new target")
-				_, err = client.CreateResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), newResource, false)
+				if policy.GetSpec().UseServerSideApply {
+					_, err = client.ApplyResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), targetMeta.GetName(), newResource, false, "generate")
+				} else {
+					_, err = client.CreateResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), newResource, false)
+				}
 				if err != nil {
 					return newGenResources, err
 				}
@@ -418,7 +426,11 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, t
 					newResource.SetNamespace("default")
 				}
 
-				_, err = client.UpdateResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), newResource, false)
+				if policy.GetSpec().UseServerSideApply {
+					_, err = client.ApplyResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), targetMeta.GetName(), newResource, false, "generate")
+				} else {
+					_, err = client.UpdateResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), newResource, false)
+				}
 				if err != nil {
 					logger.Error(err, "failed to update resource")
 					return newGenResources, err

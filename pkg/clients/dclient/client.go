@@ -48,6 +48,10 @@ type Interface interface {
 	UpdateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool, subresources ...string) (*unstructured.Unstructured, error)
 	// UpdateStatusResource updates the resource "status" subresource
 	UpdateStatusResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error)
+	// ApplyResource applies object for the specified resource/namespace using server-side apply
+	ApplyResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, obj interface{}, dryRun bool, fieldManager string, subresources ...string) (*unstructured.Unstructured, error)
+	// ApplyStatusResource applies the resource "status" subresource using server-side apply
+	ApplyStatusResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, obj interface{}, dryRun bool, fieldManager string) (*unstructured.Unstructured, error)
 }
 
 // Client enables interaction with k8 resource
@@ -224,6 +228,36 @@ func (c *client) UpdateStatusResource(ctx context.Context, apiVersion string, ki
 		return c.getResourceInterface(apiVersion, kind, namespace).UpdateStatus(ctx, unstructuredObj, options)
 	}
 	return nil, fmt.Errorf("unable to update resource ")
+}
+
+// ApplyResource updates object for the specified resource/namespace
+func (c *client) ApplyResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, obj interface{}, dryRun bool, fieldManager string, subresources ...string) (*unstructured.Unstructured, error) {
+	// We have a different field manager for different situations, so a generated object that then goes through admission control
+	// won't have the changes wiped out by any use of server-side apply in the mutation path
+	options := metav1.ApplyOptions{FieldManager: "kyverno-" + fieldManager, Force: true}
+	if dryRun {
+		options.DryRun = []string{metav1.DryRunAll}
+	}
+	// convert typed to unstructured obj
+	if unstructuredObj, err := kubeutils.ObjToUnstructured(obj); err == nil && unstructuredObj != nil {
+		return c.getResourceInterface(apiVersion, kind, namespace).Apply(ctx, name, unstructuredObj, options, subresources...)
+	}
+	return nil, fmt.Errorf("unable to apply resource ")
+}
+
+// ApplyStatusResource updates the resource "status" subresource
+func (c *client) ApplyStatusResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, obj interface{}, dryRun bool, fieldManager string) (*unstructured.Unstructured, error) {
+	// We have a different field manager for different situations, so a generated object that then goes through admission control
+	// won't have the changes wiped out by any use of server-side apply in the mutation path
+	options := metav1.ApplyOptions{FieldManager: "kyverno-" + fieldManager, Force: true}
+	if dryRun {
+		options.DryRun = []string{metav1.DryRunAll}
+	}
+	// convert typed to unstructured obj
+	if unstructuredObj, err := kubeutils.ObjToUnstructured(obj); err == nil && unstructuredObj != nil {
+		return c.getResourceInterface(apiVersion, kind, namespace).ApplyStatus(ctx, name, unstructuredObj, options)
+	}
+	return nil, fmt.Errorf("unable to apply resource ")
 }
 
 // Discovery return the discovery client implementation
