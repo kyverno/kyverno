@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/go-logr/logr"
 	"github.com/google/gnostic/compiler"
@@ -49,6 +50,7 @@ type manager struct {
 	kindToAPIVersions cmap.ConcurrentMap[string, apiVersions]
 
 	logger logr.Logger
+	lock   sync.Mutex
 }
 
 // apiVersions stores all available gvks for a kind, a gvk is "/" separated string
@@ -86,40 +88,25 @@ func NewManager(logger logr.Logger) (*manager, error) {
 	return mgr, nil
 }
 
+func (o *manager) Lock() {
+	o.lock.Lock()
+}
+
+func (o *manager) Unlock() {
+	o.lock.Unlock()
+}
+
 // ValidateResource ...
 func (o *manager) ValidateResource(patchedResource unstructured.Unstructured, apiVersion, kind string) error {
-	var err error
-
-	gvk := kind
-	if apiVersion != "" {
-		gvk = apiVersion + "/" + kind
-	}
-
-	kind, _ = o.gvkToDefinitionName.Get(gvk)
-	schema := o.models.LookupModel(kind)
-	if schema == nil {
-		// Check if kind is a CRD
-		schema, err = o.getCRDSchema(kind)
-		if err != nil || schema == nil {
-			return fmt.Errorf("pre-validation: couldn't find model %s, err: %v", kind, err)
-		}
-		delete(patchedResource.Object, "kind")
-	}
-
-	if errs := validation.ValidateModel(patchedResource.UnstructuredContent(), schema, kind); len(errs) > 0 {
-		var errorMessages []string
-		for i := range errs {
-			errorMessages = append(errorMessages, errs[i].Error())
-		}
-
-		return fmt.Errorf(strings.Join(errorMessages, "\n\n"))
-	}
-
-	return nil
+	o.Lock()
+	defer o.Unlock()
+	return o.validateResource(patchedResource, apiVersion, kind)
 }
 
 // ValidatePolicyMutation ...
 func (o *manager) ValidatePolicyMutation(policy kyvernov1.PolicyInterface) error {
+	o.Lock()
+	defer o.Unlock()
 	kindToRules := make(map[string][]kyvernov1.Rule)
 	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.HasMutate() {
@@ -166,11 +153,43 @@ func (o *manager) ValidatePolicyMutation(policy kyvernov1.PolicyInterface) error
 		}
 
 		if kind != "*" {
-			err = o.ValidateResource(*patchedResource.DeepCopy(), "", kind)
+			err = o.validateResource(*patchedResource.DeepCopy(), "", kind)
 			if err != nil {
 				return fmt.Errorf("mutate result violates resource schema: %w", err)
 			}
 		}
+	}
+
+	return nil
+}
+
+// ValidateResource ...
+func (o *manager) validateResource(patchedResource unstructured.Unstructured, apiVersion, kind string) error {
+	var err error
+
+	gvk := kind
+	if apiVersion != "" {
+		gvk = apiVersion + "/" + kind
+	}
+
+	kind, _ = o.gvkToDefinitionName.Get(gvk)
+	schema := o.models.LookupModel(kind)
+	if schema == nil {
+		// Check if kind is a CRD
+		schema, err = o.getCRDSchema(kind)
+		if err != nil || schema == nil {
+			return fmt.Errorf("pre-validation: couldn't find model %s, err: %v", kind, err)
+		}
+		delete(patchedResource.Object, "kind")
+	}
+
+	if errs := validation.ValidateModel(patchedResource.UnstructuredContent(), schema, kind); len(errs) > 0 {
+		var errorMessages []string
+		for i := range errs {
+			errorMessages = append(errorMessages, errs[i].Error())
+		}
+
+		return fmt.Errorf(strings.Join(errorMessages, "\n\n"))
 	}
 
 	return nil
