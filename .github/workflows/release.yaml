@@ -222,6 +222,9 @@ jobs:
   create-release:
     runs-on: ubuntu-latest
     needs: release-images
+    permissions:
+      contents: write
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
