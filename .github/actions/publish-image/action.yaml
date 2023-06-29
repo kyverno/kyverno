@@ -70,7 +70,7 @@ runs:
         COSIGN_REPOSITORY: ${{ inputs.signature-repository }}
       run: |
         set -e
-        cosign sign \
+        cosign sign --yes \
           -a "repo=${{ github.repository }}" \
           -a "workflow=${{ github.workflow }}" \
           -a "ref=${{ github.sha }}" \
