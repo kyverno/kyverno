@@ -250,8 +250,6 @@ jobs:
           args: release --rm-dist --debug --release-notes=release/release-notes.out
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Show GoReleaser version
-        run: goreleaser -v
 
   push-and-sign-install-manifest:
     runs-on: ubuntu-latest
