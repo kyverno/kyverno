@@ -297,8 +297,6 @@ jobs:
             --source="$(git config --get remote.origin.url)" \
             --revision="${{ github.ref_name }}/$(git rev-parse HEAD)"
       - name: Sign manifests in GHCR with Cosign
-        env:
-          COSIGN_EXPERIMENTAL: 1
         run: |
           cosign sign --yes ghcr.io/${{ github.repository_owner }}/manifests/kyverno:${{ github.ref_name }}
 

@@ -66,7 +66,6 @@ runs:
     - shell: bash
       if: ${{ inputs.sign-image == 'true' }}
       env:
-        COSIGN_EXPERIMENTAL: 'true'
         COSIGN_REPOSITORY: ${{ inputs.signature-repository }}
       run: |
         set -e

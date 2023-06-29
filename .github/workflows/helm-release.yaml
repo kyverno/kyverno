@@ -89,8 +89,6 @@ jobs:
           helm registry login --username ${GITHUB_ACTOR} --password ${{ secrets.GITHUB_TOKEN }} ghcr.io
       
       - name: Publish OCI Charts
-        env:
-          COSIGN_EXPERIMENTAL: 1
         run: |
           for dir in `find charts-tmp -maxdepth 1 -mindepth 1 -type d -print`; do
             chart=${dir##*/}
