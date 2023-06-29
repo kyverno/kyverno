@@ -7,6 +7,8 @@ import (
 )
 
 type Manager interface {
+	Lock()
+	Unlock()
 	UseOpenAPIDocument(*openapiv2.Document) error
 	DeleteCRDFromPreviousSync()
 	ParseCRD(unstructured.Unstructured)
