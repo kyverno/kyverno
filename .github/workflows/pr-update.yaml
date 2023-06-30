@@ -1,17 +1,15 @@
 name: PR update
 
+permissions: {}
+
 on:
   push:
     branches:
       - 'main'
       - 'release-*'
 
-permissions: {}
-
 jobs:
   autoupdate:
-    permissions:
-      contents: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
