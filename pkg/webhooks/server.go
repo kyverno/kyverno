@@ -161,7 +161,7 @@ func NewServer(
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(runtime.IsReady))
 	return &server{
 		server: &http.Server{
-			Addr: ":9443",
+			Addr: ":" + config.KyvernoWebhookServerPort(),
 			TLSConfig: &tls.Config{
 				GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 					certPem, keyPem, err := tlsProvider()

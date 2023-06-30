@@ -102,6 +102,10 @@ var (
 	kyvernoMetricsConfigMapName = osutils.GetEnvWithFallback("METRICS_CONFIG", "kyverno-metrics")
 	// kyvernoDryRunNamespace is the namespace for DryRun option of YAML verification
 	kyvernoDryrunNamespace = osutils.GetEnvWithFallback("KYVERNO_DRYRUN_NAMESPACE", "kyverno-dryrun")
+	// kyvernoWebhookServerPort is the Kyverno webhook server
+	kyvernoWebhookServerPort = osutils.GetEnvWithFallback("KYVERNO_WEBHOOK_SERVER_PORT", "9443")
+	// kyvernoWebhookServerPort is the Kyverno webhook server
+	kyvernoCleanupServerPort = osutils.GetEnvWithFallback("KYVERNO_CLEANUP_SERVER_PORT", "9443")
 )
 
 func KyvernoNamespace() string {
@@ -138,6 +142,14 @@ func KyvernoMetricsConfigMapName() string {
 
 func KyvernoUserName(serviceaccount string) string {
 	return fmt.Sprintf("system:serviceaccount:%s:%s", kyvernoNamespace, serviceaccount)
+}
+
+func KyvernoWebhookServerPort() string {
+	return kyvernoWebhookServerPort
+}
+
+func KyvernoCleanupServerPort() string {
+	return kyvernoCleanupServerPort
 }
 
 // Configuration to be used by consumer to check filters
