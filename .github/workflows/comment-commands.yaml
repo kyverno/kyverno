@@ -1,12 +1,12 @@
 name: Issue and PR comment commands
 
+permissions: {}
+
 on:
   issue_comment:
     types: 
       - created
       - edited
-
-permissions: {}
 
 jobs:
   execute:
