@@ -57,6 +57,7 @@ jobs:
             version: v1.27.1
         tests:
           - autogen
+          - background-only
           - cleanup
           - deferred
           - events
