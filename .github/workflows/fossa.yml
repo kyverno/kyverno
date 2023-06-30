@@ -1,12 +1,11 @@
 name: FOSSA
 
+permissions: {}
+
 on:
   push:
     branches: 
       - main
-
-permissions:
-  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

@@ -1,5 +1,7 @@
 name: Publish images
 
+permissions: {}
+
 on:
   push:
     branches:
@@ -10,13 +12,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions: {}
-
 jobs:
   publish-images:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
       packages: write
       id-token: write 
     outputs:
