@@ -9,12 +9,11 @@ on:
       - 'main'
       - 'release*'
 
+permissions: {}
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
-permissions:
-  contents: read
 
 jobs:
   codecov:
