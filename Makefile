@@ -36,7 +36,7 @@ TOOLS_DIR                          := $(PWD)/.tools
 KIND                               := $(TOOLS_DIR)/kind
 KIND_VERSION                       := v0.17.0
 CONTROLLER_GEN                     := $(TOOLS_DIR)/controller-gen
-CONTROLLER_GEN_VERSION             := v0.11.3
+CONTROLLER_GEN_VERSION             := v0.12.0
 CLIENT_GEN                         := $(TOOLS_DIR)/client-gen
 LISTER_GEN                         := $(TOOLS_DIR)/lister-gen
 INFORMER_GEN                       := $(TOOLS_DIR)/informer-gen
@@ -469,12 +469,11 @@ codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 	@cat $(CRDS_PATH)/* \
 		| $(SED) -e '1i{{- if .Values.crds.install }}' \
 		| $(SED) -e '$$a{{- end }}' \
- 		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- with .Values.crds.annotations }}' \
- 		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- toYaml . | nindent 4 }}' \
- 		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- end }}' \
- 		| $(SED) -e '/^  creationTimestamp: null/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
- 		| $(SED) -e '/^  creationTimestamp: null/a \ \ labels:' \
- 		| $(SED) -e '/^  creationTimestamp: null/d' \
+		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
+ 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
+		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.crds.annotations }}' \
+ 		| $(SED) -e '/^  annotations:/i \ \ labels:' \
+		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
  		> ./charts/kyverno/templates/crds/crds.yaml
 
 .PHONY: codegen-helm-all
