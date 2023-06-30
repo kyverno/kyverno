@@ -13,7 +13,7 @@ func Command() *cobra.Command {
 		Use:   "version",
 		Short: "Shows current version of kyverno.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("Version: %s\n", version.MainVersion())
+			fmt.Printf("Version: %s\n", version.Version())
 			fmt.Printf("Time: %s\n", version.Time())
 			fmt.Printf("Git commit ID: %s\n", version.Hash())
 			return nil

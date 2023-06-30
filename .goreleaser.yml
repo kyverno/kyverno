@@ -11,7 +11,7 @@ builds:
   env:
   - CGO_ENABLED=0
   ldflags:
-  - -s -w
+  - -s -w -X github.com/kyverno/kyverno/pkg/version.BuildVersion={{.Version}}
   goos:
     - linux
     - darwin

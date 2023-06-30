@@ -6,20 +6,18 @@ import (
 	"github.com/go-logr/logr"
 )
 
-func GoVersion() string {
-	bi, ok := debug.ReadBuildInfo()
-	if !ok {
-		return "---"
-	}
-	return bi.GoVersion
-}
+// BuildVersion is provided by govvv at compile-time
+var BuildVersion string
 
-func MainVersion() string {
-	bi, ok := debug.ReadBuildInfo()
-	if !ok {
-		return "---"
+func Version() string {
+	if BuildVersion == "" {
+		bi, ok := debug.ReadBuildInfo()
+		if !ok {
+			return "---"
+		}
+		BuildVersion = bi.Main.Version
 	}
-	return bi.Main.Version
+	return BuildVersion
 }
 
 func Time() string {
@@ -48,5 +46,5 @@ func Hash() string {
 
 // PrintVersionInfo displays the kyverno version - git version
 func PrintVersionInfo(log logr.Logger) {
-	log.Info("version", "version", MainVersion(), "hash", Hash(), "time", Time())
+	log.Info("version", "version", Version(), "hash", Hash(), "time", Time())
 }

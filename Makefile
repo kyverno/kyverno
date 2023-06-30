@@ -5,7 +5,6 @@
 ############
 
 GIT_SHA              := $(shell git rev-parse HEAD)
-TIMESTAMP            := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 REGISTRY             ?= ghcr.io
 REPO                 ?= kyverno
 KIND_IMAGE           ?= kindest/node:v1.26.3
@@ -143,7 +142,11 @@ REPORTS_BIN    := $(REPORTS_DIR)/reports-controller
 BACKGROUND_BIN := $(BACKGROUND_DIR)/background-controller
 PACKAGE        ?= github.com/kyverno/kyverno
 CGO_ENABLED    ?= 0
+ifdef VERSION
+LD_FLAGS       := "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(VERSION)"
+else
 LD_FLAGS       := "-s -w"
+endif
 
 .PHONY: fmt
 fmt: ## Run go fmt
