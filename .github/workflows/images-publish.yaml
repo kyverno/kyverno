@@ -10,14 +10,15 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-  packages: write
-  id-token: write 
+permissions: {}
 
 jobs:
   publish-images:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write 
     outputs:
       kyverno-digest: ${{ steps.publish-kyverno.outputs.digest }}
       kyverno-init-digest: ${{ steps.publish-kyverno-init.outputs.digest }}
@@ -51,7 +52,7 @@ jobs:
           makefile-target: ko-publish-kyverno
           registry: ghcr.io
           registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.CR_PAT }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository_owner }}
           version: ${{ github.ref_name }}
           sign-image: true
@@ -66,7 +67,7 @@ jobs:
           makefile-target: ko-publish-kyverno-init
           registry: ghcr.io
           registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.CR_PAT }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository_owner }}
           version: ${{ github.ref_name }}
           sign-image: true
@@ -81,7 +82,7 @@ jobs:
           makefile-target: ko-publish-background-controller
           registry: ghcr.io
           registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.CR_PAT }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository_owner }}
           version: ${{ github.ref_name }}
           sign-image: true
@@ -96,7 +97,7 @@ jobs:
           makefile-target: ko-publish-cleanup-controller
           registry: ghcr.io
           registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.CR_PAT }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository_owner }}
           version: ${{ github.ref_name }}
           sign-image: true
@@ -111,7 +112,7 @@ jobs:
           makefile-target: ko-publish-cli
           registry: ghcr.io
           registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.CR_PAT }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository_owner }}
           version: ${{ github.ref_name }}
           sign-image: true
@@ -126,7 +127,7 @@ jobs:
           makefile-target: ko-publish-reports-controller
           registry: ghcr.io
           registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.CR_PAT }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository_owner }}
           version: ${{ github.ref_name }}
           sign-image: true
@@ -148,7 +149,7 @@ jobs:
       digest: "${{ needs.publish-images.outputs.kyverno-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
-      registry-password: ${{ secrets.CR_PAT }}
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
 
   generate-kyverno-init-provenance:
     needs: publish-images
@@ -163,7 +164,7 @@ jobs:
       digest: "${{ needs.publish-images.outputs.kyverno-init-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
-      registry-password: ${{ secrets.CR_PAT }}
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
 
   generate-background-controller-provenance:
     needs: publish-images
@@ -178,7 +179,7 @@ jobs:
       digest: "${{ needs.publish-images.outputs.background-controller-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
-      registry-password: ${{ secrets.CR_PAT }}
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
 
   generate-cleanup-controller-provenance:
     needs: publish-images
@@ -193,7 +194,7 @@ jobs:
       digest: "${{ needs.publish-images.outputs.cleanup-controller-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
-      registry-password: ${{ secrets.CR_PAT }}
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
 
   generate-kyverno-cli-provenance:
     needs: publish-images
@@ -208,7 +209,7 @@ jobs:
       digest: "${{ needs.publish-images.outputs.cli-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
-      registry-password: ${{ secrets.CR_PAT }}
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
 
   generate-reports-controller-provenance:
     needs: publish-images
@@ -223,4 +224,4 @@ jobs:
       digest: "${{ needs.publish-images.outputs.reports-controller-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
-      registry-password: ${{ secrets.CR_PAT }}
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
