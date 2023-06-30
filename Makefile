@@ -5,7 +5,6 @@
 ############
 
 GIT_SHA              := $(shell git rev-parse HEAD)
-TIMESTAMP            := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 REGISTRY             ?= ghcr.io
 REPO                 ?= kyverno
 KIND_IMAGE           ?= kindest/node:v1.26.3
@@ -144,9 +143,9 @@ BACKGROUND_BIN := $(BACKGROUND_DIR)/background-controller
 PACKAGE        ?= github.com/kyverno/kyverno
 CGO_ENABLED    ?= 0
 ifdef VERSION
-LD_FLAGS       := "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_SHA) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
+LD_FLAGS       := "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(VERSION)"
 else
-LD_FLAGS       := "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_SHA) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_SHA) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
+LD_FLAGS       := "-s -w"
 endif
 
 .PHONY: fmt
