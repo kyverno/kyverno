@@ -3,13 +3,13 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
+  labels:
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-  labels:
-    {{- include "kyverno.crds.labels" . | nindent 4 }}
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: admissionreports.kyverno.io
 spec:
   group: kyverno.io
@@ -340,13 +340,13 @@ spec:
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
+  labels:
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-  labels:
-    {{- include "kyverno.crds.labels" . | nindent 4 }}
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: backgroundscanreports.kyverno.io
 spec:
   group: kyverno.io
@@ -645,13 +645,13 @@ spec:
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
+  labels:
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-  labels:
-    {{- include "kyverno.crds.labels" . | nindent 4 }}
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: cleanuppolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -1908,13 +1908,13 @@ spec:
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
+  labels:
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-  labels:
-    {{- include "kyverno.crds.labels" . | nindent 4 }}
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: clusteradmissionreports.kyverno.io
 spec:
   group: kyverno.io
@@ -2246,13 +2246,13 @@ spec:
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
+  labels:
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-  labels:
-    {{- include "kyverno.crds.labels" . | nindent 4 }}
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: clusterbackgroundscanreports.kyverno.io
 spec:
   group: kyverno.io
@@ -2551,13 +2551,13 @@ spec:
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
+  labels:
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-  labels:
-    {{- include "kyverno.crds.labels" . | nindent 4 }}
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: clustercleanuppolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -3814,13 +3814,13 @@ spec:
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
+  labels:
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-  labels:
-    {{- include "kyverno.crds.labels" . | nindent 4 }}
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: clusterpolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -3836,36 +3836,39 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.admission
+      name: ADMISSION
+      type: boolean
     - jsonPath: .spec.background
-      name: Background
+      name: BACKGROUND
       type: boolean
     - jsonPath: .spec.validationFailureAction
-      name: Validate Action
-      type: string
-    - jsonPath: .spec.failurePolicy
-      name: Failure Policy
-      priority: 1
+      name: VALIDATE ACTION
       type: string
     - jsonPath: .status.conditions[?(@.type == "Ready")].status
-      name: Ready
+      name: READY
       type: string
     - jsonPath: .metadata.creationTimestamp
-      name: Age
+      name: AGE
       type: date
+    - jsonPath: .spec.failurePolicy
+      name: FAILURE POLICY
+      priority: 1
+      type: string
     - jsonPath: .status.rulecount.validate
-      name: Validate
+      name: VALIDATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.mutate
-      name: Mutate
+      name: MUTATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.generate
-      name: Generate
+      name: GENERATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.verifyimages
-      name: Verifyimages
+      name: VERIFY IMAGES
       priority: 1
       type: integer
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
@@ -3892,6 +3895,11 @@ spec:
           spec:
             description: Spec declares policy behaviors.
             properties:
+              admission:
+                default: true
+                description: Admission controls if rules are applied during admission.
+                  Optional. Default value is "true".
+                type: boolean
               applyRules:
                 description: ApplyRules controls how rules in a policy are applied.
                   Rule are processed in the order of declaration. When set to `One`
@@ -11955,36 +11963,39 @@ spec:
     subresources:
       status: {}
   - additionalPrinterColumns:
+    - jsonPath: .spec.admission
+      name: ADMISSION
+      type: boolean
     - jsonPath: .spec.background
-      name: Background
+      name: BACKGROUND
       type: boolean
     - jsonPath: .spec.validationFailureAction
-      name: Validate Action
-      type: string
-    - jsonPath: .spec.failurePolicy
-      name: Failure Policy
-      priority: 1
+      name: VALIDATE ACTION
       type: string
     - jsonPath: .status.conditions[?(@.type == "Ready")].status
-      name: Ready
+      name: READY
       type: string
     - jsonPath: .metadata.creationTimestamp
-      name: Age
+      name: AGE
       type: date
+    - jsonPath: .spec.failurePolicy
+      name: FAILURE POLICY
+      priority: 1
+      type: string
     - jsonPath: .status.rulecount.validate
-      name: Validate
+      name: VALIDATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.mutate
-      name: Mutate
+      name: MUTATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.generate
-      name: Generate
+      name: GENERATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.verifyimages
-      name: Verifyimages
+      name: VERIFY IMAGES
       priority: 1
       type: integer
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
@@ -12011,6 +12022,11 @@ spec:
           spec:
             description: Spec declares policy behaviors.
             properties:
+              admission:
+                default: true
+                description: Admission controls if rules are applied during admission.
+                  Optional. Default value is "true".
+                type: boolean
               applyRules:
                 description: ApplyRules controls how rules in a policy are applied.
                   Rule are processed in the order of declaration. When set to `One`
@@ -19792,13 +19808,13 @@ spec:
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
+  labels:
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-  labels:
-    {{- include "kyverno.crds.labels" . | nindent 4 }}
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: policies.kyverno.io
 spec:
   group: kyverno.io
@@ -19814,36 +19830,39 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.admission
+      name: ADMISSION
+      type: boolean
     - jsonPath: .spec.background
-      name: Background
+      name: BACKGROUND
       type: boolean
     - jsonPath: .spec.validationFailureAction
-      name: Validate Action
-      type: string
-    - jsonPath: .spec.failurePolicy
-      name: Failure Policy
-      priority: 1
+      name: VALIDATE ACTION
       type: string
     - jsonPath: .status.conditions[?(@.type == "Ready")].status
-      name: Ready
+      name: READY
       type: string
     - jsonPath: .metadata.creationTimestamp
-      name: Age
+      name: AGE
       type: date
+    - jsonPath: .spec.failurePolicy
+      name: FAILURE POLICY
+      priority: 1
+      type: string
     - jsonPath: .status.rulecount.validate
-      name: Validate
+      name: VALIDATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.mutate
-      name: Mutate
+      name: MUTATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.generate
-      name: Generate
+      name: GENERATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.verifyimages
-      name: Verifyimages
+      name: VERIFY IMAGES
       priority: 1
       type: integer
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
@@ -19871,6 +19890,11 @@ spec:
           spec:
             description: Spec defines policy behaviors and contains one or more rules.
             properties:
+              admission:
+                default: true
+                description: Admission controls if rules are applied during admission.
+                  Optional. Default value is "true".
+                type: boolean
               applyRules:
                 description: ApplyRules controls how rules in a policy are applied.
                   Rule are processed in the order of declaration. When set to `One`
@@ -27935,36 +27959,39 @@ spec:
     subresources:
       status: {}
   - additionalPrinterColumns:
+    - jsonPath: .spec.admission
+      name: ADMISSION
+      type: boolean
     - jsonPath: .spec.background
-      name: Background
+      name: BACKGROUND
       type: boolean
     - jsonPath: .spec.validationFailureAction
-      name: Validate Action
-      type: string
-    - jsonPath: .spec.failurePolicy
-      name: Failure Policy
-      priority: 1
+      name: VALIDATE ACTION
       type: string
     - jsonPath: .status.conditions[?(@.type == "Ready")].status
-      name: Ready
+      name: READY
       type: string
     - jsonPath: .metadata.creationTimestamp
-      name: Age
+      name: AGE
       type: date
+    - jsonPath: .spec.failurePolicy
+      name: FAILURE POLICY
+      priority: 1
+      type: string
     - jsonPath: .status.rulecount.validate
-      name: Validate
+      name: VALIDATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.mutate
-      name: Mutate
+      name: MUTATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.generate
-      name: Generate
+      name: GENERATE
       priority: 1
       type: integer
     - jsonPath: .status.rulecount.verifyimages
-      name: Verifyimages
+      name: VERIFY IMAGES
       priority: 1
       type: integer
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
@@ -27992,6 +28019,11 @@ spec:
           spec:
             description: Spec defines policy behaviors and contains one or more rules.
             properties:
+              admission:
+                default: true
+                description: Admission controls if rules are applied during admission.
+                  Optional. Default value is "true".
+                type: boolean
               applyRules:
                 description: ApplyRules controls how rules in a policy are applied.
                   Rule are processed in the order of declaration. When set to `One`
@@ -35773,13 +35805,13 @@ spec:
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
+  labels:
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-  labels:
-    {{- include "kyverno.crds.labels" . | nindent 4 }}
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: policyexceptions.kyverno.io
 spec:
   group: kyverno.io
@@ -36297,13 +36329,13 @@ spec:
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
+  labels:
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-  labels:
-    {{- include "kyverno.crds.labels" . | nindent 4 }}
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: updaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -36702,13 +36734,13 @@ spec:
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
+  labels:
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-  labels:
-    {{- include "kyverno.crds.labels" . | nindent 4 }}
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: clusterpolicyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -37069,13 +37101,13 @@ spec:
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
+  labels:
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-  labels:
-    {{- include "kyverno.crds.labels" . | nindent 4 }}
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: policyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io

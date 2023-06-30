@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
@@ -12,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -35,6 +37,7 @@ type handlers struct {
 	cpolLister kyvernov2alpha1listers.ClusterCleanupPolicyLister
 	polLister  kyvernov2alpha1listers.CleanupPolicyLister
 	nsLister   corev1listers.NamespaceLister
+	cmResolver engineapi.ConfigmapResolver
 	recorder   record.EventRecorder
 	jp         jmespath.Interface
 	metrics    cleanupMetrics
@@ -73,6 +76,7 @@ func New(
 	cpolLister kyvernov2alpha1listers.ClusterCleanupPolicyLister,
 	polLister kyvernov2alpha1listers.CleanupPolicyLister,
 	nsLister corev1listers.NamespaceLister,
+	cmResolver engineapi.ConfigmapResolver,
 	jp jmespath.Interface,
 ) *handlers {
 	return &handlers{
@@ -80,6 +84,7 @@ func New(
 		cpolLister: cpolLister,
 		polLister:  polLister,
 		nsLister:   nsLister,
+		cmResolver: cmResolver,
 		recorder:   event.NewRecorder(event.CleanupController, client.GetEventsInterface()),
 		metrics:    newCleanupMetrics(logger),
 		jp:         jp,
@@ -108,25 +113,30 @@ func (h *handlers) lookupPolicy(namespace, name string) (kyvernov2alpha1.Cleanup
 	}
 }
 
-func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy kyvernov2alpha1.CleanupPolicyInterface, cfg config.Configuration) error {
+func (h *handlers) executePolicy(
+	ctx context.Context,
+	logger logr.Logger,
+	policy kyvernov2alpha1.CleanupPolicyInterface,
+	cfg config.Configuration,
+) error {
 	spec := policy.GetSpec()
 	kinds := sets.New(spec.MatchResources.GetKinds()...)
 	debug := logger.V(4)
 	var errs []error
-	enginectx := enginecontext.NewContext(h.jp)
 
-	if spec.Context != nil {
-		for _, entry := range spec.Context {
-			if entry.APICall != nil {
-				if err := engineapi.LoadAPIData(ctx, h.jp, logger, entry, enginectx, h.client); err != nil {
-					return err
-				}
-			} else if entry.Variable != nil {
-				if err := engineapi.LoadVariable(logger, h.jp, entry, enginectx); err != nil {
-					return err
-				}
-			}
-		}
+	enginectx := enginecontext.NewContext(h.jp)
+	ctxFactory := factories.DefaultContextLoaderFactory(h.cmResolver)
+
+	loader := ctxFactory(nil, kyvernov1.Rule{})
+	if err := loader.Load(
+		ctx,
+		h.jp,
+		h.client,
+		nil,
+		spec.Context,
+		enginectx,
+	); err != nil {
+		return err
 	}
 
 	for kind := range kinds {

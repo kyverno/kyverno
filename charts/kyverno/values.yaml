@@ -322,6 +322,10 @@ grafana:
   # -- Grafana dashboard configmap annotations.
   annotations: {}
 
+  # -- Grafana dashboard configmap labels
+  labels:
+    grafana_dashboard: "1"
+
 # Features configuration
 features:
   admissionReports:
@@ -343,6 +347,9 @@ features:
     # -- Skips resource filters in background scan
     skipResourceFilters: true
   configMapCaching:
+    # -- Enables the feature
+    enabled: true
+  deferredLoading:
     # -- Enables the feature
     enabled: true
   dumpPayload:
@@ -817,6 +824,10 @@ admissionController:
     secure: false
     # -- TLS Configuration for endpoint
     tlsConfig: {}
+    # -- RelabelConfigs to apply to samples before scraping
+    relabelings: []
+    # -- MetricRelabelConfigs to apply to samples before ingestion.
+    metricRelabelings: []
 
   tracing:
     # -- Enable tracing
@@ -1032,6 +1043,10 @@ backgroundController:
     secure: false
     # -- TLS Configuration for endpoint
     tlsConfig: {}
+    # -- RelabelConfigs to apply to samples before scraping
+    relabelings: []
+    # -- MetricRelabelConfigs to apply to samples before ingestion.
+    metricRelabelings: []
 
   tracing:
     # -- Enable tracing
@@ -1300,6 +1315,10 @@ cleanupController:
     secure: false
     # -- TLS Configuration for endpoint
     tlsConfig: {}
+    # -- RelabelConfigs to apply to samples before scraping
+    relabelings: []
+    # -- MetricRelabelConfigs to apply to samples before ingestion.
+    metricRelabelings: []
 
   tracing:
     # -- Enable tracing
@@ -1535,6 +1554,10 @@ reportsController:
     secure: false
     # -- TLS Configuration for endpoint
     tlsConfig: {}
+    # -- RelabelConfigs to apply to samples before scraping
+    relabelings: []
+    # -- MetricRelabelConfigs to apply to samples before ingestion.
+    metricRelabelings: []
 
   tracing:
     # -- Enable tracing
