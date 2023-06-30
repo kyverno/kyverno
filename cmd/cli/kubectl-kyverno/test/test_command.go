@@ -167,8 +167,10 @@ func testCommandExecute(
 		fmt.Printf("\nTest Summary: %d out of %d tests failed\n", rc.Fail, rc.Pass+rc.Skip+rc.Fail)
 	}
 	fmt.Println()
-	if rc.Fail > 0 && !failOnly {
-		printFailedTestResult(table, compact)
+	if rc.Fail > 0 {
+		if !failOnly {
+			printFailedTestResult(table, compact)
+		}
 		os.Exit(1)
 	}
 	os.Exit(0)

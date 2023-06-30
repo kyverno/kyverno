@@ -1,5 +1,7 @@
 name: releaser
 
+permissions: {}
+
 on:
   push:
     tags:
@@ -9,7 +11,6 @@ jobs:
   release-images:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
       packages: write
       id-token: write
     outputs:
