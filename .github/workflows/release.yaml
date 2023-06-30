@@ -1,5 +1,7 @@
 name: releaser
 
+permissions: {}
+
 on:
   push:
     tags:
