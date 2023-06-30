@@ -20,7 +20,7 @@ import (
 
 	trunc "github.com/aquilax/truncate"
 	"github.com/blang/semver/v4"
-	gojmespath "github.com/jmespath/go-jmespath"
+	gojmespath "github.com/kyverno/go-jmespath"
 	"github.com/kyverno/kyverno/pkg/config"
 	imageutils "github.com/kyverno/kyverno/pkg/utils/image"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
