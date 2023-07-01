@@ -1,12 +1,12 @@
 name: Conformance tests
 
+permissions: {}
+
 on:
   pull_request:
     branches:
       - 'main'
       - 'release*'
-
-permissions: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -15,8 +15,6 @@ concurrency:
 jobs:
   prepare-images:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
@@ -37,8 +35,6 @@ jobs:
   # runs conformance test suites with configuration:
   standard:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -57,6 +53,7 @@ jobs:
             version: v1.27.1
         tests:
           - autogen
+          - background-only
           - cleanup
           - deferred
           - events
@@ -109,8 +106,6 @@ jobs:
   # runs conformance test suites with configuration:
   force-failure-policy-ignore:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -167,8 +162,6 @@ jobs:
   # runs conformance test suites with configuration:
   default:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -223,8 +216,6 @@ jobs:
   # runs conformance test suites with configuration:
   policy-library:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     strategy:
       fail-fast: false
       matrix:

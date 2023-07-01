@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+assert:
+- background-event.yaml
+error:
+- admission-event.yaml
