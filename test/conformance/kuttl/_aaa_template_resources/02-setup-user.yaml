@@ -1,0 +1,45 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+- script: |
+    #!/bin/bash
+    set -eu
+    export USERNAME=testuser
+    export CA=ca.crt
+    #### Get CA certificate from kubeconfig assuming it's the first in the list.
+    kubectl config view --raw -o jsonpath='{.clusters[0].cluster.certificate-authority-data}' | base64 --decode > ./ca.crt
+    #### Set CLUSTER_SERVER from kubeconfig assuming it's the first in the list.
+    CLUSTER_SERVER="$(kubectl config view --raw -o jsonpath='{.clusters[0].cluster.server}')"
+    #### Set CLUSTER from kubeconfig assuming it's the first in the list.
+    CLUSTER="$(kubectl config view --raw -o jsonpath='{.clusters[0].name}')"
+    #### Generate private key
+    openssl genrsa -out $USERNAME.key 2048
+    #### Create CSR
+    openssl req -new -key $USERNAME.key -out $USERNAME.csr -subj "/O=testorg/CN=$USERNAME"
+    #### Send CSR to kube-apiserver for approval
+    cat <<EOF | kubectl apply -f -
+    apiVersion: certificates.k8s.io/v1
+    kind: CertificateSigningRequest
+    metadata:
+      name: $USERNAME
+    spec:
+      request: $(cat $USERNAME.csr | base64 | tr -d '\n')
+      signerName: kubernetes.io/kube-apiserver-client
+      usages:
+      - client auth
+    EOF
+    #### Approve CSR
+    kubectl certificate approve $USERNAME
+    #### Download certificate
+    kubectl get csr $USERNAME -o jsonpath='{.status.certificate}' | base64 --decode > $USERNAME.crt
+    ####
+    #### Create the credential object and output the new kubeconfig file
+    kubectl config set-credentials $USERNAME --client-certificate=$USERNAME.crt --client-key=$USERNAME.key --embed-certs
+    #### Set the context as $USERNAME-context
+    kubectl config set-context $USERNAME-context --user=$USERNAME --cluster=$CLUSTER
+    #### Set context with namespace as well using the below command
+    ## export NAMESPACE=test-namespace
+    ## kubectl config set-context $USERNAME-context --user=$USERNAME --cluster=$CLUSTER --namespace=$NAMESPACE
+    #### Delete CSR
+    kubectl delete csr $USERNAME
+    #### Don't forget to add rolebindings to the user after this step
