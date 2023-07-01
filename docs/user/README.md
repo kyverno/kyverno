@@ -1,4 +1,4 @@
-# docs
+# documents
 
 This folder containers the generated CRD documentation in HTML format. It is referenced from the Kyverno website (https://kyverno.io/docs/crds/).
 
