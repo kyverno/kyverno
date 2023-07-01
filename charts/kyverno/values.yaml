@@ -409,6 +409,10 @@ cleanupJobs:
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~
 
+    # -- Image pull secrets
+    imagePullSecrets: []
+      # - name: secretName
+
     # -- Cronjob schedule
     schedule: '*/10 * * * *'
 
@@ -460,6 +464,10 @@ cleanupJobs:
       # -- (string) Image pull policy
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~
+
+    # -- Image pull secrets
+    imagePullSecrets: []
+      # - name: secretName
 
     # -- Cronjob schedule
     schedule: '*/10 * * * *'
