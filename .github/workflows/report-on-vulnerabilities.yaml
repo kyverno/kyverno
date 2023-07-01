@@ -1,11 +1,11 @@
 name: report-on-vulnerabilities
 
+permissions: {}
+
 on:
   workflow_dispatch: {}
   schedule:
     - cron: '23 2 * * *' # Every day at 02:23
-
-permissions: {}
 
 env:
   REGISTRY: ghcr.io
@@ -14,8 +14,6 @@ env:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     outputs:
       results: ${{ steps.parse-results.outputs.results }}
     steps:
@@ -55,7 +53,6 @@ jobs:
     if: needs.scan.outputs.results == 'found'
     needs: scan
     permissions:
-      contents: read
       issues: write
     steps:
       - name: Checkout

@@ -1,5 +1,7 @@
 name: helm-release
 
+permissions: {}
+
 on:
   push:
     tags:
@@ -95,6 +97,6 @@ jobs:
             echo "Found chart: ${chart}"
             helm package charts-tmp/${chart} --destination .dist
             helm push .dist/${chart}-*.tgz oci://ghcr.io/${{ github.repository_owner }}/charts |& tee .digest
-            cosign login --username ${GITHUB_ACTOR} --password ${{ secrets.CR_PAT_ARTIFACTS }} ghcr.io
+            cosign login --username ${GITHUB_ACTOR} --password ${{ secrets.GITHUB_TOKEN }} ghcr.io
             cosign sign --yes ghcr.io/${{ github.repository_owner }}/charts/${chart}@$(cat .digest | awk -F "[, ]+" '/Digest/{print $NF}')
           done

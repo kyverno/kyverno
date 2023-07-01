@@ -1,5 +1,7 @@
 name: cli
 
+permissions: {}
+
 on:
   push:
     branches:
@@ -13,9 +15,6 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
-permissions:
-  contents: read
 
 jobs:
   cli-test:
