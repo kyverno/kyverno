@@ -1,5 +1,7 @@
 name: helm-test
 
+permissions: {}
+
 on:
   pull_request:
     branches:
@@ -8,8 +10,6 @@ on:
     paths:
       - charts/**
       - .github/workflows/helm-test.yaml
-
-permissions: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

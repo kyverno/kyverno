@@ -1,13 +1,13 @@
 name: Scorecards supply-chain security
 
+permissions: {}
+
 on:
   schedule:
     - cron: '30 1 * * 6'
   push:
     branches:
       - main
-
-permissions: read-all
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
