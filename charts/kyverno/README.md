@@ -637,6 +637,7 @@ The chart values are organised per component.
 | cleanupJobs.admissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
 | cleanupJobs.admissionReports.image.tag | string | `"1.26.4"` | Image tag Defaults to `latest` if omitted |
 | cleanupJobs.admissionReports.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
+| cleanupJobs.admissionReports.imagePullSecrets | list | `[]` | Image pull secrets |
 | cleanupJobs.admissionReports.schedule | string | `"*/10 * * * *"` | Cronjob schedule |
 | cleanupJobs.admissionReports.threshold | int | `10000` | Reports threshold, if number of reports are above this value the cronjob will start deleting them |
 | cleanupJobs.admissionReports.history | object | `{"failure":1,"success":1}` | Cronjob history |
@@ -650,6 +651,7 @@ The chart values are organised per component.
 | cleanupJobs.clusterAdmissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
 | cleanupJobs.clusterAdmissionReports.image.tag | string | `"1.26.4"` | Image tag Defaults to `latest` if omitted |
 | cleanupJobs.clusterAdmissionReports.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
+| cleanupJobs.clusterAdmissionReports.imagePullSecrets | list | `[]` | Image pull secrets |
 | cleanupJobs.clusterAdmissionReports.schedule | string | `"*/10 * * * *"` | Cronjob schedule |
 | cleanupJobs.clusterAdmissionReports.threshold | int | `10000` | Reports threshold, if number of reports are above this value the cronjob will start deleting them |
 | cleanupJobs.clusterAdmissionReports.history | object | `{"failure":1,"success":1}` | Cronjob history |
