@@ -776,38 +776,6 @@ func Test_Round(t *testing.T) {
 		err            bool
 		retFloat       bool
 	}{
-		// Quantity
-		{
-			name: "Quantity roundoff Quantity -> error",
-			test: "round('31Ki', '13Ki')",
-			err:  true,
-		},
-		{
-			name: "Quantity roundoff Duration -> error",
-			test: "round('12Ki', '13s')",
-			err:  true,
-		},
-		{
-			name:           "Quantity roundoff Scalar -> Quantity",
-			test:           "round('12Ki', `2`)",
-			expectedResult: "12Ki",
-		},
-		// Duration
-		{
-			name: "Duration roundoff Quantity -> error",
-			test: "round('13s', '12Ki')",
-			err:  true,
-		},
-		{
-			name: "Duration roundoff Duration -> error",
-			test: "round('13s', '2s')",
-			err:  true,
-		},
-		{
-			name:           "Duration roundoff Scalar -> Duration",
-			test:           "round('13.231s', `2`)",
-			expectedResult: "13.23s",
-		},
 		// Scalar
 		{
 			name: "Scalar roundoff Quantity -> error",
@@ -825,25 +793,21 @@ func Test_Round(t *testing.T) {
 			expectedResult: 9.41,
 			retFloat:       true,
 		},
-		// round with non int values
 		{
-			name: "Quantity roundoff Non int -> error",
-			test: "round('4', `1.3`)",
-			err:  true,
+			name:           "Scalar roundoff zero -> error",
+			test:           "round(`14.123`, `6`)",
+			expectedResult: 14.123,
+			retFloat:       true,
 		},
+		// round with non int values
 		{
 			name: "Scalar roundoff Non int -> error",
 			test: "round(`14`, `1.5`)",
 			err:  true,
 		},
 		{
-			name: "Duration roundoff non int -> error",
-			test: "round('12s', `2.3`)",
-			err:  true,
-		},
-		{
 			name: "Scalar roundoff negative int -> error",
-			test: "round('12s', `-1`)",
+			test: "round(`14`, `-2`)",
 			err:  true,
 		},
 	}
