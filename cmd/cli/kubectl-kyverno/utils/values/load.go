@@ -10,7 +10,7 @@ import (
 )
 
 func readFile(f billy.Filesystem, filepath string) ([]byte, error) {
-	if f == nil {
+	if f != nil {
 		filep, err := f.Open(filepath)
 		if err != nil {
 			return nil, err
