@@ -2,6 +2,7 @@ package registryclient
 
 import (
 	"context"
+	"os"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	kauth "github.com/google/go-containerregistry/pkg/authn/kubernetes"
@@ -22,4 +23,10 @@ func generateKeychainForPullSecrets(lister corev1listers.SecretNamespaceLister, 
 		}
 	}
 	return kauth.NewFromPullSecrets(context.TODO(), secrets)
+}
+
+// checks if file exist on the given path
+func fileExists(path string) bool {
+	fi, err := os.Stat(path)
+	return err == nil && !fi.IsDir()
 }

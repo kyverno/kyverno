@@ -128,19 +128,19 @@ func WithCredentialProviders(credentialProviders ...string) Option {
 		var chains []authn.Keychain
 		helpers := sets.New(credentialProviders...)
 		if helpers.Has("default") {
-			chains = append(chains, authn.DefaultKeychain)
+			chains = append(chains, RegistryKeychain)
 		}
 		if helpers.Has("google") {
-			chains = append(chains, google.Keychain)
+			chains = append(chains, RegistryKeychain)
 		}
 		if helpers.Has("amazon") {
-			chains = append(chains, authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard))))
+			chains = append(chains, RegistryKeychain)
 		}
 		if helpers.Has("azure") {
-			chains = append(chains, authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()))
+			chains = append(chains, RegistryKeychain)
 		}
 		if helpers.Has("github") {
-			chains = append(chains, authn.NewKeychainFromHelper(credHelper{}))
+			chains = append(chains, RegistryKeychain)
 		}
 		c.keychain = append(c.keychain, chains...)
 		return nil
