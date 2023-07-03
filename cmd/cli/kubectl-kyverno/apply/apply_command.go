@@ -52,23 +52,23 @@ type SkippedInvalidPolicies struct {
 }
 
 type ApplyCommandConfig struct {
-	KubeConfig      string
-	Context         string
-	Namespace       string
-	MutateLogPath   string
-	VariablesString string
-	ValuesFile      string
-	UserInfoPath    string
-	Cluster         bool
-	PolicyReport    bool
-	Stdin           bool
-	RegistryAccess  bool
-	AuditWarn       bool
-	ResourcePaths   []string
-	PolicyPaths     []string
-	GitBranch       string
-	warnExitCode    int
-	warnNoPassed    bool
+	KubeConfig     string
+	Context        string
+	Namespace      string
+	MutateLogPath  string
+	Variables      []string
+	ValuesFile     string
+	UserInfoPath   string
+	Cluster        bool
+	PolicyReport   bool
+	Stdin          bool
+	RegistryAccess bool
+	AuditWarn      bool
+	ResourcePaths  []string
+	PolicyPaths    []string
+	GitBranch      string
+	warnExitCode   int
+	warnNoPassed   bool
 }
 
 var (
@@ -182,23 +182,23 @@ func Command() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringArrayVarP(&applyCommandConfig.ResourcePaths, "resource", "r", []string{}, "Path to resource files")
+	cmd.Flags().StringSliceVarP(&applyCommandConfig.ResourcePaths, "resource", "r", []string{}, "Path to resource files")
 	cmd.Flags().BoolVarP(&applyCommandConfig.Cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
 	cmd.Flags().StringVarP(&applyCommandConfig.MutateLogPath, "output", "o", "", "Prints the mutated resources in provided file/directory")
 	// currently `set` flag supports variable for single policy applied on single resource
 	cmd.Flags().StringVarP(&applyCommandConfig.UserInfoPath, "userinfo", "u", "", "Admission Info including Roles, Cluster Roles and Subjects")
-	cmd.Flags().StringVarP(&applyCommandConfig.VariablesString, "set", "s", "", "Variables that are required")
+	cmd.Flags().StringSliceVarP(&applyCommandConfig.Variables, "set", "s", nil, "Variables that are required")
 	cmd.Flags().StringVarP(&applyCommandConfig.ValuesFile, "values-file", "f", "", "File containing values for policy variables")
 	cmd.Flags().BoolVarP(&applyCommandConfig.PolicyReport, "policy-report", "p", false, "Generates policy report when passed (default policyviolation)")
 	cmd.Flags().StringVarP(&applyCommandConfig.Namespace, "namespace", "n", "", "Optional Policy parameter passed with cluster flag")
 	cmd.Flags().BoolVarP(&applyCommandConfig.Stdin, "stdin", "i", false, "Optional mutate policy parameter to pipe directly through to kubectl")
-	cmd.Flags().BoolVarP(&applyCommandConfig.RegistryAccess, "registry", "", false, "If set to true, access the image registry using local docker credentials to populate external data")
-	cmd.Flags().StringVarP(&applyCommandConfig.KubeConfig, "kubeconfig", "", "", "path to kubeconfig file with authorization and master location information")
-	cmd.Flags().StringVarP(&applyCommandConfig.Context, "context", "", "", "The name of the kubeconfig context to use")
+	cmd.Flags().BoolVar(&applyCommandConfig.RegistryAccess, "registry", false, "If set to true, access the image registry using local docker credentials to populate external data")
+	cmd.Flags().StringVar(&applyCommandConfig.KubeConfig, "kubeconfig", "", "path to kubeconfig file with authorization and master location information")
+	cmd.Flags().StringVar(&applyCommandConfig.Context, "context", "", "The name of the kubeconfig context to use")
 	cmd.Flags().StringVarP(&applyCommandConfig.GitBranch, "git-branch", "b", "", "test git repository branch")
-	cmd.Flags().BoolVarP(&applyCommandConfig.AuditWarn, "audit-warn", "", false, "If set to true, will flag audit policies as warnings instead of failures")
+	cmd.Flags().BoolVar(&applyCommandConfig.AuditWarn, "audit-warn", false, "If set to true, will flag audit policies as warnings instead of failures")
 	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
-	cmd.Flags().BoolVarP(&applyCommandConfig.warnNoPassed, "warn-no-pass", "", false, "Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag")
+	cmd.Flags().BoolVar(&applyCommandConfig.warnNoPassed, "warn-no-pass", false, "Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag")
 	return cmd
 }
 
@@ -210,11 +210,11 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 	}
 	fs := memfs.New()
 
-	if c.ValuesFile != "" && c.VariablesString != "" {
+	if c.ValuesFile != "" && c.Variables != nil {
 		return rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError("pass the values either using set flag or values_file flag", err)
 	}
 
-	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(c.VariablesString, c.ValuesFile, fs, false, "")
+	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(c.Variables, c.ValuesFile, fs, false, "")
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError("failed to decode yaml", err)
@@ -334,7 +334,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 		osExit(1)
 	}
 
-	if (len(resources) > 1 || len(policies) > 1) && c.VariablesString != "" {
+	if (len(resources) > 1 || len(policies) > 1) && c.Variables != nil {
 		return rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError("currently `set` flag supports variable for single policy applied on single resource ", nil)
 	}
 
@@ -348,7 +348,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 		}
 	}
 
-	if c.VariablesString != "" {
+	if len(variables) != 0 {
 		variables = common.SetInStoreContext(policies, variables)
 	}
 

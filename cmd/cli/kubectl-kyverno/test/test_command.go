@@ -54,12 +54,12 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "test filename")
 	cmd.Flags().StringVarP(&gitBranch, "git-branch", "b", "", "test github repository branch")
 	cmd.Flags().StringVarP(&testCase, "test-case-selector", "t", "", `run some specific test cases by passing a string argument in double quotes to this flag like - "policy=<policy_name>, rule=<rule_name>, resource=<resource_name". The argument could be any combination of policy, rule and resource.`)
-	cmd.Flags().BoolVarP(&manifestMutate, "manifest-mutate", "", false, "prints out a template test manifest for a mutate policy")
-	cmd.Flags().BoolVarP(&manifestValidate, "manifest-validate", "", false, "prints out a template test manifest for a validate policy")
-	cmd.Flags().BoolVarP(&registryAccess, "registry", "", false, "If set to true, access the image registry using local docker credentials to populate external data")
-	cmd.Flags().BoolVarP(&failOnly, "fail-only", "", false, "If set to true, display all the failing test only as output for the test command")
-	cmd.Flags().BoolVarP(&removeColor, "remove-color", "", false, "Remove any color from output")
-	cmd.Flags().BoolVarP(&compact, "compact", "", true, "Does not show detailed results")
+	cmd.Flags().BoolVar(&manifestMutate, "manifest-mutate", false, "prints out a template test manifest for a mutate policy")
+	cmd.Flags().BoolVar(&manifestValidate, "manifest-validate", false, "prints out a template test manifest for a validate policy")
+	cmd.Flags().BoolVar(&registryAccess, "registry", false, "If set to true, access the image registry using local docker credentials to populate external data")
+	cmd.Flags().BoolVar(&failOnly, "fail-only", false, "If set to true, display all the failing test only as output for the test command")
+	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
+	cmd.Flags().BoolVar(&compact, "compact", true, "Does not show detailed results")
 	return cmd
 }
 
