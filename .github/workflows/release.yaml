@@ -1,5 +1,7 @@
 name: releaser
 
+permissions: {}
+
 on:
   push:
     tags:
@@ -44,7 +46,7 @@ jobs:
           makefile-target: ko-publish-kyverno
           registry: ghcr.io
           registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.CR_PAT }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository_owner }}
           version: ${{ github.ref_name }}
           sign-image: true
@@ -59,7 +61,7 @@ jobs:
           makefile-target: ko-publish-kyverno-init
           registry: ghcr.io
           registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.CR_PAT }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository_owner }}
           version: ${{ github.ref_name }}
           sign-image: true
@@ -74,7 +76,7 @@ jobs:
           makefile-target: ko-publish-background-controller
           registry: ghcr.io
           registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.CR_PAT }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository_owner }}
           version: ${{ github.ref_name }}
           sign-image: true
@@ -89,7 +91,7 @@ jobs:
           makefile-target: ko-publish-cleanup-controller
           registry: ghcr.io
           registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.CR_PAT }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository_owner }}
           version: ${{ github.ref_name }}
           sign-image: true
@@ -104,7 +106,7 @@ jobs:
           makefile-target: ko-publish-cli
           registry: ghcr.io
           registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.CR_PAT }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository_owner }}
           version: ${{ github.ref_name }}
           sign-image: true
@@ -119,7 +121,7 @@ jobs:
           makefile-target: ko-publish-reports-controller
           registry: ghcr.io
           registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.CR_PAT }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository_owner }}
           version: ${{ github.ref_name }}
           sign-image: true
@@ -141,7 +143,7 @@ jobs:
       digest: "${{ needs.release-images.outputs.kyverno-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
-      registry-password: ${{ secrets.CR_PAT }}
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
 
   generate-kyverno-init-provenance:
     needs: release-images
@@ -156,7 +158,7 @@ jobs:
       digest: "${{ needs.release-images.outputs.kyverno-init-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
-      registry-password: ${{ secrets.CR_PAT }}
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
 
   generate-background-controller-provenance:
     needs: release-images
@@ -171,7 +173,7 @@ jobs:
       digest: "${{ needs.release-images.outputs.background-controller-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
-      registry-password: ${{ secrets.CR_PAT }}
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
 
   generate-cleanup-controller-provenance:
     needs: release-images
@@ -186,7 +188,7 @@ jobs:
       digest: "${{ needs.release-images.outputs.cleanup-controller-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
-      registry-password: ${{ secrets.CR_PAT }}
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
 
   generate-kyverno-cli-provenance:
     needs: release-images
@@ -201,7 +203,7 @@ jobs:
       digest: "${{ needs.release-images.outputs.cli-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
-      registry-password: ${{ secrets.CR_PAT }}
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
 
   generate-reports-controller-provenance:
     needs: release-images
@@ -216,7 +218,7 @@ jobs:
       digest: "${{ needs.release-images.outputs.reports-controller-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
-      registry-password: ${{ secrets.CR_PAT }}
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
 
   create-release:
     runs-on: ubuntu-latest
@@ -294,7 +296,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Push manifests to GHCR with Flux
         env:
-          CR_PAT_ARTIFACTS:  ${{ secrets.CR_PAT_ARTIFACTS }}
+          CR_PAT_ARTIFACTS:  ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
           mkdir -p config/.release-manifests
