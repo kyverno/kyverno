@@ -32,7 +32,6 @@ func NewWithError(message string, err error) error {
 	if err == nil {
 		return customError{message: message}
 	}
-
 	msg := fmt.Sprintf("%s \nCause: %s", message, err.Error())
 	return customError{message: msg}
 }
