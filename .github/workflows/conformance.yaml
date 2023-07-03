@@ -44,13 +44,13 @@ jobs:
               - standard
         k8s-version:
           - name: v1.24
-            version: v1.24.12
+            version: v1.24.15
           - name: v1.25
-            version: v1.25.8
+            version: v1.25.11
           - name: v1.26
-            version: v1.26.3
+            version: v1.26.6
           - name: v1.27
-            version: v1.27.1
+            version: v1.27.3
         tests:
           - autogen
           - background-only
@@ -116,13 +116,13 @@ jobs:
               - force-failure-policy-ignore
         k8s-version:
           - name: v1.24
-            version: v1.24.12
+            version: v1.24.15
           - name: v1.25
-            version: v1.25.8
+            version: v1.25.11
           - name: v1.26
-            version: v1.26.3
+            version: v1.26.6
           - name: v1.27
-            version: v1.27.1
+            version: v1.27.3
         tests:
           - force-failure-policy-ignore
           - rbac
@@ -171,13 +171,13 @@ jobs:
               - default
         k8s-version:
           - name: v1.24
-            version: v1.24.12
+            version: v1.24.15
           - name: v1.25
-            version: v1.25.8
+            version: v1.25.11
           - name: v1.26
-            version: v1.26.3
+            version: v1.26.6
           - name: v1.27
-            version: v1.27.1
+            version: v1.27.3
         tests:
           - rbac
     needs: prepare-images
@@ -225,13 +225,13 @@ jobs:
               - standard
         k8s-version:
           - name: v1.24
-            version: v1.24.12
+            version: v1.24.15
           - name: v1.25
-            version: v1.25.8
+            version: v1.25.11
           - name: v1.26
-            version: v1.26.3
+            version: v1.26.6
           - name: v1.27
-            version: v1.27.1
+            version: v1.27.3
     needs: prepare-images
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }}
     steps:
