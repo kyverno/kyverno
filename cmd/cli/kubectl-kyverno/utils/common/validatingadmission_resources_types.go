@@ -1,6 +1,7 @@
 package common
 
 import (
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/values"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -17,7 +18,7 @@ func (r *ValidatingAdmissionResources) FetchResourcesFromPolicy(resourcePaths []
 
 	resourceTypesMap := make(map[schema.GroupVersionKind]bool)
 	var resourceTypes []schema.GroupVersionKind
-	var subresourceMap map[schema.GroupVersionKind]Subresource
+	var subresourceMap map[schema.GroupVersionKind]values.Subresource
 
 	for _, policy := range r.policies {
 		for _, rule := range policy.Spec.MatchConstraints.ResourceRules {
