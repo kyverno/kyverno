@@ -57,17 +57,3 @@ type ReportResult struct {
 	TestResults
 	Resources []*corev1.ObjectReference `json:"resources"`
 }
-
-type Resource struct {
-	Name   string            `json:"name"`
-	Values map[string]string `json:"values"`
-}
-
-type Policy struct {
-	Name      string     `json:"name"`
-	Resources []Resource `json:"resources"`
-}
-
-type Values struct {
-	Policies []Policy `json:"policies"`
-}

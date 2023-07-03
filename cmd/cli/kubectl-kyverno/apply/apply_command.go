@@ -32,20 +32,6 @@ import (
 	yaml1 "sigs.k8s.io/yaml"
 )
 
-type Resource struct {
-	Name   string            `json:"name"`
-	Values map[string]string `json:"values"`
-}
-
-type Policy struct {
-	Name      string     `json:"name"`
-	Resources []Resource `json:"resources"`
-}
-
-type Values struct {
-	Policies []Policy `json:"policies"`
-}
-
 type SkippedInvalidPolicies struct {
 	skipped []string
 	invalid []string
@@ -73,7 +59,6 @@ type ApplyCommandConfig struct {
 
 var (
 	applyHelp = `
-
 To apply on a resource:
         kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2
 
@@ -84,58 +69,58 @@ To apply on a cluster:
         kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster
 
 To apply policies from a gitSourceURL on a cluster:
-	Example: Taking github.com as a gitSourceURL here. Some other standards  gitSourceURL are: gitlab.com , bitbucket.org , etc.
-		kyverno apply https://github.com/kyverno/policies/openshift/ --git-branch main --cluster
+    Example: Taking github.com as a gitSourceURL here. Some other standards  gitSourceURL are: gitlab.com , bitbucket.org , etc.
+        kyverno apply https://github.com/kyverno/policies/openshift/ --git-branch main --cluster
 
 To apply policy with variables:
 
-	1. To apply single policy with variable on single resource use flag "set".
-		Example:
-		kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml --set <variable1>=<value1>,<variable2>=<value2>
+    1. To apply single policy with variable on single resource use flag "set".
+        Example:
+        kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml --set <variable1>=<value1>,<variable2>=<value2>
 
-	2. To apply multiple policy with variable on multiple resource use flag "values_file".
-		Example:
-		kyverno apply /path/to/policy1.yaml /path/to/policy2.yaml --resource /path/to/resource1.yaml --resource /path/to/resource2.yaml -f /path/to/value.yaml
+    2. To apply multiple policy with variable on multiple resource use flag "values_file".
+        Example:
+        kyverno apply /path/to/policy1.yaml /path/to/policy2.yaml --resource /path/to/resource1.yaml --resource /path/to/resource2.yaml -f /path/to/value.yaml
 
-		Format of value.yaml:
+        Format of value.yaml:
 
-		policies:
-			- name: <policy1 name>
-				rules:
-					- name: <rule1 name>
-						values:
-							<context variable1 in policy1 rule1>: <value>
-							<context variable2 in policy1 rule1>: <value>
-					- name: <rule2 name>
-						values:
-							<context variable1 in policy1 rule2>: <value>
-							<context variable2 in policy1 rule2>: <value>
-				resources:
-				- name: <resource1 name>
-					values:
-						<variable1 in policy1>: <value>
-						<variable2 in policy1>: <value>
-				- name: <resource2 name>
-					values:
-						<variable1 in policy1>: <value>
-						<variable2 in policy1>: <value>
-			- name: <policy2 name>
-				resources:
-				- name: <resource1 name>
-					values:
-						<variable1 in policy2>: <value>
-						<variable2 in policy2>: <value>
-				- name: <resource2 name>
-					values:
-						<variable1 in policy2>: <value>
-						<variable2 in policy2>: <value>
-		namespaceSelector:
-			- name: <namespace1 name>
-			labels:
-				<label key>: <label value>
-			- name: <namespace2 name>
-			labels:
-				<label key>: <label value>
+        policies:
+            - name: <policy1 name>
+              rules:
+              - name: <rule1 name>
+                values:
+                  <context variable1 in policy1 rule1>: <value>
+                  <context variable2 in policy1 rule1>: <value>
+              - name: <rule2 name>
+                values:
+                  <context variable1 in policy1 rule2>: <value>
+                  <context variable2 in policy1 rule2>: <value>
+                resources:
+                - name: <resource1 name>
+                    values:
+                        <variable1 in policy1>: <value>
+                        <variable2 in policy1>: <value>
+                - name: <resource2 name>
+                    values:
+                        <variable1 in policy1>: <value>
+                        <variable2 in policy1>: <value>
+            - name: <policy2 name>
+                resources:
+                - name: <resource1 name>
+                    values:
+                        <variable1 in policy2>: <value>
+                        <variable2 in policy2>: <value>
+                - name: <resource2 name>
+                    values:
+                        <variable1 in policy2>: <value>
+                        <variable2 in policy2>: <value>
+        namespaceSelector:
+            - name: <namespace1 name>
+            labels:
+                <label key>: <label value>
+            - name: <namespace2 name>
+            labels:
+                <label key>: <label value>
         # If policy is matching on Kind/Subresource, then this is required
         subresources:
           - subresource:
