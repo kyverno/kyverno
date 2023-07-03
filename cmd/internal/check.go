@@ -22,7 +22,7 @@ func checkEnvVar(logger logr.Logger, name string) {
 
 func validateEnvVar(name string) error {
 	if os.Getenv(name) == "" {
-		return errors.New("environement variable must be defined")
+		return errors.New("environment variable must be defined")
 	}
 	return nil
 }
