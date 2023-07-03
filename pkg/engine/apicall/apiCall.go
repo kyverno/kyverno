@@ -101,7 +101,9 @@ func (a *apiCall) executeK8sAPICall(ctx context.Context, path string, method kyv
 
 	jsonData, err := a.client.RawAbsPath(ctx, path, string(method), requestData)
 	if err != nil {
-		return nil, fmt.Errorf("failed to %v resource with raw url\n: %s: %v", method, path, err)
+		errMsg := fmt.Sprintf("failed to %v resource with raw url\n: %s: %v", method, path, err)
+		a.logger.Error(nil, errMsg, "name", a.entry.Name)
+		return nil, fmt.Errorf(errMsg)
 	}
 
 	a.logger.V(4).Info("executed APICall", "name", a.entry.Name, "path", path, "method", method, "len", len(jsonData))
@@ -125,22 +127,29 @@ func (a *apiCall) executeServiceCall(ctx context.Context, apiCall *kyvernov1.API
 
 	resp, err := client.Do(req)
 	if err != nil {
+		a.logger.Error(err, "failed to execute HTTP request for APICall", "name", a.entry.Name)
 		return nil, fmt.Errorf("failed to execute HTTP request for APICall %s: %w", a.entry.Name, err)
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		b, err := io.ReadAll(resp.Body)
 		if err == nil {
-			return nil, fmt.Errorf("HTTP %s: %s", resp.Status, string(b))
+			errMsg := fmt.Sprintf("HTTP %s: %s", resp.Status, string(b))
+			a.logger.Error(nil, errMsg, "name", a.entry.Name)
+			return nil, fmt.Errorf(errMsg)
 		}
 
-		return nil, fmt.Errorf("HTTP %s", resp.Status)
+		errMsg := fmt.Sprintf("HTTP %s", resp.Status)
+		a.logger.Error(nil, errMsg, "name", a.entry.Name)
+		return nil, fmt.Errorf(errMsg)
 	}
 
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read data from APICall %s: %w", a.entry.Name, err)
+		errMsg := fmt.Sprintf("failed to read data from APICall %s: %v", a.entry.Name, err)
+		a.logger.Error(nil, errMsg)
+		return nil, fmt.Errorf(errMsg)
 	}
 
 	a.logger.Info("executed service APICall", "name", a.entry.Name, "len", len(body))
