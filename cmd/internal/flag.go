@@ -44,6 +44,10 @@ var (
 	registryCredentialHelpers string
 	// leader election
 	leaderElectionRetryPeriod time.Duration
+	// webhookServerPort is the kyverno webhook server port
+	webhookServerPort string
+	// cleanupServerPort is the kyverno cleanup server port
+	cleanupServerPort string
 )
 
 func initLoggingFlags() {
@@ -104,6 +108,14 @@ func initRegistryClientFlags() {
 
 func initLeaderElectionFlags() {
 	flag.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
+}
+
+func initWebhookFlags() {
+	flag.StringVar(&webhookServerPort, "webhookServerPort", "9443", "kyverno webhook server port, defaults to '9443'.")
+}
+
+func initCleanupFlags() {
+	flag.StringVar(&cleanupServerPort, "cleanupServerPort", "9443", "kyverno cleanup server port, defaults to '9443'.")
 }
 
 type options struct {
@@ -181,6 +193,10 @@ func initFlags(config Configuration, opts ...Option) {
 	if config.UsesLeaderElection() {
 		initLeaderElectionFlags()
 	}
+
+	initWebhookFlags()
+	initCleanupFlags()
+
 	for _, flagset := range config.FlagSets() {
 		flagset.VisitAll(func(f *flag.Flag) {
 			flag.CommandLine.Var(f.Value, f.Name, f.Usage)
@@ -211,6 +227,14 @@ func PolicyExceptionEnabled() bool {
 
 func LeaderElectionRetryPeriod() time.Duration {
 	return leaderElectionRetryPeriod
+}
+
+func WebhookServerPort() string {
+	return webhookServerPort
+}
+
+func CleanupServerPort() string {
+	return cleanupServerPort
 }
 
 func printFlagSettings(logger logr.Logger) {
