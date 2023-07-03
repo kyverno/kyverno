@@ -9,5 +9,4 @@ Follow these steps to generate the docs:
 1. Run `make codegen-api-docs`
 
 2. Commit / push the results to git
-
 3. If needed, update the [docs site](https://kyverno.io/docs/crds/).
