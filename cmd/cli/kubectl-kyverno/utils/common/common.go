@@ -230,7 +230,13 @@ func RemoveDuplicateAndObjectVariables(matches [][]string) string {
 	return variableStr
 }
 
-func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit bool, policyResourcePath string) (map[string]string, map[string]string, map[string]map[string]Resource, map[string]map[string]string, []Subresource, error) {
+func GetVariable(
+	variablesString []string,
+	valuesFile string,
+	fs billy.Filesystem,
+	isGit bool,
+	policyResourcePath string,
+) (map[string]string, map[string]string, map[string]map[string]Resource, map[string]map[string]string, []Subresource, error) {
 	valuesMapResource := make(map[string]map[string]Resource)
 	valuesMapRule := make(map[string]map[string]Rule)
 	namespaceSelectorMap := make(map[string]map[string]string)
@@ -241,19 +247,15 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 
 	var yamlFile []byte
 	var err error
-	if variablesString != "" {
-		kvpairs := strings.Split(strings.Trim(variablesString, " "), ",")
-		for _, kvpair := range kvpairs {
-			kvs := strings.Split(strings.Trim(kvpair, " "), "=")
-			if strings.Contains(kvs[0], "request.object") {
-				if !strings.Contains(reqObjVars, kvs[0]) {
-					reqObjVars = reqObjVars + "," + kvs[0]
-				}
-				continue
+	for _, kvpair := range variablesString {
+		kvs := strings.Split(strings.Trim(kvpair, " "), "=")
+		if strings.Contains(kvs[0], "request.object") {
+			if !strings.Contains(reqObjVars, kvs[0]) {
+				reqObjVars = reqObjVars + "," + kvs[0]
 			}
-
-			variables[strings.Trim(kvs[0], " ")] = strings.Trim(kvs[1], " ")
+			continue
 		}
+		variables[strings.Trim(kvs[0], " ")] = strings.Trim(kvs[1], " ")
 	}
 
 	if valuesFile != "" {
