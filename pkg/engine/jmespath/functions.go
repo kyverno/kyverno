@@ -313,12 +313,12 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		FunctionEntry: gojmespath.FunctionEntry{
 			Name: round,
 			Arguments: []argSpec{
-				{Types: []jpType{jpAny}},
+				{Types: []jpType{jpNumber}},
 				{Types: []jpType{jpNumber}},
 			},
 			Handler: jpRound,
 		},
-		ReturnType: []jpType{jpAny},
+		ReturnType: []jpType{jpNumber},
 		Note:       "does roundoff to upto the given decimal places",
 	}, {
 		FunctionEntry: gojmespath.FunctionEntry{
@@ -879,23 +879,24 @@ func jpModulo(arguments []interface{}) (interface{}, error) {
 }
 
 func jpRound(arguments []interface{}) (interface{}, error) {
-	op1, _, err := parseArithemticOperands(arguments, round)
+	op, err := validateArg(round, arguments, 0, reflect.Float64)
 	if err != nil {
 		return nil, err
 	}
-
-	length, err := validateArg(truncate, arguments, 1, reflect.Float64)
+	length, err := validateArg(round, arguments, 1, reflect.Float64)
 	if err != nil {
 		return nil, err
 	}
-	if length.Float() < 0 {
-		return nil, formatError(argOutOfBoundsError, round)
-	}
-	if length.Float() != math.Trunc(length.Float()) {
+	intLength, err := intNumber(length.Float())
+	if err != nil {
 		return nil, formatError(nonIntRoundError, round)
 	}
-
-	return op1.Round(int(length.Float()))
+	if intLength < 0 {
+		return nil, formatError(argOutOfBoundsError, round)
+	}
+	shift := math.Pow(10, float64(intLength))
+	rounded := math.Round(op.Float()*shift) / shift
+	return rounded, nil
 }
 
 func jpBase64Decode(arguments []interface{}) (interface{}, error) {
