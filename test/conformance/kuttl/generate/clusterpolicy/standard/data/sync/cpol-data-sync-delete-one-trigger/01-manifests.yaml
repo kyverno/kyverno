@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cpol-data-sync-delete-one-trigger-ns
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-data-sync-delete-one-trigger
+spec:
+  failurePolicy: Fail
+  validationFailureAction: Enforce
+  background: false
+  rules:
+  - name: replicate
+    match:
+      all:
+      - resources:
+          kinds:
+          - v1/ConfigMap
+          selector:
+            matchLabels:
+              replicate: "true"
+    generate:
+      apiVersion: v1
+      kind: ConfigMap
+      name: "{{ request.object.metadata.name }}-replicated"
+      namespace: "{{ request.object.metadata.namespace }}"
+      synchronize: true
+      data:
+        data: "{{ request.object.data }}"

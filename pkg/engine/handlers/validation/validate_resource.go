@@ -129,7 +129,7 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 		return ruleResponse
 	}
 
-	v.log.V(2).Info("invalid validation rule: podSecurity, patterns, or deny expected")
+	v.log.V(2).Info("invalid validation rule: podSecurity, cel, patterns, or deny expected")
 	return nil
 }
 
@@ -220,7 +220,7 @@ func (v *validator) loadContext(ctx context.Context) error {
 
 func (v *validator) validateDeny() *engineapi.RuleResponse {
 	if deny, msg, err := internal.CheckDenyPreconditions(v.log, v.policyContext.JSONContext(), v.deny.GetAnyAllConditions()); err != nil {
-		return engineapi.RuleError(v.rule.Name, engineapi.Validation, "failed to check deny preconditions", err)
+		return engineapi.RuleError(v.rule.Name, engineapi.Validation, "failed to check deny conditions", err)
 	} else {
 		if deny {
 			return engineapi.RuleFail(v.rule.Name, engineapi.Validation, v.getDenyMessage(deny, msg))

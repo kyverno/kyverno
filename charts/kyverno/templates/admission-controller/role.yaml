@@ -17,6 +17,7 @@ rules:
       - watch
       - create
       - update
+      - delete
   - apiGroups:
       - ''
     resources:
@@ -44,14 +45,18 @@ rules:
     resources:
       - deployments
       {{- if .Values.webhooksCleanup.enabled }}
+      {{- if not .Values.templating.enabled -}}
       - deployments/scale
+      {{- end }}
       {{- end }}
     verbs:
       - get
       - list
       - watch
       {{- if .Values.webhooksCleanup.enabled }}
+      {{- if not .Values.templating.enabled -}}
       - patch
       - update
+      {{- end }}
       {{- end }}
 {{- end -}}

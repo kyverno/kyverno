@@ -91,19 +91,7 @@ metadata:
   labels:
     {{- include "kyverno.background-controller.labels" $ | nindent 4 }}
 rules:
-  {{- range . }}
-  - apiGroups:
-      {{- toYaml .apiGroups | nindent 6 }}
-    resources:
-      {{- toYaml .resources | nindent 6 }}
-    verbs:
-    - create
-    - update
-    - patch
-    - delete
-    - get
-    - list
-  {{- end }}
+  {{- toYaml . | nindent 2 }}
 {{- end }}
 {{- end }}
 {{- end }}

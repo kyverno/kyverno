@@ -14,7 +14,17 @@ import (
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
+
+func newResourceSpec(genAPIVersion, genKind, genNamespace, genName string) kyvernov1.ResourceSpec {
+	return kyvernov1.ResourceSpec{
+		APIVersion: genAPIVersion,
+		Kind:       genKind,
+		Namespace:  genNamespace,
+		Name:       genName,
+	}
+}
 
 func increaseRetryAnnotation(ur *kyvernov1beta1.UpdateRequest) (int, map[string]string, error) {
 	urAnnotations := ur.Annotations
@@ -63,22 +73,19 @@ func updateRetryAnnotation(kyvernoClient versioned.Interface, ur *kyvernov1beta1
 }
 
 func TriggerFromLabels(labels map[string]string) kyvernov1.ResourceSpec {
+	group := labels[common.GenerateTriggerGroupLabel]
+	version := labels[common.GenerateTriggerVersionLabel]
+	apiVersion := schema.GroupVersion{Group: group, Version: version}
+
 	return kyvernov1.ResourceSpec{
 		Kind:       labels[common.GenerateTriggerKindLabel],
 		Namespace:  labels[common.GenerateTriggerNSLabel],
 		Name:       labels[common.GenerateTriggerNameLabel],
-		APIVersion: labels[common.GenerateTriggerAPIVersionLabel],
+		APIVersion: apiVersion.String(),
 	}
 }
 
-func FindDownstream(client dclient.Interface, policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) (*unstructured.UnstructuredList, error) {
-	generation := rule.Generation
-	selector := &metav1.LabelSelector{MatchLabels: map[string]string{
-		common.GeneratePolicyLabel:          policy.GetName(),
-		common.GeneratePolicyNamespaceLabel: policy.GetNamespace(),
-		common.GenerateRuleLabel:            rule.Name,
-		kyvernov1.LabelAppManagedBy:         kyvernov1.ValueKyvernoApp,
-	}}
-
-	return client.ListResource(context.TODO(), generation.GetAPIVersion(), generation.GetKind(), "", selector)
+func FindDownstream(client dclient.Interface, apiVersion, kind string, labels map[string]string) (*unstructured.UnstructuredList, error) {
+	selector := &metav1.LabelSelector{MatchLabels: labels}
+	return client.ListResource(context.TODO(), apiVersion, kind, "", selector)
 }

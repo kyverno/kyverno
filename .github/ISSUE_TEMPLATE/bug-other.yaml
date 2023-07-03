@@ -13,8 +13,6 @@ body:
       label: Kyverno Version
       description: What version of Kyverno are you running?
       options:
-        - 1.4.x
-        - 1.5.x
         - 1.6.0
         - 1.6.1
         - 1.6.2
@@ -34,7 +32,11 @@ body:
         - 1.9.0
         - 1.9.1
         - 1.9.2
+        - 1.9.3
+        - 1.9.4
+        - 1.9.5
         - 1.10.0
+        - 1.10.1
     validations:
       required: true
   - type: textarea

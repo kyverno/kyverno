@@ -309,9 +309,9 @@ func (c *controller) reconcileReport(
 			for _, result := range scanner.ScanResource(ctx, *target, nsLabels, policy) {
 				if result.Error != nil {
 					return result.Error
-				} else {
-					ruleResults = append(ruleResults, reportutils.EngineResponseToReportResults(result.EngineResponse)...)
-					utils.GenerateEvents(logger, c.eventGen, c.config, result.EngineResponse)
+				} else if result.EngineResponse != nil {
+					ruleResults = append(ruleResults, reportutils.EngineResponseToReportResults(*result.EngineResponse)...)
+					utils.GenerateEvents(logger, c.eventGen, c.config, *result.EngineResponse)
 				}
 			}
 		}

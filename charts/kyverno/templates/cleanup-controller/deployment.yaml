@@ -20,6 +20,12 @@ spec:
     metadata:
       labels:
         {{- include "kyverno.cleanup-controller.labels" . | nindent 8 }}
+        {{- with .Values.cleanupController.podLabels }}
+        {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- end }}
+      {{- with .Values.cleanupController.podAnnotations }}
+      annotations: {{ tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
     spec:
       {{- with .Values.cleanupController.imagePullSecrets }}
       imagePullSecrets: 
@@ -100,6 +106,7 @@ spec:
             {{- end }}
             {{- end }}
             {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.cleanupController.featuresOverride)
+              "deferredLoading"
               "dumpPayload"
               "logging"
             ) | nindent 12 }}
@@ -109,6 +116,10 @@ spec:
             {{- end }}
             {{- end }}
           env:
+          - name: KYVERNO_DEPLOYMENT
+            value: {{ template "kyverno.cleanup-controller.name" . }}
+          - name: INIT_CONFIG
+            value: {{ template "kyverno.config.configMapName" . }}
           - name: METRICS_CONFIG
             value: {{ template "kyverno.config.metricsConfigMapName" . }}
           - name: KYVERNO_POD_NAME
@@ -123,8 +134,12 @@ spec:
                 fieldPath: metadata.namespace
           - name: KYVERNO_SVC
             value: {{ template "kyverno.cleanup-controller.name" . }}
+          {{- with .Values.cleanupController.extraEnvVars }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
           {{- with .Values.cleanupController.resources }}
-          resources: {{ tpl (toYaml .) $ | nindent 12 }}
+          resources:
+            {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           {{- with .Values.cleanupController.securityContext }}
           securityContext:

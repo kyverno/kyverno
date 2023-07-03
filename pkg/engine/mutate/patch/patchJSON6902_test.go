@@ -6,6 +6,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
 	assert "github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -33,29 +34,24 @@ func TestTypeConversion(t *testing.T) {
   value: my-nginx
 `)
 
-	expectedPatches := [][]byte{
-		[]byte(`{"op":"replace","path":"/spec/template/spec/containers/0/name","value":"my-nginx"}`),
-	}
+	expectedBytes := []byte(`{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"myDeploy"},"spec":{"replica":2,"template":{"metadata":{"labels":{"old-label":"old-value"}},"spec":{"containers":[{"image":"nginx","name":"my-nginx"}]}}}}`)
 
 	// serialize resource
 	inputJSON, err := yaml.YAMLToJSON(inputBytes)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	var resource unstructured.Unstructured
 	err = resource.UnmarshalJSON(inputJSON)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	jsonPatches, err := yaml.YAMLToJSON(patchesJSON6902)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 	// apply patches
 	resourceBytes, err := resource.MarshalJSON()
-	assert.Nil(t, err)
-	resourceBytes, patches, err := ProcessPatchJSON6902(logr.Discard(), jsonPatches, resourceBytes)
-	if !assert.Nil(t, err) {
-		t.Fatal()
-	}
-
-	assert.Equal(t, expectedPatches, ConvertPatches(patches...))
+	require.NoError(t, err)
+	patchedBytes, err := ProcessPatchJSON6902(logr.Discard(), jsonPatches, resourceBytes)
+	require.NoError(t, err)
+	require.Equal(t, string(expectedBytes), string(patchedBytes))
 }
 
 func TestJsonPatch(t *testing.T) {

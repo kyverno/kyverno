@@ -7,9 +7,9 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/metric/global"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -27,7 +27,7 @@ type controllerMetrics struct {
 }
 
 func newControllerMetrics(logger logr.Logger, controllerName string) *controllerMetrics {
-	meter := global.MeterProvider().Meter(metrics.MeterName)
+	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
 	reconcileTotal, err := meter.Int64Counter(
 		"kyverno_controller_reconcile",
 		sdkmetric.WithDescription("can be used to track number of reconciliation cycles"))

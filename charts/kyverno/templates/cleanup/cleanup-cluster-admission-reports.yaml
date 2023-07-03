@@ -14,6 +14,11 @@ spec:
   jobTemplate:
     spec:
       template:
+        metadata:
+          {{- with .Values.cleanupJobs.clusterAdmissionReports.podAnnotations }}
+          annotations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
         spec:
           serviceAccountName: {{ template "kyverno.name" . }}-cleanup-jobs
           {{- with .Values.cleanupJobs.clusterAdmissionReports.podSecurityContext }}
@@ -22,7 +27,7 @@ spec:
           {{- end }}
           containers:
           - name: cleanup
-            image: {{ template "kyverno.image" .Values.cleanupJobs.clusterAdmissionReports }}
+            image: {{ (include "kyverno.image" .Values.cleanupJobs.clusterAdmissionReports) | quote }}
             imagePullPolicy: {{ .Values.cleanupJobs.clusterAdmissionReports.image.pullPolicy }}
             command:
             - /bin/sh
@@ -39,5 +44,17 @@ spec:
             securityContext:
               {{- toYaml . | nindent 14 }}
             {{- end }}
+            {{- with .Values.cleanupJobs.clusterAdmissionReports.resources }}
+            resources:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+          {{- with .Values.cleanupJobs.clusterAdmissionReports.imagePullSecrets }}
+          imagePullSecrets:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
           restartPolicy: OnFailure
+          {{- with .Values.cleanupJobs.clusterAdmissionReports.tolerations }}
+          tolerations:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
 {{- end -}}

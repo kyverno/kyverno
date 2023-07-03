@@ -11,9 +11,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/metric/global"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -36,7 +36,7 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	waitGroup *sync.WaitGroup,
 ) {
-	meterProvider := global.MeterProvider()
+	meterProvider := otel.GetMeterProvider()
 	meter := meterProvider.Meter(metrics.MeterName)
 	policyRuleInfoMetric, err := meter.Float64ObservableGauge(
 		"kyverno_policy_rule_info_total",

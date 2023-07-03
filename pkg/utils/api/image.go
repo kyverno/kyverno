@@ -16,7 +16,7 @@ import (
 type ImageInfo struct {
 	imageutils.ImageInfo
 	// Pointer is the path to the image object in the resource
-	Pointer string `json:"-"`
+	Pointer string `json:"jsonPointer"`
 }
 
 var (
@@ -120,7 +120,7 @@ func extract(
 			value = resultStr
 		}
 		if imageInfo, err := imageutils.GetImageInfo(value, cfg); err != nil {
-			return fmt.Errorf("invalid image %s (%s)", value, err.Error())
+			return fmt.Errorf("invalid image '%s' (%s)", value, err.Error())
 		} else {
 			(*imageInfos)[key] = ImageInfo{*imageInfo, pointer}
 		}

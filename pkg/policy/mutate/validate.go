@@ -3,6 +3,7 @@ package mutate
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -16,6 +17,7 @@ import (
 // Mutate provides implementation to validate 'mutate' rule
 type Mutate struct {
 	mutation    kyvernov1.Mutation
+	user        string
 	authChecker AuthChecker
 }
 
@@ -23,6 +25,7 @@ type Mutate struct {
 func NewMutateFactory(m kyvernov1.Mutation, client dclient.Interface, user string) *Mutate {
 	return &Mutate{
 		mutation:    m,
+		user:        user,
 		authChecker: newAuthChecker(client, user),
 	}
 }
@@ -43,7 +46,7 @@ func (m *Mutate) Validate(ctx context.Context) (string, error) {
 
 	if m.mutation.Targets != nil {
 		if err := m.validateAuth(ctx, m.mutation.Targets); err != nil {
-			return "targets", fmt.Errorf("auth check fails, require additional privileges, update the ClusterRole 'kyverno:background-controller:additional':%v", err)
+			return "targets", fmt.Errorf("auth check fails, additional privileges are required for the service account '%s': %v", m.user, err)
 		}
 	}
 	return "", nil
@@ -100,16 +103,16 @@ func (m *Mutate) validateAuth(ctx context.Context, targets []kyvernov1.TargetRes
 				srcKey = srcKey + "/" + sub
 			}
 
-			if ok, err := m.authChecker.CanIUpdate(ctx, k, target.Namespace, sub); err != nil {
+			if ok, err := m.authChecker.CanIUpdate(ctx, strings.Join([]string{target.APIVersion, k}, "/"), target.Namespace, sub); err != nil {
 				errs = append(errs, err)
 			} else if !ok {
-				errs = append(errs, fmt.Errorf("cannot %s %s in namespace %s", "update", srcKey, target.Namespace))
+				errs = append(errs, fmt.Errorf("cannot %s/%s/%s in namespace %s", "update", target.APIVersion, srcKey, target.Namespace))
 			}
 
-			if ok, err := m.authChecker.CanIGet(ctx, k, target.Namespace, sub); err != nil {
+			if ok, err := m.authChecker.CanIGet(ctx, strings.Join([]string{target.APIVersion, k}, "/"), target.Namespace, sub); err != nil {
 				errs = append(errs, err)
 			} else if !ok {
-				errs = append(errs, fmt.Errorf("cannot %s %s in namespace %s", "get", srcKey, target.Namespace))
+				errs = append(errs, fmt.Errorf("cannot %s/%s/%s in namespace %s", "get", target.APIVersion, srcKey, target.Namespace))
 			}
 		}
 	}

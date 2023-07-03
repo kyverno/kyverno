@@ -1,9 +1,8 @@
-apiVersion: kyverno.io/v1
-kind: Policy
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: kyverno-admission-controller
+  namespace: kyverno
 status:
-  conditions:
-    - reason: Succeeded
-      status: "True"
-      type: Ready
+  readyReplicas: 1
+  updatedReplicas: 1

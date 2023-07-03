@@ -20,6 +20,13 @@ backgroundController:
             - nodes
             - nodes/status
             - pods
+          verbs:
+            - create
+            - update
+            - patch
+            - delete
+            - get
+            - list
 
 cleanupController:
   rbac:

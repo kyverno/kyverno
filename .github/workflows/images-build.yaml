@@ -1,5 +1,7 @@
 name: Build images
 
+permissions: {}
+
 on:
   push:
     branches:
@@ -9,15 +11,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions: 
-  contents: read
-
 jobs:
   build-images:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         with:
@@ -25,7 +24,7 @@ jobs:
       - name: ko build
         run: VERSION=${{ github.ref_name }} make ko-build-all
       - name: Trivy Scan Image
-        uses: aquasecurity/trivy-action@e5f43133f6e8736992c9f3c1b3296e24b37e17f2 # v0.10.0
+        uses: aquasecurity/trivy-action@41f05d9ecffa2ed3f1580af306000f734b733e54 # v0.11.2
         with:
           scan-type: 'fs'
           ignore-unfixed: true

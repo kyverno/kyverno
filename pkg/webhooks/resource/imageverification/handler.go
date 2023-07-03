@@ -19,8 +19,8 @@ import (
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
-	"github.com/mattbaird/jsonpatch"
 	"go.opentelemetry.io/otel/trace"
+	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -96,7 +96,7 @@ func (h *imageVerificationHandler) handleVerifyImages(
 			"",
 			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
 			func(ctx context.Context, span trace.Span) {
-				if policy.GetSpec().GetFailurePolicy() == kyvernov1.Fail {
+				if policy.GetSpec().GetFailurePolicy(ctx) == kyvernov1.Fail {
 					failurePolicy = kyvernov1.Fail
 				}
 

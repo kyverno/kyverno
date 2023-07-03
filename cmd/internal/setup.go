@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 func shutdown(logger logr.Logger, sdowns ...context.CancelFunc) context.CancelFunc {
@@ -37,6 +38,7 @@ type SetupResult struct {
 	KubeClient           kubeclient.UpstreamInterface
 	LeaderElectionClient kubeclient.UpstreamInterface
 	RegistryClient       registryclient.Client
+	RegistrySecretLister corev1listers.SecretNamespaceLister
 	KyvernoClient        kyvernoclient.UpstreamInterface
 	DynamicClient        dynamicclient.UpstreamInterface
 	ApiServerClient      apiserverclient.UpstreamInterface
@@ -48,6 +50,8 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	logger := setupLogger()
 	showVersion(logger)
 	printFlagSettings(logger)
+	showWarnings(config, logger)
+	check(logger)
 	sdownMaxProcs := setupMaxProcs(logger)
 	setupProfiling(logger)
 	ctx, sdownSignals := setupSignals(logger)
@@ -57,10 +61,10 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	client = client.WithMetrics(metricsManager, metrics.KubeClient)
 	configuration := startConfigController(ctx, logger, client, skipResourceFilters)
 	sdownTracing := SetupTracing(logger, name, client)
-	setupCosign(logger)
 	var registryClient registryclient.Client
+	var registrySecretLister corev1listers.SecretNamespaceLister
 	if config.UsesRegistryClient() {
-		registryClient = setupRegistryClient(ctx, logger, client)
+		registryClient, registrySecretLister = setupRegistryClient(ctx, logger, client)
 	}
 	var leaderElectionClient kubeclient.UpstreamInterface
 	if config.UsesLeaderElection() {
@@ -96,6 +100,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 			KubeClient:           client,
 			LeaderElectionClient: leaderElectionClient,
 			RegistryClient:       registryClient,
+			RegistrySecretLister: registrySecretLister,
 			KyvernoClient:        kyvernoClient,
 			DynamicClient:        dynamicClient,
 			ApiServerClient:      apiServerClient,

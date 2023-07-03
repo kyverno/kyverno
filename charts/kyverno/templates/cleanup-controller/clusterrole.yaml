@@ -42,17 +42,17 @@ rules:
     resources:
       - clustercleanuppolicies
       - cleanuppolicies
-      - clustercleanuppolicies/*
-      - cleanuppolicies/*
     verbs:
-      - create
-      - delete
+      - list
+      - watch
+  - apiGroups:
+      - ''
+    resources:
+      - configmaps
+    verbs:
       - get
       - list
-      - patch
-      - update
       - watch
-      - deletecollection
   - apiGroups:
       - batch
     resources:
@@ -65,14 +65,14 @@ rules:
       - update
       - watch
   - apiGroups:
-    - ''
-    - events.k8s.io
+      - ''
+      - events.k8s.io
     resources:
-    - events
+      - events
     verbs:
-    - create
-    - patch
-    - update
+      - create
+      - patch
+      - update
   - apiGroups:
       - authorization.k8s.io
     resources:

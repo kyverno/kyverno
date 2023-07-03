@@ -13,6 +13,9 @@
 {{- with .admissionReports -}}
   {{- $flags = append $flags (print "--admissionReports=" .enabled) -}}
 {{- end -}}
+{{- with .aggregateReports -}}
+  {{- $flags = append $flags (print "--aggregateReports=" .enabled) -}}
+{{- end -}}
 {{- with .autoUpdateWebhooks -}}
   {{- $flags = append $flags (print "--autoUpdateWebhooks=" .enabled) -}}
 {{- end -}}
@@ -24,6 +27,9 @@
 {{- end -}}
 {{- with .configMapCaching -}}
   {{- $flags = append $flags (print "--enableConfigMapCaching=" .enabled) -}}
+{{- end -}}
+{{- with .deferredLoading -}}
+  {{- $flags = append $flags (print "--enableDeferredLoading=" .enabled) -}}
 {{- end -}}
 {{- with .dumpPayload -}}
   {{- $flags = append $flags (print "--dumpPayload=" .enabled) -}}

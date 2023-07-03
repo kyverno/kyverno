@@ -23,6 +23,7 @@ package v2beta1
 
 import (
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -182,6 +183,11 @@ func (in *ImageVerification) DeepCopyInto(out *ImageVerification) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.ImageRegistryCredentials != nil {
+		in, out := &in.ImageRegistryCredentials, &out.ImageRegistryCredentials
+		*out = new(v1.ImageRegistryCredentials)
+		(*in).DeepCopyInto(*out)
 	}
 }
 
@@ -405,6 +411,11 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 		*out = new(AnyAllConditions)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.CELPreconditions != nil {
+		in, out := &in.CELPreconditions, &out.CELPreconditions
+		*out = make([]admissionregistrationv1.MatchCondition, len(*in))
+		copy(*out, *in)
+	}
 	in.Mutation.DeepCopyInto(&out.Mutation)
 	in.Validation.DeepCopyInto(&out.Validation)
 	in.Generation.DeepCopyInto(&out.Generation)
@@ -453,6 +464,11 @@ func (in *Spec) DeepCopyInto(out *Spec) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.Admission != nil {
+		in, out := &in.Admission, &out.Admission
+		*out = new(bool)
+		**out = **in
 	}
 	if in.Background != nil {
 		in, out := &in.Background, &out.Background
@@ -519,6 +535,11 @@ func (in *Validation) DeepCopyInto(out *Validation) {
 	if in.PodSecurity != nil {
 		in, out := &in.PodSecurity, &out.PodSecurity
 		*out = new(v1.PodSecurity)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.CEL != nil {
+		in, out := &in.CEL, &out.CEL
+		*out = new(v1.CEL)
 		(*in).DeepCopyInto(*out)
 	}
 }

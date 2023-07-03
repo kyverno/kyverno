@@ -185,6 +185,19 @@ namespace-wise. It overrides ValidationFailureAction for the specified namespace
 </tr>
 <tr>
 <td>
+<code>admission</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Admission controls if rules are applied during admission.
+Optional. Default value is &ldquo;true&rdquo;.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>background</code><br/>
 <em>
 bool
@@ -419,6 +432,19 @@ Allowed values are audit or enforce. The default value is &ldquo;Audit&rdquo;.</
 <em>(Optional)</em>
 <p>ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
 namespace-wise. It overrides ValidationFailureAction for the specified namespaces.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>admission</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Admission controls if rules are applied during admission.
+Optional. Default value is &ldquo;true&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -715,7 +741,19 @@ string
 </em>
 </td>
 <td>
-<p>PredicateType defines the type of Predicate contained within the Statement.</p>
+<p>PredicateType defines the type of Predicate contained within the Statement.
+Deprecated in favour of &lsquo;Type&rsquo;, to be removed soon</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>type</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Type defines the type of attestation contained within the Statement.</p>
 </td>
 </tr>
 <tr>
@@ -922,6 +960,82 @@ attributes for keyless verification, or a nested attestor declaration.</p>
 </td>
 <td>
 <p>Rules is a list of Rule instances. It contains auto generated rules added for pod controllers</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.CEL">CEL
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Validation">Validation</a>, 
+<a href="#kyverno.io/v2beta1.Validation">Validation</a>)
+</p>
+<p>
+<p>CEL allows validation checks using the Common Expression Language (<a href="https://kubernetes.io/docs/reference/using-api/cel/">https://kubernetes.io/docs/reference/using-api/cel/</a>).</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>expressions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validation-v1alpha1-admissionregistration">
+[]Kubernetes admissionregistration/v1alpha1.Validation
+</a>
+</em>
+</td>
+<td>
+<p>Expressions is a list of CELExpression types.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>paramKind</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#paramkind-v1alpha1-admissionregistration">
+Kubernetes admissionregistration/v1alpha1.ParamKind
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ParamKind is a tuple of Group Kind and Version.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>paramRef</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#paramref-v1alpha1-admissionregistration">
+Kubernetes admissionregistration/v1alpha1.ParamRef
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ParamRef references a parameter resource.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>auditAnnotations</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#auditannotation-v1alpha1-admissionregistration">
+[]Kubernetes admissionregistration/v1alpha1.AuditAnnotation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AuditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the API request.</p>
 </td>
 </tr>
 </tbody>
@@ -1863,9 +1977,89 @@ transform the ImageData struct returned as a result of processing
 the image reference.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>imageRegistryCredentials</code><br/>
+<em>
+<a href="#kyverno.io/v1.ImageRegistryCredentials">
+ImageRegistryCredentials
+</a>
+</em>
+</td>
+<td>
+<p>ImageRegistryCredentials provides credentials that will be used for authentication with registry</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.ImageRegistryCredentials">ImageRegistryCredentials
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ImageRegistry">ImageRegistry</a>, 
+<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>, 
+<a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>allowInsecureRegistry</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>AllowInsecureRegistry allows insecure access to a registry</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>providers</code><br/>
+<em>
+<a href="#kyverno.io/v1.ImageRegistryCredentialsProvidersType">
+[]ImageRegistryCredentialsProvidersType
+</a>
+</em>
+</td>
+<td>
+<p>Providers specifies a list of OCI Registry names, whose authentication providers are provided
+It can be of one of these values: AWS, ACR, GCP, GHCR</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>secrets</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>Secrets specifies a list of secrets that are provided for credentials
+Secrets must live in the Kyverno namespace</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.ImageRegistryCredentialsProvidersType">ImageRegistryCredentialsProvidersType
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ImageRegistryCredentials">ImageRegistryCredentials</a>)
+</p>
+<p>
+<p>ImageRegistryCredentialsProvidersType provides the list of credential providers required.</p>
+</p>
 <h3 id="kyverno.io/v1.ImageVerification">ImageVerification
 </h3>
 <p>
@@ -1896,7 +2090,7 @@ ImageVerificationType
 </td>
 <td>
 <p>Type specifies the method of signature validation. The allowed options
-are Cosign and NotaryV2. By default Cosign is used if a type is not specified.</p>
+are Cosign and Notary. By default Cosign is used if a type is not specified.</p>
 </td>
 </tr>
 <tr>
@@ -2075,6 +2269,19 @@ bool
 <p>Required validates that images are verified i.e. have matched passed a signature or attestation check.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>imageRegistryCredentials</code><br/>
+<em>
+<a href="#kyverno.io/v1.ImageRegistryCredentials">
+ImageRegistryCredentials
+</a>
+</em>
+</td>
+<td>
+<p>ImageRegistryCredentials provides credentials that will be used for authentication with registry</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -2082,7 +2289,8 @@ bool
 (<code>string</code> alias)</p></h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>)
+<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>, 
+<a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>)
 </p>
 <p>
 <p>ImageVerificationType selects the type of verification algorithm</p>
@@ -3060,6 +3268,21 @@ See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://k
 </tr>
 <tr>
 <td>
+<code>celPreconditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CELPreconditions are used to determine if a policy rule should be applied by evaluating a
+set of CEL conditions. It can only be used with the validate.cel subrule</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>mutate</code><br/>
 <em>
 <a href="#kyverno.io/v1.Mutation">
@@ -3362,6 +3585,19 @@ Allowed values are audit or enforce. The default value is &ldquo;Audit&rdquo;.</
 <em>(Optional)</em>
 <p>ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
 namespace-wise. It overrides ValidationFailureAction for the specified namespaces.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>admission</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Admission controls if rules are applied during admission.
+Optional. Default value is &ldquo;true&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -3772,6 +4008,20 @@ PodSecurity
 <em>(Optional)</em>
 <p>PodSecurity applies exemptions for Kubernetes Pod Security admission
 by specifying exclusions for Pod Security Standards controls.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>cel</code><br/>
+<em>
+<a href="#kyverno.io/v1.CEL">
+CEL
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CEL allows validation checks using the Common Expression Language (<a href="https://kubernetes.io/docs/reference/using-api/cel/">https://kubernetes.io/docs/reference/using-api/cel/</a>).</p>
 </td>
 </tr>
 </tbody>
@@ -5730,6 +5980,19 @@ namespace-wise. It overrides ValidationFailureAction for the specified namespace
 </tr>
 <tr>
 <td>
+<code>admission</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Admission controls if rules are applied during admission.
+Optional. Default value is &ldquo;true&rdquo;.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>background</code><br/>
 <em>
 bool
@@ -5963,6 +6226,19 @@ Allowed values are audit or enforce. The default value is &ldquo;Audit&rdquo;.</
 <em>(Optional)</em>
 <p>ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
 namespace-wise. It overrides ValidationFailureAction for the specified namespaces.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>admission</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Admission controls if rules are applied during admission.
+Optional. Default value is &ldquo;true&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -6260,14 +6536,14 @@ mutated to include the SHA digest retrieved during the registration.</p>
 <td>
 <code>type</code><br/>
 <em>
-<a href="#kyverno.io/v2beta1.ImageVerificationType">
+<a href="#kyverno.io/v1.ImageVerificationType">
 ImageVerificationType
 </a>
 </em>
 </td>
 <td>
 <p>Type specifies the method of signature validation. The allowed options
-are Cosign and NotaryV2. By default Cosign is used if a type is not specified.</p>
+are Cosign and Notary. By default Cosign is used if a type is not specified.</p>
 </td>
 </tr>
 <tr>
@@ -6359,18 +6635,22 @@ bool
 <p>Required validates that images are verified i.e. have matched passed a signature or attestation check.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>imageRegistryCredentials</code><br/>
+<em>
+<a href="#kyverno.io/v1.ImageRegistryCredentials">
+ImageRegistryCredentials
+</a>
+</em>
+</td>
+<td>
+<p>ImageRegistryCredentials provides credentials that will be used for authentication with registry</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v2beta1.ImageVerificationType">ImageVerificationType
-(<code>string</code> alias)</p></h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>)
-</p>
-<p>
-<p>ImageVerificationType selects the type of verification algorithm</p>
-</p>
 <h3 id="kyverno.io/v2beta1.MatchResources">MatchResources
 </h3>
 <p>
@@ -6701,6 +6981,21 @@ See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://k
 </tr>
 <tr>
 <td>
+<code>celPreconditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CELPreconditions are used to determine if a policy rule should be applied by evaluating a
+set of CEL conditions. It can only be used with the validate.cel subrule</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>mutate</code><br/>
 <em>
 <a href="#kyverno.io/v1.Mutation">
@@ -6853,6 +7148,19 @@ Allowed values are audit or enforce. The default value is &ldquo;Audit&rdquo;.</
 <em>(Optional)</em>
 <p>ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
 namespace-wise. It overrides ValidationFailureAction for the specified namespaces.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>admission</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Admission controls if rules are applied during admission.
+Optional. Default value is &ldquo;true&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -7050,6 +7358,20 @@ PodSecurity
 <em>(Optional)</em>
 <p>PodSecurity applies exemptions for Kubernetes Pod Security admission
 by specifying exclusions for Pod Security Standards controls.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>cel</code><br/>
+<em>
+<a href="#kyverno.io/v1.CEL">
+CEL
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CEL allows validation checks using the Common Expression Language (<a href="https://kubernetes.io/docs/reference/using-api/cel/">https://kubernetes.io/docs/reference/using-api/cel/</a>).</p>
 </td>
 </tr>
 </tbody>

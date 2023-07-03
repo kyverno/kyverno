@@ -11,7 +11,7 @@ metadata:
     policies.kyverno.io/description: >-
       Kubernetes managed non-letsencrypt certificates have to be renewed in every 100 days.
 spec:
-  validationFailureAction: audit
+  validationFailureAction: Audit
   background: false
   rules:
   - name: certificate-duration-max-100days 
@@ -24,7 +24,7 @@ spec:
       - key: "{{ contains(request.object.spec.issuerRef.name, 'letsencrypt') }}"
         operator: Equals
         value: False
-      - key: "{{ request.object.spec.duration }}"
+      - key: '{{ request.object.spec.duration }}'
         operator: NotEquals
         value: ""
     validate:

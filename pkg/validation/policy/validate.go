@@ -47,16 +47,13 @@ var (
 	errOperationForbidden    = errors.New("variables are forbidden in the path of a JSONPatch")
 )
 
+var allowedJsonPatch = regexp.MustCompile("^/")
+
 // validateJSONPatchPathForForwardSlash checks for forward slash
 func validateJSONPatchPathForForwardSlash(patch string) error {
 	// Replace all variables in PatchesJSON6902, all variable checks should have happened already.
 	// This prevents further checks from failing unexpectedly.
 	patch = variables.ReplaceAllVars(patch, func(s string) string { return "kyvernojsonpatchvariable" })
-
-	re, err := regexp.Compile("^/")
-	if err != nil {
-		return err
-	}
 
 	jsonPatch, err := yaml.ToJSON([]byte(patch))
 	if err != nil {
@@ -74,7 +71,7 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 			return err
 		}
 
-		val := re.MatchString(path)
+		val := allowedJsonPatch.MatchString(path)
 
 		if !val {
 			return fmt.Errorf("%s", path)
@@ -165,6 +162,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		for _, resList := range res {
 			for _, r := range resList.APIResources {
 				if !r.Namespaced {
+					clusterResources.Insert(resList.GroupVersion + "/" + r.Kind)
 					clusterResources.Insert(r.Kind)
 				}
 			}
@@ -179,6 +177,14 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		err := validateNamespaces(spec, specPath.Child("validationFailureActionOverrides"))
 		if err != nil {
 			return warnings, err
+		}
+	}
+	if !policy.AdmissionProcessingEnabled() && !policy.BackgroundProcessingEnabled() {
+		return warnings, fmt.Errorf("disabling both admission and background processing is not allowed")
+	}
+	if !policy.AdmissionProcessingEnabled() {
+		if spec.HasMutate() || spec.HasGenerate() || spec.HasVerifyImages() {
+			return warnings, fmt.Errorf("disabling admission processing is only allowed with validation policies")
 		}
 	}
 
@@ -219,10 +225,6 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 		if err := validateKinds(rule.ExcludeResources.Kinds, rule, mock, background, client); err != nil {
 			return warnings, fmt.Errorf("path: spec.rules[%d].exclude.kinds: %v", i, err)
-		}
-
-		if err := loopInGenerate(rule); err != nil {
-			return warnings, fmt.Errorf("path: spec.rules[%d]: %v", i, err)
 		}
 	}
 
@@ -278,14 +280,6 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		} else {
 			if len(rule.MatchResources.Kinds) == 0 {
 				return warnings, validateMatchKindHelper(rule)
-			}
-		}
-
-		// validate Cluster Resources in namespaced policy
-		// For namespaced policy, ClusterResource type field and values are not allowed in match and exclude
-		if policy.IsNamespaced() {
-			if err := checkClusterResourceInMatchAndExclude(rule, clusterResources, policy.GetNamespace(), mock, res); err != nil {
-				return warnings, err
 			}
 		}
 
@@ -364,6 +358,10 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			checkForScaleSubresource(mutationJson, allKinds, &warnings)
 			checkForStatusSubresource(mutationJson, allKinds, &warnings)
 		}
+
+		if rule.HasVerifyImages() {
+			checkForDeprecatedFieldsInVerifyImages(rule, &warnings)
+		}
 	}
 	if !mock && (spec.SchemaValidation == nil || *spec.SchemaValidation) {
 		if err := openApiManager.ValidatePolicyMutation(policy); err != nil {
@@ -405,22 +403,22 @@ func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) erro
 			}
 		}
 
-		// skip variable checks on mutate.targets, they will be validated separately
-		withoutTargets := ruleCopy.DeepCopy()
-		for i := range withoutTargets.Mutation.Targets {
-			withoutTargets.Mutation.Targets[i].RawAnyAllConditions = nil
-		}
-		ctx := buildContext(withoutTargets, background, false, nil)
-		if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *withoutTargets); !variables.CheckNotFoundErr(err) {
-			return fmt.Errorf("variable substitution failed for rule %s: %s", withoutTargets.Name, err.Error())
+		mutateTarget := false
+		if ruleCopy.Mutation.Targets != nil {
+			mutateTarget = true
+			withTargetOnly := ruleWithoutPattern(ruleCopy)
+			for i := range ruleCopy.Mutation.Targets {
+				withTargetOnly.Mutation.Targets[i].ResourceSpec = ruleCopy.Mutation.Targets[i].ResourceSpec
+				ctx := buildContext(withTargetOnly, background, false)
+				if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *withTargetOnly); !variables.CheckNotFoundErr(err) {
+					return fmt.Errorf("invalid variables defined at mutate.targets[%d]: %s", i, err.Error())
+				}
+			}
 		}
 
-		// perform variable checks with mutate.targets
-		for _, target := range r.Mutation.Targets {
-			ctx := buildContext(ruleCopy, background, true, target.Context)
-			if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *ruleCopy); !variables.CheckNotFoundErr(err) {
-				return fmt.Errorf("variable substitution failed for rule target %s: %s", ruleCopy.Name, err.Error())
-			}
+		ctx := buildContext(ruleCopy, background, mutateTarget)
+		if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *ruleCopy); !variables.CheckNotFoundErr(err) {
+			return fmt.Errorf("variable substitution failed for rule %s: %s", ruleCopy.Name, err.Error())
 		}
 	}
 
@@ -555,7 +553,15 @@ func imageRefHasVariables(verifyImages []kyvernov1.ImageVerification) error {
 	return nil
 }
 
-func buildContext(rule *kyvernov1.Rule, background bool, target bool, targetContext []kyvernov1.ContextEntry) *enginecontext.MockContext {
+func ruleWithoutPattern(ruleCopy *kyvernov1.Rule) *kyvernov1.Rule {
+	withTargetOnly := new(kyvernov1.Rule)
+	withTargetOnly.Mutation.Targets = make([]kyvernov1.TargetResourceSpec, len(ruleCopy.Mutation.Targets))
+	withTargetOnly.Context = ruleCopy.Context
+	withTargetOnly.RawAnyAllConditions = ruleCopy.RawAnyAllConditions
+	return withTargetOnly
+}
+
+func buildContext(rule *kyvernov1.Rule, background bool, target bool) *enginecontext.MockContext {
 	re := getAllowedVariables(background, target)
 	ctx := enginecontext.NewMockContext(re)
 	addContextVariables(rule.Context, ctx)
@@ -1299,5 +1305,16 @@ func checkForStatusSubresource(ruleTypeJson []byte, allKinds []string, warnings 
 		}
 		msg := "You are matching on status but not including the status subresource in the policy."
 		*warnings = append(*warnings, msg)
+	}
+}
+
+func checkForDeprecatedFieldsInVerifyImages(rule kyvernov1.Rule, warnings *[]string) {
+	for _, imageVerify := range rule.VerifyImages {
+		for _, attestation := range imageVerify.Attestations {
+			if attestation.PredicateType != "" {
+				msg := fmt.Sprintf("predicateType has been deprecated use 'type: %s' instead of 'prediacteType: %s'", attestation.PredicateType, attestation.PredicateType)
+				*warnings = append(*warnings, msg)
+			}
+		}
 	}
 }
