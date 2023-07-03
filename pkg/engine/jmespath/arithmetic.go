@@ -30,25 +30,29 @@ type scalar struct {
 	float64
 }
 
-func parseArithemticOperands(arguments []interface{}, operator string) (operand, operand, error) {
-	op := [2]operand{nil, nil}
-	for i := 0; i < 2; i++ {
-		if tmp, err := validateArg(divide, arguments, i, reflect.Float64); err == nil {
-			var sc scalar
-			sc.float64 = tmp.Float()
-			op[i] = sc
-		} else if tmp, err = validateArg(divide, arguments, i, reflect.String); err == nil {
-			if q, err := resource.ParseQuantity(tmp.String()); err == nil {
-				op[i] = quantity{Quantity: q}
-			} else if d, err := time.ParseDuration(tmp.String()); err == nil {
-				op[i] = duration{Duration: d}
-			}
+func parseArithemticOperand(arguments []interface{}, index int, operator string) (operand, error) {
+	if tmp, err := validateArg(operator, arguments, index, reflect.Float64); err == nil {
+		return scalar{float64: tmp.Float()}, nil
+	} else if tmp, err = validateArg(operator, arguments, index, reflect.String); err == nil {
+		if q, err := resource.ParseQuantity(tmp.String()); err == nil {
+			return quantity{Quantity: q}, nil
+		} else if d, err := time.ParseDuration(tmp.String()); err == nil {
+			return duration{Duration: d}, nil
 		}
 	}
-	if op[0] == nil || op[1] == nil {
-		return nil, nil, formatError(genericError, operator, "invalid operands")
+	return nil, formatError(genericError, operator, "invalid operand")
+}
+
+func parseArithemticOperands(arguments []interface{}, operator string) (operand, operand, error) {
+	left, err := parseArithemticOperand(arguments, 0, operator)
+	if err != nil {
+		return nil, nil, err
 	}
-	return op[0], op[1], nil
+	right, err := parseArithemticOperand(arguments, 1, operator)
+	if err != nil {
+		return nil, nil, err
+	}
+	return left, right, nil
 }
 
 // Quantity +|- Quantity          -> Quantity
