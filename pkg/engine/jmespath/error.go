@@ -12,7 +12,7 @@ const (
 	zeroDivisionError        = errorPrefix + "Zero divisor passed"
 	nonIntModuloError        = errorPrefix + "Non-integer argument(s) passed for modulo"
 	typeMismatchError        = errorPrefix + "Types mismatch"
-	nonIntRoundError		 = errorPrefix + "Non-integer argument(s) passed for round off"
+	nonIntRoundError         = errorPrefix + "Non-integer argument(s) passed for round off"
 )
 
 func formatError(format string, function string, values ...interface{}) error {

@@ -305,17 +305,17 @@ func (op1 scalar) Modulo(op2 interface{}) (interface{}, error) {
 
 // quantity can never be floating point :- no need to round of
 func (op1 quantity) Round(op2 int) (interface{}, error) {
-	return op1.String() , nil
+	return op1.String(), nil
 }
 
 func (op1 duration) Round(op2 int) (interface{}, error) {
 	shift := math.Pow(10, float64(op2))
-	rounded := math.Round(op1.Seconds()*shift) / shift 
+	rounded := math.Round(op1.Seconds()*shift) / shift
 	return time.Duration(rounded * float64(time.Second)).String(), nil
 }
 
-func (op1 scalar) Round(op2 int) (interface{}, error){
+func (op1 scalar) Round(op2 int) (interface{}, error) {
 	shift := math.Pow(10, float64(op2))
 	rounded := math.Round(op1.float64*shift) / shift
-	return rounded , nil
+	return rounded, nil
 }

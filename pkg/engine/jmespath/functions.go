@@ -11,13 +11,13 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"math"
 	"path/filepath"
 	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
-	"math"
 
 	trunc "github.com/aquilax/truncate"
 	"github.com/blang/semver/v4"
@@ -59,7 +59,7 @@ var (
 	multiply               = "multiply"
 	divide                 = "divide"
 	modulo                 = "modulo"
-	round				   = "round"
+	round                  = "round"
 	base64Decode           = "base64_decode"
 	base64Encode           = "base64_encode"
 	pathCanonicalize       = "path_canonicalize"
@@ -320,7 +320,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		},
 		ReturnType: []jpType{jpAny},
 		Note:       "does roundoff to upto the given decimal places",
-	},{
+	}, {
 		FunctionEntry: gojmespath.FunctionEntry{
 			Name: base64Decode,
 			Arguments: []argSpec{
@@ -889,12 +889,12 @@ func jpRound(arguments []interface{}) (interface{}, error) {
 		return nil, err
 	}
 	if length.Float() < 0 {
-		return nil,formatError(argOutOfBoundsError, round)
+		return nil, formatError(argOutOfBoundsError, round)
 	}
-	if length.Float() != math.Trunc(length.Float()){
+	if length.Float() != math.Trunc(length.Float()) {
 		return nil, formatError(nonIntRoundError, round)
 	}
-	
+
 	return op1.Round(int(length.Float()))
 }
 
