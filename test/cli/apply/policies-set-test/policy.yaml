@@ -1,0 +1,18 @@
+apiVersion : kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-label
+spec:
+  validationFailureAction: audit
+  rules:
+  - name: require-op-label
+    match:
+      resources:
+        kinds:
+        - ConfigMap
+    validate:
+      message: "Op label is required"  
+      pattern:
+        metadata:
+          labels:
+            op: "{{ request.operation }}"

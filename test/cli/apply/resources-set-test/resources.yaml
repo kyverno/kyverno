@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: any-configmap-name-one
+  namespace: any-namespace
+  labels:
+    op: CREATE
+data:
+  key: value
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: any-configmap-name-two
+  namespace: any-namespace
+  labels:
+    op: CREATE
+data:
+  key: value

@@ -334,10 +334,6 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 		osExit(1)
 	}
 
-	if (len(resources) > 1 || len(policies) > 1) && c.VariablesString != "" {
-		return rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError("currently `set` flag supports variable for single policy applied on single resource ", nil)
-	}
-
 	// get the user info as request info from a different file
 	var userInfo v1beta1.RequestInfo
 	if c.UserInfoPath != "" {
