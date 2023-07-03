@@ -261,10 +261,9 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 			c.eventGen.Add(e)
 		}
 
-		if unstructuredPol, polErr := kubeutils.ObjToUnstructured(policy); polErr == nil && unstructuredPol != nil {
-			e := event.NewBackgroundSuccessEvent(ur.Spec.Policy, ur.Spec.Rule, event.GeneratePolicyController, unstructuredPol)
-			c.eventGen.Add(e...)
-		}
+		unstructuredPol := kubeutils.NewUnstructured("kyverno.io/v1", policy.GetKind(), policy.GetNamespace(), policy.GetName())
+		e := event.NewBackgroundSuccessEvent(ur.Spec.Policy, ur.Spec.Rule, event.GeneratePolicyController, unstructuredPol)
+		c.eventGen.Add(e...)
 	}
 
 	return genResources, err
