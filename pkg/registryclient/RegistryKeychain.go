@@ -11,7 +11,7 @@ import (
 const (
 	ghcrHostname   = "ghcr.io"
 	gcrHostname    = "gcr.io"
-	dockerHostname = ""
+	dockerHostname = "docker.io"
 	acrHostname    = "mcr.microsoft.com"
 	ecrHostname    = "ecr.io"
 	tokenUsername  = "<token>"
@@ -32,23 +32,23 @@ func (reg registryKeychain) Resolve(r authn.Resource) (authn.Authenticator, erro
 	}
 
 	if serverURL.Hostname() == ghcrHostname {
-
+		return ghcrAuthenticator()
 	}
 
 	if serverURL.Hostname() == dockerHostname {
-
+		return defaultAuthenticator(r)
 	}
 
 	if serverURL.Hostname() == gcrHostname {
-
+		return gcrAuthenticator(r)
 	}
 
 	if serverURL.Hostname() == acrHostname {
-
+		return acrAuthenticator(r)
 	}
 
 	if serverURL.Hostname() == ecrHostname {
-
+		return ecrAuthenticator(r)
 	}
 
 	return authn.Anonymous, nil
