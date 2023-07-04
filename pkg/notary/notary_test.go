@@ -4,9 +4,8 @@ import (
 	"context"
 	"testing"
 
-	gcrremote "github.com/google/go-containerregistry/0_14/pkg/v1/remote" // TODO: Remove this once we upgrade tp cosign version < 2.0.2
-	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
+	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"gotest.tools/assert"
 )
 
@@ -14,7 +13,7 @@ func TestExtractStatements(t *testing.T) {
 	imageRef := "jimnotarytest.azurecr.io/jim/net-monitor:v1"
 	ref, err := name.ParseReference(imageRef)
 	assert.NilError(t, err)
-	repoDesc, err := crane.Head(imageRef)
+	repoDesc, err := gcrremote.Head(ref)
 	assert.NilError(t, err)
 	referrers, err := gcrremote.Referrers(ref.Context().Digest(repoDesc.Digest.String()))
 	assert.NilError(t, err)
@@ -23,7 +22,7 @@ func TestExtractStatements(t *testing.T) {
 
 	for _, referrer := range referrersDescs.Manifests {
 		if referrer.ArtifactType == "application/vnd.cncf.notary.signature" {
-			statements, err := extractStatements(context.Background(), ref, referrer)
+			statements, err := extractStatements(context.Background(), ref, referrer, nil)
 			assert.NilError(t, err)
 			assert.Assert(t, len(statements) == 1)
 			assert.Assert(t, statements[0]["type"] == referrer.ArtifactType)
