@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -12,7 +13,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	ct "github.com/kyverno/kyverno/pkg/engine/context"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/images"
 	"github.com/kyverno/kyverno/pkg/notary"
@@ -21,8 +24,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"go.uber.org/multierr"
 	"gomodules.xyz/jsonpatch/v2"
+	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
+
+var jp = jmespath.New(config.NewDefaultConfiguration(false))
 
 type ImageVerifier struct {
 	logger                   logr.Logger
@@ -59,11 +65,31 @@ func HasImageVerifiedAnnotationChanged(ctx engineapi.PolicyContext, log logr.Log
 	}
 	newValue := newResource.GetAnnotations()[engineapi.ImageVerifyAnnotationKey]
 	oldValue := oldResource.GetAnnotations()[engineapi.ImageVerifyAnnotationKey]
-	result := newValue != oldValue
-	if result {
-		log.V(2).Info("annotation mismatch", "oldValue", oldValue, "newValue", newValue, "key", engineapi.ImageVerifyAnnotationKey)
+
+	request := admissionv1.AdmissionRequest{}
+	request.Operation = "UPDATE"
+	request.Object.Raw = []byte(newValue)
+	request.OldObject.Raw = []byte(oldValue)
+
+	resource_ctx := ct.NewContext(jp)
+	resource_ctx.AddRequest(request)
+
+	var objMap map[string]interface{}
+
+	// Unmarshal the JSON string into the map
+	err := json.Unmarshal([]byte(newValue), &objMap)
+	if err != nil {
+		fmt.Println("Error:", err)
 	}
-	return result
+
+	// Loop over the map keys and print the key-value pairs
+	for key, _ := range objMap {
+		isChanged, _ := resource_ctx.HasChanged(key)
+		if isChanged {
+			return true
+		}
+	}
+	return false
 }
 
 func matchImageReferences(imageReferences []string, image string) bool {
