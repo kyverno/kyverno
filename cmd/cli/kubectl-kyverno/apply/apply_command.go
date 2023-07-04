@@ -29,7 +29,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	yaml1 "sigs.k8s.io/yaml"
+	"sigs.k8s.io/yaml"
 )
 
 const divider = "----------------------------------------------------------------------"
@@ -485,13 +485,13 @@ func printSkippedAndInvalidPolicies(skipInvalidPolicies SkippedInvalidPolicies) 
 }
 
 func printReport(engineResponses []engineapi.EngineResponse, auditWarn bool) {
-	resps := buildPolicyReports(auditWarn, engineResponses...)
-	if len(resps) > 0 {
+	clustered, namespaced := buildPolicyReports(auditWarn, engineResponses...)
+	if len(clustered) > 0 || len(namespaced) > 0 {
 		fmt.Println(divider)
 		fmt.Println("POLICY REPORT:")
 		fmt.Println(divider)
-		report, _ := generateCLIRaw(resps)
-		yamlReport, _ := yaml1.Marshal(report)
+		report := mergeClusterReport(clustered, namespaced)
+		yamlReport, _ := yaml.Marshal(report)
 		fmt.Println(string(yamlReport))
 	} else {
 		fmt.Println(divider)

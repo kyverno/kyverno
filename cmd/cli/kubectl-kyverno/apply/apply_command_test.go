@@ -212,15 +212,15 @@ func Test_Apply(t *testing.T) {
 		},
 	}
 
-	compareSummary := func(expected preport.PolicyReportSummary, actual map[string]interface{}, desc string) {
-		assert.Equal(t, actual[preport.StatusPass].(int64), int64(expected.Pass), desc)
-		assert.Equal(t, actual[preport.StatusFail].(int64), int64(expected.Fail), desc)
-		assert.Equal(t, actual[preport.StatusSkip].(int64), int64(expected.Skip), desc)
-		assert.Equal(t, actual[preport.StatusWarn].(int64), int64(expected.Warn), desc)
-		assert.Equal(t, actual[preport.StatusError].(int64), int64(expected.Error), desc)
+	compareSummary := func(expected preport.PolicyReportSummary, actual preport.PolicyReportSummary, desc string) {
+		assert.Equal(t, int64(actual.Pass), int64(expected.Pass), desc)
+		assert.Equal(t, int64(actual.Fail), int64(expected.Fail), desc)
+		assert.Equal(t, int64(actual.Skip), int64(expected.Skip), desc)
+		assert.Equal(t, int64(actual.Warn), int64(expected.Warn), desc)
+		assert.Equal(t, int64(actual.Error), int64(expected.Error), desc)
 	}
 
-	verifyTestcase := func(t *testing.T, tc *TestCase, compareSummary func(preport.PolicyReportSummary, map[string]interface{}, string)) {
+	verifyTestcase := func(t *testing.T, tc *TestCase, compareSummary func(preport.PolicyReportSummary, preport.PolicyReportSummary, string)) {
 		if tc.stdinFile != "" {
 			oldStdin := os.Stdin
 			input, err := os.OpenFile(tc.stdinFile, os.O_RDONLY, 0)
@@ -242,10 +242,10 @@ func Test_Apply(t *testing.T) {
 		_, _, _, info, err := tc.config.applyCommandHelper()
 		assert.NilError(t, err, desc)
 
-		resps := buildPolicyReports(tc.config.AuditWarn, info...)
-		assert.Assert(t, len(resps) > 0, "policy reports should not be empty: %s", desc)
-		for i, resp := range resps {
-			compareSummary(tc.expectedPolicyReports[i].Summary, resp.UnstructuredContent()["summary"].(map[string]interface{}), desc)
+		clustered, _ := buildPolicyReports(tc.config.AuditWarn, info...)
+		assert.Assert(t, len(clustered) > 0, "policy reports should not be empty: %s", desc)
+		for i, resp := range clustered {
+			compareSummary(tc.expectedPolicyReports[i].Summary, resp.Summary, desc)
 		}
 	}
 

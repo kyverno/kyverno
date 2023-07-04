@@ -8,7 +8,6 @@ import (
 	preport "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"gotest.tools/assert"
-	v1 "k8s.io/api/core/v1"
 )
 
 var rawPolicy = []byte(`
@@ -102,25 +101,15 @@ func Test_buildPolicyReports(t *testing.T) {
 		),
 	)
 
-	reports := buildPolicyReports(false, er)
-	assert.Assert(t, len(reports) == 1, len(reports))
-
-	for _, report := range reports {
-		if report.GetNamespace() == "" {
-			assert.Assert(t, report.GetName() == clusterpolicyreport)
-			assert.Assert(t, report.GetKind() == "ClusterPolicyReport")
-			assert.Assert(t, len(report.UnstructuredContent()["results"].([]interface{})) == 2)
-			assert.Assert(t,
-				report.UnstructuredContent()["summary"].(map[string]interface{})[preport.StatusPass].(int64) == 1,
-				report.UnstructuredContent()["summary"].(map[string]interface{})[preport.StatusPass].(int64))
-		} else {
-			assert.Assert(t, report.GetName() == "policyreport-ns-default")
-			assert.Assert(t, report.GetKind() == "PolicyReport")
-			assert.Assert(t, len(report.UnstructuredContent()["results"].([]interface{})) == 2)
-
-			summary := report.UnstructuredContent()["summary"].(map[string]interface{})
-			assert.Assert(t, summary[preport.StatusPass].(int64) == 1, summary[preport.StatusPass].(int64))
-		}
+	clustered, namespaced := buildPolicyReports(false, er)
+	assert.Assert(t, len(clustered) == 1, len(clustered))
+	assert.Assert(t, len(namespaced) == 0, len(namespaced))
+	{
+		report := clustered[0]
+		assert.Assert(t, report.GetName() == clusterpolicyreport)
+		assert.Assert(t, report.Kind == "ClusterPolicyReport")
+		assert.Assert(t, len(report.Results) == 2)
+		assert.Assert(t, report.Summary.Pass == 1, report.Summary.Pass)
 	}
 }
 
@@ -157,27 +146,4 @@ func Test_buildPolicyResults(t *testing.T) {
 			}
 		}
 	}
-}
-
-func Test_calculateSummary(t *testing.T) {
-	results := []preport.PolicyReportResult{
-		{
-			Resources: make([]v1.ObjectReference, 5),
-			Result:    preport.PolicyResult(preport.StatusPass),
-		},
-		{Result: preport.PolicyResult(preport.StatusFail)},
-		{Result: preport.PolicyResult(preport.StatusFail)},
-		{Result: preport.PolicyResult(preport.StatusFail)},
-		{
-			Resources: make([]v1.ObjectReference, 1),
-			Result:    preport.PolicyResult(preport.StatusPass)},
-		{
-			Resources: make([]v1.ObjectReference, 4),
-			Result:    preport.PolicyResult(preport.StatusPass),
-		},
-	}
-
-	summary := calculateSummary(results)
-	assert.Assert(t, summary.Pass == 3)
-	assert.Assert(t, summary.Fail == 3)
 }
