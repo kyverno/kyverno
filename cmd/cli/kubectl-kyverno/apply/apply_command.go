@@ -32,6 +32,8 @@ import (
 	yaml1 "sigs.k8s.io/yaml"
 )
 
+const divider = "----------------------------------------------------------------------"
+
 type SkippedInvalidPolicies struct {
 	skipped []string
 	invalid []string
@@ -85,42 +87,42 @@ To apply policy with variables:
         Format of value.yaml:
 
         policies:
-            - name: <policy1 name>
-              rules:
+          - name: <policy1 name>
+            rules:
               - name: <rule1 name>
                 values:
                   <context variable1 in policy1 rule1>: <value>
                   <context variable2 in policy1 rule1>: <value>
-              - name: <rule2 name>
+          - name: <rule2 name>
+            values:
+              <context variable1 in policy1 rule2>: <value>
+              <context variable2 in policy1 rule2>: <value>
+            resources:
+              - name: <resource1 name>
                 values:
-                  <context variable1 in policy1 rule2>: <value>
-                  <context variable2 in policy1 rule2>: <value>
-                resources:
-                - name: <resource1 name>
-                    values:
-                        <variable1 in policy1>: <value>
-                        <variable2 in policy1>: <value>
-                - name: <resource2 name>
-                    values:
-                        <variable1 in policy1>: <value>
-                        <variable2 in policy1>: <value>
-            - name: <policy2 name>
-                resources:
-                - name: <resource1 name>
-                    values:
-                        <variable1 in policy2>: <value>
-                        <variable2 in policy2>: <value>
-                - name: <resource2 name>
-                    values:
-                        <variable1 in policy2>: <value>
-                        <variable2 in policy2>: <value>
+                  <variable1 in policy1>: <value>
+                  <variable2 in policy1>: <value>
+              - name: <resource2 name>
+                values:
+                  <variable1 in policy1>: <value>
+                  <variable2 in policy1>: <value>
+          - name: <policy2 name>
+            resources:
+              - name: <resource1 name>
+                values:
+                  <variable1 in policy2>: <value>
+                  <variable2 in policy2>: <value>
+              - name: <resource2 name>
+                values:
+                  <variable1 in policy2>: <value>
+                  <variable2 in policy2>: <value>
         namespaceSelector:
-            - name: <namespace1 name>
+          - name: <namespace1 name>
             labels:
-                <label key>: <label value>
-            - name: <namespace2 name>
+              <label key>: <label value>
+          - name: <namespace2 name>
             labels:
-                <label key>: <label value>
+              <label key>: <label value>
         # If policy is matching on Kind/Subresource, then this is required
         subresources:
           - subresource:
@@ -158,11 +160,17 @@ func Command() *cobra.Command {
 				}
 			}()
 			applyCommandConfig.PolicyPaths = policyPaths
-			rc, resources, skipInvalidPolicies, pvInfos, err := applyCommandConfig.applyCommandHelper()
+			rc, _, skipInvalidPolicies, responses, err := applyCommandConfig.applyCommandHelper()
 			if err != nil {
 				return err
 			}
-			PrintReportOrViolation(applyCommandConfig.PolicyReport, rc, applyCommandConfig.ResourcePaths, len(resources), skipInvalidPolicies, applyCommandConfig.Stdin, pvInfos, applyCommandConfig.warnExitCode, applyCommandConfig.warnNoPassed, applyCommandConfig.AuditWarn)
+			printSkippedAndInvalidPolicies(skipInvalidPolicies)
+			if applyCommandConfig.PolicyReport {
+				printReport(responses, applyCommandConfig.AuditWarn)
+			} else {
+				printViolations(rc)
+			}
+			exit(rc, applyCommandConfig.warnExitCode, applyCommandConfig.warnNoPassed)
 			return nil
 		},
 	}
@@ -201,14 +209,34 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 	if len(c.ResourcePaths) == 0 && !c.Cluster {
 		return nil, nil, skipInvalidPolicies, nil, sanitizederror.New("resource file(s) or cluster required")
 	}
-
-	store.SetLocal(true)
-	store.SetRegistryAccess(c.RegistryAccess)
-	if c.Cluster {
-		store.AllowApiCall(true)
+	mutateLogPathIsDir, err := checkMutateLogPath(c.MutateLogPath)
+	if err != nil {
+		if !sanitizederror.IsErrorSanitized(err) {
+			return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("failed to create file/folder", err)
+		}
+		return nil, nil, skipInvalidPolicies, nil, err
 	}
-	fs := memfs.New()
-
+	// empty the previous contents of the file just in case if the file already existed before with some content(so as to perform overwrites)
+	// the truncation of files for the case when mutateLogPath is dir, is handled under pkg/kyverno/apply/common.go
+	if !mutateLogPathIsDir && c.MutateLogPath != "" {
+		c.MutateLogPath = filepath.Clean(c.MutateLogPath)
+		// Necessary for us to include the file via variable as it is part of the CLI.
+		_, err := os.OpenFile(c.MutateLogPath, os.O_TRUNC|os.O_WRONLY, 0o600) // #nosec G304
+		if err != nil {
+			if !sanitizederror.IsErrorSanitized(err) {
+				return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("failed to truncate the existing file at "+c.MutateLogPath, err)
+			}
+			return nil, nil, skipInvalidPolicies, nil, err
+		}
+	}
+	var userInfo v1beta1.RequestInfo
+	if c.UserInfoPath != "" {
+		userInfo, err = common.GetUserInfoFromPath(nil, c.UserInfoPath, false, "")
+		if err != nil {
+			fmt.Printf("Error: failed to load request info\nCause: %s\n", err)
+			osExit(1)
+		}
+	}
 	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(c.Variables, c.ValuesFile, nil, false, "")
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
@@ -216,12 +244,17 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 		}
 		return nil, nil, skipInvalidPolicies, nil, err
 	}
-
 	openApiManager, err := openapi.NewManager(log.Log)
 	if err != nil {
 		return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("failed to initialize openAPIController", err)
 	}
-
+	// init store
+	store.SetLocal(true)
+	store.SetRegistryAccess(c.RegistryAccess)
+	if c.Cluster {
+		store.AllowApiCall(true)
+	}
+	// init cluster client
 	var dClient dclient.Interface
 	if c.Cluster {
 		restConfig, err := config.CreateClientConfigWithContext(c.KubeConfig, c.Context)
@@ -241,7 +274,8 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 			return nil, nil, skipInvalidPolicies, nil, err
 		}
 	}
-
+	// load policies
+	fs := memfs.New()
 	var policies []kyvernov1.PolicyInterface
 	var validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy
 
@@ -283,89 +317,26 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
 		osExit(1)
 	}
-
-	mutateLogPathIsDir, err := checkMutateLogPath(c.MutateLogPath)
-	if err != nil {
-		if !sanitizederror.IsErrorSanitized(err) {
-			return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("failed to create file/folder", err)
-		}
-		return nil, nil, skipInvalidPolicies, nil, err
-	}
-
-	// empty the previous contents of the file just in case if the file already existed before with some content(so as to perform overwrites)
-	// the truncation of files for the case when mutateLogPath is dir, is handled under pkg/kyverno/apply/common.go
-	if !mutateLogPathIsDir && c.MutateLogPath != "" {
-		c.MutateLogPath = filepath.Clean(c.MutateLogPath)
-		// Necessary for us to include the file via variable as it is part of the CLI.
-		_, err := os.OpenFile(c.MutateLogPath, os.O_TRUNC|os.O_WRONLY, 0o600) // #nosec G304
-		if err != nil {
-			if !sanitizederror.IsErrorSanitized(err) {
-				return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("failed to truncate the existing file at "+c.MutateLogPath, err)
-			}
-			return nil, nil, skipInvalidPolicies, nil, err
-		}
-	}
-
-	err = common.PrintMutatedPolicy(policies)
-	if err != nil {
-		return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("failed to marshal mutated policy", err)
-	}
-
-	resources, err := common.GetResourceAccordingToResourcePath(fs, c.ResourcePaths, c.Cluster, policies, validatingAdmissionPolicies, dClient, c.Namespace, c.PolicyReport, false, "")
+	// load resources
+	resources, err := common.GetResourceAccordingToResourcePath(nil, c.ResourcePaths, c.Cluster, policies, validatingAdmissionPolicies, dClient, c.Namespace, c.PolicyReport, false, "")
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
 		osExit(1)
 	}
-
 	if (len(resources) > 1 || len(policies) > 1) && c.Variables != nil {
 		return nil, resources, skipInvalidPolicies, nil, sanitizederror.NewWithError("currently `set` flag supports variable for single policy applied on single resource ", nil)
 	}
-
-	// get the user info as request info from a different file
-	var userInfo v1beta1.RequestInfo
-	if c.UserInfoPath != "" {
-		userInfo, err = common.GetUserInfoFromPath(fs, c.UserInfoPath, false, "")
-		if err != nil {
-			fmt.Printf("Error: failed to load request info\nCause: %s\n", err)
-			osExit(1)
-		}
-	}
-
+	// init variables
 	if len(variables) != 0 {
 		variables = common.SetInStoreContext(policies, variables)
 	}
 
-	var policyRulesCount, mutatedPolicyRulesCount int
-	for _, policy := range policies {
-		policyRulesCount += len(policy.GetSpec().Rules)
-	}
-
-	for _, policy := range policies {
-		mutatedPolicyRulesCount += len(policy.GetSpec().Rules)
-	}
-
-	msgPolicyRules := "1 policy rule"
-	if policyRulesCount > 1 {
-		msgPolicyRules = fmt.Sprintf("%d policy rules", policyRulesCount)
-	}
-
-	if mutatedPolicyRulesCount > policyRulesCount {
-		msgPolicyRules = fmt.Sprintf("%d policy rules", mutatedPolicyRulesCount)
-	}
-
-	msgResources := "1 resource"
-	if len(resources) > 1 {
-		msgResources = fmt.Sprintf("%d resources", len(resources))
-	}
-
-	if len(policies) > 0 && len(resources) > 0 {
-		if !c.Stdin {
-			if mutatedPolicyRulesCount > policyRulesCount {
-				fmt.Printf("\nauto-generated pod policies\nApplying %s to %s...\n", msgPolicyRules, msgResources)
-			} else {
-				fmt.Printf("\nApplying %s to %s...\n", msgPolicyRules, msgResources)
-			}
+	if !c.Stdin {
+		var policyRulesCount int
+		for _, policy := range policies {
+			policyRulesCount += len(autogen.ComputeRules(policy))
 		}
+		fmt.Printf("\nApplying %d policy rule(s) to %d resource(s)...\n", policyRulesCount, len(resources))
 	}
 
 	var rc common.ResultCounts
@@ -494,32 +465,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 	return &rc, resources, skipInvalidPolicies, responses, nil
 }
 
-// checkMutateLogPath - checking path for printing mutated resource (-o flag)
-func checkMutateLogPath(mutateLogPath string) (mutateLogPathIsDir bool, err error) {
-	if mutateLogPath != "" {
-		spath := strings.Split(mutateLogPath, "/")
-		sfileName := strings.Split(spath[len(spath)-1], ".")
-		if sfileName[len(sfileName)-1] == "yml" || sfileName[len(sfileName)-1] == "yaml" {
-			mutateLogPathIsDir = false
-		} else {
-			mutateLogPathIsDir = true
-		}
-
-		err := createFileOrFolder(mutateLogPath, mutateLogPathIsDir)
-		if err != nil {
-			if !sanitizederror.IsErrorSanitized(err) {
-				return mutateLogPathIsDir, sanitizederror.NewWithError("failed to create file/folder.", err)
-			}
-			return mutateLogPathIsDir, err
-		}
-	}
-	return mutateLogPathIsDir, err
-}
-
-// PrintReportOrViolation - printing policy report/violations
-func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resourcePaths []string, resourcesLen int, skipInvalidPolicies SkippedInvalidPolicies, stdin bool, engineResponses []engineapi.EngineResponse, warnExitCode int, warnNoPassed bool, auditWarn bool) {
-	divider := "----------------------------------------------------------------------"
-
+func printSkippedAndInvalidPolicies(skipInvalidPolicies SkippedInvalidPolicies) {
 	if len(skipInvalidPolicies.skipped) > 0 {
 		fmt.Println(divider)
 		fmt.Println("Policies Skipped (as required variables are not provided by the user):")
@@ -536,26 +482,28 @@ func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resource
 		}
 		fmt.Println(divider)
 	}
+}
 
-	if policyReport {
-		resps := buildPolicyReports(auditWarn, engineResponses...)
-		if len(resps) > 0 || resourcesLen == 0 {
-			fmt.Println(divider)
-			fmt.Println("POLICY REPORT:")
-			fmt.Println(divider)
-			report, _ := generateCLIRaw(resps)
-			yamlReport, _ := yaml1.Marshal(report)
-			fmt.Println(string(yamlReport))
-		} else {
-			fmt.Println(divider)
-			fmt.Println("POLICY REPORT: skip generating policy report (no validate policy found/resource skipped)")
-		}
+func printReport(engineResponses []engineapi.EngineResponse, auditWarn bool) {
+	resps := buildPolicyReports(auditWarn, engineResponses...)
+	if len(resps) > 0 {
+		fmt.Println(divider)
+		fmt.Println("POLICY REPORT:")
+		fmt.Println(divider)
+		report, _ := generateCLIRaw(resps)
+		yamlReport, _ := yaml1.Marshal(report)
+		fmt.Println(string(yamlReport))
 	} else {
-		if !stdin {
-			fmt.Printf("\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n", rc.Pass, rc.Fail, rc.Warn, rc.Error, rc.Skip)
-		}
+		fmt.Println(divider)
+		fmt.Println("POLICY REPORT: skip generating policy report (no validate policy found/resource skipped)")
 	}
+}
 
+func printViolations(rc *common.ResultCounts) {
+	fmt.Printf("\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n", rc.Pass, rc.Fail, rc.Warn, rc.Error, rc.Skip)
+}
+
+func exit(rc *common.ResultCounts, warnExitCode int, warnNoPassed bool) {
 	if rc.Fail > 0 || rc.Error > 0 {
 		osExit(1)
 	} else if rc.Warn > 0 && warnExitCode != 0 {
@@ -563,51 +511,4 @@ func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resource
 	} else if rc.Pass == 0 && warnNoPassed {
 		osExit(warnExitCode)
 	}
-}
-
-// createFileOrFolder - creating file or folder according to path provided
-func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
-	mutateLogPath = filepath.Clean(mutateLogPath)
-	_, err := os.Stat(mutateLogPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			if !mutateLogPathIsDir {
-				// check the folder existence, then create the file
-				var folderPath string
-				s := strings.Split(mutateLogPath, "/")
-
-				if len(s) > 1 {
-					folderPath = mutateLogPath[:len(mutateLogPath)-len(s[len(s)-1])-1]
-					_, err := os.Stat(folderPath)
-					if os.IsNotExist(err) {
-						errDir := os.MkdirAll(folderPath, 0o750)
-						if errDir != nil {
-							return sanitizederror.NewWithError("failed to create directory", err)
-						}
-					}
-				}
-
-				mutateLogPath = filepath.Clean(mutateLogPath)
-				// Necessary for us to create the file via variable as it is part of the CLI.
-				file, err := os.OpenFile(mutateLogPath, os.O_RDONLY|os.O_CREATE, 0o600) // #nosec G304
-				if err != nil {
-					return sanitizederror.NewWithError("failed to create file", err)
-				}
-
-				err = file.Close()
-				if err != nil {
-					return sanitizederror.NewWithError("failed to close file", err)
-				}
-			} else {
-				errDir := os.MkdirAll(mutateLogPath, 0o750)
-				if errDir != nil {
-					return sanitizederror.NewWithError("failed to create directory", err)
-				}
-			}
-		} else {
-			return sanitizederror.NewWithError("failed to describe file", err)
-		}
-	}
-
-	return nil
 }

@@ -651,17 +651,6 @@ func processMutateEngineResponse(c ApplyPolicyConfig, mutateResponse *engineapi.
 	return nil
 }
 
-func PrintMutatedPolicy(mutatedPolicies []kyvernov1.PolicyInterface) error {
-	for _, policy := range mutatedPolicies {
-		p, err := json.Marshal(policy)
-		if err != nil {
-			return sanitizederror.NewWithError("failed to marsal mutated policy", err)
-		}
-		log.V(5).Info("mutated Policy:", string(p))
-	}
-	return nil
-}
-
 func CheckVariableForPolicy(valuesMap map[string]map[string]values.Resource, globalValMap map[string]string, policyName string, resourceName string, resourceKind string, variables map[string]string, kindOnwhichPolicyIsApplied map[string]struct{}, variable string) (map[string]interface{}, error) {
 	// get values from file for this policy resource combination
 	thisPolicyResourceValues := make(map[string]interface{})

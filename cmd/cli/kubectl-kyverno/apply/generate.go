@@ -7,7 +7,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// generateCLIRaw merges all policy reports to a singe cluster policy report
+// generateCLIRaw merges all policy reports to a single cluster policy report
 func generateCLIRaw(reports []*unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	for _, report := range reports {
 		if report.GetNamespace() != "" {

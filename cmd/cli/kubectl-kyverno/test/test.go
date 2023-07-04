@@ -166,11 +166,6 @@ func applyPoliciesFromPath(
 	}
 	policies = filteredPolicies
 
-	err = common.PrintMutatedPolicy(policies)
-	if err != nil {
-		return nil, nil, sanitizederror.NewWithError("failed to print mutated policy", err)
-	}
-
 	resources, err := common.GetResourceAccordingToResourcePath(fs, resourceFullPath, false, policies, validatingAdmissionPolicies, dClient, "", false, isGit, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
