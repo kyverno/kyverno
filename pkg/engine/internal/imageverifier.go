@@ -76,13 +76,11 @@ func HasImageVerifiedAnnotationChanged(ctx engineapi.PolicyContext, log logr.Log
 
 	var objMap map[string]interface{}
 
-	// Unmarshal the JSON string into the map
 	err := json.Unmarshal([]byte(newValue), &objMap)
 	if err != nil {
 		fmt.Println("Error:", err)
 	}
 
-	// Loop over the map keys and print the key-value pairs
 	for key, _ := range objMap {
 		isChanged, _ := resource_ctx.HasChanged(key)
 		if isChanged {
