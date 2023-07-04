@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	notationregistry "github.com/notaryproject/notation-go/registry"
@@ -18,13 +17,15 @@ var (
 )
 
 func TestResolve(t *testing.T) {
-	repoDesc, err := crane.Head(imageRef)
+	nameRef, err := name.ParseReference(imageRef)
+	assert.NilError(t, err)
+	repoDesc, err := remote.Head(nameRef)
 	assert.NilError(t, err)
 
 	ref, err := name.ParseReference(imageRef)
 	assert.NilError(t, err)
 
-	repositoryClient := NewRepository(nil, nil, ref)
+	repositoryClient := NewRepository(nil, ref)
 
 	desc, err := repositoryClient.Resolve(ctx, repoDesc.Digest.String())
 	assert.NilError(t, err)
@@ -33,7 +34,9 @@ func TestResolve(t *testing.T) {
 }
 
 func TestListSignatures(t *testing.T) {
-	repoDesc, err := crane.Head(imageRef)
+	nameRef, err := name.ParseReference(imageRef)
+	assert.NilError(t, err)
+	repoDesc, err := remote.Head(nameRef)
 	assert.NilError(t, err)
 
 	ociDesc := v1ToOciSpecDescriptor(*repoDesc)
@@ -42,7 +45,7 @@ func TestListSignatures(t *testing.T) {
 	ref, err := name.ParseReference(imageRef)
 	assert.NilError(t, err)
 
-	repositoryClient := NewRepository(nil, nil, ref)
+	repositoryClient := NewRepository(nil, ref)
 	fn := func(_ []ocispec.Descriptor) error {
 		return nil
 	}
@@ -52,7 +55,9 @@ func TestListSignatures(t *testing.T) {
 }
 
 func TestFetchSignatureBlob(t *testing.T) {
-	repoDesc, err := crane.Head(imageRef)
+	nameRef, err := name.ParseReference(imageRef)
+	assert.NilError(t, err)
+	repoDesc, err := remote.Head(nameRef)
 	assert.NilError(t, err)
 
 	ociDesc := v1ToOciSpecDescriptor(*repoDesc)
@@ -61,7 +66,7 @@ func TestFetchSignatureBlob(t *testing.T) {
 	ref, err := name.ParseReference(imageRef)
 	assert.NilError(t, err)
 
-	repositoryClient := NewRepository(nil, nil, ref)
+	repositoryClient := NewRepository(nil, ref)
 
 	referrers, err := remote.Referrers(ref.Context().Digest(ociDesc.Digest.String()))
 	assert.NilError(t, err)
