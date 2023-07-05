@@ -9,32 +9,32 @@ import (
 )
 
 var (
-	boldGreen     *color.Color
-	boldRed       *color.Color
-	boldYellow    *color.Color
-	boldFgCyan    *color.Color
+	BoldGreen     *color.Color
+	BoldRed       *color.Color
+	BoldYellow    *color.Color
+	BoldFgCyan    *color.Color
 	headerBgColor int
 	headerFgColor int
 )
 
-func initColors(noColor bool) {
+func InitColors(noColor bool) {
 	toggleColor := func(c *color.Color) *color.Color {
 		if noColor {
 			c.DisableColor()
 		}
 		return c
 	}
-	boldGreen = toggleColor(color.New(color.FgGreen).Add(color.Bold))
-	boldRed = toggleColor(color.New(color.FgRed).Add(color.Bold))
-	boldYellow = toggleColor(color.New(color.FgYellow).Add(color.Bold))
-	boldFgCyan = toggleColor(color.New(color.FgCyan).Add(color.Bold))
+	BoldGreen = toggleColor(color.New(color.FgGreen).Add(color.Bold))
+	BoldRed = toggleColor(color.New(color.FgRed).Add(color.Bold))
+	BoldYellow = toggleColor(color.New(color.FgYellow).Add(color.Bold))
+	BoldFgCyan = toggleColor(color.New(color.FgCyan).Add(color.Bold))
 	if !noColor {
 		headerBgColor = tablewriter.BgBlackColor
 		headerFgColor = tablewriter.FgGreenColor
 	}
 }
 
-func newTablePrinter() *tableprinter.Printer {
+func NewTablePrinter() *tableprinter.Printer {
 	printer := tableprinter.New(os.Stdout)
 	printer.BorderTop, printer.BorderBottom, printer.BorderLeft, printer.BorderRight = true, true, true, true
 	printer.CenterSeparator = "│"
