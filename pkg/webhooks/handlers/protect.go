@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -39,7 +39,7 @@ func (inner AdmissionHandler) withProtection() AdmissionHandler {
 		}
 		for _, resource := range []unstructured.Unstructured{newResource, oldResource} {
 			resLabels := resource.GetLabels()
-			if resLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp {
+			if resLabels[kyverno.LabelAppManagedBy] == kyverno.ValueKyvernoApp {
 				if !strings.HasPrefix(request.UserInfo.Username, kyvernoUsernamePrefix) {
 					logger.V(2).Info("access to the resource not authorized, this is a kyverno managed resource and should be altered only by kyverno")
 					return admissionutils.Response(request.UID, errors.New("A kyverno managed resource can only be modified by kyverno"))
