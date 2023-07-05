@@ -60,11 +60,9 @@ func HasImageVerifiedAnnotationChanged(ctx engineapi.PolicyContext, log logr.Log
 	}
 	newValue := newResource.GetAnnotations()[engineapi.ImageVerifyAnnotationKey]
 	oldValue := oldResource.GetAnnotations()[engineapi.ImageVerifyAnnotationKey]
-
 	var newValueObj, oldValueObj map[string]bool
 	json.Unmarshal([]byte(newValue), &newValueObj)
 	json.Unmarshal([]byte(oldValue), &oldValueObj)
-
 	for img, _ := range oldValueObj {
 		_, found := newValueObj[img]
 		if found {
