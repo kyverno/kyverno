@@ -10,7 +10,13 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 )
 
-func acrAuthenticator(r authn.Resource) (authn.Authenticator, error) {
+const acrHostname = "mcr.microsoft.com"
+
+var ACRKeychain authn.Keychain = acrKeychain{}
+
+type acrKeychain struct{}
+
+func (acr acrKeychain) Resolve(r authn.Resource) (authn.Authenticator, error) {
 	if !isACRRegistry(r.RegistryStr()) {
 		return authn.Anonymous, nil
 	}
@@ -22,7 +28,7 @@ func acrAuthenticator(r authn.Resource) (authn.Authenticator, error) {
 	if err != nil {
 		return authn.Anonymous, nil
 	}
-	return authn.FromConfig(authn.AuthConfig{Username: tokenUsername, IdentityToken: tk.token}), nil
+	return authn.FromConfig(authn.AuthConfig{Username: tokenUsername, IdentityToken: tk.Token}), nil
 }
 
 func isACRRegistry(host string) bool {

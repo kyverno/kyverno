@@ -21,7 +21,11 @@ var GetGcloudCmd = func() *exec.Cmd {
 	return exec.Command("gcloud", "config", "config-helper", "--force-auth-refresh", "--format=json(credential)")
 }
 
-func gcrAuthenticator(r authn.Resource) (authn.Authenticator, error) {
+var GCRKeychain authn.Keychain = &gcrKeychain{}
+
+type gcrKeychain struct{}
+
+func (gcr gcrKeychain) Resolve(r authn.Resource) (authn.Authenticator, error) {
 
 	if !isGoogle(r.RegistryStr()) {
 		return authn.Anonymous, nil

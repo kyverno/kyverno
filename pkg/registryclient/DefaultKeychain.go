@@ -1,6 +1,7 @@
 package registryclient
 
 import (
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -12,7 +13,20 @@ import (
 	"github.com/mitchellh/go-homedir"
 )
 
-func defaultAuthenticator(r authn.Resource) (authn.Authenticator, error) {
+const (
+	DefaultAuthKey  = "https://" + name.DefaultRegistry + "/v1/"
+	defaultHostname = "docker.io"
+)
+
+var DefaultKeychain authn.Keychain = &defaultKeychain{}
+
+type defaultKeychain struct{}
+
+func (def defaultKeychain) Resolve(r authn.Resource) (authn.Authenticator, error) {
+	if !isDefaultRegistry(r) {
+		return authn.Anonymous, nil
+	}
+
 	foundDockerConfig := false
 	home, err := homedir.Dir()
 	if err == nil {
@@ -71,4 +85,18 @@ func defaultAuthenticator(r authn.Resource) (authn.Authenticator, error) {
 		IdentityToken: cfg.IdentityToken,
 		RegistryToken: cfg.RegistryToken,
 	}), nil
+}
+
+// checks if file exist on the given path
+func fileExists(path string) bool {
+	fi, err := os.Stat(path)
+	return err == nil && !fi.IsDir()
+}
+
+func isDefaultRegistry(r authn.Resource) bool {
+	serverURL, err := url.Parse("https://" + r.String())
+	if err != nil {
+		return false
+	}
+	return serverURL.Hostname() == defaultHostname
 }
