@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -17,20 +16,22 @@ import (
 
 type repositoryClient struct {
 	ref        name.Reference
-	craneOpts  crane.Option
 	remoteOpts []remote.Option
 }
 
-func NewRepository(craneOpts crane.Option, remoteOpts []remote.Option, ref name.Reference) notationregistry.Repository {
+func NewRepository(remoteOpts []remote.Option, ref name.Reference) notationregistry.Repository {
 	return &repositoryClient{
-		craneOpts:  craneOpts,
 		remoteOpts: remoteOpts,
 		ref:        ref,
 	}
 }
 
 func (c *repositoryClient) Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error) {
-	head, err := crane.Head(c.getReferenceFromDigest(reference))
+	nameRef, err := name.ParseReference(c.getReferenceFromDigest(reference))
+	if err != nil {
+		return ocispec.Descriptor{}, nil
+	}
+	head, err := remote.Head(nameRef)
 	if err != nil {
 		return ocispec.Descriptor{}, nil
 	}
@@ -60,9 +61,16 @@ func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Desc
 }
 
 func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.Descriptor) ([]byte, ocispec.Descriptor, error) {
-	manifestRef := c.getReferenceFromDescriptor(desc)
+	manifestRef, err := name.ParseReference(c.getReferenceFromDescriptor(desc))
+	if err != nil {
+		return nil, ocispec.Descriptor{}, err
+	}
 
-	manifestBytes, err := crane.Manifest(manifestRef)
+	remoteDesc, err := remote.Get(manifestRef)
+	if err != nil {
+		return nil, ocispec.Descriptor{}, err
+	}
+	manifestBytes, err := remoteDesc.RawManifest()
 	if err != nil {
 		return nil, ocispec.Descriptor{}, err
 	}
@@ -73,22 +81,25 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 	}
 	manifestDesc := manifest.Layers[0]
 
-	signatureBlobRef := c.getReferenceFromDescriptor(manifestDesc)
-
-	signatureBlobLayer, err := crane.PullLayer(signatureBlobRef)
+	signatureBlobRef, err := name.ParseReference(c.getReferenceFromDescriptor(manifestDesc))
 	if err != nil {
-		panic(err)
+		return nil, ocispec.Descriptor{}, err
+	}
+
+	signatureBlobLayer, err := remote.Layer(signatureBlobRef.Context().Digest(signatureBlobRef.Identifier()))
+	if err != nil {
+		return nil, ocispec.Descriptor{}, err
 	}
 
 	io, err := signatureBlobLayer.Uncompressed()
 	if err != nil {
-		panic(err)
+		return nil, ocispec.Descriptor{}, err
 	}
 	SigBlobBuf := new(bytes.Buffer)
 
 	_, err = SigBlobBuf.ReadFrom(io)
 	if err != nil {
-		panic(err)
+		return nil, ocispec.Descriptor{}, err
 	}
 	return SigBlobBuf.Bytes(), manifestDesc, nil
 }

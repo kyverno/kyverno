@@ -43,7 +43,6 @@ func applyPoliciesFromPath(
 	engineResponses := make([]engineapi.EngineResponse, 0)
 	var dClient dclient.Interface
 	values := &api.Test{}
-	var variablesString string
 	var resultCounts common.ResultCounts
 
 	store.SetLocal(true)
@@ -67,7 +66,7 @@ func applyPoliciesFromPath(
 	valuesFile := values.Variables
 	userInfoFile := values.UserInfo
 
-	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(variablesString, values.Variables, fs, isGit, policyResourcePath)
+	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(nil, values.Variables, fs, isGit, policyResourcePath)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return nil, nil, sanitizederror.NewWithError("failed to decode yaml", err)
@@ -166,11 +165,6 @@ func applyPoliciesFromPath(
 		p.GetSpec().SetRules(filteredRules)
 	}
 	policies = filteredPolicies
-
-	err = common.PrintMutatedPolicy(policies)
-	if err != nil {
-		return nil, nil, sanitizederror.NewWithError("failed to print mutated policy", err)
-	}
 
 	resources, err := common.GetResourceAccordingToResourcePath(fs, resourceFullPath, false, policies, validatingAdmissionPolicies, dClient, "", false, isGit, policyResourcePath)
 	if err != nil {

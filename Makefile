@@ -5,10 +5,9 @@
 ############
 
 GIT_SHA              := $(shell git rev-parse HEAD)
-TIMESTAMP            := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 REGISTRY             ?= ghcr.io
 REPO                 ?= kyverno
-KIND_IMAGE           ?= kindest/node:v1.26.3
+KIND_IMAGE           ?= kindest/node:v1.26.6
 KIND_NAME            ?= kind
 GOOS                 ?= $(shell go env GOOS)
 GOARCH               ?= $(shell go env GOARCH)
@@ -34,7 +33,7 @@ USE_CONFIG           ?= standard
 
 TOOLS_DIR                          := $(PWD)/.tools
 KIND                               := $(TOOLS_DIR)/kind
-KIND_VERSION                       := v0.17.0
+KIND_VERSION                       := v0.20.0
 CONTROLLER_GEN                     := $(TOOLS_DIR)/controller-gen
 CONTROLLER_GEN_VERSION             := v0.12.0
 CLIENT_GEN                         := $(TOOLS_DIR)/client-gen
@@ -53,7 +52,7 @@ HELM_VERSION                       := v3.10.1
 HELM_DOCS                          := $(TOOLS_DIR)/helm-docs
 HELM_DOCS_VERSION                  := v1.11.0
 KO                                 := $(TOOLS_DIR)/ko
-KO_VERSION                         := main #e93dbee8540f28c45ec9a2b8aec5ef8e43123966
+KO_VERSION                         := v0.14.1
 KUTTL                              := $(TOOLS_DIR)/kubectl-kuttl
 KUTTL_VERSION                      := v0.0.0-20230126200340-834a4dac1ec7
 TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(KUTTL)
@@ -144,9 +143,9 @@ BACKGROUND_BIN := $(BACKGROUND_DIR)/background-controller
 PACKAGE        ?= github.com/kyverno/kyverno
 CGO_ENABLED    ?= 0
 ifdef VERSION
-LD_FLAGS       := "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_SHA) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
+LD_FLAGS       := "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(VERSION)"
 else
-LD_FLAGS       := "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_SHA) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_SHA) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
+LD_FLAGS       := "-s -w"
 endif
 
 .PHONY: fmt

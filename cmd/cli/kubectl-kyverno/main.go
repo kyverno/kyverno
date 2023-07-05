@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const EnableExperimentalEnv = "KYVERNO_EXPERIMENTAL"
+const enableExperimentalEnv = "KYVERNO_EXPERIMENTAL"
 
 func main() {
 	cli := &cobra.Command{
@@ -41,7 +41,7 @@ func configureLogs(cli *cobra.Command) {
 }
 
 func enableExperimental() bool {
-	if b, err := strconv.ParseBool(os.Getenv(EnableExperimentalEnv)); err == nil {
+	if b, err := strconv.ParseBool(os.Getenv(enableExperimentalEnv)); err == nil {
 		return b
 	}
 	return false
