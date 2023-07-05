@@ -30,17 +30,14 @@ func (gcr gcrKeychain) Resolve(r authn.Resource) (authn.Authenticator, error) {
 	if !isGoogle(r.RegistryStr()) {
 		return authn.Anonymous, nil
 	}
-
 	auth_env, err := NewEnvAuthenticator()
 	if err == nil && auth_env != authn.Anonymous {
 		return auth_env, nil
 	}
-
 	auth_gc, err := NewGcloudAuthenticator()
 	if err == nil && auth_gc != authn.Anonymous {
 		return auth_gc, nil
 	}
-
 	logs.Debug.Println("Failed to get any Google credentials, falling back to Anonymous")
 	return authn.Anonymous, nil
 }
@@ -52,12 +49,10 @@ func NewEnvAuthenticator() (authn.Authenticator, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	token, err := ts.Token()
 	if err != nil {
 		return nil, err
 	}
-
 	return &tokenSourceAuth{oauth2.ReuseTokenSource(token, ts)}, nil
 }
 
@@ -68,15 +63,12 @@ func NewGcloudAuthenticator() (authn.Authenticator, error) {
 		logs.Warn.Println("gcloud binary not found")
 		return authn.Anonymous, nil
 	}
-
 	ts := gcloudSource{GetGcloudCmd}
-
 	// Attempt to fetch a token to ensure gcloud is installed and we can run it.
 	token, err := ts.Token()
 	if err != nil {
 		return nil, err
 	}
-
 	return &tokenSourceAuth{oauth2.ReuseTokenSource(token, ts)}, nil
 }
 
@@ -90,7 +82,6 @@ func (tsa *tokenSourceAuth) Authorization() (*authn.AuthConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return &authn.AuthConfig{
 		Username: "_token",
 		Password: token.AccessToken,
@@ -114,7 +105,6 @@ func (gs gcloudSource) Token() (*oauth2.Token, error) {
 	cmd := gs.exec()
 	var out bytes.Buffer
 	cmd.Stdout = &out
-
 	cmd.Stderr = logs.Warn.Writer()
 
 	if err := cmd.Run(); err != nil {
@@ -135,7 +125,6 @@ func (gs gcloudSource) Token() (*oauth2.Token, error) {
 		AccessToken: creds.Credential.AccessToken,
 		Expiry:      expiry,
 	}
-
 	return &token, nil
 }
 

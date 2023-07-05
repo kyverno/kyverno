@@ -14,6 +14,9 @@ var GHCRKeychain authn.Keychain = &ghcrKeychain{}
 type ghcrKeychain struct{}
 
 func (ghcr ghcrKeychain) Resolve(r authn.Resource) (authn.Authenticator, error) {
+	if !isGHCRRegistry(r) {
+		return authn.Anonymous, nil
+	}
 	username := os.Getenv("GITHUB_ACTOR")
 	if username == "" {
 		username = "unset"

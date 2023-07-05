@@ -26,7 +26,6 @@ func (def defaultKeychain) Resolve(r authn.Resource) (authn.Authenticator, error
 	if !isDefaultRegistry(r) {
 		return authn.Anonymous, nil
 	}
-
 	foundDockerConfig := false
 	home, err := homedir.Dir()
 	if err == nil {

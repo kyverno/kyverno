@@ -10,7 +10,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 )
 
-const acrHostname = "mcr.microsoft.com"
+const tokenUsername = "<token>"
 
 var ACRKeychain authn.Keychain = acrKeychain{}
 
@@ -21,7 +21,6 @@ func (acr acrKeychain) Resolve(r authn.Resource) (authn.Authenticator, error) {
 		return authn.Anonymous, nil
 	}
 	cred_, err := azidentity.NewClientSecretCredential(os.Getenv("TENANT_ID"), os.Getenv("CLIENT_ID"), os.Getenv("SECRET"), nil)
-
 	tk, err := cred_.GetToken(
 		context.TODO(), policy.TokenRequestOptions{Scopes: []string{"https://vault.azure.net/.default"}},
 	)
