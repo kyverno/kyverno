@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/images"
@@ -16,7 +15,6 @@ import (
 
 type parsedReference struct {
 	Repo       notationregistry.Repository
-	CraneOpts  crane.Option
 	RemoteOpts []gcrremote.Option
 	Ref        name.Reference
 	Desc       ocispec.Descriptor
@@ -33,13 +31,12 @@ func parseReferenceCrane(ctx context.Context, ref string, registryClient images.
 		return nil, err
 	}
 
-	craneOpts := crane.WithAuth(*authenticator)
 	remoteOpts, err := getRemoteOpts(*authenticator)
 	if err != nil {
 		return nil, err
 	}
 
-	desc, err := crane.Head(ref, craneOpts)
+	desc, err := gcrremote.Head(nameRef, remoteOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -51,15 +48,14 @@ func parseReferenceCrane(ctx context.Context, ref string, registryClient images.
 		}
 	}
 
-	repository := NewRepository(craneOpts, remoteOpts, nameRef)
-	err = resolveDigestCrane(repository, craneOpts, remoteOpts, nameRef)
+	repository := NewRepository(remoteOpts, nameRef)
+	err = resolveDigestCrane(repository, remoteOpts, nameRef)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to resolve digest")
 	}
 
 	return &parsedReference{
 		Repo:       repository,
-		CraneOpts:  craneOpts,
 		RemoteOpts: remoteOpts,
 		Ref:        nameRef,
 		Desc:       v1ToOciSpecDescriptor(*desc),
@@ -124,7 +120,7 @@ func getRemoteOpts(authenticator authn.Authenticator) ([]gcrremote.Option, error
 	return remoteOpts, nil
 }
 
-func resolveDigestCrane(repo notationregistry.Repository, craneOpts crane.Option, remoteOpts []gcrremote.Option, ref name.Reference) error {
+func resolveDigestCrane(repo notationregistry.Repository, remoteOpts []gcrremote.Option, ref name.Reference) error {
 	_, err := repo.Resolve(context.Background(), ref.Name())
 	if err != nil {
 		return err

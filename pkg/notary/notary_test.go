@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"gotest.tools/assert"
@@ -14,7 +13,7 @@ func TestExtractStatements(t *testing.T) {
 	imageRef := "jimnotarytest.azurecr.io/jim/net-monitor:v1"
 	ref, err := name.ParseReference(imageRef)
 	assert.NilError(t, err)
-	repoDesc, err := crane.Head(imageRef)
+	repoDesc, err := remote.Head(ref)
 	assert.NilError(t, err)
 	referrers, err := remote.Referrers(ref.Context().Digest(repoDesc.Digest.String()))
 	assert.NilError(t, err)
@@ -23,7 +22,7 @@ func TestExtractStatements(t *testing.T) {
 
 	for _, referrer := range referrersDescs.Manifests {
 		if referrer.ArtifactType == "application/vnd.cncf.notary.signature" {
-			statements, err := extractStatements(context.Background(), ref, referrer)
+			statements, err := extractStatements(context.Background(), ref, referrer, nil)
 			assert.NilError(t, err)
 			assert.Assert(t, len(statements) == 1)
 			assert.Assert(t, statements[0]["type"] == referrer.ArtifactType)
