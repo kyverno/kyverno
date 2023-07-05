@@ -13,7 +13,7 @@ import (
 	"github.com/go-git/go-billy/v5/memfs"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
@@ -153,7 +153,7 @@ func Command() *cobra.Command {
 		Short:   "Applies policies on resources.",
 		Example: applyHelp,
 		RunE: func(cmd *cobra.Command, policyPaths []string) (err error) {
-			test.InitColors(removeColor)
+			color.InitColors(removeColor)
 			defer func() {
 				if err != nil {
 					if !sanitizederror.IsErrorSanitized(err) {

@@ -114,6 +114,19 @@ func NewOrDie(options ...Option) Client {
 	return c
 }
 
+type freshSecretsKeychain struct {
+	lister           corev1listers.SecretNamespaceLister
+	imagePullSecrets []string
+}
+
+func (kc *freshSecretsKeychain) Resolve(resource authn.Resource) (authn.Authenticator, error) {
+	inner, err := generateKeychainForPullSecrets(context.TODO(), kc.lister, kc.imagePullSecrets...)
+	if err != nil {
+		return nil, err
+	}
+	return inner.Resolve(resource)
+}
+
 // WithKeychainPullSecrets provides initialize registry client option that allows to use pull secrets.
 func WithKeychainPullSecrets(ctx context.Context, lister corev1listers.SecretNamespaceLister, imagePullSecrets ...string) Option {
 	return func(conf *config) error {
