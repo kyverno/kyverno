@@ -356,6 +356,7 @@ func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateRes
 						fmt.Printf("%d. %s: %s \n", i+1, valResponseRule.Name(), valResponseRule.Message())
 					}
 				case engineapi.RuleStatusError:
+					fmt.Printf("\npolicy %s -> resource %s error: %s\n", policy.GetName(), resPath, valResponseRule.Message())
 					rc.Error++
 				case engineapi.RuleStatusWarn:
 					rc.Warn++

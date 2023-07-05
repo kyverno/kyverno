@@ -59,7 +59,7 @@ require (
 	go.uber.org/zap v1.24.0
 	golang.org/x/crypto v0.10.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
-	golang.org/x/text v0.10.0
+	golang.org/x/text v0.11.0
 	gomodules.xyz/jsonpatch/v2 v2.3.0
 	google.golang.org/grpc v1.56.1
 	gopkg.in/inf.v0 v0.9.1
