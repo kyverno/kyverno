@@ -4396,6 +4396,40 @@ entries:
       artifacthub.io/operator: "false"
       artifacthub.io/prerelease: "false"
     apiVersion: v2
+    appVersion: v1.10.1
+    created: "2023-07-06T07:08:00.299816774Z"
+    description: Kubernetes Pod Security Standards implemented as Kyverno policies
+    digest: 47f3cd40b43a0e231e4f470a78373f4beb1ed6261635c6406d18af165ae55338
+    home: https://kyverno.io/policies/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.16.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno-policies
+    sources:
+    - https://github.com/kyverno/policies
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-policies-3.0.1.tgz
+    version: 3.0.1
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: added
+          description: Add ability to configure autogen behavior
+        - kind: fixed
+          description: Support for customLabels, they were ignored up to now
+        - kind: removed
+          description: "Walk back change in PSS policy to send to to_upper"
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
     appVersion: v1.10.1-rc.1
     created: "2023-06-29T06:20:36.840688452Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
@@ -7150,4 +7184,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2023-06-29T06:22:08.449569328Z"
+generated: "2023-07-06T07:08:00.298836567Z"
