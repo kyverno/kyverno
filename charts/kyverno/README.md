@@ -113,7 +113,7 @@ spec:
 
 Direct upgrades from v2 of the Helm chart to v3 are not supported due to the number of breaking changes and manual intervention is required. Review and select an option after carefully reading below. Because either method requires down time, an upgrade should only be performed during a maintenance window. Regardless of the chosen option, please read all release notes very carefully to understand the full extent of changes brought by Kyverno 1.10. Release notes can be found at https://github.com/kyverno/kyverno/releases.
 
-**IMPORTANT NOTE**: If you currently use [clone-type](https://kyverno.io/docs/writing-policies/generate/#clone-source) generate rules with synchronization enabled, please do not upgrade to 1.10.0 as there is a bug which may prevent synchronization from occurring on all downstream (generated) resources when the source is updated. Please wait for a future patch where this should be resolved. See [issue 7170](https://github.com/kyverno/kyverno/issues/7170) for further details.
+**IMPORTANT NOTE**: If you currently use [clone-type](https://kyverno.io/docs/writing-policies/generate/#clone-source) generate rules with synchronization enabled, the first supported version of 1.10 to which you may upgrade/migrate is 1.10.1. Do not attempt to upgrade or migrate from earlier versions to 1.10.0.
 
 ### Option 1 - Uninstallation and Reinstallation
 
@@ -133,7 +133,7 @@ Follow the procedure below.
 
 1. READ THE COMPLETE RELEASE NOTES FIRST
 2. Backup and export all Kyverno policy resources to a YAML manifest. Use the command `kubectl get pol,cpol,cleanpol,ccleanpol,polex -A -o yaml > kyvernobackup.yaml`.
-   1. Before performing this step, if you use [data-type](https://kyverno.io/docs/writing-policies/generate/#data-source) generate rules with synchronization enabled (`generate.synchronize: true`) disable synchronization first (set `generate.synchronize: false`). If you do not perform this step first, uninstallation of Kyverno in the subsequent step, which removes all policies, will result in deletion of generated resources.
+   1. Before performing this step, if you use generate rules with synchronization enabled (`generate.synchronize: true`) disable synchronization first (set `generate.synchronize: false`). If you do not perform this step first, uninstallation of Kyverno in the subsequent step, which removes all policies, will result in deletion of generated resources.
 3. Uninstall your current version of Kyverno.
 4. Review the [New Chart Values](#new-chart-values) section and translate your desired features and configurations to the new format.
 5. Install the v3 chart with Kyverno 1.10.
@@ -162,7 +162,7 @@ Follow the procedure below.
 4. If step 3 applied to you, now delete the cleanup Deployment.
 5. Review the [New Chart Values](#new-chart-values) section and translate your desired features and configurations to the new format.
 6. Upgrade to the v3 chart by passing the mandatory flag `upgrade.fromV2=true`.
-7. If you use [data-type](https://kyverno.io/docs/writing-policies/generate/#data-source) generate rules with synchronization enabled (`generate.synchronize: true`), after the upgrade modify those policies to add the field `spec.generateExisting: true`. This will cause existing, generated resources to be refreshed with the new labeling system used by Kyverno 1.10. Note that this may increment the `resourceVersion` field on all downstream resources. Also, understand that when making this modification, it could result in additional resources being created at that moment based upon the current match defined in the policy. You may need to further refine the match/exclude blocks of your rules to account for this.
+7. If you use generate rules with synchronization enabled (`generate.synchronize: true`), after the upgrade modify those policies to add the field `spec.generateExisting: true`. This will cause existing, generated resources to be refreshed with the new labeling system used by Kyverno 1.10. Note that this may increment the `resourceVersion` field on all downstream resources. Also, understand that when making this modification, it could result in additional resources being created at that moment based upon the current match defined in the policy. You may need to further refine the match/exclude blocks of your rules to account for this.
 
 ### New Chart Values
 
