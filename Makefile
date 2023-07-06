@@ -41,6 +41,7 @@ LISTER_GEN                         := $(TOOLS_DIR)/lister-gen
 INFORMER_GEN                       := $(TOOLS_DIR)/informer-gen
 OPENAPI_GEN                        := $(TOOLS_DIR)/openapi-gen
 REGISTER_GEN                       := $(TOOLS_DIR)/register-gen
+DEFAULTER_GEN                      := $(TOOLS_DIR)/defaulter-gen
 CODE_GEN_VERSION                   := v0.26.3
 GEN_CRD_API_REFERENCE_DOCS         := $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION := latest
@@ -56,7 +57,7 @@ KO                                 := $(TOOLS_DIR)/ko
 KO_VERSION                         := v0.14.1
 KUTTL                              := $(TOOLS_DIR)/kubectl-kuttl
 KUTTL_VERSION                      := v0.0.0-20230126200340-834a4dac1ec7
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(KUTTL)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEFAULTER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(KUTTL)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -91,6 +92,10 @@ $(OPENAPI_GEN):
 $(REGISTER_GEN):
 	@echo Install register-gen... >&2
 	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/register-gen@$(CODE_GEN_VERSION)
+
+$(DEFAULTER_GEN):
+	@echo Install defaulter-gen... >&2
+	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/defaulter-gen@$(CODE_GEN_VERSION)
 
 $(GEN_CRD_API_REFERENCE_DOCS):
 	@echo Install gen-crd-api-reference-docs... >&2
@@ -428,8 +433,13 @@ codegen-register: $(PACKAGE_SHIM) $(REGISTER_GEN) ## Generate types registration
 	@echo Generate registration... >&2
 	@GOPATH=$(GOPATH_SHIM) $(REGISTER_GEN) --go-header-file=./scripts/boilerplate.go.txt --input-dirs=$(INPUT_DIRS)
 
+.PHONY: codegen-defaulters
+codegen-defaulters: $(PACKAGE_SHIM) $(DEFAULTER_GEN) ## Generate defaulters
+	@echo Generate defaulters... >&2
+	GOPATH=$(GOPATH_SHIM) $(DEFAULTER_GEN) --go-header-file=./scripts/boilerplate.go.txt --input-dirs=$(INPUT_DIRS)
+
 .PHONY: codegen-client-all
-codegen-client-all: codegen-register codegen-client-clientset codegen-client-listers codegen-client-informers codegen-client-wrappers ## Generate clientset, listers and informers
+codegen-client-all: codegen-register codegen-defaulters codegen-client-clientset codegen-client-listers codegen-client-informers codegen-client-wrappers ## Generate clientset, listers and informers
 
 .PHONY: codegen-crds-kyverno
 codegen-crds-kyverno: $(CONTROLLER_GEN) ## Generate kyverno CRDs
