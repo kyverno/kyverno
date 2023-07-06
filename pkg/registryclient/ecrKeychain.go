@@ -5,7 +5,11 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 )
 
-func ecrAuthenticator(r authn.Resource) (authn.Authenticator, error) {
+var ECRKeychain authn.Keychain = &ecrKeychain{}
+
+type ecrKeychain struct {}
+
+func (ecr ecrKeychain) Resolve(r authn.Resource) (authn.Authenticator, error) {
 	registry, err := api.ExtractRegistry(r.RegistryStr())
 
 	if err != nil {

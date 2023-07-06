@@ -34,9 +34,7 @@ func (def defaultKeychain) Resolve(r authn.Resource) (authn.Authenticator, error
 	if !foundDockerConfig && os.Getenv("DOCKER_CONFIG") != "" {
 		foundDockerConfig = fileExists(filepath.Join(os.Getenv("DOCKER_CONFIG"), "config.json"))
 	}
-
 	var cf *configfile.ConfigFile
-
 	if foundDockerConfig {
 		cf, err = Config.Load(os.Getenv("DOCKER_CONFIG"))
 		if err != nil {
@@ -62,7 +60,6 @@ func (def defaultKeychain) Resolve(r authn.Resource) (authn.Authenticator, error
 		if key == name.DefaultRegistry {
 			key = DefaultAuthKey
 		}
-
 		cfg, err = cf.GetAuthConfig(key)
 		if err != nil {
 			return nil, err
