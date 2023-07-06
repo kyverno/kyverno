@@ -1,7 +1,7 @@
 package apply
 
 import (
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/output/table"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -43,7 +43,7 @@ func printTable(compact, auditWarn bool, engineResponses ...engineapi.EngineResp
 			if ruleResponse.Status() == engineapi.RuleStatusPass {
 				row.Result = color.ResultPass()
 			} else if ruleResponse.Status() == engineapi.RuleStatusFail {
-				if scored, ok := ann[kyvernov1.AnnotationPolicyScored]; ok && scored == "false" {
+				if scored, ok := ann[kyverno.AnnotationPolicyScored]; ok && scored == "false" {
 					row.Result = color.ResultWarn()
 				} else if auditWarn && engineResponse.GetValidationFailureAction().Audit() {
 					row.Result = color.ResultWarn()
