@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
@@ -333,7 +334,7 @@ func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateRes
 				case engineapi.RuleStatusFail:
 					auditWarning := false
 					ann := policy.GetAnnotations()
-					if scored, ok := ann[kyvernov1.AnnotationPolicyScored]; ok && scored == "false" {
+					if scored, ok := ann[kyverno.AnnotationPolicyScored]; ok && scored == "false" {
 						rc.Warn++
 						break
 					} else if auditWarn && validateResponse.GetValidationFailureAction().Audit() {

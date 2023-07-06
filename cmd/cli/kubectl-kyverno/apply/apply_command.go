@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-git/go-billy/v5/memfs"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/color"
@@ -414,7 +415,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 										rc.Pass++
 									case engineapi.RuleStatusFail:
 										ann := policy.GetAnnotations()
-										if scored, ok := ann[kyvernov1.AnnotationPolicyScored]; ok && scored == "false" {
+										if scored, ok := ann[kyverno.AnnotationPolicyScored]; ok && scored == "false" {
 											rc.Warn++
 											break
 										} else if applyPolicyConfig.AuditWarn && response.GetValidationFailureAction().Audit() {

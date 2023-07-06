@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
@@ -237,7 +238,7 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 	new := policyContext.NewResource()
 	old := policyContext.OldResource()
 	labels := old.GetLabels()
-	managedBy := labels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp
+	managedBy := labels[kyverno.LabelAppManagedBy] == kyverno.ValueKyvernoApp
 
 	// clone source changes
 	if !managedBy {
