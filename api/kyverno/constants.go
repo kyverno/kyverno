@@ -1,4 +1,4 @@
-package v1
+package kyverno
 
 const (
 	// PodControllersAnnotation defines the annotation key for Pod-Controllers

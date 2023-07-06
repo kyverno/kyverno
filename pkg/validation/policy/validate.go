@@ -14,6 +14,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/jmoiron/jsonq"
 	"github.com/kyverno/go-jmespath"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
@@ -1124,7 +1125,7 @@ func jsonPatchOnPod(rule kyvernov1.Rule) bool {
 
 func podControllerAutoGenExclusion(policy kyvernov1.PolicyInterface) bool {
 	annotations := policy.GetAnnotations()
-	val, ok := annotations[kyvernov1.PodControllersAnnotation]
+	val, ok := annotations[kyverno.PodControllersAnnotation]
 	if !ok || val == "none" {
 		return false
 	}

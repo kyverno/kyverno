@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
@@ -559,7 +560,7 @@ func buildPolicyResults(
 					} else if rule.Status() == engineapi.RuleStatusPass {
 						result.Result = policyreportv1alpha2.StatusPass
 					} else if rule.Status() == engineapi.RuleStatusFail {
-						if scored, ok := ann[kyvernov1.AnnotationPolicyScored]; ok && scored == "false" {
+						if scored, ok := ann[kyverno.AnnotationPolicyScored]; ok && scored == "false" {
 							result.Result = policyreportv1alpha2.StatusWarn
 						} else if auditWarn && resp.GetValidationFailureAction().Audit() {
 							result.Result = policyreportv1alpha2.StatusWarn

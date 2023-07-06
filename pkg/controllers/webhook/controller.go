@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -211,7 +212,7 @@ func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
 							Name:      "kyverno-health",
 							Namespace: config.KyvernoNamespace(),
 							Labels: map[string]string{
-								"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
+								"app.kubernetes.io/name": kyverno.ValueKyvernoApp,
 							},
 							Annotations: map[string]string{
 								AnnotationLastRequestTime: time.Now().Format(time.RFC3339),
@@ -227,7 +228,7 @@ func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
 			} else {
 				lease := lease.DeepCopy()
 				lease.Labels = map[string]string{
-					"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
+					"app.kubernetes.io/name": kyverno.ValueKyvernoApp,
 				}
 				_, err = c.leaseClient.Update(ctx, lease, metav1.UpdateOptions{})
 				if err != nil {
@@ -515,7 +516,7 @@ func (c *controller) buildVerifyMutatingWebhookConfiguration(_ context.Context, 
 				AdmissionReviewVersions: []string{"v1"},
 				ObjectSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
+						"app.kubernetes.io/name": kyverno.ValueKyvernoApp,
 					},
 				},
 			}},
