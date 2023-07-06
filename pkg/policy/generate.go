@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
@@ -97,7 +98,7 @@ func (pc *policyController) syncDataRulechanges(policy kyvernov1.PolicyInterface
 		common.GeneratePolicyLabel:          policy.GetName(),
 		common.GeneratePolicyNamespaceLabel: policy.GetNamespace(),
 		common.GenerateRuleLabel:            rule.Name,
-		kyvernov1.LabelAppManagedBy:         kyvernov1.ValueKyvernoApp,
+		kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
 	}
 
 	downstreams, err := generateutils.FindDownstream(pc.client, rule.Generation.GetAPIVersion(), rule.Generation.GetKind(), labels)

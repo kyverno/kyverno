@@ -3,7 +3,7 @@ package v2beta1
 import (
 	"testing"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -45,7 +45,7 @@ func Test_ClusterPolicy_Autogen_All(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "policy",
 			Annotations: map[string]string{
-				kyvernov1.PodControllersAnnotation: "all",
+				kyverno.PodControllersAnnotation: "all",
 			},
 		},
 	}
