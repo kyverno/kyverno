@@ -4,9 +4,9 @@ import (
 	"context"
 	"strings"
 
+	gcrremote "github.com/google/go-containerregistry/0_14/pkg/v1/remote" // TODO: Remove this once we upgrade tp cosign version < 2.0.2
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
-	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/images"
 	notationregistry "github.com/notaryproject/notation-go/registry"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"

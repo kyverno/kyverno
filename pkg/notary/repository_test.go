@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/go-containerregistry/0_14/pkg/v1/remote" // TODO: Remove this once we upgrade tp cosign version < 2.0.2
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	notationregistry "github.com/notaryproject/notation-go/registry"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"gotest.tools/assert"
