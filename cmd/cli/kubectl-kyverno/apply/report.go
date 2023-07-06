@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -108,7 +108,7 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 			} else if ruleResponse.Status() == engineapi.RuleStatusPass {
 				result.Result = policyreportv1alpha2.StatusPass
 			} else if ruleResponse.Status() == engineapi.RuleStatusFail {
-				if scored, ok := ann[kyvernov1.AnnotationPolicyScored]; ok && scored == "false" {
+				if scored, ok := ann[kyverno.AnnotationPolicyScored]; ok && scored == "false" {
 					result.Result = policyreportv1alpha2.StatusWarn
 				} else if auditWarn && engineResponse.GetValidationFailureAction().Audit() {
 					result.Result = policyreportv1alpha2.StatusWarn
@@ -123,7 +123,7 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 				result.Rule = ruleResponse.Name()
 			}
 			result.Message = ruleResponse.Message()
-			result.Source = kyvernov1.ValueKyvernoApp
+			result.Source = kyverno.ValueKyvernoApp
 			result.Timestamp = now
 			results[appname] = append(results[appname], result)
 		}
