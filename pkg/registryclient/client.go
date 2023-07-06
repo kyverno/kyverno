@@ -19,7 +19,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/sigstore/cosign/pkg/oci/remote"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"k8s.io/apimachinery/pkg/util/sets"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -126,6 +125,7 @@ func WithKeychainPullSecrets(lister corev1listers.SecretNamespaceLister, imagePu
 func WithCredentialProviders(credentialProviders ...string) Option {
 	return func(c *config) error {
 		var chains []authn.Keychain
+<<<<<<< HEAD
 		helpers := sets.New(credentialProviders...)
 		if helpers.Has("default") {
 			chains = append(chains, DefaultKeychain)
@@ -143,6 +143,10 @@ func WithCredentialProviders(credentialProviders ...string) Option {
 			chains = append(chains, GHCRKeychain)
 		}
 		c.keychain = append(c.keychain, chains...)
+=======
+		chains = append(chains, RegistryKeychain)
+		c.keychain = authn.NewMultiKeychain(chains...)
+>>>>>>> 9f63a6e25 (added a common registryKeychain)
 		return nil
 	}
 }
