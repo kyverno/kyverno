@@ -41,6 +41,7 @@ LISTER_GEN                         := $(TOOLS_DIR)/lister-gen
 INFORMER_GEN                       := $(TOOLS_DIR)/informer-gen
 OPENAPI_GEN                        := $(TOOLS_DIR)/openapi-gen
 REGISTER_GEN                       := $(TOOLS_DIR)/register-gen
+DEEPCOPY_GEN                       := $(TOOLS_DIR)/deepcopy-gen
 CODE_GEN_VERSION                   := v0.26.3
 GEN_CRD_API_REFERENCE_DOCS         := $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION := latest
@@ -56,7 +57,7 @@ KO                                 := $(TOOLS_DIR)/ko
 KO_VERSION                         := v0.14.1
 KUTTL                              := $(TOOLS_DIR)/kubectl-kuttl
 KUTTL_VERSION                      := v0.0.0-20230126200340-834a4dac1ec7
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(KUTTL)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(KUTTL)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -91,6 +92,10 @@ $(OPENAPI_GEN):
 $(REGISTER_GEN):
 	@echo Install register-gen... >&2
 	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/register-gen@$(CODE_GEN_VERSION)
+
+$(DEEPCOPY_GEN):
+	@echo Install deepcopy-gen... >&2
+	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/deepcopy-gen@$(CODE_GEN_VERSION)
 
 $(GEN_CRD_API_REFERENCE_DOCS):
 	@echo Install gen-crd-api-reference-docs... >&2
@@ -404,17 +409,30 @@ $(PACKAGE_SHIM): $(GOPATH_SHIM)
 .PHONY: codegen-client-clientset
 codegen-client-clientset: $(PACKAGE_SHIM) $(CLIENT_GEN) ## Generate clientset
 	@echo Generate clientset... >&2
-	@GOPATH=$(GOPATH_SHIM) $(CLIENT_GEN) --go-header-file ./scripts/boilerplate.go.txt --clientset-name versioned --output-package $(CLIENTSET_PACKAGE) --input-base "" --input $(INPUT_DIRS)
+	@GOPATH=$(GOPATH_SHIM) $(CLIENT_GEN) \
+		--go-header-file ./scripts/boilerplate.go.txt \
+		--clientset-name versioned \
+		--output-package $(CLIENTSET_PACKAGE) \
+		--input-base "" \
+		--input $(INPUT_DIRS)
 
 .PHONY: codegen-client-listers
 codegen-client-listers: $(PACKAGE_SHIM) $(LISTER_GEN) ## Generate listers
 	@echo Generate listers... >&2
-	@GOPATH=$(GOPATH_SHIM) $(LISTER_GEN) --go-header-file ./scripts/boilerplate.go.txt --output-package $(LISTERS_PACKAGE) --input-dirs $(INPUT_DIRS)
+	@GOPATH=$(GOPATH_SHIM) $(LISTER_GEN) \
+		--go-header-file ./scripts/boilerplate.go.txt \
+		--output-package $(LISTERS_PACKAGE) \
+		--input-dirs $(INPUT_DIRS)
 
 .PHONY: codegen-client-informers
 codegen-client-informers: $(PACKAGE_SHIM) $(INFORMER_GEN) ## Generate informers
 	@echo Generate informers... >&2
-	@GOPATH=$(GOPATH_SHIM) $(INFORMER_GEN) --go-header-file ./scripts/boilerplate.go.txt --output-package $(INFORMERS_PACKAGE) --input-dirs $(INPUT_DIRS) --versioned-clientset-package $(CLIENTSET_PACKAGE)/versioned --listers-package $(LISTERS_PACKAGE)
+	@GOPATH=$(GOPATH_SHIM) $(INFORMER_GEN) \
+		--go-header-file ./scripts/boilerplate.go.txt \
+		--output-package $(INFORMERS_PACKAGE) \
+		--input-dirs $(INPUT_DIRS) \
+		--versioned-clientset-package $(CLIENTSET_PACKAGE)/versioned \
+		--listers-package $(LISTERS_PACKAGE)
 
 .PHONY: codegen-client-wrappers
 codegen-client-wrappers: codegen-client-clientset $(GOIMPORTS) ## Generate client wrappers
@@ -426,7 +444,17 @@ codegen-client-wrappers: codegen-client-clientset $(GOIMPORTS) ## Generate clien
 .PHONY: codegen-register
 codegen-register: $(PACKAGE_SHIM) $(REGISTER_GEN) ## Generate types registrations
 	@echo Generate registration... >&2
-	@GOPATH=$(GOPATH_SHIM) $(REGISTER_GEN) --go-header-file=./scripts/boilerplate.go.txt --input-dirs=$(INPUT_DIRS)
+	@GOPATH=$(GOPATH_SHIM) $(REGISTER_GEN) \
+		--go-header-file=./scripts/boilerplate.go.txt \
+		--input-dirs=$(INPUT_DIRS)
+
+.PHONY: codegen-deepcopy
+codegen-deepcopy: $(PACKAGE_SHIM) $(DEEPCOPY_GEN) ## Generate deep copy functions
+	@echo Generate deep copy functions... >&2
+	@GOPATH=$(GOPATH_SHIM) $(DEEPCOPY_GEN) \
+		--go-header-file=./scripts/boilerplate.go.txt \
+		--input-dirs=$(INPUT_DIRS) \
+		--output-file-base=zz_generated.deepcopy
 
 .PHONY: codegen-client-all
 codegen-client-all: codegen-register codegen-client-clientset codegen-client-listers codegen-client-informers codegen-client-wrappers ## Generate clientset, listers and informers
@@ -443,19 +471,6 @@ codegen-crds-report: $(CONTROLLER_GEN) ## Generate policy reports CRDs
 
 .PHONY: codegen-crds-all
 codegen-crds-all: codegen-crds-kyverno codegen-crds-report ## Generate all CRDs
-
-.PHONY: codegen-deepcopy-kyverno
-codegen-deepcopy-kyverno: $(CONTROLLER_GEN) $(GOIMPORTS) ## Generate kyverno deep copy functions
-	@echo Generate kyverno deep copy functions... >&2
-	@$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./api/kyverno/..." && $(GOIMPORTS) -w ./api/kyverno
-
-.PHONY: codegen-deepcopy-report
-codegen-deepcopy-report: $(CONTROLLER_GEN) $(GOIMPORTS) ## Generate policy reports deep copy functions
-	@echo Generate policy reports deep copy functions... >&2
-	@$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./api/policyreport/..." && $(GOIMPORTS) -w ./api/policyreport
-
-.PHONY: codegen-deepcopy-all
-codegen-deepcopy-all: codegen-deepcopy-kyverno codegen-deepcopy-report ## Generate all deep copy functions
 
 .PHONY: codegen-api-docs
 codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API docs
@@ -536,7 +551,7 @@ codegen-manifest-release: $(HELM) ## Create release manifest
 codegen-manifest-all: codegen-manifest-install-latest codegen-manifest-debug ## Create all manifests
 
 .PHONY: codegen-quick
-codegen-quick: codegen-deepcopy-all codegen-crds-all codegen-api-docs codegen-helm-all codegen-manifest-all ## Generate all generated code except client
+codegen-quick: codegen-deepcopy codegen-crds-all codegen-api-docs codegen-helm-all codegen-manifest-all ## Generate all generated code except client
 
 .PHONY: codegen-slow
 codegen-slow: codegen-client-all ## Generate client code
@@ -569,11 +584,11 @@ verify-client: codegen-client-all ## Check client is up to date
 	@git diff --ignore-space-change --quiet --exit-code pkg/clients
 
 .PHONY: verify-deepcopy
-verify-deepcopy: codegen-deepcopy-all ## Check deepcopy functions are up to date
+verify-deepcopy: codegen-deepcopy ## Check deepcopy functions are up to date
 	@echo Checking deepcopy functions are up to date... >&2
 	@git --no-pager diff api
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-deepcopy-all".' >&2
-	@echo 'To correct this, locally run "make codegen-deepcopy-all", commit the changes, and re-run tests.' >&2
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-deepcopy".' >&2
+	@echo 'To correct this, locally run "make codegen-deepcopy", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code api
 
 .PHONY: verify-api-docs
