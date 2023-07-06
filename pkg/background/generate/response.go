@@ -1,6 +1,6 @@
 package generate
 
-import kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+import "github.com/kyverno/kyverno/api/kyverno"
 
 // ResourceMode defines the mode for generated resource
 type resourceMode string
@@ -17,11 +17,11 @@ const (
 type generateResponse struct {
 	data   map[string]interface{}
 	action resourceMode
-	target kyvernov1.ResourceSpec
+	target kyverno.ResourceSpec
 	err    error
 }
 
-func newGenerateResponse(data map[string]interface{}, action resourceMode, target kyvernov1.ResourceSpec, err error) generateResponse {
+func newGenerateResponse(data map[string]interface{}, action resourceMode, target kyverno.ResourceSpec, err error) generateResponse {
 	return generateResponse{
 		data:   data,
 		action: action,
@@ -30,15 +30,15 @@ func newGenerateResponse(data map[string]interface{}, action resourceMode, targe
 	}
 }
 
-func newSkipGenerateResponse(data map[string]interface{}, target kyvernov1.ResourceSpec, err error) generateResponse {
+func newSkipGenerateResponse(data map[string]interface{}, target kyverno.ResourceSpec, err error) generateResponse {
 	return newGenerateResponse(data, Skip, target, err)
 }
 
-func newUpdateGenerateResponse(data map[string]interface{}, target kyvernov1.ResourceSpec, err error) generateResponse {
+func newUpdateGenerateResponse(data map[string]interface{}, target kyverno.ResourceSpec, err error) generateResponse {
 	return newGenerateResponse(data, Update, target, err)
 }
 
-func newCreateGenerateResponse(data map[string]interface{}, target kyvernov1.ResourceSpec, err error) generateResponse {
+func newCreateGenerateResponse(data map[string]interface{}, target kyverno.ResourceSpec, err error) generateResponse {
 	return newGenerateResponse(data, Create, target, err)
 }
 
@@ -50,7 +50,7 @@ func (resp *generateResponse) GetAction() resourceMode {
 	return resp.action
 }
 
-func (resp *generateResponse) GetTarget() kyvernov1.ResourceSpec {
+func (resp *generateResponse) GetTarget() kyverno.ResourceSpec {
 	return resp.target
 }
 

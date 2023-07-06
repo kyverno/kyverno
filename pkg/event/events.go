@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -152,7 +153,7 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 	return []Info{policyEvent, exceptionEvent}
 }
 
-func NewFailedEvent(err error, policy, rule string, source Source, resource kyvernov1.ResourceSpec) Info {
+func NewFailedEvent(err error, policy, rule string, source Source, resource kyverno.ResourceSpec) Info {
 	return Info{
 		Kind:      resource.GetKind(),
 		Namespace: resource.GetNamespace(),

@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
@@ -47,7 +47,7 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 func applyUpdateRequest(
 	ctx context.Context,
 	request admissionv1.AdmissionRequest,
-	ruleType kyvernov1beta1.RequestType,
+	ruleType kyverno.RequestType,
 	urGenerator updaterequest.Generator,
 	userRequestInfo kyvernov1beta1.RequestInfo,
 	action admissionv1.Operation,
@@ -70,7 +70,7 @@ func applyUpdateRequest(
 	return
 }
 
-func transform(admissionRequestInfo kyvernov1beta1.AdmissionRequestInfoObject, userRequestInfo kyvernov1beta1.RequestInfo, er *engineapi.EngineResponse, ruleType kyvernov1beta1.RequestType) (urs []kyvernov1beta1.UpdateRequestSpec) {
+func transform(admissionRequestInfo kyvernov1beta1.AdmissionRequestInfoObject, userRequestInfo kyvernov1beta1.RequestInfo, er *engineapi.EngineResponse, ruleType kyverno.RequestType) (urs []kyvernov1beta1.UpdateRequestSpec) {
 	var PolicyNameNamespaceKey string
 	if er.Policy().GetNamespace() != "" {
 		PolicyNameNamespaceKey = er.Policy().GetNamespace() + "/" + er.Policy().GetName()
@@ -83,7 +83,7 @@ func transform(admissionRequestInfo kyvernov1beta1.AdmissionRequestInfoObject, u
 			Type:   ruleType,
 			Policy: PolicyNameNamespaceKey,
 			Rule:   rule.Name(),
-			Resource: kyvernov1.ResourceSpec{
+			Resource: kyverno.ResourceSpec{
 				Kind:       er.Resource.GetKind(),
 				Namespace:  er.Resource.GetNamespace(),
 				Name:       er.Resource.GetName(),

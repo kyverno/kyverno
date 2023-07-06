@@ -6,7 +6,6 @@ import (
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	generateutils "github.com/kyverno/kyverno/pkg/background/generate"
@@ -39,7 +38,7 @@ func (pc *policyController) handleGenerate(policyKey string, policy kyvernov1.Po
 func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInterface) error {
 	var errors []error
 	for _, rule := range policy.GetSpec().Rules {
-		ruleType := kyvernov1beta1.Generate
+		ruleType := kyverno.Generate
 		triggers := generateTriggers(pc.client, rule, pc.log)
 		for _, trigger := range triggers {
 			ur := newUR(policy, common.ResourceSpecFromUnstructured(*trigger), rule.Name, ruleType, false)
@@ -111,7 +110,7 @@ func (pc *policyController) syncDataRulechanges(policy kyvernov1.PolicyInterface
 	for _, downstream := range downstreams.Items {
 		labels := downstream.GetLabels()
 		trigger := generateutils.TriggerFromLabels(labels)
-		ur := newUR(policy, trigger, rule.Name, kyvernov1beta1.Generate, deleteDownstream)
+		ur := newUR(policy, trigger, rule.Name, kyverno.Generate, deleteDownstream)
 		created, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
 		if err != nil {
 			errorList = append(errorList, err)

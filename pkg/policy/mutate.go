@@ -3,6 +3,7 @@ package policy
 import (
 	"fmt"
 
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	backgroundcommon "github.com/kyverno/kyverno/pkg/background/common"
@@ -19,9 +20,9 @@ func (pc *policyController) handleMutate(policyKey string, policy kyvernov1.Poli
 
 	logger.Info("update URs on policy event")
 	for _, rule := range policy.GetSpec().Rules {
-		var ruleType kyvernov1beta1.RequestType
+		var ruleType kyverno.RequestType
 		if rule.IsMutateExisting() {
-			ruleType = kyvernov1beta1.Mutate
+			ruleType = kyverno.Mutate
 			triggers := generateTriggers(pc.client, rule, pc.log)
 			for _, trigger := range triggers {
 				murs := pc.listMutateURs(policyKey, trigger)

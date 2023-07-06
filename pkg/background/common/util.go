@@ -3,7 +3,7 @@ package common
 import (
 	"context"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func UpdateStatus(client versioned.Interface, urLister kyvernov1beta1listers.UpdateRequestNamespaceLister, name string, state kyvernov1beta1.UpdateRequestState, message string, genResources []kyvernov1.ResourceSpec) (*kyvernov1beta1.UpdateRequest, error) {
+func UpdateStatus(client versioned.Interface, urLister kyvernov1beta1listers.UpdateRequestNamespaceLister, name string, state kyverno.UpdateRequestState, message string, genResources []kyverno.ResourceSpec) (*kyvernov1beta1.UpdateRequest, error) {
 	var latest *kyvernov1beta1.UpdateRequest
 	ur, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
@@ -43,8 +43,8 @@ func PolicyKey(namespace, name string) string {
 	return name
 }
 
-func ResourceSpecFromUnstructured(obj unstructured.Unstructured) kyvernov1.ResourceSpec {
-	return kyvernov1.ResourceSpec{
+func ResourceSpecFromUnstructured(obj unstructured.Unstructured) kyverno.ResourceSpec {
+	return kyverno.ResourceSpec{
 		APIVersion: obj.GetAPIVersion(),
 		Kind:       obj.GetKind(),
 		Namespace:  obj.GetNamespace(),

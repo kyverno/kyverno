@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
@@ -56,24 +57,24 @@ func loadTargets(ctx context.Context, client engineapi.Client, targets []kyverno
 	return targetObjects, multierr.Combine(errors...)
 }
 
-func resolveSpec(i int, target kyvernov1.TargetResourceSpec, ctx engineapi.PolicyContext, logger logr.Logger) (kyvernov1.ResourceSpec, error) {
+func resolveSpec(i int, target kyvernov1.TargetResourceSpec, ctx engineapi.PolicyContext, logger logr.Logger) (kyverno.ResourceSpec, error) {
 	kind, err := variables.SubstituteAll(logger, ctx.JSONContext(), target.Kind)
 	if err != nil {
-		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].Kind %s, value: %v, err: %v", i, target.Kind, kind, err)
+		return kyverno.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].Kind %s, value: %v, err: %v", i, target.Kind, kind, err)
 	}
 	apiversion, err := variables.SubstituteAll(logger, ctx.JSONContext(), target.APIVersion)
 	if err != nil {
-		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].APIVersion %s, value: %v, err: %v", i, target.APIVersion, apiversion, err)
+		return kyverno.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].APIVersion %s, value: %v, err: %v", i, target.APIVersion, apiversion, err)
 	}
 	namespace, err := variables.SubstituteAll(logger, ctx.JSONContext(), target.Namespace)
 	if err != nil || namespace == nil {
-		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].Namespace %s, value: %v, err: %v", i, target.Namespace, namespace, err)
+		return kyverno.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].Namespace %s, value: %v, err: %v", i, target.Namespace, namespace, err)
 	}
 	name, err := variables.SubstituteAll(logger, ctx.JSONContext(), target.Name)
 	if err != nil || name == nil {
-		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].Name %s, value: %v, err: %v", i, target.Name, name, err)
+		return kyverno.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].Name %s, value: %v, err: %v", i, target.Name, name, err)
 	}
-	return kyvernov1.ResourceSpec{
+	return kyverno.ResourceSpec{
 		APIVersion: apiversion.(string),
 		Kind:       kind.(string),
 		Namespace:  namespace.(string),
@@ -81,7 +82,7 @@ func resolveSpec(i int, target kyvernov1.TargetResourceSpec, ctx engineapi.Polic
 	}, nil
 }
 
-func getTargets(ctx context.Context, client engineapi.Client, target kyvernov1.ResourceSpec, policyCtx engineapi.PolicyContext) ([]resourceInfo, error) {
+func getTargets(ctx context.Context, client engineapi.Client, target kyverno.ResourceSpec, policyCtx engineapi.PolicyContext) ([]resourceInfo, error) {
 	var targetObjects []resourceInfo
 	namespace := target.Namespace
 	name := target.Name

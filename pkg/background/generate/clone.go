@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -13,11 +14,11 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest, rule kyvernov1.Rule, client dclient.Interface) generateResponse {
+func manageClone(log logr.Logger, target, sourceSpec kyverno.ResourceSpec, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest, rule kyvernov1.Rule, client dclient.Interface) generateResponse {
 	source := sourceSpec
 	clone := rule.Generation
 	if clone.Clone.Name != "" {
-		source = kyvernov1.ResourceSpec{
+		source = kyverno.ResourceSpec{
 			APIVersion: target.GetAPIVersion(),
 			Kind:       target.GetKind(),
 			Namespace:  clone.Clone.Namespace,

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -585,7 +586,7 @@ func (v *ForEachValidation) SetAnyPattern(in apiextensions.JSON) {
 // Generation defines how new resources should be created and managed.
 type Generation struct {
 	// ResourceSpec contains information to select the resource.
-	ResourceSpec `json:",omitempty" yaml:",omitempty"`
+	kyverno.ResourceSpec `json:",omitempty" yaml:",omitempty"`
 
 	// Synchronize controls if generated resources should be kept in-sync with their source resource.
 	// If Synchronize is set to "true" changes to generated resources will be overwritten with resource
@@ -641,7 +642,7 @@ func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace
 	}
 
 	newGeneration := Generation{
-		ResourceSpec: ResourceSpec{
+		ResourceSpec: kyverno.ResourceSpec{
 			Kind:       g.ResourceSpec.GetKind(),
 			APIVersion: g.ResourceSpec.GetAPIVersion(),
 		},

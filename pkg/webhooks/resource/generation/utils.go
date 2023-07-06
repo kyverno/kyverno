@@ -1,6 +1,7 @@
 package generation
 
 import (
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -8,7 +9,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
-func buildURSpec(requestType kyvernov1beta1.RequestType, policyKey, ruleName string, resource kyvernov1.ResourceSpec, deleteDownstream bool) kyvernov1beta1.UpdateRequestSpec {
+func buildURSpec(requestType kyverno.RequestType, policyKey, ruleName string, resource kyverno.ResourceSpec, deleteDownstream bool) kyvernov1beta1.UpdateRequestSpec {
 	return kyvernov1beta1.UpdateRequestSpec{
 		Type:             requestType,
 		Policy:           policyKey,

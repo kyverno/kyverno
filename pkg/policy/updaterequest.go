@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	common "github.com/kyverno/kyverno/pkg/background/common"
@@ -10,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func newUR(policy kyvernov1.PolicyInterface, trigger kyvernov1.ResourceSpec, ruleName string, ruleType kyvernov1beta1.RequestType, deleteDownstream bool) *kyvernov1beta1.UpdateRequest {
+func newUR(policy kyvernov1.PolicyInterface, trigger kyverno.ResourceSpec, ruleName string, ruleType kyverno.RequestType, deleteDownstream bool) *kyvernov1beta1.UpdateRequest {
 	var policyNameNamespaceKey string
 
 	if policy.IsNamespaced() {
@@ -20,7 +21,7 @@ func newUR(policy kyvernov1.PolicyInterface, trigger kyvernov1.ResourceSpec, rul
 	}
 
 	var label labels.Set
-	if ruleType == kyvernov1beta1.Mutate {
+	if ruleType == kyverno.Mutate {
 		label = common.MutateLabelsSet(policyNameNamespaceKey, trigger)
 	} else {
 		label = common.GenerateLabelsSet(policyNameNamespaceKey, trigger)
@@ -40,7 +41,7 @@ func newUR(policy kyvernov1.PolicyInterface, trigger kyvernov1.ResourceSpec, rul
 			Type:   ruleType,
 			Policy: policyNameNamespaceKey,
 			Rule:   ruleName,
-			Resource: kyvernov1.ResourceSpec{
+			Resource: kyverno.ResourceSpec{
 				Kind:       trigger.GetKind(),
 				Namespace:  trigger.GetNamespace(),
 				Name:       trigger.GetName(),
@@ -51,10 +52,10 @@ func newUR(policy kyvernov1.PolicyInterface, trigger kyvernov1.ResourceSpec, rul
 	}
 }
 
-func newURStatus(downstream unstructured.Unstructured) kyvernov1beta1.UpdateRequestStatus {
-	return kyvernov1beta1.UpdateRequestStatus{
-		State: kyvernov1beta1.Pending,
-		GeneratedResources: []kyvernov1.ResourceSpec{
+func newURStatus(downstream unstructured.Unstructured) kyverno.UpdateRequestStatus {
+	return kyverno.UpdateRequestStatus{
+		State: kyverno.Pending,
+		GeneratedResources: []kyverno.ResourceSpec{
 			{
 				APIVersion: downstream.GetAPIVersion(),
 				Kind:       downstream.GetKind(),

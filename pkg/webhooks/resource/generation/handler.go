@@ -7,7 +7,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	generateutils "github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -155,7 +154,7 @@ func (h *generationHandler) applyGeneration(
 
 	pKey := common.PolicyKey(policy.GetNamespace(), policy.GetName())
 	trigger := policyContext.NewResource()
-	triggerSpec := kyvernov1.ResourceSpec{
+	triggerSpec := kyverno.ResourceSpec{
 		APIVersion: trigger.GetAPIVersion(),
 		Kind:       trigger.GetKind(),
 		Namespace:  trigger.GetNamespace(),
@@ -165,12 +164,12 @@ func (h *generationHandler) applyGeneration(
 	rules := getAppliedRules(policy, appliedRules)
 	for _, rule := range rules {
 		h.log.V(4).Info("creating the UR to generate downstream on trigger's operation", "operation", request.Operation, "rule", rule.Name)
-		urSpec := buildURSpec(kyvernov1beta1.Generate, pKey, rule.Name, triggerSpec, false)
+		urSpec := buildURSpec(kyverno.Generate, pKey, rule.Name, triggerSpec, false)
 		urSpec.Context = buildURContext(request, policyContext)
 		if err := h.urGenerator.Apply(ctx, urSpec); err != nil {
 			h.log.Error(err, "failed to create the UR to create downstream on trigger's operation", "operation", request.Operation, "rule", rule.Name)
 			e := event.NewFailedEvent(err, pKey, rule.Name, event.GeneratePolicyController,
-				kyvernov1.ResourceSpec{Kind: policy.GetKind(), Namespace: policy.GetNamespace(), Name: policy.GetName()})
+				kyverno.ResourceSpec{Kind: policy.GetKind(), Namespace: policy.GetNamespace(), Name: policy.GetName()})
 			h.eventGen.Add(e)
 		}
 	}
@@ -191,7 +190,7 @@ func (h *generationHandler) syncTriggerAction(
 
 	pKey := common.PolicyKey(policy.GetNamespace(), policy.GetName())
 	trigger := policyContext.OldResource()
-	urSpec := kyvernov1.ResourceSpec{
+	urSpec := kyverno.ResourceSpec{
 		APIVersion: trigger.GetAPIVersion(),
 		Kind:       trigger.GetKind(),
 		Namespace:  trigger.GetNamespace(),
@@ -203,12 +202,12 @@ func (h *generationHandler) syncTriggerAction(
 		// fire generation on trigger deletion
 		if (request.Operation == admissionv1.Delete) && matchDeleteOperation(rule) {
 			h.log.V(4).Info("creating the UR to generate downstream on trigger's deletion", "operation", request.Operation, "rule", rule.Name)
-			ur := buildURSpec(kyvernov1beta1.Generate, pKey, rule.Name, urSpec, false)
+			ur := buildURSpec(kyverno.Generate, pKey, rule.Name, urSpec, false)
 			ur.Context = buildURContext(request, policyContext)
 			if err := h.urGenerator.Apply(ctx, ur); err != nil {
 				h.log.Error(err, "failed to create the UR to generate downstream on trigger's deletion", "operation", request.Operation, "rule", rule.Name)
 				e := event.NewFailedEvent(err, pKey, rule.Name, event.GeneratePolicyController,
-					kyvernov1.ResourceSpec{Kind: policy.GetKind(), Namespace: policy.GetNamespace(), Name: policy.GetName()})
+					kyverno.ResourceSpec{Kind: policy.GetKind(), Namespace: policy.GetNamespace(), Name: policy.GetName()})
 				h.eventGen.Add(e)
 			}
 			continue
@@ -217,12 +216,12 @@ func (h *generationHandler) syncTriggerAction(
 		// delete downstream on trigger deletion
 		if rule.Generation.Synchronize {
 			h.log.V(4).Info("creating the UR to delete downstream on trigger's event", "operation", request.Operation, "rule", rule.Name)
-			ur := buildURSpec(kyvernov1beta1.Generate, pKey, rule.Name, urSpec, true)
+			ur := buildURSpec(kyverno.Generate, pKey, rule.Name, urSpec, true)
 			ur.Context = buildURContext(request, policyContext)
 			if err := h.urGenerator.Apply(ctx, ur); err != nil {
 				h.log.Error(err, "failed to create the UR to delete downstream on trigger's event", "operation", request.Operation, "rule", rule.Name)
 				e := event.NewFailedEvent(err, pKey, rule.Name, event.GeneratePolicyController,
-					kyvernov1.ResourceSpec{Kind: policy.GetKind(), Namespace: policy.GetNamespace(), Name: policy.GetName()})
+					kyverno.ResourceSpec{Kind: policy.GetKind(), Namespace: policy.GetNamespace(), Name: policy.GetName()})
 				h.eventGen.Add(e)
 			}
 		}
@@ -299,7 +298,7 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 					continue
 				}
 
-				ur := buildURSpec(kyvernov1beta1.Generate, pKey, rule.Name, generateutils.TriggerFromLabels(labels), deleteDownstream)
+				ur := buildURSpec(kyverno.Generate, pKey, rule.Name, generateutils.TriggerFromLabels(labels), deleteDownstream)
 				if err := h.urGenerator.Apply(ctx, ur); err != nil {
 					e := event.NewBackgroundFailedEvent(err, pKey, pRuleName, event.GeneratePolicyController, &new)
 					h.eventGen.Add(e...)

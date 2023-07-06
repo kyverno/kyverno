@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func manageData(log logr.Logger, target kyvernov1.ResourceSpec, data interface{}, synchronize bool, ur kyvernov1beta1.UpdateRequest, client dclient.Interface) generateResponse {
+func manageData(log logr.Logger, target kyverno.ResourceSpec, data interface{}, synchronize bool, ur kyvernov1beta1.UpdateRequest, client dclient.Interface) generateResponse {
 	if data == nil {
 		log.V(4).Info("data is nil - skipping update")
 		return newSkipGenerateResponse(nil, target, nil)

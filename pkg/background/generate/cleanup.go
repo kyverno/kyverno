@@ -23,7 +23,7 @@ func (c *GenerateController) deleteDownstream(policy kyvernov1.PolicyInterface, 
 	if ur.Status.GeneratedResources != nil {
 		c.log.V(4).Info("policy/rule no longer exists, deleting the downstream resource based on synchronize", "ur", ur.Name, "policy", ur.Spec.Policy, "rule", ur.Spec.Rule)
 		var errs []error
-		failedDownstreams := []kyvernov1.ResourceSpec{}
+		failedDownstreams := []kyverno.ResourceSpec{}
 		for _, e := range ur.Status.GeneratedResources {
 			if err := c.client.DeleteResource(context.TODO(), e.GetAPIVersion(), e.GetKind(), e.GetNamespace(), e.GetName(), false); err != nil && !apierrors.IsNotFound(err) {
 				failedDownstreams = append(failedDownstreams, e)
@@ -70,7 +70,7 @@ func (c *GenerateController) handleNonPolicyChanges(policy kyvernov1.PolicyInter
 			return fmt.Errorf("failed to fetch downstream resources: %v", err)
 		}
 		var errs []error
-		failedDownstreams := []kyvernov1.ResourceSpec{}
+		failedDownstreams := []kyverno.ResourceSpec{}
 		for _, downstream := range downstreams.Items {
 			spec := common.ResourceSpecFromUnstructured(downstream)
 			if err := c.client.DeleteResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream.GetName(), false); err != nil && !apierrors.IsNotFound(err) {

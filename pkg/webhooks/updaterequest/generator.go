@@ -5,6 +5,7 @@ import (
 	"time"
 
 	backoff "github.com/cenkalti/backoff"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -63,9 +64,9 @@ func (g *generator) tryApplyResource(ctx context.Context, urSpec kyvernov1beta1.
 	l := logger.WithValues("ruleType", urSpec.GetRequestType(), "resource", urSpec.GetResource().String())
 	var queryLabels labels.Set
 
-	if urSpec.GetRequestType() == kyvernov1beta1.Mutate {
+	if urSpec.GetRequestType() == kyverno.Mutate {
 		queryLabels = common.MutateLabelsSet(urSpec.Policy, urSpec.GetResource())
-	} else if urSpec.GetRequestType() == kyvernov1beta1.Generate {
+	} else if urSpec.GetRequestType() == kyverno.Generate {
 		queryLabels = common.GenerateLabelsSet(urSpec.Policy, urSpec.GetResource())
 	}
 
@@ -84,7 +85,7 @@ func (g *generator) tryApplyResource(ctx context.Context, urSpec kyvernov1beta1.
 		return err
 	}
 	updated := created.DeepCopy()
-	updated.Status.State = kyvernov1beta1.Pending
+	updated.Status.State = kyverno.Pending
 	_, err = g.client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
 	if err != nil {
 		return err

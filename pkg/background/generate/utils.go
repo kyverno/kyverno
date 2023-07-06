@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -17,8 +17,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func newResourceSpec(genAPIVersion, genKind, genNamespace, genName string) kyvernov1.ResourceSpec {
-	return kyvernov1.ResourceSpec{
+func newResourceSpec(genAPIVersion, genKind, genNamespace, genName string) kyverno.ResourceSpec {
+	return kyverno.ResourceSpec{
 		APIVersion: genAPIVersion,
 		Kind:       genKind,
 		Namespace:  genNamespace,
@@ -72,12 +72,12 @@ func updateRetryAnnotation(kyvernoClient versioned.Interface, ur *kyvernov1beta1
 	return nil
 }
 
-func TriggerFromLabels(labels map[string]string) kyvernov1.ResourceSpec {
+func TriggerFromLabels(labels map[string]string) kyverno.ResourceSpec {
 	group := labels[common.GenerateTriggerGroupLabel]
 	version := labels[common.GenerateTriggerVersionLabel]
 	apiVersion := schema.GroupVersion{Group: group, Version: version}
 
-	return kyvernov1.ResourceSpec{
+	return kyverno.ResourceSpec{
 		Kind:       labels[common.GenerateTriggerKindLabel],
 		Namespace:  labels[common.GenerateTriggerNSLabel],
 		Name:       labels[common.GenerateTriggerNameLabel],

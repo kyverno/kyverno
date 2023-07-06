@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	common "github.com/kyverno/kyverno/pkg/background/common"
@@ -173,12 +174,12 @@ func (c *controller) syncUpdateRequest(key string) error {
 	// Deep-copy otherwise we are mutating our cache.
 	ur = ur.DeepCopy()
 	if _, err := c.getPolicy(ur.Spec.Policy); err != nil && apierrors.IsNotFound(err) {
-		if ur.Spec.GetRequestType() == kyvernov1beta1.Mutate {
+		if ur.Spec.GetRequestType() == kyverno.Mutate {
 			return c.handleMutatePolicyAbsence(ur)
 		}
 	}
 
-	if ur.Status.State == kyvernov1beta1.Pending {
+	if ur.Status.State == kyverno.Pending {
 		if err := c.processUR(ur); err != nil {
 			return fmt.Errorf("failed to process UR %s: %v", key, err)
 		}
@@ -210,7 +211,7 @@ func (c *controller) addUR(obj interface{}) {
 
 func (c *controller) updateUR(_, cur interface{}) {
 	curUr := cur.(*kyvernov1beta1.UpdateRequest)
-	if curUr.Status.State == kyvernov1beta1.Skip || curUr.Status.State == kyvernov1beta1.Completed {
+	if curUr.Status.State == kyverno.Skip || curUr.Status.State == kyverno.Completed {
 		return
 	}
 	c.enqueueUpdateRequest(curUr)
@@ -219,17 +220,17 @@ func (c *controller) updateUR(_, cur interface{}) {
 func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 	statusControl := common.NewStatusControl(c.kyvernoClient, c.urLister)
 	switch ur.Spec.GetRequestType() {
-	case kyvernov1beta1.Mutate:
+	case kyverno.Mutate:
 		ctrl := mutate.NewMutateExistingController(c.client, statusControl, c.engine, c.cpolLister, c.polLister, c.nsLister, c.configuration, c.eventGen, logger, c.jp)
 		return ctrl.ProcessUR(ur)
-	case kyvernov1beta1.Generate:
+	case kyverno.Generate:
 		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.engine, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.eventGen, logger, c.jp)
 		return ctrl.ProcessUR(ur)
 	}
 	return nil
 }
 
-func (c *controller) reconcileURStatus(ur *kyvernov1beta1.UpdateRequest) (kyvernov1beta1.UpdateRequestState, error) {
+func (c *controller) reconcileURStatus(ur *kyvernov1beta1.UpdateRequest) (kyverno.UpdateRequestState, error) {
 	new, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Get(context.TODO(), ur.GetName(), metav1.GetOptions{})
 	if err != nil {
 		logger.V(2).Info("cannot fetch latest UR, fallback to the existing one", "reason", err.Error())
@@ -238,10 +239,10 @@ func (c *controller) reconcileURStatus(ur *kyvernov1beta1.UpdateRequest) (kyvern
 
 	var errUpdate error
 	switch new.Status.State {
-	case kyvernov1beta1.Completed:
+	case kyverno.Completed:
 		errUpdate = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
-	case kyvernov1beta1.Failed:
-		new.Status.State = kyvernov1beta1.Pending
+	case kyverno.Failed:
+		new.Status.State = kyverno.Pending
 		_, errUpdate = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{})
 	}
 	return new.Status.State, errUpdate

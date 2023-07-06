@@ -17,29 +17,11 @@ limitations under the License.
 package v1beta1
 
 import (
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-// UpdateRequestStatus defines the observed state of UpdateRequest
-type UpdateRequestStatus struct {
-	// Handler represents the instance ID that handles the UR
-	// Deprecated
-	Handler string `json:"handler,omitempty" yaml:"handler,omitempty"`
-
-	// State represents state of the update request.
-	State UpdateRequestState `json:"state" yaml:"state"`
-
-	// Specifies request status message.
-	// +optional
-	Message string `json:"message,omitempty" yaml:"message,omitempty"`
-
-	// This will track the resources that are updated by the generate Policy.
-	// Will be used during clean up resources.
-	GeneratedResources []kyvernov1.ResourceSpec `json:"generatedResources,omitempty" yaml:"generatedResources,omitempty"`
-}
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -64,21 +46,14 @@ type UpdateRequest struct {
 
 	// Status contains statistics related to update request.
 	// +optional
-	Status UpdateRequestStatus `json:"status,omitempty"`
+	Status kyverno.UpdateRequestStatus `json:"status,omitempty"`
 }
-
-type RequestType string
-
-const (
-	Mutate   RequestType = "mutate"
-	Generate RequestType = "generate"
-)
 
 // UpdateRequestSpec stores the request specification.
 type UpdateRequestSpec struct {
 	// Type represents request type for background processing
 	// +kubebuilder:validation:Enum=mutate;generate
-	Type RequestType `json:"requestType,omitempty" yaml:"requestType,omitempty"`
+	Type kyverno.RequestType `json:"requestType,omitempty" yaml:"requestType,omitempty"`
 
 	// Specifies the name of the policy.
 	Policy string `json:"policy" yaml:"policy"`
@@ -94,7 +69,7 @@ type UpdateRequestSpec struct {
 	Synchronize bool `json:"synchronize,omitempty" yaml:"synchronize,omitempty"`
 
 	// ResourceSpec is the information to identify the trigger resource.
-	Resource kyvernov1.ResourceSpec `json:"resource" yaml:"resource"`
+	Resource kyverno.ResourceSpec `json:"resource" yaml:"resource"`
 
 	// Context ...
 	Context UpdateRequestSpecContext `json:"context" yaml:"context"`
@@ -133,24 +108,8 @@ type AdmissionRequestInfoObject struct {
 	Operation admissionv1.Operation `json:"operation,omitempty" yaml:"operation,omitempty"`
 }
 
-// UpdateRequestState defines the state of request.
-type UpdateRequestState string
-
-const (
-	// Pending - the Request is yet to be processed or resource has not been created.
-	Pending UpdateRequestState = "Pending"
-
-	// Failed - the Update Request Controller failed to process the rules.
-	Failed UpdateRequestState = "Failed"
-
-	// Completed - the Update Request Controller created resources defined in the policy.
-	Completed UpdateRequestState = "Completed"
-
-	// Skip - the Update Request Controller skips to generate the resource.
-	Skip UpdateRequestState = "Skip"
-)
-
-//+kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 
 // UpdateRequestList contains a list of UpdateRequest
 type UpdateRequestList struct {
@@ -159,7 +118,7 @@ type UpdateRequestList struct {
 	Items           []UpdateRequest `json:"items"`
 }
 
-func (s *UpdateRequestSpec) GetRequestType() RequestType {
+func (s *UpdateRequestSpec) GetRequestType() kyverno.RequestType {
 	return s.Type
 }
 
@@ -175,6 +134,6 @@ func (s *UpdateRequestSpec) GetSynchronize() bool {
 	return s.Synchronize
 }
 
-func (s *UpdateRequestSpec) GetResource() kyvernov1.ResourceSpec {
+func (s *UpdateRequestSpec) GetResource() kyverno.ResourceSpec {
 	return s.Resource
 }
