@@ -1769,9 +1769,7 @@ Kubernetes apiextensions/v1.JSON
 <td>
 <code>ResourceSpec</code><br/>
 <em>
-<a href="#kyverno.io/v1.ResourceSpec">
-ResourceSpec
-</a>
+github.com/kyverno/kyverno/api/kyverno.ResourceSpec
 </em>
 </td>
 <td>
@@ -3087,75 +3085,6 @@ ResourceDescription
 <p>
 <p>ResourceFilters is a slice of ResourceFilter</p>
 </p>
-<h3 id="kyverno.io/v1.ResourceSpec">ResourceSpec
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.Generation">Generation</a>, 
-<a href="#kyverno.io/v1.TargetResourceSpec">TargetResourceSpec</a>, 
-<a href="#kyverno.io/v1beta1.UpdateRequestSpec">UpdateRequestSpec</a>, 
-<a href="#kyverno.io/v1beta1.UpdateRequestStatus">UpdateRequestStatus</a>)
-</p>
-<p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>APIVersion specifies resource apiVersion.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Kind specifies resource kind.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>namespace</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Namespace specifies resource namespace.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>name</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Name specifies the resource name.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="kyverno.io/v1.Rule">Rule
 </h3>
 <p>
@@ -3791,9 +3720,7 @@ Rekor (<a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>) is u
 <td>
 <code>ResourceSpec</code><br/>
 <em>
-<a href="#kyverno.io/v1.ResourceSpec">
-ResourceSpec
-</a>
+github.com/kyverno/kyverno/api/kyverno.ResourceSpec
 </em>
 </td>
 <td>
@@ -4744,9 +4671,7 @@ UpdateRequestSpec
 <td>
 <code>requestType</code><br/>
 <em>
-<a href="#kyverno.io/v1beta1.RequestType">
-RequestType
-</a>
+github.com/kyverno/kyverno/api/kyverno.RequestType
 </em>
 </td>
 <td>
@@ -4802,9 +4727,7 @@ Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
 <td>
 <code>resource</code><br/>
 <em>
-<a href="#kyverno.io/v1.ResourceSpec">
-ResourceSpec
-</a>
+github.com/kyverno/kyverno/api/kyverno.ResourceSpec
 </em>
 </td>
 <td>
@@ -4831,9 +4754,7 @@ UpdateRequestSpecContext
 <td>
 <code>status</code><br/>
 <em>
-<a href="#kyverno.io/v1beta1.UpdateRequestStatus">
-UpdateRequestStatus
-</a>
+github.com/kyverno/kyverno/api/kyverno.UpdateRequestStatus
 </em>
 </td>
 <td>
@@ -4948,14 +4869,6 @@ Kubernetes authentication/v1.UserInfo
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v1beta1.RequestType">RequestType
-(<code>string</code> alias)</p></h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1beta1.UpdateRequestSpec">UpdateRequestSpec</a>)
-</p>
-<p>
-</p>
 <h3 id="kyverno.io/v1beta1.UpdateRequestSpec">UpdateRequestSpec
 </h3>
 <p>
@@ -4977,9 +4890,7 @@ Kubernetes authentication/v1.UserInfo
 <td>
 <code>requestType</code><br/>
 <em>
-<a href="#kyverno.io/v1beta1.RequestType">
-RequestType
-</a>
+github.com/kyverno/kyverno/api/kyverno.RequestType
 </em>
 </td>
 <td>
@@ -5035,9 +4946,7 @@ Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
 <td>
 <code>resource</code><br/>
 <em>
-<a href="#kyverno.io/v1.ResourceSpec">
-ResourceSpec
-</a>
+github.com/kyverno/kyverno/api/kyverno.ResourceSpec
 </em>
 </td>
 <td>
@@ -5101,86 +5010,6 @@ AdmissionRequestInfoObject
 </td>
 <td>
 <em>(Optional)</em>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1beta1.UpdateRequestState">UpdateRequestState
-(<code>string</code> alias)</p></h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1beta1.UpdateRequestStatus">UpdateRequestStatus</a>)
-</p>
-<p>
-<p>UpdateRequestState defines the state of request.</p>
-</p>
-<h3 id="kyverno.io/v1beta1.UpdateRequestStatus">UpdateRequestStatus
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1beta1.UpdateRequest">UpdateRequest</a>)
-</p>
-<p>
-<p>UpdateRequestStatus defines the observed state of UpdateRequest</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>handler</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Handler represents the instance ID that handles the UR
-Deprecated</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>state</code><br/>
-<em>
-<a href="#kyverno.io/v1beta1.UpdateRequestState">
-UpdateRequestState
-</a>
-</em>
-</td>
-<td>
-<p>State represents state of the update request.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>message</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Specifies request status message.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>generatedResources</code><br/>
-<em>
-<a href="#kyverno.io/v1.ResourceSpec">
-[]ResourceSpec
-</a>
-</em>
-</td>
-<td>
-<p>This will track the resources that are updated by the generate Policy.
-Will be used during clean up resources.</p>
 </td>
 </tr>
 </tbody>

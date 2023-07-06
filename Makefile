@@ -416,10 +416,17 @@ codegen-client-clientset: $(PACKAGE_SHIM) $(CLIENT_GEN) ## Generate clientset
 	@echo Generate clientset... >&2
 	@GOPATH=$(GOPATH_SHIM) $(CLIENT_GEN) \
 		--go-header-file ./scripts/boilerplate.go.txt \
-		--clientset-name versioned \
 		--output-package $(CLIENTSET_PACKAGE) \
 		--input-base "" \
 		--input $(INPUT_DIRS)
+
+
+	# @GOPATH=$(GOPATH_SHIM) $(CLIENT_GEN) \
+	# 	--go-header-file ./scripts/boilerplate.go.txt \
+	# 	--clientset-name versioned \
+	# 	--output-package $(CLIENTSET_PACKAGE) \
+	# 	--input-base "" \
+	# 	--input $(INPUT_DIRS)
 
 .PHONY: codegen-client-listers
 codegen-client-listers: $(PACKAGE_SHIM) $(LISTER_GEN) ## Generate listers
