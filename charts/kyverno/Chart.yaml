@@ -27,6 +27,8 @@ annotations:
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
     - kind: fixed
+      description: rbac templating issues
+    - kind: fixed
       description: incorrect config map names
     - kind: added
       description: define resources for cleanupJobs
