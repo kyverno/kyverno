@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -19,7 +18,6 @@ import (
 	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -212,11 +210,11 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	clusterPolicies, err := c.fetchClusterPolicies(logger)
+	clusterPolicies, err := utils.FetchClusterPolicies(c.cpolLister)
 	if err != nil {
 		return err
 	}
-	policies, err := c.fetchPolicies(metav1.NamespaceAll)
+	policies, err := utils.FetchPolicies(c.polLister, metav1.NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -315,30 +313,6 @@ func (c *controller) deleteHash(obj *unstructured.Unstructured, gvr schema.Group
 		delete(watcher.hashes, uid)
 		c.notify(Deleted, uid, watcher.gvk, hash)
 	}
-}
-
-func (c *controller) fetchClusterPolicies(logger logr.Logger) ([]kyvernov1.PolicyInterface, error) {
-	var policies []kyvernov1.PolicyInterface
-	if cpols, err := c.cpolLister.List(labels.Everything()); err != nil {
-		return nil, err
-	} else {
-		for _, cpol := range cpols {
-			policies = append(policies, cpol)
-		}
-	}
-	return policies, nil
-}
-
-func (c *controller) fetchPolicies(namespace string) ([]kyvernov1.PolicyInterface, error) {
-	var policies []kyvernov1.PolicyInterface
-	if pols, err := c.polLister.Policies(namespace).List(labels.Everything()); err != nil {
-		return nil, err
-	} else {
-		for _, pol := range pols {
-			policies = append(policies, pol)
-		}
-	}
-	return policies, nil
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
