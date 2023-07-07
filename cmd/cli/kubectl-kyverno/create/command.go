@@ -2,6 +2,7 @@ package create
 
 import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/create/test"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/create/values"
 	"github.com/spf13/cobra"
 )
 
@@ -13,6 +14,6 @@ func Command() *cobra.Command {
 			return cmd.Help()
 		},
 	}
-	cmd.AddCommand(test.Command())
+	cmd.AddCommand(test.Command(), values.Command())
 	return cmd
 }

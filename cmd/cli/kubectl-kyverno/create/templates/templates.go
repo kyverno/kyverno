@@ -6,3 +6,6 @@ import (
 
 //go:embed test.yaml
 var TestTemplate string
+
+//go:embed values.yaml
+var ValuesTemplate string
