@@ -9,3 +9,6 @@ var TestTemplate string
 
 //go:embed user-info.yaml
 var UserInfoTemplate string
+
+//go:embed exception.yaml
+var ExceptionTemplate string

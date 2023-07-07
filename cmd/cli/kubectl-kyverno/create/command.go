@@ -1,6 +1,7 @@
 package create
 
 import (
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/create/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/create/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/create/userinfo"
 	"github.com/spf13/cobra"
@@ -14,6 +15,6 @@ func Command() *cobra.Command {
 			return cmd.Help()
 		},
 	}
-	cmd.AddCommand(test.Command(), userinfo.Command())
+	cmd.AddCommand(exception.Command(), test.Command(), userinfo.Command())
 	return cmd
 }
