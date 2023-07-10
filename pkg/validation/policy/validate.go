@@ -149,7 +149,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	clusterResources := sets.New[string]()
 	if !mock {
 		// Get all the cluster type kind supported by cluster
-		res, err = discovery.ServerPreferredResources(client.Discovery().DiscoveryInterface())
+		res, err = discovery.ServerPreferredResources(client.Discovery().CachedDiscoveryInterface())
 		if err != nil {
 			if discovery.IsGroupDiscoveryFailedError(err) {
 				err := err.(*discovery.ErrGroupDiscoveryFailed)
