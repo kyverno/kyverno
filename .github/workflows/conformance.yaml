@@ -96,6 +96,8 @@ jobs:
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Test with kuttl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ./.tools/kubectl-kuttl test ./test/conformance/kuttl/${{ matrix.tests }} \
             --config ./test/conformance/kuttl/_config/common.yaml
@@ -152,6 +154,8 @@ jobs:
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Test with kuttl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ./.tools/kubectl-kuttl test ./test/conformance/kuttl/${{ matrix.tests }} \
             --config ./test/conformance/kuttl/_config/common.yaml
@@ -206,6 +210,8 @@ jobs:
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Test with kuttl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ./.tools/kubectl-kuttl test ./test/conformance/kuttl/${{ matrix.tests }} \
             --config ./test/conformance/kuttl/_config/common.yaml
