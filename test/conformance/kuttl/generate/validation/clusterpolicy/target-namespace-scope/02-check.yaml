@@ -3,7 +3,7 @@ kind: TestStep
 apply:
 - file: policy-namespaced-target.yaml
   shouldFail: true
-- file: policy-cluster-target.yaml
-  shouldFail: false
+- file: policy-fail-ns-cluster-target.yaml
+  shouldFail: true
 - file: policy-pass.yaml
   shouldFail: false
