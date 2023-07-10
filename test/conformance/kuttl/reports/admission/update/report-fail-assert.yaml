@@ -1,0 +1,25 @@
+apiVersion: kyverno.io/v1alpha2
+kind: AdmissionReport
+metadata:
+  ownerReferences:
+  - apiVersion: apps/v1
+    kind: Deployment
+    name: test-dpl-1
+spec:
+  results:
+  - message: 'validation error: Using a mutable image tag e.g. ''latest'' is not allowed.
+      rule autogen-validate-image-tag-pod failed at path /spec/template/spec/containers/0/image/'
+    policy: disallow-latest-tag
+    resources:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: test-dpl-1
+    result: fail
+    rule: autogen-validate-image-tag-pod
+    source: kyverno
+  summary:
+    error: 0
+    fail: 1
+    pass: 0
+    skip: 0
+    warn: 0
