@@ -63,13 +63,3 @@ spec:
         imageRegistryCredentials:
           secrets:
           - regcred
----
-apiVersion: v1
-data:
-  .dockerconfigjson: eyJhdXRocyI6eyJnaGNyLmlvIjp7InVzZXJuYW1lIjoia3l2ZXJubyIsInBhc3N3b3JkIjoiZ2hwX3oxT1p3SUN0Y2loQWlhVWk1MkpUdDdod1ZGTGc5ODJxcHBSWCIsImF1dGgiOiJhM2wyWlhKdWJ6cG5hSEJmZWpGUFduZEpRM1JqYVdoQmFXRlZhVFV5U2xSME4yaDNWa1pNWnprNE1uRndjRkpZIn19fQ==
-kind: Secret
-metadata:
-  creationTimestamp: null
-  name: regcred
-  namespace: kyverno
-type: kubernetes.io/dockerconfigjson
