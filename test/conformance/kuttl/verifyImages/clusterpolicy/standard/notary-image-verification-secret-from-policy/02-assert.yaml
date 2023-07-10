@@ -1,5 +1,9 @@
-apiVersion: v1
-kind: Pod
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
 metadata:
-  name: test-secret-pod
-  namespace: test-verify-images
+  name: secret-in-policy
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready
