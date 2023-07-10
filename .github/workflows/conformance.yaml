@@ -35,6 +35,8 @@ jobs:
   # runs conformance test suites with configuration:
   standard:
     runs-on: ubuntu-latest
+    permissions:
+      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -108,6 +110,8 @@ jobs:
   # runs conformance test suites with configuration:
   force-failure-policy-ignore:
     runs-on: ubuntu-latest
+    permissions:
+      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -166,6 +170,8 @@ jobs:
   # runs conformance test suites with configuration:
   default:
     runs-on: ubuntu-latest
+    permissions:
+      packages: read
     strategy:
       fail-fast: false
       matrix:
