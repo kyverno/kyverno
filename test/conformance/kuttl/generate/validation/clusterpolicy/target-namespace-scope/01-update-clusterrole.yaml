@@ -19,7 +19,7 @@ rules:
   - delete
   - get
 - apiGroups:
-  - "kyverno.io/v2alpha1"
+  - "kyverno.io"
   resources:
   - clustercleanuppolicies
   verbs:
