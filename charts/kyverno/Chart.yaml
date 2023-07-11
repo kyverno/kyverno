@@ -32,3 +32,5 @@ annotations:
       description: define resources for cleanupJobs
     - kind: changed
       description: change to enable webhook cleanup hook by default
+    - kind: added
+      description: allow pod labels for cleanup jobs

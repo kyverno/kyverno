@@ -448,6 +448,9 @@ cleanupJobs:
     # -- Pod Annotations
     podAnnotations: {}
 
+    # -- Pod labels
+    podLabels: {}
+
   clusterAdmissionReports:
 
     # -- Enable cleanup cronjob
@@ -503,6 +506,9 @@ cleanupJobs:
 
     # -- Pod Annotations
     podAnnotations: {}
+
+    # -- Pod Labels
+    podLabels: {}
 
 # Admission controller configuration
 admissionController:
