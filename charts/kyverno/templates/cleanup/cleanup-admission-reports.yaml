@@ -19,6 +19,10 @@ spec:
           annotations:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          {{- with .Values.cleanupJobs.admissionReports.podLabels }}
+          labels:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
         spec:
           serviceAccountName: {{ template "kyverno.name" . }}-cleanup-jobs
           {{- with .Values.cleanupJobs.admissionReports.podSecurityContext }}
