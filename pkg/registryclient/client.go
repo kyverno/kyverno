@@ -19,7 +19,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/sigstore/cosign/pkg/oci/remote"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"k8s.io/apimachinery/pkg/util/sets"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -95,6 +94,7 @@ func New(options ...Option) (Client, error) {
 	if len(cfg.keychain) > 0 {
 		c.keychain = authn.NewMultiKeychain(cfg.keychain...)
 	}
+
 	if cfg.tracing {
 		c.transport = tracing.Transport(cfg.transport, otelhttp.WithFilter(tracing.RequestFilterIsInSpan))
 	}
@@ -126,49 +126,10 @@ func WithKeychainPullSecrets(lister corev1listers.SecretNamespaceLister, imagePu
 func WithCredentialProviders(credentialProviders ...string) Option {
 	return func(c *config) error {
 		var chains []authn.Keychain
-<<<<<<< HEAD
-<<<<<<< HEAD
-		helpers := sets.New(credentialProviders...)
-		if helpers.Has("default") {
-			chains = append(chains, DefaultKeychain)
-		}
-		if helpers.Has("google") {
-			chains = append(chains, GCRKeychain)
-		}
-		if helpers.Has("amazon") {
-			chains = append(chains, ECRKeychain)
-		}
-		if helpers.Has("azure") {
-			chains = append(chains, ACRKeychain)
-		}
-		if helpers.Has("github") {
-			chains = append(chains, GHCRKeychain)
-		}
+		regKeychain := NewRegistryKeychain()
+		chains = append(chains, regKeychain)
 		c.keychain = append(c.keychain, chains...)
-=======
-		chains = append(chains, RegistryKeychain)
-=======
-		helpers := sets.New(credentialProviders...)
-		if helpers.Has("default") {
-			chains = append(chains, RegistryKeychain)
-		}
-		if helpers.Has("google") {
-			chains = append(chains, google.Keychain)
-		}
-		if helpers.Has("amazon") {
-			chains = append(chains, authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard))))
-		}
-		if helpers.Has("azure") {
-			chains = append(chains, authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()))
-		}
-		if helpers.Has("github") {
-			chains = append(chains, RegistryKeychain)
-		}
->>>>>>> 74298242b (modified registrykeychain logic)
-		c.keychain = authn.NewMultiKeychain(chains...)
->>>>>>> 9f63a6e25 (added a common registryKeychain)
 		return nil
-
 	}
 }
 
