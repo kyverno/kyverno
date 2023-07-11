@@ -251,12 +251,10 @@ type CTLog struct {
 
 	// IgnoreSCT requires that a certificate contain an embedded SCT during verification. An SCT is proof of inclusion in a certificate transparency log.
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=false
 	IgnoreSCT bool `json:"ignoreSCT,omitempty" yaml:"ignoreSCT,omitempty"`
 
 	// IgnoreTlog skip tlog verification
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=false
 	IgnoreTlog bool `json:"ignoreTlog,omitempty" yaml:"ignoreTlog,omitempty"`
 }
 
