@@ -17,7 +17,6 @@ type ImageVerifier interface {
 
 type Client interface {
 	Keychain() authn.Keychain
-	RefreshKeychainPullSecrets(ctx context.Context) error
 	BuildRemoteOption(context.Context) remote.Option
 }
 

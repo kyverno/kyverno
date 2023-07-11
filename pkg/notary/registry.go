@@ -79,11 +79,6 @@ func getAuthenticator(ctx context.Context, ref string, registryClient images.Cli
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse registry reference %s", ref)
 	}
-
-	if err := registryClient.RefreshKeychainPullSecrets(ctx); err != nil {
-		return nil, errors.Wrapf(err, "failed to refresh image pull secrets")
-	}
-
 	authn, err := registryClient.Keychain().Resolve(&imageResource{parsedRef})
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to resolve auth for %s", parsedRef.String())

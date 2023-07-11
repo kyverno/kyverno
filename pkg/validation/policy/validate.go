@@ -12,8 +12,8 @@ import (
 
 	"github.com/distribution/distribution/reference"
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	"github.com/jmespath/go-jmespath"
 	"github.com/jmoiron/jsonq"
+	"github.com/kyverno/go-jmespath"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
@@ -39,10 +39,10 @@ import (
 )
 
 var (
-	allowedVariables                   = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images\.|image\.|([a-z_0-9]+\()[^{}]`)
-	allowedVariablesBackground         = regexp.MustCompile(`request\.|element|elementIndex|@|images\.|image\.|([a-z_0-9]+\()[^{}]`)
-	allowedVariablesInTarget           = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
-	allowedVariablesBackgroundInTarget = regexp.MustCompile(`request\.|element|elementIndex|@|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
+	allowedVariables                   = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images|images\.|image\.|([a-z_0-9]+\()[^{}]`)
+	allowedVariablesBackground         = regexp.MustCompile(`request\.|element|elementIndex|@|images|images\.|image\.|([a-z_0-9]+\()[^{}]`)
+	allowedVariablesInTarget           = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
+	allowedVariablesBackgroundInTarget = regexp.MustCompile(`request\.|element|elementIndex|@|images|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
 	// wildCardAllowedVariables represents regex for the allowed fields in wildcards
 	wildCardAllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace)[^{}]*\}\}`)
 	errOperationForbidden    = errors.New("variables are forbidden in the path of a JSONPatch")
@@ -149,7 +149,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	clusterResources := sets.New[string]()
 	if !mock {
 		// Get all the cluster type kind supported by cluster
-		res, err = discovery.ServerPreferredResources(client.Discovery().DiscoveryInterface())
+		res, err = discovery.ServerPreferredResources(client.Discovery().CachedDiscoveryInterface())
 		if err != nil {
 			if discovery.IsGroupDiscoveryFailedError(err) {
 				err := err.(*discovery.ErrGroupDiscoveryFailed)

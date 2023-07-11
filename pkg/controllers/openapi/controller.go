@@ -74,7 +74,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 func (c *controller) sync() {
 	c.manager.Lock()
 	defer c.manager.Unlock()
-	c.client.Discovery().DiscoveryCache().Invalidate()
+	c.client.Discovery().CachedDiscoveryInterface().Invalidate()
 	crds, err := c.client.GetDynamicInterface().Resource(runtimeSchema.GroupVersionResource{
 		Group:    "apiextensions.k8s.io",
 		Version:  "v1",
@@ -108,7 +108,7 @@ func (c *controller) sync() {
 
 func (c *controller) updateInClusterKindToAPIVersions() error {
 	overrideRuntimeErrorHandler()
-	_, apiResourceLists, err := discovery.ServerGroupsAndResources(c.client.Discovery().DiscoveryInterface())
+	_, apiResourceLists, err := discovery.ServerGroupsAndResources(c.client.Discovery().CachedDiscoveryInterface())
 	if err != nil {
 		if discovery.IsGroupDiscoveryFailedError(err) {
 			err := err.(*discovery.ErrGroupDiscoveryFailed)
@@ -119,7 +119,7 @@ func (c *controller) updateInClusterKindToAPIVersions() error {
 			return err
 		}
 	}
-	preferredAPIResourcesLists, err := discovery.ServerPreferredResources(c.client.Discovery().DiscoveryInterface())
+	preferredAPIResourcesLists, err := discovery.ServerPreferredResources(c.client.Discovery().CachedDiscoveryInterface())
 	if err != nil {
 		if discovery.IsGroupDiscoveryFailedError(err) {
 			err := err.(*discovery.ErrGroupDiscoveryFailed)

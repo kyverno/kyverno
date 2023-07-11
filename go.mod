@@ -24,10 +24,10 @@ require (
 	github.com/google/go-containerregistry/0_14 v0.0.0-00010101000000-000000000000
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20230403180904-b8d1c0a1df12
 	github.com/in-toto/in-toto-golang v0.9.0
-	github.com/jmespath/go-jmespath v0.4.0
 	github.com/jmoiron/jsonq v0.0.0-20150511023944-e874b168d07e
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23
+	github.com/kyverno/go-jmespath v0.4.1-0.20230705123211-d067dc3d6613
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
 	github.com/mozillazg/docker-credential-acr-helper v0.3.0
 	github.com/notaryproject/notation-core-go v1.0.0-rc.4
@@ -64,7 +64,7 @@ require (
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	golang.org/x/text v0.11.0
 	gomodules.xyz/jsonpatch/v2 v2.3.0
-	google.golang.org/grpc v1.56.1
+	google.golang.org/grpc v1.56.2
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -84,6 +84,7 @@ require (
 	sigs.k8s.io/kustomize/api v0.13.4
 	sigs.k8s.io/kustomize/kyaml v0.14.2
 	sigs.k8s.io/release-utils v0.7.4
+	sigs.k8s.io/structured-merge-diff/v4 v4.2.3
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -236,6 +237,7 @@ require (
 	github.com/jedisct1/go-minisign v0.0.0-20230211184525-1f273d8dc776 // indirect
 	github.com/jellydator/ttlcache/v3 v3.0.1 // indirect
 	github.com/jinzhu/copier v0.3.5 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
@@ -343,11 +345,6 @@ require (
 	k8s.io/kubectl v0.26.3 // indirect
 	oras.land/oras-go/v2 v2.2.0 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 )
 
-replace (
-	github.com/google/go-containerregistry/0_14 => github.com/google/go-containerregistry v0.14.1-0.20230425172351-b7c6e9dc3944
-	github.com/jmespath/go-jmespath => github.com/kyverno/go-jmespath v0.4.1-0.20230204162932-3ee946b9433d
-	github.com/mattbaird/jsonpatch => gomodules.xyz/jsonpatch/v2 v2.2.0
-)
+replace github.com/google/go-containerregistry/0_14 => github.com/google/go-containerregistry v0.14.1-0.20230425172351-b7c6e9dc3944
