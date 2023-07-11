@@ -54,7 +54,7 @@ type Client interface {
 	// and provides access to metadata about remote artifact.
 	FetchImageDescriptor(context.Context, string) (*gcrremote.Descriptor, error)
 
-	// BuildRemoteOption builds remote.Option based on client.
+	// BuildCosignRemoteOption builds remote.Option for cosign client.
 	BuildCosignRemoteOption(context.Context) remote.Option
 
 	//BuildGCRRemoteOption builds []gcrremote.option based on client
@@ -168,7 +168,7 @@ func WithTracing() Option {
 	}
 }
 
-// BuildRemoteOption builds remote.Option based on client.
+// BuildCosignRemoteOption builds remote.Option for cosign client.
 func (c *client) BuildCosignRemoteOption(ctx context.Context) remote.Option {
 	return remote.WithRemoteOptions(
 		gcrremote.WithAuthFromKeychain(c.keychain),
@@ -178,7 +178,7 @@ func (c *client) BuildCosignRemoteOption(ctx context.Context) remote.Option {
 	)
 }
 
-// BuildGCRRemoteOption builds remote.Option based on client.
+// BuildGCRRemoteOption builds []gcrremote.Option based on client.
 func (c *client) BuildGCRRemoteOption(ctx context.Context) []gcrremote.Option {
 	remoteOpts := []gcrremote.Option{
 		gcrremote.WithAuthFromKeychain(c.keychain),
