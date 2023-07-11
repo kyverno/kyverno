@@ -27,7 +27,7 @@ func setupRegistryClient(ctx context.Context, logger logr.Logger, client kuberne
 	}
 	secrets := strings.Split(imagePullSecrets, ",")
 	if imagePullSecrets != "" && len(secrets) > 0 {
-		registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(ctx, secretLister, secrets...))
+		registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(secretLister, secrets...))
 	}
 	if allowInsecureRegistry {
 		registryOptions = append(registryOptions, registryclient.WithAllowInsecureRegistry())
