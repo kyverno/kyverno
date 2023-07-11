@@ -1,11 +1,11 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: rbac-policy
+  name: target-namespace-scope-pass-1
 spec:
+  generateExistingOnPolicyUpdate: true
   rules:
-    - name: rbac-rule
-      generate:
+    - generate:
         apiVersion: iam.aws.crossplane.io/v1beta1
         data:
           rules:
@@ -20,6 +20,9 @@ spec:
         synchronize: true
       match:
         any:
-        - resources:
-            kinds:
-            - Namespace
+          - resources:
+              kinds:
+                - Namespace
+              names:
+                - dev-*
+      name: role-per-namespace
