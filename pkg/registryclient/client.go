@@ -125,10 +125,7 @@ func WithKeychainPullSecrets(lister corev1listers.SecretNamespaceLister, imagePu
 // WithKeychainPullSecrets provides initialize registry client option that allows to use insecure registries.
 func WithCredentialProviders(credentialProviders ...string) Option {
 	return func(c *config) error {
-		var chains []authn.Keychain
-		regKeychain := NewRegistryKeychain()
-		chains = append(chains, regKeychain)
-		c.keychain = append(c.keychain, chains...)
+		c.keychain = append(c.keychain, NewRegistryKeychain())
 		return nil
 	}
 }
