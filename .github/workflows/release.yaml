@@ -1,5 +1,7 @@
 name: releaser
 
+permissions: {}
+
 on:
   push:
     tags:
@@ -9,7 +11,6 @@ jobs:
   release-images:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
       packages: write
       id-token: write
     outputs:
@@ -36,8 +37,6 @@ jobs:
           severity: 'CRITICAL,HIGH'
       - name: Install Cosign
         uses: sigstore/cosign-installer@6e04d228eb30da1757ee4e1dd75a0ec73a653e06 # v3.1.1
-        with:
-          cosign-release: 'v1.13.0'
       - name: Publish kyverno
         id: release-kyverno
         uses: ./.github/actions/publish-image
@@ -45,7 +44,7 @@ jobs:
           makefile-target: ko-publish-kyverno
           registry: ghcr.io
           registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.CR_PAT }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository_owner }}
           version: ${{ github.ref_name }}
           sign-image: true
@@ -60,7 +59,7 @@ jobs:
           makefile-target: ko-publish-kyverno-init
           registry: ghcr.io
           registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.CR_PAT }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository_owner }}
           version: ${{ github.ref_name }}
           sign-image: true
@@ -75,7 +74,7 @@ jobs:
           makefile-target: ko-publish-background-controller
           registry: ghcr.io
           registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.CR_PAT }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository_owner }}
           version: ${{ github.ref_name }}
           sign-image: true
@@ -90,7 +89,7 @@ jobs:
           makefile-target: ko-publish-cleanup-controller
           registry: ghcr.io
           registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.CR_PAT }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository_owner }}
           version: ${{ github.ref_name }}
           sign-image: true
@@ -105,7 +104,7 @@ jobs:
           makefile-target: ko-publish-cli
           registry: ghcr.io
           registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.CR_PAT }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository_owner }}
           version: ${{ github.ref_name }}
           sign-image: true
@@ -120,7 +119,7 @@ jobs:
           makefile-target: ko-publish-reports-controller
           registry: ghcr.io
           registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.CR_PAT }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository_owner }}
           version: ${{ github.ref_name }}
           sign-image: true
@@ -142,7 +141,7 @@ jobs:
       digest: "${{ needs.release-images.outputs.kyverno-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
-      registry-password: ${{ secrets.CR_PAT }}
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
 
   generate-kyverno-init-provenance:
     needs: release-images
@@ -157,7 +156,7 @@ jobs:
       digest: "${{ needs.release-images.outputs.kyverno-init-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
-      registry-password: ${{ secrets.CR_PAT }}
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
 
   generate-background-controller-provenance:
     needs: release-images
@@ -172,7 +171,7 @@ jobs:
       digest: "${{ needs.release-images.outputs.background-controller-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
-      registry-password: ${{ secrets.CR_PAT }}
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
 
   generate-cleanup-controller-provenance:
     needs: release-images
@@ -187,7 +186,7 @@ jobs:
       digest: "${{ needs.release-images.outputs.cleanup-controller-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
-      registry-password: ${{ secrets.CR_PAT }}
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
 
   generate-kyverno-cli-provenance:
     needs: release-images
@@ -202,7 +201,7 @@ jobs:
       digest: "${{ needs.release-images.outputs.cli-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
-      registry-password: ${{ secrets.CR_PAT }}
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
 
   generate-reports-controller-provenance:
     needs: release-images
@@ -217,11 +216,14 @@ jobs:
       digest: "${{ needs.release-images.outputs.reports-controller-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
-      registry-password: ${{ secrets.CR_PAT }}
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
 
   create-release:
     runs-on: ubuntu-latest
     needs: release-images
+    permissions:
+      contents: write
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
@@ -230,8 +232,6 @@ jobs:
       - uses: creekorful/goreportcard-action@1f35ced8cdac2cba28c9a2f2288a16aacfd507f9 # v1.0
       - name: Install Cosign
         uses: sigstore/cosign-installer@6e04d228eb30da1757ee4e1dd75a0ec73a653e06 # v3.1.1
-        with:
-          cosign-release: 'v1.13.0'
       - name: Make Release
         env:
           VERSION: ${{ github.ref_name }}
@@ -261,13 +261,11 @@ jobs:
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
       - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@dbda8fbdb8b58ed1ee69343025a6091eae0d1828 # v0.41.2
+        uses: fluxcd/flux2/action@9ea0a535eab2c99121fb3ac742e333b4a9f07970 # v2.0.0
         with:
           version: 0.35.0
       - name: Install Cosign
         uses: sigstore/cosign-installer@6e04d228eb30da1757ee4e1dd75a0ec73a653e06 # v3.1.1
-        with:
-          cosign-release: 'v1.13.0'
       - name: Build yaml manifest
         run: VERSION=${{ github.ref_name }} make codegen-manifest-release
       - name: Upload install manifest
@@ -292,7 +290,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Push manifests to GHCR with Flux
         env:
-          CR_PAT_ARTIFACTS:  ${{ secrets.CR_PAT_ARTIFACTS }}
+          CR_PAT_ARTIFACTS:  ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
           mkdir -p config/.release-manifests
@@ -303,10 +301,8 @@ jobs:
             --source="$(git config --get remote.origin.url)" \
             --revision="${{ github.ref_name }}/$(git rev-parse HEAD)"
       - name: Sign manifests in GHCR with Cosign
-        env:
-          COSIGN_EXPERIMENTAL: 1
         run: |
-          cosign sign ghcr.io/${{ github.repository_owner }}/manifests/kyverno:${{ github.ref_name }}
+          cosign sign --yes ghcr.io/${{ github.repository_owner }}/manifests/kyverno:${{ github.ref_name }}
 
   release-cli-via-krew:
     runs-on: ubuntu-latest

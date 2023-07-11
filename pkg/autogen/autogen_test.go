@@ -7,7 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -143,7 +144,7 @@ func Test_CanAutoGen(t *testing.T) {
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			var policy kyverno.ClusterPolicy
+			var policy kyvernov1.ClusterPolicy
 			err := json.Unmarshal(test.policy, &policy)
 			assert.NilError(t, err)
 
@@ -246,7 +247,7 @@ func Test_GetSupportedControllers(t *testing.T) {
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			var policy kyverno.ClusterPolicy
+			var policy kyvernov1.ClusterPolicy
 			err := json.Unmarshal(test.policy, &policy)
 			assert.NilError(t, err)
 
@@ -354,7 +355,7 @@ func Test_ComputeRules(t *testing.T) {
 	testCases := []struct {
 		name          string
 		policy        string
-		expectedRules []kyverno.Rule
+		expectedRules []kyvernov1.Rule
 	}{
 		{
 			name: "rule-with-match-name",
@@ -404,19 +405,19 @@ spec:
                 FlDw3fzPhtberBblY4Y9u525ev999SogMBTXoSkfajRR2ol10xUxY60kVbqoEUln
                 kA==
                 -----END CERTIFICATE-----`,
-			expectedRules: []kyverno.Rule{{
+			expectedRules: []kyvernov1.Rule{{
 				Name: "check-image",
-				MatchResources: kyverno.MatchResources{
-					ResourceDescription: kyverno.ResourceDescription{
+				MatchResources: kyvernov1.MatchResources{
+					ResourceDescription: kyvernov1.ResourceDescription{
 						Kinds: []string{"Pod"},
 					},
 				},
-				VerifyImages: []kyverno.ImageVerification{{
+				VerifyImages: []kyvernov1.ImageVerification{{
 					ImageReferences: []string{"*"},
-					Attestors: []kyverno.AttestorSet{{
+					Attestors: []kyvernov1.AttestorSet{{
 						Count: intPtr(1),
-						Entries: []kyverno.Attestor{{
-							Keyless: &kyverno.KeylessAttestor{
+						Entries: []kyvernov1.Attestor{{
+							Keyless: &kyvernov1.KeylessAttestor{
 								Roots: `-----BEGIN CERTIFICATE-----
 MIIDjTCCAnWgAwIBAgIQb8yUrbw3aYZAubIjOJkFBjANBgkqhkiG9w0BAQsFADBZ
 MRMwEQYKCZImiZPyLGQBGRYDY29tMRowGAYKCZImiZPyLGQBGRYKdmVuYWZpZGVt
@@ -445,17 +446,17 @@ kA==
 				}},
 			}, {
 				Name: "autogen-check-image",
-				MatchResources: kyverno.MatchResources{
-					ResourceDescription: kyverno.ResourceDescription{
+				MatchResources: kyvernov1.MatchResources{
+					ResourceDescription: kyvernov1.ResourceDescription{
 						Kinds: []string{"DaemonSet", "Deployment", "Job", "StatefulSet", "ReplicaSet", "ReplicationController"},
 					},
 				},
-				VerifyImages: []kyverno.ImageVerification{{
+				VerifyImages: []kyvernov1.ImageVerification{{
 					ImageReferences: []string{"*"},
-					Attestors: []kyverno.AttestorSet{{
+					Attestors: []kyvernov1.AttestorSet{{
 						Count: intPtr(1),
-						Entries: []kyverno.Attestor{{
-							Keyless: &kyverno.KeylessAttestor{
+						Entries: []kyvernov1.Attestor{{
+							Keyless: &kyvernov1.KeylessAttestor{
 								Roots: `-----BEGIN CERTIFICATE-----
 MIIDjTCCAnWgAwIBAgIQb8yUrbw3aYZAubIjOJkFBjANBgkqhkiG9w0BAQsFADBZ
 MRMwEQYKCZImiZPyLGQBGRYDY29tMRowGAYKCZImiZPyLGQBGRYKdmVuYWZpZGVt
@@ -484,17 +485,17 @@ kA==
 				}},
 			}, {
 				Name: "autogen-cronjob-check-image",
-				MatchResources: kyverno.MatchResources{
-					ResourceDescription: kyverno.ResourceDescription{
+				MatchResources: kyvernov1.MatchResources{
+					ResourceDescription: kyvernov1.ResourceDescription{
 						Kinds: []string{"CronJob"},
 					},
 				},
-				VerifyImages: []kyverno.ImageVerification{{
+				VerifyImages: []kyvernov1.ImageVerification{{
 					ImageReferences: []string{"*"},
-					Attestors: []kyverno.AttestorSet{{
+					Attestors: []kyvernov1.AttestorSet{{
 						Count: intPtr(1),
-						Entries: []kyverno.Attestor{{
-							Keyless: &kyverno.KeylessAttestor{
+						Entries: []kyvernov1.Attestor{{
+							Keyless: &kyvernov1.KeylessAttestor{
 								Roots: `-----BEGIN CERTIFICATE-----
 MIIDjTCCAnWgAwIBAgIQb8yUrbw3aYZAubIjOJkFBjANBgkqhkiG9w0BAQsFADBZ
 MRMwEQYKCZImiZPyLGQBGRYDY29tMRowGAYKCZImiZPyLGQBGRYKdmVuYWZpZGVt

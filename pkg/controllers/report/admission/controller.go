@@ -249,7 +249,7 @@ func (c *controller) aggregateReports(ctx context.Context, uid types.UID) (kyver
 		if aggregated.GetResourceVersion() != "" {
 			after = reportutils.DeepCopy(aggregated)
 		}
-		reportutils.SetResults(aggregated, results...)
+		reportutils.SetResults(after, results...)
 		if after.GetResourceVersion() == "" {
 			if len(results) > 0 {
 				if _, err := reportutils.CreateReport(ctx, after, c.client); err != nil {

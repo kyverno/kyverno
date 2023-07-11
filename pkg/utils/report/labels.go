@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -77,7 +78,7 @@ func CleanupKyvernoLabels(obj metav1.Object) {
 }
 
 func SetManagedByKyvernoLabel(obj metav1.Object) {
-	controllerutils.SetLabel(obj, kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp)
+	controllerutils.SetLabel(obj, kyverno.LabelAppManagedBy, kyverno.ValueKyvernoApp)
 }
 
 func SetResourceUid(report kyvernov1alpha2.ReportInterface, uid types.UID) {

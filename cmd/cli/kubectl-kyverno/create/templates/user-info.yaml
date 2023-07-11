@@ -1,0 +1,21 @@
+# list of roles
+roles:
+{{- range .Roles }}
+  - {{ . }}
+{{- end }}
+
+# list of cluster roles
+clusterRoles:
+{{- range .ClusterRoles }}
+  - {{ . }}
+{{- end }}
+
+userInfo:
+  # user name
+  username: {{ .AdmissionUserInfo.Username }}
+
+  # list of groups
+  groups:
+{{- range .AdmissionUserInfo.Groups }}
+    - {{ . }}
+{{- end }}

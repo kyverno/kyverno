@@ -11,6 +11,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"math"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -20,7 +21,7 @@ import (
 
 	trunc "github.com/aquilax/truncate"
 	"github.com/blang/semver/v4"
-	gojmespath "github.com/jmespath/go-jmespath"
+	gojmespath "github.com/kyverno/go-jmespath"
 	"github.com/kyverno/kyverno/pkg/config"
 	imageutils "github.com/kyverno/kyverno/pkg/utils/image"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
@@ -58,6 +59,7 @@ var (
 	multiply               = "multiply"
 	divide                 = "divide"
 	modulo                 = "modulo"
+	round                  = "round"
 	base64Decode           = "base64_decode"
 	base64Encode           = "base64_encode"
 	pathCanonicalize       = "path_canonicalize"
@@ -307,6 +309,17 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		},
 		ReturnType: []jpType{jpAny},
 		Note:       "divisor must be non-zero, arguments must be integers",
+	}, {
+		FunctionEntry: gojmespath.FunctionEntry{
+			Name: round,
+			Arguments: []argSpec{
+				{Types: []jpType{jpNumber}},
+				{Types: []jpType{jpNumber}},
+			},
+			Handler: jpRound,
+		},
+		ReturnType: []jpType{jpNumber},
+		Note:       "does roundoff to upto the given decimal places",
 	}, {
 		FunctionEntry: gojmespath.FunctionEntry{
 			Name: base64Decode,
@@ -863,6 +876,27 @@ func jpModulo(arguments []interface{}) (interface{}, error) {
 	}
 
 	return op1.Modulo(op2)
+}
+
+func jpRound(arguments []interface{}) (interface{}, error) {
+	op, err := validateArg(round, arguments, 0, reflect.Float64)
+	if err != nil {
+		return nil, err
+	}
+	length, err := validateArg(round, arguments, 1, reflect.Float64)
+	if err != nil {
+		return nil, err
+	}
+	intLength, err := intNumber(length.Float())
+	if err != nil {
+		return nil, formatError(nonIntRoundError, round)
+	}
+	if intLength < 0 {
+		return nil, formatError(argOutOfBoundsError, round)
+	}
+	shift := math.Pow(10, float64(intLength))
+	rounded := math.Round(op.Float()*shift) / shift
+	return rounded, nil
 }
 
 func jpBase64Decode(arguments []interface{}) (interface{}, error) {

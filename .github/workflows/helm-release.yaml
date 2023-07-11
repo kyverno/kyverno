@@ -1,5 +1,7 @@
 name: helm-release
 
+permissions: {}
+
 on:
   push:
     tags:
@@ -57,8 +59,6 @@ jobs:
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@6e04d228eb30da1757ee4e1dd75a0ec73a653e06 # v3.1.1
-        with:
-          cosign-release: 'v1.13.0'
 
       - name: Set version
         run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
@@ -91,14 +91,12 @@ jobs:
           helm registry login --username ${GITHUB_ACTOR} --password ${{ secrets.GITHUB_TOKEN }} ghcr.io
       
       - name: Publish OCI Charts
-        env:
-          COSIGN_EXPERIMENTAL: 1
         run: |
           for dir in `find charts-tmp -maxdepth 1 -mindepth 1 -type d -print`; do
             chart=${dir##*/}
             echo "Found chart: ${chart}"
             helm package charts-tmp/${chart} --destination .dist
             helm push .dist/${chart}-*.tgz oci://ghcr.io/${{ github.repository_owner }}/charts |& tee .digest
-            cosign login --username ${GITHUB_ACTOR} --password ${{ secrets.CR_PAT_ARTIFACTS }} ghcr.io
-            cosign sign ghcr.io/${{ github.repository_owner }}/charts/${chart}@$(cat .digest | awk -F "[, ]+" '/Digest/{print $NF}')
+            cosign login --username ${GITHUB_ACTOR} --password ${{ secrets.GITHUB_TOKEN }} ghcr.io
+            cosign sign --yes ghcr.io/${{ github.repository_owner }}/charts/${chart}@$(cat .digest | awk -F "[, ]+" '/Digest/{print $NF}')
           done

@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apply"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/create"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/jp"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/oci"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
@@ -14,7 +15,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const EnableExperimentalEnv = "KYVERNO_EXPERIMENTAL"
+const enableExperimentalEnv = "KYVERNO_EXPERIMENTAL"
 
 func main() {
 	cli := &cobra.Command{
@@ -41,14 +42,14 @@ func configureLogs(cli *cobra.Command) {
 }
 
 func enableExperimental() bool {
-	if b, err := strconv.ParseBool(os.Getenv(EnableExperimentalEnv)); err == nil {
+	if b, err := strconv.ParseBool(os.Getenv(enableExperimentalEnv)); err == nil {
 		return b
 	}
 	return false
 }
 
 func registerCommands(cli *cobra.Command) {
-	cli.AddCommand(version.Command(), apply.Command(), test.Command(), jp.Command())
+	cli.AddCommand(version.Command(), create.Command(), apply.Command(), test.Command(), jp.Command())
 	if enableExperimental() {
 		cli.AddCommand(oci.Command())
 	}

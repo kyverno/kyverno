@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/values"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -69,7 +70,7 @@ func GetResources(
 	return resources, err
 }
 
-func whenClusterIsTrue(resourceTypes []schema.GroupVersionKind, subresourceMap map[schema.GroupVersionKind]Subresource, dClient dclient.Interface, namespace string, resourcePaths []string, policyReport bool) ([]*unstructured.Unstructured, error) {
+func whenClusterIsTrue(resourceTypes []schema.GroupVersionKind, subresourceMap map[schema.GroupVersionKind]values.Subresource, dClient dclient.Interface, namespace string, resourcePaths []string, policyReport bool) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	resourceMap, err := getResourcesOfTypeFromCluster(resourceTypes, subresourceMap, dClient, namespace)
 	if err != nil {
@@ -194,7 +195,7 @@ func GetResource(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
 	return resources, nil
 }
 
-func getResourcesOfTypeFromCluster(resourceTypes []schema.GroupVersionKind, subresourceMap map[schema.GroupVersionKind]Subresource, dClient dclient.Interface, namespace string) (map[string]*unstructured.Unstructured, error) {
+func getResourcesOfTypeFromCluster(resourceTypes []schema.GroupVersionKind, subresourceMap map[schema.GroupVersionKind]values.Subresource, dClient dclient.Interface, namespace string) (map[string]*unstructured.Unstructured, error) {
 	r := make(map[string]*unstructured.Unstructured)
 	for _, kind := range resourceTypes {
 		resourceList, err := dClient.ListResource(context.TODO(), kind.GroupVersion().String(), kind.Kind, namespace, nil)
@@ -323,9 +324,9 @@ func GetPatchedAndGeneratedResource(resourceBytes []byte) (unstructured.Unstruct
 }
 
 // GetKindsFromRule will return the kinds from policy match block
-func GetKindsFromRule(rule kyvernov1.Rule, client dclient.Interface) (map[schema.GroupVersionKind]bool, map[schema.GroupVersionKind]Subresource) {
+func GetKindsFromRule(rule kyvernov1.Rule, client dclient.Interface) (map[schema.GroupVersionKind]bool, map[schema.GroupVersionKind]values.Subresource) {
 	resourceTypesMap := make(map[schema.GroupVersionKind]bool)
-	subresourceMap := make(map[schema.GroupVersionKind]Subresource)
+	subresourceMap := make(map[schema.GroupVersionKind]values.Subresource)
 	for _, kind := range rule.MatchResources.Kinds {
 		addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client)
 	}
@@ -346,9 +347,9 @@ func GetKindsFromRule(rule kyvernov1.Rule, client dclient.Interface) (map[schema
 	return resourceTypesMap, subresourceMap
 }
 
-func getKindsFromValidatingAdmissionRule(rule admissionregistrationv1.Rule, client dclient.Interface) (map[schema.GroupVersionKind]bool, map[schema.GroupVersionKind]Subresource, error) {
+func getKindsFromValidatingAdmissionRule(rule admissionregistrationv1.Rule, client dclient.Interface) (map[schema.GroupVersionKind]bool, map[schema.GroupVersionKind]values.Subresource, error) {
 	resourceTypesMap := make(map[schema.GroupVersionKind]bool)
-	subresourceMap := make(map[schema.GroupVersionKind]Subresource)
+	subresourceMap := make(map[schema.GroupVersionKind]values.Subresource)
 
 	group := rule.APIGroups[0]
 	if group == "" {
@@ -388,7 +389,7 @@ func getKindsFromValidatingAdmissionRule(rule admissionregistrationv1.Rule, clie
 				gvk := schema.GroupVersionKind{
 					Group: child.Group, Version: child.Version, Kind: child.Kind,
 				}
-				subresourceMap[gvk] = Subresource{
+				subresourceMap[gvk] = values.Subresource{
 					APIResource: child,
 					ParentResource: metav1.APIResource{
 						Group:   parent.Group,
@@ -404,7 +405,7 @@ func getKindsFromValidatingAdmissionRule(rule admissionregistrationv1.Rule, clie
 	return resourceTypesMap, subresourceMap, nil
 }
 
-func addGVKToResourceTypesMap(kind string, resourceTypesMap map[schema.GroupVersionKind]bool, subresourceMap map[schema.GroupVersionKind]Subresource, client dclient.Interface) {
+func addGVKToResourceTypesMap(kind string, resourceTypesMap map[schema.GroupVersionKind]bool, subresourceMap map[schema.GroupVersionKind]values.Subresource, client dclient.Interface) {
 	group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 	gvrss, err := client.Discovery().FindResources(group, version, kind, subresource)
 	if err != nil {
@@ -419,7 +420,7 @@ func addGVKToResourceTypesMap(kind string, resourceTypesMap map[schema.GroupVers
 			gvk := schema.GroupVersionKind{
 				Group: child.Group, Version: child.Version, Kind: child.Kind,
 			}
-			subresourceMap[gvk] = Subresource{
+			subresourceMap[gvk] = values.Subresource{
 				APIResource: child,
 				ParentResource: metav1.APIResource{
 					Group:   parent.Group,

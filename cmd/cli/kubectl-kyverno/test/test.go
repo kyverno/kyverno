@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
@@ -43,7 +44,6 @@ func applyPoliciesFromPath(
 	engineResponses := make([]engineapi.EngineResponse, 0)
 	var dClient dclient.Interface
 	values := &api.Test{}
-	var variablesString string
 	var resultCounts common.ResultCounts
 
 	store.SetLocal(true)
@@ -67,7 +67,7 @@ func applyPoliciesFromPath(
 	valuesFile := values.Variables
 	userInfoFile := values.UserInfo
 
-	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(variablesString, values.Variables, fs, isGit, policyResourcePath)
+	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(nil, values.Variables, fs, isGit, policyResourcePath)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return nil, nil, sanitizederror.NewWithError("failed to decode yaml", err)
@@ -166,11 +166,6 @@ func applyPoliciesFromPath(
 		p.GetSpec().SetRules(filteredRules)
 	}
 	policies = filteredPolicies
-
-	err = common.PrintMutatedPolicy(policies)
-	if err != nil {
-		return nil, nil, sanitizederror.NewWithError("failed to print mutated policy", err)
-	}
 
 	resources, err := common.GetResourceAccordingToResourcePath(fs, resourceFullPath, false, policies, validatingAdmissionPolicies, dClient, "", false, isGit, policyResourcePath)
 	if err != nil {
@@ -565,7 +560,7 @@ func buildPolicyResults(
 					} else if rule.Status() == engineapi.RuleStatusPass {
 						result.Result = policyreportv1alpha2.StatusPass
 					} else if rule.Status() == engineapi.RuleStatusFail {
-						if scored, ok := ann[kyvernov1.AnnotationPolicyScored]; ok && scored == "false" {
+						if scored, ok := ann[kyverno.AnnotationPolicyScored]; ok && scored == "false" {
 							result.Result = policyreportv1alpha2.StatusWarn
 						} else if auditWarn && resp.GetValidationFailureAction().Audit() {
 							result.Result = policyreportv1alpha2.StatusWarn
