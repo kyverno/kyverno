@@ -55,7 +55,10 @@ type Client interface {
 	FetchImageDescriptor(context.Context, string) (*gcrremote.Descriptor, error)
 
 	// BuildRemoteOption builds remote.Option based on client.
-	BuildRemoteOption(context.Context) remote.Option
+	BuildCosignRemoteOption(context.Context) remote.Option
+
+	//BuildGCRRemoteOption builds []gcrremote.option based on client
+	BuildGCRRemoteOption(ctx context.Context) []gcrremote.Option
 }
 
 type client struct {
@@ -166,13 +169,35 @@ func WithTracing() Option {
 }
 
 // BuildRemoteOption builds remote.Option based on client.
-func (c *client) BuildRemoteOption(ctx context.Context) remote.Option {
+func (c *client) BuildCosignRemoteOption(ctx context.Context) remote.Option {
 	return remote.WithRemoteOptions(
 		gcrremote.WithAuthFromKeychain(c.keychain),
 		gcrremote.WithTransport(c.transport),
 		gcrremote.WithContext(ctx),
 		gcrremote.WithUserAgent(userAgent),
 	)
+}
+
+// BuildGCRRemoteOption builds remote.Option based on client.
+func (c *client) BuildGCRRemoteOption(ctx context.Context) []gcrremote.Option {
+	remoteOpts := []gcrremote.Option{
+		gcrremote.WithAuthFromKeychain(c.keychain),
+		gcrremote.WithTransport(c.transport),
+		gcrremote.WithContext(ctx),
+	}
+
+	pusher, err := gcrremote.NewPusher(remoteOpts...)
+	if err != nil {
+		return nil
+	}
+	remoteOpts = append(remoteOpts, gcrremote.Reuse(pusher))
+
+	puller, err := gcrremote.NewPuller(remoteOpts...)
+	if err != nil {
+		return nil
+	}
+	remoteOpts = append(remoteOpts, gcrremote.Reuse(puller))
+	return remoteOpts
 }
 
 // FetchImageDescriptor fetches Descriptor from registry with given imageRef

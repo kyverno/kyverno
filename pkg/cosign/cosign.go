@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/tracing"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
+	"github.com/sigstore/cosign/cmd/cosign/cli/options"
 	"github.com/sigstore/cosign/v2/pkg/cosign"
 	"github.com/sigstore/cosign/v2/pkg/cosign/attestation"
 	"github.com/sigstore/cosign/v2/pkg/oci"
@@ -94,8 +95,12 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 		"sha256": crypto.SHA256,
 		"sha512": crypto.SHA512,
 	}
-
-	remoteOpts = append(remoteOpts, opts.Client.BuildRemoteOption(ctx))
+	ro := options.RegistryOptions{}
+	remoteOpts, err = ro.ClientOpts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("constructing client options: %w", err)
+	}
+	remoteOpts = append(remoteOpts, opts.Client.BuildCosignRemoteOption(ctx))
 	cosignOpts := &cosign.CheckOpts{
 		Annotations:        map[string]interface{}{},
 		RegistryClientOpts: remoteOpts,
