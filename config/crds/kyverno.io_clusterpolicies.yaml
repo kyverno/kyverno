@@ -3,7 +3,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.12.0
+    controller-gen.kubebuilder.io/version: v0.11.3
+  creationTimestamp: null
   name: clusterpolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -3020,7 +3021,6 @@ spec:
                                                 is used.
                                               properties:
                                                 ignoreSCT:
-                                                  default: false
                                                   description: IgnoreSCT requires
                                                     that a certificate contain an
                                                     embedded SCT during verification.
@@ -3028,7 +3028,6 @@ spec:
                                                     a certificate transparency log.
                                                   type: boolean
                                                 ignoreTlog:
-                                                  default: false
                                                   description: IgnoreTlog skip tlog
                                                     verification
                                                   type: boolean
@@ -3075,7 +3074,6 @@ spec:
                                                 is used.
                                               properties:
                                                 ignoreSCT:
-                                                  default: false
                                                   description: IgnoreSCT requires
                                                     that a certificate contain an
                                                     embedded SCT during verification.
@@ -3083,7 +3081,6 @@ spec:
                                                     a certificate transparency log.
                                                   type: boolean
                                                 ignoreTlog:
-                                                  default: false
                                                   description: IgnoreTlog skip tlog
                                                     verification
                                                   type: boolean
@@ -3151,7 +3148,6 @@ spec:
                                                 is used.
                                               properties:
                                                 ignoreSCT:
-                                                  default: false
                                                   description: IgnoreSCT requires
                                                     that a certificate contain an
                                                     embedded SCT during verification.
@@ -3159,7 +3155,6 @@ spec:
                                                     a certificate transparency log.
                                                   type: boolean
                                                 ignoreTlog:
-                                                  default: false
                                                   description: IgnoreTlog skip tlog
                                                     verification
                                                   type: boolean
@@ -3432,7 +3427,6 @@ spec:
                                                     is used.
                                                   properties:
                                                     ignoreSCT:
-                                                      default: false
                                                       description: IgnoreSCT requires
                                                         that a certificate contain
                                                         an embedded SCT during verification.
@@ -3441,7 +3435,6 @@ spec:
                                                         log.
                                                       type: boolean
                                                     ignoreTlog:
-                                                      default: false
                                                       description: IgnoreTlog skip
                                                         tlog verification
                                                       type: boolean
@@ -3490,7 +3483,6 @@ spec:
                                                     is used.
                                                   properties:
                                                     ignoreSCT:
-                                                      default: false
                                                       description: IgnoreSCT requires
                                                         that a certificate contain
                                                         an embedded SCT during verification.
@@ -3499,7 +3491,6 @@ spec:
                                                         log.
                                                       type: boolean
                                                     ignoreTlog:
-                                                      default: false
                                                       description: IgnoreTlog skip
                                                         tlog verification
                                                       type: boolean
@@ -3571,7 +3562,6 @@ spec:
                                                     is used.
                                                   properties:
                                                     ignoreSCT:
-                                                      default: false
                                                       description: IgnoreSCT requires
                                                         that a certificate contain
                                                         an embedded SCT during verification.
@@ -3580,7 +3570,6 @@ spec:
                                                         log.
                                                       type: boolean
                                                     ignoreTlog:
-                                                      default: false
                                                       description: IgnoreTlog skip
                                                         tlog verification
                                                       type: boolean
@@ -3830,7 +3819,6 @@ spec:
                                               is used.
                                             properties:
                                               ignoreSCT:
-                                                default: false
                                                 description: IgnoreSCT requires that
                                                   a certificate contain an embedded
                                                   SCT during verification. An SCT
@@ -3838,7 +3826,6 @@ spec:
                                                   transparency log.
                                                 type: boolean
                                               ignoreTlog:
-                                                default: false
                                                 description: IgnoreTlog skip tlog
                                                   verification
                                                 type: boolean
@@ -3884,7 +3871,6 @@ spec:
                                               is used.
                                             properties:
                                               ignoreSCT:
-                                                default: false
                                                 description: IgnoreSCT requires that
                                                   a certificate contain an embedded
                                                   SCT during verification. An SCT
@@ -3892,7 +3878,6 @@ spec:
                                                   transparency log.
                                                 type: boolean
                                               ignoreTlog:
-                                                default: false
                                                 description: IgnoreTlog skip tlog
                                                   verification
                                                 type: boolean
@@ -3959,7 +3944,6 @@ spec:
                                               used.
                                             properties:
                                               ignoreSCT:
-                                                default: false
                                                 description: IgnoreSCT requires that
                                                   a certificate contain an embedded
                                                   SCT during verification. An SCT
@@ -3967,7 +3951,6 @@ spec:
                                                   transparency log.
                                                 type: boolean
                                               ignoreTlog:
-                                                default: false
                                                 description: IgnoreTlog skip tlog
                                                   verification
                                                 type: boolean
@@ -7261,7 +7244,6 @@ spec:
                                                     is used.
                                                   properties:
                                                     ignoreSCT:
-                                                      default: false
                                                       description: IgnoreSCT requires
                                                         that a certificate contain
                                                         an embedded SCT during verification.
@@ -7270,7 +7252,6 @@ spec:
                                                         log.
                                                       type: boolean
                                                     ignoreTlog:
-                                                      default: false
                                                       description: IgnoreTlog skip
                                                         tlog verification
                                                       type: boolean
@@ -7319,7 +7300,6 @@ spec:
                                                     is used.
                                                   properties:
                                                     ignoreSCT:
-                                                      default: false
                                                       description: IgnoreSCT requires
                                                         that a certificate contain
                                                         an embedded SCT during verification.
@@ -7328,7 +7308,6 @@ spec:
                                                         log.
                                                       type: boolean
                                                     ignoreTlog:
-                                                      default: false
                                                       description: IgnoreTlog skip
                                                         tlog verification
                                                       type: boolean
@@ -7400,7 +7379,6 @@ spec:
                                                     is used.
                                                   properties:
                                                     ignoreSCT:
-                                                      default: false
                                                       description: IgnoreSCT requires
                                                         that a certificate contain
                                                         an embedded SCT during verification.
@@ -7409,7 +7387,6 @@ spec:
                                                         log.
                                                       type: boolean
                                                     ignoreTlog:
-                                                      default: false
                                                       description: IgnoreTlog skip
                                                         tlog verification
                                                       type: boolean
@@ -7693,7 +7670,6 @@ spec:
                                                         is used.
                                                       properties:
                                                         ignoreSCT:
-                                                          default: false
                                                           description: IgnoreSCT requires
                                                             that a certificate contain
                                                             an embedded SCT during
@@ -7703,7 +7679,6 @@ spec:
                                                             log.
                                                           type: boolean
                                                         ignoreTlog:
-                                                          default: false
                                                           description: IgnoreTlog
                                                             skip tlog verification
                                                           type: boolean
@@ -7754,7 +7729,6 @@ spec:
                                                         is used.
                                                       properties:
                                                         ignoreSCT:
-                                                          default: false
                                                           description: IgnoreSCT requires
                                                             that a certificate contain
                                                             an embedded SCT during
@@ -7764,7 +7738,6 @@ spec:
                                                             log.
                                                           type: boolean
                                                         ignoreTlog:
-                                                          default: false
                                                           description: IgnoreTlog
                                                             skip tlog verification
                                                           type: boolean
@@ -7843,7 +7816,6 @@ spec:
                                                         is used.
                                                       properties:
                                                         ignoreSCT:
-                                                          default: false
                                                           description: IgnoreSCT requires
                                                             that a certificate contain
                                                             an embedded SCT during
@@ -7853,7 +7825,6 @@ spec:
                                                             log.
                                                           type: boolean
                                                         ignoreTlog:
-                                                          default: false
                                                           description: IgnoreTlog
                                                             skip tlog verification
                                                           type: boolean
@@ -8113,7 +8084,6 @@ spec:
                                                   is used.
                                                 properties:
                                                   ignoreSCT:
-                                                    default: false
                                                     description: IgnoreSCT requires
                                                       that a certificate contain an
                                                       embedded SCT during verification.
@@ -8122,7 +8092,6 @@ spec:
                                                       log.
                                                     type: boolean
                                                   ignoreTlog:
-                                                    default: false
                                                     description: IgnoreTlog skip tlog
                                                       verification
                                                     type: boolean
@@ -8170,7 +8139,6 @@ spec:
                                                   is used.
                                                 properties:
                                                   ignoreSCT:
-                                                    default: false
                                                     description: IgnoreSCT requires
                                                       that a certificate contain an
                                                       embedded SCT during verification.
@@ -8179,7 +8147,6 @@ spec:
                                                       log.
                                                     type: boolean
                                                   ignoreTlog:
-                                                    default: false
                                                     description: IgnoreTlog skip tlog
                                                       verification
                                                     type: boolean
@@ -8250,7 +8217,6 @@ spec:
                                                   is used.
                                                 properties:
                                                   ignoreSCT:
-                                                    default: false
                                                     description: IgnoreSCT requires
                                                       that a certificate contain an
                                                       embedded SCT during verification.
@@ -8259,7 +8225,6 @@ spec:
                                                       log.
                                                     type: boolean
                                                   ignoreTlog:
-                                                    default: false
                                                     description: IgnoreTlog skip tlog
                                                       verification
                                                     type: boolean
@@ -11287,7 +11252,6 @@ spec:
                                                 is used.
                                               properties:
                                                 ignoreSCT:
-                                                  default: false
                                                   description: IgnoreSCT requires
                                                     that a certificate contain an
                                                     embedded SCT during verification.
@@ -11295,7 +11259,6 @@ spec:
                                                     a certificate transparency log.
                                                   type: boolean
                                                 ignoreTlog:
-                                                  default: false
                                                   description: IgnoreTlog skip tlog
                                                     verification
                                                   type: boolean
@@ -11342,7 +11305,6 @@ spec:
                                                 is used.
                                               properties:
                                                 ignoreSCT:
-                                                  default: false
                                                   description: IgnoreSCT requires
                                                     that a certificate contain an
                                                     embedded SCT during verification.
@@ -11350,7 +11312,6 @@ spec:
                                                     a certificate transparency log.
                                                   type: boolean
                                                 ignoreTlog:
-                                                  default: false
                                                   description: IgnoreTlog skip tlog
                                                     verification
                                                   type: boolean
@@ -11418,7 +11379,6 @@ spec:
                                                 is used.
                                               properties:
                                                 ignoreSCT:
-                                                  default: false
                                                   description: IgnoreSCT requires
                                                     that a certificate contain an
                                                     embedded SCT during verification.
@@ -11426,7 +11386,6 @@ spec:
                                                     a certificate transparency log.
                                                   type: boolean
                                                 ignoreTlog:
-                                                  default: false
                                                   description: IgnoreTlog skip tlog
                                                     verification
                                                   type: boolean
@@ -11684,7 +11643,6 @@ spec:
                                                     is used.
                                                   properties:
                                                     ignoreSCT:
-                                                      default: false
                                                       description: IgnoreSCT requires
                                                         that a certificate contain
                                                         an embedded SCT during verification.
@@ -11693,7 +11651,6 @@ spec:
                                                         log.
                                                       type: boolean
                                                     ignoreTlog:
-                                                      default: false
                                                       description: IgnoreTlog skip
                                                         tlog verification
                                                       type: boolean
@@ -11742,7 +11699,6 @@ spec:
                                                     is used.
                                                   properties:
                                                     ignoreSCT:
-                                                      default: false
                                                       description: IgnoreSCT requires
                                                         that a certificate contain
                                                         an embedded SCT during verification.
@@ -11751,7 +11707,6 @@ spec:
                                                         log.
                                                       type: boolean
                                                     ignoreTlog:
-                                                      default: false
                                                       description: IgnoreTlog skip
                                                         tlog verification
                                                       type: boolean
@@ -11823,7 +11778,6 @@ spec:
                                                     is used.
                                                   properties:
                                                     ignoreSCT:
-                                                      default: false
                                                       description: IgnoreSCT requires
                                                         that a certificate contain
                                                         an embedded SCT during verification.
@@ -11832,7 +11786,6 @@ spec:
                                                         log.
                                                       type: boolean
                                                     ignoreTlog:
-                                                      default: false
                                                       description: IgnoreTlog skip
                                                         tlog verification
                                                       type: boolean
@@ -12082,7 +12035,6 @@ spec:
                                               is used.
                                             properties:
                                               ignoreSCT:
-                                                default: false
                                                 description: IgnoreSCT requires that
                                                   a certificate contain an embedded
                                                   SCT during verification. An SCT
@@ -12090,7 +12042,6 @@ spec:
                                                   transparency log.
                                                 type: boolean
                                               ignoreTlog:
-                                                default: false
                                                 description: IgnoreTlog skip tlog
                                                   verification
                                                 type: boolean
@@ -12136,7 +12087,6 @@ spec:
                                               is used.
                                             properties:
                                               ignoreSCT:
-                                                default: false
                                                 description: IgnoreSCT requires that
                                                   a certificate contain an embedded
                                                   SCT during verification. An SCT
@@ -12144,7 +12094,6 @@ spec:
                                                   transparency log.
                                                 type: boolean
                                               ignoreTlog:
-                                                default: false
                                                 description: IgnoreTlog skip tlog
                                                   verification
                                                 type: boolean
@@ -12211,7 +12160,6 @@ spec:
                                               used.
                                             properties:
                                               ignoreSCT:
-                                                default: false
                                                 description: IgnoreSCT requires that
                                                   a certificate contain an embedded
                                                   SCT during verification. An SCT
@@ -12219,7 +12167,6 @@ spec:
                                                   transparency log.
                                                 type: boolean
                                               ignoreTlog:
-                                                default: false
                                                 description: IgnoreTlog skip tlog
                                                   verification
                                                 type: boolean
@@ -15488,7 +15435,6 @@ spec:
                                                     is used.
                                                   properties:
                                                     ignoreSCT:
-                                                      default: false
                                                       description: IgnoreSCT requires
                                                         that a certificate contain
                                                         an embedded SCT during verification.
@@ -15497,7 +15443,6 @@ spec:
                                                         log.
                                                       type: boolean
                                                     ignoreTlog:
-                                                      default: false
                                                       description: IgnoreTlog skip
                                                         tlog verification
                                                       type: boolean
@@ -15546,7 +15491,6 @@ spec:
                                                     is used.
                                                   properties:
                                                     ignoreSCT:
-                                                      default: false
                                                       description: IgnoreSCT requires
                                                         that a certificate contain
                                                         an embedded SCT during verification.
@@ -15555,7 +15499,6 @@ spec:
                                                         log.
                                                       type: boolean
                                                     ignoreTlog:
-                                                      default: false
                                                       description: IgnoreTlog skip
                                                         tlog verification
                                                       type: boolean
@@ -15627,7 +15570,6 @@ spec:
                                                     is used.
                                                   properties:
                                                     ignoreSCT:
-                                                      default: false
                                                       description: IgnoreSCT requires
                                                         that a certificate contain
                                                         an embedded SCT during verification.
@@ -15636,7 +15578,6 @@ spec:
                                                         log.
                                                       type: boolean
                                                     ignoreTlog:
-                                                      default: false
                                                       description: IgnoreTlog skip
                                                         tlog verification
                                                       type: boolean
@@ -15920,7 +15861,6 @@ spec:
                                                         is used.
                                                       properties:
                                                         ignoreSCT:
-                                                          default: false
                                                           description: IgnoreSCT requires
                                                             that a certificate contain
                                                             an embedded SCT during
@@ -15930,7 +15870,6 @@ spec:
                                                             log.
                                                           type: boolean
                                                         ignoreTlog:
-                                                          default: false
                                                           description: IgnoreTlog
                                                             skip tlog verification
                                                           type: boolean
@@ -15981,7 +15920,6 @@ spec:
                                                         is used.
                                                       properties:
                                                         ignoreSCT:
-                                                          default: false
                                                           description: IgnoreSCT requires
                                                             that a certificate contain
                                                             an embedded SCT during
@@ -15991,7 +15929,6 @@ spec:
                                                             log.
                                                           type: boolean
                                                         ignoreTlog:
-                                                          default: false
                                                           description: IgnoreTlog
                                                             skip tlog verification
                                                           type: boolean
@@ -16070,7 +16007,6 @@ spec:
                                                         is used.
                                                       properties:
                                                         ignoreSCT:
-                                                          default: false
                                                           description: IgnoreSCT requires
                                                             that a certificate contain
                                                             an embedded SCT during
@@ -16080,7 +16016,6 @@ spec:
                                                             log.
                                                           type: boolean
                                                         ignoreTlog:
-                                                          default: false
                                                           description: IgnoreTlog
                                                             skip tlog verification
                                                           type: boolean
@@ -16340,7 +16275,6 @@ spec:
                                                   is used.
                                                 properties:
                                                   ignoreSCT:
-                                                    default: false
                                                     description: IgnoreSCT requires
                                                       that a certificate contain an
                                                       embedded SCT during verification.
@@ -16349,7 +16283,6 @@ spec:
                                                       log.
                                                     type: boolean
                                                   ignoreTlog:
-                                                    default: false
                                                     description: IgnoreTlog skip tlog
                                                       verification
                                                     type: boolean
@@ -16397,7 +16330,6 @@ spec:
                                                   is used.
                                                 properties:
                                                   ignoreSCT:
-                                                    default: false
                                                     description: IgnoreSCT requires
                                                       that a certificate contain an
                                                       embedded SCT during verification.
@@ -16406,7 +16338,6 @@ spec:
                                                       log.
                                                     type: boolean
                                                   ignoreTlog:
-                                                    default: false
                                                     description: IgnoreTlog skip tlog
                                                       verification
                                                     type: boolean
@@ -16477,7 +16408,6 @@ spec:
                                                   is used.
                                                 properties:
                                                   ignoreSCT:
-                                                    default: false
                                                     description: IgnoreSCT requires
                                                       that a certificate contain an
                                                       embedded SCT during verification.
@@ -16486,7 +16416,6 @@ spec:
                                                       log.
                                                     type: boolean
                                                   ignoreTlog:
-                                                    default: false
                                                     description: IgnoreTlog skip tlog
                                                       verification
                                                     type: boolean
