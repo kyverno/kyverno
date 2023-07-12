@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"runtime"
 	"time"
 
 	"github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
@@ -21,6 +22,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"k8s.io/apimachinery/pkg/util/sets"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"sigs.k8s.io/release-utils/version"
 )
 
 var (
@@ -46,6 +48,8 @@ var (
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 	}
+
+	userAgent = fmt.Sprintf("cosign/%s (%s; %s)", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH)
 )
 
 // Client provides registry related objects.
@@ -177,6 +181,7 @@ func (c *client) BuildRemoteOption(ctx context.Context) remote.Option {
 		gcrremote.WithAuthFromKeychain(c.keychain),
 		gcrremote.WithTransport(c.transport),
 		gcrremote.WithContext(ctx),
+		gcrremote.WithUserAgent(userAgent),
 	)
 }
 

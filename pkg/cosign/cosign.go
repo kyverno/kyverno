@@ -94,11 +94,7 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 		"sha256": crypto.SHA256,
 		"sha512": crypto.SHA512,
 	}
-	ro := RegistryOptions{}
-	remoteOpts, err = ro.ClientOpts(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("constructing client options: %w", err)
-	}
+
 	remoteOpts = append(remoteOpts, opts.Client.BuildRemoteOption(ctx))
 	cosignOpts := &cosign.CheckOpts{
 		Annotations:        map[string]interface{}{},
