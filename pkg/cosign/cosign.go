@@ -183,6 +183,7 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Rekor client from URL %s: %w", opts.RekorURL, err)
 	}
+	logger.Info("Cosign IgnoreTlogs=%s", cosignOpts.IgnoreSCT)
 
 	cosignOpts.RekorPubKeys, err = getRekorPubs(ctx, opts.RekorPubKey)
 	if err != nil {
@@ -194,6 +195,7 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 	if err != nil {
 		return nil, fmt.Errorf("failed to load Rekor public keys: %w", err)
 	}
+	logger.Info("Cosign IgnoreSCT=%s", cosignOpts.IgnoreSCT)
 
 	if opts.Repository != "" {
 		signatureRepo, err := name.NewRepository(opts.Repository)
