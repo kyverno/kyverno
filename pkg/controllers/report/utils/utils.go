@@ -5,9 +5,11 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -76,4 +78,28 @@ func ReportsAreIdentical(before, after kyvernov1alpha2.ReportInterface) bool {
 		}
 	}
 	return true
+}
+
+func FetchClusterPolicies(cpolLister kyvernov1listers.ClusterPolicyLister) ([]kyvernov1.PolicyInterface, error) {
+	var policies []kyvernov1.PolicyInterface
+	if cpols, err := cpolLister.List(labels.Everything()); err != nil {
+		return nil, err
+	} else {
+		for _, cpol := range cpols {
+			policies = append(policies, cpol)
+		}
+	}
+	return policies, nil
+}
+
+func FetchPolicies(polLister kyvernov1listers.PolicyLister, namespace string) ([]kyvernov1.PolicyInterface, error) {
+	var policies []kyvernov1.PolicyInterface
+	if pols, err := polLister.Policies(namespace).List(labels.Everything()); err != nil {
+		return nil, err
+	} else {
+		for _, pol := range pols {
+			policies = append(policies, pol)
+		}
+	}
+	return policies, nil
 }

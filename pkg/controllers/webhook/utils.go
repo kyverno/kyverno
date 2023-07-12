@@ -3,6 +3,7 @@ package webhook
 import (
 	"strings"
 
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"golang.org/x/exp/slices"
@@ -88,7 +89,7 @@ func objectMeta(name string, annotations map[string]string, owner ...metav1.Owne
 	return metav1.ObjectMeta{
 		Name: name,
 		Labels: map[string]string{
-			utils.ManagedByLabel: kyvernov1.ValueKyvernoApp,
+			utils.ManagedByLabel: kyverno.ValueKyvernoApp,
 		},
 		Annotations:     annotations,
 		OwnerReferences: owner,

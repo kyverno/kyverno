@@ -11,8 +11,10 @@ import (
 	"time"
 
 	"github.com/go-git/go-billy/v5/memfs"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
@@ -145,12 +147,14 @@ More info: https://kyverno.io/docs/kyverno-cli/
 
 func Command() *cobra.Command {
 	var cmd *cobra.Command
+	var removeColor, compact, table bool
 	applyCommandConfig := &ApplyCommandConfig{}
 	cmd = &cobra.Command{
 		Use:     "apply",
 		Short:   "Applies policies on resources.",
 		Example: applyHelp,
 		RunE: func(cmd *cobra.Command, policyPaths []string) (err error) {
+			color.InitColors(removeColor)
 			defer func() {
 				if err != nil {
 					if !sanitizederror.IsErrorSanitized(err) {
@@ -167,6 +171,8 @@ func Command() *cobra.Command {
 			printSkippedAndInvalidPolicies(skipInvalidPolicies)
 			if applyCommandConfig.PolicyReport {
 				printReport(responses, applyCommandConfig.AuditWarn)
+			} else if table {
+				printTable(compact, applyCommandConfig.AuditWarn, responses...)
 			} else {
 				printViolations(rc)
 			}
@@ -191,6 +197,9 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVar(&applyCommandConfig.AuditWarn, "audit-warn", false, "If set to true, will flag audit policies as warnings instead of failures")
 	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	cmd.Flags().BoolVar(&applyCommandConfig.warnNoPassed, "warn-no-pass", false, "Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag")
+	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
+	cmd.Flags().BoolVar(&compact, "compact", true, "Does not show detailed results")
+	cmd.Flags().BoolVarP(&table, "table", "t", false, "Show results in table format")
 	return cmd
 }
 
@@ -406,7 +415,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 										rc.Pass++
 									case engineapi.RuleStatusFail:
 										ann := policy.GetAnnotations()
-										if scored, ok := ann[kyvernov1.AnnotationPolicyScored]; ok && scored == "false" {
+										if scored, ok := ann[kyverno.AnnotationPolicyScored]; ok && scored == "false" {
 											rc.Warn++
 											break
 										} else if applyPolicyConfig.AuditWarn && response.GetValidationFailureAction().Audit() {
