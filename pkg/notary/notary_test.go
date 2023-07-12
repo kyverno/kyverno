@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	gcrremote "github.com/google/go-containerregistry/0_14/pkg/v1/remote" // TODO: Remove this once we upgrade tp cosign version < 2.0.2
 	"github.com/google/go-containerregistry/pkg/name"
+	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"gotest.tools/assert"
 )
 
