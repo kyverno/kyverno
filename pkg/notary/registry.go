@@ -53,18 +53,6 @@ func parseReferenceCrane(ctx context.Context, ref string, registryClient images.
 	}, nil
 }
 
-type imageResource struct {
-	ref name.Reference
-}
-
-func (ir *imageResource) String() string {
-	return ir.ref.Name()
-}
-
-func (ir *imageResource) RegistryStr() string {
-	return ir.ref.Context().RegistryStr()
-}
-
 func isDigestReference(reference string) bool {
 	parts := strings.SplitN(reference, "/", 2)
 	if len(parts) == 1 {
