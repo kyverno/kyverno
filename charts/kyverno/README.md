@@ -651,6 +651,7 @@ The chart values are organised per component.
 | cleanupJobs.admissionReports.resources | object | `{}` | Job resources |
 | cleanupJobs.admissionReports.tolerations | list | `[]` | List of node taints to tolerate |
 | cleanupJobs.admissionReports.podAnnotations | object | `{}` | Pod Annotations |
+| cleanupJobs.admissionReports.podLabels | object | `{}` | Pod labels |
 | cleanupJobs.clusterAdmissionReports.enabled | bool | `true` | Enable cleanup cronjob |
 | cleanupJobs.clusterAdmissionReports.image.registry | string | `nil` | Image registry |
 | cleanupJobs.clusterAdmissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
@@ -665,6 +666,7 @@ The chart values are organised per component.
 | cleanupJobs.clusterAdmissionReports.resources | object | `{}` | Job resources |
 | cleanupJobs.clusterAdmissionReports.tolerations | list | `[]` | List of node taints to tolerate |
 | cleanupJobs.clusterAdmissionReports.podAnnotations | object | `{}` | Pod Annotations |
+| cleanupJobs.clusterAdmissionReports.podLabels | object | `{}` | Pod Labels |
 
 ### Other
 
