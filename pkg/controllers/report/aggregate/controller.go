@@ -13,6 +13,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	k8sv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
+	k8sv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -46,6 +48,7 @@ type controller struct {
 	// listers
 	polLister      kyvernov1listers.PolicyLister
 	cpolLister     kyvernov1listers.ClusterPolicyLister
+	vapLister      k8sv1alpha1listers.ValidatingAdmissionPolicyLister
 	admrLister     cache.GenericLister
 	cadmrLister    cache.GenericLister
 	bgscanrLister  cache.GenericLister
@@ -74,6 +77,7 @@ func NewController(
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
+	k8sInformer k8sv1alpha1informers.ValidatingAdmissionPolicyInformer,
 	metadataCache resource.MetadataCache,
 	chunkSize int,
 ) controllers.Controller {
@@ -83,10 +87,12 @@ func NewController(
 	cbgscanrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
 	polrInformer := metadataFactory.ForResource(policyreportv1alpha2.SchemeGroupVersion.WithResource("policyreports"))
 	cpolrInformer := metadataFactory.ForResource(policyreportv1alpha2.SchemeGroupVersion.WithResource("clusterpolicyreports"))
+	vaprInformer := metadataFactory.ForResource(policyreportv1alpha2.SchemeGroupVersion.WithResource("validatingadmissionpolicyreports"))
 	c := controller{
 		client:         client,
 		polLister:      polInformer.Lister(),
 		cpolLister:     cpolInformer.Lister(),
+		vapLister:      k8sInformer.Lister(),
 		admrLister:     admrInformer.Lister(),
 		cadmrLister:    cadmrInformer.Lister(),
 		bgscanrLister:  bgscanrInformer.Lister(),
@@ -97,6 +103,7 @@ func NewController(
 	}
 	controllerutils.AddDelayedExplicitEventHandlers(logger, polrInformer.Informer(), c.queue, enqueueDelay, keyFunc)
 	controllerutils.AddDelayedExplicitEventHandlers(logger, cpolrInformer.Informer(), c.queue, enqueueDelay, keyFunc)
+	controllerutils.AddDelayedExplicitEventHandlers(logger, vaprInformer.Informer(), c.queue, enqueueDelay, keyFunc)
 	controllerutils.AddDelayedExplicitEventHandlers(logger, bgscanrInformer.Informer(), c.queue, enqueueDelay, keyFunc)
 	controllerutils.AddDelayedExplicitEventHandlers(logger, cbgscanrInformer.Informer(), c.queue, enqueueDelay, keyFunc)
 	enqueueFromAdmr := func(obj metav1.Object) {

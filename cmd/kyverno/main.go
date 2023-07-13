@@ -269,6 +269,7 @@ func main() {
 		setup.KyvernoDynamicClient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
+		kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
 		maxQueuedEvents,
 		omitEventsValues,
 		logging.WithName("EventGenerator"),
@@ -278,6 +279,7 @@ func main() {
 		setup.MetricsManager,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
+		kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
 		&wg,
 	)
 	// log policy changes
@@ -291,6 +293,12 @@ func main() {
 		setup.Logger.WithName("cluster-policy"),
 		"ClusterPolicy",
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		genericloggingcontroller.CheckGeneration,
+	)
+	genericloggingcontroller.NewController(
+		setup.Logger.WithName("validating-admission-policy"),
+		"ValidatingAdmissionPolicy",
+		kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
 		genericloggingcontroller.CheckGeneration,
 	)
 	runtime := runtimeutils.NewRuntime(

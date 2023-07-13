@@ -9,6 +9,9 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	k8sv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
+	k8sv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
+
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
@@ -76,6 +79,7 @@ type controller struct {
 	// listers
 	polLister  kyvernov1listers.PolicyLister
 	cpolLister kyvernov1listers.ClusterPolicyLister
+	vapLister  k8sv1alpha1listers.ValidatingAdmissionPolicyLister
 
 	// queue
 	queue workqueue.RateLimitingInterface
@@ -89,16 +93,19 @@ func NewController(
 	client dclient.Interface,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
+	vapInformer k8sv1alpha1informers.ValidatingAdmissionPolicyInformer,
 ) Controller {
 	c := controller{
 		client:          client,
 		polLister:       polInformer.Lister(),
 		cpolLister:      cpolInformer.Lister(),
+		vapLister:       vapInformer.Lister(),
 		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
 	}
 	controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue)
 	controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue)
+	controllerutils.AddDefaultEventHandlers(logger, vapInformer.Informer(), c.queue)
 	return &c
 }
 
@@ -214,11 +221,29 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	vapPolicies, err := utils.FetchValidatingAdmissionPolicies(c.vapLister)
+	if err != nil {
+		return err
+	}
 	policies, err := utils.FetchPolicies(c.polLister, metav1.NamespaceAll)
 	if err != nil {
 		return err
 	}
 	kinds := utils.BuildKindSet(logger, utils.RemoveNonValidationPolicies(append(clusterPolicies, policies...)...)...)
+	vapkinds := utils.BuildValidatingAdmissionPolicyKindSet(vapPolicies...)
+	var ckindsSlice []string
+	for policy := range kinds {
+		ckindsSlice = append(ckindsSlice, policy)
+	}
+	var vapkindsSlice []string
+	for policy := range vapkinds {
+		vapkindsSlice = append(vapkindsSlice, policy)
+	}
+	ckindsSlice = append(ckindsSlice, vapkindsSlice...)
+	kinds = make(sets.Set[string])
+	for _, policy := range ckindsSlice {
+		kinds.Insert(policy)
+	}
 	gvkToGvr := map[schema.GroupVersionKind]schema.GroupVersionResource{}
 	for _, policyKind := range sets.List(kinds) {
 		group, version, kind, subresource := kubeutils.ParseKindSelector(policyKind)

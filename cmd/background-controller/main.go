@@ -129,6 +129,7 @@ func main() {
 	kyamlopenapi.Schema()
 	// informer factories
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+	kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
 	emitEventsValues := strings.Split(omitEvents, ",")
 	if omitEvents == "" {
 		emitEventsValues = []string{}
@@ -137,6 +138,7 @@ func main() {
 		setup.KyvernoDynamicClient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
+		kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
 		maxQueuedEvents,
 		emitEventsValues,
 		logging.WithName("EventGenerator"),
@@ -147,6 +149,7 @@ func main() {
 		setup.MetricsManager,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
+		kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
 		&wg,
 	)
 	engine := internal.NewEngine(
