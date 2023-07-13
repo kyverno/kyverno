@@ -8,6 +8,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	k8sv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
+	k8sv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -25,6 +27,7 @@ type controller struct {
 	// listers
 	cpolLister kyvernov1listers.ClusterPolicyLister
 	polLister  kyvernov1listers.PolicyLister
+	vapLister k8sv1alpha1listers.ValidatingAdmissionPolicyLister
 
 	waitGroup *sync.WaitGroup
 }
@@ -34,6 +37,7 @@ func NewController(
 	metricsConfig metrics.MetricsConfigManager,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
+	vapInformer k8sv1alpha1informers.ValidatingAdmissionPolicyInformer,
 	waitGroup *sync.WaitGroup,
 ) {
 	meterProvider := otel.GetMeterProvider()
@@ -50,6 +54,7 @@ func NewController(
 		ruleInfo:      policyRuleInfoMetric,
 		cpolLister:    cpolInformer.Lister(),
 		polLister:     polInformer.Lister(),
+		vapLister:     vapInformer.Lister(),
 		waitGroup:     waitGroup,
 	}
 	controllerutils.AddEventHandlers(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
@@ -87,6 +92,17 @@ func (c *controller) report(ctx context.Context, observer metric.Observer) error
 			return err
 		}
 	}
+	// vaps, err := c.vapLister.List(labels.Everything())
+	// if err != nil {
+	// 	logger.Error(err, "failed to list validating admission policies")
+	// 	return err
+	// }
+	// for _, policy := range vaps {
+	// 	err := c.reportPolicy(ctx, policy, observer)
+	// 	if err != nil {
+	// 		logger.Error(err, "failed to report policy metric", "policy", policy)
+	// 		return err
+	// 	}
 	return nil
 }
 
