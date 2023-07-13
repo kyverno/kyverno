@@ -7,7 +7,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/metadata"
@@ -181,7 +181,7 @@ func (c *controller) reconcile(itemKey string) error {
 	log.Printf("the time to expire is: %s\n", deletionTime)
 
 	if time.Now().After(deletionTime) {
-		err = c.client.Namespace(namespace).Delete(context.Background(), metaObj.GetName(), v1.DeleteOptions{})
+		err = c.client.Namespace(namespace).Delete(context.Background(), metaObj.GetName(), metav1.DeleteOptions{})
 		if err != nil {
 			log.Printf("failed to delete object: %s error: %+v", itemKey, err)
 			return err
