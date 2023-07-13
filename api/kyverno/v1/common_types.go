@@ -670,7 +670,7 @@ func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace
 		}
 	}
 
-	errs = append(errs, g.ValidateCloneList(path, namespaced, policyNamespace, clusterResources)...)
+	errs = append(errs, g.ValidateCloneList(path.Child("generate"), namespaced, policyNamespace, clusterResources)...)
 	return errs
 }
 
@@ -692,14 +692,14 @@ func (g *Generation) ValidateCloneList(path *field.Path, namespaced bool, policy
 
 	clusterScope := clusterResources.Has(g.CloneList.Kinds[0])
 	for _, gvk := range g.CloneList.Kinds[1:] {
-		clusterScope = clusterScope && clusterResources.Has(gvk)
-		if !clusterScope {
+		if clusterScope != clusterResources.Has(gvk) {
 			errs = append(errs, field.Forbidden(path.Child("cloneList").Child("kinds"), "mixed scope of target resources is forbidden"))
 			break
 		}
+		clusterScope = clusterScope && clusterResources.Has(gvk)
 	}
 
-	if !clusterScope && namespaced {
+	if !clusterScope {
 		if g.CloneList.Namespace == "" {
 			errs = append(errs, field.Forbidden(path.Child("cloneList").Child("namespace"), "namespace is required for namespaced target resources"))
 		}
