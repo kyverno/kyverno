@@ -12,7 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
-	k8sv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
+	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 )
 
 func CanBackgroundProcess(p kyvernov1.PolicyInterface) bool {
@@ -35,21 +35,6 @@ func BuildKindSet(logger logr.Logger, policies ...kyvernov1.PolicyInterface) set
 		}
 	}
 	return kinds
-}
-
-func BuildValidatingAdmissionPolicyKindSet(policies ...v1alpha1.ValidatingAdmissionPolicy) sets.Set[string] {
-	kinds := sets.New[string]()
-	for _, policy := range policies {
-		for _, matchContraint := range computeResourceRules(policy) {
-			kinds.Insert(matchContraint.ResourceNames...)
-		}
-	}
-	return kinds
-}
-
-func computeResourceRules(p v1alpha1.ValidatingAdmissionPolicy) []v1alpha1.NamedRuleWithOperations {
-	var v1alpha1MatchResources []v1alpha1.NamedRuleWithOperations
-	return v1alpha1MatchResources
 }
 
 func RemoveNonBackgroundPolicies(policies ...kyvernov1.PolicyInterface) []kyvernov1.PolicyInterface {
@@ -121,13 +106,13 @@ func FetchPolicies(polLister kyvernov1listers.PolicyLister, namespace string) ([
 	return policies, nil
 }
 
-func FetchValidatingAdmissionPolicies(vapLister k8sv1alpha1listers.ValidatingAdmissionPolicyLister) ([]v1alpha1.ValidatingAdmissionPolicy, error){
+func FetchValidatingAdmissionPolicies(vapLister admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyLister) ([]v1alpha1.ValidatingAdmissionPolicy, error) {
 	var policies []v1alpha1.ValidatingAdmissionPolicy
-	if vap, err := vapLister.List(labels.Everything()); err != nil {
+	if pols, err := vapLister.List(labels.Everything()); err != nil {
 		return nil, err
 	} else {
-		for _, vpol := range vap {
-			policies = append(policies, *vpol)
+		for _, pol := range pols {
+			policies = append(policies, *pol)
 		}
 	}
 	return policies, nil

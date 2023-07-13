@@ -27,9 +27,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	k8sv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
+	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
-	k8sv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
+	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
@@ -54,7 +54,7 @@ type controller struct {
 	// listers
 	polLister      kyvernov1listers.PolicyLister
 	cpolLister     kyvernov1listers.ClusterPolicyLister
-	vapLister      k8sv1alpha1listers.ValidatingAdmissionPolicyLister
+	vapLister      admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyLister
 	bgscanrLister  cache.GenericLister
 	cbgscanrLister cache.GenericLister
 	nsLister       corev1listers.NamespaceLister
@@ -79,7 +79,7 @@ func NewController(
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
-	vapInformer k8sv1alpha1informers.ValidatingAdmissionPolicyInformer,
+	vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer,
 	nsInformer corev1informers.NamespaceInformer,
 	metadataCache resource.MetadataCache,
 	forceDelay time.Duration,
@@ -111,7 +111,7 @@ func NewController(
 	controllerutils.AddDefaultEventHandlers(logger, cbgscanr.Informer(), queue)
 	controllerutils.AddEventHandlersT(polInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
 	controllerutils.AddEventHandlersT(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
-	controllerutils.AddEventHandlersT(vapInformer.Informer(), c.addVapPolicy, c.updateVapPolicy, c.deleteVapPolicy)
+	controllerutils.AddEventHandlersT(vapInformer.Informer(), c.addVap, c.updateVap, c.deleteVap)
 	c.metadataCache.AddEventHandler(func(eventType resource.EventType, uid types.UID, _ schema.GroupVersionKind, res resource.Resource) {
 		// if it's a deletion, nothing to do
 		if eventType == resource.Deleted {
@@ -145,17 +145,17 @@ func (c *controller) deletePolicy(obj kyvernov1.PolicyInterface) {
 	c.enqueueResources()
 }
 
-func (c *controller) addVapPolicy(obj v1alpha1.ValidatingAdmissionPolicy) {
+func (c *controller) addVap(obj v1alpha1.ValidatingAdmissionPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateVapPolicy(old, obj v1alpha1.ValidatingAdmissionPolicy) {
+func (c *controller) updateVap(old, obj v1alpha1.ValidatingAdmissionPolicy) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteVapPolicy(obj v1alpha1.ValidatingAdmissionPolicy) {
+func (c *controller) deleteVap(obj v1alpha1.ValidatingAdmissionPolicy) {
 	c.enqueueResources()
 }
 
@@ -382,7 +382,7 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		if err != nil {
 			return err
 		}
-		policies = append(policies, vapPolicies, pols...)
+		policies = append(policies, pols...)
 	}
 	// load background policies
 	backgroundPolicies := utils.RemoveNonBackgroundPolicies(policies...)

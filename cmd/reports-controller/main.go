@@ -52,13 +52,12 @@ func createReportControllers(
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
-	k8sV1alpha1 := kubeInformer.Admissionregistration().V1alpha1()
 	if backgroundScan || admissionReports {
 		resourceReportController := resourcereportcontroller.NewController(
 			client,
 			kyvernoV1.Policies(),
 			kyvernoV1.ClusterPolicies(),
-			k8sV1alpha1.ValidatingAdmissionPolicies(),
+			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
 		)
 		warmups = append(warmups, func(ctx context.Context) error {
 			return resourceReportController.Warmup(ctx)
@@ -76,7 +75,6 @@ func createReportControllers(
 					metadataFactory,
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
-					k8sV1alpha1.ValidatingAdmissionPolicies(),
 					resourceReportController,
 					reportsChunkSize,
 				),
@@ -104,7 +102,7 @@ func createReportControllers(
 					metadataFactory,
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
-					k8sV1alpha1.ValidatingAdmissionPolicies(),
+					kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
 					kubeInformer.Core().V1().Namespaces(),
 					resourceReportController,
 					backgroundScanInterval,
@@ -218,7 +216,6 @@ func main() {
 	setup.Logger.Info("background scan interval", "duration", backgroundScanInterval.String())
 	// informer factories
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
 	omitEventsValues := strings.Split(omitEvents, ",")
 	if omitEvents == "" {
 		omitEventsValues = []string{}
@@ -227,7 +224,6 @@ func main() {
 		setup.KyvernoDynamicClient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
-		kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
 		maxQueuedEvents,
 		omitEventsValues,
 		logging.WithName("EventGenerator"),
