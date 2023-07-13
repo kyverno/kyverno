@@ -8,8 +8,6 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	k8sv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
-	k8sv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
@@ -32,8 +30,6 @@ type generator struct {
 	cpLister kyvernov1listers.ClusterPolicyLister
 	// list/get policy
 	pLister kyvernov1listers.PolicyLister
-	// list/get validating admission policy
-	vapLister k8sv1alpha1listers.ValidatingAdmissionPolicyLister
 	// queue to store event generation requests
 	queue workqueue.RateLimitingInterface
 	// events generated at policy controller
@@ -69,7 +65,6 @@ func NewEventGenerator(
 	client dclient.Interface,
 	cpInformer kyvernov1informers.ClusterPolicyInformer,
 	pInformer kyvernov1informers.PolicyInformer,
-	vapInformer k8sv1alpha1informers.ValidatingAdmissionPolicyInformer,
 	maxQueuedEvents int,
 	omitEvents []string,
 	log logr.Logger,
@@ -78,7 +73,6 @@ func NewEventGenerator(
 		client:                 client,
 		cpLister:               cpInformer.Lister(),
 		pLister:                pInformer.Lister(),
-		vapLister:              vapInformer.Lister(),
 		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter(), eventWorkQueueName),
 		policyCtrRecorder:      NewRecorder(PolicyController, client.GetEventsInterface()),
 		admissionCtrRecorder:   NewRecorder(AdmissionController, client.GetEventsInterface()),
@@ -197,12 +191,6 @@ func (gen *generator) syncHandler(key Info) error {
 		robj, err = gen.pLister.Policies(key.Namespace).Get(key.Name)
 		if err != nil {
 			logger.Error(err, "failed to get policy", "name", key.Name)
-			return err
-		}
-	case "ValidatingAdmissionPolicy":
-		robj, err = gen.vapLister.Get(key.Name)
-		if err != nil {
-			logger.Error(err, "failed to get validating admission policy", "name", key.Name)
 			return err
 		}
 	default:
