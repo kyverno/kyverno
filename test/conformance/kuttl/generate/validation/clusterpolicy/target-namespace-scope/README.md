@@ -11,3 +11,4 @@ The test fails if the policy creation is allowed, otherwise passes.
 
 https://github.com/kyverno/kyverno/issues/7038
 https://github.com/kyverno/kyverno/issues/7470
+https://github.com/kyverno/kyverno/issues/7750

@@ -54,7 +54,6 @@ type ImageDataClient interface {
 
 type KeychainClient interface {
 	Keychain() authn.Keychain
-	RefreshKeychainPullSecrets(ctx context.Context) error
 }
 
 type CosignClient interface {
