@@ -31,6 +31,8 @@ const (
 	MutatingWebhookConfigurationName = "kyverno-resource-mutating-webhook-cfg"
 	// VerifyMutatingWebhookConfigurationName default verify mutating webhook configuration name
 	VerifyMutatingWebhookConfigurationName = "kyverno-verify-mutating-webhook-cfg"
+	//CleanUpLabel default label for picking up resources for cleanup
+	CleanupLabel = "kyverno.io/ttl"
 )
 
 // webhook names

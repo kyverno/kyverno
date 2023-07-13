@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	authorizationv1client "k8s.io/client-go/kubernetes/typed/authorization/v1"
+	"github.com/kyverno/kyverno/pkg/config"
 )
 
 type stopFunc = context.CancelFunc
@@ -28,33 +29,14 @@ type manager struct {
 }
 
 func NewManager(metadataInterface metadata.Interface, discoveryInterface discovery.DiscoveryInterface,  authorizationInterface authorizationv1client.AuthorizationV1Interface) (*manager, error) {
-	// client
-	metadataClient := metadataInterface
-	// if err != nil {
-	// 	return nil, err
-	// }
 
-	// discovery client
-	discoveryClient:= discoveryInterface
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	authClient := authorizationInterface
-
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// checker
-
-	selfChecker := checker.NewSelfChecker(authClient.SelfSubjectAccessReviews())
+	selfChecker := checker.NewSelfChecker(authorizationInterface.SelfSubjectAccessReviews())
 
 	resController := make(map[schema.GroupVersionResource]stopFunc)
 
 	return &manager{
-		metadataClient:  metadataClient,
-		discoveryClient: discoveryClient,
+		metadataClient:  metadataInterface,
+		discoveryClient: discoveryInterface,
 		checker:         selfChecker,
 		resController:   resController,
 	}, nil
@@ -120,7 +102,7 @@ func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource) er
 		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
 	}
 	options := func(options *metav1.ListOptions) {
-		options.LabelSelector = "kyverno.io/ttl"
+		options.LabelSelector = config.CleanupLabel
 	}
 
 	informer := metadatainformer.NewFilteredMetadataInformer(m.metadataClient,
