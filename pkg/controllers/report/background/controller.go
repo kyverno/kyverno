@@ -111,7 +111,7 @@ func NewController(
 	controllerutils.AddDefaultEventHandlers(logger, cbgscanr.Informer(), queue)
 	controllerutils.AddEventHandlersT(polInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
 	controllerutils.AddEventHandlersT(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
-	controllerutils.AddEventHandlersT(vapInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
+	controllerutils.AddEventHandlersT(vapInformer.Informer(), c.addVapPolicy, c.updateVapPolicy, c.deleteVapPolicy)
 	c.metadataCache.AddEventHandler(func(eventType resource.EventType, uid types.UID, _ schema.GroupVersionKind, res resource.Resource) {
 		// if it's a deletion, nothing to do
 		if eventType == resource.Deleted {
@@ -142,6 +142,20 @@ func (c *controller) updatePolicy(old, obj kyvernov1.PolicyInterface) {
 }
 
 func (c *controller) deletePolicy(obj kyvernov1.PolicyInterface) {
+	c.enqueueResources()
+}
+
+func (c *controller) addVapPolicy(obj v1alpha1.ValidatingAdmissionPolicy) {
+	c.enqueueResources()
+}
+
+func (c *controller) updateVapPolicy(old, obj v1alpha1.ValidatingAdmissionPolicy) {
+	if old.GetResourceVersion() != obj.GetResourceVersion() {
+		c.enqueueResources()
+	}
+}
+
+func (c *controller) deleteVapPolicy(obj v1alpha1.ValidatingAdmissionPolicy) {
 	c.enqueueResources()
 }
 
