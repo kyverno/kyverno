@@ -697,8 +697,6 @@ github.com/google/go-cmp v0.5.6/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/
 github.com/google/go-cmp v0.5.8/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
 github.com/google/go-cmp v0.5.9 h1:O2Tfq5qg4qc4AmwVlvv0oLiVAGB7enBSJ2x2DqQFi38=
 github.com/google/go-cmp v0.5.9/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
-github.com/google/go-containerregistry v0.14.1-0.20230425172351-b7c6e9dc3944 h1:7c5khUnWebZDFMUQ7rf2vynmmnKI1VvBACrTZKKpoD4=
-github.com/google/go-containerregistry v0.14.1-0.20230425172351-b7c6e9dc3944/go.mod h1:0JopT7wiZeP5/ATNgx85oApuNAiNnfn4mr8+WOssYNQ=
 github.com/google/go-containerregistry v0.15.2 h1:MMkSh+tjSdnmJZO7ljvEqV1DjfekB6VUEAZgy3a+TQE=
 github.com/google/go-containerregistry v0.15.2/go.mod h1:wWK+LnOv4jXMM23IT/F1wdYftGWGr47Is8CG+pmHK1Q=
 github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20230403180904-b8d1c0a1df12 h1:LLLVB/7zCZVKI27rqA7bbZHZJxH1lL2jbLxdomX1Eew=
