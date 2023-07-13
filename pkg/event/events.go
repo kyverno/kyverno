@@ -52,10 +52,21 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 	var bldr strings.Builder
 	defer bldr.Reset()
 
+	var res string
 	if resource.GetNamespace() != "" {
-		fmt.Fprintf(&bldr, "%s %s/%s: pass", resource.GetKind(), resource.GetNamespace(), resource.GetName())
+		res = fmt.Sprintf("%s %s/%s", resource.GetKind(), resource.GetNamespace(), resource.GetName())
 	} else {
-		fmt.Fprintf(&bldr, "%s %s: pass", resource.GetKind(), resource.GetName())
+		res = fmt.Sprintf("%s %s", resource.GetKind(), resource.GetName())
+	}
+
+	hasValidate := engineResponse.Policy().GetSpec().HasValidate()
+	hasVerifyImages := engineResponse.Policy().GetSpec().HasVerifyImages()
+	hasMutate := engineResponse.Policy().GetSpec().HasMutate()
+
+	if hasValidate || hasVerifyImages {
+		fmt.Fprintf(&bldr, "%s: pass", res)
+	} else if hasMutate {
+		fmt.Fprintf(&bldr, "%s is successfully mutated", res)
 	}
 
 	return Info{
