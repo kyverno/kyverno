@@ -60,9 +60,12 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 	}
 
 	hasValidate := engineResponse.Policy().GetSpec().HasValidate()
-	if hasValidate {
+	hasVerifyImages := engineResponse.Policy().GetSpec().HasVerifyImages()
+	hasMutate := engineResponse.Policy().GetSpec().HasMutate()
+
+	if hasValidate || hasVerifyImages {
 		fmt.Fprintf(&bldr, "%s: pass", res)
-	} else {
+	} else if hasMutate {
 		fmt.Fprintf(&bldr, "%s is successfully mutated", res)
 	}
 
