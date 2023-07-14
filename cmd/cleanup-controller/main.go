@@ -71,6 +71,7 @@ func main() {
 		internal.WithConfigMapCaching(),
 		internal.WithDeferredLoading(),
 		internal.WithFlagSets(flagset),
+		internal.WithMetadataClient(),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)

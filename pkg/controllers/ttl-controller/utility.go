@@ -42,19 +42,9 @@ func discoverResources(discoveryClient discovery.DiscoveryInterface) ([]schema.G
 	return resources, nil
 }
 
-func (m *manager) filterPermissionsResource(resources []schema.GroupVersionResource) []schema.GroupVersionResource {
-	validResources := []schema.GroupVersionResource{}
-	for _, resource := range resources {
-		// Check if the service account has the necessary permissions
-		if hasResourcePermissions(resource, m.checker) {
-			validResources = append(validResources, resource)
-		}
-	}
-	return validResources
-}
 
 func hasResourcePermissions(resource schema.GroupVersionResource, s checker.AuthChecker) bool {
-	can, err := checker.Check(context.TODO(), s, resource.Group, resource.Version, resource.Resource, " ", "default", "watch", "list", "delete")
+	can, err := checker.Check(context.TODO(), s, resource.Group, resource.Version, resource.Resource, "", "", "watch", "list", "delete")
 	if err != nil {
 		log.Println("failed to check permissions", err)
 		return false

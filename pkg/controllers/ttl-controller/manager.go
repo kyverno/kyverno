@@ -152,6 +152,17 @@ func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, wo
 	return nil
 }
 
+func (m *manager) filterPermissionsResource(resources []schema.GroupVersionResource) []schema.GroupVersionResource {
+	validResources := []schema.GroupVersionResource{}
+	for _, resource := range resources {
+		// Check if the service account has the necessary permissions
+		if hasResourcePermissions(resource, m.checker) {
+			validResources = append(validResources, resource)
+		}
+	}
+	return validResources
+}
+
 func (m *manager) reconcile(ctx context.Context, workers int) error {
 	log.Println("start manager reconciliation")
 	desiredState, err := m.getDesiredState()
