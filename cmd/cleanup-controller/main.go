@@ -4,11 +4,8 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"log"
 	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 
 	admissionhandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission"
@@ -34,6 +31,7 @@ const (
 	resyncPeriod          = 15 * time.Minute
 	webhookWorkers        = 2
 	webhookControllerName = "webhook-controller"
+
 )
 
 // TODO:
@@ -160,15 +158,19 @@ func main() {
 			)
 
 			// start leader controllers
-			manager, err := ttlcontroller.NewManager(
-				setup.MetadataClient, 
-				setup.KubeClient.Discovery(), 
-				setup.KubeClient.AuthorizationV1(),
+			ttlManagerController:= internal.NewController(
+				ttlcontroller.ControllerName,
+				ttlcontroller.NewManager(
+					setup.MetadataClient,
+					setup.KubeClient.Discovery(),
+					setup.KubeClient.AuthorizationV1(),
+				),
+				ttlcontroller.Workers,
 			)
-			if err != nil {
-				log.Printf("error %s creating manager", err.Error())
-				os.Exit(1)
-			}
+			// if err != nil {
+			// 	log.Printf("error %s creating manager", err.Error())
+			// 	os.Exit(1)
+			// }
 
 			// start informers and wait for cache sync
 			if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kyvernoInformer, kubeInformer) {
@@ -180,15 +182,14 @@ func main() {
 			webhookController.Run(ctx, logger, &wg)
 			cleanupController.Run(ctx, logger, &wg)
 			// cancellable context for
-			ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-			defer cancel()
-			// run manager for ttl-controller
-
+			// ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+			// defer cancel()
+			ttlManagerController.Run(ctx, logger, &wg)
 			
-			if err := manager.Run(ctx); err != nil {
-				log.Printf("error %s running manager", err.Error())
-				os.Exit(1)
-			}
+			// if err := manager.Run(); err != nil {
+			// 	log.Printf("error %s running manager", err.Error())
+			// 	os.Exit(1)
+			// }
 			// wait all controllers shut down
 			wg.Wait()
 		},

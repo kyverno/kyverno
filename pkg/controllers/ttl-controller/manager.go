@@ -7,19 +7,26 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/auth/checker"
+	"github.com/kyverno/kyverno/pkg/controllers"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
+	authorizationv1client "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	authorizationv1client "k8s.io/client-go/kubernetes/typed/authorization/v1"
-	"github.com/kyverno/kyverno/pkg/config"
 )
 
 type stopFunc = context.CancelFunc
+
+const (
+	//CleanUpLabel default label for picking up resources for cleanup
+	CleanupLabel   = "kyverno.io/ttl"
+	Workers        = 3
+	ControllerName = "ttl-controller"
+)
 
 type manager struct {
 	metadataClient  metadata.Interface
@@ -28,8 +35,11 @@ type manager struct {
 	resController   map[schema.GroupVersionResource]stopFunc
 }
 
-func NewManager(metadataInterface metadata.Interface, discoveryInterface discovery.DiscoveryInterface,  authorizationInterface authorizationv1client.AuthorizationV1Interface) (*manager, error) {
-
+func NewManager(
+	metadataInterface metadata.Interface,
+	discoveryInterface discovery.DiscoveryInterface,
+	authorizationInterface authorizationv1client.AuthorizationV1Interface,
+) controllers.Controller {
 	selfChecker := checker.NewSelfChecker(authorizationInterface.SelfSubjectAccessReviews())
 
 	resController := make(map[schema.GroupVersionResource]stopFunc)
@@ -39,10 +49,10 @@ func NewManager(metadataInterface metadata.Interface, discoveryInterface discove
 		discoveryClient: discoveryInterface,
 		checker:         selfChecker,
 		resController:   resController,
-	}, nil
+	}
 }
 
-func (m *manager) Run(ctx context.Context) error {
+func (m *manager) Run(ctx context.Context, worker int) {
 	defer func() {
 		// Stop all informers and wait for them to finish
 		for gvr := range m.resController {
@@ -58,10 +68,11 @@ func (m *manager) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			//return nil
+			return
 		case <-ticker.C:
-			if err := m.reconcile(ctx); err != nil {
-				return err
+			if err := m.reconcile(ctx, worker); err != nil {
+				//return err
 			}
 		}
 	}
@@ -97,12 +108,12 @@ func (m *manager) stop(ctx context.Context, gvr schema.GroupVersionResource) err
 	return nil
 }
 
-func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource) error {
+func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, workers int) error {
 	indexers := cache.Indexers{
 		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
 	}
 	options := func(options *metav1.ListOptions) {
-		options.LabelSelector = config.CleanupLabel
+		options.LabelSelector = CleanupLabel
 	}
 
 	informer := metadatainformer.NewFilteredMetadataInformer(m.metadataClient,
@@ -119,32 +130,29 @@ func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource) er
 	var wg wait.Group
 
 	stopFunc := func() {
-		cancel() // Send stop signal to informer's goroutine
-		wg.Wait()     // Wait for the group to terminate
+		cancel()  // Send stop signal to informer's goroutine
+		wg.Wait() // Wait for the group to terminate
 		controller.Stop()
 		log.Println("Stopped", gvr)
 	}
-
 
 	wg.StartWithContext(cont, func(ctx context.Context){
 		log.Println("informer starting...", gvr)
 		informer.Informer().Run(cont.Done())
 	})
 
-
 	if !cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced) {
 		cancel()
 		return fmt.Errorf("failed to wait for cache sync: %s", gvr)
 	}
 
-
 	log.Println("controller starting...", gvr)
-	controller.Start(cont, 3)
+	controller.Start(cont, workers)
 	m.resController[gvr] = stopFunc // Store the stop function
 	return nil
 }
 
-func (m *manager) reconcile(ctx context.Context) error {
+func (m *manager) reconcile(ctx context.Context, workers int) error {
 	log.Println("start manager reconciliation")
 	desiredState, err := m.getDesiredState()
 	if err != nil {
@@ -160,7 +168,7 @@ func (m *manager) reconcile(ctx context.Context) error {
 		}
 	}
 	for gvr := range desiredState.Difference(observedState) {
-		if err := m.start(ctx, gvr); err != nil {
+		if err := m.start(ctx, gvr, workers); err != nil {
 			return err
 		}
 	}
