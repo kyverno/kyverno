@@ -158,7 +158,6 @@ func main() {
 				cleanup.Workers,
 			)
 
-			// start leader controllers
 			ttlManagerController:= internal.NewController(
 				ttlcontroller.ControllerName,
 				ttlcontroller.NewManager(
@@ -168,16 +167,13 @@ func main() {
 				),
 				ttlcontroller.Workers,
 			)
-			// if err != nil {
-			// 	log.Printf("error %s creating manager", err.Error())
-			// 	os.Exit(1)
-			// }
-
 			// start informers and wait for cache sync
 			if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kyvernoInformer, kubeInformer) {
 				logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 				os.Exit(1)
 			}
+
+			// start leader controllers
 			var wg sync.WaitGroup
 			certController.Run(ctx, logger, &wg)
 			webhookController.Run(ctx, logger, &wg)
@@ -186,12 +182,6 @@ func main() {
 			// ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 			// defer cancel()
 			ttlManagerController.Run(ctx, logger, &wg)
-			
-			// if err := manager.Run(); err != nil {
-			// 	log.Printf("error %s running manager", err.Error())
-			// 	os.Exit(1)
-			// }
-			// wait all controllers shut down
 			wg.Wait()
 		},
 		nil,
