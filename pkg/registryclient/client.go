@@ -57,7 +57,7 @@ type Client interface {
 	// BuildCosignRemoteOption builds remote.Option for cosign client.
 	BuildCosignRemoteOption(context.Context) remote.Option
 
-	//BuildGCRRemoteOption builds []gcrremote.option based on client
+	// BuildGCRRemoteOption builds []gcrremote.option based on client
 	BuildGCRRemoteOption(ctx context.Context) []gcrremote.Option
 }
 
