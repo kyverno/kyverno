@@ -98,7 +98,9 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 						UID:        engineResponse.Resource.GetUID(),
 					},
 				},
-				Scored: true,
+				Scored:   true,
+				Category: ann[kyverno.AnnotationPolicyCategory],
+				Severity: severityFromString(ann[kyverno.AnnotationPolicySeverity]),
 			}
 
 			if ruleResponse.Status() == engineapi.RuleStatusSkip {
@@ -130,4 +132,16 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 	}
 
 	return results
+}
+
+func severityFromString(severity string) policyreportv1alpha2.PolicySeverity {
+	switch severity {
+	case policyreportv1alpha2.SeverityHigh:
+		return policyreportv1alpha2.SeverityHigh
+	case policyreportv1alpha2.SeverityMedium:
+		return policyreportv1alpha2.SeverityMedium
+	case policyreportv1alpha2.SeverityLow:
+		return policyreportv1alpha2.SeverityLow
+	}
+	return ""
 }
