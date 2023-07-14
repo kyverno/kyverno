@@ -261,7 +261,7 @@ jobs:
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
       - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@9ea0a535eab2c99121fb3ac742e333b4a9f07970 # v2.0.0
+        uses: fluxcd/flux2/action@9b3162495ce1b99b1fcdf137c553f543eafe3ec7 # v2.0.1
         with:
           version: 0.35.0
       - name: Install Cosign
