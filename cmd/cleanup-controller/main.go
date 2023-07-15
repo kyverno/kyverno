@@ -157,7 +157,7 @@ func main() {
 				cleanup.Workers,
 			)
 
-			ttlManagerController:= internal.NewController(
+			ttlManagerController := internal.NewController(
 				ttlcontroller.ControllerName,
 				ttlcontroller.NewManager(
 					setup.MetadataClient,
