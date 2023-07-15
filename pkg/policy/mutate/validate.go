@@ -68,8 +68,8 @@ func (m *Mutate) validateForEach(tag string, foreach []kyvernov1.ForEachMutation
 		if (fe.PatchesJSON6902 == "" && psm == nil) || (fe.PatchesJSON6902 != "" && psm != nil) {
 			return tag, fmt.Errorf("only one of `patchStrategicMerge` or `patchesJson6902` is allowed")
 		}
-		if fe.List == "request.object.spec.containers" {
-			_, err := m.validatePatchStrategicMerge(psm)
+		if fe.List == "request.object.spec.containers" && psm != nil {
+			err := m.validatePatchStrategicMerge(psm)
 			if err != nil {
 				return "patchStrategicMerge", err
 			}
@@ -88,21 +88,21 @@ func (m *Mutate) validateNestedForEach(tag string, j *v1.JSON) (string, error) {
 	return m.validateForEach(tag, nestedForeach)
 }
 
-func (m *Mutate) validatePatchStrategicMerge(psm apiextensions.JSON) (string, error) {
+func (m *Mutate) validatePatchStrategicMerge(psm apiextensions.JSON) error {
 	patchStrategicMergeJson, err := json.Marshal(psm)
 	if err != nil {
-		return "patchStrategicMerge", err
+		return err
 	}
 	var patchStrategicMergeJsonDecoded map[string]interface{}
 	if err := json.Unmarshal(patchStrategicMergeJson, &patchStrategicMergeJsonDecoded); err != nil {
-		return "patchStrategicMerge", err
+		return err
 	}
 	spec := patchStrategicMergeJsonDecoded["spec"].(map[string]interface{})
 	_, ok := spec["containers"].([]interface{})
 	if !ok {
-		return "patchStrategicMerge", fmt.Errorf("containers field in patchStrategicMerge is not of array type")
+		return fmt.Errorf("containers field in patchStrategicMerge is not of array type")
 	}
-	return "", nil
+	return nil
 }
 
 func (m *Mutate) hasForEach() bool {
