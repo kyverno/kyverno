@@ -45,7 +45,6 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 	c.eventRegistration = eventRegistration
 
 	return c
-
 }
 
 func (c *controller) handleAdd(obj interface{}) {
@@ -99,7 +98,6 @@ func (c *controller) UnregisterEventHandlers() {
 		return
 	}
 	log.Println("unregister event handlers")
-	
 }
 
 func (c *controller) worker(ctx context.Context) {

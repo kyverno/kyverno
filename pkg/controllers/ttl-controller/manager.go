@@ -22,7 +22,6 @@ import (
 type stopFunc = context.CancelFunc
 
 const (
-	//CleanUpLabel default label for picking up resources for cleanup
 	CleanupLabel   = "kyverno.io/ttl"
 	Workers        = 3
 	ControllerName = "ttl-controller"
@@ -68,11 +67,11 @@ func (m *manager) Run(ctx context.Context, worker int) {
 	for {
 		select {
 		case <-ctx.Done():
-			//return nil
 			return
 		case <-ticker.C:
 			if err := m.reconcile(ctx, worker); err != nil {
-				//return err
+				log.Printf("Error in reconciliation: %s", err.Error())
+				return
 			}
 		}
 	}

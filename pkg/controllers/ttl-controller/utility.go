@@ -38,10 +38,8 @@ func discoverResources(discoveryClient discovery.DiscoveryInterface) ([]schema.G
 			}
 		}
 	}
-
 	return resources, nil
 }
-
 
 func hasResourcePermissions(resource schema.GroupVersionResource, s checker.AuthChecker) bool {
 	can, err := checker.Check(context.TODO(), s, resource.Group, resource.Version, resource.Resource, "", "", "watch", "list", "delete")
