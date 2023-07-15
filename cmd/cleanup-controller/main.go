@@ -31,7 +31,6 @@ const (
 	resyncPeriod          = 15 * time.Minute
 	webhookWorkers        = 2
 	webhookControllerName = "webhook-controller"
-
 )
 
 // TODO:

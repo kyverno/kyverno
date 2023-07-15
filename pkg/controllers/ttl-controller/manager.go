@@ -135,7 +135,7 @@ func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, wo
 		log.Println("Stopped", gvr)
 	}
 
-	wg.StartWithContext(cont, func(ctx context.Context){
+	wg.StartWithContext(cont, func(ctx context.Context) {
 		log.Println("informer starting...", gvr)
 		informer.Informer().Run(cont.Done())
 	})

@@ -93,7 +93,7 @@ func (c *controller) enqueue(obj interface{}) {
 // UnregisterEventHandlers unregisters the event handlers from the informer.
 func (c *controller) UnregisterEventHandlers() {
 	err := c.informer.RemoveEventHandler(c.eventRegistration)
-	if err != nil{
+	if err != nil {
 		log.Printf("Unable to unregister event handlers: %s", err.Error())
 		return
 	}
