@@ -26,6 +26,8 @@ annotations:
       url: https://kyverno.io/docs
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
+    - kind: fixed
+      description: rbac templating issues
     - kind: added
       description: make sigstore volume configurable
     - kind: changed
@@ -46,3 +48,5 @@ annotations:
       description: define resources for cleanupJobs
     - kind: changed
       description: change to enable webhook cleanup hook by default
+    - kind: added
+      description: allow pod labels for cleanup jobs

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	corev1 "k8s.io/api/core/v1"
@@ -228,7 +228,7 @@ func (c *certRenewer) writeSecret(ctx context.Context, name string, key *rsa.Pri
 				Name:      name,
 				Namespace: config.KyvernoNamespace(),
 				Labels: map[string]string{
-					managedByLabel: kyvernov1.ValueKyvernoApp,
+					managedByLabel: kyverno.ValueKyvernoApp,
 				},
 			},
 			Type: corev1.SecretTypeTLS,

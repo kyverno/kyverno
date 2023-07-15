@@ -629,9 +629,17 @@ func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace
 		if err := g.validateTargetsScope(clusterResources, policyNamespace); err != nil {
 			errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
 		}
-	} else {
-		if g.GetNamespace() == "" && g.CloneList.Namespace == "" {
-			errs = append(errs, field.Forbidden(path.Child("generate"), "target namespace must be set in a clusterpolicy"))
+	}
+
+	if g.GetKind() != "" {
+		if !clusterResources.Has(g.GetAPIVersion() + "/" + g.GetKind()) {
+			if g.GetNamespace() == "" {
+				errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), "target namespace must be set for a namespaced resource"))
+			}
+		} else {
+			if g.GetNamespace() != "" {
+				errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), "target namespace must not be set for a cluster-wide resource"))
+			}
 		}
 	}
 
