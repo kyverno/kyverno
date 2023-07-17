@@ -22,7 +22,7 @@ import (
 
 type stopFunc = context.CancelFunc
 var logger = logging.WithName(ControllerName)
-
+var managerLogger = logger.WithName("ttl-manager")
 const (
 	CleanupLabel   = "kyverno.io/ttl"
 	Workers        = 3
@@ -54,7 +54,6 @@ func NewManager(
 }
 
 func (m *manager) Run(ctx context.Context, worker int) {
-	managerLogger := logger.WithName(fmt.Sprintf("Manager-%d", worker))
 	defer func() {
 		// Stop all informers and wait for them to finish
 		for gvr := range m.resController {
@@ -103,7 +102,7 @@ func (m *manager) stop(ctx context.Context, gvr schema.GroupVersionResource) err
 		delete(m.resController, gvr)
 		func() {
 			// defer log.Println("stopped", gvr)
-			log.Println("stopping...", gvr)
+			log.Println("stopping...", gvr.Resource)
 			stopFunc()
 		}()
 	}
@@ -140,16 +139,16 @@ func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, wo
 	}
 
 	wg.StartWithContext(cont, func(ctx context.Context) {
-		controllerLogger.Info("informer starting...", gvr)
+		controllerLogger.Info("informer starting...", gvr.Resource)
 		informer.Informer().Run(cont.Done())
 	})
 
 	if !cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced) {
 		cancel()
-		return fmt.Errorf("failed to wait for cache sync: %s", gvr)
+		return fmt.Errorf("failed to wait for cache sync: %s", gvr.Resource)
 	}
 
-	controllerLogger.Info("controller starting...", gvr)
+	controllerLogger.Info("controller starting...", gvr.Resource)
 	controller.Start(cont, workers)
 	m.resController[gvr] = stopFunc // Store the stop function
 	return nil
@@ -167,7 +166,7 @@ func (m *manager) filterPermissionsResource(resources []schema.GroupVersionResou
 }
 
 func (m *manager) reconcile(ctx context.Context, workers int) error {
-	log.Println("start manager reconciliation")
+	managerLogger.Info("start manager reconciliation")
 	desiredState, err := m.getDesiredState()
 	if err != nil {
 		return err
