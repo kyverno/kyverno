@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,15 +23,17 @@ type controller struct {
 	wg                wait.Group
 	informer          cache.SharedIndexInformer
 	eventRegistration cache.ResourceEventHandlerRegistration
+	controllerLogger   logr.Logger
 }
 
-func newController(client metadata.Getter, metainformer informers.GenericInformer) *controller {
+func newController(client metadata.Getter, metainformer informers.GenericInformer, logger logr.Logger) *controller {
 	c := &controller{
-		client:   client,
-		queue:    workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		lister:   metainformer.Lister(),
-		wg:       wait.Group{},
-		informer: metainformer.Informer(),
+		client:          client,
+		queue:           workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		lister:          metainformer.Lister(),
+		wg:              wait.Group{},
+		informer:        metainformer.Informer(),
+		controllerLogger: logger,
 	}
 
 	eventRegistration, err := c.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -48,56 +51,56 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 }
 
 func (c *controller) handleAdd(obj interface{}) {
-	log.Println("resource was created")
+	c.controllerLogger.Info("resource was created")
 	c.enqueue(obj)
 }
 
 func (c *controller) handleDelete(obj interface{}) {
-	log.Println("resource was deleted")
+	c.controllerLogger.Info("resource was deleted")
 	c.enqueue(obj)
 }
 
 func (c *controller) handleUpdate(oldObj, newObj interface{}) {
-	log.Println("resource was updated")
+	c.controllerLogger.Info("resource was updated")
 	c.enqueue(newObj)
 }
 
 func (c *controller) Start(ctx context.Context, workers int) {
 	for i := 0; i < workers; i++ {
 		c.wg.StartWithContext(ctx, func(ctx context.Context) {
-			defer log.Println("worker stopped")
-			log.Println("worker starting ....")
+			defer c.controllerLogger.Info("worker stopped")
+			c.controllerLogger.Info("worker starting ....")
 			wait.UntilWithContext(ctx, c.worker, 1*time.Second)
 		})
 	}
 }
 
 func (c *controller) Stop() {
-	defer log.Println("queue stopped")
+	defer c.controllerLogger.Info("queue stopped")
 	defer c.wg.Wait()
 	// Unregister the event handlers
-	c.UnregisterEventHandlers()
-	log.Println("queue stopping ....")
+	c.DeregisterEventHandlers()
+	c.controllerLogger.Info("queue stopping ....")
 	c.queue.ShutDown()
 }
 
 func (c *controller) enqueue(obj interface{}) {
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
-		log.Printf("failed to extract name: %s", err)
+		c.controllerLogger.Error(err,"failed to extract name")
 		return
 	}
 	c.queue.Add(key)
 }
 
-// UnregisterEventHandlers unregisters the event handlers from the informer.
-func (c *controller) UnregisterEventHandlers() {
+// DeregisterEventHandlers deregisters the event handlers from the informer.
+func (c *controller) DeregisterEventHandlers() {
 	err := c.informer.RemoveEventHandler(c.eventRegistration)
 	if err != nil {
-		log.Printf("Unable to unregister event handlers: %s", err.Error())
+		c.controllerLogger.Error(err, "Unable to deregister event handlers")
 		return
 	}
-	log.Println("unregister event handlers")
+	c.controllerLogger.Info("deregister event handlers")
 }
 
 func (c *controller) worker(ctx context.Context) {
@@ -119,7 +122,7 @@ func (c *controller) processItem() bool {
 	defer c.queue.Forget(item)
 	err := c.reconcile(item.(string))
 	if err != nil {
-		log.Printf("reconciliation failed err: %s, for resource %s\n", err.Error(), item)
+		c.controllerLogger.Error(err, "reconciliation failed for resource %s\n", item)
 		c.queue.AddRateLimited(item)
 		return true
 	}
@@ -141,14 +144,12 @@ func (c *controller) reconcile(itemKey string) error {
 		// there was an error, return it to requeue the key
 		return err
 	}
-	// we now know the observed state, check against the desired state...
-	// Assuming the object is of type metav1.Object, you can replace it with the correct type
+
 	metaObj, error := meta.Accessor(obj)
 	const ttlLabel = "kyverno.io/ttl"
-	// fmt.Printf("the object is: %+v\n", metaObj)
 
 	if error != nil {
-		log.Printf("object '%s' is not of type metav1.Object", itemKey)
+		c.controllerLogger.Info("object '%s' is not of type metav1.Object", itemKey)
 		return err
 	}
 
@@ -175,18 +176,18 @@ func (c *controller) reconcile(itemKey string) error {
 			layoutCustom := "2006-01-02"
 			deletionTime, err = time.Parse(layoutCustom, ttlValue)
 			if err != nil {
-				log.Printf("failed to parse TTL duration item %s ttlValue %s %+v", itemKey, ttlValue, err)
+				c.controllerLogger.Error(err,"failed to parse TTL duration item %s ttlValue %s", itemKey, ttlValue)
 				return nil
 			}
 		}
 	}
 
-	log.Printf("the time to expire is: %s\n", deletionTime)
+	c.controllerLogger.Info("the time to expire is: %s\n", deletionTime)
 
 	if time.Now().After(deletionTime) {
 		err = c.client.Namespace(namespace).Delete(context.Background(), metaObj.GetName(), metav1.DeleteOptions{})
 		if err != nil {
-			log.Printf("failed to delete object: %s error: %+v", itemKey, err)
+			c.controllerLogger.Error(err, "failed to delete object: %s", itemKey)
 			return err
 		}
 		log.Printf("Resource '%s' has been deleted\n", itemKey)

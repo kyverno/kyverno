@@ -8,6 +8,7 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/controllers"
+	"github.com/kyverno/kyverno/pkg/logging"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -20,6 +21,7 @@ import (
 )
 
 type stopFunc = context.CancelFunc
+var logger = logging.WithName(ControllerName)
 
 const (
 	CleanupLabel   = "kyverno.io/ttl"
@@ -52,11 +54,12 @@ func NewManager(
 }
 
 func (m *manager) Run(ctx context.Context, worker int) {
+	managerLogger := logger.WithName(fmt.Sprintf("Manager-%d", worker))
 	defer func() {
 		// Stop all informers and wait for them to finish
 		for gvr := range m.resController {
 			if err := m.stop(ctx, gvr); err != nil {
-				log.Println("Error stopping informer:", err)
+				managerLogger.Error(err, "Error stopping informer")
 			}
 		}
 	}()
@@ -70,7 +73,7 @@ func (m *manager) Run(ctx context.Context, worker int) {
 			return
 		case <-ticker.C:
 			if err := m.reconcile(ctx, worker); err != nil {
-				log.Printf("Error in reconciliation: %s", err.Error())
+				managerLogger.Error(err, "Error in reconciliation")
 				return
 			}
 		}
@@ -108,6 +111,7 @@ func (m *manager) stop(ctx context.Context, gvr schema.GroupVersionResource) err
 }
 
 func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, workers int) error {
+	controllerLogger := logging.WithName(gvr.Resource)
 	indexers := cache.Indexers{
 		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
 	}
@@ -123,7 +127,7 @@ func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, wo
 		options,
 	)
 
-	controller := newController(m.metadataClient.Resource(gvr), informer)
+	controller := newController(m.metadataClient.Resource(gvr), informer, controllerLogger)
 
 	cont, cancel := context.WithCancel(ctx)
 	var wg wait.Group
@@ -132,11 +136,11 @@ func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, wo
 		cancel()  // Send stop signal to informer's goroutine
 		wg.Wait() // Wait for the group to terminate
 		controller.Stop()
-		log.Println("Stopped", gvr)
+		controllerLogger.Info("Stopped", gvr)
 	}
 
 	wg.StartWithContext(cont, func(ctx context.Context) {
-		log.Println("informer starting...", gvr)
+		controllerLogger.Info("informer starting...", gvr)
 		informer.Informer().Run(cont.Done())
 	})
 
@@ -145,7 +149,7 @@ func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, wo
 		return fmt.Errorf("failed to wait for cache sync: %s", gvr)
 	}
 
-	log.Println("controller starting...", gvr)
+	controllerLogger.Info("controller starting...", gvr)
 	controller.Start(cont, workers)
 	m.resController[gvr] = stopFunc // Store the stop function
 	return nil

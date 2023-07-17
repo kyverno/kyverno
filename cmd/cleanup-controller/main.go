@@ -177,9 +177,6 @@ func main() {
 			certController.Run(ctx, logger, &wg)
 			webhookController.Run(ctx, logger, &wg)
 			cleanupController.Run(ctx, logger, &wg)
-			// cancellable context for
-			// ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-			// defer cancel()
 			ttlManagerController.Run(ctx, logger, &wg)
 			wg.Wait()
 		},
