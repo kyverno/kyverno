@@ -129,7 +129,7 @@ func (c *controller) processItem() bool {
 	return true
 }
 
-func parseDeletionTime(metaObj metav1.Object, deletionTime *time.Time, ttlValue string, itemKey string) error{
+func parseDeletionTime(metaObj metav1.Object, deletionTime *time.Time, ttlValue string) error{
 	ttlDuration, err := time.ParseDuration(ttlValue)
 	if err == nil {
 		creationTime := metaObj.GetCreationTimestamp().Time
@@ -183,7 +183,7 @@ func (c *controller) reconcile(itemKey string) error {
 	var deletionTime time.Time
 
 	// Try parsing ttlValue as duration
-	err = parseDeletionTime(metaObj, &deletionTime, ttlValue, itemKey)
+	err = parseDeletionTime(metaObj, &deletionTime, ttlValue)
 
 	if err != nil {
 		c.controllerLogger.Error(err,"failed to parse TTL duration item %s ttlValue %s", itemKey, ttlValue)
