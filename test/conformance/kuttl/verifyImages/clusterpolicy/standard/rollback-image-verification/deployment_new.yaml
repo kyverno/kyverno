@@ -16,6 +16,6 @@ spec:
         app: nginx
     spec:
       containers:
-      - image: ghcr.io/hackeramitkumar/test5:app2
+      - image: ghcr.io/kyverno/test-verify-image-rollback:signed-1
         name: nginx
         resources: {}

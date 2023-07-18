@@ -21,13 +21,13 @@ spec:
               - Deployment
       verifyImages:
       - imageReferences:
-        - "ghcr.io/hackeramitkumar*"
+        - "ghcr.io/kyverno*"
         attestors:
         - count: 1
           entries:
           - keys:
               publicKeys: |-
                 -----BEGIN PUBLIC KEY-----
-                MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEFN8gGjQua2g8N+aLx3Eff+/j5HxL
-                bV+H2z50/0A4d8XyMUvizPQBtcgei43pqLj1850m3wSwI08z2+6zT1QaEg==
+                MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfnYaFSrs2pLp4ShcWBgMLJM6Gki/
+                1tC5ZWN2IuJTe2RbyVrDEn1qLBXNzGKhIXbsUyO5+BuIfgMdek1pDYFZGQ==
                 -----END PUBLIC KEY-----

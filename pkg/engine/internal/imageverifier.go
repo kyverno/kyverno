@@ -68,7 +68,7 @@ func HasImageVerifiedAnnotationChanged(ctx engineapi.PolicyContext, log logr.Log
 	}
 	err = json.Unmarshal([]byte(oldValue), &oldValueObj)
 	if err != nil {
-		log.Error(err, "failed to parse new resource annotation.")
+		log.Error(err, "failed to parse old resource annotation.")
 		return true
 	}
 	for img := range oldValueObj {
