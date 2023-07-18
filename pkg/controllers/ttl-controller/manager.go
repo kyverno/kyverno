@@ -22,11 +22,10 @@ import (
 
 type stopFunc = context.CancelFunc
 var logger = logging.WithName(ControllerName)
-var managerLogger = logger.WithName("ttl-manager")
 const (
 	CleanupLabel   = "kyverno.io/ttl"
 	Workers        = 3
-	ControllerName = "ttl-controller"
+	ControllerName = "ttl-controller-manager"
 )
 
 type manager struct {
@@ -58,7 +57,7 @@ func (m *manager) Run(ctx context.Context, worker int) {
 		// Stop all informers and wait for them to finish
 		for gvr := range m.resController {
 			if err := m.stop(ctx, gvr); err != nil {
-				managerLogger.Error(err, "Error stopping informer")
+				logger.Error(err, "Error stopping informer")
 			}
 		}
 	}()
@@ -72,7 +71,7 @@ func (m *manager) Run(ctx context.Context, worker int) {
 			return
 		case <-ticker.C:
 			if err := m.reconcile(ctx, worker); err != nil {
-				managerLogger.Error(err, "Error in reconciliation")
+				logger.Error(err, "Error in reconciliation")
 				return
 			}
 		}
@@ -166,7 +165,7 @@ func (m *manager) filterPermissionsResource(resources []schema.GroupVersionResou
 }
 
 func (m *manager) reconcile(ctx context.Context, workers int) error {
-	managerLogger.Info("start manager reconciliation")
+	logger.Info("start manager reconciliation")
 	desiredState, err := m.getDesiredState()
 	if err != nil {
 		return err
