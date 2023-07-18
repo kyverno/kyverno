@@ -36,7 +36,7 @@ const cosignPayload = `{
 const keylessPayload = `{
     "critical": {
       "identity": {
-        "docker-reference": "ghcr.io/jimbugwadia/pause2"
+        "docker-reference": "ghcr.io/kyverno/test-verify-image"
       },
       "image": {
         "docker-manifest-digest": "sha256:ee53528c4e3c723945cf870d73702b76135955a218dd7497bf344aa73ebb4227"
@@ -53,7 +53,7 @@ const keylessPayload = `{
         }
       },
       "Issuer": "https://accounts.google.com",
-      "Subject": "jim@nirmata.com"
+      "Subject": "kyverno@nirmata.com"
     }
 }`
 
@@ -69,7 +69,7 @@ func TestCosignPayload(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, d, "sha256:4a1c4b21597c1b4415bdbecb28a3296c6b5e23ca4f9feeb599860a1dac6a0108")
 
-	image2 := "ghcr.io/jimbugwadia/pause2"
+	image2 := "ghcr.io/kyverno/test-verify-image"
 	signedPayloads2 := cosign.SignedPayload{Payload: []byte(keylessPayload)}
 	signatures2 := []oci.Signature{&sig{cosignPayload: signedPayloads2}}
 	p2, err := extractPayload(signatures2)
