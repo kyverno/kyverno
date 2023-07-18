@@ -34,27 +34,27 @@ const cosignPayload = `{
 }`
 
 const keylessPayload = `{
-    "critical": {
-      "identity": {
-        "docker-reference": "ghcr.io/kyverno/test-verify-image"
-      },
-      "image": {
-        "docker-manifest-digest": "sha256:ee53528c4e3c723945cf870d73702b76135955a218dd7497bf344aa73ebb4227"
-      },
-      "type": "cosign container image signature"
-    },
-    "optional": {
-      "Bundle": {
-        "SignedEntryTimestamp": "--TIME-STAMP--",
-        "Payload": {
-          "integratedTime": 1689234389,
-          "logIndex": 27432442,
-          "logID": "--LOG-ID--"
-        }
-      },
-      "Issuer": "https://accounts.google.com",
-      "Subject": "kyverno@nirmata.com"
-    }
+	"critical": {
+		"identity": {
+			"docker-reference": "ghcr.io/kyverno/test-verify-image"
+		},
+		"image": {
+			"docker-manifest-digest": "sha256:ee53528c4e3c723945cf870d73702b76135955a218dd7497bf344aa73ebb4227"
+		},
+		"type": "cosign container image signature"
+	},
+	"optional": {
+		"Bundle": {
+			"SignedEntryTimestamp": "--TIME-STAMP--",
+			"Payload": {
+				"integratedTime": 1689234389,
+				"logIndex": 27432442,
+				"logID": "--LOG-ID--"
+			}
+		},
+		"Issuer": "https://accounts.google.com",
+		"Subject": "kyverno@nirmata.com"
+	}
 }`
 
 func TestCosignPayload(t *testing.T) {
