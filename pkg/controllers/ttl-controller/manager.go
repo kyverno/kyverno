@@ -3,7 +3,6 @@ package ttlcontroller
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/auth/checker"
@@ -101,7 +100,7 @@ func (m *manager) stop(ctx context.Context, gvr schema.GroupVersionResource) err
 		delete(m.resController, gvr)
 		func() {
 			// defer log.Println("stopped", gvr)
-			log.Println("stopping...", gvr.Resource)
+			logger.Info("stopping...", gvr.Resource)
 			stopFunc()
 		}()
 	}
@@ -134,7 +133,7 @@ func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, wo
 		cancel()  // Send stop signal to informer's goroutine
 		wg.Wait() // Wait for the group to terminate
 		controller.Stop()
-		controllerLogger.Info("Stopped", gvr)
+		controllerLogger.Info("Stopped", gvr.Resource)
 	}
 
 	wg.StartWithContext(cont, func(ctx context.Context) {

@@ -56,7 +56,6 @@ func (c *controller) handleAdd(obj interface{}) {
 }
 
 func (c *controller) handleDelete(obj interface{}) {
-	c.controllerLogger.Info("resource was deleted")
 	c.enqueue(obj)
 }
 
@@ -130,6 +129,26 @@ func (c *controller) processItem() bool {
 	return true
 }
 
+func parseDeletionTime(metaObj metav1.Object, deletionTime *time.Time, ttlValue string, itemKey string) error{
+	ttlDuration, err := time.ParseDuration(ttlValue)
+	if err == nil {
+		creationTime := metaObj.GetCreationTimestamp().Time
+		*deletionTime = creationTime.Add(ttlDuration)
+	} else {
+		layoutRFCC := "2006-01-02T150405Z"
+		// Try parsing ttlValue as a time in ISO 8601 format
+		*deletionTime, err = time.Parse(layoutRFCC, ttlValue)
+		if err != nil {
+			layoutCustom := "2006-01-02"
+			*deletionTime, err = time.Parse(layoutCustom, ttlValue)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (c *controller) reconcile(itemKey string) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(itemKey)
 	if err != nil {
@@ -164,25 +183,15 @@ func (c *controller) reconcile(itemKey string) error {
 	var deletionTime time.Time
 
 	// Try parsing ttlValue as duration
-	ttlDuration, err := time.ParseDuration(ttlValue)
-	if err == nil {
-		creationTime := metaObj.GetCreationTimestamp().Time
-		deletionTime = creationTime.Add(ttlDuration)
-	} else {
-		layoutRFCC := "2006-01-02T150405Z"
-		// Try parsing ttlValue as a time in ISO 8601 format
-		deletionTime, err = time.Parse(layoutRFCC, ttlValue)
-		if err != nil {
-			layoutCustom := "2006-01-02"
-			deletionTime, err = time.Parse(layoutCustom, ttlValue)
-			if err != nil {
-				c.controllerLogger.Error(err,"failed to parse TTL duration item %s ttlValue %s", itemKey, ttlValue)
-				return nil
-			}
-		}
-	}
+	err = parseDeletionTime(metaObj, &deletionTime, ttlValue, itemKey)
 
-	c.controllerLogger.Info("the time to expire is: %s\n", deletionTime)
+	if err != nil {
+		c.controllerLogger.Error(err,"failed to parse TTL duration item %s ttlValue %s", itemKey, ttlValue)
+		return err
+	}
+	
+
+	c.controllerLogger.Info("the time to expire is: ", deletionTime.String())
 
 	if time.Now().After(deletionTime) {
 		err = c.client.Namespace(namespace).Delete(context.Background(), metaObj.GetName(), metav1.DeleteOptions{})
@@ -190,7 +199,8 @@ func (c *controller) reconcile(itemKey string) error {
 			c.controllerLogger.Error(err, "failed to delete object: %s", itemKey)
 			return err
 		}
-		log.Printf("Resource '%s' has been deleted\n", itemKey)
+		// log.Printf("Resource '%s' has been deleted\n", itemKey)
+		c.controllerLogger.Info("Resource", itemKey, " has been deleted")
 	} else {
 		// Calculate the remaining time until deletion
 		timeRemaining := time.Until(deletionTime)
