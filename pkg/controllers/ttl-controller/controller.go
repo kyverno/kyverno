@@ -187,7 +187,7 @@ func (c *controller) reconcile(itemKey string) error {
 
 	if err != nil {
 		c.controllerLogger.Error(err,"failed to parse TTL duration item %s ttlValue %s", itemKey, ttlValue)
-		return err
+		return nil
 	}
 	
 
