@@ -82,6 +82,24 @@
             }
         },
         {
+            "name": "Launch VAP Controller",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/vap-controller",
+            "args": [
+                "--kubeconfig=${userHome}/.kube/config",
+            ],
+            "env": {                 
+                "KYVERNO_NAMESPACE": "kyverno",
+                "KYVERNO_SERVICEACCOUNT_NAME": "kyverno-vap-controller",
+                "KYVERNO_DEPLOYMENT": "dummy",
+                "KYVERNO_POD_NAME": "dummy",
+                "INIT_CONFIG": "kyverno",
+                "METRICS_CONFIG": "kyverno-metrics",
+            }
+        },
+        {
             "name": "Launch CLI",
             "type": "go",
             "request": "launch",
