@@ -75,6 +75,11 @@ func (p *CleanupPolicy) GetAPIVersion() string {
 	return p.APIVersion
 }
 
+// IsNamespaced indicates if the policy is namespace scoped
+func (p *CleanupPolicy) IsNamespaced() bool {
+	return true
+}
+
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -126,6 +131,11 @@ func (p *ClusterCleanupPolicy) GetKind() string {
 // GetAPIVersion returns the resource kind
 func (p *ClusterCleanupPolicy) GetAPIVersion() string {
 	return p.APIVersion
+}
+
+// IsNamespaced indicates if the policy is namespace scoped
+func (p *ClusterCleanupPolicy) IsNamespaced() bool {
+	return false
 }
 
 // Validate implements programmatic validation
