@@ -7,5 +7,5 @@ spec:
   template:
     spec:
       containers:
-      - image: ghcr.io/kyverno/test-verify-image-rollback:signed-1@sha256:e0cc6dba04bee00badd8b13495d4411060b5563a9499fbc20e46316328efad30
+      - image: ghcr.io/kyverno/test-verify-image-rollback:signed-2@sha256:0fc1f3b764be56f7c881a69cbd553ae25a2b5523c6901fbacb8270307c29d0c4
         name: nginx
