@@ -1,0 +1,7 @@
+cleanupJobs:
+  admissionReports:
+    nodeSelector:
+      kubernetes.io/os: linux
+  clusterAdmissionReports:
+    nodeSelector:
+      kubernetes.io/os: linux

@@ -445,6 +445,9 @@ cleanupJobs:
     # -- List of node taints to tolerate
     tolerations: []
 
+    # -- Node labels for pod assignment
+    nodeSelector: {}
+
     # -- Pod Annotations
     podAnnotations: {}
 
@@ -503,6 +506,9 @@ cleanupJobs:
 
     # -- List of node taints to tolerate
     tolerations: []
+
+    # -- Node labels for pod assignment
+    nodeSelector: {}
 
     # -- Pod Annotations
     podAnnotations: {}
