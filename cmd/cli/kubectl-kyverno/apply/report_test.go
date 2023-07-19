@@ -18,7 +18,9 @@ var rawPolicy = []byte(`
 	"metadata": {
 	  "name": "pod-requirements",
 	  "annotations": {
-		"pod-policies.kyverno.io/autogen-controllers": "none"
+		"pod-policies.kyverno.io/autogen-controllers": "none",
+		"policies.kyverno.io/severity": "medium",
+		"policies.kyverno.io/category": "Pod Security Standards (Restricted)"
 	  }
 	},
 	"spec": {
@@ -113,6 +115,8 @@ func Test_buildPolicyReports(t *testing.T) {
 			assert.Assert(t,
 				report.UnstructuredContent()["summary"].(map[string]interface{})[preport.StatusPass].(int64) == 1,
 				report.UnstructuredContent()["summary"].(map[string]interface{})[preport.StatusPass].(int64))
+			assert.Equal(t, report.UnstructuredContent()["results"].([]interface{})[0].(map[string]interface{})["severity"], "medium")
+			assert.Equal(t, report.UnstructuredContent()["results"].([]interface{})[0].(map[string]interface{})["category"], "Pod Security Standards (Restricted)")
 		} else {
 			assert.Assert(t, report.GetName() == "policyreport-ns-default")
 			assert.Assert(t, report.GetKind() == "PolicyReport")

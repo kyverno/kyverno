@@ -102,7 +102,9 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 						UID:        engineResponse.Resource.GetUID(),
 					},
 				},
-				Scored: true,
+				Scored:   true,
+				Category: ann[kyverno.AnnotationPolicyCategory],
+				Severity: reportutils.SeverityFromString(ann[kyverno.AnnotationPolicySeverity]),
 			}
 
 			ann := engineResponse.Policy().GetAnnotations()
