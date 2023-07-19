@@ -25,10 +25,10 @@ spec:
           {{- end }}
         spec:
           serviceAccountName: {{ template "kyverno.name" . }}-cleanup-jobs
-          {{- with .Values.cleanupJobs.clusterAdmissionReports.podSecurityContext }}
+            {{- with .Values.cleanupJobs.clusterAdmissionReports.podSecurityContext }}
           securityContext:
-            {{- tpl (toYaml .) $ | nindent 12 }}
-          {{- end }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           containers:
           - name: cleanup
             image: {{ (include "kyverno.image" .Values.cleanupJobs.clusterAdmissionReports) | quote }}
