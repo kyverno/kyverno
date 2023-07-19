@@ -8,6 +8,7 @@ import (
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"k8s.io/api/admissionregistration/v1alpha1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
@@ -200,6 +201,23 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		rule.VerifyImages = newVerifyImages
 		return rule
 	}
+	if rule.HasValidateCEL() {
+		expressions := make([]v1alpha1.Validation, len(rule.Validation.CEL.Expressions))
+		copy(expressions, rule.Validation.CEL.Expressions)
+		auditAnnotations := make([]v1alpha1.AuditAnnotation, len(rule.Validation.CEL.AuditAnnotations))
+		copy(auditAnnotations, rule.Validation.CEL.AuditAnnotations)
+
+		cel := kyvernov1.Validation{
+			CEL: &kyvernov1.CEL{
+				Expressions:      expressions,
+				ParamKind:        rule.Validation.CEL.ParamKind,
+				ParamRef:         rule.Validation.CEL.ParamRef,
+				AuditAnnotations: auditAnnotations,
+			},
+		}
+		rule.Validation = cel
+		return rule
+	}
 	return nil
 }
 
@@ -324,5 +342,21 @@ func updateRestrictedFields(pbyte []byte, kind string) (obj []byte) {
 		obj = []byte(strings.ReplaceAll(string(pbyte), `"restrictedField":"spec`, `"restrictedField":"spec.jobTemplate.spec.template.spec`))
 	}
 	obj = []byte(strings.ReplaceAll(string(obj), "metadata", "spec.template.metadata"))
+	return obj
+}
+
+func updateCELFields(pbyte []byte, kind string) (obj []byte) {
+	if kind == "Pod" {
+		obj = []byte(strings.ReplaceAll(string(pbyte), "object.spec", "object.spec.template.spec"))
+		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.spec", "oldObject.spec.template.spec"))
+		obj = []byte(strings.ReplaceAll(string(obj), "object.metadata", "object.spec.template.metadata"))
+		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.metadata", "oldObject.spec.template.metadata"))
+	}
+	if kind == "Cronjob" {
+		obj = []byte(strings.ReplaceAll(string(pbyte), "object.spec", "object.spec.jobTemplate.spec.template.spec"))
+		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.spec", "oldObject.spec.jobTemplate.spec.template.spec"))
+		obj = []byte(strings.ReplaceAll(string(obj), "object.metadata", "object.spec.jobTemplate.spec.template.metadata"))
+		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.metadata", "oldObject.spec.jobTemplate.spec.template.metadata"))
+	}
 	return obj
 }
