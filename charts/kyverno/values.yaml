@@ -448,8 +448,14 @@ cleanupJobs:
     # -- List of node taints to tolerate
     tolerations: []
 
+    # -- Node labels for pod assignment
+    nodeSelector: {}
+
     # -- Pod Annotations
     podAnnotations: {}
+
+    # -- Pod labels
+    podLabels: {}
 
   clusterAdmissionReports:
 
@@ -504,8 +510,14 @@ cleanupJobs:
     # -- List of node taints to tolerate
     tolerations: []
 
+    # -- Node labels for pod assignment
+    nodeSelector: {}
+
     # -- Pod Annotations
     podAnnotations: {}
+
+    # -- Pod Labels
+    podLabels: {}
 
 # Admission controller configuration
 admissionController:

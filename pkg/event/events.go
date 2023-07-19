@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -47,6 +48,13 @@ func getPolicyKind(policy kyvernov1.PolicyInterface) string {
 	return "ClusterPolicy"
 }
 
+func getCleanupPolicyKind(policy kyvernov2alpha1.CleanupPolicyInterface) string {
+	if policy.IsNamespaced() {
+		return "CleanupPolicy"
+	}
+	return "ClusterCleanupPolicy"
+}
+
 func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineResponse) Info {
 	resource := engineResponse.Resource
 	var bldr strings.Builder
@@ -60,9 +68,12 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 	}
 
 	hasValidate := engineResponse.Policy().GetSpec().HasValidate()
-	if hasValidate {
+	hasVerifyImages := engineResponse.Policy().GetSpec().HasVerifyImages()
+	hasMutate := engineResponse.Policy().GetSpec().HasMutate()
+
+	if hasValidate || hasVerifyImages {
 		fmt.Fprintf(&bldr, "%s: pass", res)
-	} else {
+	} else if hasMutate {
 		fmt.Fprintf(&bldr, "%s is successfully mutated", res)
 	}
 
@@ -176,6 +187,28 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 		Source:    source,
 	}
 	return []Info{policyEvent, exceptionEvent}
+}
+
+func NewCleanupPolicyEvent(policy kyvernov2alpha1.CleanupPolicyInterface, resource unstructured.Unstructured, err error) Info {
+	if err == nil {
+		return Info{
+			Kind:      getCleanupPolicyKind(policy),
+			Namespace: policy.GetNamespace(),
+			Name:      policy.GetName(),
+			Source:    CleanupController,
+			Reason:    PolicyApplied,
+			Message:   fmt.Sprintf("successfully cleaned up the target resource %v/%v/%v", resource.GetKind(), resource.GetNamespace(), resource.GetName()),
+		}
+	} else {
+		return Info{
+			Kind:      getCleanupPolicyKind(policy),
+			Namespace: policy.GetNamespace(),
+			Name:      policy.GetName(),
+			Source:    CleanupController,
+			Reason:    PolicyError,
+			Message:   fmt.Sprintf("failed to clean up the target resource %v/%v/%v: %v", resource.GetKind(), resource.GetNamespace(), resource.GetName(), err.Error()),
+		}
+	}
 }
 
 func NewFailedEvent(err error, policy, rule string, source Source, resource kyvernov1.ResourceSpec) Info {
