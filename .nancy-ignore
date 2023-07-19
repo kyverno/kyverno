@@ -22,3 +22,5 @@ CVE-2021-28235 until=2023-07-31
 CVE-2023-0296 until=2023-07-31
 # golang/k8s.io/apiserver@v0.27.3
 CVE-2020-8561 until=2023-07-31
+# golang/github.com/tektoncd/pipeline@v0.44.0
+CVE-2023-37264 until=2023-07-31
