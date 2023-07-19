@@ -17,7 +17,9 @@ var rawPolicy = []byte(`
 	"metadata": {
 	  "name": "pod-requirements",
 	  "annotations": {
-		"pod-policies.kyverno.io/autogen-controllers": "none"
+		"pod-policies.kyverno.io/autogen-controllers": "none",
+		"policies.kyverno.io/severity": "medium",
+		"policies.kyverno.io/category": "Pod Security Standards (Restricted)"
 	  }
 	},
 	"spec": {
@@ -109,6 +111,8 @@ func Test_buildPolicyReports(t *testing.T) {
 		assert.Assert(t, report.GetName() == clusterpolicyreport)
 		assert.Assert(t, report.Kind == "ClusterPolicyReport")
 		assert.Assert(t, len(report.Results) == 2)
+		assert.Equal(t, string(report.Results[0].Severity), "medium")
+		assert.Equal(t, report.Results[0].Category, "Pod Security Standards (Restricted)")
 		assert.Assert(t, report.Summary.Pass == 1, report.Summary.Pass)
 	}
 }
