@@ -86,31 +86,31 @@ func (l *contextLoader) newLoader(
 ) (enginecontext.DeferredLoader, error) {
 	if entry.ConfigMap != nil {
 		if l.cmResolver != nil {
-			l := loaders.NewConfigMapLoader(ctx, l.logger, entry, l.cmResolver, jsonContext)
-			return enginecontext.NewDeferredLoader(entry.Name, l)
+			ldr := loaders.NewConfigMapLoader(ctx, l.logger, entry, l.cmResolver, jsonContext)
+			return enginecontext.NewDeferredLoader(entry.Name, ldr, l.logger)
 		} else {
 			l.logger.Info("disabled loading of ConfigMap context entry %s", entry.Name)
 			return nil, nil
 		}
 	} else if entry.APICall != nil {
 		if client != nil {
-			l := loaders.NewAPILoader(ctx, l.logger, entry, jsonContext, jp, client)
-			return enginecontext.NewDeferredLoader(entry.Name, l)
+			ldr := loaders.NewAPILoader(ctx, l.logger, entry, jsonContext, jp, client)
+			return enginecontext.NewDeferredLoader(entry.Name, ldr, l.logger)
 		} else {
 			l.logger.Info("disabled loading of APICall context entry %s", entry.Name)
 			return nil, nil
 		}
 	} else if entry.ImageRegistry != nil {
 		if rclient != nil {
-			l := loaders.NewImageDataLoader(ctx, l.logger, entry, jsonContext, jp, rclient)
-			return enginecontext.NewDeferredLoader(entry.Name, l)
+			ldr := loaders.NewImageDataLoader(ctx, l.logger, entry, jsonContext, jp, rclient)
+			return enginecontext.NewDeferredLoader(entry.Name, ldr, l.logger)
 		} else {
 			l.logger.Info("disabled loading of ImageRegistry context entry %s", entry.Name)
 			return nil, nil
 		}
 	} else if entry.Variable != nil {
-		l := loaders.NewVariableLoader(l.logger, entry, jsonContext, jp)
-		return enginecontext.NewDeferredLoader(entry.Name, l)
+		ldr := loaders.NewVariableLoader(l.logger, entry, jsonContext, jp)
+		return enginecontext.NewDeferredLoader(entry.Name, ldr, l.logger)
 	}
 	return nil, fmt.Errorf("missing ConfigMap|APICall|ImageRegistry|Variable in context entry %s", entry.Name)
 }
