@@ -28,6 +28,8 @@ import (
 )
 
 const (
+	// Workers is the number of workers for this controller
+	Workers        = 2
 	ControllerName = "vap-generation-controller"
 	maxRetries     = 10
 )

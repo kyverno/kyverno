@@ -22,6 +22,7 @@ import (
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
+	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/vapgeneration"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -105,6 +106,7 @@ func createNonLeaderControllers(
 }
 
 func createrLeaderControllers(
+	generateVAPs bool,
 	admissionReports bool,
 	serverIP string,
 	webhookTimeout int,
@@ -122,6 +124,8 @@ func createrLeaderControllers(
 	servicePort int32,
 	configuration config.Configuration,
 ) ([]internal.Controller, func(context.Context) error, error) {
+	var leaderControllers []internal.Controller
+
 	certManager := certmanager.NewController(
 		caInformer,
 		tlsInformer,
@@ -178,13 +182,23 @@ func createrLeaderControllers(
 		configuration,
 		caSecretName,
 	)
-	return []internal.Controller{
-			internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers),
-			internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers),
-			internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1),
-		},
-		nil,
-		nil
+	leaderControllers = append(leaderControllers, internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers))
+	leaderControllers = append(leaderControllers, internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers))
+	leaderControllers = append(leaderControllers, internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1))
+
+	if generateVAPs {
+		vapController := vapcontroller.NewController(
+			kubeClient,
+			kyvernoClient,
+			kyvernoInformer.Kyverno().V1().Policies(),
+			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
+			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings(),
+		)
+		leaderControllers = append(leaderControllers, internal.NewController(vapcontroller.ControllerName, vapController, vapcontroller.Workers))
+	}
+
+	return leaderControllers, nil, nil
 }
 
 func main() {
@@ -212,6 +226,7 @@ func main() {
 	flagset.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	flagset.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	flagset.Func(toggle.ForceFailurePolicyIgnoreFlagName, toggle.ForceFailurePolicyIgnoreDescription, toggle.ForceFailurePolicyIgnore.Parse)
+	flagset.Func(toggle.GenerateValidatingAdmissionPolicyFlagName, toggle.GenerateValidatingAdmissionPolicyDescription, toggle.GenerateValidatingAdmissionPolicy.Parse)
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
 	flagset.StringVar(&backgroundServiceAccountName, "backgroundServiceAccountName", "", "Background service account name.")
@@ -381,6 +396,7 @@ func main() {
 			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 			// create leader controllers
 			leaderControllers, warmup, err := createrLeaderControllers(
+				toggle.FromContext(ctx).GenerateValidatingAdmissionPolicy(),
 				admissionReports,
 				serverIP,
 				webhookTimeout,

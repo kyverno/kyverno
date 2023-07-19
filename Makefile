@@ -20,14 +20,12 @@ CLI_IMAGE            := kyverno-cli
 CLEANUP_IMAGE        := cleanup-controller
 REPORTS_IMAGE        := reports-controller
 BACKGROUND_IMAGE     := background-controller
-VAP_IMAGE            := vap-controller
 REPO_KYVERNOPRE      := $(REGISTRY)/$(REPO)/$(KYVERNOPRE_IMAGE)
 REPO_KYVERNO         := $(REGISTRY)/$(REPO)/$(KYVERNO_IMAGE)
 REPO_CLI             := $(REGISTRY)/$(REPO)/$(CLI_IMAGE)
 REPO_CLEANUP         := $(REGISTRY)/$(REPO)/$(CLEANUP_IMAGE)
 REPO_REPORTS         := $(REGISTRY)/$(REPO)/$(REPORTS_IMAGE)
 REPO_BACKGROUND      := $(REGISTRY)/$(REPO)/$(BACKGROUND_IMAGE)
-REPO_VAP             := $(REGISTRY)/$(REPO)/$(VAP_IMAGE)
 USE_CONFIG           ?= standard
 
 #########
@@ -157,14 +155,12 @@ CLI_DIR        := $(CMD_DIR)/cli/kubectl-kyverno
 CLEANUP_DIR    := $(CMD_DIR)/cleanup-controller
 REPORTS_DIR    := $(CMD_DIR)/reports-controller
 BACKGROUND_DIR := $(CMD_DIR)/background-controller
-VAP_DIR        := $(CMD_DIR)/vap-controller
 KYVERNO_BIN    := $(KYVERNO_DIR)/kyverno
 KYVERNOPRE_BIN := $(KYVERNOPRE_DIR)/kyvernopre
 CLI_BIN        := $(CLI_DIR)/kubectl-kyverno
 CLEANUP_BIN    := $(CLEANUP_DIR)/cleanup-controller
 REPORTS_BIN    := $(REPORTS_DIR)/reports-controller
 BACKGROUND_BIN := $(BACKGROUND_DIR)/background-controller
-VAP_BIN        := $(VAP_DIR)/vap-controller
 PACKAGE        ?= github.com/kyverno/kyverno
 CGO_ENABLED    ?= 0
 ifdef VERSION
@@ -241,11 +237,6 @@ $(BACKGROUND_BIN): fmt vet
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
 		go build -o ./$(BACKGROUND_BIN) -ldflags=$(LD_FLAGS) ./$(BACKGROUND_DIR)
 
-$(VAP_BIN): fmt vet
-	@echo Build vap controller binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
-		go build -o ./$(VAP_BIN) -ldflags=$(LD_FLAGS) ./$(VAP_DIR)
-
 .PHONY: build-kyverno-init
 build-kyverno-init: $(KYVERNOPRE_BIN) ## Build kyvernopre binary
 
@@ -264,10 +255,7 @@ build-reports-controller: $(REPORTS_BIN) ## Build reports controller binary
 .PHONY: build-background-controller
 build-background-controller: $(BACKGROUND_BIN) ## Build background controller binary
 
-.PHONY: build-vap-controller
-build-background-controller: $(VAP_BIN) ## Build vap controller binary
-
-build-all: build-kyverno-init build-kyverno build-cli build-cleanup-controller build-reports-controller build-background-controller build-vap-controller ## Build all binaries
+build-all: build-kyverno-init build-kyverno build-cli build-cleanup-controller build-reports-controller build-background-controller ## Build all binaries
 
 ##############
 # BUILD (KO) #
@@ -289,7 +277,6 @@ KO_KYVERNO_REPO     := $(PACKAGE)/$(KYVERNO_DIR)
 KO_CLEANUP_REPO     := $(PACKAGE)/$(CLEANUP_DIR)
 KO_REPORTS_REPO     := $(PACKAGE)/$(REPORTS_DIR)
 KO_BACKGROUND_REPO  := $(PACKAGE)/$(BACKGROUND_DIR)
-KO_VAP_REPO         := $(PACKAGE)/$(VAP_DIR)
 
 .PHONY: ko-build-kyverno-init
 ko-build-kyverno-init: $(KO) ## Build kyvernopre local image (with ko)
@@ -327,14 +314,8 @@ ko-build-background-controller: $(KO) ## Build background controller local image
 	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
 		$(KO) build ./$(BACKGROUND_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
-.PHONY: ko-build-vap-controller
-ko-build-vap-controller: $(KO) ## Build vap controller local image (with ko)
-	@echo Build vap controller local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
-		$(KO) build ./$(VAP_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
-
 .PHONY: ko-build-all
-ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-cleanup-controller ko-build-reports-controller ko-build-background-controller ko-build-vap-controller ## Build all local images (with ko)
+ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-cleanup-controller ko-build-reports-controller ko-build-background-controller ## Build all local images (with ko)
 
 ################
 # PUBLISH (KO) #
@@ -377,13 +358,8 @@ ko-publish-background-controller: ko-login ## Build and publish background contr
 	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_BACKGROUND) \
 		$(KO) build ./$(BACKGROUND_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
-.PHONY: ko-publish-vap-controller
-ko-publish-vap-controller: ko-login ## Build and publish vap controller image (with ko)
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_VAP) \
-		$(KO) build ./$(VAP_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
-
 .PHONY: ko-publish-all
-ko-publish-all: ko-publish-kyverno-init ko-publish-kyverno ko-publish-cli ko-publish-cleanup-controller ko-publish-reports-controller ko-publish-background-controller ko-publish-vap-controller ## Build and publish all images (with ko)
+ko-publish-all: ko-publish-kyverno-init ko-publish-kyverno ko-publish-cli ko-publish-cleanup-controller ko-publish-reports-controller ko-publish-background-controller ## Build and publish all images (with ko)
 
 #################
 # BUILD (IMAGE) #
@@ -396,7 +372,6 @@ LOCAL_KYVERNO_REPO     := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper
 LOCAL_CLEANUP_REPO     := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_CLEANUP_REPO)
 LOCAL_REPORTS_REPO     := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_REPORTS_REPO)
 LOCAL_BACKGROUND_REPO  := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_BACKGROUND_REPO)
-LOCAL_VAP_REPO         := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_VAP_REPO)
 
 .PHONY: image-build-kyverno-init
 image-build-kyverno-init: $(BUILD_WITH)-build-kyverno-init
@@ -415,9 +390,6 @@ image-build-reports-controller: $(BUILD_WITH)-build-reports-controller
 
 .PHONY: image-build-background-controller
 image-build-background-controller: $(BUILD_WITH)-build-background-controller
-
-.PHONY: image-build-vap-controller
-image-build-vap-controller: $(BUILD_WITH)-build-vap-controller
 
 .PHONY: image-build-all
 image-build-all: $(BUILD_WITH)-build-all
@@ -827,7 +799,6 @@ docker-save-image-all: $(KIND) image-build-all ## Save docker images in archive
 		$(LOCAL_REGISTRY)/$(LOCAL_CLEANUP_REPO):$(GIT_SHA) 		\
 		$(LOCAL_REGISTRY)/$(LOCAL_REPORTS_REPO):$(GIT_SHA) 		\
 		$(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(GIT_SHA) 	\
-		$(LOCAL_REGISTRY)/$(LOCAL_VAP_REPO):$(GIT_SHA) 	        \
 	> kyverno.tar
 
 ########
@@ -869,13 +840,8 @@ kind-load-background-controller: $(KIND) image-build-background-controller ## Bu
 	@echo Load background controller image... >&2
 	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(GIT_SHA)
 
-.PHONY: kind-load-vap-controller
-kind-load-vap-controller: $(KIND) image-build-vap-controller ## Build vap controller image and load it in kind cluster
-	@echo Load vap controller image... >&2
-	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_VAP_REPO):$(GIT_SHA)
-
 .PHONY: kind-load-all
-kind-load-all: kind-load-kyverno-init kind-load-kyverno kind-load-cleanup-controller kind-load-reports-controller kind-load-background-controller kind-load-vap-controller ## Build images and load them in kind cluster
+kind-load-all: kind-load-kyverno-init kind-load-kyverno kind-load-cleanup-controller kind-load-reports-controller kind-load-background-controller## Build images and load them in kind cluster
 
 .PHONY: kind-load-image-archive
 kind-load-image-archive: $(KIND) ## Load docker images from archive

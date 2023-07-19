@@ -10,7 +10,6 @@ cmd/kyverno-init/kyvernopre
 cmd/cleanup-controller/cleanup-controller
 cmd/reports-controller/reports-controller
 cmd/background-controller/background-controller
-cmd/vap-controller/vap-controller
 /release
 .DS_Store
 .tools
