@@ -491,11 +491,19 @@ func cleanup(policy kyvernov1.PolicyInterface) kyvernov1.PolicyInterface {
 		policy.SetAnnotations(ann)
 	}
 	if policy.GetNamespace() == "" {
-		pol := policy.(*kyvernov1.ClusterPolicy)
+		var pol *kyvernov1.ClusterPolicy
+		var ok bool
+		if pol, ok = policy.(*kyvernov1.ClusterPolicy); !ok {
+			return policy
+		}
 		pol.Status.Autogen.Rules = nil
 		return pol
 	} else {
-		pol := policy.(*kyvernov1.Policy)
+		var pol *kyvernov1.Policy
+		var ok bool
+		if pol, ok = policy.(*kyvernov1.Policy); !ok {
+			return policy
+		}
 		pol.Status.Autogen.Rules = nil
 		return pol
 	}
