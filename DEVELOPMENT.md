@@ -413,7 +413,7 @@ You can run Kyverno locally or in your IDE of choice with a few steps:
 1. Deploy Kyverno manifests except the Kyverno `Deployment`
     - Kyverno is going to run on your local machine, so it should not run in cluster at the same time
     - You can deploy the manifests by running `make debug-deploy`
-1. There are multiple environment variable which need to be configured. The variables can be found in [here](./.vscode/launch.json). Their values can be set using the command `export $NAME=value`
+1. There are multiple environment variables that need to be configured. The variables can be found in [here](./.vscode/launch.json). Their values can be set using the command `export $NAME=value`
 1. To run Kyverno locally against the remote cluster you will need to provide `--kubeconfig` and `--serverIP` arguments:
     - `--kubeconfig` must point to your kubeconfig file (usually `~/.kube/config`)
     - `--serverIP` must be set to `<local ip>:9443` (`<local ip>` is the private ip adress of your local machine)
