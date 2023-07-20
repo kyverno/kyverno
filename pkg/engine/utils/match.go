@@ -115,14 +115,17 @@ func doesResourceMatchConditionBlock(
 		}
 	}
 
-	if conditionBlock.NamespaceSelector != nil && resource.GetKind() != "Namespace" &&
-		(resource.GetKind() != "" || slices.Contains(conditionBlock.Kinds, "*") && wildcard.Match("*", resource.GetKind())) {
-		hasPassed, err := matchutils.CheckSelector(conditionBlock.NamespaceSelector, namespaceLabels)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to parse namespace selector: %v", err))
-		} else {
-			if !hasPassed {
-				errs = append(errs, fmt.Errorf("namespace selector does not match labels"))
+	if conditionBlock.NamespaceSelector != nil {
+		if resource.GetKind() == "Namespace" {
+			errs = append(errs, fmt.Errorf("namespace selector is not applicable for namespace resource"))
+		} else if resource.GetKind() != "" || slices.Contains(conditionBlock.Kinds, "*") && wildcard.Match("*", resource.GetKind()) {
+			hasPassed, err := matchutils.CheckSelector(conditionBlock.NamespaceSelector, namespaceLabels)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("failed to parse namespace selector: %v", err))
+			} else {
+				if !hasPassed {
+					errs = append(errs, fmt.Errorf("namespace selector does not match labels"))
+				}
 			}
 		}
 	}
