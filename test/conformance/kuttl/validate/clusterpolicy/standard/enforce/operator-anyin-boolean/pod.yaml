@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: operator-anyin-boolean-pod
+spec:
+  containers:
+  - name: container01
+    image: czjunkfoo
+    livenessProbe:
+      exec:
+        command:
+        - /bin/sh
+        - -c
+        - jcmd | grep Main
+  - name: container02
+    image: czjunkfoo
+  - name: container03
+    image: czjunkfoo
+    livenessProbe:
+      httpGet:
+        port: 8080
+  - name: container04
+    image: czjunkfoo
+    livenessProbe:
+      exec:
+        command:
+        - /bin/sh
+        - -c
+        - cat | ls -l
