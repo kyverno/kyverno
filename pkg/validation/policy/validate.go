@@ -1252,6 +1252,9 @@ func validateNamespaces(s *kyvernov1.Spec, path *field.Path) error {
 	}
 
 	for i, vfa := range s.ValidationFailureActionOverrides {
+		if !vfa.Action.IsValid() {
+			return fmt.Errorf("invalid action")
+		}
 		patternList, nsList := wildcard.SeperateWildcards(vfa.Namespaces)
 
 		if vfa.Action.Audit() {
