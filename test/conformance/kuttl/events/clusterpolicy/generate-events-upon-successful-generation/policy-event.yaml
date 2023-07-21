@@ -9,5 +9,4 @@ involvedObject:
 type: Normal
 message: resource generated
 reason: PolicyApplied
-source:
-  component: kyverno-generate
+reportingComponent: kyverno-generate

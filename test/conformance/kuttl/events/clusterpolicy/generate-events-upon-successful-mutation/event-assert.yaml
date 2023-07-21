@@ -8,5 +8,4 @@ involvedObject:
   name: add-labels
 type: Normal
 reason: PolicyApplied
-source:
-  component: kyverno-admission
+reportingComponent: kyverno-admission

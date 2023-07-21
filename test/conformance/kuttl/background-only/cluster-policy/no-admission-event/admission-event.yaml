@@ -5,5 +5,4 @@ involvedObject:
   name: pod
 kind: Event
 metadata: {}
-source:
-  component: kyverno-admission
+reportingComponent: kyverno-admission
