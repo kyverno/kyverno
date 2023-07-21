@@ -8,7 +8,6 @@ import (
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"k8s.io/api/admissionregistration/v1alpha1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
@@ -202,20 +201,8 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		return rule
 	}
 	if rule.HasValidateCEL() {
-		expressions := make([]v1alpha1.Validation, len(rule.Validation.CEL.Expressions))
-		copy(expressions, rule.Validation.CEL.Expressions)
-		auditAnnotations := make([]v1alpha1.AuditAnnotation, len(rule.Validation.CEL.AuditAnnotations))
-		copy(auditAnnotations, rule.Validation.CEL.AuditAnnotations)
-
-		cel := kyvernov1.Validation{
-			CEL: &kyvernov1.CEL{
-				Expressions:      expressions,
-				ParamKind:        rule.Validation.CEL.ParamKind,
-				ParamRef:         rule.Validation.CEL.ParamRef,
-				AuditAnnotations: auditAnnotations,
-			},
-		}
-		rule.Validation = cel
+		cel := rule.Validation.CEL.DeepCopy()
+		rule.Validation.CEL = cel
 		return rule
 	}
 	return nil
