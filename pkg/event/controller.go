@@ -11,12 +11,13 @@ import (
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -39,15 +40,15 @@ type generator struct {
 	// queue to store event generation requests
 	queue workqueue.RateLimitingInterface
 	// events generated at policy controller
-	policyCtrRecorder record.EventRecorder
+	policyCtrRecorder events.EventRecorder
 	// events generated at admission control
-	admissionCtrRecorder record.EventRecorder
+	admissionCtrRecorder events.EventRecorder
 	// events generated at namespaced policy controller to process 'generate' rule
-	genPolicyRecorder record.EventRecorder
+	genPolicyRecorder events.EventRecorder
 	// events generated at mutateExisting controller
-	mutateExistingRecorder record.EventRecorder
+	mutateExistingRecorder events.EventRecorder
 	// events generated at cleanup controller
-	cleanupPolicyRecorder record.EventRecorder
+	cleanupPolicyRecorder events.EventRecorder
 
 	maxQueuedEvents int
 
@@ -207,35 +208,35 @@ func (gen *generator) processNextWorkItem() bool {
 
 func (gen *generator) syncHandler(key Info) error {
 	logger := gen.log
-	var robj runtime.Object
+	var regardingObj, relatedObj runtime.Object
 	var err error
 	switch key.Kind {
 	case "ClusterPolicy":
-		robj, err = gen.cpLister.Get(key.Name)
+		regardingObj, err = gen.cpLister.Get(key.Name)
 		if err != nil {
 			logger.Error(err, "failed to get cluster policy", "name", key.Name)
 			return err
 		}
 	case "Policy":
-		robj, err = gen.pLister.Policies(key.Namespace).Get(key.Name)
+		regardingObj, err = gen.pLister.Policies(key.Namespace).Get(key.Name)
 		if err != nil {
 			logger.Error(err, "failed to get policy", "name", key.Name)
 			return err
 		}
 	case "ClusterCleanupPolicy":
-		robj, err = gen.clustercleanuppolLister.Get(key.Name)
+		regardingObj, err = gen.clustercleanuppolLister.Get(key.Name)
 		if err != nil {
 			logger.Error(err, "failed to get cluster clean up policy", "name", key.Name)
 			return err
 		}
 	case "CleanupPolicy":
-		robj, err = gen.cleanuppolLister.CleanupPolicies(key.Namespace).Get(key.Name)
+		regardingObj, err = gen.cleanuppolLister.CleanupPolicies(key.Namespace).Get(key.Name)
 		if err != nil {
 			logger.Error(err, "failed to get cleanup policy", "name", key.Name)
 			return err
 		}
 	default:
-		robj, err = gen.client.GetResource(context.TODO(), "", key.Kind, key.Namespace, key.Name)
+		regardingObj, err = gen.client.GetResource(context.TODO(), "", key.Kind, key.Namespace, key.Name)
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				logger.Error(err, "failed to get resource", "kind", key.Kind, "name", key.Name, "namespace", key.Namespace)
@@ -244,6 +245,8 @@ func (gen *generator) syncHandler(key Info) error {
 			return err
 		}
 	}
+
+	relatedObj = kubeutils.NewUnstructured(key.RelatedAPIVersion, key.RelatedKind, key.RelatedNamespace, key.RelatedName)
 
 	// set the event type based on reason
 	// if skip/pass, reason will be: NORMAL
@@ -257,15 +260,15 @@ func (gen *generator) syncHandler(key Info) error {
 	// based on the source of event generation, use different event recorders
 	switch key.Source {
 	case AdmissionController:
-		gen.admissionCtrRecorder.Event(robj, eventType, string(key.Reason), key.Message)
+		gen.admissionCtrRecorder.Eventf(regardingObj, relatedObj, eventType, string(key.Reason), string(key.Action), key.Message)
 	case PolicyController:
-		gen.policyCtrRecorder.Event(robj, eventType, string(key.Reason), key.Message)
+		gen.policyCtrRecorder.Eventf(regardingObj, relatedObj, eventType, string(key.Reason), string(key.Action), key.Message)
 	case GeneratePolicyController:
-		gen.genPolicyRecorder.Event(robj, eventType, string(key.Reason), key.Message)
+		gen.genPolicyRecorder.Eventf(regardingObj, relatedObj, eventType, string(key.Reason), string(key.Action), key.Message)
 	case MutateExistingController:
-		gen.mutateExistingRecorder.Event(robj, eventType, string(key.Reason), key.Message)
+		gen.mutateExistingRecorder.Eventf(regardingObj, relatedObj, eventType, string(key.Reason), string(key.Action), key.Message)
 	case CleanupController:
-		gen.cleanupPolicyRecorder.Event(robj, eventType, string(key.Reason), key.Message)
+		gen.cleanupPolicyRecorder.Eventf(regardingObj, relatedObj, eventType, string(key.Reason), string(key.Action), key.Message)
 	default:
 		logger.Info("info.source not defined for the request")
 	}
