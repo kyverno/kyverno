@@ -31,15 +31,15 @@ func (h *cleanupHandlers) Validate(ctx context.Context, logger logr.Logger, requ
 		logger.Error(err, "policy validation errors")
 		return admissionutils.Response(request.UID, err)
 	}
-	ttlLabel, err := admissionutils.GetTtlLabel(request.AdmissionRequest.Object.Raw)
-	if err != nil {
-		logger.Error(err, "failed to get the ttl label")
-		// return admissionutils.Response(request.UID, err)
-	}
+	// ttlLabel, err := admissionutils.GetTtlLabel(request.AdmissionRequest.Object.Raw)
+	// if err != nil {
+	// 	logger.Error(err, "failed to get the ttl label")
+	// 	// return admissionutils.Response(request.UID, err)
+	// }
 
-	if err := admissionutils.ValidateTTL(ttlLabel); err != nil {
-		logger.Error(err, "failed to unmarshal the ttl label value")
-		return admissionutils.Response(request.UID, err)
-	}
+	// if err := admissionutils.ValidateTTL(ttlLabel); err != nil {
+	// 	logger.Error(err, "failed to unmarshal the ttl label value")
+	// 	return admissionutils.Response(request.UID, err)
+	// }
 	return admissionutils.ResponseSuccess(request.UID)
 }
