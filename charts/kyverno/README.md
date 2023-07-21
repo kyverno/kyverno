@@ -614,6 +614,11 @@ The chart values are organised per component.
 | webhooksCleanup.enabled | bool | `true` | Create a helm pre-delete hook to cleanup webhooks. |
 | webhooksCleanup.image | string | `"bitnami/kubectl:latest"` | `kubectl` image to run commands for deleting webhooks. |
 | webhooksCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
+| webhooksCleanup.nodeSelector | object | `{}` | Node labels for pod assignment |
+| webhooksCleanup.tolerations | list | `[]` | List of node taints to tolerate |
+| webhooksCleanup.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
+| webhooksCleanup.podAffinity | object | `{}` | Pod affinity constraints. |
+| webhooksCleanup.nodeAffinity | object | `{}` | Node affinity constraints. |
 
 ### Test
 
@@ -653,6 +658,9 @@ The chart values are organised per component.
 | cleanupJobs.admissionReports.nodeSelector | object | `{}` | Node labels for pod assignment |
 | cleanupJobs.admissionReports.podAnnotations | object | `{}` | Pod Annotations |
 | cleanupJobs.admissionReports.podLabels | object | `{}` | Pod labels |
+| cleanupJobs.admissionReports.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
+| cleanupJobs.admissionReports.podAffinity | object | `{}` | Pod affinity constraints. |
+| cleanupJobs.admissionReports.nodeAffinity | object | `{}` | Node affinity constraints. |
 | cleanupJobs.clusterAdmissionReports.enabled | bool | `true` | Enable cleanup cronjob |
 | cleanupJobs.clusterAdmissionReports.image.registry | string | `nil` | Image registry |
 | cleanupJobs.clusterAdmissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
@@ -669,6 +677,9 @@ The chart values are organised per component.
 | cleanupJobs.clusterAdmissionReports.nodeSelector | object | `{}` | Node labels for pod assignment |
 | cleanupJobs.clusterAdmissionReports.podAnnotations | object | `{}` | Pod Annotations |
 | cleanupJobs.clusterAdmissionReports.podLabels | object | `{}` | Pod Labels |
+| cleanupJobs.clusterAdmissionReports.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
+| cleanupJobs.clusterAdmissionReports.podAffinity | object | `{}` | Pod affinity constraints. |
+| cleanupJobs.clusterAdmissionReports.nodeAffinity | object | `{}` | Node affinity constraints. |
 
 ### Other
 
