@@ -350,6 +350,47 @@ func TestUpdateGenRuleByte(t *testing.T) {
 	}
 }
 
+func TestUpdateCELFields(t *testing.T) {
+	tests := []struct {
+		pbyte   []byte
+		kind    string
+		want    []byte
+		wantErr bool
+	}{
+		{
+			pbyte: []byte("object.spec"),
+			kind:  "Pod",
+			want:  []byte("object.spec.template.spec"),
+		},
+		{
+			pbyte: []byte("oldObject.spec"),
+			kind:  "Pod",
+			want:  []byte("oldObject.spec.template.spec"),
+		},
+		{
+			pbyte: []byte("object.spec"),
+			kind:  "Cronjob",
+			want:  []byte("object.spec.jobTemplate.spec.template.spec"),
+		},
+		{
+			pbyte: []byte("oldObject.spec"),
+			kind:  "Cronjob",
+			want:  []byte("oldObject.spec.jobTemplate.spec.template.spec"),
+		},
+		{
+			pbyte: []byte("object.metadata"),
+			kind:  "Pod",
+			want:  []byte("object.spec.template.metadata"),
+		},
+	}
+	for _, tt := range tests {
+		got := updateCELFields(tt.pbyte, tt.kind)
+		if !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("updateCELFields() = %v, want %v", string(got), string(tt.want))
+		}
+	}
+}
+
 func Test_ComputeRules(t *testing.T) {
 	intPtr := func(i int) *int { return &i }
 	testCases := []struct {
@@ -539,6 +580,54 @@ kA==
 
 func Test_PodSecurityWithNoExceptions(t *testing.T) {
 	policy := []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"pod-security"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"restricted","match":{"all":[{"resources":{"kinds":["Pod"]}}]},"validate":{"podSecurity":{"level":"restricted","version":"v1.24"}}}]}}`)
+	policies, _, err := yamlutils.GetPolicy([]byte(policy))
+	assert.NilError(t, err)
+	assert.Equal(t, 1, len(policies))
+
+	rules := computeRules(policies[0])
+	assert.Equal(t, 3, len(rules))
+}
+
+func Test_ValidateWithCELExpressions(t *testing.T) {
+	policy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "disallow-host-path"
+		},
+		"spec": {
+		  "validationFailureAction": "Enforce",
+		  "background": false,
+		  "rules": [
+			{
+			  "name": "host-path",
+			  "match": {
+				"any": [
+				  {
+					"resources": {
+					  "kinds": [
+						"Pod"
+					  ]
+					}
+				  }
+				]
+			  },
+			  "validate": {
+				"cel": {
+				  "expressions": [
+					{
+					  "expression": "!has(object.spec.volumes) || object.spec.volumes.all(volume, !has(volume.hostPath))",
+					  "message": "HostPath volumes are forbidden. The field spec.template.spec.volumes[*].hostPath must be unset."
+					}
+				  ]
+				}
+			  }
+			}
+		  ]
+		}
+	  }
+`)
 	policies, _, err := yamlutils.GetPolicy([]byte(policy))
 	assert.NilError(t, err)
 	assert.Equal(t, 1, len(policies))
