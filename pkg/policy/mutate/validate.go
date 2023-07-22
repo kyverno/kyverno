@@ -68,7 +68,7 @@ func (m *Mutate) validateForEach(tag string, foreach []kyvernov1.ForEachMutation
 		if (fe.PatchesJSON6902 == "" && psm == nil) || (fe.PatchesJSON6902 != "" && psm != nil) {
 			return tag, fmt.Errorf("only one of `patchStrategicMerge` or `patchesJson6902` is allowed")
 		}
-		if fe.List == "request.object.spec.containers" && psm != nil {
+		if psm != nil {
 			err := m.validatePatchStrategicMerge(psm)
 			if err != nil {
 				return "patchStrategicMerge", err
@@ -98,9 +98,32 @@ func (m *Mutate) validatePatchStrategicMerge(psm apiextensions.JSON) error {
 		return err
 	}
 	spec := patchStrategicMergeJsonDecoded["spec"].(map[string]interface{})
-	_, ok := spec["containers"].([]interface{})
-	if !ok {
-		return fmt.Errorf("containers field in patchStrategicMerge is not of array type")
+	for k := range spec {
+		fmt.Println(k)
+		if k == "containers" {
+			_, ok := spec["containers"].([]interface{})
+			if !ok {
+				return fmt.Errorf("containers field in patchStrategicMerge is not of array type")
+			}
+		}
+		if k == "template" {
+			template := spec["template"].(map[string]interface{})
+			spec := template["spec"].(map[string]interface{})
+			_, ok := spec["containers"].([]interface{})
+			if !ok {
+				return fmt.Errorf("containers field in patchStrategicMerge is not of array type")
+			}
+		}
+		if k == "jobTemplate" {
+			jobTemplate := spec["jobTemplate"].(map[string]interface{})
+			spec := jobTemplate["spec"].(map[string]interface{})
+			template := spec["template"].(map[string]interface{})
+			spec = template["spec"].(map[string]interface{})
+			_, ok := spec["containers"].([]interface{})
+			if !ok {
+				return fmt.Errorf("containers field in patchStrategicMerge is not of array type")
+			}
+		}
 	}
 	return nil
 }
