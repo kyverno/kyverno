@@ -129,7 +129,7 @@ func main() {
 					config.CleanupValidatingWebhookServicePath,
 					serverIP,
 					int32(servicePort),
-					[]admissionregistrationv1.RuleWithOperations {{
+					[]admissionregistrationv1.RuleWithOperations{{
 						Rule: admissionregistrationv1.Rule{
 							APIGroups:   []string{"kyverno.io"},
 							APIVersions: []string{"v2alpha1"},
@@ -138,24 +138,24 @@ func main() {
 								"clustercleanuppolicies/*",
 							},
 						},
-						Operations: []admissionregistrationv1.OperationType {
+						Operations: []admissionregistrationv1.OperationType{
 							admissionregistrationv1.Create,
 							admissionregistrationv1.Update,
 						},
 					},
-						// {
-						// 	Rule: admissionregistrationv1.Rule{
-						// 		APIGroups:   []string{"*"},
-						// 		APIVersions: []string{"*"},
-						// 		Resources: []string{
-						// 			"*",
-						// 		},
-						// 	},
-						// 	Operations: []admissionregistrationv1.OperationType{
-						// 		admissionregistrationv1.Create,
-						// 		admissionregistrationv1.Update,
-						// 	},
-						// },
+					// {
+					// 	Rule: admissionregistrationv1.Rule{
+					// 		APIGroups:   []string{"*"},
+					// 		APIVersions: []string{"*"},
+					// 		Resources: []string{
+					// 			"*",
+					// 		},
+					// 	},
+					// 	Operations: []admissionregistrationv1.OperationType{
+					// 		admissionregistrationv1.Create,
+					// 		admissionregistrationv1.Update,
+					// 	},
+					// },
 					},
 					genericwebhookcontroller.Fail,
 					genericwebhookcontroller.None,
