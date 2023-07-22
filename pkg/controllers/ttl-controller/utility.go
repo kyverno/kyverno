@@ -3,9 +3,11 @@ package ttlcontroller
 import (
 	"context"
 	"log"
+	"time"
 
 	"github.com/go-logr/logr"
 	checker "github.com/kyverno/kyverno/pkg/auth/checker"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -50,6 +52,26 @@ func hasResourcePermissions(resource schema.GroupVersionResource, s checker.Auth
 		return false
 	}
 	return can
+}
+
+func parseDeletionTime(metaObj metav1.Object, deletionTime *time.Time, ttlValue string) error{
+	ttlDuration, err := time.ParseDuration(ttlValue)
+	if err == nil {
+		creationTime := metaObj.GetCreationTimestamp().Time
+		*deletionTime = creationTime.Add(ttlDuration)
+	} else {
+		layoutRFCC := "2006-01-02T150405Z"
+		// Try parsing ttlValue as a time in ISO 8601 format
+		*deletionTime, err = time.Parse(layoutRFCC, ttlValue)
+		if err != nil {
+			layoutCustom := "2006-01-02"
+			*deletionTime, err = time.Parse(layoutCustom, ttlValue)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func CreateLogger(name string) logr.Logger {

@@ -129,25 +129,7 @@ func (c *controller) processItem() bool {
 	return true
 }
 
-func parseDeletionTime(metaObj metav1.Object, deletionTime *time.Time, ttlValue string) error{
-	ttlDuration, err := time.ParseDuration(ttlValue)
-	if err == nil {
-		creationTime := metaObj.GetCreationTimestamp().Time
-		*deletionTime = creationTime.Add(ttlDuration)
-	} else {
-		layoutRFCC := "2006-01-02T150405Z"
-		// Try parsing ttlValue as a time in ISO 8601 format
-		*deletionTime, err = time.Parse(layoutRFCC, ttlValue)
-		if err != nil {
-			layoutCustom := "2006-01-02"
-			*deletionTime, err = time.Parse(layoutCustom, ttlValue)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
+
 
 func (c *controller) reconcile(itemKey string) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(itemKey)
