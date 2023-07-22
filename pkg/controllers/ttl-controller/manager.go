@@ -7,7 +7,6 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/controllers"
-	"github.com/kyverno/kyverno/pkg/logging"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -20,7 +19,7 @@ import (
 )
 
 type stopFunc = context.CancelFunc
-var logger = logging.WithName(ControllerName)
+var logger = CreateLogger(ControllerName)
 const (
 	CleanupLabel   = "kyverno.io/ttl"
 	Workers        = 3
@@ -108,7 +107,7 @@ func (m *manager) stop(ctx context.Context, gvr schema.GroupVersionResource) err
 }
 
 func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, workers int) error {
-	controllerLogger := logging.WithName(gvr.Resource)
+	controllerLogger := CreateLogger(gvr.GroupResource().Resource)
 	indexers := cache.Indexers{
 		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
 	}
