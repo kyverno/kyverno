@@ -7,7 +7,9 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
@@ -30,6 +32,10 @@ type generator struct {
 	cpLister kyvernov1listers.ClusterPolicyLister
 	// list/get policy
 	pLister kyvernov1listers.PolicyLister
+	// list/get cluster cleanup policy
+	clustercleanuppolLister kyvernov2alpha1listers.ClusterCleanupPolicyLister
+	// list/get cleanup policy
+	cleanuppolLister kyvernov2alpha1listers.CleanupPolicyLister
 	// queue to store event generation requests
 	queue workqueue.RateLimitingInterface
 	// events generated at policy controller
@@ -40,6 +46,8 @@ type generator struct {
 	genPolicyRecorder record.EventRecorder
 	// events generated at mutateExisting controller
 	mutateExistingRecorder record.EventRecorder
+	// events generated at cleanup controller
+	cleanupPolicyRecorder record.EventRecorder
 
 	maxQueuedEvents int
 
@@ -81,6 +89,27 @@ func NewEventGenerator(
 		maxQueuedEvents:        maxQueuedEvents,
 		omitEvents:             omitEvents,
 		log:                    log,
+	}
+	return &gen
+}
+
+// NewEventGenerator to generate a new event cleanup controller
+func NewEventCleanupGenerator(
+	// source Source,
+	client dclient.Interface,
+	clustercleanuppolInformer kyvernov2alpha1informers.ClusterCleanupPolicyInformer,
+	cleanuppolInformer kyvernov2alpha1informers.CleanupPolicyInformer,
+	maxQueuedEvents int,
+	log logr.Logger,
+) Controller {
+	gen := generator{
+		client:                  client,
+		clustercleanuppolLister: clustercleanuppolInformer.Lister(),
+		cleanuppolLister:        cleanuppolInformer.Lister(),
+		queue:                   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter(), eventWorkQueueName),
+		cleanupPolicyRecorder:   NewRecorder(CleanupController, client.GetEventsInterface()),
+		maxQueuedEvents:         maxQueuedEvents,
+		log:                     log,
 	}
 	return &gen
 }
@@ -193,6 +222,18 @@ func (gen *generator) syncHandler(key Info) error {
 			logger.Error(err, "failed to get policy", "name", key.Name)
 			return err
 		}
+	case "ClusterCleanupPolicy":
+		robj, err = gen.clustercleanuppolLister.Get(key.Name)
+		if err != nil {
+			logger.Error(err, "failed to get cluster clean up policy", "name", key.Name)
+			return err
+		}
+	case "CleanupPolicy":
+		robj, err = gen.cleanuppolLister.CleanupPolicies(key.Namespace).Get(key.Name)
+		if err != nil {
+			logger.Error(err, "failed to get cleanup policy", "name", key.Name)
+			return err
+		}
 	default:
 		robj, err = gen.client.GetResource(context.TODO(), "", key.Kind, key.Namespace, key.Name)
 		if err != nil {
@@ -223,6 +264,8 @@ func (gen *generator) syncHandler(key Info) error {
 		gen.genPolicyRecorder.Event(robj, eventType, string(key.Reason), key.Message)
 	case MutateExistingController:
 		gen.mutateExistingRecorder.Event(robj, eventType, string(key.Reason), key.Message)
+	case CleanupController:
+		gen.cleanupPolicyRecorder.Event(robj, eventType, string(key.Reason), key.Message)
 	default:
 		logger.Info("info.source not defined for the request")
 	}
