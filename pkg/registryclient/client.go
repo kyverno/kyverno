@@ -55,7 +55,7 @@ type Client interface {
 	FetchImageDescriptor(context.Context, string) (*gcrremote.Descriptor, error)
 
 	// BuildCosignRemoteOption builds remote.Option for cosign client.
-	BuildCosignRemoteOption(context.Context) remote.Option
+	BuildCosignRemoteOption(context.Context) (remote.Option, error)
 
 	// BuildGCRRemoteOption builds []gcrremote.option based on client
 	BuildGCRRemoteOption(ctx context.Context) ([]gcrremote.Option, error)
@@ -169,13 +169,9 @@ func WithTracing() Option {
 }
 
 // BuildCosignRemoteOption builds remote.Option for cosign client.
-func (c *client) BuildCosignRemoteOption(ctx context.Context) remote.Option {
-	return remote.WithRemoteOptions(
-		gcrremote.WithAuthFromKeychain(c.keychain),
-		gcrremote.WithTransport(c.transport),
-		gcrremote.WithContext(ctx),
-		gcrremote.WithUserAgent(userAgent),
-	)
+func (c *client) BuildCosignRemoteOption(ctx context.Context) (remote.Option, error) {
+	gcrRemoteOpts, err := c.BuildGCRRemoteOption(ctx)
+	return remote.WithRemoteOptions(gcrRemoteOpts...), err
 }
 
 // BuildGCRRemoteOption builds []gcrremote.Option based on client.

@@ -100,7 +100,11 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 	if err != nil {
 		return nil, fmt.Errorf("constructing client options: %w", err)
 	}
-	remoteOpts = append(remoteOpts, opts.Client.BuildCosignRemoteOption(ctx))
+	cosignRemoteOpts, err := opts.Client.BuildCosignRemoteOption(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("constructing cosign remote options: %w", err)
+	}
+	remoteOpts = append(remoteOpts, cosignRemoteOpts)
 	cosignOpts := &cosign.CheckOpts{
 		Annotations:        map[string]interface{}{},
 		RegistryClientOpts: remoteOpts,
