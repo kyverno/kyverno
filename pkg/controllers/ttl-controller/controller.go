@@ -27,7 +27,7 @@ type controller struct {
 }
 
 func newController(client metadata.Getter, metainformer informers.GenericInformer, logger logr.Logger) *controller {
-	c := &controller {
+	c := &controller{
 		client:           client,
 		queue:            workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		lister:           metainformer.Lister(),
