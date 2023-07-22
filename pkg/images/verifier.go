@@ -19,7 +19,7 @@ type ImageVerifier interface {
 type Client interface {
 	Keychain() authn.Keychain
 	BuildCosignRemoteOption(context.Context) remote.Option
-	BuildGCRRemoteOption(context.Context) []gcrremote.Option
+	BuildGCRRemoteOption(context.Context) ([]gcrremote.Option, error)
 }
 
 type Options struct {

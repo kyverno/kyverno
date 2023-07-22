@@ -135,7 +135,10 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 		return nil, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
 	}
 
-	remoteOpts := opts.Client.BuildGCRRemoteOption(ctx)
+	remoteOpts, err := opts.Client.BuildGCRRemoteOption(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	v.log.V(4).Info("client setup done", "repo", ref)
 

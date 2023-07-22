@@ -63,7 +63,7 @@ type KeychainClient interface {
 
 type RemoteClient interface {
 	BuildCosignRemoteOption(context.Context) remote.Option
-	BuildGCRRemoteOption(context.Context) []gcrremote.Option
+	BuildGCRRemoteOption(context.Context) ([]gcrremote.Option, error)
 }
 
 type RegistryClient interface {

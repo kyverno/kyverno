@@ -58,7 +58,7 @@ type Client interface {
 	BuildCosignRemoteOption(context.Context) remote.Option
 
 	// BuildGCRRemoteOption builds []gcrremote.option based on client
-	BuildGCRRemoteOption(ctx context.Context) []gcrremote.Option
+	BuildGCRRemoteOption(ctx context.Context) ([]gcrremote.Option, error)
 }
 
 type client struct {
@@ -179,7 +179,7 @@ func (c *client) BuildCosignRemoteOption(ctx context.Context) remote.Option {
 }
 
 // BuildGCRRemoteOption builds []gcrremote.Option based on client.
-func (c *client) BuildGCRRemoteOption(ctx context.Context) []gcrremote.Option {
+func (c *client) BuildGCRRemoteOption(ctx context.Context) ([]gcrremote.Option, error) {
 	remoteOpts := []gcrremote.Option{
 		gcrremote.WithAuthFromKeychain(c.keychain),
 		gcrremote.WithTransport(c.transport),
@@ -188,16 +188,16 @@ func (c *client) BuildGCRRemoteOption(ctx context.Context) []gcrremote.Option {
 
 	pusher, err := gcrremote.NewPusher(remoteOpts...)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	remoteOpts = append(remoteOpts, gcrremote.Reuse(pusher))
 
 	puller, err := gcrremote.NewPuller(remoteOpts...)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	remoteOpts = append(remoteOpts, gcrremote.Reuse(puller))
-	return remoteOpts
+	return remoteOpts, nil
 }
 
 // FetchImageDescriptor fetches Descriptor from registry with given imageRef

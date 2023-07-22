@@ -25,7 +25,10 @@ func parseReferenceCrane(ctx context.Context, ref string, registryClient images.
 		return nil, err
 	}
 
-	remoteOpts := registryClient.BuildGCRRemoteOption(ctx)
+	remoteOpts, err := registryClient.BuildGCRRemoteOption(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	desc, err := gcrremote.Head(nameRef, remoteOpts...)
 	if err != nil {
