@@ -4,7 +4,9 @@ import (
 	"context"
 	"log"
 
+	"github.com/go-logr/logr"
 	checker "github.com/kyverno/kyverno/pkg/auth/checker"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
@@ -48,4 +50,8 @@ func hasResourcePermissions(resource schema.GroupVersionResource, s checker.Auth
 		return false
 	}
 	return can
+}
+
+func CreateLogger(name string) logr.Logger {
+	return logging.WithName(name)
 }
