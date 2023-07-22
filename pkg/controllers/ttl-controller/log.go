@@ -6,6 +6,6 @@ import (
 )
 
 func CreateLogger(name string) logr.Logger {
-	var logger = logging.WithName(name)
+	logger := logging.WithName(name)
 	return logger
 }
