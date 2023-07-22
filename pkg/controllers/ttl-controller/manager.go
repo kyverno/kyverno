@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
-
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,7 +19,7 @@ import (
 )
 
 type stopFunc = context.CancelFunc
-var logger = CreateLogger(ControllerName)
+
 const (
 	CleanupLabel   = "kyverno.io/ttl"
 	Workers        = 3
@@ -31,6 +31,7 @@ type manager struct {
 	discoveryClient discovery.DiscoveryInterface
 	checker         checker.AuthChecker
 	resController   map[schema.GroupVersionResource]stopFunc
+	logger          logr.Logger
 }
 
 func NewManager(
@@ -42,11 +43,14 @@ func NewManager(
 
 	resController := make(map[schema.GroupVersionResource]stopFunc)
 
+	logger := CreateLogger(ControllerName)
+
 	return &manager{
 		metadataClient:  metadataInterface,
 		discoveryClient: discoveryInterface,
 		checker:         selfChecker,
 		resController:   resController,
+		logger:          logger,
 	}
 }
 
@@ -55,7 +59,7 @@ func (m *manager) Run(ctx context.Context, worker int) {
 		// Stop all informers and wait for them to finish
 		for gvr := range m.resController {
 			if err := m.stop(ctx, gvr); err != nil {
-				logger.Error(err, "Error stopping informer")
+				m.logger.Error(err, "Error stopping informer")
 			}
 		}
 	}()
@@ -69,7 +73,7 @@ func (m *manager) Run(ctx context.Context, worker int) {
 			return
 		case <-ticker.C:
 			if err := m.reconcile(ctx, worker); err != nil {
-				logger.Error(err, "Error in reconciliation")
+				m.logger.Error(err, "Error in reconciliation")
 				return
 			}
 		}
@@ -99,7 +103,7 @@ func (m *manager) stop(ctx context.Context, gvr schema.GroupVersionResource) err
 		delete(m.resController, gvr)
 		func() {
 			// defer log.Println("stopped", gvr)
-			logger.Info("stopping...", gvr.Resource)
+			m.logger.Info("stopping...", gvr.Resource)
 			stopFunc()
 		}()
 	}
@@ -163,7 +167,7 @@ func (m *manager) filterPermissionsResource(resources []schema.GroupVersionResou
 }
 
 func (m *manager) reconcile(ctx context.Context, workers int) error {
-	logger.Info("start manager reconciliation")
+	m.logger.Info("start manager reconciliation")
 	desiredState, err := m.getDesiredState()
 	if err != nil {
 		return err
