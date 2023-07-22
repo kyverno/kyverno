@@ -7,8 +7,8 @@ import (
 
 	"github.com/go-logr/logr"
 	checker "github.com/kyverno/kyverno/pkg/auth/checker"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"github.com/kyverno/kyverno/pkg/logging"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
@@ -54,7 +54,7 @@ func hasResourcePermissions(resource schema.GroupVersionResource, s checker.Auth
 	return can
 }
 
-func parseDeletionTime(metaObj metav1.Object, deletionTime *time.Time, ttlValue string) error{
+func parseDeletionTime(metaObj metav1.Object, deletionTime *time.Time, ttlValue string) error {
 	ttlDuration, err := time.ParseDuration(ttlValue)
 	if err == nil {
 		creationTime := metaObj.GetCreationTimestamp().Time

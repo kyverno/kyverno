@@ -23,16 +23,16 @@ type controller struct {
 	wg                wait.Group
 	informer          cache.SharedIndexInformer
 	eventRegistration cache.ResourceEventHandlerRegistration
-	controllerLogger   logr.Logger
+	controllerLogger  logr.Logger
 }
 
 func newController(client metadata.Getter, metainformer informers.GenericInformer, logger logr.Logger) *controller {
-	c := &controller{
-		client:          client,
-		queue:           workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		lister:          metainformer.Lister(),
-		wg:              wait.Group{},
-		informer:        metainformer.Informer(),
+	c := &controller {
+		client:           client,
+		queue:            workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		lister:           metainformer.Lister(),
+		wg:               wait.Group{},
+		informer:         metainformer.Informer(),
 		controllerLogger: logger,
 	}
 
@@ -86,7 +86,7 @@ func (c *controller) Stop() {
 func (c *controller) enqueue(obj interface{}) {
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
-		c.controllerLogger.Error(err,"failed to extract name")
+		c.controllerLogger.Error(err, "failed to extract name")
 		return
 	}
 	c.queue.Add(key)
@@ -129,8 +129,6 @@ func (c *controller) processItem() bool {
 	return true
 }
 
-
-
 func (c *controller) reconcile(itemKey string) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(itemKey)
 	if err != nil {
@@ -168,10 +166,9 @@ func (c *controller) reconcile(itemKey string) error {
 	err = parseDeletionTime(metaObj, &deletionTime, ttlValue)
 
 	if err != nil {
-		c.controllerLogger.Error(err,"failed to parse TTL duration item %s ttlValue %s", itemKey, ttlValue)
+		c.controllerLogger.Error(err, "failed to parse TTL duration item %s ttlValue %s", itemKey, ttlValue)
 		return nil
 	}
-	
 
 	c.controllerLogger.Info("the time to expire is: ", deletionTime.String())
 
