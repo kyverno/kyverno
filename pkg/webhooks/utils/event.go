@@ -16,7 +16,7 @@ func GenerateEvents(engineResponses []engineapi.EngineResponse, blocked bool) []
 	//   - Some/All policies skipped
 	//     - report skipped event on resource
 	for _, er := range engineResponses {
-		if er.IsEmpty() {
+		if er.IsEmpty() || er.Resource.GetName() == "" {
 			continue
 		}
 		if !er.IsSuccessful() {
