@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -288,44 +287,52 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 	var policies []kyvernov1.PolicyInterface
 	var validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy
 
-	isGit := common.IsGitSourcePath(c.PolicyPaths)
+	for _, policy := range c.PolicyPaths {
+		policyPaths := []string{policy}
+		isGit := common.IsGitSourcePath(policyPaths)
 
-	if isGit {
-		gitSourceURL, err := url.Parse(c.PolicyPaths[0])
+		if isGit {
+			gitSourceURL, err := url.Parse(policyPaths[0])
+			if err != nil {
+				fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
+				osExit(1)
+			}
+
+			pathElems := strings.Split(gitSourceURL.Path[1:], "/")
+			if len(pathElems) <= 1 {
+				err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
+				fmt.Printf("Error: failed to parse URL \nCause: %s\n", err)
+				osExit(1)
+			}
+
+			gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
+			repoURL := gitSourceURL.String()
+			var gitPathToYamls string
+			c.GitBranch, gitPathToYamls = common.GetGitBranchOrPolicyPaths(c.GitBranch, repoURL, policyPaths)
+			_, cloneErr := gitutils.Clone(repoURL, fs, c.GitBranch)
+			if cloneErr != nil {
+				fmt.Printf("Error: failed to clone repository \nCause: %s\n", cloneErr)
+				log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", cloneErr)
+				osExit(1)
+			}
+			policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
+			if err != nil {
+				return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("failed to list YAMLs in repository", err)
+			}
+
+			policyPaths = policyYamls
+		}
+
+		policiesFromFile, admissionPoliciesFromFile, err := common.GetPoliciesFromPaths(fs, policyPaths, isGit, "")
+		policies = append(policies, policiesFromFile...)
+		validatingAdmissionPolicies = append(validatingAdmissionPolicies, admissionPoliciesFromFile...)
+
 		if err != nil {
 			fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
 			osExit(1)
 		}
-
-		pathElems := strings.Split(gitSourceURL.Path[1:], "/")
-		if len(pathElems) <= 1 {
-			err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
-			fmt.Printf("Error: failed to parse URL \nCause: %s\n", err)
-			osExit(1)
-		}
-
-		gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
-		repoURL := gitSourceURL.String()
-		var gitPathToYamls string
-		c.GitBranch, gitPathToYamls = common.GetGitBranchOrPolicyPaths(c.GitBranch, repoURL, c.PolicyPaths)
-		_, cloneErr := gitutils.Clone(repoURL, fs, c.GitBranch)
-		if cloneErr != nil {
-			fmt.Printf("Error: failed to clone repository \nCause: %s\n", cloneErr)
-			log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", cloneErr)
-			osExit(1)
-		}
-		policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
-		if err != nil {
-			return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("failed to list YAMLs in repository", err)
-		}
-		sort.Strings(policyYamls)
-		c.PolicyPaths = policyYamls
 	}
-	policies, validatingAdmissionPolicies, err = common.GetPoliciesFromPaths(fs, c.PolicyPaths, isGit, "")
-	if err != nil {
-		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
-		osExit(1)
-	}
+
 	// load resources
 	resources, err := common.GetResourceAccordingToResourcePath(nil, c.ResourcePaths, c.Cluster, policies, validatingAdmissionPolicies, dClient, c.Namespace, c.PolicyReport, false, "")
 	if err != nil {
