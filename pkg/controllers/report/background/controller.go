@@ -70,6 +70,10 @@ type controller struct {
 	config   config.Configuration
 	jp       jmespath.Interface
 	eventGen event.Interface
+
+	// policies
+	policies    kyvernov1.PolicyInterface
+	vapPolicies v1alpha1.ValidatingAdmissionPolicy
 }
 
 func NewController(
@@ -111,7 +115,7 @@ func NewController(
 	controllerutils.AddDefaultEventHandlers(logger, cbgscanr.Informer(), queue)
 	controllerutils.AddEventHandlersT(polInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
 	controllerutils.AddEventHandlersT(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
-	controllerutils.AddEventHandlersT(vapInformer.Informer(), c.addVap, c.updateVap, c.deleteVap)
+	controllerutils.AddEventHandlersT(vapInformer.Informer(), c.addValidatingAdmissionPolicy, c.updateValidatingAdmissionPolicy, c.deleteValidatingAdmissionPolicy)
 	c.metadataCache.AddEventHandler(func(eventType resource.EventType, uid types.UID, _ schema.GroupVersionKind, res resource.Resource) {
 		// if it's a deletion, nothing to do
 		if eventType == resource.Deleted {
@@ -145,17 +149,17 @@ func (c *controller) deletePolicy(obj kyvernov1.PolicyInterface) {
 	c.enqueueResources()
 }
 
-func (c *controller) addVap(obj v1alpha1.ValidatingAdmissionPolicy) {
+func (c *controller) addValidatingAdmissionPolicy(obj v1alpha1.ValidatingAdmissionPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateVap(old, obj v1alpha1.ValidatingAdmissionPolicy) {
+func (c *controller) updateValidatingAdmissionPolicy(old, obj v1alpha1.ValidatingAdmissionPolicy) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteVap(obj v1alpha1.ValidatingAdmissionPolicy) {
+func (c *controller) deleteValidatingAdmissionPolicy(obj v1alpha1.ValidatingAdmissionPolicy) {
 	c.enqueueResources()
 }
 
@@ -222,6 +226,15 @@ func (c *controller) needsReconcile(namespace, name, hash string, backgroundPoli
 		expected[reportutils.PolicyLabel(policy)] = policy.GetResourceVersion()
 	}
 	actual := map[string]string{}
+	for key, value := range reportMetadata.GetLabels() {
+		if reportutils.IsPolicyLabel(key) {
+			actual[key] = value
+		}
+	}
+	if !datautils.DeepEqual(expected, actual) {
+		return true, false, nil
+	}
+	actual = map[string]string{}
 	for key, value := range reportMetadata.GetLabels() {
 		if reportutils.IsPolicyLabel(key) {
 			actual[key] = value
@@ -299,14 +312,13 @@ func (c *controller) reconcileReport(
 	// calculate necessary results
 	for _, policy := range backgroundPolicies {
 		if full || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
-			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.policies, c.vapPolcies)
-			for _, result := range scanner.ScanResource(ctx, *target, nsLabels, policy) {
-				if result.Error != nil {
-					return result.Error
-				} else if result.EngineResponse != nil {
-					ruleResults = append(ruleResults, reportutils.EngineResponseToReportResults(*result.EngineResponse)...)
-					utils.GenerateEvents(logger, c.eventGen, c.config, *result.EngineResponse)
-				}
+			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.policies, c.vapPolicies)
+			result := scanner.ScanResource(ctx, *target, nsLabels)
+			if result.Error != nil {
+				return result.Error
+			} else if result.EngineResponse != nil {
+				ruleResults = append(ruleResults, reportutils.EngineResponseToReportResults(*result.EngineResponse)...)
+				utils.GenerateEvents(logger, c.eventGen, c.config, *result.EngineResponse)
 			}
 		}
 	}
@@ -373,10 +385,6 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 	if err != nil {
 		return err
 	}
-	vapPolicies, err := utils.FetchValidatingAdmissionPolicies(c.vapLister)
-	if err != nil {
-		return err
-	}
 	if namespace != "" {
 		pols, err := utils.FetchPolicies(c.polLister, namespace)
 		if err != nil {
@@ -401,52 +409,4 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		}
 	}
 	return nil
-}
-
-func (c *controller)reconcileVapReports(
-	ctx context.Context,
-	namespace string,
-	full bool,
-	uid types.UID,
-	gvk schema.GroupVersionKind,
-	backgroundPolicies ...v1alpha1.ValidatingAdmissionPolicy,
-) error {
-	// namespace labels to be used by the scanner
-	var nsLabels map[string]string
-	if namespace != "" {
-		ns, err := c.nsLister.Get(namespace)
-		if err != nil {
-			return err
-		}
-		nsLabels = ns.GetLabels()
-	}
-	// load target resource
-	target, err := c.client.GetResource(ctx, gvk.GroupVersion().String(), gvk.Kind, resource.Namespace, resource.Name)
-	if err != nil {
-		return err
-	}
-	if !full {
-		// keep up to date results
-		for _, result := range observed.GetResults() {
-			// if the policy did not change, keep the result
-			label := policyNameToLabel[result.Policy]
-			if label != "" && expected[label] == actual[label] {
-				ruleResults = append(ruleResults, result)
-			}
-		}
-	}
-	// scan resource
-	var ruleResults []policyreportv1alpha2.PolicyReportResult
-	for _, policy := range backgroundPolicies {
-			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.policies, c.vapPolcies)
-			for _, result := range scanner.ScanResourceForVAPs(ctx, *target, nsLabels, policy) {
-				if result.Error != nil {
-					return result.Error
-				} else if result.EngineResponse != nil {
-					ruleResults = append(ruleResults, reportutils.EngineResponseToReportResults(*result.EngineResponse)...)
-					utils.GenerateEvents(logger, c.eventGen, c.config, *result.EngineResponse)
-				}
-			}
-		}
-	}
 }

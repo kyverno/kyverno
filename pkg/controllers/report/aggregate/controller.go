@@ -18,10 +18,13 @@ import (
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	"k8s.io/api/admissionregistration/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
+	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
+	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -46,6 +49,7 @@ type controller struct {
 	// listers
 	polLister      kyvernov1listers.PolicyLister
 	cpolLister     kyvernov1listers.ClusterPolicyLister
+	vapLister      admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyLister
 	admrLister     cache.GenericLister
 	cadmrLister    cache.GenericLister
 	bgscanrLister  cache.GenericLister
@@ -61,8 +65,9 @@ type controller struct {
 }
 
 type policyMapEntry struct {
-	policy kyvernov1.PolicyInterface
-	rules  sets.Set[string]
+	policy                     kyvernov1.PolicyInterface
+	validatingadmissionpolicy  v1alpha1.ValidatingAdmissionPolicy
+	rules                      sets.Set[string]
 }
 
 func keyFunc(obj metav1.Object) cache.ExplicitKey {
@@ -74,6 +79,7 @@ func NewController(
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
+	vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer,
 	metadataCache resource.MetadataCache,
 	chunkSize int,
 ) controllers.Controller {
@@ -87,6 +93,7 @@ func NewController(
 		client:         client,
 		polLister:      polInformer.Lister(),
 		cpolLister:     cpolInformer.Lister(),
+		vapLister:      vapInformer.Lister(),
 		admrLister:     admrInformer.Lister(),
 		cadmrLister:    cadmrInformer.Lister(),
 		bgscanrLister:  bgscanrInformer.Lister(),
@@ -313,6 +320,23 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 		}
 		for _, rule := range autogen.ComputeRules(pol) {
 			results[key].rules.Insert(rule.Name)
+		}
+	}
+	vaps, err := c.vapLister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+	for _, vap := range vaps {
+		key, err := cache.MetaNamespaceKeyFunc(vap)
+		if err != nil {
+			return nil, err
+		}
+		results[key] = policyMapEntry {
+			validatingadmissionpolicy:   *vap,
+			rules:                       sets.New[string](),
+		}
+		for _, rule := range vap.Spec.MatchConstraints.ResourceRules {
+			results[key].rules.Insert(rule.ResourceNames...)
 		}
 	}
 	return results, nil
