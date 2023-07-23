@@ -172,6 +172,11 @@ func Command() *cobra.Command {
 					}
 				}
 			}()
+
+			if err := setupLogger(); err != nil {
+				return err
+			}
+
 			applyCommandConfig.PolicyPaths = policyPaths
 			rc, resources, skipInvalidPolicies, pvInfos, err := applyCommandConfig.applyCommandHelper()
 			if err != nil {
