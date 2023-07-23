@@ -1,5 +1,7 @@
 name: Codecov
 
+permissions: {}
+
 on:
   push:
     branches:
@@ -12,9 +14,6 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
-permissions:
-  contents: read
 
 jobs:
   codecov:

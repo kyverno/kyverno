@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	gojmespath "github.com/jmespath/go-jmespath"
+	gojmespath "github.com/kyverno/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -240,7 +240,7 @@ func (e *engine) invokeRuleHandler(
 		ctx,
 		"pkg/engine",
 		fmt.Sprintf("RULE %s", rule.Name),
-		func(ctx context.Context, span trace.Span) (unstructured.Unstructured, []engineapi.RuleResponse) {
+		func(ctx context.Context, span trace.Span) (patchedResource unstructured.Unstructured, results []engineapi.RuleResponse) {
 			// check if resource and rule match
 			if err := e.matches(rule, policyContext, resource); err != nil {
 				logger.V(4).Info("rule not matched", "reason", err.Error())
@@ -255,6 +255,15 @@ func (e *engine) invokeRuleHandler(
 				if ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule); ruleResp != nil {
 					return resource, handlers.WithResponses(ruleResp)
 				}
+				policyContext.JSONContext().Checkpoint()
+				defer func() {
+					policyContext.JSONContext().Restore()
+					if patchedResource.Object != nil {
+						if err := policyContext.JSONContext().AddResource(patchedResource.Object); err != nil {
+							logger.Error(err, "failed to add resource in the json context")
+						}
+					}
+				}()
 				// load rule context
 				contextLoader := e.ContextLoader(policyContext.Policy(), rule)
 				if err := contextLoader(ctx, rule.Context, policyContext.JSONContext()); err != nil {

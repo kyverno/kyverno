@@ -130,7 +130,7 @@ func NewOTLPGRPCConfig(
 		resource.NewWithAttributes(
 			semconv.SchemaURL,
 			semconv.ServiceNameKey.String(MeterName),
-			semconv.ServiceVersionKey.String(version.BuildVersion),
+			semconv.ServiceVersionKey.String(version.Version()),
 		),
 	)
 	if err != nil {
@@ -159,7 +159,7 @@ func NewPrometheusConfig(
 			semconv.SchemaURL,
 			semconv.ServiceNameKey.String("kyverno-svc-metrics"),
 			semconv.ServiceNamespaceKey.String(kconfig.KyvernoNamespace()),
-			semconv.ServiceVersionKey.String(version.BuildVersion),
+			semconv.ServiceVersionKey.String(version.Version()),
 		),
 	)
 	if err != nil {

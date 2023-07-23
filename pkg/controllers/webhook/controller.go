@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -211,7 +212,7 @@ func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
 							Name:      "kyverno-health",
 							Namespace: config.KyvernoNamespace(),
 							Labels: map[string]string{
-								"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
+								"app.kubernetes.io/name": kyverno.ValueKyvernoApp,
 							},
 							Annotations: map[string]string{
 								AnnotationLastRequestTime: time.Now().Format(time.RFC3339),
@@ -227,7 +228,7 @@ func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
 			} else {
 				lease := lease.DeepCopy()
 				lease.Labels = map[string]string{
-					"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
+					"app.kubernetes.io/name": kyverno.ValueKyvernoApp,
 				}
 				_, err = c.leaseClient.Update(ctx, lease, metav1.UpdateOptions{})
 				if err != nil {
@@ -515,7 +516,7 @@ func (c *controller) buildVerifyMutatingWebhookConfiguration(_ context.Context, 
 				AdmissionReviewVersions: []string{"v1"},
 				ObjectSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
+						"app.kubernetes.io/name": kyverno.ValueKyvernoApp,
 					},
 				},
 			}},
@@ -628,12 +629,14 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 		}
 		c.recordPolicyState(config.MutatingWebhookConfigurationName, policies...)
 		for _, p := range policies {
-			spec := p.GetSpec()
-			if spec.HasMutate() || spec.HasVerifyImages() {
-				if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
-					c.mergeWebhook(ignore, p, false)
-				} else {
-					c.mergeWebhook(fail, p, false)
+			if p.AdmissionProcessingEnabled() {
+				spec := p.GetSpec()
+				if spec.HasMutate() || spec.HasVerifyImages() {
+					if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
+						c.mergeWebhook(ignore, p, false)
+					} else {
+						c.mergeWebhook(fail, p, false)
+					}
 				}
 			}
 		}
@@ -750,12 +753,14 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 		}
 		c.recordPolicyState(config.ValidatingWebhookConfigurationName, policies...)
 		for _, p := range policies {
-			spec := p.GetSpec()
-			if spec.HasValidate() || spec.HasGenerate() || spec.HasMutate() || spec.HasVerifyImageChecks() || spec.HasVerifyManifests() {
-				if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
-					c.mergeWebhook(ignore, p, true)
-				} else {
-					c.mergeWebhook(fail, p, true)
+			if p.AdmissionProcessingEnabled() {
+				spec := p.GetSpec()
+				if spec.HasValidate() || spec.HasGenerate() || spec.HasMutate() || spec.HasVerifyImageChecks() || spec.HasVerifyManifests() {
+					if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
+						c.mergeWebhook(ignore, p, true)
+					} else {
+						c.mergeWebhook(fail, p, true)
+					}
 				}
 			}
 		}

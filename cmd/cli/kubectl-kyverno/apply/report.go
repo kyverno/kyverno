@@ -1,73 +1,54 @@
 package apply
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const clusterpolicyreport = "clusterpolicyreport"
 
 // resps is the engine responses generated for a single policy
-func buildPolicyReports(auditWarn bool, engineResponses ...engineapi.EngineResponse) (res []*unstructured.Unstructured) {
-	var raw []byte
-	var err error
-
+func buildPolicyReports(auditWarn bool, engineResponses ...engineapi.EngineResponse) ([]policyreportv1alpha2.ClusterPolicyReport, []policyreportv1alpha2.PolicyReport) {
+	var clustered []policyreportv1alpha2.ClusterPolicyReport
+	var namespaced []policyreportv1alpha2.PolicyReport
 	resultsMap := buildPolicyResults(auditWarn, engineResponses...)
 	for scope, result := range resultsMap {
 		if scope == clusterpolicyreport {
-			report := &policyreportv1alpha2.ClusterPolicyReport{
+			report := policyreportv1alpha2.ClusterPolicyReport{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: policyreportv1alpha2.SchemeGroupVersion.String(),
 					Kind:       "ClusterPolicyReport",
 				},
 				Results: result,
-				Summary: calculateSummary(result),
+				Summary: reportutils.CalculateSummary(result),
 			}
-
 			report.SetName(scope)
-			if raw, err = json.Marshal(report); err != nil {
-				log.Log.V(3).Info("failed to serialize policy report", "name", report.Name, "scope", scope, "error", err)
-			}
+			clustered = append(clustered, report)
 		} else {
-			report := &policyreportv1alpha2.PolicyReport{
+			report := policyreportv1alpha2.PolicyReport{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: policyreportv1alpha2.SchemeGroupVersion.String(),
 					Kind:       "PolicyReport",
 				},
 				Results: result,
-				Summary: calculateSummary(result),
+				Summary: reportutils.CalculateSummary(result),
 			}
-
 			ns := strings.ReplaceAll(scope, "policyreport-ns-", "")
 			report.SetName(scope)
 			report.SetNamespace(ns)
-
-			if raw, err = json.Marshal(report); err != nil {
-				log.Log.V(3).Info("failed to serialize policy report", "name", report.Name, "scope", scope, "error", err)
-			}
+			namespaced = append(namespaced, report)
 		}
-
-		reportUnstructured, err := kubeutils.BytesToUnstructured(raw)
-		if err != nil {
-			log.Log.V(3).Info("failed to convert policy report", "scope", scope, "error", err)
-			continue
-		}
-
-		res = append(res, reportUnstructured)
 	}
 
-	return
+	return clustered, namespaced
 }
 
 // buildPolicyResults returns a string-PolicyReportResult map
@@ -117,7 +98,9 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 						UID:        engineResponse.Resource.GetUID(),
 					},
 				},
-				Scored: true,
+				Scored:   true,
+				Category: ann[kyverno.AnnotationPolicyCategory],
+				Severity: reportutils.SeverityFromString(ann[kyverno.AnnotationPolicySeverity]),
 			}
 
 			if ruleResponse.Status() == engineapi.RuleStatusSkip {
@@ -127,7 +110,7 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 			} else if ruleResponse.Status() == engineapi.RuleStatusPass {
 				result.Result = policyreportv1alpha2.StatusPass
 			} else if ruleResponse.Status() == engineapi.RuleStatusFail {
-				if scored, ok := ann[kyvernov1.AnnotationPolicyScored]; ok && scored == "false" {
+				if scored, ok := ann[kyverno.AnnotationPolicyScored]; ok && scored == "false" {
 					result.Result = policyreportv1alpha2.StatusWarn
 				} else if auditWarn && engineResponse.GetValidationFailureAction().Audit() {
 					result.Result = policyreportv1alpha2.StatusWarn
@@ -142,29 +125,11 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 				result.Rule = ruleResponse.Name()
 			}
 			result.Message = ruleResponse.Message()
-			result.Source = kyvernov1.ValueKyvernoApp
+			result.Source = kyverno.ValueKyvernoApp
 			result.Timestamp = now
 			results[appname] = append(results[appname], result)
 		}
 	}
 
 	return results
-}
-
-func calculateSummary(results []policyreportv1alpha2.PolicyReportResult) (summary policyreportv1alpha2.PolicyReportSummary) {
-	for _, res := range results {
-		switch string(res.Result) {
-		case policyreportv1alpha2.StatusPass:
-			summary.Pass++
-		case policyreportv1alpha2.StatusFail:
-			summary.Fail++
-		case "warn":
-			summary.Warn++
-		case "error":
-			summary.Error++
-		case "skip":
-			summary.Skip++
-		}
-	}
-	return
 }

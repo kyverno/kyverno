@@ -17,8 +17,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
+	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -49,14 +51,16 @@ func (probes) IsLive(context.Context) bool {
 
 func main() {
 	var (
-		dumpPayload bool
-		serverIP    string
-		servicePort int
+		dumpPayload     bool
+		serverIP        string
+		servicePort     int
+		maxQueuedEvents int
 	)
 	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
+	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -67,6 +71,7 @@ func main() {
 		internal.WithKyvernoClient(),
 		internal.WithKyvernoDynamicClient(),
 		internal.WithConfigMapCaching(),
+		internal.WithDeferredLoading(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -192,10 +197,20 @@ func main() {
 		kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies(),
 		genericloggingcontroller.CheckGeneration,
 	)
+	eventGenerator := event.NewEventCleanupGenerator(
+		setup.KyvernoDynamicClient,
+		kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies(),
+		kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies(),
+		maxQueuedEvents,
+		logging.WithName("EventGenerator"),
+	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kubeInformer, kyvernoInformer) {
 		os.Exit(1)
 	}
+	// start event generator
+	var wg sync.WaitGroup
+	go eventGenerator.Run(ctx, 3, &wg)
 	// create handlers
 	admissionHandlers := admissionhandlers.New(setup.KyvernoDynamicClient)
 	cmResolver := internal.NewConfigMapResolver(ctx, setup.Logger, setup.KubeClient, resyncPeriod)
@@ -207,6 +222,7 @@ func main() {
 		nsLister,
 		cmResolver,
 		setup.Jp,
+		eventGenerator,
 	)
 	// create server
 	server := NewServer(

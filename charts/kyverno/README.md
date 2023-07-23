@@ -298,6 +298,7 @@ The chart values are organised per component.
 | features.backgroundScan.backgroundScanInterval | string | `"1h"` | Background scan interval |
 | features.backgroundScan.skipResourceFilters | bool | `true` | Skips resource filters in background scan |
 | features.configMapCaching.enabled | bool | `true` | Enables the feature |
+| features.deferredLoading.enabled | bool | `true` | Enables the feature |
 | features.dumpPayload.enabled | bool | `false` | Enables the feature |
 | features.forceFailurePolicyIgnore.enabled | bool | `false` | Enables the feature |
 | features.logging.format | string | `"text"` | Logging format |
@@ -613,6 +614,11 @@ The chart values are organised per component.
 | webhooksCleanup.enabled | bool | `true` | Create a helm pre-delete hook to cleanup webhooks. |
 | webhooksCleanup.image | string | `"bitnami/kubectl:latest"` | `kubectl` image to run commands for deleting webhooks. |
 | webhooksCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
+| webhooksCleanup.nodeSelector | object | `{}` | Node labels for pod assignment |
+| webhooksCleanup.tolerations | list | `[]` | List of node taints to tolerate |
+| webhooksCleanup.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
+| webhooksCleanup.podAffinity | object | `{}` | Pod affinity constraints. |
+| webhooksCleanup.nodeAffinity | object | `{}` | Node affinity constraints. |
 
 ### Test
 
@@ -641,6 +647,7 @@ The chart values are organised per component.
 | cleanupJobs.admissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
 | cleanupJobs.admissionReports.image.tag | string | `"1.26.4"` | Image tag Defaults to `latest` if omitted |
 | cleanupJobs.admissionReports.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
+| cleanupJobs.admissionReports.imagePullSecrets | list | `[]` | Image pull secrets |
 | cleanupJobs.admissionReports.schedule | string | `"*/10 * * * *"` | Cronjob schedule |
 | cleanupJobs.admissionReports.threshold | int | `10000` | Reports threshold, if number of reports are above this value the cronjob will start deleting them |
 | cleanupJobs.admissionReports.history | object | `{"failure":1,"success":1}` | Cronjob history |
@@ -648,12 +655,18 @@ The chart values are organised per component.
 | cleanupJobs.admissionReports.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
 | cleanupJobs.admissionReports.resources | object | `{}` | Job resources |
 | cleanupJobs.admissionReports.tolerations | list | `[]` | List of node taints to tolerate |
+| cleanupJobs.admissionReports.nodeSelector | object | `{}` | Node labels for pod assignment |
 | cleanupJobs.admissionReports.podAnnotations | object | `{}` | Pod Annotations |
+| cleanupJobs.admissionReports.podLabels | object | `{}` | Pod labels |
+| cleanupJobs.admissionReports.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
+| cleanupJobs.admissionReports.podAffinity | object | `{}` | Pod affinity constraints. |
+| cleanupJobs.admissionReports.nodeAffinity | object | `{}` | Node affinity constraints. |
 | cleanupJobs.clusterAdmissionReports.enabled | bool | `true` | Enable cleanup cronjob |
 | cleanupJobs.clusterAdmissionReports.image.registry | string | `nil` | Image registry |
 | cleanupJobs.clusterAdmissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
 | cleanupJobs.clusterAdmissionReports.image.tag | string | `"1.26.4"` | Image tag Defaults to `latest` if omitted |
 | cleanupJobs.clusterAdmissionReports.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
+| cleanupJobs.clusterAdmissionReports.imagePullSecrets | list | `[]` | Image pull secrets |
 | cleanupJobs.clusterAdmissionReports.schedule | string | `"*/10 * * * *"` | Cronjob schedule |
 | cleanupJobs.clusterAdmissionReports.threshold | int | `10000` | Reports threshold, if number of reports are above this value the cronjob will start deleting them |
 | cleanupJobs.clusterAdmissionReports.history | object | `{"failure":1,"success":1}` | Cronjob history |
@@ -661,7 +674,12 @@ The chart values are organised per component.
 | cleanupJobs.clusterAdmissionReports.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
 | cleanupJobs.clusterAdmissionReports.resources | object | `{}` | Job resources |
 | cleanupJobs.clusterAdmissionReports.tolerations | list | `[]` | List of node taints to tolerate |
+| cleanupJobs.clusterAdmissionReports.nodeSelector | object | `{}` | Node labels for pod assignment |
 | cleanupJobs.clusterAdmissionReports.podAnnotations | object | `{}` | Pod Annotations |
+| cleanupJobs.clusterAdmissionReports.podLabels | object | `{}` | Pod Labels |
+| cleanupJobs.clusterAdmissionReports.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
+| cleanupJobs.clusterAdmissionReports.podAffinity | object | `{}` | Pod affinity constraints. |
+| cleanupJobs.clusterAdmissionReports.nodeAffinity | object | `{}` | Node affinity constraints. |
 
 ### Other
 
