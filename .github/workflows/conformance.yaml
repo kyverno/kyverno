@@ -244,8 +244,33 @@ jobs:
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
+        tests:
+          - argo
+          - aws
+          - best-practices
+          - castai
+          - cert-manager
+          - consul
+          - external-secret-operator
+          - flux
+          - istio
+          - karpenter
+          - kasten
+          - kubecost
+          - kubeops
+          - kubevirt
+          - linkerd
+          - nginx-ingress
+          - openshift
+          - other
+          # - pod-security
+          # - psa
+          - psp-migration
+          # - tekton
+          # - traefik
+          # - velero
     needs: prepare-images
-    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }}
+    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
@@ -283,7 +308,7 @@ jobs:
       - name: Test policy library with kuttl
         run: |
           cd policies
-          ../.tools/kubectl-kuttl test . --config ./kuttl-test.yaml
+          ../.tools/kubectl-kuttl test ./${{ matrix.tests }} --config ./kuttl-test.yaml
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs

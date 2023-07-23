@@ -200,6 +200,11 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		rule.VerifyImages = newVerifyImages
 		return rule
 	}
+	if rule.HasValidateCEL() {
+		cel := rule.Validation.CEL.DeepCopy()
+		rule.Validation.CEL = cel
+		return rule
+	}
 	return nil
 }
 
@@ -324,5 +329,21 @@ func updateRestrictedFields(pbyte []byte, kind string) (obj []byte) {
 		obj = []byte(strings.ReplaceAll(string(pbyte), `"restrictedField":"spec`, `"restrictedField":"spec.jobTemplate.spec.template.spec`))
 	}
 	obj = []byte(strings.ReplaceAll(string(obj), "metadata", "spec.template.metadata"))
+	return obj
+}
+
+func updateCELFields(pbyte []byte, kind string) (obj []byte) {
+	if kind == "Pod" {
+		obj = []byte(strings.ReplaceAll(string(pbyte), "object.spec", "object.spec.template.spec"))
+		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.spec", "oldObject.spec.template.spec"))
+		obj = []byte(strings.ReplaceAll(string(obj), "object.metadata", "object.spec.template.metadata"))
+		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.metadata", "oldObject.spec.template.metadata"))
+	}
+	if kind == "Cronjob" {
+		obj = []byte(strings.ReplaceAll(string(pbyte), "object.spec", "object.spec.jobTemplate.spec.template.spec"))
+		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.spec", "oldObject.spec.jobTemplate.spec.template.spec"))
+		obj = []byte(strings.ReplaceAll(string(obj), "object.metadata", "object.spec.jobTemplate.spec.template.metadata"))
+		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.metadata", "oldObject.spec.jobTemplate.spec.template.metadata"))
+	}
 	return obj
 }
