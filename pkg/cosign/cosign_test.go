@@ -33,20 +33,28 @@ const cosignPayload = `{
 	}
 }`
 
-const tektonPayload = `{
-  "Critical": {
-    "Identity": {
-      "docker-reference": "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/nop"
-    },
-    "Image": {
-      "Docker-manifest-digest": "sha256:6a037d5ba27d9c6be32a9038bfe676fb67d2e4145b4f53e9c61fb3e69f06e816"
-    },
-    "Type": "Tekton container signature"
-  },
-  "Optional": {
-	  "Issuer": "https://github.com/login/oauth",
-	  "Subject": "https://github.com/mycompany/demo/.github/workflows/ci.yml@refs/heads/main"
-  }
+const keylessPayload = `{
+	"critical": {
+		"identity": {
+			"docker-reference": "ghcr.io/kyverno/test-verify-image"
+		},
+		"image": {
+			"docker-manifest-digest": "sha256:ee53528c4e3c723945cf870d73702b76135955a218dd7497bf344aa73ebb4227"
+		},
+		"type": "cosign container image signature"
+	},
+	"optional": {
+		"Bundle": {
+			"SignedEntryTimestamp": "--TIME-STAMP--",
+			"Payload": {
+				"integratedTime": 1689234389,
+				"logIndex": 27432442,
+				"logID": "--LOG-ID--"
+			}
+		},
+		"Issuer": "https://accounts.google.com",
+		"Subject": "kyverno@nirmata.com"
+	}
 }`
 
 const globalRekorPubKey = `-----BEGIN PUBLIC KEY-----
@@ -74,17 +82,18 @@ func TestCosignPayload(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, d, "sha256:4a1c4b21597c1b4415bdbecb28a3296c6b5e23ca4f9feeb599860a1dac6a0108")
 
-	image2 := "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/nop"
-	signedPayloads2 := cosign.SignedPayload{Payload: []byte(tektonPayload)}
+	image2 := "ghcr.io/kyverno/test-verify-image"
+	signedPayloads2 := cosign.SignedPayload{Payload: []byte(keylessPayload)}
 	ociSig, err = getSignature(signedPayloads2)
 	assert.NilError(t, err)
 	signatures2 := []oci.Signature{ociSig}
+
 	p2, err := extractPayload(signatures2)
 	assert.NilError(t, err)
 
 	d2, err := extractDigest(image2, p2)
 	assert.NilError(t, err)
-	assert.Equal(t, d2, "sha256:6a037d5ba27d9c6be32a9038bfe676fb67d2e4145b4f53e9c61fb3e69f06e816")
+	assert.Equal(t, d2, "sha256:ee53528c4e3c723945cf870d73702b76135955a218dd7497bf344aa73ebb4227")
 }
 
 func TestCosignKeyless(t *testing.T) {

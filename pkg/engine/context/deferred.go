@@ -2,15 +2,18 @@ package context
 
 import (
 	"regexp"
+
+	"github.com/go-logr/logr"
 )
 
 type deferredLoader struct {
 	name    string
 	matcher regexp.Regexp
 	loader  Loader
+	logger  logr.Logger
 }
 
-func NewDeferredLoader(name string, loader Loader) (DeferredLoader, error) {
+func NewDeferredLoader(name string, loader Loader, logger logr.Logger) (DeferredLoader, error) {
 	// match on ASCII word boundaries except do not allow starting with a `.`
 	// this allows `x` to match `x.y` but not `y.x` or `y.x.z`
 	matcher, err := regexp.Compile(`(?:\A|\z|\s|[^.0-9A-Za-z])` + name + `\b`)
@@ -22,6 +25,7 @@ func NewDeferredLoader(name string, loader Loader) (DeferredLoader, error) {
 		name:    name,
 		matcher: *matcher,
 		loader:  loader,
+		logger:  logger,
 	}, nil
 }
 
@@ -34,7 +38,10 @@ func (dl *deferredLoader) HasLoaded() bool {
 }
 
 func (dl *deferredLoader) LoadData() error {
-	return dl.loader.LoadData()
+	if err := dl.loader.LoadData(); err != nil {
+		dl.logger.Error(err, "failed to load data", "name", dl.name)
+	}
+	return nil
 }
 
 func (d *deferredLoader) Matches(query string) bool {

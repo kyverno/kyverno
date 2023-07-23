@@ -174,7 +174,7 @@ func addDeferredWithQuery(ctx *context, name string, value interface{}, query st
 		query: query,
 	}
 
-	d, err := NewDeferredLoader(name, loader)
+	d, err := NewDeferredLoader(name, loader, logger)
 	if err != nil {
 		return loader, err
 	}
