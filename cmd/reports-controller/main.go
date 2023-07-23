@@ -52,14 +52,15 @@ func createReportControllers(
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
+	admissionregistrationV1alpha1 := kubeInformer.Admissionregistration().V1alpha1()
 	if backgroundScan || admissionReports {
 		resourceReportController := resourcereportcontroller.NewController(
 			client,
 			kyvernoV1.Policies(),
 			kyvernoV1.ClusterPolicies(),
-			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
+			admissionregistrationV1alpha1.ValidatingAdmissionPolicies(),
 		)
-		warmups = append(warmups, func(ctx context.Context) error {
+		warmups = append(warmups, func(ctx context.Context) error {	
 			return resourceReportController.Warmup(ctx)
 		})
 		ctrls = append(ctrls, internal.NewController(
@@ -75,6 +76,7 @@ func createReportControllers(
 					metadataFactory,
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
+					admissionregistrationV1alpha1.ValidatingAdmissionPolicies(),
 					resourceReportController,
 					reportsChunkSize,
 				),
@@ -102,7 +104,7 @@ func createReportControllers(
 					metadataFactory,
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
-					kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
+					admissionregistrationV1alpha1.ValidatingAdmissionPolicies(),
 					kubeInformer.Core().V1().Namespaces(),
 					resourceReportController,
 					backgroundScanInterval,

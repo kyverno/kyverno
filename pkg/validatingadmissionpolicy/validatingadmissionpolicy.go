@@ -59,7 +59,7 @@ func GetKinds(policy v1alpha1.ValidatingAdmissionPolicy) []string {
 	return kindList
 }
 
-func Validate(policy v1alpha1.ValidatingAdmissionPolicy, resource unstructured.Unstructured) engineapi.EngineResponse {
+func Validate(policy v1alpha1.ValidatingAdmissionPolicy, resource unstructured.Unstructured) (*engineapi.EngineResponse, error) {
 	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
 	logger.V(3).Info("applying policy on resource", "policy", policy.GetName(), "resource", resPath)
 
@@ -178,5 +178,5 @@ func Validate(policy v1alpha1.ValidatingAdmissionPolicy, resource unstructured.U
 	policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
 	engineResponse = engineResponse.WithPolicyResponse(policyResp)
 
-	return engineResponse
+	return &engineResponse, nil
 }
