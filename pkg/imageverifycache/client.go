@@ -23,6 +23,14 @@ func New(options ...Option) (Client, error) {
 	return cache, nil
 }
 
+func DisabledImageVerfiyCache() Client {
+	return &cache{
+		isCacheEnabled: false,
+		maxSize:        0,
+		TTL:            0,
+	}
+}
+
 func WithCacheEnableFlag(b bool) Option {
 	return func(c *cache) error {
 		c.isCacheEnabled = b
