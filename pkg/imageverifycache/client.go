@@ -9,6 +9,7 @@ import (
 type cache struct {
 	isCacheEnabled bool
 	maxSize        int64
+	TTL            int64
 }
 
 type Option = func(*cache) error
@@ -34,6 +35,13 @@ func WithCacheEnableFlag(b bool) Option {
 func WithMaxSize(s int64) Option {
 	return func(c *cache) error {
 		c.maxSize = s
+		return nil
+	}
+}
+
+func WithTTLDuration(t int64) Option {
+	return func(c *cache) error {
+		c.TTL = t
 		return nil
 	}
 }
