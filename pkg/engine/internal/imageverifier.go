@@ -47,6 +47,7 @@ func NewImageVerifier(
 	return &ImageVerifier{
 		logger:                   logger,
 		rclient:                  rclient,
+		ivCache:                  ivCache,
 		policyContext:            policyContext,
 		rule:                     rule,
 		ivm:                      ivm,
