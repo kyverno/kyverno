@@ -9,4 +9,5 @@ involvedObject:
   namespace: test-ns
 type: Normal
 reason: PolicyApplied
+action: None
 reportingComponent: kyverno-generate

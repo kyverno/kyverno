@@ -9,4 +9,5 @@ involvedObject:
 type: Normal
 message: resource generated
 reason: PolicyApplied
+action: Resource Generated
 reportingComponent: kyverno-generate
