@@ -7748,6 +7748,11 @@ spec:
                             - Cosign
                             - Notary
                             type: string
+                          useCache:
+                            default: true
+                            description: UseCache enables caching of image verify
+                              responses for this rule
+                            type: boolean
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -11845,6 +11850,11 @@ spec:
                                 - Cosign
                                 - Notary
                                 type: string
+                              useCache:
+                                default: true
+                                description: UseCache enables caching of image verify
+                                  responses for this rule
+                                type: boolean
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have
@@ -19687,6 +19697,11 @@ spec:
                                 - Cosign
                                 - Notary
                                 type: string
+                              useCache:
+                                default: true
+                                description: UseCache enables caching of image verify
+                                  responses for this rule
+                                type: boolean
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have
@@ -23743,6 +23758,11 @@ spec:
                             - Cosign
                             - Notary
                             type: string
+                          useCache:
+                            default: true
+                            description: UseCache enables caching of image verify
+                              responses for this rule
+                            type: boolean
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -27841,6 +27861,11 @@ spec:
                                 - Cosign
                                 - Notary
                                 type: string
+                              useCache:
+                                default: true
+                                description: UseCache enables caching of image verify
+                                  responses for this rule
+                                type: boolean
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have
@@ -35684,6 +35709,11 @@ spec:
                                 - Cosign
                                 - Notary
                                 type: string
+                              useCache:
+                                default: true
+                                description: UseCache enables caching of image verify
+                                  responses for this rule
+                                type: boolean
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have
