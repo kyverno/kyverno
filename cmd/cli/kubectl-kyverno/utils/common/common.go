@@ -791,7 +791,7 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 		jmespath.New(cfg),
 		adapters.Client(client),
 		nil,
-		imageverifycache.DisabledImageVerfiyCache(),
+		imageverifycache.DisabledImageVerifyCache(),
 		store.ContextLoaderFactory(nil),
 		nil,
 		"",

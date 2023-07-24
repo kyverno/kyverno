@@ -26,7 +26,7 @@ func New(options ...Option) (Client, error) {
 	return cache, nil
 }
 
-func DisabledImageVerfiyCache() Client {
+func DisabledImageVerifyCache() Client {
 	return &cache{
 		logger:         logr.Discard(),
 		isCacheEnabled: false,

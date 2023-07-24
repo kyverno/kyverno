@@ -1061,7 +1061,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 		jp,
 		nil,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
-		imageverifycache.DisabledImageVerfiyCache(),
+		imageverifycache.DisabledImageVerifyCache(),
 		factories.DefaultContextLoaderFactory(nil),
 		nil,
 		"",

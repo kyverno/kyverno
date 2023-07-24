@@ -185,7 +185,7 @@ func testVerifyAndPatchImages(
 		jp,
 		nil,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
-		imageverifycache.DisabledImageVerfiyCache(),
+		imageverifycache.DisabledImageVerifyCache(),
 		factories.DefaultContextLoaderFactory(cmResolver),
 		nil,
 		"",

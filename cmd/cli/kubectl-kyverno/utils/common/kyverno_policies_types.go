@@ -120,7 +120,7 @@ OuterLoop:
 		jmespath.New(cfg),
 		adapters.Client(c.Client),
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
-		imageverifycache.DisabledImageVerfiyCache(),
+		imageverifycache.DisabledImageVerifyCache(),
 		store.ContextLoaderFactory(nil),
 		nil,
 		"",

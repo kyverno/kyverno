@@ -131,7 +131,7 @@ func (h *handlers) executePolicy(
 		h.jp,
 		h.client,
 		nil,
-		imageverifycache.DisabledImageVerfiyCache(),
+		imageverifycache.DisabledImageVerifyCache(),
 		spec.Context,
 		enginectx,
 	); err != nil {

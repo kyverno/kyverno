@@ -39,7 +39,7 @@ func testMutate(
 		jp,
 		adapters.Client(client),
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
-		imageverifycache.DisabledImageVerfiyCache(),
+		imageverifycache.DisabledImageVerifyCache(),
 		contextLoader,
 		nil,
 		"",
