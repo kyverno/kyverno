@@ -29,6 +29,11 @@
             "program": "${workspaceFolder}/cmd/reports-controller",
             "args": [
                 "--kubeconfig=${userHome}/.kube/config",
+                "--admissionReports=false",
+                "--policyReports=false",
+                "--omit-events=PolicyViolation,PolicyApplied,PolicyError,PolicySkipped",
+                "--backgroundScan=true",
+                "--backgroundScanInterval=1m",
             ],
             "env": {                 
                 "KYVERNO_NAMESPACE": "kyverno",

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
@@ -37,6 +38,7 @@ func createReportControllers(
 	backgroundScan bool,
 	admissionReports bool,
 	aggregateReports bool,
+	policyReports bool,
 	reportsChunkSize int,
 	backgroundScanWorkers int,
 	client dclient.Interface,
@@ -48,6 +50,7 @@ func createReportControllers(
 	configuration config.Configuration,
 	jp jmespath.Interface,
 	eventGenerator event.Interface,
+	logger logr.Logger,
 ) ([]internal.Controller, func(context.Context) error) {
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
@@ -107,6 +110,7 @@ func createReportControllers(
 					configuration,
 					jp,
 					eventGenerator,
+					policyReports,
 				),
 				backgroundScanWorkers,
 			))
@@ -127,6 +131,7 @@ func createrLeaderControllers(
 	backgroundScan bool,
 	admissionReports bool,
 	aggregateReports bool,
+	policyReports bool,
 	reportsChunkSize int,
 	backgroundScanWorkers int,
 	kubeInformer kubeinformers.SharedInformerFactory,
@@ -138,12 +143,14 @@ func createrLeaderControllers(
 	jp jmespath.Interface,
 	eventGenerator event.Interface,
 	backgroundScanInterval time.Duration,
+	logger logr.Logger,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	reportControllers, warmup := createReportControllers(
 		eng,
 		backgroundScan,
 		admissionReports,
 		aggregateReports,
+		policyReports,
 		reportsChunkSize,
 		backgroundScanWorkers,
 		dynamicClient,
@@ -155,6 +162,7 @@ func createrLeaderControllers(
 		configuration,
 		jp,
 		eventGenerator,
+		logger,
 	)
 	return reportControllers, warmup, nil
 }
@@ -164,6 +172,7 @@ func main() {
 		backgroundScan         bool
 		admissionReports       bool
 		aggregateReports       bool
+		policyReports          bool
 		reportsChunkSize       int
 		backgroundScanWorkers  int
 		backgroundScanInterval time.Duration
@@ -175,6 +184,7 @@ func main() {
 	flagset.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable background scan.")
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flagset.BoolVar(&aggregateReports, "aggregateReports", true, "Enable or disable aggregated policy reports.")
+	flagset.BoolVar(&policyReports, "policyReports", true, "Enable or disable policy reports.")
 	flagset.IntVar(&reportsChunkSize, "reportsChunkSize", 1000, "Max number of results in generated reports, reports will be split accordingly if there are more results to be stored.")
 	flagset.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
 	flagset.DurationVar(&backgroundScanInterval, "backgroundScanInterval", time.Hour, "Configure background scan interval.")
@@ -268,6 +278,7 @@ func main() {
 				backgroundScan,
 				admissionReports,
 				aggregateReports,
+				policyReports,
 				reportsChunkSize,
 				backgroundScanWorkers,
 				kubeInformer,
@@ -279,6 +290,7 @@ func main() {
 				setup.Jp,
 				eventGenerator,
 				backgroundScanInterval,
+				setup.Logger,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create leader controllers")
