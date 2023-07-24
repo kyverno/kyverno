@@ -39,7 +39,7 @@ func testValidate(
 		jp,
 		nil,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
-		imageverifycache.DisabledImageVerfiyCache(),
+		imageverifycache.DisabledImageVerifyCache(),
 		contextLoader,
 		nil,
 		"",
