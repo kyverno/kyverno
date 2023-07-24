@@ -107,9 +107,9 @@ func initRegistryClientFlags() {
 }
 
 func initImageVerifyCacheFlags() {
-	flag.BoolVar(&imageVerifyCacheEnabled, "imageVerifyCacheEnabled", true, "Whether to use a TTL cache for storing verified images")
-	flag.Int64Var(&imageVerifyCacheMaxSize, "imageVerifyCacheMaxSize", 0, "Max size limit for the TTL cache, 0 means no size limit")
-	flag.Int64Var(&imageVerifyCacheTTLDuration, "imageVerifyCacheTTLDuration", 0, "Max TTL value for a cache, 0 means no TTL")
+	flag.BoolVar(&imageVerifyCacheEnabled, "imageVerifyCacheEnabled", true, "Whether to use a TTL cache for storing verified images.")
+	flag.Int64Var(&imageVerifyCacheMaxSize, "imageVerifyCacheMaxSize", 0, "Max size limit for the TTL cache, 0 means no size limit.")
+	flag.Int64Var(&imageVerifyCacheTTLDuration, "imageVerifyCacheTTLDuration", 0, "Max TTL value for a cache, 0 means no TTL.")
 }
 
 func initLeaderElectionFlags() {
