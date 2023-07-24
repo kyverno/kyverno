@@ -134,48 +134,54 @@ func NewResourceGenerationEvent(policy, rule string, source Source, resource kyv
 		Source:    source,
 		Reason:    PolicyApplied,
 		Message:   msg,
+		Action:    None,
 	}
 }
 
-func NewBackgroundFailedEvent(err error, policy, rule string, source Source, r *unstructured.Unstructured) []Info {
-	if r == nil {
-		return nil
-	}
-
+func NewBackgroundFailedEvent(err error, policy kyvernov1.PolicyInterface, rule string, source Source, resource kyvernov1.ResourceSpec) []Info {
 	var events []Info
 	events = append(events, Info{
-		Kind:      r.GetKind(),
-		Namespace: r.GetNamespace(),
-		Name:      r.GetName(),
-		Source:    source,
-		Reason:    PolicyError,
-		Message:   fmt.Sprintf("policy %s/%s error: %v", policy, rule, err),
-		Action:    "None",
+		Kind:              policy.GetKind(),
+		Namespace:         policy.GetNamespace(),
+		Name:              policy.GetName(),
+		RelatedAPIVersion: resource.GetAPIVersion(),
+		RelatedKind:       resource.GetKind(),
+		RelatedNamespace:  resource.GetNamespace(),
+		RelatedName:       resource.GetName(),
+		Source:            source,
+		Reason:            PolicyError,
+		Message:           fmt.Sprintf("policy %s/%s error: %v", policy.GetName(), rule, err),
+		Action:            None,
 	})
 
 	return events
 }
 
-func NewBackgroundSuccessEvent(policy, rule string, source Source, r *unstructured.Unstructured) []Info {
-	if r == nil {
-		return nil
-	}
-
+func NewBackgroundSuccessEvent(source Source, policy kyvernov1.PolicyInterface, resources []kyvernov1.ResourceSpec) []Info {
 	var events []Info
 	msg := "resource generated"
+	action := ResourceGenerated
 
 	if source == MutateExistingController {
 		msg = "resource mutated"
+		action = ResourceMutated
 	}
 
-	events = append(events, Info{
-		Kind:      r.GetKind(),
-		Namespace: r.GetNamespace(),
-		Name:      r.GetName(),
-		Source:    source,
-		Reason:    PolicyApplied,
-		Message:   msg,
-	})
+	for _, res := range resources {
+		events = append(events, Info{
+			Kind:              policy.GetKind(),
+			Namespace:         policy.GetNamespace(),
+			Name:              policy.GetName(),
+			RelatedAPIVersion: res.GetAPIVersion(),
+			RelatedKind:       res.GetKind(),
+			RelatedNamespace:  res.GetNamespace(),
+			RelatedName:       res.GetName(),
+			Source:            source,
+			Reason:            PolicyApplied,
+			Message:           msg,
+			Action:            action,
+		})
+	}
 
 	return events
 }
