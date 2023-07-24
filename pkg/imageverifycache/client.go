@@ -2,8 +2,6 @@ package imageverifycache
 
 import (
 	"context"
-
-	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 )
 
 type cache struct {
@@ -14,7 +12,7 @@ type cache struct {
 
 type Option = func(*cache) error
 
-func New(options ...Option) (engineapi.ImageVerifyCacheClient, error) {
+func New(options ...Option) (Client, error) {
 	cache := &cache{}
 	for _, opt := range options {
 		if err := opt(cache); err != nil {

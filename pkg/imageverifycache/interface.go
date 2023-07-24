@@ -1,8 +1,8 @@
-package api
+package imageverifycache
 
 import "context"
 
-type ImageVerifyCacheClient interface {
+type Client interface {
 	// Set Adds an image to the cache. The image is considered to be verified for the given rule in the policy
 	// The entry outomatically expires after sometime
 	// Returns true when the cache entry is added
