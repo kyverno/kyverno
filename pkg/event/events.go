@@ -207,7 +207,7 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 		Reason:            PolicySkipped,
 		Message:           policyMessage,
 		Source:            source,
-		Action:            ResourceSkipped,
+		Action:            ResourcePassed,
 	}
 	exceptionEvent := Info{
 		Kind:              "PolicyException",
@@ -220,7 +220,7 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 		Reason:            PolicySkipped,
 		Message:           exceptionMessage,
 		Source:            source,
-		Action:            ResourceSkipped,
+		Action:            ResourcePassed,
 	}
 	return []Info{policyEvent, exceptionEvent}
 }
