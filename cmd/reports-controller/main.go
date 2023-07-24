@@ -50,7 +50,6 @@ func createReportControllers(
 	configuration config.Configuration,
 	jp jmespath.Interface,
 	eventGenerator event.Interface,
-	logger logr.Logger,
 ) ([]internal.Controller, func(context.Context) error) {
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
@@ -162,7 +161,6 @@ func createrLeaderControllers(
 		configuration,
 		jp,
 		eventGenerator,
-		logger,
 	)
 	return reportControllers, warmup, nil
 }
