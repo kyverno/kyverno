@@ -26,7 +26,7 @@ func Test_Validate_PatchStrategicMerge_Has_Conditional_Anchors(t *testing.T) {
 	var mutation kyvernov1.Mutation
 	err := json.Unmarshal(rawPolicy, &mutation)
 	assert.NilError(t, err)
-	
+
 	checker := NewFakeMutate(mutation)
 	if _, err := checker.Validate(context.TODO()); err != nil {
 		assert.Assert(t, err != nil)
