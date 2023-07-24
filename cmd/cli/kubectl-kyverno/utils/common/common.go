@@ -27,6 +27,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
+	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/logging"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -790,6 +791,7 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 		jmespath.New(cfg),
 		adapters.Client(client),
 		nil,
+		imageverifycache.DisabledImageVerfiyCache(),
 		store.ContextLoaderFactory(nil),
 		nil,
 		"",

@@ -45,6 +45,7 @@ func NewEngine(
 		jp,
 		adapters.Client(client),
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), secretLister),
+		ivCache,
 		factories.DefaultContextLoaderFactory(configMapResolver),
 		exceptionsSelector,
 		imageSignatureRepository,

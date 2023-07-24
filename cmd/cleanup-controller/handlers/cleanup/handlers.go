@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"github.com/kyverno/kyverno/pkg/utils/match"
@@ -130,6 +131,7 @@ func (h *handlers) executePolicy(
 		h.jp,
 		h.client,
 		nil,
+		imageverifycache.DisabledImageVerfiyCache(),
 		spec.Context,
 		enginectx,
 	); err != nil {
