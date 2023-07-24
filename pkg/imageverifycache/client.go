@@ -10,7 +10,7 @@ type cache struct {
 	logger         logr.Logger
 	isCacheEnabled bool
 	maxSize        int64
-	TTL            int64
+	ttl            int64
 }
 
 type Option = func(*cache) error
@@ -31,7 +31,7 @@ func DisabledImageVerifyCache() Client {
 		logger:         logr.Discard(),
 		isCacheEnabled: false,
 		maxSize:        0,
-		TTL:            0,
+		ttl:            0,
 	}
 }
 
@@ -58,7 +58,7 @@ func WithMaxSize(s int64) Option {
 
 func WithTTLDuration(t int64) Option {
 	return func(c *cache) error {
-		c.TTL = t
+		c.ttl = t
 		return nil
 	}
 }
