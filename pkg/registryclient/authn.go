@@ -60,7 +60,7 @@ func (azurekeychain) Resolve(resource authn.Resource) (authn.Authenticator, erro
 
 	ref, err := name.ParseReference(resource.String())
 	if err != nil {
-		return nil, err
+		return authn.Anonymous, nil
 	}
 
 	azClient := azure.NewClient()
