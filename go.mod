@@ -30,7 +30,7 @@ require (
 	github.com/notaryproject/notation-core-go v1.0.0
 	github.com/notaryproject/notation-go v1.0.0-rc.6
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.27.9
+	github.com/onsi/gomega v1.27.10
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0-rc3
 	github.com/orcaman/concurrent-map/v2 v2.0.1
