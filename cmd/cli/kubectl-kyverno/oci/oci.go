@@ -3,7 +3,6 @@ package oci
 import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/authn/github"
-	"github.com/google/go-containerregistry/pkg/v1/google"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/spf13/cobra"
@@ -20,7 +19,6 @@ const (
 var (
 	keychain = authn.NewMultiKeychain(
 		authn.DefaultKeychain,
-		google.Keychain,
 		github.Keychain,
 		registryclient.AWSKeychain,
 		registryclient.GCPKeychain,
