@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
@@ -142,7 +141,6 @@ func createrLeaderControllers(
 	jp jmespath.Interface,
 	eventGenerator event.Interface,
 	backgroundScanInterval time.Duration,
-	logger logr.Logger,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	reportControllers, warmup := createReportControllers(
 		eng,
@@ -288,7 +286,6 @@ func main() {
 				setup.Jp,
 				eventGenerator,
 				backgroundScanInterval,
-				setup.Logger,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create leader controllers")
