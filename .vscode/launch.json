@@ -9,7 +9,7 @@
             "program": "${workspaceFolder}/cmd/kyverno",
             "args": [
                 "--kubeconfig=${userHome}/.kube/config",
-                "--serverIP=<SERVER-IP>:9443",
+                "--serverIP=192.168.1.36:9443",
                 "-v=2",
             ],
             "env": {
@@ -65,7 +65,7 @@
             "program": "${workspaceFolder}/cmd/cleanup-controller",
             "args": [
                 "--kubeconfig=${userHome}/.kube/config",
-                "--serverIP=<SERVER-IP>:9443",
+                "--serverIP=192.168.1.36:9443",
             ],
             "env": {                 
                 "KYVERNO_NAMESPACE": "kyverno",
