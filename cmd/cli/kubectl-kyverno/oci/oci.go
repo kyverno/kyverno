@@ -1,14 +1,11 @@
 package oci
 
 import (
-	"io"
-
-	"github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
-	"github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/authn/github"
 	"github.com/google/go-containerregistry/pkg/v1/google"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/spf13/cobra"
 )
 
@@ -21,14 +18,13 @@ const (
 )
 
 var (
-	amazonKeychain = authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard)))
-	azureKeychain  = authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper())
-	keychain       = authn.NewMultiKeychain(
+	keychain = authn.NewMultiKeychain(
 		authn.DefaultKeychain,
 		google.Keychain,
 		github.Keychain,
-		amazonKeychain,
-		azureKeychain,
+		registryclient.AWSKeychain,
+		registryclient.GCPKeychain,
+		registryclient.AzureKeychain,
 	)
 	imageRef string
 )
