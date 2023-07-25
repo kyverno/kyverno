@@ -115,7 +115,7 @@ func NewController(
 	controllerutils.AddDefaultEventHandlers(logger, cbgscanr.Informer(), queue)
 	controllerutils.AddEventHandlersT(polInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
 	controllerutils.AddEventHandlersT(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
-	controllerutils.AddEventHandlersT(vapInformer.Informer(), c.addVap, c.updateVap, c.deleteVap)
+	controllerutils.AddEventHandlersT(vapInformer.Informer(), c.addValidatingAdmissionPolicy, c.updateValidatingAdmissionPolicy, c.deleteValidatingAdmissionPolicy)
 	c.metadataCache.AddEventHandler(func(eventType resource.EventType, uid types.UID, _ schema.GroupVersionKind, res resource.Resource) {
 		// if it's a deletion, nothing to do
 		if eventType == resource.Deleted {
@@ -149,17 +149,17 @@ func (c *controller) deletePolicy(obj kyvernov1.PolicyInterface) {
 	c.enqueueResources()
 }
 
-func (c *controller) addVap(obj v1alpha1.ValidatingAdmissionPolicy) {
+func (c *controller) addValidatingAdmissionPolicy(obj v1alpha1.ValidatingAdmissionPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateVap(old, obj v1alpha1.ValidatingAdmissionPolicy) {
+func (c *controller) updateValidatingAdmissionPolicy(old, obj v1alpha1.ValidatingAdmissionPolicy) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteVap(obj v1alpha1.ValidatingAdmissionPolicy) {
+func (c *controller) deleteValidatingAdmissionPolicy(obj v1alpha1.ValidatingAdmissionPolicy) {
 	c.enqueueResources()
 }
 
@@ -256,7 +256,6 @@ func (c *controller) reconcileReport(
 	gvk schema.GroupVersionKind,
 	resource resource.Resource,
 	backgroundPolicies ...kyvernov1.PolicyInterface,
-	// backgroundPolicies ...v1alpha1.ValidatingAdmissionPolicy,
 ) error {
 	// namespace labels to be used by the scanner
 	var nsLabels map[string]string

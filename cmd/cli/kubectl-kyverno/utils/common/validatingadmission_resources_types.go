@@ -22,7 +22,7 @@ func (r *ValidatingAdmissionResources) FetchResourcesFromPolicy(resourcePaths []
 
 	for _, policy := range r.policies {
 		var resourceTypesInRule map[schema.GroupVersionKind]bool
-		resourceTypesInRule, subresourceMap = getKindsFromVAP(policy, dClient)
+		resourceTypesInRule, subresourceMap = getKindsFromValidatingAdmissionPolicy(policy, dClient)
 		if err != nil {
 			return resources, err
 		}

@@ -65,9 +65,9 @@ type controller struct {
 }
 
 type policyMapEntry struct {
-	policy kyvernov1.PolicyInterface
-	vap    v1alpha1.ValidatingAdmissionPolicy
-	rules  sets.Set[string]
+	policy                     kyvernov1.PolicyInterface
+	validatingadmissionpolicy  v1alpha1.ValidatingAdmissionPolicy
+	rules                      sets.Set[string]
 }
 
 func keyFunc(obj metav1.Object) cache.ExplicitKey {
@@ -331,9 +331,9 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 		if err != nil {
 			return nil, err
 		}
-		results[key] = policyMapEntry{
-			vap:    *vap,
-			rules:  sets.New[string](),
+		results[key] = policyMapEntry {
+			validatingadmissionpolicy:   *vap,
+			rules:                       sets.New[string](),
 		}
 		for _, rule := range vap.Spec.MatchConstraints.ResourceRules {
 			results[key].rules.Insert(rule.ResourceNames...)
