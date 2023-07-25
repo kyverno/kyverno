@@ -97,31 +97,39 @@ func (m *Mutate) validatePatchStrategicMerge(psm apiextensions.JSON) error {
 	if err := json.Unmarshal(patchStrategicMergeJson, &patchStrategicMergeJsonDecoded); err != nil {
 		return err
 	}
-	spec := patchStrategicMergeJsonDecoded["spec"].(map[string]interface{})
-	for k := range spec {
-		fmt.Println(k)
-		if k == "containers" {
-			_, ok := spec["containers"].([]interface{})
-			if !ok {
-				return fmt.Errorf("containers field in patchStrategicMerge is not of array type")
-			}
+	isSpecPresent := false
+	for k := range patchStrategicMergeJsonDecoded {
+		if k == "spec" {
+			isSpecPresent = true
+			break
 		}
-		if k == "template" {
-			template := spec["template"].(map[string]interface{})
-			spec := template["spec"].(map[string]interface{})
-			_, ok := spec["containers"].([]interface{})
-			if !ok {
-				return fmt.Errorf("containers field in patchStrategicMerge is not of array type")
+	}
+	if isSpecPresent {
+		spec := patchStrategicMergeJsonDecoded["spec"].(map[string]interface{})
+		for k := range spec {
+			if k == "containers" {
+				_, ok := spec["containers"].([]interface{})
+				if !ok {
+					return fmt.Errorf("containers field in patchStrategicMerge is not of array type")
+				}
 			}
-		}
-		if k == "jobTemplate" {
-			jobTemplate := spec["jobTemplate"].(map[string]interface{})
-			spec := jobTemplate["spec"].(map[string]interface{})
-			template := spec["template"].(map[string]interface{})
-			spec = template["spec"].(map[string]interface{})
-			_, ok := spec["containers"].([]interface{})
-			if !ok {
-				return fmt.Errorf("containers field in patchStrategicMerge is not of array type")
+			if k == "template" {
+				template := spec["template"].(map[string]interface{})
+				spec := template["spec"].(map[string]interface{})
+				_, ok := spec["containers"].([]interface{})
+				if !ok {
+					return fmt.Errorf("containers field in patchStrategicMerge is not of array type")
+				}
+			}
+			if k == "jobTemplate" {
+				jobTemplate := spec["jobTemplate"].(map[string]interface{})
+				spec := jobTemplate["spec"].(map[string]interface{})
+				template := spec["template"].(map[string]interface{})
+				spec = template["spec"].(map[string]interface{})
+				_, ok := spec["containers"].([]interface{})
+				if !ok {
+					return fmt.Errorf("containers field in patchStrategicMerge is not of array type")
+				}
 			}
 		}
 	}
