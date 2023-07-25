@@ -19,7 +19,6 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/logging"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -68,9 +67,6 @@ type controller struct {
 	jp            jmespath.Interface
 	eventGen      event.Interface
 	policyReports bool
-
-	// logger for reports output
-	reportsLogger logr.Logger
 }
 
 func NewController(
@@ -107,7 +103,6 @@ func NewController(
 		jp:             jp,
 		eventGen:       eventGen,
 		policyReports:  policyReports,
-		reportsLogger:  logging.GlobalLogger().WithName("backgroundScan"),
 	}
 	controllerutils.AddDefaultEventHandlers(logger, bgscanr.Informer(), queue)
 	controllerutils.AddDefaultEventHandlers(logger, cbgscanr.Informer(), queue)
@@ -313,8 +308,6 @@ func (c *controller) reconcileReport(
 	}
 	if c.policyReports {
 		return c.storeReport(ctx, observed, desired)
-	} else {
-		c.reportsLogger.V(2).Info("background policy report", "report", desired)
 	}
 	return nil
 }
