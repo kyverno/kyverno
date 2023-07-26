@@ -116,9 +116,13 @@ func (m *Mutate) validatePatchStrategicMerge(psm apiextensions.JSON) error {
 			if k == "template" {
 				template := spec["template"].(map[string]interface{})
 				spec := template["spec"].(map[string]interface{})
-				_, ok := spec["containers"].([]interface{})
-				if !ok {
-					return fmt.Errorf("containers field in patchStrategicMerge is not of array type")
+				for k := range spec {
+					if k == "containers" {
+						_, ok := spec["containers"].([]interface{})
+						if !ok {
+							return fmt.Errorf("containers field in patchStrategicMerge is not of array type")
+						}
+					}
 				}
 			}
 			if k == "jobTemplate" {
@@ -126,9 +130,13 @@ func (m *Mutate) validatePatchStrategicMerge(psm apiextensions.JSON) error {
 				spec := jobTemplate["spec"].(map[string]interface{})
 				template := spec["template"].(map[string]interface{})
 				spec = template["spec"].(map[string]interface{})
-				_, ok := spec["containers"].([]interface{})
-				if !ok {
-					return fmt.Errorf("containers field in patchStrategicMerge is not of array type")
+				for k := range spec {
+					if k == "containers" {
+						_, ok := spec["containers"].([]interface{})
+						if !ok {
+							return fmt.Errorf("containers field in patchStrategicMerge is not of array type")
+						}
+					}
 				}
 			}
 		}
