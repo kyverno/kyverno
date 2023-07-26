@@ -110,6 +110,7 @@ spec:
             {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.reportsController.featuresOverride)
               "admissionReports"
               "aggregateReports"
+              "policyReports"
               "backgroundScan"
               "configMapCaching"
               "deferredLoading"
