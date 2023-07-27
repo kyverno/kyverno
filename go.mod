@@ -326,4 +326,7 @@ replace (
 	github.com/jmespath/go-jmespath => github.com/kyverno/go-jmespath v0.4.1-0.20210511164400-a1d46efa2ed6
 	github.com/opencontainers/image-spec => github.com/opencontainers/image-spec v1.0.2
 	github.com/sigstore/cosign => github.com/nirmata/cosign v1.13.2-0.20230726092108-615d4da057d8
+	go.opentelemetry.io/otel => go.opentelemetry.io/otel v1.11.2
+	go.opentelemetry.io/otel/sdk => go.opentelemetry.io/otel/sdk v1.11.2
+	go.opentelemetry.io/otel/trace => go.opentelemetry.io/otel/trace v1.11.2
 )
