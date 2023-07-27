@@ -26,7 +26,7 @@ func setupRegistryClient(ctx context.Context, logger logr.Logger, client kuberne
 		if !StartInformersAndWaitForCacheSync(ctx, logger, factory) {
 			checkError(logger, errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		}
-		registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(ctx, secretLister, secrets...))
+		registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(secretLister, secrets...))
 	}
 	if allowInsecureRegistry {
 		registryOptions = append(registryOptions, registryclient.WithAllowInsecureRegistry())
