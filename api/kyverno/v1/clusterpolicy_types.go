@@ -114,7 +114,7 @@ func (p *ClusterPolicy) ValidateSchema() bool {
 func (p *ClusterPolicy) Validate(clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, ValidateAutogenAnnotation(field.NewPath("metadata").Child("annotations"), p.GetAnnotations())...)
 	errs = append(errs, ValidatePolicyName(field.NewPath("name"), p.Name)...)
-	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), p.IsNamespaced(), p.Namespace, clusterResources)...)
+	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), p.IsNamespaced(), p.GetNamespace(), clusterResources)...)
 	return errs
 }
 
