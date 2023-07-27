@@ -346,6 +346,9 @@ features:
   admissionReports:
     # -- Enables the feature
     enabled: true
+  policyReports:
+    # -- Enables the feature
+    enabled: true
   autoUpdateWebhooks:
     # -- Enables the feature
     enabled: true

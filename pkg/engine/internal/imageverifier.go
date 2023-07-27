@@ -57,11 +57,31 @@ func HasImageVerifiedAnnotationChanged(ctx engineapi.PolicyContext, log logr.Log
 	}
 	newValue := newResource.GetAnnotations()[engineapi.ImageVerifyAnnotationKey]
 	oldValue := oldResource.GetAnnotations()[engineapi.ImageVerifyAnnotationKey]
-	result := newValue != oldValue
-	if result {
-		log.V(2).Info("annotation mismatch", "oldValue", oldValue, "newValue", newValue, "key", engineapi.ImageVerifyAnnotationKey)
+	if newValue == oldValue {
+		return false
 	}
-	return result
+	var newValueObj, oldValueObj map[string]bool
+	err := json.Unmarshal([]byte(newValue), &newValueObj)
+	if err != nil {
+		log.Error(err, "failed to parse new resource annotation.")
+		return true
+	}
+	err = json.Unmarshal([]byte(oldValue), &oldValueObj)
+	if err != nil {
+		log.Error(err, "failed to parse old resource annotation.")
+		return true
+	}
+	for img := range oldValueObj {
+		_, found := newValueObj[img]
+		if found {
+			result := newValueObj[img] != oldValueObj[img]
+			if result {
+				log.V(2).Info("annotation mismatch", "oldValue", oldValue, "newValue", newValue, "key", engineapi.ImageVerifyAnnotationKey)
+				return result
+			}
+		}
+	}
+	return false
 }
 
 func matchImageReferences(imageReferences []string, image string) bool {
