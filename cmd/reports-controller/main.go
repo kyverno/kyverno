@@ -37,6 +37,7 @@ func createReportControllers(
 	eng engineapi.Engine,
 	backgroundScan bool,
 	admissionReports bool,
+	policyReports bool,
 	reportsChunkSize int,
 	backgroundScanWorkers int,
 	client dclient.Interface,
@@ -106,6 +107,7 @@ func createReportControllers(
 					configuration,
 					jp,
 					eventGenerator,
+					policyReports,
 				),
 				backgroundScanWorkers,
 			))
@@ -125,6 +127,7 @@ func createrLeaderControllers(
 	eng engineapi.Engine,
 	backgroundScan bool,
 	admissionReports bool,
+	policyReports bool,
 	reportsChunkSize int,
 	backgroundScanWorkers int,
 	kubeInformer kubeinformers.SharedInformerFactory,
@@ -142,6 +145,7 @@ func createrLeaderControllers(
 		eng,
 		backgroundScan,
 		admissionReports,
+		policyReports,
 		reportsChunkSize,
 		backgroundScanWorkers,
 		dynamicClient,
@@ -162,6 +166,7 @@ func main() {
 	var (
 		backgroundScan         bool
 		admissionReports       bool
+		policyReports          bool
 		reportsChunkSize       int
 		backgroundScanWorkers  int
 		backgroundScanInterval time.Duration
@@ -172,6 +177,7 @@ func main() {
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
 	flagset.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable background scan.")
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
+	flagset.BoolVar(&policyReports, "policyReports", true, "Enable or disable policy reports.")
 	flagset.IntVar(&reportsChunkSize, "reportsChunkSize", 1000, "Max number of results in generated reports, reports will be split accordingly if there are more results to be stored.")
 	flagset.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
 	flagset.DurationVar(&backgroundScanInterval, "backgroundScanInterval", time.Hour, "Configure background scan interval.")
@@ -263,6 +269,7 @@ func main() {
 				engine,
 				backgroundScan,
 				admissionReports,
+				policyReports,
 				reportsChunkSize,
 				backgroundScanWorkers,
 				kubeInformer,
