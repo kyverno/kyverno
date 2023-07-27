@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Event
+metadata:
+  namespace: default
+involvedObject:
+  apiVersion: kyverno.io/v1
+  kind: ClusterPolicy
+  name: rbac-policy
+source:
+  component: kyverno-generate

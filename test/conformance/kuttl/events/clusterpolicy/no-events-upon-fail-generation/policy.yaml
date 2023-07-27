@@ -1,0 +1,25 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: rbac-policy
+spec:
+  rules:
+    - name: rbac-rule
+      generate:
+        apiVersion: iam.aws.crossplane.io/v1beta1
+        data:
+          rules:
+            - verbs:
+                - "*"
+              apiGroups:
+                - "*"
+              resources:
+                - "*"
+        kind: Role
+        name: superuser
+        synchronize: true
+      match:
+        any:
+        - resources:
+            kinds:
+            - Namespace
