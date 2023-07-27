@@ -652,7 +652,7 @@ func buildPolicyResults(
 						continue
 					}
 
-					ann := resp.Policy.GetAnnotations()
+					ann := resp.Policy().GetAnnotations()
 					if rule.Status() == engineapi.RuleStatusSkip {
 						result.Result = policyreportv1alpha2.StatusSkip
 					} else if rule.Status() == engineapi.RuleStatusError {
