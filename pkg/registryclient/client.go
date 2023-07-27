@@ -122,7 +122,7 @@ func WithKeychainPullSecrets(lister corev1listers.SecretNamespaceLister, imagePu
 	}
 }
 
-// WithKeychainPullSecrets provides initialize registry client option that allows to use insecure registries.
+// WithCredentialProviders initialize registry client option by using registries credentials
 func WithCredentialProviders(credentialProviders ...string) Option {
 	return func(c *config) error {
 		var chains []authn.Keychain
@@ -147,7 +147,7 @@ func WithCredentialProviders(credentialProviders ...string) Option {
 	}
 }
 
-// WithKeychainPullSecrets provides initialize registry client option that allows to use insecure registries.
+// WithAllowInsecureRegistry initialize registry client option that allows to use insecure registries.
 func WithAllowInsecureRegistry() Option {
 	return func(c *config) error {
 		c.transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec
