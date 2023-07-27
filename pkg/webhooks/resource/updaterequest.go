@@ -55,8 +55,17 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 	if failedResponse := applyUpdateRequest(ctx, request, kyvernov1beta1.Mutate, h.urGenerator, policyContext.AdmissionInfo(), request.Operation, engineResponses...); failedResponse != nil {
 		for _, failedUR := range failedResponse {
 			err := fmt.Errorf("failed to create update request: %v", failedUR.err)
+
+			var policy kyvernov1.PolicyInterface
+			for _, pol := range policies {
+				if pol.GetName() != failedUR.ur.Policy {
+					continue
+				}
+				policy = pol
+			}
 			resource := policyContext.NewResource()
-			events := event.NewBackgroundFailedEvent(err, failedUR.ur.Policy, "", event.GeneratePolicyController, &resource)
+			events := event.NewBackgroundFailedEvent(err, policy, "", event.GeneratePolicyController,
+				kyvernov1.ResourceSpec{Kind: resource.GetKind(), Namespace: resource.GetNamespace(), Name: resource.GetName()})
 			h.eventGen.Add(events...)
 		}
 	}

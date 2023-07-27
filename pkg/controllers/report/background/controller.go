@@ -63,9 +63,10 @@ type controller struct {
 	forceDelay    time.Duration
 
 	// config
-	config   config.Configuration
-	jp       jmespath.Interface
-	eventGen event.Interface
+	config        config.Configuration
+	jp            jmespath.Interface
+	eventGen      event.Interface
+	policyReports bool
 }
 
 func NewController(
@@ -81,6 +82,7 @@ func NewController(
 	config config.Configuration,
 	jp jmespath.Interface,
 	eventGen event.Interface,
+	policyReports bool,
 ) controllers.Controller {
 	bgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("backgroundscanreports"))
 	cbgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
@@ -100,6 +102,7 @@ func NewController(
 		config:         config,
 		jp:             jp,
 		eventGen:       eventGen,
+		policyReports:  policyReports,
 	}
 	controllerutils.AddDefaultEventHandlers(logger, bgscanr.Informer(), queue)
 	controllerutils.AddDefaultEventHandlers(logger, cbgscanr.Informer(), queue)
@@ -303,7 +306,14 @@ func (c *controller) reconcileReport(
 	if full || !controllerutils.HasAnnotation(desired, annotationLastScanTime) {
 		controllerutils.SetAnnotation(desired, annotationLastScanTime, time.Now().Format(time.RFC3339))
 	}
-	// store report
+	if c.policyReports {
+		return c.storeReport(ctx, observed, desired)
+	}
+	return nil
+}
+
+func (c *controller) storeReport(ctx context.Context, observed, desired kyvernov1alpha2.ReportInterface) error {
+	var err error
 	hasReport := observed.GetResourceVersion() != ""
 	wantsReport := desired != nil && len(desired.GetResults()) != 0
 	if !hasReport && !wantsReport {
