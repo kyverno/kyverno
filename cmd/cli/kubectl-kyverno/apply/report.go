@@ -77,7 +77,7 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 
 	for _, engineResponse := range engineResponses {
-		policy := engineResponse.Policy
+		policy := engineResponse.Policy()
 		var appname string
 		ns := policy.GetNamespace()
 		if ns != "" {
@@ -105,7 +105,7 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 				Scored: true,
 			}
 
-			ann := engineResponse.Policy.GetAnnotations()
+			ann := engineResponse.Policy().GetAnnotations()
 			if ruleResponse.Status() == engineapi.RuleStatusSkip {
 				result.Result = policyreportv1alpha2.StatusSkip
 			} else if ruleResponse.Status() == engineapi.RuleStatusError {
