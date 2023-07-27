@@ -45,7 +45,7 @@ rules:
     resources:
       - deployments
       {{- if .Values.webhooksCleanup.enabled }}
-      {{- if not .Values.templating.enabled -}}
+      {{- if not .Values.templating.enabled }}
       - deployments/scale
       {{- end }}
       {{- end }}
@@ -54,7 +54,7 @@ rules:
       - list
       - watch
       {{- if .Values.webhooksCleanup.enabled }}
-      {{- if not .Values.templating.enabled -}}
+      {{- if not .Values.templating.enabled }}
       - patch
       - update
       {{- end }}
