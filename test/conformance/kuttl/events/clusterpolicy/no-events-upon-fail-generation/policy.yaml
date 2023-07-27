@@ -17,7 +17,6 @@ spec:
                 - "*"
         kind: Role
         name: superuser
-        namespace: "{{request.object.metadata.name}}"
         synchronize: true
       match:
         any:

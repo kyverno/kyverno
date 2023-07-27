@@ -261,7 +261,12 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 			c.eventGen.Add(e)
 		}
 
-		unstructuredPol := kubeutils.NewUnstructured("kyverno.io/v1", policy.GetKind(), policy.GetNamespace(), policy.GetName())
+		kind := "ClusterPolicy"
+		if policy.IsNamespaced() {
+			kind = "Policy"
+		}
+
+		unstructuredPol := kubeutils.NewUnstructured("kyverno.io/v1", kind, policy.GetNamespace(), policy.GetName())
 		e := event.NewBackgroundSuccessEvent(ur.Spec.Policy, ur.Spec.Rule, event.GeneratePolicyController, unstructuredPol)
 		c.eventGen.Add(e...)
 	}
