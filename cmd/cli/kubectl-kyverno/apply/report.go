@@ -10,6 +10,7 @@ import (
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -80,6 +81,7 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 		policy := engineResponse.Policy()
 		var appname string
 		ns := policy.GetNamespace()
+		ann := policy.GetAnnotations()
 		if ns != "" {
 			appname = fmt.Sprintf("policyreport-ns-%s", ns)
 		} else {
@@ -103,8 +105,8 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 					},
 				},
 				Scored:   true,
-				Category: ann[kyverno.AnnotationPolicyCategory],
-				Severity: reportutils.SeverityFromString(ann[kyverno.AnnotationPolicySeverity]),
+				Category: ann[kyvernov1.AnnotationPolicyCategory],
+				Severity: reportutils.SeverityFromString(ann[kyvernov1.AnnotationPolicySeverity]),
 			}
 
 			ann := engineResponse.Policy().GetAnnotations()
