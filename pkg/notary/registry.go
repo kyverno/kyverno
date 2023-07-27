@@ -54,10 +54,6 @@ func (ir *imageResource) RegistryStr() string {
 }
 
 func getAuthClient(ctx context.Context, ref registry.Reference, rc registryclient.Client) (*auth.Client, bool, error) {
-	if err := rc.RefreshKeychainPullSecrets(ctx); err != nil {
-		return nil, false, errors.Wrapf(err, "failed to refresh image pull secrets")
-	}
-
 	authn, err := rc.Keychain().Resolve(&imageResource{ref})
 	if err != nil {
 		return nil, false, errors.Wrapf(err, "failed to resolve auth for %s", ref.String())
