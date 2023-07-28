@@ -57,6 +57,7 @@ type controller struct {
 	failurePolicy  *admissionregistrationv1.FailurePolicyType
 	sideEffects    *admissionregistrationv1.SideEffectClass
 	configuration  config.Configuration
+	labelSelector  *metav1.LabelSelector
 }
 
 func NewController(
@@ -74,6 +75,11 @@ func NewController(
 	configuration config.Configuration,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
+	labelselector := &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"kyverno.io/ttl": "", // Replace "desired_value" with the actual value you want to match.
+		},
+	}
 	c := controller{
 		vwcClient:      vwcClient,
 		vwcLister:      vwcInformer.Lister(),
@@ -89,6 +95,7 @@ func NewController(
 		failurePolicy:  failurePolicy,
 		sideEffects:    sideEffects,
 		configuration:  configuration,
+		labelSelector:  labelselector,
 	}
 	controllerutils.AddDefaultEventHandlers(c.logger, vwcInformer.Informer(), queue)
 	controllerutils.AddEventHandlersT(
@@ -173,6 +180,7 @@ func (c *controller) build(cfg config.Configuration, caBundle []byte) (*admissio
 				FailurePolicy:           c.failurePolicy,
 				SideEffects:             c.sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
+				ObjectSelector:          c.labelSelector,
 			}},
 		},
 		nil

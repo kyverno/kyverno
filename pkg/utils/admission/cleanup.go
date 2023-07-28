@@ -3,7 +3,6 @@ package admission
 import (
 	"encoding/json"
 	"fmt"
-	"time"
 
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -62,21 +61,4 @@ func GetTtlLabel(raw []byte) (string, error) {
 	}
 
 	return ttlValue, nil
-}
-
-func ValidateTTL(ttlValue string) error {
-	_, err := time.ParseDuration(ttlValue)
-	if err != nil {
-		layoutRFCC := "2006-01-02T150405Z"
-		// Try parsing ttlValue as a time in ISO 8601 format
-		_, err := time.Parse(layoutRFCC, ttlValue)
-		if err != nil {
-			layoutCustom := "2006-01-02"
-			_, err = time.Parse(layoutCustom, ttlValue)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }

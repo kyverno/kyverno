@@ -10,6 +10,7 @@ import (
 
 	admissionhandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission"
 	cleanuphandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/cleanup"
+	labelhandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/resource-admission"
 	"github.com/kyverno/kyverno/cmd/internal"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -261,6 +262,7 @@ func main() {
 			return secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey], nil
 		},
 		admissionHandlers.Validate,
+		labelhandlers.Validate,
 		cleanupHandlers.Cleanup,
 		setup.MetricsManager,
 		webhooks.DebugModeOptions{

@@ -31,6 +31,8 @@ const (
 	MutatingWebhookConfigurationName = "kyverno-resource-mutating-webhook-cfg"
 	// VerifyMutatingWebhookConfigurationName default verify mutating webhook configuration name
 	VerifyMutatingWebhookConfigurationName = "kyverno-verify-mutating-webhook-cfg"
+	// //VerifyLabelWebhookPathName ...
+	// VerifyLabelWebhookPathName = "kyverno-verify-label-webhook-cfg"
 )
 
 // webhook names
@@ -57,6 +59,8 @@ const (
 	ExceptionValidatingWebhookServicePath = "/exceptionvalidate"
 	// CleanupValidatingWebhookServicePath is the path for cleanup policy validation webhook(used to validate cleanup policy resource)
 	CleanupValidatingWebhookServicePath = "/validate"
+	// VerfiyLabelWebhookPath is the path for validation of kyverno.io/ttl label value
+	VerifyLabelWebhookPath = "/verifylabel"
 	// PolicyMutatingWebhookServicePath is the path for policy mutation webhook(used to default)
 	PolicyMutatingWebhookServicePath = "/policymutate"
 	// MutatingWebhookServicePath is the path for mutation webhook
