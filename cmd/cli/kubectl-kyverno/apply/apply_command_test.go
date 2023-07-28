@@ -176,8 +176,8 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../test/cli/test-vap/check-deployments-replica/policy.yaml"},
-				ResourcePaths: []string{"../../../../test/cli/test-vap/check-deployments-replica/deployment1.yaml"},
+				PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/check-deployments-replica/policy.yaml"},
+				ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/check-deployments-replica/deployment1.yaml"},
 				PolicyReport:  true,
 			},
 			expectedPolicyReports: []preport.PolicyReport{
@@ -194,8 +194,8 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../test/cli/test-vap/check-deployments-replica/policy.yaml"},
-				ResourcePaths: []string{"../../../../test/cli/test-vap/check-deployments-replica/deployment2.yaml"},
+				PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/check-deployments-replica/policy.yaml"},
+				ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/check-deployments-replica/deployment2.yaml"},
 				PolicyReport:  true,
 			},
 			expectedPolicyReports: []preport.PolicyReport{
@@ -212,8 +212,8 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../test/cli/test-vap/disallow-host-path/policy.yaml"},
-				ResourcePaths: []string{"../../../../test/cli/test-vap/disallow-host-path/pod1.yaml"},
+				PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/disallow-host-path/policy.yaml"},
+				ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod1.yaml"},
 				PolicyReport:  true,
 			},
 			expectedPolicyReports: []preport.PolicyReport{
@@ -230,8 +230,8 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../test/cli/test-vap/disallow-host-path/policy.yaml"},
-				ResourcePaths: []string{"../../../../test/cli/test-vap/disallow-host-path/pod2.yaml"},
+				PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/disallow-host-path/policy.yaml"},
+				ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod2.yaml"},
 				PolicyReport:  true,
 			},
 			expectedPolicyReports: []preport.PolicyReport{
