@@ -20,13 +20,7 @@ import (
 )
 
 var (
-	defaultKeychain = authn.NewMultiKeychain(
-		authn.DefaultKeychain,
-		GCPKeychain,
-		AWSKeychain,
-		AzureKeychain,
-		github.Keychain,
-	)
+	defaultKeychain  = AnonymousKeychain
 	defaultTransport = &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
