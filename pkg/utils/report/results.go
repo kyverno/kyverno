@@ -69,7 +69,7 @@ func toPolicyResult(status engineapi.RuleStatus) policyreportv1alpha2.PolicyResu
 	return ""
 }
 
-func severityFromString(severity string) policyreportv1alpha2.PolicySeverity {
+func SeverityFromString(severity string) policyreportv1alpha2.PolicySeverity {
 	switch severity {
 	case policyreportv1alpha2.SeverityHigh:
 		return policyreportv1alpha2.SeverityHigh
@@ -97,7 +97,7 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []policyre
 				Seconds: time.Now().Unix(),
 			},
 			Category: annotations[kyvernov1.AnnotationPolicyCategory],
-			Severity: severityFromString(annotations[kyvernov1.AnnotationPolicySeverity]),
+			Severity: SeverityFromString(annotations[kyvernov1.AnnotationPolicySeverity]),
 		}
 		pss := ruleResult.PodSecurityChecks()
 		if pss != nil {
