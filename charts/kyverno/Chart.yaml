@@ -26,6 +26,8 @@ annotations:
       url: https://kyverno.io/docs
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
+    - kind: changed
+      description: only create ServiceMonitor if cluster supports it
     - kind: fixed
       description: rbac templating issues
     - kind: added
