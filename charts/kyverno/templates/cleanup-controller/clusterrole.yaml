@@ -96,7 +96,6 @@ rules:
     verbs:
       - delete
       - list
-      - watch
   {{- end }}
 {{- end }}
 {{- end }}
