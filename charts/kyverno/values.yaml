@@ -1638,3 +1638,4 @@ reportsController:
     collector: ~
     # -- (string) Otel collector credentials
     creds: ~
+    

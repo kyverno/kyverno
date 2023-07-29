@@ -29,10 +29,10 @@ type server struct {
 }
 
 type (
-	TlsProvider       = func() ([]byte, []byte, error)
-	ValidationHandler = func(context.Context, logr.Logger, handlers.AdmissionRequest, time.Time) handlers.AdmissionResponse
+	TlsProvider            = func() ([]byte, []byte, error)
+	ValidationHandler      = func(context.Context, logr.Logger, handlers.AdmissionRequest, time.Time) handlers.AdmissionResponse
 	LabelValidationHandler = func(context.Context, logr.Logger, handlers.AdmissionRequest, time.Time) handlers.AdmissionResponse
-	CleanupHandler    = func(context.Context, logr.Logger, string, time.Time, config.Configuration) error
+	CleanupHandler         = func(context.Context, logr.Logger, string, time.Time, config.Configuration) error
 )
 
 type Probes interface {
@@ -82,12 +82,12 @@ func NewServer(
 	mux.HandlerFunc(
 		"POST",
 		config.VerifyLabelWebhookPath,
-		http.HandlerFunc(handlers.FromAdmissionFunc("VALIDATE", labelValidationHandler).
+		handlers.FromAdmissionFunc("VALIDATE", labelValidationHandler).
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
 			WithMetrics(labelLogger, metricsConfig.Config(), metrics.WebhookValidating).
 			WithAdmission(labelLogger.WithName("validate")).
-			ToHandlerFunc()),
+			ToHandlerFunc(),
 	)
 	mux.HandlerFunc(
 		"GET",
