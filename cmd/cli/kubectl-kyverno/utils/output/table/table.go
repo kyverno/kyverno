@@ -5,7 +5,7 @@ type Table struct {
 }
 
 func (t *Table) Rows(compact bool) interface{} {
-	if !compact {
+	if compact {
 		return t.RawRows
 	}
 	var rows []CompactRow
