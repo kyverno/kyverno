@@ -93,7 +93,18 @@ git push
 
 #### Cherry-pick PRs to release branches
 
-Once you fork the project, you will notice that there are a number of branches related to Kyverno's releases such as release-1.7. You can view the list of remote branches by using the command below:
+Add repository as remote 
+
+```sh
+git remote add <name> https://github.com/kyverno/kyverno
+```
+Then fetch the branches of remote:
+
+```sh
+git fetch <name>
+```
+
+ You will notice that there are a number of branches related to Kyverno's releases such as release-1.7. You can always view the list of remote branches by using the command below:
 
 ```sh
 $ git branch -r
