@@ -58,7 +58,7 @@ func TestExtractStatements(t *testing.T) {
 
 func TestNotaryImageVerification(t *testing.T) {
 	opts := images.Options{
-		ImageRef: "ghcr.io/vishal-chdhry/verify-image-test:v1",
+		ImageRef: "ghcr.io/kyverno/test-verify-image:signed",
 		Cert:     cert,
 	}
 
