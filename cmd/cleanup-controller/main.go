@@ -145,19 +145,6 @@ func main() {
 							admissionregistrationv1.Update,
 						},
 					},
-					// {
-					// 	Rule: admissionregistrationv1.Rule{
-					// 		APIGroups:   []string{"*"},
-					// 		APIVersions: []string{"*"},
-					// 		Resources: []string{
-					// 			"*",
-					// 		},
-					// 	},
-					// 	Operations: []admissionregistrationv1.OperationType{
-					// 		admissionregistrationv1.Create,
-					// 		admissionregistrationv1.Update,
-					// 	},
-					// },
 					},
 					genericwebhookcontroller.Fail,
 					genericwebhookcontroller.None,
