@@ -409,6 +409,8 @@ features:
   reports:
     # -- Reports chunk size
     chunkSize: 1000
+  ttlController:
+    reconciliationInterval: 1m 
 
 # Cleanup cronjobs to prevent internal resources from stacking up in the cluster
 cleanupJobs:
