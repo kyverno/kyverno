@@ -31,8 +31,8 @@ const (
 	MutatingWebhookConfigurationName = "kyverno-resource-mutating-webhook-cfg"
 	// VerifyMutatingWebhookConfigurationName default verify mutating webhook configuration name
 	VerifyMutatingWebhookConfigurationName = "kyverno-verify-mutating-webhook-cfg"
-	// //VerifyLabelWebhookPathName ...
-	// VerifyLabelWebhookPathName = "kyverno-verify-label-webhook-cfg"
+	//VerifyLabelWebhookPathName ...
+	VerifyLabelWebhookPathName = "kyverno-verify-label-webhook-cfg"
 )
 
 // webhook names

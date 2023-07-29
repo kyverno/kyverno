@@ -34,6 +34,7 @@ const (
 	resyncPeriod          = 15 * time.Minute
 	webhookWorkers        = 2
 	webhookControllerName = "webhook-controller"
+	labelWebhookControllerName = "label-webhook-controller"
 )
 
 // TODO:
@@ -164,6 +165,37 @@ func main() {
 				),
 				webhookWorkers,
 			)
+
+			labelwebhookController := internal.NewController(
+				labelWebhookControllerName,
+				genericwebhookcontroller.NewController(
+					labelWebhookControllerName,
+					setup.KubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
+					kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
+					caSecret,
+					config.VerifyLabelWebhookPathName,
+					config.VerifyLabelWebhookPath,
+					serverIP,
+					int32(servicePort),
+					[]admissionregistrationv1.RuleWithOperations{{
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{"*"},
+							APIVersions: []string{"*"},
+							Resources: []string{"*"},
+						},
+						Operations: []admissionregistrationv1.OperationType{
+							admissionregistrationv1.Create,
+							admissionregistrationv1.Update,
+						},
+					},
+					},
+					genericwebhookcontroller.Fail,
+					genericwebhookcontroller.None,
+					setup.Configuration,
+				),
+				webhookWorkers,
+			)
+
 			cleanupController := internal.NewController(
 				cleanup.ControllerName,
 				cleanup.NewController(
@@ -195,6 +227,7 @@ func main() {
 			var wg sync.WaitGroup
 			certController.Run(ctx, logger, &wg)
 			webhookController.Run(ctx, logger, &wg)
+			labelwebhookController.Run(ctx, logger, &wg)
 			cleanupController.Run(ctx, logger, &wg)
 			ttlManagerController.Run(ctx, logger, &wg)
 			wg.Wait()

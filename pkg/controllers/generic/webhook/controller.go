@@ -76,8 +76,11 @@ func NewController(
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 	labelselector := &metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			"kyverno.io/ttl": "", // Replace "desired_value" with the actual value you want to match.
+		MatchExpressions: []metav1.LabelSelectorRequirement{
+			{
+				Key:      "kyverno.io/ttl",
+				Operator: metav1.LabelSelectorOpExists,
+			},
 		},
 	}
 	c := controller{

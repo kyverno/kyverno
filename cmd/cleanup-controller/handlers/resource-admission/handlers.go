@@ -11,6 +11,7 @@ import (
 )
 
 func Validate(_ context.Context, logger logr.Logger, request handlers.AdmissionRequest, _ time.Time) handlers.AdmissionResponse {
+	logger.Info("triggered the label validator")
 	ttlLabel, err := admissionutils.GetTtlLabel(request.AdmissionRequest.Object.Raw)
 	if err != nil {
 		logger.Error(err, "failed to get the ttl label")
