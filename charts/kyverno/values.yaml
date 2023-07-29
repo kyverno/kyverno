@@ -1151,15 +1151,15 @@ cleanupController:
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
-      extraResources:  
-        verbs:
-          - list
-          - delete
-          - watch
+      extraResources: []  
       # - apiGroups:
       #     - ''
       #   resources:
       #     - pods
+      #   verbs:
+      #   - list
+      #   - delete
+      #   - watch
 
   # -- Create self-signed certificates at deployment time.
   # The certificates won't be automatically renewed if this is set to `true`.
