@@ -31,9 +31,9 @@ import (
 )
 
 const (
-	resyncPeriod          = 15 * time.Minute
-	webhookWorkers        = 2
-	webhookControllerName = "webhook-controller"
+	resyncPeriod               = 15 * time.Minute
+	webhookWorkers             = 2
+	webhookControllerName      = "webhook-controller"
 	labelWebhookControllerName = "label-webhook-controller"
 )
 
@@ -58,12 +58,14 @@ func main() {
 		serverIP        string
 		servicePort     int
 		maxQueuedEvents int
+		interval        time.Duration
 	)
 	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
+	flagset.DurationVar(&interval, "interval", time.Minute, "Set this flag to set the interval after which the resource controller reconciliation should occur")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -168,7 +170,7 @@ func main() {
 						Rule: admissionregistrationv1.Rule{
 							APIGroups:   []string{"*"},
 							APIVersions: []string{"*"},
-							Resources: []string{"*"},
+							Resources:   []string{"*"},
 						},
 						Operations: []admissionregistrationv1.OperationType{
 							admissionregistrationv1.Create,
@@ -201,6 +203,7 @@ func main() {
 					setup.MetadataClient,
 					setup.KubeClient.Discovery(),
 					setup.KubeClient.AuthorizationV1(),
+					interval,
 				),
 				ttlcontroller.Workers,
 			)

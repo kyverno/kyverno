@@ -33,12 +33,14 @@ type manager struct {
 	checker         checker.AuthChecker
 	resController   map[schema.GroupVersionResource]stopFunc
 	logger          logr.Logger
+	interval        time.Duration
 }
 
 func NewManager(
 	metadataInterface metadata.Interface,
 	discoveryInterface discovery.DiscoveryInterface,
 	authorizationInterface authorizationv1client.AuthorizationV1Interface,
+	timeInterval time.Duration,
 ) controllers.Controller {
 	selfChecker := checker.NewSelfChecker(authorizationInterface.SelfSubjectAccessReviews())
 
@@ -52,6 +54,7 @@ func NewManager(
 		checker:         selfChecker,
 		resController:   resController,
 		logger:          logger,
+		interval:        timeInterval,
 	}
 }
 
@@ -65,7 +68,7 @@ func (m *manager) Run(ctx context.Context, worker int) {
 		}
 	}()
 
-	ticker := time.NewTicker(1 * time.Minute)
+	ticker := time.NewTicker(m.interval)
 	defer ticker.Stop()
 
 	for {

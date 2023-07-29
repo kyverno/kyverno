@@ -409,6 +409,8 @@ features:
   reports:
     # -- Reports chunk size
     chunkSize: 1000
+  ttlController:
+    interval: 1m
 
 # Cleanup cronjobs to prevent internal resources from stacking up in the cluster
 cleanupJobs:
@@ -1154,6 +1156,10 @@ cleanupController:
       #     - ''
       #   resources:
       #     - pods
+      #   verbs:
+            - list
+            - delete
+            - watch
 
   # -- Create self-signed certificates at deployment time.
   # The certificates won't be automatically renewed if this is set to `true`.
