@@ -8,5 +8,5 @@ involvedObject:
   name: add-labels
 type: Normal
 reason: PolicyApplied
-source:
-  component: kyverno-admission
+action: Resource Mutated
+reportingComponent: kyverno-admission

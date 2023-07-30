@@ -7,5 +7,4 @@ involvedObject:
   name: require-labels
 type: Warning
 reason: PolicyViolation
-source:
-  component: kyverno-admission
+reportingComponent: kyverno-admission
