@@ -8,6 +8,7 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	validation "github.com/kyverno/kyverno/pkg/validation/ttl-label"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
+	admissionv1 "k8s.io/api/admission/v1"
 )
 
 func Validate(_ context.Context, logger logr.Logger, request handlers.AdmissionRequest, _ time.Time) handlers.AdmissionResponse {
@@ -15,12 +16,22 @@ func Validate(_ context.Context, logger logr.Logger, request handlers.AdmissionR
 	ttlLabel, err := admissionutils.GetTtlLabel(request.AdmissionRequest.Object.Raw)
 	if err != nil {
 		logger.Error(err, "failed to get the ttl label")
-		return admissionutils.Response(request.UID, err)
+		// return admissionutils.Response(request.UID, err)
 	}
 
-	if err := validation.Validate(ttlLabel); err != nil {
-		logger.Error(err, "failed to unmarshal the ttl label value")
-		return admissionutils.Response(request.UID, err)
+	if request.Operation == admissionv1.Update {
+		ttlLabel, err = admissionutils.GetTtlLabel(request.AdmissionRequest.Object.Raw)
+		if err != nil {
+			logger.Error(err, "failed to get the ttl label")
+			// return admissionutils.Response(request.UID, err)
+		}
+	}
+
+	if ttlLabel != "" {
+		if err := validation.Validate(ttlLabel); err != nil {
+			logger.Error(err, "failed to unmarshal the ttl label value")
+			return admissionutils.ResponseSuccess(request.UID, err.Error())
+		}
 	}
 	return admissionutils.ResponseSuccess(request.UID)
 }
