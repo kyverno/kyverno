@@ -16,14 +16,14 @@ func Validate(_ context.Context, logger logr.Logger, request handlers.AdmissionR
 	ttlLabel, err := admissionutils.GetTtlLabel(request.AdmissionRequest.Object.Raw)
 	if err != nil {
 		logger.Error(err, "failed to get the ttl label")
-		// return admissionutils.Response(request.UID, err)
+		return admissionutils.ResponseSuccess(request.UID, err.Error())
 	}
 
 	if request.Operation == admissionv1.Update {
 		ttlLabel, err = admissionutils.GetTtlLabel(request.AdmissionRequest.Object.Raw)
 		if err != nil {
 			logger.Error(err, "failed to get the ttl label")
-			// return admissionutils.Response(request.UID, err)
+			return admissionutils.ResponseSuccess(request.UID, err.Error())
 		}
 	}
 
