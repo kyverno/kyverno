@@ -133,20 +133,21 @@ func main() {
 					config.CleanupValidatingWebhookServicePath,
 					serverIP,
 					int32(servicePort),
-					[]admissionregistrationv1.RuleWithOperations{{
-						Rule: admissionregistrationv1.Rule{
-							APIGroups:   []string{"kyverno.io"},
-							APIVersions: []string{"v2alpha1"},
-							Resources: []string{
-								"cleanuppolicies/*",
-								"clustercleanuppolicies/*",
+					[]admissionregistrationv1.RuleWithOperations{
+						{
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"kyverno.io"},
+								APIVersions: []string{"v2alpha1"},
+								Resources: []string{
+									"cleanuppolicies/*",
+									"clustercleanuppolicies/*",
+								},
+							},
+							Operations: []admissionregistrationv1.OperationType{
+								admissionregistrationv1.Create,
+								admissionregistrationv1.Update,
 							},
 						},
-						Operations: []admissionregistrationv1.OperationType{
-							admissionregistrationv1.Create,
-							admissionregistrationv1.Update,
-						},
-					},
 					},
 					genericwebhookcontroller.Fail,
 					genericwebhookcontroller.None,
@@ -166,17 +167,18 @@ func main() {
 					config.VerifyLabelWebhookPath,
 					serverIP,
 					int32(servicePort),
-					[]admissionregistrationv1.RuleWithOperations{{
-						Rule: admissionregistrationv1.Rule{
-							APIGroups:   []string{"*"},
-							APIVersions: []string{"*"},
-							Resources:   []string{"*"},
+					[]admissionregistrationv1.RuleWithOperations{
+						{
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"*"},
+								APIVersions: []string{"*"},
+								Resources:   []string{"*"},
+							},
+							Operations: []admissionregistrationv1.OperationType{
+								admissionregistrationv1.Create,
+								admissionregistrationv1.Update,
+							},
 						},
-						Operations: []admissionregistrationv1.OperationType{
-							admissionregistrationv1.Create,
-							admissionregistrationv1.Update,
-						},
-					},
 					},
 					genericwebhookcontroller.Fail,
 					genericwebhookcontroller.None,
