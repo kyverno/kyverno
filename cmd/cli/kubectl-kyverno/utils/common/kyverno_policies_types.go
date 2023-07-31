@@ -176,7 +176,7 @@ OuterLoop:
 	}
 
 	verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
-	// verifyImageResponse = combineRuleResponses(verifyImageResponse)
+	verifyImageResponse = combineRuleResponses(verifyImageResponse)
 	if !verifyImageResponse.IsEmpty() {
 		engineResponses = append(engineResponses, verifyImageResponse)
 		ProcessValidateEngineResponse(c.Policy, verifyImageResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
