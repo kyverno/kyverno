@@ -22,9 +22,7 @@ const (
 	CAValidityDuration = 365 * 24 * time.Hour
 	// TLSValidityDuration is the valid duration for TLS certificates
 	TLSValidityDuration = 150 * 24 * time.Hour
-	// managedByLabel is added to Kyverno managed secrets
-	managedByLabel = "cert.kyverno.io/managed-by"
-	rootCAKey      = "rootCA.crt"
+	rootCAKey           = "rootCA.crt"
 )
 
 type CertValidator interface {
@@ -228,7 +226,7 @@ func (c *certRenewer) writeSecret(ctx context.Context, name string, key *rsa.Pri
 				Name:      name,
 				Namespace: config.KyvernoNamespace(),
 				Labels: map[string]string{
-					managedByLabel: kyverno.ValueKyvernoApp,
+					kyverno.LabelCertManagedBy: kyverno.ValueKyvernoApp,
 				},
 			},
 			Type: corev1.SecretTypeTLS,
