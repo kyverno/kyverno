@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
-	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
@@ -316,61 +315,6 @@ func GetVariable(
 	store.SetPolicies(storePolicies...)
 
 	return variables, globalValMap, valuesMapResource, namespaceSelectorMap, subresources, nil
-}
-
-func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateResponse engineapi.EngineResponse, resPath string, rc *ResultCounts, policyReport bool, auditWarn bool) {
-	printCount := 0
-	for _, policyRule := range autogen.ComputeRules(policy) {
-		ruleFoundInEngineResponse := false
-		if !policyRule.HasValidate() && !policyRule.HasVerifyImageChecks() && !policyRule.HasVerifyImages() {
-			continue
-		}
-
-		for i, valResponseRule := range validateResponse.PolicyResponse.Rules {
-			if policyRule.Name == valResponseRule.Name() {
-				ruleFoundInEngineResponse = true
-				switch valResponseRule.Status() {
-				case engineapi.RuleStatusPass:
-					rc.Pass++
-				case engineapi.RuleStatusFail:
-					auditWarning := false
-					ann := policy.GetAnnotations()
-					if scored, ok := ann[kyverno.AnnotationPolicyScored]; ok && scored == "false" {
-						rc.Warn++
-						break
-					} else if auditWarn && validateResponse.GetValidationFailureAction().Audit() {
-						rc.Warn++
-						auditWarning = true
-					} else {
-						rc.Fail++
-					}
-					if !policyReport {
-						if printCount < 1 {
-							if auditWarning {
-								fmt.Printf("\npolicy %s -> resource %s failed as audit warning: \n", policy.GetName(), resPath)
-							} else {
-								fmt.Printf("\npolicy %s -> resource %s failed: \n", policy.GetName(), resPath)
-							}
-							printCount++
-						}
-
-						fmt.Printf("%d. %s: %s \n", i+1, valResponseRule.Name(), valResponseRule.Message())
-					}
-				case engineapi.RuleStatusError:
-					fmt.Printf("\npolicy %s -> resource %s error: %s\n", policy.GetName(), resPath, valResponseRule.Message())
-					rc.Error++
-				case engineapi.RuleStatusWarn:
-					rc.Warn++
-				case engineapi.RuleStatusSkip:
-					rc.Skip++
-				}
-				continue
-			}
-		}
-		if !ruleFoundInEngineResponse {
-			rc.Skip++
-		}
-	}
 }
 
 // PrintMutatedOutput - function to print output in provided file or directory
