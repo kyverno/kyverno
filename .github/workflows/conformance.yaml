@@ -262,7 +262,14 @@ jobs:
           - linkerd
           - nginx-ingress
           - openshift
-          - other
+          # - other
+          - other/a
+          - other/b-d
+          - other/e-l
+          - other/m-q
+          - other/rec-req
+          - other/res
+          - other/s-z
           # - pod-security
           # - psa
           - psp-migration
