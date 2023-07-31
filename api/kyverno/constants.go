@@ -1,13 +1,13 @@
 package kyverno
 
 const (
-	// PodControllersAnnotation defines the annotation key for Pod-Controllers
-	PodControllersAnnotation = "pod-policies.kyverno.io/autogen-controllers"
-	// LabelAppManagedBy defines the label key for managed-by label
-	LabelAppManagedBy        = "app.kubernetes.io/managed-by"
-	AnnotationPolicyCategory = "policies.kyverno.io/category"
-	AnnotationPolicySeverity = "policies.kyverno.io/severity"
-	AnnotationPolicyScored   = "policies.kyverno.io/scored"
-	// ValueKyvernoApp defines the kyverno application value
+	// Well known labels
+	LabelAppManagedBy = "app.kubernetes.io/managed-by"
+	// Well known annotations
+	AnnotationAutogenControllers = "pod-policies.kyverno.io/autogen-controllers"
+	AnnotationPolicyCategory     = "policies.kyverno.io/category"
+	AnnotationPolicySeverity     = "policies.kyverno.io/severity"
+	AnnotationPolicyScored       = "policies.kyverno.io/scored"
+	// Well known values
 	ValueKyvernoApp = "kyverno"
 )

@@ -29,7 +29,7 @@ func ToJSON(in apiextensions.JSON) *apiextv1.JSON {
 
 // ValidatePolicyName validates policy name
 func ValidateAutogenAnnotation(path *field.Path, annotations map[string]string) (errs field.ErrorList) {
-	value, ok := annotations[kyverno.PodControllersAnnotation]
+	value, ok := annotations[kyverno.AnnotationAutogenControllers]
 	if ok {
 		if value == "all" {
 			errs = append(errs, field.Forbidden(path, "Autogen annotation does not support 'all' anymore, remove the annotation or set it to a valid value"))
