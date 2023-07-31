@@ -2,9 +2,11 @@ package kyverno
 
 const (
 	// Well known labels
-	LabelAppManagedBy  = "app.kubernetes.io/managed-by"
-	LabelCertManagedBy = "cert.kyverno.io/managed-by"
-	LabelCleanupTtl    = "cleanup.kyverno.io/ttl"
+	LabelAppManagedBy     = "app.kubernetes.io/managed-by"
+	LabelAppComponent     = "app.kubernetes.io/component"
+	LabelCertManagedBy    = "cert.kyverno.io/managed-by"
+	LabelWebhookManagedBy = "webhook.kyverno.io/managed-by"
+	LabelCleanupTtl       = "cleanup.kyverno.io/ttl"
 	// Well known annotations
 	AnnotationAutogenControllers = "pod-policies.kyverno.io/autogen-controllers"
 	AnnotationPolicyCategory     = "policies.kyverno.io/category"

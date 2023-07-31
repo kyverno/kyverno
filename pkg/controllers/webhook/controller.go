@@ -18,7 +18,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/tls"
-	"github.com/kyverno/kyverno/pkg/utils"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
@@ -889,7 +888,7 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 
 func (c *controller) buildOwner() []metav1.OwnerReference {
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
-		utils.KyvernoComponentLabel: "kyverno",
+		kyverno.LabelAppComponent: "kyverno",
 	}))
 
 	clusterroles, err := c.clusterroleLister.List(selector)
