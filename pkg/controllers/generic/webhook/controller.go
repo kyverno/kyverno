@@ -29,10 +29,12 @@ const (
 )
 
 var (
-	none = admissionregistrationv1.SideEffectClassNone
-	fail = admissionregistrationv1.Fail
-	None = &none
-	Fail = &fail
+	none   = admissionregistrationv1.SideEffectClassNone
+	fail   = admissionregistrationv1.Fail
+	ignore = admissionregistrationv1.Ignore
+	None   = &none
+	Fail   = &fail
+	Ignore = &ignore
 )
 
 type controller struct {
@@ -69,20 +71,13 @@ func NewController(
 	path string,
 	server string,
 	servicePort int32,
+	labelSelector *metav1.LabelSelector,
 	rules []admissionregistrationv1.RuleWithOperations,
 	failurePolicy *admissionregistrationv1.FailurePolicyType,
 	sideEffects *admissionregistrationv1.SideEffectClass,
 	configuration config.Configuration,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
-	labelselector := &metav1.LabelSelector{
-		MatchExpressions: []metav1.LabelSelectorRequirement{
-			{
-				Key:      kyverno.LabelCleanupTtl,
-				Operator: metav1.LabelSelectorOpExists,
-			},
-		},
-	}
 	c := controller{
 		vwcClient:      vwcClient,
 		vwcLister:      vwcInformer.Lister(),
@@ -98,7 +93,7 @@ func NewController(
 		failurePolicy:  failurePolicy,
 		sideEffects:    sideEffects,
 		configuration:  configuration,
-		labelSelector:  labelselector,
+		labelSelector:  labelSelector,
 	}
 	controllerutils.AddDefaultEventHandlers(c.logger, vwcInformer.Informer(), queue)
 	controllerutils.AddEventHandlersT(
