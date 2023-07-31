@@ -11,7 +11,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/tls"
-	"github.com/kyverno/kyverno/pkg/utils"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -156,7 +155,7 @@ func objectMeta(name string, annotations map[string]string, owner ...metav1.Owne
 	return metav1.ObjectMeta{
 		Name: name,
 		Labels: map[string]string{
-			utils.ManagedByLabel: kyverno.ValueKyvernoApp,
+			kyverno.LabelWebhookManagedByLabel: kyverno.ValueKyvernoApp,
 		},
 		Annotations:     annotations,
 		OwnerReferences: owner,
