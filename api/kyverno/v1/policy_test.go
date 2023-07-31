@@ -45,7 +45,7 @@ func Test_Policy_Autogen_All(t *testing.T) {
 			Name:      "policy",
 			Namespace: "abcd",
 			Annotations: map[string]string{
-				kyverno.PodControllersAnnotation: "all",
+				kyverno.AnnotationAutogenControllers: "all",
 			},
 		},
 	}
