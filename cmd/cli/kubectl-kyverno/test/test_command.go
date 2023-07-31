@@ -21,7 +21,7 @@ func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var testCase string
 	var fileName, gitBranch string
-	var registryAccess, failOnly, removeColor, manifestValidate, manifestMutate, compact bool
+	var registryAccess, failOnly, removeColor, manifestValidate, manifestMutate, detailedResults bool
 	cmd = &cobra.Command{
 		Use: "test <path_to_folder_Containing_test.yamls> [flags]\n  kyverno test <path_to_gitRepository_with_dir> --git-branch <branchName>\n  kyverno test --manifest-mutate > kyverno-test.yaml\n  kyverno test --manifest-validate > kyverno-test.yaml",
 		// Args:    cobra.ExactArgs(1),
@@ -44,7 +44,7 @@ func Command() *cobra.Command {
 				manifest.PrintValidate()
 			} else {
 				store.SetRegistryAccess(registryAccess)
-				_, err = testCommandExecute(dirPath, fileName, gitBranch, testCase, failOnly, false, compact)
+				_, err = testCommandExecute(dirPath, fileName, gitBranch, testCase, failOnly, false, detailedResults)
 				if err != nil {
 					log.Log.V(3).Info("a directory is required")
 					return err
@@ -61,7 +61,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVar(&registryAccess, "registry", false, "If set to true, access the image registry using local docker credentials to populate external data")
 	cmd.Flags().BoolVar(&failOnly, "fail-only", false, "If set to true, display all the failing test only as output for the test command")
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
-	cmd.Flags().BoolVar(&compact, "compact", true, "Does not show detailed results")
+	cmd.Flags().BoolVar(&detailedResults, "detailed-results", false, "If set to true, display detailed results")
 	return cmd
 }
 
@@ -78,7 +78,7 @@ func testCommandExecute(
 	testCase string,
 	failOnly bool,
 	auditWarn bool,
-	compact bool,
+	detailedResults bool,
 ) (rc *resultCounts, err error) {
 	// check input dir
 	if len(dirPath) == 0 {
@@ -110,7 +110,7 @@ func testCommandExecute(
 			auditWarn,
 		); err != nil {
 			return rc, sanitizederror.NewWithError("failed to apply test command", err)
-		} else if t, err := printTestResult(reports, tests, rc, failOnly, compact); err != nil {
+		} else if t, err := printTestResult(reports, tests, rc, failOnly, detailedResults); err != nil {
 			return rc, sanitizederror.NewWithError("failed to print test result:", err)
 		} else {
 			table.AddFailed(t.RawRows...)
@@ -130,7 +130,7 @@ func testCommandExecute(
 	fmt.Println()
 	if rc.Fail > 0 {
 		if !failOnly {
-			printFailedTestResult(table, compact)
+			printFailedTestResult(table, detailedResults)
 		}
 		os.Exit(1)
 	}
@@ -138,7 +138,7 @@ func testCommandExecute(
 	return rc, nil
 }
 
-func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, testResults []api.TestResults, rc *resultCounts, failOnly bool, compact bool) (table.Table, error) {
+func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, testResults []api.TestResults, rc *resultCounts, failOnly bool, detailedResults bool) (table.Table, error) {
 	printer := table.NewTablePrinter()
 	var resultsTable table.Table
 	var countDeprecatedResource int
@@ -327,16 +327,16 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 		}
 	}
 	fmt.Printf("\n")
-	printer.Print(resultsTable.Rows(compact))
+	printer.Print(resultsTable.Rows(detailedResults))
 	return resultsTable, nil
 }
 
-func printFailedTestResult(resultsTable table.Table, compact bool) {
+func printFailedTestResult(resultsTable table.Table, detailedResults bool) {
 	printer := table.NewTablePrinter()
 	for i := range resultsTable.RawRows {
 		resultsTable.RawRows[i].ID = i + 1
 	}
 	fmt.Printf("Aggregated Failed Test Cases : ")
 	fmt.Println()
-	printer.Print(resultsTable.Rows(compact))
+	printer.Print(resultsTable.Rows(detailedResults))
 }
