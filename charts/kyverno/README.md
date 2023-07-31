@@ -311,6 +311,7 @@ The chart values are organised per component.
 | features.registryClient.allowInsecure | bool | `false` | Allow insecure registry |
 | features.registryClient.credentialHelpers | list | `["default","google","amazon","azure","github"]` | Enable registry client helpers |
 | features.reports.chunkSize | int | `1000` | Reports chunk size |
+| features.ttlController.reconciliationInterval | string | `"1m"` |  |
 
 ### Admission controller
 
