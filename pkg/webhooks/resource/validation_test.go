@@ -1164,7 +1164,7 @@ func Test_RuleSelector(t *testing.T) {
 		jp,
 		nil,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
-		nil,
+		imageverifycache.DisabledImageVerifyCache(),
 		factories.DefaultContextLoaderFactory(nil),
 		nil,
 		"",
