@@ -7,6 +7,9 @@ import (
 //go:embed test.yaml
 var TestTemplate string
 
+//go:embed values.yaml
+var ValuesTemplate string
+
 //go:embed user-info.yaml
 var UserInfoTemplate string
 
