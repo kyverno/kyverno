@@ -20,7 +20,7 @@ func Command() *cobra.Command {
 		metricsconfig.Command(),
 		test.Command(),
 		userinfo.Command(),
-    values.Command(),
+		values.Command(),
 	)
 	return cmd
 }
