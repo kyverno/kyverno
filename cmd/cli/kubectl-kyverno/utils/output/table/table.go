@@ -4,8 +4,8 @@ type Table struct {
 	RawRows []Row
 }
 
-func (t *Table) Rows(compact bool) interface{} {
-	if compact {
+func (t *Table) Rows(detailed bool) interface{} {
+	if detailed {
 		return t.RawRows
 	}
 	var rows []CompactRow
