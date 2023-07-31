@@ -34,7 +34,7 @@ data:
 apiVersion: kyverno.io/v2beta1
 kind: ClusterPolicy
 metadata:
-  name: secret-in-keys
+  name: secret-in-policy
 spec:
   validationFailureAction: Enforce
   webhookTimeoutSeconds: 30
@@ -54,7 +54,7 @@ spec:
       verifyImages:
       - type: Notary
         imageReferences:
-        - "ghcr.io/kyverno/test-verify-image*"
+        - "ghcr.io/kyverno/test-verify-image-private*"
         attestors:
         - count: 1
           entries:
@@ -62,13 +62,4 @@ spec:
               cert: "{{ keys.data.certificate }}"
         imageRegistryCredentials:
           secrets:
-          - testsecret
----
-apiVersion: v1
-data:
-  .dockerconfigjson: eyJhdXRocyI6eyJyZWciOnsidXNlcm5hbWUiOiJ1c2VyIiwicGFzc3dvcmQiOiJwYXNzIiwiYXV0aCI6ImRYTmxjanB3WVhOeiJ9fX0=
-kind: Secret
-metadata:
-  name: testsecret
-  namespace: kyverno
-type: kubernetes.io/dockerconfigjson
+          - regcred
