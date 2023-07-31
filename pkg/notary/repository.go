@@ -31,7 +31,7 @@ func (c *repositoryClient) Resolve(ctx context.Context, reference string) (ocisp
 	if err != nil {
 		return ocispec.Descriptor{}, nil
 	}
-	head, err := remote.Head(nameRef)
+	head, err := remote.Head(nameRef, c.remoteOpts...)
 	if err != nil {
 		return ocispec.Descriptor{}, nil
 	}
@@ -66,7 +66,7 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 		return nil, ocispec.Descriptor{}, err
 	}
 
-	remoteDesc, err := remote.Get(manifestRef)
+	remoteDesc, err := remote.Get(manifestRef, c.remoteOpts...)
 	if err != nil {
 		return nil, ocispec.Descriptor{}, err
 	}
@@ -86,7 +86,7 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 		return nil, ocispec.Descriptor{}, err
 	}
 
-	signatureBlobLayer, err := remote.Layer(signatureBlobRef.Context().Digest(signatureBlobRef.Identifier()))
+	signatureBlobLayer, err := remote.Layer(signatureBlobRef.Context().Digest(signatureBlobRef.Identifier()), c.remoteOpts...)
 	if err != nil {
 		return nil, ocispec.Descriptor{}, err
 	}

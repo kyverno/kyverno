@@ -35,6 +35,8 @@ jobs:
   # runs conformance test suites with configuration:
   standard:
     runs-on: ubuntu-latest
+    permissions:
+      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -96,6 +98,8 @@ jobs:
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Test with kuttl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ./.tools/kubectl-kuttl test ./test/conformance/kuttl/${{ matrix.tests }} \
             --config ./test/conformance/kuttl/_config/common.yaml
@@ -106,6 +110,8 @@ jobs:
   # runs conformance test suites with configuration:
   force-failure-policy-ignore:
     runs-on: ubuntu-latest
+    permissions:
+      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -152,6 +158,8 @@ jobs:
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Test with kuttl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ./.tools/kubectl-kuttl test ./test/conformance/kuttl/${{ matrix.tests }} \
             --config ./test/conformance/kuttl/_config/common.yaml
@@ -162,6 +170,8 @@ jobs:
   # runs conformance test suites with configuration:
   default:
     runs-on: ubuntu-latest
+    permissions:
+      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -206,6 +216,8 @@ jobs:
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Test with kuttl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ./.tools/kubectl-kuttl test ./test/conformance/kuttl/${{ matrix.tests }} \
             --config ./test/conformance/kuttl/_config/common.yaml
