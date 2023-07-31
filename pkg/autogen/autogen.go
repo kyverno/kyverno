@@ -127,7 +127,7 @@ func GetRequestedControllers(meta *metav1.ObjectMeta) []string {
 	if annotations == nil {
 		return nil
 	}
-	controllers, ok := annotations[kyverno.PodControllersAnnotation]
+	controllers, ok := annotations[kyverno.AnnotationAutogenControllers]
 	if !ok || controllers == "" {
 		return nil
 	}
@@ -204,6 +204,15 @@ func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
 				return nil, err
 			}
 		}
+
+		// CEL variables are object, oldObject, request, params and authorizer.
+		// Therefore CEL expressions can be either written as object.spec or request.object.spec
+		if rule.Validation != nil && rule.Validation.CEL != nil {
+			bytes = updateCELFields(bytes, kind)
+			if err := json.Unmarshal(bytes, &rule); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	out := kyvernov1.Rule{
@@ -242,7 +251,7 @@ func computeRules(p kyvernov1.PolicyInterface) []kyvernov1.Rule {
 		desiredControllers = "none"
 	}
 	ann := p.GetAnnotations()
-	actualControllers, ok := ann[kyverno.PodControllersAnnotation]
+	actualControllers, ok := ann[kyverno.AnnotationAutogenControllers]
 	if !ok || !applyAutoGen {
 		actualControllers = desiredControllers
 	} else {

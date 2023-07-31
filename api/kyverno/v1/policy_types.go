@@ -45,7 +45,7 @@ type Policy struct {
 // HasAutoGenAnnotation checks if a policy has auto-gen annotation
 func (p *Policy) HasAutoGenAnnotation() bool {
 	annotations := p.GetAnnotations()
-	val, ok := annotations[kyverno.PodControllersAnnotation]
+	val, ok := annotations[kyverno.AnnotationAutogenControllers]
 	if ok && strings.ToLower(val) != "none" {
 		return true
 	}
@@ -122,7 +122,7 @@ func (p *Policy) ValidateSchema() bool {
 func (p *Policy) Validate(clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, ValidateAutogenAnnotation(field.NewPath("metadata").Child("annotations"), p.GetAnnotations())...)
 	errs = append(errs, ValidatePolicyName(field.NewPath("name"), p.Name)...)
-	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), p.IsNamespaced(), p.Namespace, clusterResources)...)
+	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), p.IsNamespaced(), p.GetNamespace(), clusterResources)...)
 	return errs
 }
 

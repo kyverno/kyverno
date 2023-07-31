@@ -4,12 +4,17 @@ import "strings"
 
 // Info defines the event details
 type Info struct {
-	Kind      string
-	Name      string
-	Namespace string
-	Reason    Reason
-	Message   string
-	Source    Source
+	Kind              string
+	Name              string
+	Namespace         string
+	RelatedAPIVersion string
+	RelatedKind       string
+	RelatedName       string
+	RelatedNamespace  string
+	Reason            Reason
+	Message           string
+	Action            Action
+	Source            Source
 }
 
 func (i *Info) Resource() string {

@@ -89,7 +89,7 @@ func isSecretManagedByKyverno(secret *corev1.Secret) bool {
 		if labels == nil {
 			return false
 		}
-		if labels[managedByLabel] != kyverno.ValueKyvernoApp {
+		if labels[kyverno.LabelCertManagedBy] != kyverno.ValueKyvernoApp {
 			return false
 		}
 	}

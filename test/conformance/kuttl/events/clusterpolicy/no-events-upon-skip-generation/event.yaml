@@ -6,5 +6,4 @@ involvedObject:
   apiVersion: kyverno.io/v1
   kind: ClusterPolicy
   name: default
-source:
-  component: kyverno-generate
+reportingComponent: kyverno-generate

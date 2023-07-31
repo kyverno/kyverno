@@ -491,11 +491,19 @@ func cleanup(policy kyvernov1.PolicyInterface) kyvernov1.PolicyInterface {
 		policy.SetAnnotations(ann)
 	}
 	if policy.GetNamespace() == "" {
-		pol := policy.(*kyvernov1.ClusterPolicy)
+		var pol *kyvernov1.ClusterPolicy
+		var ok bool
+		if pol, ok = policy.(*kyvernov1.ClusterPolicy); !ok {
+			return policy
+		}
 		pol.Status.Autogen.Rules = nil
 		return pol
 	} else {
-		pol := policy.(*kyvernov1.Policy)
+		var pol *kyvernov1.Policy
+		var ok bool
+		if pol, ok = policy.(*kyvernov1.Policy); !ok {
+			return policy
+		}
 		pol.Status.Autogen.Rules = nil
 		return pol
 	}
@@ -1125,7 +1133,7 @@ func jsonPatchOnPod(rule kyvernov1.Rule) bool {
 
 func podControllerAutoGenExclusion(policy kyvernov1.PolicyInterface) bool {
 	annotations := policy.GetAnnotations()
-	val, ok := annotations[kyverno.PodControllersAnnotation]
+	val, ok := annotations[kyverno.AnnotationAutogenControllers]
 	if !ok || val == "none" {
 		return false
 	}
@@ -1254,6 +1262,9 @@ func validateNamespaces(s *kyvernov1.Spec, path *field.Path) error {
 	}
 
 	for i, vfa := range s.ValidationFailureActionOverrides {
+		if !vfa.Action.IsValid() {
+			return fmt.Errorf("invalid action")
+		}
 		patternList, nsList := wildcard.SeperateWildcards(vfa.Namespaces)
 
 		if vfa.Action.Audit() {
