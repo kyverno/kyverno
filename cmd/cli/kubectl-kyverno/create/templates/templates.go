@@ -9,3 +9,6 @@ var TestTemplate string
 
 //go:embed user-info.yaml
 var UserInfoTemplate string
+
+//go:embed metrics-config.yaml
+var MetricsConfigTemplate string
