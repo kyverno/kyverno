@@ -31,5 +31,28 @@ spec:
               sleep 30
               kubectl delete validatingwebhookconfiguration -l webhook.kyverno.io/managed-by=kyverno
               kubectl delete mutatingwebhookconfiguration -l webhook.kyverno.io/managed-by=kyverno
+      {{- with .Values.webhooksCleanup.tolerations }}
+      tolerations:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.webhooksCleanup.nodeSelector }}
+      nodeSelector:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- if or .Values.webhooksCleanup.podAntiAffinity .Values.webhooksCleanup.podAffinity .Values.webhooksCleanup.nodeAffinity }}
+      affinity:
+        {{- with .Values.webhooksCleanup.podAntiAffinity }}
+        podAntiAffinity:
+          {{- tpl (toYaml .) $ | nindent 10 }}
+        {{- end }}
+        {{- with .Values.webhooksCleanup.podAffinity }}
+        podAffinity:
+          {{- tpl (toYaml .) $ | nindent 10 }}
+        {{- end }}
+        {{- with .Values.webhooksCleanup.nodeAffinity }}
+        nodeAffinity:
+          {{- tpl (toYaml .) $ | nindent 10 }}
+        {{- end }}
+      {{- end }}
   {{- end -}}
 {{- end -}}

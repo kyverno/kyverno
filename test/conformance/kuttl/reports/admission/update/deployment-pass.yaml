@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-dpl-1
+spec:
+  selector:
+    matchLabels:
+      app: test-dpl-1
+  template:
+    metadata:
+      labels:
+        app: test-dpl-1
+    spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: test-container
+        image: nginx:1.25.1
