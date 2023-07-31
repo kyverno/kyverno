@@ -3,7 +3,7 @@ kind: Pod
 metadata:
   name: pod1
   labels:
-    kyverno.io/ttl: 10s
+    cleanup.kyverno.io/ttl: 10s
 spec:
   containers:
   - image: nginx:latest

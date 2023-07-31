@@ -127,7 +127,7 @@ func GetRequestedControllers(meta *metav1.ObjectMeta) []string {
 	if annotations == nil {
 		return nil
 	}
-	controllers, ok := annotations[kyverno.PodControllersAnnotation]
+	controllers, ok := annotations[kyverno.AnnotationAutogenControllers]
 	if !ok || controllers == "" {
 		return nil
 	}
@@ -251,7 +251,7 @@ func computeRules(p kyvernov1.PolicyInterface) []kyvernov1.Rule {
 		desiredControllers = "none"
 	}
 	ann := p.GetAnnotations()
-	actualControllers, ok := ann[kyverno.PodControllersAnnotation]
+	actualControllers, ok := ann[kyverno.AnnotationAutogenControllers]
 	if !ok || !applyAutoGen {
 		actualControllers = desiredControllers
 	} else {

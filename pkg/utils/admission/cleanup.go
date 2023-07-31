@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	admissionv1 "k8s.io/api/admission/v1"
 )
@@ -38,7 +39,7 @@ func GetCleanupPolicies(request admissionv1.AdmissionRequest) (kyvernov2alpha1.C
 	return policy, emptypolicy, nil
 }
 
-// UnmarshalTTLLabel extracts the kyverno.io/ttl label value from the raw admission request.
+// UnmarshalTTLLabel extracts the cleanup.kyverno.io/ttl label value from the raw admission request.
 func GetTtlLabel(raw []byte) (string, error) {
 	var resourceObj map[string]interface{}
 	if err := json.Unmarshal(raw, &resourceObj); err != nil {
@@ -55,9 +56,9 @@ func GetTtlLabel(raw []byte) (string, error) {
 		return "", fmt.Errorf("resource has no labels field")
 	}
 
-	ttlValue, found := labels["kyverno.io/ttl"].(string)
+	ttlValue, found := labels[kyverno.LabelCleanupTtl].(string)
 	if !found {
-		return "", fmt.Errorf("resource has no kyverno.io/ttl label")
+		return "", fmt.Errorf("resource has no %s label", kyverno.LabelCleanupTtl)
 	}
 
 	return ttlValue, nil

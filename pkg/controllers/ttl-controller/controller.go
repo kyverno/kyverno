@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -145,7 +146,6 @@ func (c *controller) reconcile(itemKey string) error {
 	}
 
 	metaObj, error := meta.Accessor(obj)
-	const ttlLabel = "kyverno.io/ttl"
 
 	if error != nil {
 		c.controllerLogger.Info("object '%s' is not of type metav1.Object", itemKey)
@@ -153,7 +153,7 @@ func (c *controller) reconcile(itemKey string) error {
 	}
 
 	labels := metaObj.GetLabels()
-	ttlValue, ok := labels[ttlLabel]
+	ttlValue, ok := labels[kyverno.LabelCleanupTtl]
 
 	if !ok {
 		// No 'ttl' label present, no further action needed

@@ -1,6 +1,6 @@
 # ## Description
 
-This test cleans up pods via a label assignment named `kyverno.io/ttl: 10s`.
+This test cleans up pods via a label assignment named `cleanup.kyverno.io/ttl: 10s`.
 
 ## Expected Behavior
 

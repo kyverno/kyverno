@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,7 +23,6 @@ import (
 type stopFunc = context.CancelFunc
 
 const (
-	CleanupLabel   = "kyverno.io/ttl"
 	Workers        = 3
 	ControllerName = "ttl-controller-manager"
 )
@@ -120,7 +120,7 @@ func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, wo
 		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
 	}
 	options := func(options *metav1.ListOptions) {
-		options.LabelSelector = CleanupLabel
+		options.LabelSelector = kyverno.LabelCleanupTtl
 	}
 
 	informer := metadatainformer.NewFilteredMetadataInformer(m.metadataClient,

@@ -78,7 +78,7 @@ func NewController(
 	labelselector := &metav1.LabelSelector{
 		MatchExpressions: []metav1.LabelSelectorRequirement{
 			{
-				Key:      "kyverno.io/ttl",
+				Key:      kyverno.LabelCleanupTtl,
 				Operator: metav1.LabelSelectorOpExists,
 			},
 		},

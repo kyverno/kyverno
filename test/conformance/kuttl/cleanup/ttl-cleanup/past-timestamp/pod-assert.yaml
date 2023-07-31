@@ -3,4 +3,4 @@ kind: Pod
 metadata:
   name: test-pod
   labels:
-    kyverno.io/ttl: 2023-07-19T120000Z
+    cleanup.kyverno.io/ttl: 2023-07-19T120000Z

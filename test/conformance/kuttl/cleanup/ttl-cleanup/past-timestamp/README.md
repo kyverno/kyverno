@@ -1,6 +1,6 @@
 # ## Description
 
-This test cleans up pods instanteaously without any delay as the value of the label is `kyverno.io/ttl: 2023-07-19T120000Z`  the timestamp is mentioned in past.
+This test cleans up pods instanteaously without any delay as the value of the label is `cleanup.kyverno.io/ttl: 2023-07-19T120000Z`  the timestamp is mentioned in past.
 
 ## Expected Behavior
 

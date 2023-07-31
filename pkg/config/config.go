@@ -59,7 +59,7 @@ const (
 	ExceptionValidatingWebhookServicePath = "/exceptionvalidate"
 	// CleanupValidatingWebhookServicePath is the path for cleanup policy validation webhook(used to validate cleanup policy resource)
 	CleanupValidatingWebhookServicePath = "/validate"
-	// TtlValidatingWebhookServicePath is the path for validation of kyverno.io/ttl label value
+	// TtlValidatingWebhookServicePath is the path for validation of cleanup.kyverno.io/ttl label value
 	TtlValidatingWebhookServicePath = "/verifyttl"
 	// PolicyMutatingWebhookServicePath is the path for policy mutation webhook(used to default)
 	PolicyMutatingWebhookServicePath = "/policymutate"
