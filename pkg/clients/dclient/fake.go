@@ -98,10 +98,6 @@ func (c *fakeDiscoveryClient) OpenAPISchema() (*openapiv2.Document, error) {
 	return nil, nil
 }
 
-func (c *fakeDiscoveryClient) DiscoveryCache() discovery.CachedDiscoveryInterface {
-	return nil
-}
-
-func (c *fakeDiscoveryClient) DiscoveryInterface() discovery.DiscoveryInterface {
+func (c *fakeDiscoveryClient) CachedDiscoveryInterface() discovery.CachedDiscoveryInterface {
 	return nil
 }

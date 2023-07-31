@@ -39,10 +39,10 @@ import (
 )
 
 var (
-	allowedVariables                   = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images\.|image\.|([a-z_0-9]+\()[^{}]`)
-	allowedVariablesBackground         = regexp.MustCompile(`request\.|element|elementIndex|@|images\.|image\.|([a-z_0-9]+\()[^{}]`)
-	allowedVariablesInTarget           = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
-	allowedVariablesBackgroundInTarget = regexp.MustCompile(`request\.|element|elementIndex|@|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
+	allowedVariables                   = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images|images\.|image\.|([a-z_0-9]+\()[^{}]`)
+	allowedVariablesBackground         = regexp.MustCompile(`request\.|element|elementIndex|@|images|images\.|image\.|([a-z_0-9]+\()[^{}]`)
+	allowedVariablesInTarget           = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
+	allowedVariablesBackgroundInTarget = regexp.MustCompile(`request\.|element|elementIndex|@|images|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
 	// wildCardAllowedVariables represents regex for the allowed fields in wildcards
 	wildCardAllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace)[^{}]*\}\}`)
 	errOperationForbidden    = errors.New("variables are forbidden in the path of a JSONPatch")
@@ -149,7 +149,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	clusterResources := sets.New[string]()
 	if !mock {
 		// Get all the cluster type kind supported by cluster
-		res, err = discovery.ServerPreferredResources(client.Discovery().DiscoveryInterface())
+		res, err = discovery.ServerPreferredResources(client.Discovery().CachedDiscoveryInterface())
 		if err != nil {
 			if discovery.IsGroupDiscoveryFailedError(err) {
 				err := err.(*discovery.ErrGroupDiscoveryFailed)
@@ -491,11 +491,19 @@ func cleanup(policy kyvernov1.PolicyInterface) kyvernov1.PolicyInterface {
 		policy.SetAnnotations(ann)
 	}
 	if policy.GetNamespace() == "" {
-		pol := policy.(*kyvernov1.ClusterPolicy)
+		var pol *kyvernov1.ClusterPolicy
+		var ok bool
+		if pol, ok = policy.(*kyvernov1.ClusterPolicy); !ok {
+			return policy
+		}
 		pol.Status.Autogen.Rules = nil
 		return pol
 	} else {
-		pol := policy.(*kyvernov1.Policy)
+		var pol *kyvernov1.Policy
+		var ok bool
+		if pol, ok = policy.(*kyvernov1.Policy); !ok {
+			return policy
+		}
 		pol.Status.Autogen.Rules = nil
 		return pol
 	}
@@ -1254,6 +1262,9 @@ func validateNamespaces(s *kyvernov1.Spec, path *field.Path) error {
 	}
 
 	for i, vfa := range s.ValidationFailureActionOverrides {
+		if !vfa.Action.IsValid() {
+			return fmt.Errorf("invalid action")
+		}
 		patternList, nsList := wildcard.SeperateWildcards(vfa.Namespaces)
 
 		if vfa.Action.Audit() {

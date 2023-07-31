@@ -34,7 +34,7 @@ const (
 // When logging.Setup is called, globalLog is switched to the real logger.
 // Call depth of all loggers created before logging.Setup will not work, including package level loggers as they are created before main.
 // All loggers created after logging.Setup won't be subject to the call depth limitation and will work if the underlying sink supports it.
-var globalLog = log.Log.V(2)
+var globalLog = log.Log
 
 func InitFlags(flags *flag.FlagSet) {
 	// clear flags initialized in static dependencies
@@ -50,7 +50,7 @@ func Setup(logFormat string, level int) error {
 	switch logFormat {
 	case TextFormat:
 		// in text mode we use FormatSerialize format
-		globalLog = klogr.New().V(2)
+		globalLog = klogr.New()
 	case JSONFormat:
 		zc := zap.NewProductionConfig()
 		// Zap's levels get more and less verbose as the number gets smaller and higher respectively (DebugLevel is -1, InfoLevel is 0, WarnLevel is 1, and so on).

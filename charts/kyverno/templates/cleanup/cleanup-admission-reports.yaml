@@ -5,7 +5,7 @@ metadata:
   name: {{ template "kyverno.name" . }}-cleanup-admission-reports
   namespace: {{ template "kyverno.namespace" . }}
   labels:
-    {{- include "kyverno.labels.merge" (list (include "kyverno.labels.common" .) (include "kyverno.matchLabels.common" .)) | nindent 4 }}
+    {{- include "kyverno.cleanup.labels" . | nindent 4 }}
 spec:
   schedule: {{ .Values.cleanupJobs.admissionReports.schedule | quote }}
   concurrencyPolicy: Forbid
@@ -17,6 +17,10 @@ spec:
         metadata:
           {{- with .Values.cleanupJobs.admissionReports.podAnnotations }}
           annotations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.cleanupJobs.admissionReports.podLabels }}
+          labels:
             {{- toYaml . | nindent 12 }}
           {{- end }}
         spec:
@@ -56,5 +60,24 @@ spec:
           {{- with .Values.cleanupJobs.admissionReports.tolerations }}
           tolerations:
             {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- with .Values.cleanupJobs.admissionReports.nodeSelector }}
+          nodeSelector:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- if or .Values.cleanupJobs.admissionReports.podAntiAffinity .Values.cleanupJobs.admissionReports.podAffinity .Values.cleanupJobs.admissionReports.nodeAffinity }}
+          affinity:
+            {{- with .Values.cleanupJobs.admissionReports.podAntiAffinity }}
+            podAntiAffinity:
+              {{- tpl (toYaml .) $ | nindent 14 }}
+            {{- end }}
+            {{- with .Values.cleanupJobs.admissionReports.podAffinity }}
+            podAffinity:
+              {{- tpl (toYaml .) $ | nindent 14 }}
+            {{- end }}
+            {{- with .Values.cleanupJobs.admissionReports.nodeAffinity }}
+            nodeAffinity:
+              {{- tpl (toYaml .) $ | nindent 14 }}
+            {{- end }}
           {{- end }}
 {{- end -}}

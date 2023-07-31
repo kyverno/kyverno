@@ -1,0 +1,5 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl -n verify-images rollout undo deployment nginx-deployment
+    namespaced: true

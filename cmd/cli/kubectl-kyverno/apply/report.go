@@ -64,10 +64,10 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 		isVAP := engineResponse.IsValidatingAdmissionPolicy()
 
 		if isVAP {
-			validatingAdmissionPolicy := engineResponse.ValidatingAdmissionPolicy()
-			ns = validatingAdmissionPolicy.GetNamespace()
-			policyName = validatingAdmissionPolicy.GetName()
-			ann = validatingAdmissionPolicy.GetAnnotations()
+			vap := engineResponse.ValidatingAdmissionPolicy()
+			ns = vap.GetNamespace()
+			policyName = vap.GetName()
+			ann = vap.GetAnnotations()
 		} else {
 			kyvernoPolicy := engineResponse.Policy()
 			ns = kyvernoPolicy.GetNamespace()
@@ -98,7 +98,9 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 						UID:        engineResponse.Resource.GetUID(),
 					},
 				},
-				Scored: true,
+				Scored:   true,
+				Category: ann[kyverno.AnnotationPolicyCategory],
+				Severity: reportutils.SeverityFromString(ann[kyverno.AnnotationPolicySeverity]),
 			}
 
 			if ruleResponse.Status() == engineapi.RuleStatusSkip {

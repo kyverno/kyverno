@@ -26,7 +26,7 @@ func (anynin AnyNotInHandler) Evaluate(key, value interface{}) bool {
 	switch typedKey := key.(type) {
 	case string:
 		return anynin.validateValueWithStringPattern(typedKey, value)
-	case int, int32, int64, float32, float64:
+	case int, int32, int64, float32, float64, bool:
 		return anynin.validateValueWithStringPattern(fmt.Sprint(typedKey), value)
 	case []interface{}:
 		var stringSlice []string

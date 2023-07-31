@@ -117,7 +117,9 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 			return nil
 		}
 
-		events := event.NewBackgroundFailedEvent(err, ur.Spec.Policy, "", event.GeneratePolicyController, trigger)
+		policy, _ := c.getPolicySpec(*ur)
+		events := event.NewBackgroundFailedEvent(err, policy, ur.Spec.Rule, event.GeneratePolicyController,
+			kyvernov1.ResourceSpec{Kind: trigger.GetKind(), Namespace: trigger.GetNamespace(), Name: trigger.GetName()})
 		c.eventGen.Add(events...)
 	}
 
@@ -252,7 +254,20 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 	}
 
 	// Apply the generate rule on resource
-	return c.ApplyGeneratePolicy(logger, policyContext, ur, applicableRules)
+	genResources, err := c.ApplyGeneratePolicy(logger, policyContext, ur, applicableRules)
+
+	// generate events.
+	if err == nil {
+		for _, res := range genResources {
+			e := event.NewResourceGenerationEvent(ur.Spec.Policy, ur.Spec.Rule, event.GeneratePolicyController, res)
+			c.eventGen.Add(e)
+		}
+
+		e := event.NewBackgroundSuccessEvent(event.GeneratePolicyController, policy, genResources)
+		c.eventGen.Add(e...)
+	}
+
+	return genResources, err
 }
 
 // getPolicySpec gets the policy spec from the ClusterPolicy/Policy
