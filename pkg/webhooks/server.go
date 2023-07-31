@@ -236,16 +236,16 @@ func (s *server) cleanup(ctx context.Context) {
 		}
 		deleteVwc := func() {
 			if err := s.vwcClient.DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
-				LabelSelector: kyverno.LabelWebhookManagedByLabel,
+				LabelSelector: kyverno.LabelWebhookManagedBy,
 			}); err != nil && !apierrors.IsNotFound(err) {
-				logger.Error(err, "failed to clean up validating webhook configuration", "label", kyverno.LabelWebhookManagedByLabel)
+				logger.Error(err, "failed to clean up validating webhook configuration", "label", kyverno.LabelWebhookManagedBy)
 			}
 		}
 		deleteMwc := func() {
 			if err := s.mwcClient.DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
-				LabelSelector: kyverno.LabelWebhookManagedByLabel,
+				LabelSelector: kyverno.LabelWebhookManagedBy,
 			}); err != nil && !apierrors.IsNotFound(err) {
-				logger.Error(err, "failed to clean up mutating webhook configuration", "label", kyverno.LabelWebhookManagedByLabel)
+				logger.Error(err, "failed to clean up mutating webhook configuration", "label", kyverno.LabelWebhookManagedBy)
 			}
 		}
 		deleteLease("kyvernopre-lock")
