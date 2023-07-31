@@ -163,8 +163,8 @@ func main() {
 					setup.KubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 					kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 					caSecret,
-					config.VerifyLabelWebhookPathName,
-					config.VerifyLabelWebhookPath,
+					config.TtlValidatingWebhookConfigurationName,
+					config.TtlValidatingWebhookServicePath,
 					serverIP,
 					int32(servicePort),
 					[]admissionregistrationv1.RuleWithOperations{

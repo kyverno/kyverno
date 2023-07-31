@@ -81,7 +81,7 @@ func NewServer(
 	)
 	mux.HandlerFunc(
 		"POST",
-		config.VerifyLabelWebhookPath,
+		config.TtlValidatingWebhookServicePath,
 		handlers.FromAdmissionFunc("VALIDATE", labelValidationHandler).
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
