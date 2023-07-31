@@ -1,0 +1,12 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+- script: |
+    if kubectl apply -f 06-pod.yaml
+    then 
+      echo "Tested failed. Pod was created when it shouldn't have been."
+      exit 1 
+    else 
+      echo "Test succeeded. Pod was not created as intended."
+      exit 0
+    fi

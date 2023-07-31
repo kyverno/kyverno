@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: secret-in-keys
+  name: secret-in-policy
 status:
   conditions:
   - reason: Succeeded
