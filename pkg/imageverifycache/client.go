@@ -2,6 +2,7 @@ package imageverifycache
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-logr/logr"
 )
@@ -10,7 +11,7 @@ type cache struct {
 	logger         logr.Logger
 	isCacheEnabled bool
 	maxSize        int64
-	ttl            int64
+	ttl            time.Duration
 }
 
 type Option = func(*cache) error
@@ -58,7 +59,7 @@ func WithMaxSize(s int64) Option {
 
 func WithTTLDuration(t int64) Option {
 	return func(c *cache) error {
-		c.ttl = t
+		c.ttl = time.Duration(t)
 		return nil
 	}
 }
