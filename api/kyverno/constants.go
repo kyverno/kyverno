@@ -4,6 +4,7 @@ const (
 	// Well known labels
 	LabelAppManagedBy     = "app.kubernetes.io/managed-by"
 	LabelAppComponent     = "app.kubernetes.io/component"
+	LabelCacheEnabled     = "cache.kyverno.io/enabled"
 	LabelCertManagedBy    = "cert.kyverno.io/managed-by"
 	LabelWebhookManagedBy = "webhook.kyverno.io/managed-by"
 	LabelCleanupTtl       = "cleanup.kyverno.io/ttl"
