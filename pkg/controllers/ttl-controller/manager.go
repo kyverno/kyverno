@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/controllers"
+	"github.com/kyverno/kyverno/pkg/logging"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -42,12 +43,9 @@ func NewManager(
 	authorizationInterface authorizationv1client.AuthorizationV1Interface,
 	timeInterval time.Duration,
 ) controllers.Controller {
+	logger := logging.WithName(ControllerName)
 	selfChecker := checker.NewSelfChecker(authorizationInterface.SelfSubjectAccessReviews())
-
-	resController := make(map[schema.GroupVersionResource]stopFunc)
-
-	logger := CreateLogger(ControllerName)
-
+	resController := map[schema.GroupVersionResource]stopFunc{}
 	return &manager{
 		metadataClient:  metadataInterface,
 		discoveryClient: discoveryInterface,
@@ -62,22 +60,21 @@ func (m *manager) Run(ctx context.Context, worker int) {
 	defer func() {
 		// Stop all informers and wait for them to finish
 		for gvr := range m.resController {
+			logger := m.logger.WithValues("gvr", gvr)
 			if err := m.stop(ctx, gvr); err != nil {
-				m.logger.Error(err, "Error stopping informer")
+				logger.Error(err, "failed to stop informer")
 			}
 		}
 	}()
-
 	ticker := time.NewTicker(m.interval)
 	defer ticker.Stop()
-
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
 			if err := m.reconcile(ctx, worker); err != nil {
-				m.logger.Error(err, "Error in reconciliation")
+				m.logger.Error(err, "reconciliation failed")
 				return
 			}
 		}
@@ -103,11 +100,12 @@ func (m *manager) getObservedState() (sets.Set[schema.GroupVersionResource], err
 }
 
 func (m *manager) stop(ctx context.Context, gvr schema.GroupVersionResource) error {
+	logger := m.logger.WithValues("gvr", gvr)
 	if stopFunc, ok := m.resController[gvr]; ok {
 		delete(m.resController, gvr)
 		func() {
-			// defer log.Println("stopped", gvr)
-			m.logger.Info("stopping...", gvr.Resource)
+			defer logger.Info("controller stopped")
+			logger.Info("stopping controller...")
 			stopFunc()
 		}()
 	}
@@ -115,14 +113,13 @@ func (m *manager) stop(ctx context.Context, gvr schema.GroupVersionResource) err
 }
 
 func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, workers int) error {
-	controllerLogger := CreateLogger(gvr.GroupResource().Resource)
+	logger := m.logger.WithValues("gvr", gvr)
 	indexers := cache.Indexers{
 		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
 	}
 	options := func(options *metav1.ListOptions) {
 		options.LabelSelector = kyverno.LabelCleanupTtl
 	}
-
 	informer := metadatainformer.NewFilteredMetadataInformer(m.metadataClient,
 		gvr,
 		metav1.NamespaceAll,
@@ -130,21 +127,21 @@ func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, wo
 		indexers,
 		options,
 	)
-
-	controller := newController(m.metadataClient.Resource(gvr), informer, controllerLogger)
+	controller := newController(m.metadataClient.Resource(gvr), informer, logger)
 
 	cont, cancel := context.WithCancel(ctx)
 	var wg wait.Group
 
 	stopFunc := func() {
-		cancel()  // Send stop signal to informer's goroutine
-		wg.Wait() // Wait for the group to terminate
+		// Send stop signal to informer's goroutine
+		cancel()
+		// Wait for the group to terminate
+		wg.Wait()
 		controller.Stop()
-		controllerLogger.Info("Stopped", gvr.Resource)
 	}
 
 	wg.StartWithContext(cont, func(ctx context.Context) {
-		controllerLogger.Info("informer starting...", gvr.Resource)
+		logger.Info("informer starting...")
 		informer.Informer().Run(cont.Done())
 	})
 
@@ -153,7 +150,7 @@ func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, wo
 		return fmt.Errorf("failed to wait for cache sync: %s", gvr.Resource)
 	}
 
-	controllerLogger.Info("controller starting...", gvr.Resource)
+	logger.Info("controller starting...")
 	controller.Start(cont, workers)
 	m.resController[gvr] = stopFunc // Store the stop function
 	return nil
@@ -171,6 +168,7 @@ func (m *manager) filterPermissionsResource(resources []schema.GroupVersionResou
 }
 
 func (m *manager) reconcile(ctx context.Context, workers int) error {
+	defer m.logger.Info("manager reconciliation done")
 	m.logger.Info("start manager reconciliation")
 	desiredState, err := m.getDesiredState()
 	if err != nil {

@@ -5,9 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/go-logr/logr"
 	checker "github.com/kyverno/kyverno/pkg/auth/checker"
-	"github.com/kyverno/kyverno/pkg/logging"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -72,8 +70,4 @@ func parseDeletionTime(metaObj metav1.Object, deletionTime *time.Time, ttlValue 
 		}
 	}
 	return nil
-}
-
-func CreateLogger(name string) logr.Logger {
-	return logging.WithName(name)
 }
