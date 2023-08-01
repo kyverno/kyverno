@@ -1,6 +1,8 @@
 apiVersion: v1
-kind: Pod
+kind: ConfigMap
 metadata:
-  name: test-pod
+  name: test-cm
   labels:
     cleanup.kyverno.io/ttl: 10s
+data:
+  foo: bar

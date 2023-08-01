@@ -1,6 +1,6 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 apply:
-- pod.yaml
+- resource.yaml
 assert:
-- pod-assert.yaml
+- resource-assert.yaml
