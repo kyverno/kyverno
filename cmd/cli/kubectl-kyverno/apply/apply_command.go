@@ -490,7 +490,6 @@ func processSkipEngineResponses(responses []engineapi.EngineResponse, c common.A
 						}
 					}
 					if !ruleFoundInEngineResponse {
-						c.Rc.Skip++
 						response.PolicyResponse.Rules = append(response.PolicyResponse.Rules,
 							*engineapi.RuleSkip(
 								rule.Name,
