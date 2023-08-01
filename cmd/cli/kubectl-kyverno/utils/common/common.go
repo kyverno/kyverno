@@ -912,13 +912,6 @@ func processEngineResponses(responses []engineapi.EngineResponse, c ApplyPolicyC
 					}
 					if !ruleFoundInEngineResponse {
 						c.Rc.Skip++
-						response.PolicyResponse.Rules = append(response.PolicyResponse.Rules,
-							*engineapi.RuleSkip(
-								rule.Name,
-								engineapi.Validation,
-								rule.Validation.Message,
-							),
-						)
 					}
 				}
 			}
