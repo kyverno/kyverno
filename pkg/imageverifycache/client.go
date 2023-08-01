@@ -57,9 +57,9 @@ func WithMaxSize(s int64) Option {
 	}
 }
 
-func WithTTLDuration(t int64) Option {
+func WithTTLDuration(t time.Duration) Option {
 	return func(c *cache) error {
-		c.ttl = time.Duration(t)
+		c.ttl = t
 		return nil
 	}
 }
