@@ -410,6 +410,7 @@ features:
     # -- Reports chunk size
     chunkSize: 1000
   ttlController:
+    # -- Reconciliation interval for the label based cleanup manager
     reconciliationInterval: 1m
 
 # Cleanup cronjobs to prevent internal resources from stacking up in the cluster
@@ -1156,6 +1157,10 @@ cleanupController:
       #     - ''
       #   resources:
       #     - pods
+      #   verbs:
+      #     - delete
+      #     - list
+      #     - watch
 
   # -- Create self-signed certificates at deployment time.
   # The certificates won't be automatically renewed if this is set to `true`.

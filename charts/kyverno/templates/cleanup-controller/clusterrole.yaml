@@ -94,9 +94,7 @@ rules:
     resources:
       {{- toYaml .resources | nindent 6 }}
     verbs:
-      - delete
-      - list
-      - watch
+      {{- toYaml .verbs | nindent 6 }}
   {{- end }}
 {{- end }}
 {{- end }}
