@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+- deployment_old.yaml
+- deployment_new.yaml
+assert:
+- deployment-assert.yaml

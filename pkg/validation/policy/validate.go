@@ -1133,7 +1133,7 @@ func jsonPatchOnPod(rule kyvernov1.Rule) bool {
 
 func podControllerAutoGenExclusion(policy kyvernov1.PolicyInterface) bool {
 	annotations := policy.GetAnnotations()
-	val, ok := annotations[kyverno.PodControllersAnnotation]
+	val, ok := annotations[kyverno.AnnotationAutogenControllers]
 	if !ok || val == "none" {
 		return false
 	}

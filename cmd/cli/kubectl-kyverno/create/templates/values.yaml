@@ -1,0 +1,41 @@
+# list of policy values
+policies:
+{{- range $key, $value := .Policies }}
+  - name: {{ .Name }}
+{{- with .Rules }}
+    rules:
+{{- range . }}
+      - name: {{ .Name }}
+        values:
+{{- range $key, $value := .Values }}
+          {{ $key }}: {{ $value }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- with .Resources }}
+    resources:
+{{- range . }}
+      - name: {{ .Name }}
+        values:
+{{- range $key, $value := .Values }}
+          {{ $key }}: {{ $value }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+# list of global values
+globalValues:
+{{- range $key, $value := .GlobalValues }}
+  {{ $key }}: {{ $value }}
+{{- end }}
+
+# list of namespace selectors
+namespaceSelector:
+{{- range .NamespaceSelectors }}
+  - name: {{ .Name }}
+    labels:
+{{- range $key, $value := .Labels }}
+      {{ $key }}: {{ $value }}
+{{- end }}
+{{- end }}

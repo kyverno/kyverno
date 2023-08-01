@@ -40611,6 +40611,7 @@ spec:
             - --metricsPort=8000
             - --admissionReports=true
             - --aggregateReports=true
+            - --policyReports=true
             - --backgroundScan=true
             - --backgroundScanWorkers=2
             - --backgroundScanInterval=1h
