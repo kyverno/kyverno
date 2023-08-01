@@ -232,7 +232,7 @@ func combineRuleResponses(imageResponse engineapi.EngineResponse) engineapi.Engi
 	var combineRuleResponses []engineapi.RuleResponse
 	if len(errorRuleResponses) > 0 {
 		for _, errRsp := range errorRuleResponses {
-			ruleMesssage += errRsp.Message()
+			ruleMesssage += errRsp.Message() + ";"
 		}
 		errorResponse := engineapi.NewRuleResponse(ruleName, ruleType, ruleMesssage, engineapi.RuleStatusError)
 		combineRuleResponses = append(combineRuleResponses, *errorResponse)
@@ -242,7 +242,7 @@ func combineRuleResponses(imageResponse engineapi.EngineResponse) engineapi.Engi
 
 	if len(failRuleResponses) > 0 {
 		for _, failRsp := range failRuleResponses {
-			ruleMesssage += failRsp.Message()
+			ruleMesssage += failRsp.Message() + ";"
 		}
 		failResponse := engineapi.NewRuleResponse(ruleName, ruleType, ruleMesssage, engineapi.RuleStatusFail)
 		combineRuleResponses = append(combineRuleResponses, *failResponse)
@@ -252,7 +252,7 @@ func combineRuleResponses(imageResponse engineapi.EngineResponse) engineapi.Engi
 
 	if len(passRuleResponses) > 0 {
 		for _, passRsp := range passRuleResponses {
-			ruleMesssage += passRsp.Message()
+			ruleMesssage += passRsp.Message() + ";"
 		}
 		passResponse := engineapi.NewRuleResponse(ruleName, ruleType, ruleMesssage, engineapi.RuleStatusPass)
 		combineRuleResponses = append(combineRuleResponses, *passResponse)
@@ -261,7 +261,7 @@ func combineRuleResponses(imageResponse engineapi.EngineResponse) engineapi.Engi
 	}
 
 	for _, skipRsp := range skipRuleResponses {
-		ruleMesssage += skipRsp.Message()
+		ruleMesssage += skipRsp.Message() + ";"
 	}
 	skipResponse := engineapi.NewRuleResponse(ruleName, ruleType, ruleMesssage, engineapi.RuleStatusSkip)
 	combineRuleResponses = append(combineRuleResponses, *skipResponse)
