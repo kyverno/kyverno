@@ -190,7 +190,7 @@ func main() {
 							},
 						},
 					},
-					genericwebhookcontroller.Fail,
+					genericwebhookcontroller.Ignore,
 					genericwebhookcontroller.None,
 					setup.Configuration,
 				),
