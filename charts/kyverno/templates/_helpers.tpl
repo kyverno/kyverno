@@ -66,7 +66,7 @@
   {{- $flags = append $flags (print "--registryCredentialHelpers=" (join "," .credentialHelpers)) -}}
 {{- end -}}
 {{- with .ttlController -}}
-  {{- $flags = append $flags (print "--reconciliationinterval=" .reconciliationInterval) -}}
+  {{- $flags = append $flags (print "--ttlReconciliationInterval=" .reconciliationInterval) -}}
 {{- end -}}
 {{- with $flags -}}
   {{- toYaml . -}}

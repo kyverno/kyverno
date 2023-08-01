@@ -67,7 +67,7 @@ func main() {
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
-	flagset.DurationVar(&interval, "reconciliationinterval", time.Minute, "Set this flag to set the interval after which the resource controller reconciliation should occur")
+	flagset.DurationVar(&interval, "ttlReconciliationInterval", time.Minute, "Set this flag to set the interval after which the resource controller reconciliation should occur")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
