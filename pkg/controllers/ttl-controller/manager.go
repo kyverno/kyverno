@@ -83,7 +83,7 @@ func (m *manager) Run(ctx context.Context, worker int) {
 
 func (m *manager) getDesiredState() (sets.Set[schema.GroupVersionResource], error) {
 	// Get the list of resources currently present in the cluster
-	newresources, err := discoverResources(m.discoveryClient)
+	newresources, err := discoverResources(m.logger, m.discoveryClient)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,7 @@ func (m *manager) filterPermissionsResource(resources []schema.GroupVersionResou
 	validResources := []schema.GroupVersionResource{}
 	for _, resource := range resources {
 		// Check if the service account has the necessary permissions
-		if hasResourcePermissions(resource, m.checker) {
+		if hasResourcePermissions(m.logger, resource, m.checker) {
 			validResources = append(validResources, resource)
 		}
 	}
