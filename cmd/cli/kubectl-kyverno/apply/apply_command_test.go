@@ -89,7 +89,7 @@ func Test_Apply(t *testing.T) {
 					Summary: preport.PolicyReportSummary{
 						Pass:  1,
 						Fail:  1,
-						Skip:  0,
+						Skip:  8,
 						Error: 0,
 						Warn:  2,
 					},

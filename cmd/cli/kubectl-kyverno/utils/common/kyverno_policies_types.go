@@ -206,11 +206,12 @@ OuterLoop:
 		updateResultCounts(c.Policy, &generateResponse, resPath, c.Rc, c.AuditWarn)
 	}
 
-	processEngineResponses(engineResponses, c)
+	engineResponses = processEngineResponses(engineResponses, c)
 
 	return engineResponses, nil
 }
 
+<<<<<<< HEAD
 func combineRuleResponses(imageResponse engineapi.EngineResponse) engineapi.EngineResponse {
 	if imageResponse.PolicyResponse.RulesAppliedCount() == 0 {
 		return imageResponse
@@ -281,4 +282,55 @@ func combineRuleResponses(imageResponse engineapi.EngineResponse) engineapi.Engi
 	}
 	imageResponse.PolicyResponse.Rules = combineRuleResponses
 	return imageResponse
+=======
+func processEngineResponses(responses []engineapi.EngineResponse, c ApplyPolicyConfig) []engineapi.EngineResponse {
+	var processedEngineResponses []engineapi.EngineResponse
+	for _, response := range responses {
+		if !response.IsEmpty() {
+			for _, rule := range autogen.ComputeRules(response.Policy()) {
+				if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
+					ruleFoundInEngineResponse := false
+					for _, valResponseRule := range response.PolicyResponse.Rules {
+						if rule.Name == valResponseRule.Name() {
+							ruleFoundInEngineResponse = true
+							switch valResponseRule.Status() {
+							case engineapi.RuleStatusPass:
+								c.Rc.Pass++
+							case engineapi.RuleStatusFail:
+								ann := c.Policy.GetAnnotations()
+								if scored, ok := ann[kyverno.AnnotationPolicyScored]; ok && scored == "false" {
+									c.Rc.Warn++
+									break
+								} else if c.AuditWarn && response.GetValidationFailureAction().Audit() {
+									c.Rc.Warn++
+								} else {
+									c.Rc.Fail++
+								}
+							case engineapi.RuleStatusError:
+								c.Rc.Error++
+							case engineapi.RuleStatusWarn:
+								c.Rc.Warn++
+							case engineapi.RuleStatusSkip:
+								c.Rc.Skip++
+							}
+							continue
+						}
+					}
+					if !ruleFoundInEngineResponse {
+						c.Rc.Skip++
+						response.PolicyResponse.Rules = append(response.PolicyResponse.Rules,
+							*engineapi.RuleSkip(
+								rule.Name,
+								engineapi.Validation,
+								rule.Validation.Message,
+							),
+						)
+					}
+				}
+			}
+		}
+		processedEngineResponses = append(processedEngineResponses, response)
+	}
+	return processedEngineResponses
+>>>>>>> ca2dda1cd (fixed unit tests)
 }
