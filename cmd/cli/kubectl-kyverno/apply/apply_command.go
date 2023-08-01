@@ -402,7 +402,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 			if err != nil {
 				return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}
-			responses = append(responses, ers...)
+			responses = append(responses, processSkipEngineResponses(ers, applyPolicyConfig)...)
 		}
 	}
 
@@ -475,4 +475,34 @@ func exit(rc *common.ResultCounts, warnExitCode int, warnNoPassed bool) {
 	} else if rc.Pass == 0 && warnNoPassed {
 		osExit(warnExitCode)
 	}
+}
+
+func processSkipEngineResponses(responses []engineapi.EngineResponse, c common.ApplyPolicyConfig) []engineapi.EngineResponse {
+	var processedEngineResponses []engineapi.EngineResponse
+	for _, response := range responses {
+		if !response.IsEmpty() {
+			for _, rule := range autogen.ComputeRules(response.Policy()) {
+				if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
+					ruleFoundInEngineResponse := false
+					for _, valResponseRule := range response.PolicyResponse.Rules {
+						if rule.Name == valResponseRule.Name() {
+							ruleFoundInEngineResponse = true
+						}
+					}
+					if !ruleFoundInEngineResponse {
+						c.Rc.Skip++
+						response.PolicyResponse.Rules = append(response.PolicyResponse.Rules,
+							*engineapi.RuleSkip(
+								rule.Name,
+								engineapi.Validation,
+								rule.Validation.Message,
+							),
+						)
+					}
+				}
+			}
+		}
+		processedEngineResponses = append(processedEngineResponses, response)
+	}
+	return processedEngineResponses
 }

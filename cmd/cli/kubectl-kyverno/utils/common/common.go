@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
@@ -875,4 +876,52 @@ func GetGitBranchOrPolicyPaths(gitBranch, repoURL string, policyPaths []string) 
 		gitPathToYamls = strings.ReplaceAll(policyPaths[0], repoURL, "/")
 	}
 	return gitBranch, gitPathToYamls
+}
+
+func processEngineResponses(responses []engineapi.EngineResponse, c ApplyPolicyConfig) {
+	for _, response := range responses {
+		if !response.IsEmpty() {
+			for _, rule := range autogen.ComputeRules(response.Policy()) {
+				if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
+					ruleFoundInEngineResponse := false
+					for _, valResponseRule := range response.PolicyResponse.Rules {
+						if rule.Name == valResponseRule.Name() {
+							ruleFoundInEngineResponse = true
+							switch valResponseRule.Status() {
+							case engineapi.RuleStatusPass:
+								c.Rc.Pass++
+							case engineapi.RuleStatusFail:
+								ann := c.Policy.GetAnnotations()
+								if scored, ok := ann[kyverno.AnnotationPolicyScored]; ok && scored == "false" {
+									c.Rc.Warn++
+									break
+								} else if c.AuditWarn && response.GetValidationFailureAction().Audit() {
+									c.Rc.Warn++
+								} else {
+									c.Rc.Fail++
+								}
+							case engineapi.RuleStatusError:
+								c.Rc.Error++
+							case engineapi.RuleStatusWarn:
+								c.Rc.Warn++
+							case engineapi.RuleStatusSkip:
+								c.Rc.Skip++
+							}
+							continue
+						}
+					}
+					if !ruleFoundInEngineResponse {
+						c.Rc.Skip++
+						response.PolicyResponse.Rules = append(response.PolicyResponse.Rules,
+							*engineapi.RuleSkip(
+								rule.Name,
+								engineapi.Validation,
+								rule.Validation.Message,
+							),
+						)
+					}
+				}
+			}
+		}
+	}
 }
