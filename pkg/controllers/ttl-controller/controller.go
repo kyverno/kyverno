@@ -2,7 +2,6 @@ package ttlcontroller
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -18,41 +17,37 @@ import (
 )
 
 type controller struct {
-	client            metadata.Getter
-	queue             workqueue.RateLimitingInterface
-	lister            cache.GenericLister
-	wg                wait.Group
-	informer          cache.SharedIndexInformer
-	eventRegistration cache.ResourceEventHandlerRegistration
-	controllerLogger  logr.Logger
+	client       metadata.Getter
+	queue        workqueue.RateLimitingInterface
+	lister       cache.GenericLister
+	wg           wait.Group
+	informer     cache.SharedIndexInformer
+	registration cache.ResourceEventHandlerRegistration
+	logger       logr.Logger
 }
 
 func newController(client metadata.Getter, metainformer informers.GenericInformer, logger logr.Logger) *controller {
 	c := &controller{
-		client:           client,
-		queue:            workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		lister:           metainformer.Lister(),
-		wg:               wait.Group{},
-		informer:         metainformer.Informer(),
-		controllerLogger: logger,
+		client:   client,
+		queue:    workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		lister:   metainformer.Lister(),
+		wg:       wait.Group{},
+		informer: metainformer.Informer(),
+		logger:   logger,
 	}
-
-	eventRegistration, err := c.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	registration, err := c.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.handleAdd,
 		DeleteFunc: c.handleDelete,
 		UpdateFunc: c.handleUpdate,
 	})
 	if err != nil {
-		log.Printf("error in registering event handler: %v", err)
+		logger.Error(err, "failed to register event handler")
 	}
-
-	c.eventRegistration = eventRegistration
-
+	c.registration = registration
 	return c
 }
 
 func (c *controller) handleAdd(obj interface{}) {
-	c.controllerLogger.Info("resource was created")
 	c.enqueue(obj)
 }
 
@@ -61,46 +56,45 @@ func (c *controller) handleDelete(obj interface{}) {
 }
 
 func (c *controller) handleUpdate(oldObj, newObj interface{}) {
-	c.controllerLogger.Info("resource was updated")
 	c.enqueue(newObj)
 }
 
 func (c *controller) Start(ctx context.Context, workers int) {
 	for i := 0; i < workers; i++ {
 		c.wg.StartWithContext(ctx, func(ctx context.Context) {
-			defer c.controllerLogger.Info("worker stopped")
-			c.controllerLogger.Info("worker starting ....")
+			defer c.logger.Info("worker stopped")
+			c.logger.Info("worker starting ....")
 			wait.UntilWithContext(ctx, c.worker, 1*time.Second)
 		})
 	}
 }
 
 func (c *controller) Stop() {
-	defer c.controllerLogger.Info("queue stopped")
+	defer c.logger.Info("queue stopped")
 	defer c.wg.Wait()
 	// Unregister the event handlers
-	c.DeregisterEventHandlers()
-	c.controllerLogger.Info("queue stopping ....")
+	c.deregisterEventHandlers()
+	c.logger.Info("queue stopping ....")
 	c.queue.ShutDown()
 }
 
 func (c *controller) enqueue(obj interface{}) {
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
-		c.controllerLogger.Error(err, "failed to extract name")
+		c.logger.Error(err, "failed to extract name")
 		return
 	}
 	c.queue.Add(key)
 }
 
-// DeregisterEventHandlers deregisters the event handlers from the informer.
-func (c *controller) DeregisterEventHandlers() {
-	err := c.informer.RemoveEventHandler(c.eventRegistration)
+// deregisterEventHandlers deregisters the event handlers from the informer.
+func (c *controller) deregisterEventHandlers() {
+	err := c.informer.RemoveEventHandler(c.registration)
 	if err != nil {
-		c.controllerLogger.Error(err, "Unable to deregister event handlers")
+		c.logger.Error(err, "failed to deregister event handlers")
 		return
 	}
-	c.controllerLogger.Info("deregister event handlers")
+	c.logger.Info("deregistered event handlers")
 }
 
 func (c *controller) worker(ctx context.Context) {
@@ -117,12 +111,10 @@ func (c *controller) processItem() bool {
 	if shutdown {
 		return false
 	}
-
-	log.Printf("%+v\n", item)
 	defer c.queue.Forget(item)
 	err := c.reconcile(item.(string))
 	if err != nil {
-		c.controllerLogger.Error(err, "reconciliation failed for resource %s\n", item)
+		c.logger.Error(err, "reconciliation failed")
 		c.queue.AddRateLimited(item)
 		return true
 	}
@@ -131,6 +123,7 @@ func (c *controller) processItem() bool {
 }
 
 func (c *controller) reconcile(itemKey string) error {
+	logger := c.logger.WithValues("key", itemKey)
 	namespace, name, err := cache.SplitMetaNamespaceKey(itemKey)
 	if err != nil {
 		return err
@@ -148,7 +141,7 @@ func (c *controller) reconcile(itemKey string) error {
 	metaObj, error := meta.Accessor(obj)
 
 	if error != nil {
-		c.controllerLogger.Info("object '%s' is not of type metav1.Object", itemKey)
+		logger.Info("object is not of type metav1.Object")
 		return err
 	}
 
@@ -166,20 +159,17 @@ func (c *controller) reconcile(itemKey string) error {
 	err = parseDeletionTime(metaObj, &deletionTime, ttlValue)
 
 	if err != nil {
-		c.controllerLogger.Error(err, "failed to parse TTL duration item %s ttlValue %s", itemKey, ttlValue)
+		logger.Error(err, "failed to parse label", "value", ttlValue)
 		return nil
 	}
-
-	c.controllerLogger.Info("the time to expire is: ", deletionTime.String())
 
 	if time.Now().After(deletionTime) {
 		err = c.client.Namespace(namespace).Delete(context.Background(), metaObj.GetName(), metav1.DeleteOptions{})
 		if err != nil {
-			c.controllerLogger.Error(err, "failed to delete object: %s", itemKey)
+			logger.Error(err, "failed to delete resource")
 			return err
 		}
-		// log.Printf("Resource '%s' has been deleted\n", itemKey)
-		c.controllerLogger.Info("Resource", itemKey, " has been deleted")
+		logger.Info("resource has been deleted")
 	} else {
 		// Calculate the remaining time until deletion
 		timeRemaining := time.Until(deletionTime)
