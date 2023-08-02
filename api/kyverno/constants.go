@@ -15,5 +15,7 @@ const (
 	AnnotationPolicyScored       = "policies.kyverno.io/scored"
 	AnnotationPolicySeverity     = "policies.kyverno.io/severity"
 	// Well known values
-	ValueKyvernoApp = "kyverno"
+	ValueKyvernoApp        = "kyverno"
+	ValueTtlDateTimeLayout = "2006-01-02T150405Z"
+	ValueTtlDateLayout     = "2006-01-02"
 )

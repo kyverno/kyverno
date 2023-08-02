@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno"
 	checker "github.com/kyverno/kyverno/pkg/auth/checker"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -55,12 +56,10 @@ func parseDeletionTime(metaObj metav1.Object, deletionTime *time.Time, ttlValue 
 		creationTime := metaObj.GetCreationTimestamp().Time
 		*deletionTime = creationTime.Add(ttlDuration)
 	} else {
-		layoutRFCC := "2006-01-02T150405Z"
 		// Try parsing ttlValue as a time in ISO 8601 format
-		*deletionTime, err = time.Parse(layoutRFCC, ttlValue)
+		*deletionTime, err = time.Parse(kyverno.ValueTtlDateTimeLayout, ttlValue)
 		if err != nil {
-			layoutCustom := "2006-01-02"
-			*deletionTime, err = time.Parse(layoutCustom, ttlValue)
+			*deletionTime, err = time.Parse(kyverno.ValueTtlDateLayout, ttlValue)
 			if err != nil {
 				return err
 			}
