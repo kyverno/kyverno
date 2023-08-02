@@ -127,7 +127,10 @@ func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, wo
 		indexers,
 		options,
 	)
-	controller := newController(m.metadataClient.Resource(gvr), informer, logger)
+	controller, err := newController(m.metadataClient.Resource(gvr), informer, logger)
+	if err != nil {
+		return err
+	}
 
 	cont, cancel := context.WithCancel(ctx)
 	var wg wait.Group

@@ -26,7 +26,7 @@ type controller struct {
 	logger       logr.Logger
 }
 
-func newController(client metadata.Getter, metainformer informers.GenericInformer, logger logr.Logger) *controller {
+func newController(client metadata.Getter, metainformer informers.GenericInformer, logger logr.Logger) (*controller, error) {
 	c := &controller{
 		client:   client,
 		queue:    workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
@@ -42,9 +42,10 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 	})
 	if err != nil {
 		logger.Error(err, "failed to register event handler")
+		return nil, err
 	}
 	c.registration = registration
-	return c
+	return c, nil
 }
 
 func (c *controller) handleAdd(obj interface{}) {
@@ -138,9 +139,9 @@ func (c *controller) reconcile(itemKey string) error {
 		return err
 	}
 
-	metaObj, error := meta.Accessor(obj)
+	metaObj, err := meta.Accessor(obj)
 
-	if error != nil {
+	if err != nil {
 		logger.Info("object is not of type metav1.Object")
 		return err
 	}
