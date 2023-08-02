@@ -1,13 +1,14 @@
 package resource
 
 import (
+	"context"
 	"time"
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func ValidateTtlLabel(object metav1.Object) error {
+func ValidateTtlLabel(_ context.Context, object metav1.Object) error {
 	labels := object.GetLabels()
 	if labels == nil {
 		return nil

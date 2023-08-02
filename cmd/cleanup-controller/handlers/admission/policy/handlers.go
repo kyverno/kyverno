@@ -1,4 +1,4 @@
-package admission
+package policy
 
 import (
 	"context"
