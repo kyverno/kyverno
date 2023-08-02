@@ -28,10 +28,12 @@ const (
 )
 
 var (
-	none = admissionregistrationv1.SideEffectClassNone
-	fail = admissionregistrationv1.Fail
-	None = &none
-	Fail = &fail
+	none   = admissionregistrationv1.SideEffectClassNone
+	fail   = admissionregistrationv1.Fail
+	ignore = admissionregistrationv1.Ignore
+	None   = &none
+	Fail   = &fail
+	Ignore = &ignore
 )
 
 type controller struct {
@@ -56,6 +58,7 @@ type controller struct {
 	failurePolicy  *admissionregistrationv1.FailurePolicyType
 	sideEffects    *admissionregistrationv1.SideEffectClass
 	configuration  config.Configuration
+	labelSelector  *metav1.LabelSelector
 }
 
 func NewController(
@@ -67,6 +70,7 @@ func NewController(
 	path string,
 	server string,
 	servicePort int32,
+	labelSelector *metav1.LabelSelector,
 	rules []admissionregistrationv1.RuleWithOperations,
 	failurePolicy *admissionregistrationv1.FailurePolicyType,
 	sideEffects *admissionregistrationv1.SideEffectClass,
@@ -88,6 +92,7 @@ func NewController(
 		failurePolicy:  failurePolicy,
 		sideEffects:    sideEffects,
 		configuration:  configuration,
+		labelSelector:  labelSelector,
 	}
 	controllerutils.AddDefaultEventHandlers(c.logger, vwcInformer.Informer(), queue)
 	controllerutils.AddEventHandlersT(
@@ -172,6 +177,7 @@ func (c *controller) build(cfg config.Configuration, caBundle []byte) (*admissio
 				FailurePolicy:           c.failurePolicy,
 				SideEffects:             c.sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
+				ObjectSelector:          c.labelSelector,
 			}},
 		},
 		nil
