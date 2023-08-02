@@ -147,6 +147,7 @@ OuterLoop:
 	}
 
 	mutateResponse := eng.Mutate(context.Background(), policyContext)
+	combineRuleResponses(mutateResponse)
 	engineResponses = append(engineResponses, mutateResponse)
 
 	err = processMutateEngineResponse(c, &mutateResponse, resPath)
@@ -168,6 +169,7 @@ OuterLoop:
 	var validateResponse engineapi.EngineResponse
 	if policyHasValidate {
 		validateResponse = eng.Validate(context.Background(), policyContext)
+		validateResponse = combineRuleResponses(validateResponse)
 		ProcessValidateEngineResponse(c.Policy, validateResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
 	}
 
@@ -176,8 +178,8 @@ OuterLoop:
 	}
 
 	verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
-	verifyImageResponse = combineRuleResponses(verifyImageResponse)
 	if !verifyImageResponse.IsEmpty() {
+		verifyImageResponse = combineRuleResponses(verifyImageResponse)
 		engineResponses = append(engineResponses, verifyImageResponse)
 		ProcessValidateEngineResponse(c.Policy, verifyImageResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
 	}
@@ -198,6 +200,7 @@ OuterLoop:
 			} else {
 				generateResponse.PolicyResponse.Rules = newRuleResponse
 			}
+			combineRuleResponses(generateResponse)
 			engineResponses = append(engineResponses, generateResponse)
 		}
 		updateResultCounts(c.Policy, &generateResponse, resPath, c.Rc, c.AuditWarn)
@@ -210,61 +213,70 @@ func combineRuleResponses(imageResponse engineapi.EngineResponse) engineapi.Engi
 	if imageResponse.PolicyResponse.RulesAppliedCount() == 0 {
 		return imageResponse
 	}
-	ruleResponses := imageResponse.PolicyResponse.Rules
-	var failRuleResponses []engineapi.RuleResponse
-	var errorRuleResponses []engineapi.RuleResponse
-	var passRuleResponses []engineapi.RuleResponse
-	var skipRuleResponses []engineapi.RuleResponse
-	ruleName := ruleResponses[0].Name()
-	ruleType := ruleResponses[0].RuleType()
-	ruleMesssage := ""
-	for _, rsp := range ruleResponses {
-		if rsp.Status() == engineapi.RuleStatusFail {
-			failRuleResponses = append(failRuleResponses, rsp)
-		} else if rsp.Status() == engineapi.RuleStatusError {
-			errorRuleResponses = append(errorRuleResponses, rsp)
-		} else if rsp.Status() == engineapi.RuleStatusPass {
-			passRuleResponses = append(passRuleResponses, rsp)
-		} else if rsp.Status() == engineapi.RuleStatusSkip {
-			skipRuleResponses = append(skipRuleResponses, rsp)
-		}
-	}
+
+	completeRuleResponses := imageResponse.PolicyResponse.Rules
 	var combineRuleResponses []engineapi.RuleResponse
-	if len(errorRuleResponses) > 0 {
-		for _, errRsp := range errorRuleResponses {
-			ruleMesssage += errRsp.Message() + ";"
-		}
-		errorResponse := engineapi.NewRuleResponse(ruleName, ruleType, ruleMesssage, engineapi.RuleStatusError)
-		combineRuleResponses = append(combineRuleResponses, *errorResponse)
-		imageResponse.PolicyResponse.Rules = combineRuleResponses
-		return imageResponse
+
+	ruleNameType := make(map[string][]engineapi.RuleResponse)
+	for _, rsp := range completeRuleResponses {
+		key := rsp.Name() + ";" + string(rsp.RuleType())
+		ruleNameType[key] = append(ruleNameType[key], rsp)
 	}
 
-	if len(failRuleResponses) > 0 {
-		for _, failRsp := range failRuleResponses {
-			ruleMesssage += failRsp.Message() + ";"
-		}
-		failResponse := engineapi.NewRuleResponse(ruleName, ruleType, ruleMesssage, engineapi.RuleStatusFail)
-		combineRuleResponses = append(combineRuleResponses, *failResponse)
-		imageResponse.PolicyResponse.Rules = combineRuleResponses
-		return imageResponse
-	}
+	for key, ruleResponses := range ruleNameType {
+		tokens := strings.Split(key, ";")
+		ruleName := tokens[0]
+		ruleType := tokens[1]
+		var failRuleResponses []engineapi.RuleResponse
+		var errorRuleResponses []engineapi.RuleResponse
+		var passRuleResponses []engineapi.RuleResponse
+		var skipRuleResponses []engineapi.RuleResponse
 
-	if len(passRuleResponses) > 0 {
-		for _, passRsp := range passRuleResponses {
-			ruleMesssage += passRsp.Message() + ";"
+		ruleMesssage := ""
+		for _, rsp := range ruleResponses {
+			if rsp.Status() == engineapi.RuleStatusFail {
+				failRuleResponses = append(failRuleResponses, rsp)
+			} else if rsp.Status() == engineapi.RuleStatusError {
+				errorRuleResponses = append(errorRuleResponses, rsp)
+			} else if rsp.Status() == engineapi.RuleStatusPass {
+				passRuleResponses = append(passRuleResponses, rsp)
+			} else if rsp.Status() == engineapi.RuleStatusSkip {
+				skipRuleResponses = append(skipRuleResponses, rsp)
+			}
 		}
-		passResponse := engineapi.NewRuleResponse(ruleName, ruleType, ruleMesssage, engineapi.RuleStatusPass)
-		combineRuleResponses = append(combineRuleResponses, *passResponse)
-		imageResponse.PolicyResponse.Rules = combineRuleResponses
-		return imageResponse
-	}
+		if len(errorRuleResponses) > 0 {
+			for _, errRsp := range errorRuleResponses {
+				ruleMesssage += errRsp.Message() + ";"
+			}
+			errorResponse := engineapi.NewRuleResponse(ruleName, engineapi.RuleType(ruleType), ruleMesssage, engineapi.RuleStatusError)
+			combineRuleResponses = append(combineRuleResponses, *errorResponse)
+			continue
+		}
 
-	for _, skipRsp := range skipRuleResponses {
-		ruleMesssage += skipRsp.Message() + ";"
+		if len(failRuleResponses) > 0 {
+			for _, failRsp := range failRuleResponses {
+				ruleMesssage += failRsp.Message() + ";"
+			}
+			failResponse := engineapi.NewRuleResponse(ruleName, engineapi.RuleType(ruleType), ruleMesssage, engineapi.RuleStatusFail)
+			combineRuleResponses = append(combineRuleResponses, *failResponse)
+			continue
+		}
+
+		if len(passRuleResponses) > 0 {
+			for _, passRsp := range passRuleResponses {
+				ruleMesssage += passRsp.Message() + ";"
+			}
+			passResponse := engineapi.NewRuleResponse(ruleName, engineapi.RuleType(ruleType), ruleMesssage, engineapi.RuleStatusPass)
+			combineRuleResponses = append(combineRuleResponses, *passResponse)
+			continue
+		}
+
+		for _, skipRsp := range skipRuleResponses {
+			ruleMesssage += skipRsp.Message() + ";"
+		}
+		skipResponse := engineapi.NewRuleResponse(ruleName, engineapi.RuleType(ruleType), ruleMesssage, engineapi.RuleStatusSkip)
+		combineRuleResponses = append(combineRuleResponses, *skipResponse)
 	}
-	skipResponse := engineapi.NewRuleResponse(ruleName, ruleType, ruleMesssage, engineapi.RuleStatusSkip)
-	combineRuleResponses = append(combineRuleResponses, *skipResponse)
 	imageResponse.PolicyResponse.Rules = combineRuleResponses
 	return imageResponse
 }
