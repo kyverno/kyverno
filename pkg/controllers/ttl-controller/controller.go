@@ -140,7 +140,6 @@ func (c *controller) reconcile(itemKey string) error {
 	}
 
 	metaObj, err := meta.Accessor(obj)
-
 	if err != nil {
 		logger.Info("object is not of type metav1.Object")
 		return err
