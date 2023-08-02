@@ -1,11 +1,12 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx-deployment
   labels:
     app: nginx
+  name: nginx-deployment
+  namespace: verify-images
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: nginx
@@ -15,8 +16,6 @@ spec:
         app: nginx
     spec:
       containers:
-      - name: nginx
-        image: nginx:1.14.2
-        ports:
-        - containerPort: 80
-
+      - image: ghcr.io/kyverno/test-verify-image-rollback:signed-2
+        name: nginx
+        resources: {}

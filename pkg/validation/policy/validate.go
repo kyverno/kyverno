@@ -1133,7 +1133,7 @@ func jsonPatchOnPod(rule kyvernov1.Rule) bool {
 
 func podControllerAutoGenExclusion(policy kyvernov1.PolicyInterface) bool {
 	annotations := policy.GetAnnotations()
-	val, ok := annotations[kyverno.PodControllersAnnotation]
+	val, ok := annotations[kyverno.AnnotationAutogenControllers]
 	if !ok || val == "none" {
 		return false
 	}
@@ -1262,6 +1262,9 @@ func validateNamespaces(s *kyvernov1.Spec, path *field.Path) error {
 	}
 
 	for i, vfa := range s.ValidationFailureActionOverrides {
+		if !vfa.Action.IsValid() {
+			return fmt.Errorf("invalid action")
+		}
 		patternList, nsList := wildcard.SeperateWildcards(vfa.Namespaces)
 
 		if vfa.Action.Audit() {

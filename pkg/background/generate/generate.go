@@ -117,7 +117,9 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 			return nil
 		}
 
-		events := event.NewBackgroundFailedEvent(err, ur.Spec.Policy, "", event.GeneratePolicyController, trigger)
+		policy, _ := c.getPolicySpec(*ur)
+		events := event.NewBackgroundFailedEvent(err, policy, ur.Spec.Rule, event.GeneratePolicyController,
+			kyvernov1.ResourceSpec{Kind: trigger.GetKind(), Namespace: trigger.GetNamespace(), Name: trigger.GetName()})
 		c.eventGen.Add(events...)
 	}
 
@@ -261,8 +263,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 			c.eventGen.Add(e)
 		}
 
-		unstructuredPol := kubeutils.NewUnstructured("kyverno.io/v1", policy.GetKind(), policy.GetNamespace(), policy.GetName())
-		e := event.NewBackgroundSuccessEvent(ur.Spec.Policy, ur.Spec.Rule, event.GeneratePolicyController, unstructuredPol)
+		e := event.NewBackgroundSuccessEvent(event.GeneratePolicyController, policy, genResources)
 		c.eventGen.Add(e...)
 	}
 

@@ -308,6 +308,21 @@ webhooksCleanup:
   # -- Image pull secrets
   imagePullSecrets: []
 
+  # -- Node labels for pod assignment
+  nodeSelector: {}
+
+  # -- List of node taints to tolerate
+  tolerations: []
+
+  # -- Pod anti affinity constraints.
+  podAntiAffinity: {}
+
+  # -- Pod affinity constraints.
+  podAffinity: {}
+
+  # -- Node affinity constraints.
+  nodeAffinity: {}
+
 grafana:
   # -- Enable grafana dashboard creation.
   enabled: false
@@ -332,6 +347,9 @@ features:
     # -- Enables the feature
     enabled: true
   aggregateReports:
+    # -- Enables the feature
+    enabled: true
+  policyReports:
     # -- Enables the feature
     enabled: true
   autoUpdateWebhooks:
@@ -391,6 +409,9 @@ features:
   reports:
     # -- Reports chunk size
     chunkSize: 1000
+  ttlController:
+    # -- Reconciliation interval for the label based cleanup manager
+    reconciliationInterval: 1m
 
 # Cleanup cronjobs to prevent internal resources from stacking up in the cluster
 cleanupJobs:
@@ -457,6 +478,15 @@ cleanupJobs:
     # -- Pod labels
     podLabels: {}
 
+    # -- Pod anti affinity constraints.
+    podAntiAffinity: {}
+
+    # -- Pod affinity constraints.
+    podAffinity: {}
+
+    # -- Node affinity constraints.
+    nodeAffinity: {}
+
   clusterAdmissionReports:
 
     # -- Enable cleanup cronjob
@@ -518,6 +548,15 @@ cleanupJobs:
 
     # -- Pod Labels
     podLabels: {}
+
+    # -- Pod anti affinity constraints.
+    podAntiAffinity: {}
+
+    # -- Pod affinity constraints.
+    podAffinity: {}
+
+    # -- Node affinity constraints.
+    nodeAffinity: {}
 
 # Admission controller configuration
 admissionController:
@@ -1118,6 +1157,10 @@ cleanupController:
       #     - ''
       #   resources:
       #     - pods
+      #   verbs:
+      #     - delete
+      #     - list
+      #     - watch
 
   # -- Create self-signed certificates at deployment time.
   # The certificates won't be automatically renewed if this is set to `true`.

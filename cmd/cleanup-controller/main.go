@@ -8,8 +8,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kyverno/kyverno/api/kyverno"
 	admissionhandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission"
 	cleanuphandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/cleanup"
+	labelhandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/resource-admission"
 	"github.com/kyverno/kyverno/cmd/internal"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -17,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
+	ttlcontroller "github.com/kyverno/kyverno/pkg/controllers/ttl"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
@@ -25,13 +28,15 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
 )
 
 const (
-	resyncPeriod          = 15 * time.Minute
-	webhookWorkers        = 2
-	webhookControllerName = "webhook-controller"
+	resyncPeriod                = 15 * time.Minute
+	webhookWorkers              = 2
+	policyWebhookControllerName = "policy-webhook-controller"
+	ttlWebhookControllerName    = "ttl-webhook-controller"
 )
 
 // TODO:
@@ -55,12 +60,14 @@ func main() {
 		serverIP        string
 		servicePort     int
 		maxQueuedEvents int
+		interval        time.Duration
 	)
 	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
+	flagset.DurationVar(&interval, "ttlReconciliationInterval", time.Minute, "Set this flag to set the interval after which the resource controller reconciliation should occur")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -73,6 +80,7 @@ func main() {
 		internal.WithConfigMapCaching(),
 		internal.WithDeferredLoading(),
 		internal.WithFlagSets(flagset),
+		internal.WithMetadataClient(),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
@@ -116,10 +124,10 @@ func main() {
 				),
 				certmanager.Workers,
 			)
-			webhookController := internal.NewController(
-				webhookControllerName,
+			policyValidatingWebhookController := internal.NewController(
+				policyWebhookControllerName,
 				genericwebhookcontroller.NewController(
-					webhookControllerName,
+					policyWebhookControllerName,
 					setup.KubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 					kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 					caSecret,
@@ -127,21 +135,62 @@ func main() {
 					config.CleanupValidatingWebhookServicePath,
 					serverIP,
 					int32(servicePort),
-					[]admissionregistrationv1.RuleWithOperations{{
-						Rule: admissionregistrationv1.Rule{
-							APIGroups:   []string{"kyverno.io"},
-							APIVersions: []string{"v2alpha1"},
-							Resources: []string{
-								"cleanuppolicies/*",
-								"clustercleanuppolicies/*",
+					nil,
+					[]admissionregistrationv1.RuleWithOperations{
+						{
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"kyverno.io"},
+								APIVersions: []string{"v2alpha1"},
+								Resources: []string{
+									"cleanuppolicies/*",
+									"clustercleanuppolicies/*",
+								},
+							},
+							Operations: []admissionregistrationv1.OperationType{
+								admissionregistrationv1.Create,
+								admissionregistrationv1.Update,
 							},
 						},
-						Operations: []admissionregistrationv1.OperationType{
-							admissionregistrationv1.Create,
-							admissionregistrationv1.Update,
-						},
-					}},
+					},
 					genericwebhookcontroller.Fail,
+					genericwebhookcontroller.None,
+					setup.Configuration,
+				),
+				webhookWorkers,
+			)
+			ttlWebhookController := internal.NewController(
+				ttlWebhookControllerName,
+				genericwebhookcontroller.NewController(
+					ttlWebhookControllerName,
+					setup.KubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
+					kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
+					caSecret,
+					config.TtlValidatingWebhookConfigurationName,
+					config.TtlValidatingWebhookServicePath,
+					serverIP,
+					int32(servicePort),
+					&metav1.LabelSelector{
+						MatchExpressions: []metav1.LabelSelectorRequirement{
+							{
+								Key:      kyverno.LabelCleanupTtl,
+								Operator: metav1.LabelSelectorOpExists,
+							},
+						},
+					},
+					[]admissionregistrationv1.RuleWithOperations{
+						{
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"*"},
+								APIVersions: []string{"*"},
+								Resources:   []string{"*"},
+							},
+							Operations: []admissionregistrationv1.OperationType{
+								admissionregistrationv1.Create,
+								admissionregistrationv1.Update,
+							},
+						},
+					},
+					genericwebhookcontroller.Ignore,
 					genericwebhookcontroller.None,
 					setup.Configuration,
 				),
@@ -158,6 +207,16 @@ func main() {
 				),
 				cleanup.Workers,
 			)
+			ttlManagerController := internal.NewController(
+				ttlcontroller.ControllerName,
+				ttlcontroller.NewManager(
+					setup.MetadataClient,
+					setup.KubeClient.Discovery(),
+					setup.KubeClient.AuthorizationV1(),
+					interval,
+				),
+				ttlcontroller.Workers,
+			)
 			// start informers and wait for cache sync
 			if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kyvernoInformer, kubeInformer) {
 				logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
@@ -166,9 +225,10 @@ func main() {
 			// start leader controllers
 			var wg sync.WaitGroup
 			certController.Run(ctx, logger, &wg)
-			webhookController.Run(ctx, logger, &wg)
+			policyValidatingWebhookController.Run(ctx, logger, &wg)
+			ttlWebhookController.Run(ctx, logger, &wg)
 			cleanupController.Run(ctx, logger, &wg)
-			// wait all controllers shut down
+			ttlManagerController.Run(ctx, logger, &wg)
 			wg.Wait()
 		},
 		nil,
@@ -234,6 +294,7 @@ func main() {
 			return secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey], nil
 		},
 		admissionHandlers.Validate,
+		labelhandlers.Validate,
 		cleanupHandlers.Cleanup,
 		setup.MetricsManager,
 		webhooks.DebugModeOptions{

@@ -147,7 +147,7 @@ More info: https://kyverno.io/docs/kyverno-cli/
 
 func Command() *cobra.Command {
 	var cmd *cobra.Command
-	var removeColor, compact, table bool
+	var removeColor, detailedResults, table bool
 	applyCommandConfig := &ApplyCommandConfig{}
 	cmd = &cobra.Command{
 		Use:     "apply",
@@ -172,7 +172,7 @@ func Command() *cobra.Command {
 			if applyCommandConfig.PolicyReport {
 				printReport(responses, applyCommandConfig.AuditWarn)
 			} else if table {
-				printTable(compact, applyCommandConfig.AuditWarn, responses...)
+				printTable(detailedResults, applyCommandConfig.AuditWarn, responses...)
 			} else {
 				printViolations(rc)
 			}
@@ -198,7 +198,7 @@ func Command() *cobra.Command {
 	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	cmd.Flags().BoolVar(&applyCommandConfig.warnNoPassed, "warn-no-pass", false, "Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag")
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
-	cmd.Flags().BoolVar(&compact, "compact", true, "Does not show detailed results")
+	cmd.Flags().BoolVar(&detailedResults, "detailed-results", false, "If set to true, display detailed results")
 	cmd.Flags().BoolVarP(&table, "table", "t", false, "Show results in table format")
 	return cmd
 }
@@ -345,6 +345,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 		for _, policy := range policies {
 			policyRulesCount += len(autogen.ComputeRules(policy))
 		}
+		policyRulesCount += len(validatingAdmissionPolicies)
 		fmt.Printf("\nApplying %d policy rule(s) to %d resource(s)...\n", policyRulesCount, len(resources))
 	}
 

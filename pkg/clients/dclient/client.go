@@ -16,7 +16,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/kubernetes"
-	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	"k8s.io/client-go/rest"
 )
 
@@ -24,7 +24,7 @@ type Interface interface {
 	// GetKubeClient provides typed kube client
 	GetKubeClient() kubernetes.Interface
 	// GetEventsInterface provides typed interface for events
-	GetEventsInterface() corev1.EventInterface
+	GetEventsInterface() eventsv1.EventsV1Interface
 	// GetDynamicInterface fetches underlying dynamic interface
 	GetDynamicInterface() dynamic.Interface
 	// Discovery return the discovery client implementation
@@ -100,8 +100,8 @@ func (c *client) GetKubeClient() kubernetes.Interface {
 }
 
 // GetEventsInterface provides typed interface for events
-func (c *client) GetEventsInterface() corev1.EventInterface {
-	return c.kube.CoreV1().Events(metav1.NamespaceAll)
+func (c *client) GetEventsInterface() eventsv1.EventsV1Interface {
+	return c.kube.EventsV1()
 }
 
 func (c *client) getInterface(apiVersion string, kind string) dynamic.NamespaceableResourceInterface {
