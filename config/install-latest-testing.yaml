@@ -39079,6 +39079,7 @@ spec:
             - --dumpPayload=false
             - --loggingFormat=text
             - --v=2
+            - --ttlReconciliationInterval=1m
           env:
           - name: KYVERNO_DEPLOYMENT
             value: kyverno-cleanup-controller
