@@ -19,7 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
-	ttlcontroller "github.com/kyverno/kyverno/pkg/controllers/ttl-controller"
+	ttlcontroller "github.com/kyverno/kyverno/pkg/controllers/ttl"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
