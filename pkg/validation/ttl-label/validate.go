@@ -1,16 +1,18 @@
 package ttllabel
 
-import "time"
+import (
+	"time"
+
+	"github.com/kyverno/kyverno/api/kyverno"
+)
 
 func Validate(ttlValue string) error {
 	_, err := time.ParseDuration(ttlValue)
 	if err != nil {
-		layoutRFCC := "2006-01-02T150405Z"
 		// Try parsing ttlValue as a time in ISO 8601 format
-		_, err := time.Parse(layoutRFCC, ttlValue)
+		_, err := time.Parse(kyverno.ValueTtlDateTimeLayout, ttlValue)
 		if err != nil {
-			layoutCustom := "2006-01-02"
-			_, err = time.Parse(layoutCustom, ttlValue)
+			_, err = time.Parse(kyverno.ValueTtlDateLayout, ttlValue)
 			if err != nil {
 				return err
 			}
