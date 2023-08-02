@@ -9,6 +9,7 @@ const (
 	LabelWebhookManagedBy = "webhook.kyverno.io/managed-by"
 	// Well known annotations
 	AnnotationAutogenControllers = "pod-policies.kyverno.io/autogen-controllers"
+	AnnotationImageVerify        = "kyverno.io/verify-images"
 	AnnotationPolicyCategory     = "policies.kyverno.io/category"
 	AnnotationPolicySeverity     = "policies.kyverno.io/severity"
 	AnnotationPolicyScored       = "policies.kyverno.io/scored"
