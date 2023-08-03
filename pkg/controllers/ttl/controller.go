@@ -37,7 +37,6 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 	}
 	registration, err := c.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.handleAdd,
-		DeleteFunc: c.handleDelete,
 		UpdateFunc: c.handleUpdate,
 	})
 	if err != nil {
@@ -52,12 +51,12 @@ func (c *controller) handleAdd(obj interface{}) {
 	c.enqueue(obj)
 }
 
-func (c *controller) handleDelete(obj interface{}) {
-	c.enqueue(obj)
-}
-
 func (c *controller) handleUpdate(oldObj, newObj interface{}) {
-	c.enqueue(newObj)
+	old := oldObj.(metav1.Object)
+	new := newObj.(metav1.Object)
+	if old.GetResourceVersion() != new.GetResourceVersion() {
+		c.enqueue(newObj)
+	}
 }
 
 func (c *controller) Start(ctx context.Context, workers int) {
@@ -112,14 +111,17 @@ func (c *controller) processItem() bool {
 	if shutdown {
 		return false
 	}
-	defer c.queue.Forget(item)
+	// In any case we need to call Done
+	defer c.queue.Done(item)
 	err := c.reconcile(item.(string))
 	if err != nil {
 		c.logger.Error(err, "reconciliation failed")
 		c.queue.AddRateLimited(item)
 		return true
+	} else {
+		// If no error, we call Forget to reset the rate limiter
+		c.queue.Forget(item)
 	}
-	c.queue.Done(item)
 	return true
 }
 
