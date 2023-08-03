@@ -841,7 +841,7 @@ kind-load-background-controller: $(KIND) image-build-background-controller ## Bu
 	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(GIT_SHA)
 
 .PHONY: kind-load-all
-kind-load-all: kind-load-kyverno-init kind-load-kyverno kind-load-cleanup-controller kind-load-reports-controller kind-load-background-controller## Build images and load them in kind cluster
+kind-load-all: kind-load-kyverno-init kind-load-kyverno kind-load-cleanup-controller kind-load-reports-controller kind-load-background-controller ## Build images and load them in kind cluster
 
 .PHONY: kind-load-image-archive
 kind-load-image-archive: $(KIND) ## Load docker images from archive

@@ -10,7 +10,6 @@ type Toggles interface {
 	ProtectManagedResources() bool
 	ForceFailurePolicyIgnore() bool
 	EnableDeferredLoading() bool
-	GenerateValidatingAdmissionPolicy() bool
 }
 
 type defaultToggles struct{}
@@ -25,10 +24,6 @@ func (defaultToggles) ForceFailurePolicyIgnore() bool {
 
 func (defaultToggles) EnableDeferredLoading() bool {
 	return EnableDeferredLoading.enabled()
-}
-
-func (defaultToggles) GenerateValidatingAdmissionPolicy() bool {
-	return GenerateValidatingAdmissionPolicy.enabled()
 }
 
 type contextKey struct{}
