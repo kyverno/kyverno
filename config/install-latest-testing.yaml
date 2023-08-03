@@ -212,8 +212,7 @@ metadata:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: admissionreports.kyverno.io
 spec:
   group: kyverno.io
@@ -550,8 +549,7 @@ metadata:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: backgroundscanreports.kyverno.io
 spec:
   group: kyverno.io
@@ -856,8 +854,7 @@ metadata:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: cleanuppolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -2120,8 +2117,7 @@ metadata:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: clusteradmissionreports.kyverno.io
 spec:
   group: kyverno.io
@@ -2459,8 +2455,7 @@ metadata:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: clusterbackgroundscanreports.kyverno.io
 spec:
   group: kyverno.io
@@ -2765,8 +2760,7 @@ metadata:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: clustercleanuppolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -4029,8 +4023,7 @@ metadata:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: clusterpolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -20722,8 +20715,7 @@ metadata:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: policies.kyverno.io
 spec:
   group: kyverno.io
@@ -37418,8 +37410,7 @@ metadata:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: policyexceptions.kyverno.io
 spec:
   group: kyverno.io
@@ -37943,8 +37934,7 @@ metadata:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: updaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -38349,8 +38339,7 @@ metadata:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: clusterpolicyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -38717,8 +38706,7 @@ metadata:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: policyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
