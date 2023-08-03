@@ -3,6 +3,7 @@ package resource
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,12 +17,16 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"golang.org/x/exp/slices"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
+	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
+	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 	"k8s.io/client-go/tools/cache"
 	watchTools "k8s.io/client-go/tools/watch"
 	"k8s.io/client-go/util/workqueue"
@@ -76,7 +81,7 @@ type controller struct {
 	// listers
 	polLister  kyvernov1listers.PolicyLister
 	cpolLister kyvernov1listers.ClusterPolicyLister
-
+	vapLister  admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyLister
 	// queue
 	queue workqueue.RateLimitingInterface
 
@@ -89,16 +94,19 @@ func NewController(
 	client dclient.Interface,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
+	vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer,
 ) Controller {
 	c := controller{
 		client:          client,
 		polLister:       polInformer.Lister(),
 		cpolLister:      cpolInformer.Lister(),
+		vapLister:       vapInformer.Lister(),
 		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
 	}
 	controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue)
 	controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue)
+	controllerutils.AddDefaultEventHandlers(logger, vapInformer.Informer(), c.queue)
 	return &c
 }
 
@@ -214,6 +222,10 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	vapPolicies, err := utils.FetchValidatingAdmissionPolicies(c.vapLister)
+	if err != nil {
+		return err
+	}
 	policies, err := utils.FetchPolicies(c.polLister, metav1.NamespaceAll)
 	if err != nil {
 		return err
@@ -222,26 +234,39 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 	gvkToGvr := map[schema.GroupVersionKind]schema.GroupVersionResource{}
 	for _, policyKind := range sets.List(kinds) {
 		group, version, kind, subresource := kubeutils.ParseKindSelector(policyKind)
-		gvrss, err := c.client.Discovery().FindResources(group, version, kind, subresource)
-		if err != nil {
-			logger.Error(err, "failed to get gvr from kind", "kind", kind)
-		} else {
-			for gvrs, api := range gvrss {
-				if gvrs.SubResource == "" {
-					gvk := schema.GroupVersionKind{Group: gvrs.Group, Version: gvrs.Version, Kind: policyKind}
-					if !reportutils.IsGvkSupported(gvk) {
-						logger.Info("kind is not supported", "gvk", gvk)
-					} else {
-						if slices.Contains(api.Verbs, "list") && slices.Contains(api.Verbs, "watch") {
-							gvkToGvr[gvk] = gvrs.GroupVersionResource()
-						} else {
-							logger.Info("list/watch not supported for kind", "kind", kind)
-						}
-					}
+		c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+	}
+
+	// fetch kinds from validating admission policies
+	for _, policy := range vapPolicies {
+		for _, rule := range policy.Spec.MatchConstraints.ResourceRules {
+			group := rule.APIGroups[0]
+			if group == "" {
+				group = "*"
+			}
+			version := rule.APIVersions[0]
+
+			for _, resource := range rule.Resources {
+				var kind, subresource string
+
+				isSubresource := kubeutils.IsSubresource(resource)
+				if isSubresource {
+					parts := strings.Split(resource, "/")
+					kind = cases.Title(language.English, cases.NoLower).String(parts[0])
+					kind, _ = strings.CutSuffix(kind, "s")
+					subresource = parts[1]
+				} else {
+					resource = cases.Title(language.English, cases.NoLower).String(resource)
+					resource, _ = strings.CutSuffix(resource, "s")
+					kind = resource
+					subresource = ""
 				}
+
+				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
 			}
 		}
 	}
+
 	dynamicWatchers := map[schema.GroupVersionResource]*watcher{}
 	for gvk, gvr := range gvkToGvr {
 		logger := logger.WithValues("gvr", gvr, "gvk", gvk)
@@ -268,6 +293,28 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (c *controller) addGVKToGVRMapping(group, version, kind, subresource string, gvrMap map[schema.GroupVersionKind]schema.GroupVersionResource) {
+	gvrss, err := c.client.Discovery().FindResources(group, version, kind, subresource)
+	if err != nil {
+		logger.Error(err, "failed to get gvr from kind", "kind", kind)
+	} else {
+		for gvrs, api := range gvrss {
+			if gvrs.SubResource == "" {
+				gvk := schema.GroupVersionKind{Group: gvrs.Group, Version: gvrs.Version, Kind: kind}
+				if !reportutils.IsGvkSupported(gvk) {
+					logger.Info("kind is not supported", "gvk", gvk)
+				} else {
+					if slices.Contains(api.Verbs, "list") && slices.Contains(api.Verbs, "watch") {
+						gvrMap[gvk] = gvrs.GroupVersionResource()
+					} else {
+						logger.Info("list/watch not supported for kind", "kind", kind)
+					}
+				}
+			}
+		}
+	}
 }
 
 func (c *controller) stopDynamicWatchers() {

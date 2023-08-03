@@ -9,15 +9,19 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	"go.uber.org/multierr"
+	"k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type scanner struct {
-	logger logr.Logger
-	engine engineapi.Engine
-	config config.Configuration
-	jp     jmespath.Interface
+	logger      logr.Logger
+	engine      engineapi.Engine
+	config      config.Configuration
+	jp          jmespath.Interface
+	policies    kyvernov1.PolicyInterface
+	vapPolicies v1alpha1.ValidatingAdmissionPolicy
 }
 
 type ScanResult struct {
@@ -26,7 +30,7 @@ type ScanResult struct {
 }
 
 type Scanner interface {
-	ScanResource(context.Context, unstructured.Unstructured, map[string]string, ...kyvernov1.PolicyInterface) map[kyvernov1.PolicyInterface]ScanResult
+	ScanResource(context.Context, unstructured.Unstructured, map[string]string) ScanResult
 }
 
 func NewScanner(
@@ -34,40 +38,46 @@ func NewScanner(
 	engine engineapi.Engine,
 	config config.Configuration,
 	jp jmespath.Interface,
+	policies kyvernov1.PolicyInterface,
+	vapPolicies v1alpha1.ValidatingAdmissionPolicy,
 ) Scanner {
 	return &scanner{
-		logger: logger,
-		engine: engine,
-		config: config,
-		jp:     jp,
+		logger:      logger,
+		engine:      engine,
+		config:      config,
+		jp:          jp,
+		policies:    policies,
+		vapPolicies: vapPolicies,
 	}
 }
 
-func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, policies ...kyvernov1.PolicyInterface) map[kyvernov1.PolicyInterface]ScanResult {
-	results := map[kyvernov1.PolicyInterface]ScanResult{}
-	for _, policy := range policies {
-		var errors []error
-		logger := s.logger.WithValues("kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
-		response, err := s.validateResource(ctx, resource, nsLabels, policy)
+func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string) ScanResult {
+	results := ScanResult{}
+	policy := s.policies
+	vapPolicy := s.vapPolicies
+	var errors []error
+	logger := s.logger.WithValues("kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
+	response, err := s.validateResource(ctx, resource, nsLabels, policy)
+	vapresponse, err := validatingadmissionpolicy.Validate(vapPolicy, resource)
+	response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, vapresponse.PolicyResponse.Rules...)
+	if err != nil {
+		logger.Error(err, "failed to scan resource")
+		errors = append(errors, err)
+	}
+	spec := policy.GetSpec()
+	if spec.HasVerifyImages() {
+		ivResponse, err := s.validateImages(ctx, resource, nsLabels, policy)
 		if err != nil {
-			logger.Error(err, "failed to scan resource")
+			logger.Error(err, "failed to scan images")
 			errors = append(errors, err)
 		}
-		spec := policy.GetSpec()
-		if spec.HasVerifyImages() {
-			ivResponse, err := s.validateImages(ctx, resource, nsLabels, policy)
-			if err != nil {
-				logger.Error(err, "failed to scan images")
-				errors = append(errors, err)
-			}
-			if response == nil {
-				response = ivResponse
-			} else if ivResponse != nil {
-				response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ivResponse.PolicyResponse.Rules...)
-			}
+		if response == nil {
+			response = ivResponse
+		} else if ivResponse != nil {
+			response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ivResponse.PolicyResponse.Rules...)
 		}
-		results[policy] = ScanResult{response, multierr.Combine(errors...)}
 	}
+	results = ScanResult{response, multierr.Combine(errors...)}
 	return results
 }
 

@@ -8,7 +8,10 @@ import (
 type ValidatingAdmissionPolicies struct{}
 
 func (p *ValidatingAdmissionPolicies) ApplyPolicyOnResource(c ApplyPolicyConfig) ([]engineapi.EngineResponse, error) {
-	engineResp := validatingadmissionpolicy.Validate(c.ValidatingAdmissionPolicy, *c.Resource)
+	engineResp, err := validatingadmissionpolicy.Validate(c.ValidatingAdmissionPolicy, *c.Resource)
+	if err != nil {
+		return nil, err
+	}
 	ruleResp := engineResp.PolicyResponse.Rules[0]
 
 	if ruleResp.Status() == engineapi.RuleStatusPass {
@@ -19,5 +22,5 @@ func (p *ValidatingAdmissionPolicies) ApplyPolicyOnResource(c ApplyPolicyConfig)
 		c.Rc.Error++
 	}
 
-	return []engineapi.EngineResponse{engineResp}, nil
+	return []engineapi.EngineResponse{*engineResp}, nil
 }

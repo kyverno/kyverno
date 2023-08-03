@@ -22,11 +22,14 @@ import (
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	"k8s.io/api/admissionregistration/v1alpha1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
+	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
@@ -51,6 +54,7 @@ type controller struct {
 	// listers
 	polLister      kyvernov1listers.PolicyLister
 	cpolLister     kyvernov1listers.ClusterPolicyLister
+	vapLister      admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyLister
 	bgscanrLister  cache.GenericLister
 	cbgscanrLister cache.GenericLister
 	nsLister       corev1listers.NamespaceLister
@@ -67,6 +71,10 @@ type controller struct {
 	jp            jmespath.Interface
 	eventGen      event.Interface
 	policyReports bool
+
+	//policy
+	policies    kyvernov1.PolicyInterface
+	vapPolicies v1alpha1.ValidatingAdmissionPolicy
 }
 
 func NewController(
@@ -76,6 +84,7 @@ func NewController(
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
+	vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer,
 	nsInformer corev1informers.NamespaceInformer,
 	metadataCache resource.MetadataCache,
 	forceDelay time.Duration,
@@ -93,6 +102,7 @@ func NewController(
 		engine:         engine,
 		polLister:      polInformer.Lister(),
 		cpolLister:     cpolInformer.Lister(),
+		vapLister:      vapInformer.Lister(),
 		bgscanrLister:  bgscanr.Lister(),
 		cbgscanrLister: cbgscanr.Lister(),
 		nsLister:       nsInformer.Lister(),
@@ -108,6 +118,7 @@ func NewController(
 	controllerutils.AddDefaultEventHandlers(logger, cbgscanr.Informer(), queue)
 	controllerutils.AddEventHandlersT(polInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
 	controllerutils.AddEventHandlersT(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
+	controllerutils.AddEventHandlersT(vapInformer.Informer(), c.addValidatingAdmissionPolicy, c.updateValidatingAdmissionPolicy, c.deleteValidatingAdmissionPolicy)
 	c.metadataCache.AddEventHandler(func(eventType resource.EventType, uid types.UID, _ schema.GroupVersionKind, res resource.Resource) {
 		// if it's a deletion, nothing to do
 		if eventType == resource.Deleted {
@@ -138,6 +149,20 @@ func (c *controller) updatePolicy(old, obj kyvernov1.PolicyInterface) {
 }
 
 func (c *controller) deletePolicy(obj kyvernov1.PolicyInterface) {
+	c.enqueueResources()
+}
+
+func (c *controller) addValidatingAdmissionPolicy(obj v1alpha1.ValidatingAdmissionPolicy) {
+	c.enqueueResources()
+}
+
+func (c *controller) updateValidatingAdmissionPolicy(old, obj v1alpha1.ValidatingAdmissionPolicy) {
+	if old.GetResourceVersion() != obj.GetResourceVersion() {
+		c.enqueueResources()
+	}
+}
+
+func (c *controller) deleteValidatingAdmissionPolicy(obj v1alpha1.ValidatingAdmissionPolicy) {
 	c.enqueueResources()
 }
 
@@ -281,14 +306,13 @@ func (c *controller) reconcileReport(
 	// calculate necessary results
 	for _, policy := range backgroundPolicies {
 		if full || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
-			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp)
-			for _, result := range scanner.ScanResource(ctx, *target, nsLabels, policy) {
-				if result.Error != nil {
-					return result.Error
-				} else if result.EngineResponse != nil {
-					ruleResults = append(ruleResults, reportutils.EngineResponseToReportResults(*result.EngineResponse)...)
-					utils.GenerateEvents(logger, c.eventGen, c.config, *result.EngineResponse)
-				}
+			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.policies, c.vapPolicies)
+			result := scanner.ScanResource(ctx, *target, nsLabels)
+			if result.Error != nil {
+				return result.Error
+			} else if result.EngineResponse != nil {
+				ruleResults = append(ruleResults, reportutils.EngineResponseToReportResults(*result.EngineResponse)...)
+				utils.GenerateEvents(logger, c.eventGen, c.config, *result.EngineResponse)
 			}
 		}
 	}
@@ -371,9 +395,6 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 	}
 	// load background policies
 	backgroundPolicies := utils.RemoveNonBackgroundPolicies(policies...)
-	if err != nil {
-		return err
-	}
 	// we have the resource, check if we need to reconcile
 	if needsReconcile, full, err := c.needsReconcile(namespace, name, resource.Hash, backgroundPolicies...); err != nil {
 		return err
