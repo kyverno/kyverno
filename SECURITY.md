@@ -32,3 +32,61 @@ Kyverno versions follow [Semantic Versioning](https://semver.org/) terminology a
 - and z is the patch version
 
 Security fixes, may be backported to the three most recent minor releases, depending on severity and feasibility. Patch releases are cut from those branches periodically, plus additional urgent releases, when required.
+
+## Release Artifacts
+The Kyverno container images are available [here](https://github.com/orgs/kyverno/packages).
+
+## Signed-Releases
+Signed releases attest to the provenance of the artifact.This check looks for the following filenames in the project's last five [release assets](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases): [*.minisig](https://github.com/jedisct1/minisign), *.asc (pgp), *.sig, *.sign, [*.intoto.jsonl](https://slsa.dev/).
+To enable signed release, you need to follow the steps mentioned below for verifying Kyverno container images using Cosign. By verifying the signatures of the Kyverno container images, you can ensure our authenticity and reduce the risk of using malicious or tampered images. This helps to ensure that only signed and trusted releases of Kyverno are used.
+Note: The check does not verify the signatures.
+
+## Verifying Kyverno Container Images
+Kyverno container images are signed using Cosign and the [keyless signing feature](https://docs.sigstore.dev/cosign/verify/). The signatures are stored in a separate repository from the container image they reference located at ```ghcr.io/kyverno/signatures```. To verify the container image using Cosign v1.x, follow the steps below.
+
+1. Install [Cosign](https://github.com/sigstore/cosign#installation)
+2. Configure the Kyverno signature repository:
+
+```bash
+  export COSIGN_REPOSITORY=ghcr.io/kyverno/signatures
+```
+
+3. Verify the image:
+```bash
+   COSIGN_EXPERIMENTAL=1 cosign verify ghcr.io/kyverno/kyverno:<release_tag> | jq
+```
+For Cosign v2.x, use the following command instead.
+
+```bash
+COSIGN_REPOSITORY=ghcr.io/kyverno/signatures cosign verify ghcr.io/kyverno/kyverno:<release_tag> \
+  --certificate-identity-regexp="https://github.com/kyverno/kyverno/.github/workflows/release.yaml@refs/tags/*" \
+  --certificate-oidc-issuer="https://token.actions.githubusercontent.com" | jq
+```
+
+If the container image was properly signed, the output provided here:
+For more information, please refer to the documentation on security at [Verifying Kyverno Container Images.](https://kyverno.io/docs/security/#verifying-kyverno-container-images)
+
+Note that the important fields to verify in the output are ```optional.Issuer``` and ```optional.Subject```. If Issuer and Subject do not match the values shown above, the image is not genuine.
+
+All Kyverno images can be verified.
+
+## Verifying Provenance 
+Kyverno creates and attests to the provenance of its builds using the [SLSA standard](https://slsa.dev/provenance/v0.2) and meets the SLSA [Level 3](https://slsa.dev/spec/v0.1/levels) specification. The attested provenance may be verified using the ```cosign``` tool.
+
+For v1.x of Cosign, use the following command.
+
+```bash
+COSIGN_EXPERIMENTAL=1 cosign verify-attestation \
+  --type slsaprovenance ghcr.io/kyverno/kyverno:<release_tag> | jq .payload -r | base64 --decode | jq
+```
+
+For v2.x of Cosign, use the following command.
+
+```bash
+cosign verify-attestation --type slsaprovenance \
+  --certificate-identity-regexp="https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@refs/tags/*" \
+  --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+  ghcr.io/kyverno/kyverno:<release_tag> | jq .payload -r | base64 --decode | jq
+```
+
+For more information, please visit [Verifying Provenance.](https://kyverno.io/docs/security/#verifying-provenance)
