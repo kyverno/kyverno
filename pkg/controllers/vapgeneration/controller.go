@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -19,7 +18,6 @@ import (
 	"k8s.io/api/admissionregistration/v1alpha1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	"k8s.io/client-go/kubernetes"
 	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
@@ -197,19 +195,20 @@ func (c *controller) getValidatingAdmissionPolicyBinding(name string) (*v1alpha1
 	return vapbinding, nil
 }
 
-func (c *controller) buildValidatingAdmissionPolicy(vap *v1alpha1.ValidatingAdmissionPolicy, rule kyvernov1.Rule, polKind, polName string, polUID types.UID) error {
+func (c *controller) buildValidatingAdmissionPolicy(vap *v1alpha1.ValidatingAdmissionPolicy, cpol kyvernov1.PolicyInterface) error {
 	// set owner reference
 	vap.OwnerReferences = []metav1.OwnerReference{
 		{
 			APIVersion: "kyverno.io/v1",
-			Kind:       polKind,
-			Name:       polName,
-			UID:        polUID,
+			Kind:       cpol.GetKind(),
+			Name:       cpol.GetName(),
+			UID:        cpol.GetUID(),
 		},
 	}
 
 	// get kinds from Kyverno rule
 	var resourceRules []v1alpha1.NamedRuleWithOperations
+	rule := cpol.GetSpec().Rules[0]
 	kinds := rule.MatchResources.GetKinds()
 	for _, kind := range kinds {
 		group, version, resource, _ := kubeutils.ParseKindSelector(kind)
@@ -244,19 +243,20 @@ func (c *controller) buildValidatingAdmissionPolicy(vap *v1alpha1.ValidatingAdmi
 	return nil
 }
 
-func (c *controller) buildValidatingAdmissionPolicyBinding(vapbinding *v1alpha1.ValidatingAdmissionPolicyBinding, rule kyvernov1.Rule, polKind, polName string, polUID types.UID, action kyvernov1.ValidationFailureAction) error {
+func (c *controller) buildValidatingAdmissionPolicyBinding(vapbinding *v1alpha1.ValidatingAdmissionPolicyBinding, cpol kyvernov1.PolicyInterface) error {
 	// set owner reference
 	vapbinding.OwnerReferences = []metav1.OwnerReference{
 		{
 			APIVersion: "kyverno.io/v1",
-			Kind:       polKind,
-			Name:       polName,
-			UID:        polUID,
+			Kind:       cpol.GetKind(),
+			Name:       cpol.GetName(),
+			UID:        cpol.GetUID(),
 		},
 	}
 
 	// set validation action for vap binding
 	var validationActions []v1alpha1.ValidationAction
+	action := cpol.GetSpec().ValidationFailureAction
 	if action.Enforce() {
 		validationActions = append(validationActions, v1alpha1.Deny)
 	} else if action.Audit() {
@@ -265,8 +265,9 @@ func (c *controller) buildValidatingAdmissionPolicyBinding(vapbinding *v1alpha1.
 	}
 
 	// set validating admission policy binding spec
+	rule := cpol.GetSpec().Rules[0]
 	vapbinding.Spec = v1alpha1.ValidatingAdmissionPolicyBindingSpec{
-		PolicyName:        rule.Name,
+		PolicyName:        cpol.GetName(),
 		ParamRef:          rule.Validation.CEL.ParamRef,
 		ValidationActions: validationActions,
 	}
@@ -286,89 +287,79 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		return err
 	}
 
-	if !policy.GetSpec().HasValidate() {
+	spec := policy.GetSpec()
+	generate := canGenerateVAP(spec)
+	if !generate {
 		return nil
 	}
 
 	polName := policy.GetName()
-	polKind := policy.GetKind()
-	polUID := policy.GetUID()
-
-	validationAction := policy.GetSpec().ValidationFailureAction
-
-	for _, rule := range autogen.ComputeRules(policy) {
-		if !rule.HasValidateCEL() {
-			continue
+	observedVAP, err := c.getValidatingAdmissionPolicy(polName)
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			return err
 		}
-
-		observedVAP, err := c.getValidatingAdmissionPolicy(rule.Name)
-		if err != nil {
-			if !apierrors.IsNotFound(err) {
-				return err
-			}
-			observedVAP = &v1alpha1.ValidatingAdmissionPolicy{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: rule.Name,
-				},
-			}
-		}
-
-		observedVAPbinding, err := c.getValidatingAdmissionPolicyBinding(rule.Name + "-binding")
-		if err != nil {
-			if !apierrors.IsNotFound(err) {
-				return err
-			}
-			observedVAPbinding = &v1alpha1.ValidatingAdmissionPolicyBinding{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: rule.Name + "-binding",
-				},
-			}
-		}
-
-		if observedVAP.ResourceVersion == "" {
-			err := c.buildValidatingAdmissionPolicy(observedVAP, rule, polKind, polName, polUID)
-			if err != nil {
-				return err
-			}
-			_, err = c.client.AdmissionregistrationV1alpha1().ValidatingAdmissionPolicies().Create(ctx, observedVAP, metav1.CreateOptions{})
-			if err != nil {
-				return err
-			}
-		} else {
-			_, err = controllerutils.Update(
-				ctx,
-				observedVAP,
-				c.client.AdmissionregistrationV1alpha1().ValidatingAdmissionPolicies(),
-				func(observed *v1alpha1.ValidatingAdmissionPolicy) error {
-					return c.buildValidatingAdmissionPolicy(observed, rule, polKind, polName, polUID)
-				})
-			if err != nil {
-				return err
-			}
-		}
-
-		if observedVAPbinding.ResourceVersion == "" {
-			err := c.buildValidatingAdmissionPolicyBinding(observedVAPbinding, rule, polKind, polName, polUID, validationAction)
-			if err != nil {
-				return err
-			}
-			_, err = c.client.AdmissionregistrationV1alpha1().ValidatingAdmissionPolicyBindings().Create(ctx, observedVAPbinding, metav1.CreateOptions{})
-			if err != nil {
-				return err
-			}
-		} else {
-			_, err = controllerutils.Update(
-				ctx,
-				observedVAPbinding,
-				c.client.AdmissionregistrationV1alpha1().ValidatingAdmissionPolicyBindings(),
-				func(observed *v1alpha1.ValidatingAdmissionPolicyBinding) error {
-					return c.buildValidatingAdmissionPolicyBinding(observed, rule, polKind, polName, polUID, validationAction)
-				})
-			if err != nil {
-				return err
-			}
+		observedVAP = &v1alpha1.ValidatingAdmissionPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: polName,
+			},
 		}
 	}
 
+	observedVAPbinding, err := c.getValidatingAdmissionPolicyBinding(polName + "-binding")
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			return err
+		}
+		observedVAPbinding = &v1alpha1.ValidatingAdmissionPolicyBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: polName + "-binding",
+			},
+		}
+	}
+
+	if observedVAP.ResourceVersion == "" {
+		err := c.buildValidatingAdmissionPolicy(observedVAP, policy)
+		if err != nil {
+			return err
+		}
+		_, err = c.client.AdmissionregistrationV1alpha1().ValidatingAdmissionPolicies().Create(ctx, observedVAP, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+	} else {
+		_, err = controllerutils.Update(
+			ctx,
+			observedVAP,
+			c.client.AdmissionregistrationV1alpha1().ValidatingAdmissionPolicies(),
+			func(observed *v1alpha1.ValidatingAdmissionPolicy) error {
+				return c.buildValidatingAdmissionPolicy(observed, policy)
+			})
+		if err != nil {
+			return err
+		}
+	}
+
+	if observedVAPbinding.ResourceVersion == "" {
+		err := c.buildValidatingAdmissionPolicyBinding(observedVAPbinding, policy)
+		if err != nil {
+			return err
+		}
+		_, err = c.client.AdmissionregistrationV1alpha1().ValidatingAdmissionPolicyBindings().Create(ctx, observedVAPbinding, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+	} else {
+		_, err = controllerutils.Update(
+			ctx,
+			observedVAPbinding,
+			c.client.AdmissionregistrationV1alpha1().ValidatingAdmissionPolicyBindings(),
+			func(observed *v1alpha1.ValidatingAdmissionPolicyBinding) error {
+				return c.buildValidatingAdmissionPolicyBinding(observed, policy)
+			})
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
