@@ -190,6 +190,7 @@ func createrLeaderControllers(
 		vapController := vapcontroller.NewController(
 			kubeClient,
 			kyvernoClient,
+			dynamicClient.Discovery(),
 			kyvernoInformer.Kyverno().V1().Policies(),
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),

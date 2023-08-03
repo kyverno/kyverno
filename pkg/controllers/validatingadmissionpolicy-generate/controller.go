@@ -2,7 +2,6 @@ package validatingadmissionpolicygenerate
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -10,11 +9,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/api/admissionregistration/v1alpha1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,8 +33,9 @@ const (
 
 type controller struct {
 	// clients
-	client        kubernetes.Interface
-	kyvernoClient versioned.Interface
+	client          kubernetes.Interface
+	kyvernoClient   versioned.Interface
+	discoveryClient dclient.IDiscovery
 
 	// listers
 	cpolLister       kyvernov1listers.ClusterPolicyLister
@@ -49,6 +49,7 @@ type controller struct {
 func NewController(
 	client kubernetes.Interface,
 	kyvernoClient versioned.Interface,
+	discoveryClient dclient.IDiscovery,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer,
@@ -58,6 +59,7 @@ func NewController(
 	c := &controller{
 		client:           client,
 		kyvernoClient:    kyvernoClient,
+		discoveryClient:  discoveryClient,
 		cpolLister:       cpolInformer.Lister(),
 		vapLister:        vapInformer.Lister(),
 		vapbindingLister: vapbindingInformer.Lister(),
@@ -206,34 +208,47 @@ func (c *controller) buildValidatingAdmissionPolicy(vap *v1alpha1.ValidatingAdmi
 		},
 	}
 
-	// get kinds from Kyverno rule
-	var resourceRules []v1alpha1.NamedRuleWithOperations
+	// construct validating admission policy resource rules
+	var matchResources v1alpha1.MatchResources
+
 	rule := cpol.GetSpec().Rules[0]
-	kinds := rule.MatchResources.GetKinds()
-	for _, kind := range kinds {
-		group, version, resource, _ := kubeutils.ParseKindSelector(kind)
-		resourceRule := v1alpha1.NamedRuleWithOperations{
-			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-				Rule: admissionregistrationv1.Rule{
-					Resources:   []string{strings.ToLower(resource) + "s"},
-					APIGroups:   []string{group},
-					APIVersions: []string{version},
-				},
-				Operations: []admissionregistrationv1.OperationType{
-					admissionregistrationv1.Create,
-					admissionregistrationv1.Update,
-				},
-			},
+	match, exclude := rule.MatchResources, rule.ExcludeResources
+	if !match.ResourceDescription.IsEmpty() {
+		if err := c.translateResource(&matchResources, match.ResourceDescription, false); err != nil {
+			return err
 		}
-		resourceRules = append(resourceRules, resourceRule)
+	}
+	if !exclude.ResourceDescription.IsEmpty() {
+		if err := c.translateResource(&matchResources, match.ResourceDescription, true); err != nil {
+			return err
+		}
+	}
+
+	if match.Any != nil {
+		if err := c.translateResourceFilters(&matchResources, match.Any, false); err != nil {
+			return err
+		}
+	}
+	if match.All != nil {
+		if err := c.translateResourceFilters(&matchResources, match.All, false); err != nil {
+			return err
+		}
+	}
+	if exclude.Any != nil {
+		if err := c.translateResourceFilters(&matchResources, match.Any, true); err != nil {
+			return err
+		}
+	}
+	if exclude.All != nil {
+		if err := c.translateResourceFilters(&matchResources, match.All, true); err != nil {
+			return err
+		}
 	}
 
 	// set validating admission policy spec
 	vap.Spec = v1alpha1.ValidatingAdmissionPolicySpec{
-		ParamKind: rule.Validation.CEL.ParamKind,
-		MatchConstraints: &v1alpha1.MatchResources{
-			ResourceRules: resourceRules,
-		},
+		ParamKind:        rule.Validation.CEL.ParamKind,
+		MatchConstraints: &matchResources,
 		Validations:      rule.Validation.CEL.Expressions,
 		AuditAnnotations: rule.Validation.CEL.AuditAnnotations,
 	}
