@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/api/kyverno"
-	admissionhandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission"
+	policyhandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/policy"
+	resourcehandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/resource"
 	cleanuphandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/cleanup"
-	labelhandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/resource-admission"
 	"github.com/kyverno/kyverno/cmd/internal"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -272,7 +272,7 @@ func main() {
 	var wg sync.WaitGroup
 	go eventGenerator.Run(ctx, 3, &wg)
 	// create handlers
-	admissionHandlers := admissionhandlers.New(setup.KyvernoDynamicClient)
+	admissionHandlers := policyhandlers.New(setup.KyvernoDynamicClient)
 	cmResolver := internal.NewConfigMapResolver(ctx, setup.Logger, setup.KubeClient, resyncPeriod)
 	cleanupHandlers := cleanuphandlers.New(
 		setup.Logger.WithName("cleanup-handler"),
@@ -294,7 +294,7 @@ func main() {
 			return secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey], nil
 		},
 		admissionHandlers.Validate,
-		labelhandlers.Validate,
+		resourcehandlers.Validate,
 		cleanupHandlers.Cleanup,
 		setup.MetricsManager,
 		webhooks.DebugModeOptions{
