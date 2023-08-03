@@ -40,7 +40,6 @@ type controller struct {
 	kyvernoClient versioned.Interface
 
 	// listers
-	polLister        kyvernov1listers.PolicyLister
 	cpolLister       kyvernov1listers.ClusterPolicyLister
 	vapLister        admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyLister
 	vapbindingLister admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyBindingLister
@@ -61,7 +60,6 @@ func NewController(
 	c := &controller{
 		client:           client,
 		kyvernoClient:    kyvernoClient,
-		polLister:        polInformer.Lister(),
 		cpolLister:       cpolInformer.Lister(),
 		vapLister:        vapInformer.Lister(),
 		vapbindingLister: vapbindingInformer.Lister(),
@@ -69,7 +67,6 @@ func NewController(
 	}
 
 	// Set up an event handler for when Kyverno policies change
-	controllerutils.AddEventHandlersT(polInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
 	controllerutils.AddEventHandlersT(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
 
 	// Set up an event handler for when validating admission policies change
@@ -86,7 +83,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 }
 
 func (c *controller) addPolicy(obj kyvernov1.PolicyInterface) {
-	logger.Info("policy created", "uid", obj.GetUID(), "kind", obj.GetKind(), "namespace", obj.GetNamespace(), "name", obj.GetName())
+	logger.Info("policy created", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
 	c.enqueuePolicy(obj)
 }
 
@@ -94,7 +91,7 @@ func (c *controller) updatePolicy(old, obj kyvernov1.PolicyInterface) {
 	if datautils.DeepEqual(old.GetSpec(), obj.GetSpec()) {
 		return
 	}
-	logger.Info("policy updated", "uid", obj.GetUID(), "kind", obj.GetKind(), "namespace", obj.GetNamespace(), "name", obj.GetName())
+	logger.Info("policy updated", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
 	c.enqueuePolicy(obj)
 }
 
@@ -104,14 +101,12 @@ func (c *controller) deletePolicy(obj kyvernov1.PolicyInterface) {
 	switch kubeutils.GetObjectWithTombstone(obj).(type) {
 	case *kyvernov1.ClusterPolicy:
 		p = kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.ClusterPolicy)
-	case *kyvernov1.Policy:
-		p = kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.Policy)
 	default:
 		logger.Info("Failed to get deleted object", "obj", obj)
 		return
 	}
 
-	logger.Info("policy deleted", "uid", p.GetUID(), "kind", p.GetKind(), "namespace", p.GetNamespace(), "name", p.GetName())
+	logger.Info("policy deleted", "uid", p.GetUID(), "kind", p.GetKind(), "name", p.GetName())
 	c.enqueuePolicy(obj)
 }
 
@@ -147,13 +142,6 @@ func (c *controller) enqueueVAP(v *v1alpha1.ValidatingAdmissionPolicy) {
 				return
 			}
 			c.enqueuePolicy(cpol)
-		} else if v.OwnerReferences[0].Kind == "Policy" {
-			//TODO: get namespaces.
-			pol, err := c.polLister.Policies("").Get(v.OwnerReferences[0].Name)
-			if err != nil {
-				return
-			}
-			c.enqueuePolicy(pol)
 		}
 	}
 }
@@ -181,31 +169,16 @@ func (c *controller) enqueueVAPbinding(vb *v1alpha1.ValidatingAdmissionPolicyBin
 				return
 			}
 			c.enqueuePolicy(cpol)
-		} else if vb.OwnerReferences[0].Kind == "Policy" {
-			//TODO: get namespaces.
-			pol, err := c.polLister.Policies("").Get(vb.OwnerReferences[0].Name)
-			if err != nil {
-				return
-			}
-			c.enqueuePolicy(pol)
 		}
 	}
 }
 
-func (c *controller) getPolicy(namespace, name string) (kyvernov1.PolicyInterface, error) {
-	if namespace == "" {
-		cpolicy, err := c.cpolLister.Get(name)
-		if err != nil {
-			return nil, err
-		}
-		return cpolicy, nil
-	} else {
-		policy, err := c.polLister.Policies(namespace).Get(name)
-		if err != nil {
-			return nil, err
-		}
-		return policy, nil
+func (c *controller) getClusterPolicy(name string) (kyvernov1.PolicyInterface, error) {
+	cpolicy, err := c.cpolLister.Get(name)
+	if err != nil {
+		return nil, err
 	}
+	return cpolicy, nil
 }
 
 func (c *controller) getValidatingAdmissionPolicy(name string) (*v1alpha1.ValidatingAdmissionPolicy, error) {
@@ -304,7 +277,7 @@ func (c *controller) buildValidatingAdmissionPolicyBinding(vapbinding *v1alpha1.
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
-	policy, err := c.getPolicy(namespace, name)
+	policy, err := c.getClusterPolicy(name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
