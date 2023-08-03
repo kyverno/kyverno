@@ -1,4 +1,4 @@
-package vapgeneration
+package validatingadmissionpolicygenerate
 
 import (
 	"context"
@@ -28,7 +28,7 @@ import (
 const (
 	// Workers is the number of workers for this controller
 	Workers        = 2
-	ControllerName = "vap-generation-controller"
+	ControllerName = "validatingadmissionpolicy-generate-controller"
 	maxRetries     = 10
 )
 

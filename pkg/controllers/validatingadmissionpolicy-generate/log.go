@@ -1,4 +1,4 @@
-package vapgeneration
+package validatingadmissionpolicygenerate
 
 import "github.com/kyverno/kyverno/pkg/logging"
 

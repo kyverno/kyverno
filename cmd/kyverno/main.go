@@ -22,7 +22,7 @@ import (
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
-	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/vapgeneration"
+	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/validatingadmissionpolicy-generate"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
