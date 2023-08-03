@@ -127,35 +127,33 @@ func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, wo
 		indexers,
 		options,
 	)
-	controller, err := newController(m.metadataClient.Resource(gvr), informer, logger)
-	if err != nil {
-		return err
-	}
-
 	cont, cancel := context.WithCancel(ctx)
 	var wg wait.Group
-
-	stopFunc := func() {
-		// Send stop signal to informer's goroutine
-		cancel()
-		// Wait for the group to terminate
-		wg.Wait()
-		controller.Stop()
-	}
-
 	wg.StartWithContext(cont, func(ctx context.Context) {
 		logger.Info("informer starting...")
 		informer.Informer().Run(cont.Done())
 	})
-
-	if !cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced) {
+	stopInformer := func() {
+		// Send stop signal to informer's goroutine
 		cancel()
+		// Wait for the group to terminate
+		wg.Wait()
+	}
+	if !cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced) {
+		stopInformer()
 		return fmt.Errorf("failed to wait for cache sync: %s", gvr.Resource)
 	}
-
+	controller, err := newController(m.metadataClient.Resource(gvr), informer, logger)
+	if err != nil {
+		stopInformer()
+		return err
+	}
 	logger.Info("controller starting...")
 	controller.Start(cont, workers)
-	m.resController[gvr] = stopFunc // Store the stop function
+	m.resController[gvr] = func() {
+		stopInformer()
+		controller.Stop()
+	}
 	return nil
 }
 
