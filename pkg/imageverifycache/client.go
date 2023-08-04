@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 )
 
 type cache struct {
@@ -67,7 +67,7 @@ func WithTTLDuration(t time.Duration) Option {
 	}
 }
 
-func (c *cache) Set(ctx context.Context, policy v1.PolicyInterface, ruleName string, imageRef string) (bool, error) {
+func (c *cache) Set(ctx context.Context, policy kyvernov1.PolicyInterface, ruleName string, imageRef string) (bool, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -79,7 +79,7 @@ func (c *cache) Set(ctx context.Context, policy v1.PolicyInterface, ruleName str
 	return false, nil
 }
 
-func (c *cache) Get(ctx context.Context, policy v1.PolicyInterface, ruleName string, imageRef string) (bool, error) {
+func (c *cache) Get(ctx context.Context, policy kyvernov1.PolicyInterface, ruleName string, imageRef string) (bool, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
