@@ -2,9 +2,11 @@ package imageverifycache
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 )
 
 type cache struct {
@@ -12,6 +14,7 @@ type cache struct {
 	isCacheEnabled bool
 	maxSize        int64
 	ttl            time.Duration
+	lock           sync.Mutex
 }
 
 type Option = func(*cache) error
@@ -64,27 +67,27 @@ func WithTTLDuration(t time.Duration) Option {
 	}
 }
 
-func (c *cache) Set(ctx context.Context, policyId string, policyVersion string, ruleName string, imageRef string) (bool, error) {
-	c.logger.Info("Setting cache", "policyId", policyId, "policyVersion", policyVersion, "ruleName", ruleName, "imageRef", imageRef)
+func (c *cache) Set(ctx context.Context, policy v1.PolicyInterface, ruleName string, imageRef string) (bool, error) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.logger.Info("Setting cache", "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
 	if !c.isCacheEnabled {
 		return false, nil
 	}
-	c.logger.Info("Successfully set cache", "policyId", policyId, "policyVersion", policyVersion, "ruleName", ruleName, "imageRef", imageRef)
+	c.logger.Info("Successfully set cache", "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
 	return false, nil
 }
 
-func (c *cache) Get(ctx context.Context, policyId string, policyVersion string, ruleName string, imageRef string) (bool, error) {
-	c.logger.Info("Searching in cache", "policyId", policyId, "policyVersion", policyVersion, "ruleName", ruleName, "imageRef", imageRef)
+func (c *cache) Get(ctx context.Context, policy v1.PolicyInterface, ruleName string, imageRef string) (bool, error) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.logger.Info("Searching in cache", "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
 	if !c.isCacheEnabled {
 		return false, nil
 	}
-	c.logger.Info("Cache entry not found", "policyId", policyId, "policyVersion", policyVersion, "ruleName", ruleName, "imageRef", imageRef)
-	c.logger.Info("Cache entry found", "policyId", policyId, "policyVersion", policyVersion, "ruleName", ruleName, "imageRef", imageRef)
-	return false, nil
-}
-
-func (c *cache) Clear(ctx context.Context) (bool, error) {
-	c.logger.Info("Clearing cache")
-	c.logger.Info("Cleared cache")
+	c.logger.Info("Cache entry not found", "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
+	c.logger.Info("Cache entry found", "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
 	return false, nil
 }
