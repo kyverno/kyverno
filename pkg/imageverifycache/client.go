@@ -64,49 +64,22 @@ func WithTTLDuration(t time.Duration) Option {
 	}
 }
 
-func (c *cache) Set(ctx context.Context, policyId string, ruleName string, imageRef string) (bool, error) {
-	c.logger.Info("Setting cache", "policyId", policyId, "ruleName", ruleName, "imageRef", imageRef)
+func (c *cache) Set(ctx context.Context, policyId string, policyVersion string, ruleName string, imageRef string) (bool, error) {
+	c.logger.Info("Setting cache", "policyId", policyId, "policyVersion", policyVersion, "ruleName", ruleName, "imageRef", imageRef)
 	if !c.isCacheEnabled {
 		return false, nil
 	}
-	c.logger.Info("Successfully set cache", "policyId", policyId, "ruleName", ruleName, "imageRef", imageRef)
+	c.logger.Info("Successfully set cache", "policyId", policyId, "policyVersion", policyVersion, "ruleName", ruleName, "imageRef", imageRef)
 	return false, nil
 }
 
-func (c *cache) Get(ctx context.Context, policyId string, ruleName string, imageRef string) (bool, error) {
-	c.logger.Info("Searching in cache", "policyId", policyId, "ruleName", ruleName, "imageRef", imageRef)
+func (c *cache) Get(ctx context.Context, policyId string, policyVersion string, ruleName string, imageRef string) (bool, error) {
+	c.logger.Info("Searching in cache", "policyId", policyId, "policyVersion", policyVersion, "ruleName", ruleName, "imageRef", imageRef)
 	if !c.isCacheEnabled {
 		return false, nil
 	}
-	c.logger.Info("Cache entry not found", "policyId", policyId, "ruleName", ruleName, "imageRef", imageRef)
-	c.logger.Info("Cache entry found", "policyId", policyId, "ruleName", ruleName, "imageRef", imageRef)
-	return false, nil
-}
-
-func (c *cache) Delete(ctx context.Context, policyId string, ruleName string, imageRef string) (bool, error) {
-	c.logger.Info("Deleting cache entry", "policyId", policyId, "ruleName", ruleName, "imageRef", imageRef)
-	if !c.isCacheEnabled {
-		return false, nil
-	}
-	c.logger.Info("Successfully deleted cache entry", "policyId", policyId, "ruleName", ruleName, "imageRef", imageRef)
-	return false, nil
-}
-
-func (c *cache) DeleteForRule(ctx context.Context, policyId string, ruleName string) (bool, error) {
-	c.logger.Info("Deleting cache for rule", "policyId", policyId, "ruleName", ruleName)
-	if !c.isCacheEnabled {
-		return false, nil
-	}
-	c.logger.Info("Successfully deleted cache for rule", "policyId", policyId, "ruleName", ruleName)
-	return false, nil
-}
-
-func (c *cache) DeleteForPolicy(ctx context.Context, policyId string) (bool, error) {
-	c.logger.Info("Deleting cache for policy", "policyId", policyId)
-	if !c.isCacheEnabled {
-		return false, nil
-	}
-	c.logger.Info("Successfully deleted cache for policy", "policyId", policyId)
+	c.logger.Info("Cache entry not found", "policyId", policyId, "policyVersion", policyVersion, "ruleName", ruleName, "imageRef", imageRef)
+	c.logger.Info("Cache entry found", "policyId", policyId, "policyVersion", policyVersion, "ruleName", ruleName, "imageRef", imageRef)
 	return false, nil
 }
 
