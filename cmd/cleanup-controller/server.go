@@ -29,9 +29,10 @@ type server struct {
 }
 
 type (
-	TlsProvider       = func() ([]byte, []byte, error)
-	ValidationHandler = func(context.Context, logr.Logger, handlers.AdmissionRequest, time.Time) handlers.AdmissionResponse
-	CleanupHandler    = func(context.Context, logr.Logger, string, time.Time, config.Configuration) error
+	TlsProvider            = func() ([]byte, []byte, error)
+	ValidationHandler      = func(context.Context, logr.Logger, handlers.AdmissionRequest, time.Time) handlers.AdmissionResponse
+	LabelValidationHandler = func(context.Context, logr.Logger, handlers.AdmissionRequest, time.Time) handlers.AdmissionResponse
+	CleanupHandler         = func(context.Context, logr.Logger, string, time.Time, config.Configuration) error
 )
 
 type Probes interface {
@@ -43,6 +44,7 @@ type Probes interface {
 func NewServer(
 	tlsProvider TlsProvider,
 	validationHandler ValidationHandler,
+	labelValidationHandler LabelValidationHandler,
 	cleanupHandler CleanupHandler,
 	metricsConfig metrics.MetricsConfigManager,
 	debugModeOpts webhooks.DebugModeOptions,
@@ -50,6 +52,7 @@ func NewServer(
 	cfg config.Configuration,
 ) Server {
 	policyLogger := logging.WithName("cleanup-policy")
+	labelLogger := logging.WithName("ttl-label")
 	cleanupLogger := logging.WithName("cleanup")
 	cleanupHandlerFunc := func(w http.ResponseWriter, r *http.Request) {
 		policy := r.URL.Query().Get("policy")
@@ -74,6 +77,16 @@ func NewServer(
 			WithSubResourceFilter().
 			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookValidating).
 			WithAdmission(policyLogger.WithName("validate")).
+			ToHandlerFunc(),
+	)
+	mux.HandlerFunc(
+		"POST",
+		config.TtlValidatingWebhookServicePath,
+		handlers.FromAdmissionFunc("VALIDATE", labelValidationHandler).
+			WithDump(debugModeOpts.DumpPayload).
+			WithSubResourceFilter().
+			WithMetrics(labelLogger, metricsConfig.Config(), metrics.WebhookValidating).
+			WithAdmission(labelLogger.WithName("validate")).
 			ToHandlerFunc(),
 	)
 	mux.HandlerFunc(

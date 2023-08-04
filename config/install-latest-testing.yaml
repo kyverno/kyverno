@@ -7972,6 +7972,12 @@ spec:
                   as well as patched resources. Optional. The default value is set
                   to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
+              useServerSideApply:
+                description: UseServerSideApply controls whether to use server-side
+                  apply for generate rules If is set to "true" create & update for
+                  generate rules will use apply instead of create/update. Defaults
+                  to "false" if not specified.
+                type: boolean
               validationFailureAction:
                 default: Audit
                 description: ValidationFailureAction defines if a validation policy
@@ -15823,6 +15829,12 @@ spec:
                 description: SchemaValidation skips validation checks for policies
                   as well as patched resources. Optional. The default value is set
                   to "true", it must be set to "false" to disable the validation checks.
+                type: boolean
+              useServerSideApply:
+                description: UseServerSideApply controls whether to use server-side
+                  apply for generate rules If is set to "true" create & update for
+                  generate rules will use apply instead of create/update. Defaults
+                  to "false" if not specified.
                 type: boolean
               validationFailureAction:
                 default: Audit
@@ -23987,6 +23999,12 @@ spec:
                   as well as patched resources. Optional. The default value is set
                   to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
+              useServerSideApply:
+                description: UseServerSideApply controls whether to use server-side
+                  apply for generate rules If is set to "true" create & update for
+                  generate rules will use apply instead of create/update. Defaults
+                  to "false" if not specified.
+                type: boolean
               validationFailureAction:
                 default: Audit
                 description: ValidationFailureAction defines if a validation policy
@@ -31841,6 +31859,12 @@ spec:
                   as well as patched resources. Optional. The default value is set
                   to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
+              useServerSideApply:
+                description: UseServerSideApply controls whether to use server-side
+                  apply for generate rules If is set to "true" create & update for
+                  generate rules will use apply instead of create/update. Defaults
+                  to "false" if not specified.
+                type: boolean
               validationFailureAction:
                 default: Audit
                 description: ValidationFailureAction defines if a validation policy
@@ -39119,6 +39143,7 @@ spec:
             - --dumpPayload=false
             - --loggingFormat=text
             - --v=2
+            - --ttlReconciliationInterval=1m
           env:
           - name: KYVERNO_DEPLOYMENT
             value: kyverno-cleanup-controller

@@ -70,6 +70,7 @@
             "env": {                 
                 "KYVERNO_NAMESPACE": "kyverno",
                 "KYVERNO_SERVICEACCOUNT_NAME": "kyverno-cleanup-controller",
+                "KYVERNO_SVC":  "kyverno-cleanup-controller",
                 "KYVERNO_DEPLOYMENT": "dummy",
                 "KYVERNO_POD_NAME": "dummy",
                 "INIT_CONFIG": "kyverno",

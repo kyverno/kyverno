@@ -152,6 +152,7 @@ func createrLeaderControllers(
 		config.ExceptionValidatingWebhookServicePath,
 		serverIP,
 		servicePort,
+		nil,
 		[]admissionregistrationv1.RuleWithOperations{{
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{"kyverno.io"},
