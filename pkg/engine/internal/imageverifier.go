@@ -17,6 +17,7 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/images"
+	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/notary"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
@@ -29,6 +30,7 @@ import (
 type ImageVerifier struct {
 	logger                   logr.Logger
 	rclient                  engineapi.RegistryClient
+	ivCache                  imageverifycache.Client
 	policyContext            engineapi.PolicyContext
 	rule                     kyvernov1.Rule
 	ivm                      *engineapi.ImageVerificationMetadata
@@ -38,6 +40,7 @@ type ImageVerifier struct {
 func NewImageVerifier(
 	logger logr.Logger,
 	rclient engineapi.RegistryClient,
+	ivCache imageverifycache.Client,
 	policyContext engineapi.PolicyContext,
 	rule kyvernov1.Rule,
 	ivm *engineapi.ImageVerificationMetadata,
@@ -46,6 +49,7 @@ func NewImageVerifier(
 	return &ImageVerifier{
 		logger:                   logger,
 		rclient:                  rclient,
+		ivCache:                  ivCache,
 		policyContext:            policyContext,
 		rule:                     rule,
 		ivm:                      ivm,
