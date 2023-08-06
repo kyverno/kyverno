@@ -8,6 +8,7 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/imageverifycache"
 )
 
 func ContextLoaderFactory(cmResolver engineapi.ConfigmapResolver) engineapi.ContextLoaderFactory {
@@ -48,6 +49,7 @@ func (w wrapper) Load(
 	jp jmespath.Interface,
 	client engineapi.RawClient,
 	rclientFactory engineapi.RegistryClientFactory,
+	ivCache imageverifycache.Client,
 	contextEntries []kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
 ) error {
@@ -57,5 +59,5 @@ func (w wrapper) Load(
 	if !GetRegistryAccess() {
 		rclientFactory = nil
 	}
-	return w.inner.Load(ctx, jp, client, rclientFactory, contextEntries, jsonContext)
+	return w.inner.Load(ctx, jp, client, rclientFactory, ivCache, contextEntries, jsonContext)
 }

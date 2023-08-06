@@ -13,6 +13,7 @@ import (
 	metadataclient "github.com/kyverno/kyverno/pkg/clients/metadata"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -30,20 +31,21 @@ func shutdown(logger logr.Logger, sdowns ...context.CancelFunc) context.CancelFu
 }
 
 type SetupResult struct {
-	Logger               logr.Logger
-	Configuration        config.Configuration
-	MetricsConfiguration config.MetricsConfiguration
-	MetricsManager       metrics.MetricsConfigManager
-	Jp                   jmespath.Interface
-	KubeClient           kubeclient.UpstreamInterface
-	LeaderElectionClient kubeclient.UpstreamInterface
-	RegistryClient       registryclient.Client
-	RegistrySecretLister corev1listers.SecretNamespaceLister
-	KyvernoClient        kyvernoclient.UpstreamInterface
-	DynamicClient        dynamicclient.UpstreamInterface
-	ApiServerClient      apiserverclient.UpstreamInterface
-	MetadataClient       metadataclient.UpstreamInterface
-	KyvernoDynamicClient dclient.Interface
+	Logger                 logr.Logger
+	Configuration          config.Configuration
+	MetricsConfiguration   config.MetricsConfiguration
+	MetricsManager         metrics.MetricsConfigManager
+	Jp                     jmespath.Interface
+	KubeClient             kubeclient.UpstreamInterface
+	LeaderElectionClient   kubeclient.UpstreamInterface
+	RegistryClient         registryclient.Client
+	ImageVerifyCacheClient imageverifycache.Client
+	RegistrySecretLister   corev1listers.SecretNamespaceLister
+	KyvernoClient          kyvernoclient.UpstreamInterface
+	DynamicClient          dynamicclient.UpstreamInterface
+	ApiServerClient        apiserverclient.UpstreamInterface
+	MetadataClient         metadataclient.UpstreamInterface
+	KyvernoDynamicClient   dclient.Interface
 }
 
 func Setup(config Configuration, name string, skipResourceFilters bool) (context.Context, SetupResult, context.CancelFunc) {
@@ -65,6 +67,10 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	var registrySecretLister corev1listers.SecretNamespaceLister
 	if config.UsesRegistryClient() {
 		registryClient, registrySecretLister = setupRegistryClient(ctx, logger, client)
+	}
+	var imageVerifyCache imageverifycache.Client
+	if config.UsesImageVerifyCache() {
+		imageVerifyCache = setupImageVerifyCache(ctx, logger)
 	}
 	var leaderElectionClient kubeclient.UpstreamInterface
 	if config.UsesLeaderElection() {
@@ -92,20 +98,21 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	}
 	return ctx,
 		SetupResult{
-			Logger:               logger,
-			Configuration:        configuration,
-			MetricsConfiguration: metricsConfiguration,
-			MetricsManager:       metricsManager,
-			Jp:                   jmespath.New(configuration),
-			KubeClient:           client,
-			LeaderElectionClient: leaderElectionClient,
-			RegistryClient:       registryClient,
-			RegistrySecretLister: registrySecretLister,
-			KyvernoClient:        kyvernoClient,
-			DynamicClient:        dynamicClient,
-			ApiServerClient:      apiServerClient,
-			MetadataClient:       metadataClient,
-			KyvernoDynamicClient: dClient,
+			Logger:                 logger,
+			Configuration:          configuration,
+			MetricsConfiguration:   metricsConfiguration,
+			MetricsManager:         metricsManager,
+			Jp:                     jmespath.New(configuration),
+			KubeClient:             client,
+			LeaderElectionClient:   leaderElectionClient,
+			RegistryClient:         registryClient,
+			ImageVerifyCacheClient: imageVerifyCache,
+			RegistrySecretLister:   registrySecretLister,
+			KyvernoClient:          kyvernoClient,
+			DynamicClient:          dynamicClient,
+			ApiServerClient:        apiServerClient,
+			MetadataClient:         metadataClient,
+			KyvernoDynamicClient:   dClient,
 		},
 		shutdown(logger.WithName("shutdown"), sdownMaxProcs, sdownMetrics, sdownTracing, sdownSignals)
 }
