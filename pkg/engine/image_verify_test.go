@@ -22,6 +22,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gomodules.xyz/jsonpatch/v2"
@@ -185,6 +186,7 @@ func testVerifyAndPatchImages(
 		jp,
 		nil,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+		imageverifycache.DisabledImageVerifyCache(),
 		factories.DefaultContextLoaderFactory(cmResolver),
 		nil,
 		"",
