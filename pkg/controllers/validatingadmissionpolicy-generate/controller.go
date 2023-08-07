@@ -11,6 +11,7 @@ import (
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
+	"github.com/kyverno/kyverno/pkg/logging"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -173,7 +174,7 @@ func (c *controller) enqueueVAPbinding(vb *v1alpha1.ValidatingAdmissionPolicyBin
 	}
 }
 
-func (c *controller) getClusterPolicy(name string) (kyvernov1.PolicyInterface, error) {
+func (c *controller) getClusterPolicy(name string) (*kyvernov1.ClusterPolicy, error) {
 	cpolicy, err := c.cpolLister.Get(name)
 	if err != nil {
 		return nil, err
@@ -303,8 +304,8 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	}
 
 	spec := policy.GetSpec()
-	generate := canGenerateVAP(spec)
-	if !generate {
+	if ok, msg := canGenerateVAP(spec); !ok {
+		c.updateClusterPolicyStatus(ctx, *policy, false, msg)
 		return nil
 	}
 
@@ -312,6 +313,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	observedVAP, err := c.getValidatingAdmissionPolicy(polName)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
+			c.updateClusterPolicyStatus(ctx, *policy, false, err.Error())
 			return err
 		}
 		observedVAP = &v1alpha1.ValidatingAdmissionPolicy{
@@ -324,6 +326,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	observedVAPbinding, err := c.getValidatingAdmissionPolicyBinding(polName + "-binding")
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
+			c.updateClusterPolicyStatus(ctx, *policy, false, err.Error())
 			return err
 		}
 		observedVAPbinding = &v1alpha1.ValidatingAdmissionPolicyBinding{
@@ -336,10 +339,12 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	if observedVAP.ResourceVersion == "" {
 		err := c.buildValidatingAdmissionPolicy(observedVAP, policy)
 		if err != nil {
+			c.updateClusterPolicyStatus(ctx, *policy, false, err.Error())
 			return err
 		}
 		_, err = c.client.AdmissionregistrationV1alpha1().ValidatingAdmissionPolicies().Create(ctx, observedVAP, metav1.CreateOptions{})
 		if err != nil {
+			c.updateClusterPolicyStatus(ctx, *policy, false, err.Error())
 			return err
 		}
 	} else {
@@ -351,6 +356,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 				return c.buildValidatingAdmissionPolicy(observed, policy)
 			})
 		if err != nil {
+			c.updateClusterPolicyStatus(ctx, *policy, false, err.Error())
 			return err
 		}
 	}
@@ -358,10 +364,12 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	if observedVAPbinding.ResourceVersion == "" {
 		err := c.buildValidatingAdmissionPolicyBinding(observedVAPbinding, policy)
 		if err != nil {
+			c.updateClusterPolicyStatus(ctx, *policy, false, err.Error())
 			return err
 		}
 		_, err = c.client.AdmissionregistrationV1alpha1().ValidatingAdmissionPolicyBindings().Create(ctx, observedVAPbinding, metav1.CreateOptions{})
 		if err != nil {
+			c.updateClusterPolicyStatus(ctx, *policy, false, err.Error())
 			return err
 		}
 	} else {
@@ -373,8 +381,20 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 				return c.buildValidatingAdmissionPolicyBinding(observed, policy)
 			})
 		if err != nil {
+			c.updateClusterPolicyStatus(ctx, *policy, false, err.Error())
 			return err
 		}
 	}
+
+	c.updateClusterPolicyStatus(ctx, *policy, true, "")
 	return nil
+}
+
+func (c *controller) updateClusterPolicyStatus(ctx context.Context, cpol kyvernov1.ClusterPolicy, generated bool, msg string) {
+	latest := cpol.DeepCopy()
+	latest.Status.ValidatingAdmissionPolicy.Generated = generated
+	latest.Status.ValidatingAdmissionPolicy.Message = msg
+
+	new, _ := c.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
+	logging.V(3).Info("updated kyverno policy status", "name", cpol.GetName(), "status", new.Status)
 }

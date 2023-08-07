@@ -97,7 +97,7 @@ func Test_Check_Resources(t *testing.T) {
 			var res kyvernov1.ResourceDescription
 			err := json.Unmarshal(test.resource, &res)
 			assert.NilError(t, err)
-			out := checkResources(res)
+			out, _ := checkResources(res)
 			assert.Equal(t, out, test.expected)
 		})
 	}
@@ -480,7 +480,7 @@ func Test_Can_Generate_ValidatingAdmissionPolicy(t *testing.T) {
 			policies, _, err := yamlutils.GetPolicy([]byte(test.policy))
 			assert.NilError(t, err)
 			assert.Equal(t, 1, len(policies))
-			out := canGenerateVAP(policies[0].GetSpec())
+			out, _ := canGenerateVAP(policies[0].GetSpec())
 			assert.Equal(t, out, test.expected)
 		})
 	}
