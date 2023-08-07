@@ -332,9 +332,6 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
 		osExit(1)
 	}
-	if (len(resources) > 1 || len(policies) > 1) && c.Variables != nil {
-		return nil, resources, skipInvalidPolicies, nil, sanitizederror.NewWithError("currently `set` flag supports variable for single policy applied on single resource ", nil)
-	}
 	// init variables
 	if len(variables) != 0 {
 		variables = common.SetInStoreContext(policies, variables)
