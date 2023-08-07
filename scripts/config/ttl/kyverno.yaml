@@ -1,0 +1,12 @@
+cleanupController:
+  rbac:
+    clusterRole:
+      extraResources:
+        - apiGroups:
+            - ''
+          resources:
+            - pods
+          verbs:
+            - list
+            - delete
+            - watch

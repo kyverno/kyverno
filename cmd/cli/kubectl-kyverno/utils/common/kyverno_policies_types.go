@@ -15,6 +15,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -119,6 +120,7 @@ OuterLoop:
 		jmespath.New(cfg),
 		adapters.Client(c.Client),
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+		imageverifycache.DisabledImageVerifyCache(),
 		store.ContextLoaderFactory(nil),
 		nil,
 		"",

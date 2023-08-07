@@ -3931,6 +3931,11 @@ spec:
                             - Cosign
                             - Notary
                             type: string
+                          useCache:
+                            default: true
+                            description: UseCache enables caching of image verify
+                              responses for this rule
+                            type: boolean
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -3946,6 +3951,12 @@ spec:
                 description: SchemaValidation skips validation checks for policies
                   as well as patched resources. Optional. The default value is set
                   to "true", it must be set to "false" to disable the validation checks.
+                type: boolean
+              useServerSideApply:
+                description: UseServerSideApply controls whether to use server-side
+                  apply for generate rules If is set to "true" create & update for
+                  generate rules will use apply instead of create/update. Defaults
+                  to "false" if not specified.
                 type: boolean
               validationFailureAction:
                 default: Audit
@@ -8028,6 +8039,11 @@ spec:
                                 - Cosign
                                 - Notary
                                 type: string
+                              useCache:
+                                default: true
+                                description: UseCache enables caching of image verify
+                                  responses for this rule
+                                type: boolean
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have
@@ -11773,6 +11789,11 @@ spec:
                             - Cosign
                             - Notary
                             type: string
+                          useCache:
+                            default: true
+                            description: UseCache enables caching of image verify
+                              responses for this rule
+                            type: boolean
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -11788,6 +11809,12 @@ spec:
                 description: SchemaValidation skips validation checks for policies
                   as well as patched resources. Optional. The default value is set
                   to "true", it must be set to "false" to disable the validation checks.
+                type: boolean
+              useServerSideApply:
+                description: UseServerSideApply controls whether to use server-side
+                  apply for generate rules If is set to "true" create & update for
+                  generate rules will use apply instead of create/update. Defaults
+                  to "false" if not specified.
                 type: boolean
               validationFailureAction:
                 default: Audit
@@ -15870,6 +15897,11 @@ spec:
                                 - Cosign
                                 - Notary
                                 type: string
+                              useCache:
+                                default: true
+                                description: UseCache enables caching of image verify
+                                  responses for this rule
+                                type: boolean
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have
