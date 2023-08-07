@@ -71,12 +71,16 @@ func toPolicyResult(status engineapi.RuleStatus) policyreportv1alpha2.PolicyResu
 
 func SeverityFromString(severity string) policyreportv1alpha2.PolicySeverity {
 	switch severity {
+	case policyreportv1alpha2.SeverityCritical:
+		return policyreportv1alpha2.SeverityCritical
 	case policyreportv1alpha2.SeverityHigh:
 		return policyreportv1alpha2.SeverityHigh
 	case policyreportv1alpha2.SeverityMedium:
 		return policyreportv1alpha2.SeverityMedium
 	case policyreportv1alpha2.SeverityLow:
 		return policyreportv1alpha2.SeverityLow
+	case policyreportv1alpha2.SeverityInfo:
+		return policyreportv1alpha2.SeverityInfo
 	}
 	return ""
 }
