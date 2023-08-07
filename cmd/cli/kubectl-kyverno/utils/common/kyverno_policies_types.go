@@ -206,7 +206,7 @@ OuterLoop:
 		updateResultCounts(c.Policy, &generateResponse, resPath, c.Rc, c.AuditWarn)
 	}
 
-	engineResponses = processEngineResponses(engineResponses, c)
+	processEngineResponses(engineResponses, c)
 
 	return engineResponses, nil
 }
