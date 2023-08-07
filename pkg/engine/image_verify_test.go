@@ -8,7 +8,8 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
@@ -21,6 +22,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gomodules.xyz/jsonpatch/v2"
@@ -189,6 +191,7 @@ func testVerifyAndPatchImages(
 		jp,
 		nil,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+		imageverifycache.DisabledImageVerifyCache(),
 		factories.DefaultContextLoaderFactory(cmResolver),
 		nil,
 		"",
@@ -224,7 +227,7 @@ func Test_CosignMockAttest_fail(t *testing.T) {
 }
 
 func buildContext(t *testing.T, policy, resource string, oldResource string) *PolicyContext {
-	var cpol kyverno.ClusterPolicy
+	var cpol kyvernov1.ClusterPolicy
 	err := json.Unmarshal([]byte(policy), &cpol)
 	assert.NilError(t, err)
 
@@ -234,7 +237,7 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) *Po
 	policyContext, err := policycontext.NewPolicyContext(
 		jp,
 		*resourceUnstructured,
-		kyverno.Create,
+		kyvernov1.Create,
 		nil,
 		cfg,
 	)
@@ -585,7 +588,7 @@ func Test_RuleSelectorImageVerify(t *testing.T) {
 	spec := policyContext.Policy().GetSpec()
 	spec.Rules = append(spec.Rules, *rule)
 
-	applyAll := kyverno.ApplyAll
+	applyAll := kyvernov1.ApplyAll
 	spec.ApplyRules = &applyAll
 
 	resp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
@@ -593,33 +596,33 @@ func Test_RuleSelectorImageVerify(t *testing.T) {
 	assert.Equal(t, resp.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass, resp.PolicyResponse.Rules[0].Message())
 	assert.Equal(t, resp.PolicyResponse.Rules[1].Status(), engineapi.RuleStatusFail, resp.PolicyResponse.Rules[1].Message())
 
-	applyOne := kyverno.ApplyOne
+	applyOne := kyvernov1.ApplyOne
 	spec.ApplyRules = &applyOne
 	resp, _ = testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	assert.Equal(t, len(resp.PolicyResponse.Rules), 1)
 	assert.Equal(t, resp.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass, resp.PolicyResponse.Rules[0].Message())
 }
 
-func newStaticKeyRule(name, imageReference, key string) *kyverno.Rule {
-	return &kyverno.Rule{
+func newStaticKeyRule(name, imageReference, key string) *kyvernov1.Rule {
+	return &kyvernov1.Rule{
 		Name: name,
-		MatchResources: kyverno.MatchResources{
-			All: kyverno.ResourceFilters{
+		MatchResources: kyvernov1.MatchResources{
+			All: kyvernov1.ResourceFilters{
 				{
-					ResourceDescription: kyverno.ResourceDescription{
+					ResourceDescription: kyvernov1.ResourceDescription{
 						Kinds: []string{"Pod"},
 					},
 				},
 			},
 		},
-		VerifyImages: []kyverno.ImageVerification{
+		VerifyImages: []kyvernov1.ImageVerification{
 			{
 				ImageReferences: []string{"*"},
-				Attestors: []kyverno.AttestorSet{
+				Attestors: []kyvernov1.AttestorSet{
 					{
-						Entries: []kyverno.Attestor{
+						Entries: []kyvernov1.Attestor{
 							{
-								Keys: &kyverno.StaticKeyAttestor{
+								Keys: &kyvernov1.StaticKeyAttestor{
 									PublicKeys: key,
 								},
 							},
@@ -742,7 +745,7 @@ func Test_ExpandKeys(t *testing.T) {
 
 	as = internal.ExpandStaticKeys(createStaticKeyAttestorSet("", false, true, false))
 	assert.Equal(t, 1, len(as.Entries))
-	assert.DeepEqual(t, &kyverno.SecretReference{Name: "testsecret", Namespace: "default"},
+	assert.DeepEqual(t, &kyvernov1.SecretReference{Name: "testsecret", Namespace: "default"},
 		as.Entries[0].Keys.Secret)
 
 	as = internal.ExpandStaticKeys(createStaticKeyAttestorSet("", false, false, true))
@@ -752,23 +755,23 @@ func Test_ExpandKeys(t *testing.T) {
 	as = internal.ExpandStaticKeys((createStaticKeyAttestorSet(testOtherKey, true, true, false)))
 	assert.Equal(t, 2, len(as.Entries))
 	assert.DeepEqual(t, testOtherKey, as.Entries[0].Keys.PublicKeys)
-	assert.DeepEqual(t, &kyverno.SecretReference{Name: "testsecret", Namespace: "default"}, as.Entries[1].Keys.Secret)
+	assert.DeepEqual(t, &kyvernov1.SecretReference{Name: "testsecret", Namespace: "default"}, as.Entries[1].Keys.Secret)
 }
 
-func createStaticKeyAttestorSet(s string, withPublicKey, withSecret, withKMS bool) kyverno.AttestorSet {
-	var entries []kyverno.Attestor
+func createStaticKeyAttestorSet(s string, withPublicKey, withSecret, withKMS bool) kyvernov1.AttestorSet {
+	var entries []kyvernov1.Attestor
 	if withPublicKey {
-		attestor := kyverno.Attestor{
-			Keys: &kyverno.StaticKeyAttestor{
+		attestor := kyvernov1.Attestor{
+			Keys: &kyvernov1.StaticKeyAttestor{
 				PublicKeys: s,
 			},
 		}
 		entries = append(entries, attestor)
 	}
 	if withSecret {
-		attestor := kyverno.Attestor{
-			Keys: &kyverno.StaticKeyAttestor{
-				Secret: &kyverno.SecretReference{
+		attestor := kyvernov1.Attestor{
+			Keys: &kyvernov1.StaticKeyAttestor{
+				Secret: &kyvernov1.SecretReference{
 					Name:      "testsecret",
 					Namespace: "default",
 				},
@@ -778,18 +781,18 @@ func createStaticKeyAttestorSet(s string, withPublicKey, withSecret, withKMS boo
 	}
 	if withKMS {
 		kmsKey := "gcpkms://projects/test_project_id/locations/asia-south1/keyRings/test_key_ring_name/cryptoKeys/test_key_name/versions/1"
-		attestor := kyverno.Attestor{
-			Keys: &kyverno.StaticKeyAttestor{
+		attestor := kyvernov1.Attestor{
+			Keys: &kyvernov1.StaticKeyAttestor{
 				KMS: kmsKey,
 			},
 		}
 		entries = append(entries, attestor)
 	}
-	return kyverno.AttestorSet{Entries: entries}
+	return kyvernov1.AttestorSet{Entries: entries}
 }
 
 func Test_ChangedAnnotation(t *testing.T) {
-	annotationKey := engineapi.ImageVerifyAnnotationKey
+	annotationKey := kyverno.AnnotationImageVerify
 	annotationNew := fmt.Sprintf("\"annotations\": {\"%s\": \"%s\"}", annotationKey, "true")
 	newResource := strings.ReplaceAll(testResource, "\"annotations\": {}", annotationNew)
 
@@ -833,7 +836,7 @@ func Test_MarkImageVerified(t *testing.T) {
 	patchedAnnotations := resource.GetAnnotations()
 	assert.Equal(t, len(patchedAnnotations), 1)
 
-	json := patchedAnnotations[engineapi.ImageVerifyAnnotationKey]
+	json := patchedAnnotations[kyverno.AnnotationImageVerify]
 	assert.Assert(t, json != "")
 
 	verified, err := engineutils.IsImageVerified(resource, image, logr.Discard())
