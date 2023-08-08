@@ -9,6 +9,11 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 )
 
+const (
+	defaultTTL     = 1 * time.Hour
+	deafultMaxSize = 1000
+)
+
 type cache struct {
 	logger         logr.Logger
 	isCacheEnabled bool
@@ -29,13 +34,20 @@ func New(options ...Option) (Client, error) {
 	config := ristretto.Config{
 		MaxCost:     cache.maxSize,
 		NumCounters: 10 * cache.maxSize,
+<<<<<<< HEAD
 		BufferItems: 64,
+=======
+>>>>>>> 44c9196f1 (added ristretto_cache impl)
 	}
 	rcache, err := ristretto.NewCache(&config)
 	if err != nil {
 		return nil, err
 	}
+<<<<<<< HEAD
 	cache.cache = rcache
+=======
+	cache.Cache = rcache
+>>>>>>> 44c9196f1 (added ristretto_cache impl)
 	return cache, nil
 }
 
@@ -64,6 +76,9 @@ func WithCacheEnableFlag(b bool) Option {
 
 func WithMaxSize(s int64) Option {
 	return func(c *cache) error {
+		if s == 0 {
+			s = deafultMaxSize
+		}
 		c.maxSize = s
 		return nil
 	}
@@ -71,6 +86,9 @@ func WithMaxSize(s int64) Option {
 
 func WithTTLDuration(t time.Duration) Option {
 	return func(c *cache) error {
+		if t == 0 {
+			t = defaultTTL
+		}
 		c.ttl = t
 		return nil
 	}
@@ -79,6 +97,13 @@ func WithTTLDuration(t time.Duration) Option {
 func generateKey(policy kyvernov1.PolicyInterface, ruleName string, imageRef string) string {
 	return string(policy.GetUID()) + ";" + policy.GetResourceVersion() + ";" + ruleName + ";" + imageRef
 }
+<<<<<<< HEAD
+=======
+
+func (c *cache) Set(ctx context.Context, policy kyvernov1.PolicyInterface, ruleName string, imageRef string) (bool, error) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+>>>>>>> 44c9196f1 (added ristretto_cache impl)
 
 func (c *cache) Set(ctx context.Context, policy kyvernov1.PolicyInterface, ruleName string, imageRef string) (bool, error) {
 	if !c.isCacheEnabled {
@@ -86,21 +111,42 @@ func (c *cache) Set(ctx context.Context, policy kyvernov1.PolicyInterface, ruleN
 	}
 	key := generateKey(policy, ruleName, imageRef)
 
+<<<<<<< HEAD
 	stored := c.cache.SetWithTTL(key, nil, 1, c.ttl)
 	if stored {
+=======
+	stored := c.Cache.SetWithTTL(key, nil, 1, c.ttl)
+	if stored {
+		c.logger.Info("Successfully set cache", "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
+>>>>>>> 44c9196f1 (added ristretto_cache impl)
 		return true, nil
 	}
 	return false, nil
 }
 
 func (c *cache) Get(ctx context.Context, policy kyvernov1.PolicyInterface, ruleName string, imageRef string) (bool, error) {
+<<<<<<< HEAD
+=======
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.logger.Info("Searching in cache", "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
+>>>>>>> 44c9196f1 (added ristretto_cache impl)
 	if !c.isCacheEnabled {
 		return false, nil
 	}
 	key := generateKey(policy, ruleName, imageRef)
+<<<<<<< HEAD
 	_, found := c.cache.Get(key)
 	if found {
 		return true, nil
 	}
+=======
+	_, found := c.Cache.Get(key)
+	if found {
+		c.logger.Info("Cache entry found", "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
+		return true, nil
+	}
+	c.logger.Info("Cache entry not found", "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
+>>>>>>> 44c9196f1 (added ristretto_cache impl)
 	return false, nil
 }
