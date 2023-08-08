@@ -40,6 +40,7 @@ func (dl *deferredLoader) HasLoaded() bool {
 func (dl *deferredLoader) LoadData() error {
 	if err := dl.loader.LoadData(); err != nil {
 		dl.logger.Error(err, "failed to load data", "name", dl.name)
+		return err
 	}
 	return nil
 }
