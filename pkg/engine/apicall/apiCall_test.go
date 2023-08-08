@@ -44,7 +44,7 @@ func Test_serviceGetRequest(t *testing.T) {
 	entry := kyvernov1.ContextEntry{}
 	ctx := enginecontext.NewContext(jp)
 
-	_, err := New(logr.Discard(), jp, entry, ctx, nil)
+	_, err := New(logr.Discard(), jp, entry, ctx, nil, nil)
 	assert.ErrorContains(t, err, "missing APICall")
 
 	entry.Name = "test"
@@ -54,19 +54,19 @@ func Test_serviceGetRequest(t *testing.T) {
 		},
 	}
 
-	call, err := New(logr.Discard(), jp, entry, ctx, nil)
+	call, err := New(logr.Discard(), jp, entry, ctx, nil, nil)
 	assert.NilError(t, err)
 	_, err = call.FetchAndLoad(context.TODO())
 	assert.ErrorContains(t, err, "invalid request type")
 
 	entry.APICall.Method = "GET"
-	call, err = New(logr.Discard(), jp, entry, ctx, nil)
+	call, err = New(logr.Discard(), jp, entry, ctx, nil, nil)
 	assert.NilError(t, err)
 	_, err = call.FetchAndLoad(context.TODO())
 	assert.ErrorContains(t, err, "HTTP 404")
 
 	entry.APICall.Service.URL = s.URL + "/resource"
-	call, err = New(logr.Discard(), jp, entry, ctx, nil)
+	call, err = New(logr.Discard(), jp, entry, ctx, nil, nil)
 	assert.NilError(t, err)
 
 	data, err := call.FetchAndLoad(context.TODO())
@@ -91,7 +91,7 @@ func Test_servicePostRequest(t *testing.T) {
 	}
 
 	ctx := enginecontext.NewContext(jp)
-	call, err := New(logr.Discard(), jp, entry, ctx, nil)
+	call, err := New(logr.Discard(), jp, entry, ctx, nil, nil)
 	assert.NilError(t, err)
 	data, err := call.FetchAndLoad(context.TODO())
 	assert.NilError(t, err)
@@ -139,7 +139,7 @@ func Test_servicePostRequest(t *testing.T) {
 		},
 	}
 
-	call, err = New(logr.Discard(), jp, entry, ctx, nil)
+	call, err = New(logr.Discard(), jp, entry, ctx, nil, nil)
 	assert.NilError(t, err)
 	data, err = call.FetchAndLoad(context.TODO())
 	assert.NilError(t, err)

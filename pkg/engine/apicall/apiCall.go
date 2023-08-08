@@ -18,14 +18,17 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	corev1 "k8s.io/api/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type apiCall struct {
-	logger  logr.Logger
-	jp      jmespath.Interface
-	entry   kyvernov1.ContextEntry
-	jsonCtx enginecontext.Interface
-	client  ClientInterface
+	logger       logr.Logger
+	jp           jmespath.Interface
+	entry        kyvernov1.ContextEntry
+	jsonCtx      enginecontext.Interface
+	client       ClientInterface
+	secretLister corev1listers.SecretLister
 }
 
 type ClientInterface interface {
@@ -38,16 +41,18 @@ func New(
 	entry kyvernov1.ContextEntry,
 	jsonCtx enginecontext.Interface,
 	client ClientInterface,
+	secretLister corev1listers.SecretLister,
 ) (*apiCall, error) {
 	if entry.APICall == nil {
 		return nil, fmt.Errorf("missing APICall in context entry %v", entry)
 	}
 	return &apiCall{
-		logger:  logger,
-		jp:      jp,
-		entry:   entry,
-		jsonCtx: jsonCtx,
-		client:  client,
+		logger:       logger,
+		jp:           jp,
+		entry:        entry,
+		jsonCtx:      jsonCtx,
+		client:       client,
+		secretLister: secretLister,
 	}, nil
 }
 
@@ -189,6 +194,15 @@ func (a *apiCall) getToken() string {
 }
 
 func (a *apiCall) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client, error) {
+	if service.CABundle == "" && service.Secret != nil {
+		secret, err := a.secretLister.Secrets(service.Secret.Namespace).Get(service.Secret.Name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get CA bundle from secret for APICall %s", a.entry.Name)
+		}
+
+		service.CABundle = service.CABundle + string(secret.Data[corev1.TLSCertKey]) + "\n"
+		service.CABundle = service.CABundle + string(secret.Data[corev1.TLSPrivateKeyKey]) + "\n"
+	}
 	if service == nil || service.CABundle == "" {
 		return http.DefaultClient, nil
 	}
