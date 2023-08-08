@@ -792,7 +792,7 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 		adapters.Client(client),
 		nil,
 		imageverifycache.DisabledImageVerifyCache(),
-		store.ContextLoaderFactory(nil),
+		store.ContextLoaderFactory(nil, nil),
 		nil,
 		"",
 	))

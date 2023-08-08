@@ -31,7 +31,7 @@ func testMutate(
 	contextLoader engineapi.ContextLoaderFactory,
 ) engineapi.EngineResponse {
 	if contextLoader == nil {
-		contextLoader = factories.DefaultContextLoaderFactory(nil)
+		contextLoader = factories.DefaultContextLoaderFactory(nil, nil)
 	}
 	e := NewEngine(
 		cfg,
@@ -255,6 +255,7 @@ func Test_variableSubstitutionCLI(t *testing.T) {
 	resource := loadUnstructured(t, resourceRaw)
 	policyContext := createContext(t, &policy, resource, kyverno.Create)
 	ctxLoaderFactory := factories.DefaultContextLoaderFactory(
+		nil,
 		nil,
 		factories.WithInitializer(func(jsonContext enginecontext.Interface) error {
 			if err := jsonContext.AddVariable("dictionary.data.env", "dev1"); err != nil {

@@ -13,15 +13,17 @@ import (
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type ContextLoaderFactoryOptions func(*contextLoader)
 
-func DefaultContextLoaderFactory(cmResolver engineapi.ConfigmapResolver, opts ...ContextLoaderFactoryOptions) engineapi.ContextLoaderFactory {
+func DefaultContextLoaderFactory(cmResolver engineapi.ConfigmapResolver, secretLister corev1listers.SecretLister, opts ...ContextLoaderFactoryOptions) engineapi.ContextLoaderFactory {
 	return func(_ kyvernov1.PolicyInterface, _ kyvernov1.Rule) engineapi.ContextLoader {
 		cl := &contextLoader{
-			logger:     logging.WithName("DefaultContextLoaderFactory"),
-			cmResolver: cmResolver,
+			logger:       logging.WithName("DefaultContextLoaderFactory"),
+			cmResolver:   cmResolver,
+			secretLister: secretLister,
 		}
 		for _, o := range opts {
 			o(cl)
@@ -39,6 +41,7 @@ func WithInitializer(initializer engineapi.Initializer) ContextLoaderFactoryOpti
 type contextLoader struct {
 	logger       logr.Logger
 	cmResolver   engineapi.ConfigmapResolver
+	secretLister corev1listers.SecretLister
 	initializers []engineapi.Initializer
 }
 
@@ -57,7 +60,7 @@ func (l *contextLoader) Load(
 		}
 	}
 	for _, entry := range contextEntries {
-		loader, err := l.newLoader(ctx, jp, client, rclientFactory, entry, jsonContext)
+		loader, err := l.newLoader(ctx, jp, client, rclientFactory, entry, jsonContext, l.secretLister)
 		if err != nil {
 			return fmt.Errorf("failed to create deferred loader for context entry %s", entry.Name)
 		}
@@ -83,6 +86,7 @@ func (l *contextLoader) newLoader(
 	rclientFactory engineapi.RegistryClientFactory,
 	entry kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
+	secretLister corev1listers.SecretLister,
 ) (enginecontext.DeferredLoader, error) {
 	if entry.ConfigMap != nil {
 		if l.cmResolver != nil {
@@ -94,7 +98,7 @@ func (l *contextLoader) newLoader(
 		}
 	} else if entry.APICall != nil {
 		if client != nil {
-			ldr := loaders.NewAPILoader(ctx, l.logger, entry, jsonContext, jp, client)
+			ldr := loaders.NewAPILoader(ctx, l.logger, entry, jsonContext, jp, client, secretLister)
 			return enginecontext.NewDeferredLoader(entry.Name, ldr, l.logger)
 		} else {
 			l.logger.Info("disabled loading of APICall context entry %s", entry.Name)

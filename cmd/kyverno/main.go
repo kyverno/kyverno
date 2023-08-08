@@ -313,7 +313,7 @@ func main() {
 		setup.ImageVerifyCacheClient,
 		setup.KubeClient,
 		setup.KyvernoClient,
-		setup.RegistrySecretLister,
+		setup.SecretLister,
 	)
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(

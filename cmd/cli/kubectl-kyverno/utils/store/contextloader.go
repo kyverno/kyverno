@@ -9,11 +9,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-func ContextLoaderFactory(cmResolver engineapi.ConfigmapResolver) engineapi.ContextLoaderFactory {
+func ContextLoaderFactory(cmResolver engineapi.ConfigmapResolver, secretLister corev1listers.SecretLister) engineapi.ContextLoaderFactory {
 	if !IsLocal() {
-		return factories.DefaultContextLoaderFactory(cmResolver)
+		return factories.DefaultContextLoaderFactory(cmResolver, secretLister)
 	}
 	return func(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) engineapi.ContextLoader {
 		init := func(jsonContext enginecontext.Interface) error {
@@ -35,7 +36,7 @@ func ContextLoaderFactory(cmResolver engineapi.ConfigmapResolver) engineapi.Cont
 			}
 			return nil
 		}
-		factory := factories.DefaultContextLoaderFactory(cmResolver, factories.WithInitializer(init))
+		factory := factories.DefaultContextLoaderFactory(cmResolver, secretLister, factories.WithInitializer(init))
 		return wrapper{factory(policy, rule)}
 	}
 }

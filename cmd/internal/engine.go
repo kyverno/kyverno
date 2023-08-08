@@ -33,7 +33,7 @@ func NewEngine(
 	ivCache imageverifycache.Client,
 	kubeClient kubernetes.Interface,
 	kyvernoClient versioned.Interface,
-	secretLister corev1listers.SecretNamespaceLister,
+	secretLister corev1listers.SecretLister,
 ) engineapi.Engine {
 	configMapResolver := NewConfigMapResolver(ctx, logger, kubeClient, 15*time.Minute)
 	exceptionsSelector := NewExceptionSelector(ctx, logger, kyvernoClient, 15*time.Minute)
@@ -44,9 +44,9 @@ func NewEngine(
 		metricsConfiguration,
 		jp,
 		adapters.Client(client),
-		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), secretLister),
+		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), secretLister.Secrets(config.KyvernoNamespace())),
 		ivCache,
-		factories.DefaultContextLoaderFactory(configMapResolver),
+		factories.DefaultContextLoaderFactory(configMapResolver, secretLister),
 		exceptionsSelector,
 		imageSignatureRepository,
 	)

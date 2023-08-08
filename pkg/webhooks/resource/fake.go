@@ -41,6 +41,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 	configuration := config.NewDefaultConfiguration(false)
 	urLister := kyvernoInformers.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace())
 	peLister := kyvernoInformers.Kyverno().V2alpha1().PolicyExceptions().Lister()
+	secretLister := informers.Core().V1().Secrets().Lister()
 	jp := jmespath.New(configuration)
 	rclient := registryclient.NewOrDie()
 
@@ -62,7 +63,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 			adapters.Client(dclient),
 			factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 			imageverifycache.DisabledImageVerifyCache(),
-			factories.DefaultContextLoaderFactory(configMapResolver),
+			factories.DefaultContextLoaderFactory(configMapResolver, secretLister),
 			peLister,
 			"",
 		),

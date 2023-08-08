@@ -244,6 +244,7 @@ func main() {
 	cpolLister := kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies().Lister()
 	polLister := kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies().Lister()
 	nsLister := kubeInformer.Core().V1().Namespaces().Lister()
+	secretLister := kubeInformer.Core().V1().Secrets().Lister()
 	// log policy changes
 	genericloggingcontroller.NewController(
 		setup.Logger.WithName("cleanup-policy"),
@@ -283,6 +284,7 @@ func main() {
 		cmResolver,
 		setup.Jp,
 		eventGenerator,
+		secretLister,
 	)
 	// create server
 	server := NewServer(

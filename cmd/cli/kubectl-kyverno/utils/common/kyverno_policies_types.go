@@ -121,7 +121,7 @@ OuterLoop:
 		adapters.Client(c.Client),
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 		imageverifycache.DisabledImageVerifyCache(),
-		store.ContextLoaderFactory(nil),
+		store.ContextLoaderFactory(nil, nil),
 		nil,
 		"",
 	)

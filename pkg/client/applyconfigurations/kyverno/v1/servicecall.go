@@ -21,8 +21,9 @@ package v1
 // ServiceCallApplyConfiguration represents an declarative configuration of the ServiceCall type for use
 // with apply.
 type ServiceCallApplyConfiguration struct {
-	URL      *string `json:"url,omitempty"`
-	CABundle *string `json:"caBundle,omitempty"`
+	URL      *string                            `json:"url,omitempty"`
+	CABundle *string                            `json:"caBundle,omitempty"`
+	Secret   *SecretReferenceApplyConfiguration `json:"secret,omitempty"`
 }
 
 // ServiceCallApplyConfiguration constructs an declarative configuration of the ServiceCall type for use with
@@ -44,5 +45,13 @@ func (b *ServiceCallApplyConfiguration) WithURL(value string) *ServiceCallApplyC
 // If called multiple times, the CABundle field is set to the value of the last call.
 func (b *ServiceCallApplyConfiguration) WithCABundle(value string) *ServiceCallApplyConfiguration {
 	b.CABundle = &value
+	return b
+}
+
+// WithSecret sets the Secret field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Secret field is set to the value of the last call.
+func (b *ServiceCallApplyConfiguration) WithSecret(value *SecretReferenceApplyConfiguration) *ServiceCallApplyConfiguration {
+	b.Secret = value
 	return b
 }

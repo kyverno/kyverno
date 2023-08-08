@@ -31,7 +31,7 @@ func testValidate(
 	contextLoader engineapi.ContextLoaderFactory,
 ) engineapi.EngineResponse {
 	if contextLoader == nil {
-		contextLoader = factories.DefaultContextLoaderFactory(nil)
+		contextLoader = factories.DefaultContextLoaderFactory(nil, nil)
 	}
 	e := NewEngine(
 		cfg,
@@ -2231,6 +2231,7 @@ func TestValidate_context_variable_substitution_CLI(t *testing.T) {
 	}
 	ctxLoaderFactory := factories.DefaultContextLoaderFactory(
 		nil,
+		nil,
 		factories.WithInitializer(func(jsonContext enginecontext.Interface) error {
 			if err := jsonContext.AddVariable("podcounts", "12"); err != nil {
 				return err
@@ -2730,6 +2731,7 @@ func Test_foreach_context_preconditions(t *testing.T) {
 	  }`)
 	ctxLoaderFactory := factories.DefaultContextLoaderFactory(
 		nil,
+		nil,
 		factories.WithInitializer(func(jsonContext enginecontext.Interface) error {
 			if err := jsonContext.AddVariable("img.data.podvalid", "nginx/nginx:v1"); err != nil {
 				return err
@@ -2821,6 +2823,7 @@ func Test_foreach_context_preconditions_fail(t *testing.T) {
 		}
 	  }`)
 	ctxLoaderFactory := factories.DefaultContextLoaderFactory(
+		nil,
 		nil,
 		factories.WithInitializer(func(jsonContext enginecontext.Interface) error {
 			if err := jsonContext.AddVariable("img.data.podvalid", "nginx/nginx:v1"); err != nil {

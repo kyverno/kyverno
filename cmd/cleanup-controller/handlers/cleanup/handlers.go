@@ -30,14 +30,15 @@ import (
 )
 
 type handlers struct {
-	client     dclient.Interface
-	cpolLister kyvernov2alpha1listers.ClusterCleanupPolicyLister
-	polLister  kyvernov2alpha1listers.CleanupPolicyLister
-	nsLister   corev1listers.NamespaceLister
-	cmResolver engineapi.ConfigmapResolver
-	eventGen   event.Interface
-	jp         jmespath.Interface
-	metrics    cleanupMetrics
+	client       dclient.Interface
+	cpolLister   kyvernov2alpha1listers.ClusterCleanupPolicyLister
+	polLister    kyvernov2alpha1listers.CleanupPolicyLister
+	nsLister     corev1listers.NamespaceLister
+	secretLister corev1listers.SecretLister
+	cmResolver   engineapi.ConfigmapResolver
+	eventGen     event.Interface
+	jp           jmespath.Interface
+	metrics      cleanupMetrics
 }
 
 type cleanupMetrics struct {
@@ -76,16 +77,18 @@ func New(
 	cmResolver engineapi.ConfigmapResolver,
 	jp jmespath.Interface,
 	eventGen event.Interface,
+	secretLister corev1listers.SecretLister,
 ) *handlers {
 	return &handlers{
-		client:     client,
-		cpolLister: cpolLister,
-		polLister:  polLister,
-		nsLister:   nsLister,
-		cmResolver: cmResolver,
-		eventGen:   eventGen,
-		metrics:    newCleanupMetrics(logger),
-		jp:         jp,
+		client:       client,
+		cpolLister:   cpolLister,
+		polLister:    polLister,
+		nsLister:     nsLister,
+		secretLister: secretLister,
+		cmResolver:   cmResolver,
+		eventGen:     eventGen,
+		metrics:      newCleanupMetrics(logger),
+		jp:           jp,
 	}
 }
 
@@ -123,7 +126,7 @@ func (h *handlers) executePolicy(
 	var errs []error
 
 	enginectx := enginecontext.NewContext(h.jp)
-	ctxFactory := factories.DefaultContextLoaderFactory(h.cmResolver)
+	ctxFactory := factories.DefaultContextLoaderFactory(h.cmResolver, h.secretLister)
 
 	loader := ctxFactory(nil, kyvernov1.Rule{})
 	if err := loader.Load(

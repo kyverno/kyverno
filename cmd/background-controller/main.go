@@ -160,7 +160,7 @@ func main() {
 		setup.ImageVerifyCacheClient,
 		setup.KubeClient,
 		setup.KyvernoClient,
-		setup.RegistrySecretLister,
+		setup.SecretLister,
 	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer) {

@@ -10,16 +10,18 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type apiLoader struct {
-	ctx       context.Context //nolint:containedctx
-	logger    logr.Logger
-	entry     kyvernov1.ContextEntry
-	enginectx enginecontext.Interface
-	jp        jmespath.Interface
-	client    engineapi.RawClient
-	data      []byte
+	ctx          context.Context //nolint:containedctx
+	logger       logr.Logger
+	entry        kyvernov1.ContextEntry
+	enginectx    enginecontext.Interface
+	jp           jmespath.Interface
+	client       engineapi.RawClient
+	secretLister corev1listers.SecretLister
+	data         []byte
 }
 
 func NewAPILoader(
@@ -29,6 +31,7 @@ func NewAPILoader(
 	enginectx enginecontext.Interface,
 	jp jmespath.Interface,
 	client engineapi.RawClient,
+	secretLister corev1listers.SecretLister,
 ) enginecontext.Loader {
 	return &apiLoader{
 		ctx:       ctx,
@@ -45,7 +48,7 @@ func (a *apiLoader) HasLoaded() bool {
 }
 
 func (a *apiLoader) LoadData() error {
-	executor, err := apicall.New(a.logger, a.jp, a.entry, a.enginectx, a.client)
+	executor, err := apicall.New(a.logger, a.jp, a.entry, a.enginectx, a.client, a.secretLister)
 	if err != nil {
 		return fmt.Errorf("failed to initiaize APICal: %w", err)
 	}

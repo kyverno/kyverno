@@ -1062,7 +1062,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 		nil,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 		imageverifycache.DisabledImageVerifyCache(),
-		factories.DefaultContextLoaderFactory(nil),
+		factories.DefaultContextLoaderFactory(nil, nil),
 		nil,
 		"",
 	)
@@ -1165,7 +1165,7 @@ func Test_RuleSelector(t *testing.T) {
 		nil,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 		imageverifycache.DisabledImageVerifyCache(),
-		factories.DefaultContextLoaderFactory(nil),
+		factories.DefaultContextLoaderFactory(nil, nil),
 		nil,
 		"",
 	)
