@@ -234,6 +234,22 @@ spec:
                                     description: CABundle is a PEM encoded CA bundle
                                       which will be used to validate the server certificate.
                                     type: string
+                                  secret:
+                                    description: Secret is a Reference to a Secret
+                                      resource that contains a CABundle
+                                    properties:
+                                      name:
+                                        description: Name of the secret. The provided
+                                          secret must contain a key named cosign.pub.
+                                        type: string
+                                      namespace:
+                                        description: Namespace name where the Secret
+                                          exists.
+                                        type: string
+                                    required:
+                                    - name
+                                    - namespace
+                                    type: object
                                   url:
                                     description: URL is the JSON web service URL.
                                       A typical form is `https://{service}.{namespace}:{port}/{path}`.
@@ -1928,6 +1944,24 @@ spec:
                                                 CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
+                                            secret:
+                                              description: Secret is a Reference to
+                                                a Secret resource that contains a
+                                                CABundle
+                                              properties:
+                                                name:
+                                                  description: Name of the secret.
+                                                    The provided secret must contain
+                                                    a key named cosign.pub.
+                                                  type: string
+                                                namespace:
+                                                  description: Namespace name where
+                                                    the Secret exists.
+                                                  type: string
+                                              required:
+                                              - name
+                                              - namespace
+                                              type: object
                                             url:
                                               description: URL is the JSON web service
                                                 URL. A typical form is `https://{service}.{namespace}:{port}/{path}`.
@@ -2261,6 +2295,24 @@ spec:
                                                 CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
+                                            secret:
+                                              description: Secret is a Reference to
+                                                a Secret resource that contains a
+                                                CABundle
+                                              properties:
+                                                name:
+                                                  description: Name of the secret.
+                                                    The provided secret must contain
+                                                    a key named cosign.pub.
+                                                  type: string
+                                                namespace:
+                                                  description: Namespace name where
+                                                    the Secret exists.
+                                                  type: string
+                                              required:
+                                              - name
+                                              - namespace
+                                              type: object
                                             url:
                                               description: URL is the JSON web service
                                                 URL. A typical form is `https://{service}.{namespace}:{port}/{path}`.
@@ -2695,6 +2747,24 @@ spec:
                                                 CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
+                                            secret:
+                                              description: Secret is a Reference to
+                                                a Secret resource that contains a
+                                                CABundle
+                                              properties:
+                                                name:
+                                                  description: Name of the secret.
+                                                    The provided secret must contain
+                                                    a key named cosign.pub.
+                                                  type: string
+                                                namespace:
+                                                  description: Namespace name where
+                                                    the Secret exists.
+                                                  type: string
+                                              required:
+                                              - name
+                                              - namespace
+                                              type: object
                                             url:
                                               description: URL is the JSON web service
                                                 URL. A typical form is `https://{service}.{namespace}:{port}/{path}`.
@@ -4171,6 +4241,22 @@ spec:
                                           bundle which will be used to validate the
                                           server certificate.
                                         type: string
+                                      secret:
+                                        description: Secret is a Reference to a Secret
+                                          resource that contains a CABundle
+                                        properties:
+                                          name:
+                                            description: Name of the secret. The provided
+                                              secret must contain a key named cosign.pub.
+                                            type: string
+                                          namespace:
+                                            description: Namespace name where the
+                                              Secret exists.
+                                            type: string
+                                        required:
+                                        - name
+                                        - namespace
+                                        type: object
                                       url:
                                         description: URL is the JSON web service URL.
                                           A typical form is `https://{service}.{namespace}:{port}/{path}`.
@@ -5941,6 +6027,24 @@ spec:
                                                     CA bundle which will be used to
                                                     validate the server certificate.
                                                   type: string
+                                                secret:
+                                                  description: Secret is a Reference
+                                                    to a Secret resource that contains
+                                                    a CABundle
+                                                  properties:
+                                                    name:
+                                                      description: Name of the secret.
+                                                        The provided secret must contain
+                                                        a key named cosign.pub.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace name
+                                                        where the Secret exists.
+                                                      type: string
+                                                  required:
+                                                  - name
+                                                  - namespace
+                                                  type: object
                                                 url:
                                                   description: URL is the JSON web
                                                     service URL. A typical form is
@@ -6290,6 +6394,24 @@ spec:
                                                     CA bundle which will be used to
                                                     validate the server certificate.
                                                   type: string
+                                                secret:
+                                                  description: Secret is a Reference
+                                                    to a Secret resource that contains
+                                                    a CABundle
+                                                  properties:
+                                                    name:
+                                                      description: Name of the secret.
+                                                        The provided secret must contain
+                                                        a key named cosign.pub.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace name
+                                                        where the Secret exists.
+                                                      type: string
+                                                  required:
+                                                  - name
+                                                  - namespace
+                                                  type: object
                                                 url:
                                                   description: URL is the JSON web
                                                     service URL. A typical form is
@@ -6749,6 +6871,24 @@ spec:
                                                     CA bundle which will be used to
                                                     validate the server certificate.
                                                   type: string
+                                                secret:
+                                                  description: Secret is a Reference
+                                                    to a Secret resource that contains
+                                                    a CABundle
+                                                  properties:
+                                                    name:
+                                                      description: Name of the secret.
+                                                        The provided secret must contain
+                                                        a key named cosign.pub.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace name
+                                                        where the Secret exists.
+                                                      type: string
+                                                  required:
+                                                  - name
+                                                  - namespace
+                                                  type: object
                                                 url:
                                                   description: URL is the JSON web
                                                     service URL. A typical form is
@@ -8378,6 +8518,22 @@ spec:
                                     description: CABundle is a PEM encoded CA bundle
                                       which will be used to validate the server certificate.
                                     type: string
+                                  secret:
+                                    description: Secret is a Reference to a Secret
+                                      resource that contains a CABundle
+                                    properties:
+                                      name:
+                                        description: Name of the secret. The provided
+                                          secret must contain a key named cosign.pub.
+                                        type: string
+                                      namespace:
+                                        description: Namespace name where the Secret
+                                          exists.
+                                        type: string
+                                    required:
+                                    - name
+                                    - namespace
+                                    type: object
                                   url:
                                     description: URL is the JSON web service URL.
                                       A typical form is `https://{service}.{namespace}:{port}/{path}`.
@@ -9646,6 +9802,24 @@ spec:
                                                 CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
+                                            secret:
+                                              description: Secret is a Reference to
+                                                a Secret resource that contains a
+                                                CABundle
+                                              properties:
+                                                name:
+                                                  description: Name of the secret.
+                                                    The provided secret must contain
+                                                    a key named cosign.pub.
+                                                  type: string
+                                                namespace:
+                                                  description: Namespace name where
+                                                    the Secret exists.
+                                                  type: string
+                                              required:
+                                              - name
+                                              - namespace
+                                              type: object
                                             url:
                                               description: URL is the JSON web service
                                                 URL. A typical form is `https://{service}.{namespace}:{port}/{path}`.
@@ -9979,6 +10153,24 @@ spec:
                                                 CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
+                                            secret:
+                                              description: Secret is a Reference to
+                                                a Secret resource that contains a
+                                                CABundle
+                                              properties:
+                                                name:
+                                                  description: Name of the secret.
+                                                    The provided secret must contain
+                                                    a key named cosign.pub.
+                                                  type: string
+                                                namespace:
+                                                  description: Namespace name where
+                                                    the Secret exists.
+                                                  type: string
+                                              required:
+                                              - name
+                                              - namespace
+                                              type: object
                                             url:
                                               description: URL is the JSON web service
                                                 URL. A typical form is `https://{service}.{namespace}:{port}/{path}`.
@@ -10595,6 +10787,24 @@ spec:
                                                 CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
+                                            secret:
+                                              description: Secret is a Reference to
+                                                a Secret resource that contains a
+                                                CABundle
+                                              properties:
+                                                name:
+                                                  description: Name of the secret.
+                                                    The provided secret must contain
+                                                    a key named cosign.pub.
+                                                  type: string
+                                                namespace:
+                                                  description: Namespace name where
+                                                    the Secret exists.
+                                                  type: string
+                                              required:
+                                              - name
+                                              - namespace
+                                              type: object
                                             url:
                                               description: URL is the JSON web service
                                                 URL. A typical form is `https://{service}.{namespace}:{port}/{path}`.
@@ -12030,6 +12240,22 @@ spec:
                                           bundle which will be used to validate the
                                           server certificate.
                                         type: string
+                                      secret:
+                                        description: Secret is a Reference to a Secret
+                                          resource that contains a CABundle
+                                        properties:
+                                          name:
+                                            description: Name of the secret. The provided
+                                              secret must contain a key named cosign.pub.
+                                            type: string
+                                          namespace:
+                                            description: Namespace name where the
+                                              Secret exists.
+                                            type: string
+                                        required:
+                                        - name
+                                        - namespace
+                                        type: object
                                       url:
                                         description: URL is the JSON web service URL.
                                           A typical form is `https://{service}.{namespace}:{port}/{path}`.
@@ -13800,6 +14026,24 @@ spec:
                                                     CA bundle which will be used to
                                                     validate the server certificate.
                                                   type: string
+                                                secret:
+                                                  description: Secret is a Reference
+                                                    to a Secret resource that contains
+                                                    a CABundle
+                                                  properties:
+                                                    name:
+                                                      description: Name of the secret.
+                                                        The provided secret must contain
+                                                        a key named cosign.pub.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace name
+                                                        where the Secret exists.
+                                                      type: string
+                                                  required:
+                                                  - name
+                                                  - namespace
+                                                  type: object
                                                 url:
                                                   description: URL is the JSON web
                                                     service URL. A typical form is
@@ -14149,6 +14393,24 @@ spec:
                                                     CA bundle which will be used to
                                                     validate the server certificate.
                                                   type: string
+                                                secret:
+                                                  description: Secret is a Reference
+                                                    to a Secret resource that contains
+                                                    a CABundle
+                                                  properties:
+                                                    name:
+                                                      description: Name of the secret.
+                                                        The provided secret must contain
+                                                        a key named cosign.pub.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace name
+                                                        where the Secret exists.
+                                                      type: string
+                                                  required:
+                                                  - name
+                                                  - namespace
+                                                  type: object
                                                 url:
                                                   description: URL is the JSON web
                                                     service URL. A typical form is
@@ -14608,6 +14870,24 @@ spec:
                                                     CA bundle which will be used to
                                                     validate the server certificate.
                                                   type: string
+                                                secret:
+                                                  description: Secret is a Reference
+                                                    to a Secret resource that contains
+                                                    a CABundle
+                                                  properties:
+                                                    name:
+                                                      description: Name of the secret.
+                                                        The provided secret must contain
+                                                        a key named cosign.pub.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace name
+                                                        where the Secret exists.
+                                                      type: string
+                                                  required:
+                                                  - name
+                                                  - namespace
+                                                  type: object
                                                 url:
                                                   description: URL is the JSON web
                                                     service URL. A typical form is

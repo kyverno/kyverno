@@ -3448,6 +3448,7 @@ int
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v1.ServiceCall">ServiceCall</a>, 
 <a href="#kyverno.io/v1.StaticKeyAttestor">StaticKeyAttestor</a>)
 </p>
 <p>
@@ -3523,6 +3524,19 @@ string
 <td>
 <p>CABundle is a PEM encoded CA bundle which will be used to validate
 the server certificate.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>secret</code><br/>
+<em>
+<a href="#kyverno.io/v1.SecretReference">
+SecretReference
+</a>
+</em>
+</td>
+<td>
+<p>Secret is a Reference to a Secret resource that contains a CABundle</p>
 </td>
 </tr>
 </tbody>

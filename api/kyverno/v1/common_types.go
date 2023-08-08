@@ -172,6 +172,9 @@ type ServiceCall struct {
 	// the server certificate.
 	// +kubebuilder:validation:Optional
 	CABundle string `json:"caBundle" yaml:"caBundle"`
+
+	// Secret is a Reference to a Secret resource that contains a CABundle
+	Secret *SecretReference `json:"secret,omitempty" yaml:"secret,omitempty"`
 }
 
 // Method is a HTTP request type.
