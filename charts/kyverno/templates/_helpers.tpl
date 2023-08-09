@@ -40,6 +40,9 @@
 {{- with .forceFailurePolicyIgnore -}}
   {{- $flags = append $flags (print "--forceFailurePolicyIgnore=" .enabled) -}}
 {{- end -}}
+{{- with .generateValidatingAdmissionPolicy -}}
+  {{- $flags = append $flags (print "--generateValidatingAdmissionPolicy=" .enabled) -}}
+{{- end -}}
 {{- with .logging -}}
   {{- $flags = append $flags (print "--loggingFormat=" .format) -}}
   {{- $flags = append $flags (print "--v=" (join "," .verbosity)) -}}
