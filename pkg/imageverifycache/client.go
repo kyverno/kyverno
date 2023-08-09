@@ -12,7 +12,7 @@ import (
 
 const (
 	defaultTTL     = 1 * time.Hour
-	deafultMaxSize = 1000
+	defaultMaxSize = 1000
 )
 
 type cache struct {
