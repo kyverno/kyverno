@@ -17,7 +17,7 @@ func Test_webhook_isEmpty(t *testing.T) {
 	notEmpty := newWebhook(DefaultWebhookTimeout, admissionregistrationv1.Ignore)
 	notEmpty.set(schema.GroupVersionResource{
 		Group: "", Version: "v1", Resource: "pods",
-	})
+	}, admissionregistrationv1.AllScopes)
 	assert.Equal(t, notEmpty.isEmpty(), false)
 }
 

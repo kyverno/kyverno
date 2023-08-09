@@ -15,24 +15,36 @@ import (
 )
 
 // webhook is the instance that aggregates the GVK of existing policies
-// based on kind, failurePolicy and webhookTimeout
+// based on group, kind, scopeType, failurePolicy and webhookTimeout
 type webhook struct {
 	maxWebhookTimeout int32
 	failurePolicy     admissionregistrationv1.FailurePolicyType
-	rules             map[schema.GroupVersion]sets.Set[string]
+	rules             map[groupVersionScope]sets.Set[string]
+}
+
+// groupVersionScope contains the GV and scopeType of a resource
+type groupVersionScope struct {
+	schema.GroupVersion
+	scopeType admissionregistrationv1.ScopeType
+}
+
+// String puts / between group/version and scope
+func (gvs groupVersionScope) String() string {
+	return gvs.GroupVersion.String() + "/" + string(gvs.scopeType)
 }
 
 func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePolicyType) *webhook {
 	return &webhook{
 		maxWebhookTimeout: timeout,
 		failurePolicy:     failurePolicy,
-		rules:             map[schema.GroupVersion]sets.Set[string]{},
+		rules:             map[groupVersionScope]sets.Set[string]{},
 	}
 }
 
 func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.OperationType) []admissionregistrationv1.RuleWithOperations {
 	var rules []admissionregistrationv1.RuleWithOperations
 	for gv, resources := range wh.rules {
+		scope := gv.scopeType
 		// if we have pods, we add pods/ephemeralcontainers by default
 		if (gv.Group == "" || gv.Group == "*") && (gv.Version == "v1" || gv.Version == "*") && (resources.Has("pods") || resources.Has("*")) {
 			resources.Insert("pods/ephemeralcontainers")
@@ -42,6 +54,7 @@ func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.Opera
 				APIGroups:   []string{gv.Group},
 				APIVersions: []string{gv.Version},
 				Resources:   sets.List(resources),
+				Scope:       &scope,
 			},
 			Operations: ops,
 		})
@@ -72,11 +85,14 @@ func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.Opera
 	return rules
 }
 
-func (wh *webhook) set(gvrs schema.GroupVersionResource) {
-	gv := gvrs.GroupVersion()
-	resources := wh.rules[gv]
+func (wh *webhook) set(gvrs schema.GroupVersionResource, scopeType admissionregistrationv1.ScopeType) {
+	gvs := groupVersionScope{
+		GroupVersion: gvrs.GroupVersion(),
+		scopeType:    scopeType,
+	}
+	resources := wh.rules[gvs]
 	if resources == nil {
-		wh.rules[gv] = sets.New(gvrs.Resource)
+		wh.rules[gvs] = sets.New(gvrs.Resource)
 	} else {
 		resources.Insert(gvrs.Resource)
 	}
