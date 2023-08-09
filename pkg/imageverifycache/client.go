@@ -21,7 +21,7 @@ type cache struct {
 	maxSize        int64
 	ttl            time.Duration
 	lock           sync.Mutex
-	Cache          *ristretto.Cache
+	cache          *ristretto.Cache
 }
 
 type Option = func(*cache) error
@@ -42,7 +42,7 @@ func New(options ...Option) (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	cache.Cache = rcache
+	cache.cache = rcache
 	return cache, nil
 }
 
@@ -72,7 +72,7 @@ func WithCacheEnableFlag(b bool) Option {
 func WithMaxSize(s int64) Option {
 	return func(c *cache) error {
 		if s == 0 {
-			s = deafultMaxSize
+			s = defaultMaxSize
 		}
 		c.maxSize = s
 		return nil
@@ -103,7 +103,7 @@ func (c *cache) Set(ctx context.Context, policy kyvernov1.PolicyInterface, ruleN
 	}
 	key := generateKey(policy, ruleName, imageRef)
 
-	stored := c.Cache.SetWithTTL(key, nil, 1, c.ttl)
+	stored := c.cache.SetWithTTL(key, nil, 1, c.ttl)
 	if stored {
 		c.logger.Info("Successfully set cache", "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
 		return true, nil
@@ -119,7 +119,7 @@ func (c *cache) Get(ctx context.Context, policy kyvernov1.PolicyInterface, ruleN
 		return false, nil
 	}
 	key := generateKey(policy, ruleName, imageRef)
-	_, found := c.Cache.Get(key)
+	_, found := c.cache.Get(key)
 	if found {
 		c.logger.Info("Cache entry found", "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
 		return true, nil
