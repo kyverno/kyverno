@@ -234,8 +234,8 @@ spec:
                                     description: CABundle is a PEM encoded CA bundle
                                       which will be used to validate the server certificate.
                                     type: string
-                                  secret:
-                                    description: Secret is a Reference to a Secret
+                                  tlssecret:
+                                    description: TLSSecret is a Reference to a TLSSecret
                                       resource that contains a CABundle
                                     properties:
                                       name:
@@ -1944,10 +1944,10 @@ spec:
                                                 CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
-                                            secret:
-                                              description: Secret is a Reference to
-                                                a Secret resource that contains a
-                                                CABundle
+                                            tlssecret:
+                                              description: TLSSecret is a Reference
+                                                to a TLSSecret resource that contains
+                                                a CABundle
                                               properties:
                                                 name:
                                                   description: Name of the secret.
@@ -2295,10 +2295,10 @@ spec:
                                                 CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
-                                            secret:
-                                              description: Secret is a Reference to
-                                                a Secret resource that contains a
-                                                CABundle
+                                            tlssecret:
+                                              description: TLSSecret is a Reference
+                                                to a TLSSecret resource that contains
+                                                a CABundle
                                               properties:
                                                 name:
                                                   description: Name of the secret.
@@ -2747,10 +2747,10 @@ spec:
                                                 CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
-                                            secret:
-                                              description: Secret is a Reference to
-                                                a Secret resource that contains a
-                                                CABundle
+                                            tlssecret:
+                                              description: TLSSecret is a Reference
+                                                to a TLSSecret resource that contains
+                                                a CABundle
                                               properties:
                                                 name:
                                                   description: Name of the secret.
@@ -4241,9 +4241,9 @@ spec:
                                           bundle which will be used to validate the
                                           server certificate.
                                         type: string
-                                      secret:
-                                        description: Secret is a Reference to a Secret
-                                          resource that contains a CABundle
+                                      tlssecret:
+                                        description: TLSSecret is a Reference to a
+                                          TLSSecret resource that contains a CABundle
                                         properties:
                                           name:
                                             description: Name of the secret. The provided
@@ -6027,9 +6027,9 @@ spec:
                                                     CA bundle which will be used to
                                                     validate the server certificate.
                                                   type: string
-                                                secret:
-                                                  description: Secret is a Reference
-                                                    to a Secret resource that contains
+                                                tlssecret:
+                                                  description: TLSSecret is a Reference
+                                                    to a TLSSecret resource that contains
                                                     a CABundle
                                                   properties:
                                                     name:
@@ -6394,9 +6394,9 @@ spec:
                                                     CA bundle which will be used to
                                                     validate the server certificate.
                                                   type: string
-                                                secret:
-                                                  description: Secret is a Reference
-                                                    to a Secret resource that contains
+                                                tlssecret:
+                                                  description: TLSSecret is a Reference
+                                                    to a TLSSecret resource that contains
                                                     a CABundle
                                                   properties:
                                                     name:
@@ -6871,9 +6871,9 @@ spec:
                                                     CA bundle which will be used to
                                                     validate the server certificate.
                                                   type: string
-                                                secret:
-                                                  description: Secret is a Reference
-                                                    to a Secret resource that contains
+                                                tlssecret:
+                                                  description: TLSSecret is a Reference
+                                                    to a TLSSecret resource that contains
                                                     a CABundle
                                                   properties:
                                                     name:
@@ -8518,8 +8518,8 @@ spec:
                                     description: CABundle is a PEM encoded CA bundle
                                       which will be used to validate the server certificate.
                                     type: string
-                                  secret:
-                                    description: Secret is a Reference to a Secret
+                                  tlssecret:
+                                    description: TLSSecret is a Reference to a TLSSecret
                                       resource that contains a CABundle
                                     properties:
                                       name:
@@ -9802,10 +9802,10 @@ spec:
                                                 CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
-                                            secret:
-                                              description: Secret is a Reference to
-                                                a Secret resource that contains a
-                                                CABundle
+                                            tlssecret:
+                                              description: TLSSecret is a Reference
+                                                to a TLSSecret resource that contains
+                                                a CABundle
                                               properties:
                                                 name:
                                                   description: Name of the secret.
@@ -10153,10 +10153,10 @@ spec:
                                                 CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
-                                            secret:
-                                              description: Secret is a Reference to
-                                                a Secret resource that contains a
-                                                CABundle
+                                            tlssecret:
+                                              description: TLSSecret is a Reference
+                                                to a TLSSecret resource that contains
+                                                a CABundle
                                               properties:
                                                 name:
                                                   description: Name of the secret.
@@ -10787,10 +10787,10 @@ spec:
                                                 CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
-                                            secret:
-                                              description: Secret is a Reference to
-                                                a Secret resource that contains a
-                                                CABundle
+                                            tlssecret:
+                                              description: TLSSecret is a Reference
+                                                to a TLSSecret resource that contains
+                                                a CABundle
                                               properties:
                                                 name:
                                                   description: Name of the secret.
@@ -12240,9 +12240,9 @@ spec:
                                           bundle which will be used to validate the
                                           server certificate.
                                         type: string
-                                      secret:
-                                        description: Secret is a Reference to a Secret
-                                          resource that contains a CABundle
+                                      tlssecret:
+                                        description: TLSSecret is a Reference to a
+                                          TLSSecret resource that contains a CABundle
                                         properties:
                                           name:
                                             description: Name of the secret. The provided
@@ -14026,9 +14026,9 @@ spec:
                                                     CA bundle which will be used to
                                                     validate the server certificate.
                                                   type: string
-                                                secret:
-                                                  description: Secret is a Reference
-                                                    to a Secret resource that contains
+                                                tlssecret:
+                                                  description: TLSSecret is a Reference
+                                                    to a TLSSecret resource that contains
                                                     a CABundle
                                                   properties:
                                                     name:
@@ -14393,9 +14393,9 @@ spec:
                                                     CA bundle which will be used to
                                                     validate the server certificate.
                                                   type: string
-                                                secret:
-                                                  description: Secret is a Reference
-                                                    to a Secret resource that contains
+                                                tlssecret:
+                                                  description: TLSSecret is a Reference
+                                                    to a TLSSecret resource that contains
                                                     a CABundle
                                                   properties:
                                                     name:
@@ -14870,9 +14870,9 @@ spec:
                                                     CA bundle which will be used to
                                                     validate the server certificate.
                                                   type: string
-                                                secret:
-                                                  description: Secret is a Reference
-                                                    to a Secret resource that contains
+                                                tlssecret:
+                                                  description: TLSSecret is a Reference
+                                                    to a TLSSecret resource that contains
                                                     a CABundle
                                                   properties:
                                                     name:

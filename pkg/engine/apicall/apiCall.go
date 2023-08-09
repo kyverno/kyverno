@@ -194,8 +194,8 @@ func (a *apiCall) getToken() string {
 }
 
 func (a *apiCall) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client, error) {
-	if service.CABundle == "" && service.Secret != nil {
-		secret, err := a.secretLister.Secrets(service.Secret.Namespace).Get(service.Secret.Name)
+	if service.CABundle == "" && service.TLSSecret != nil {
+		secret, err := a.secretLister.Secrets(service.TLSSecret.Namespace).Get(service.TLSSecret.Name)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get CA bundle from secret for APICall %s", a.entry.Name)
 		}
