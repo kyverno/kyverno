@@ -41940,6 +41940,7 @@ spec:
             - --enableDeferredLoading=true
             - --dumpPayload=false
             - --forceFailurePolicyIgnore=false
+            - --generateValidatingAdmissionPolicy=false
             - --loggingFormat=text
             - --v=2
             - --enablePolicyException=false
