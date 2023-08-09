@@ -34,6 +34,10 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+// load res
+// load pol
+// apply
+// show rres
 const divider = "----------------------------------------------------------------------"
 
 type SkippedInvalidPolicies struct {
@@ -351,34 +355,34 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 
 	var rc common.ResultCounts
 	var responses []engineapi.EngineResponse
-	for _, policy := range policies {
-		_, err := policyvalidation.Validate(policy, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
-		if err != nil {
-			log.Log.Error(err, "policy validation error")
-			if strings.HasPrefix(err.Error(), "variable 'element.name'") {
-				skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, policy.GetName())
-			} else {
-				skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, policy.GetName())
-			}
 
-			continue
-		}
+	for _, resource := range resources {
 
-		matches := common.HasVariables(policy)
-		variable := common.RemoveDuplicateAndObjectVariables(matches)
-		if len(variable) > 0 {
-			if len(variables) == 0 {
-				// check policy in variable file
-				if c.ValuesFile == "" || valuesMap[policy.GetName()] == nil {
+		for _, policy := range policies {
+
+			_, err := policyvalidation.Validate(policy, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
+			if err != nil {
+				log.Log.Error(err, "policy validation error")
+				if strings.HasPrefix(err.Error(), "variable 'element.name'") {
+					skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, policy.GetName())
+				} else {
 					skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, policy.GetName())
-					continue
+				}
+
+				continue
+			}
+			matches := common.HasVariables(policy)
+			variable := common.RemoveDuplicateAndObjectVariables(matches)
+			if len(variable) > 0 {
+				if len(variables) == 0 {
+					// check policy in variable file
+					if c.ValuesFile == "" || valuesMap[policy.GetName()] == nil {
+						skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, policy.GetName())
+						continue
+					}
 				}
 			}
-		}
-
-		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy, subresources, dClient)
-
-		for _, resource := range resources {
+			kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy, subresources, dClient)
 			thisPolicyResourceValues, err := common.CheckVariableForPolicy(valuesMap, globalValMap, policy.GetName(), resource.GetName(), resource.GetKind(), variables, kindOnwhichPolicyIsApplied, variable)
 			if err != nil {
 				return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.GetName(), resource.GetName()), err)
@@ -399,6 +403,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 				AuditWarn:            c.AuditWarn,
 				Subresources:         subresources,
 			}
+			//
 			ers, err := common.ApplyPolicyOnResource(applyPolicyConfig)
 			if err != nil {
 				return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
@@ -451,7 +456,6 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 			}
 		}
 	}
-
 	validatingAdmissionPolicy := common.ValidatingAdmissionPolicies{}
 	for _, policy := range validatingAdmissionPolicies {
 		for _, resource := range resources {
