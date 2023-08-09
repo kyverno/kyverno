@@ -71,7 +71,7 @@ func WithCacheEnableFlag(b bool) Option {
 
 func WithMaxSize(s int64) Option {
 	return func(c *cache) error {
-		if s == 0 {
+		if s <= 0 {
 			s = defaultMaxSize
 		}
 		c.maxSize = s
@@ -81,7 +81,7 @@ func WithMaxSize(s int64) Option {
 
 func WithTTLDuration(t time.Duration) Option {
 	return func(c *cache) error {
-		if t == 0 {
+		if t <= 0 {
 			t = defaultTTL
 		}
 		c.ttl = t
