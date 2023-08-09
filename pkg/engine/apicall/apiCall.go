@@ -199,6 +199,9 @@ func (a *apiCall) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client,
 		if err != nil {
 			return nil, fmt.Errorf("failed to get CA bundle from secret for APICall %s", a.entry.Name)
 		}
+		if secret.Type != corev1.SecretTypeTLS {
+			return nil, fmt.Errorf("secret %s must be of type kubernetes.io/tls", secret.Name)
+		}
 
 		service.CABundle = service.CABundle + string(secret.Data[corev1.TLSCertKey]) + "\n"
 		service.CABundle = service.CABundle + string(secret.Data[corev1.TLSPrivateKeyKey]) + "\n"
