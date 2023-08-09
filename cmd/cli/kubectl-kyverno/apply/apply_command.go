@@ -37,7 +37,7 @@ import (
 // load res
 // load pol
 // apply
-// show rres
+// show res
 const divider = "----------------------------------------------------------------------"
 
 type SkippedInvalidPolicies struct {
@@ -457,8 +457,8 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 		}
 	}
 	validatingAdmissionPolicy := common.ValidatingAdmissionPolicies{}
-	for _, policy := range validatingAdmissionPolicies {
-		for _, resource := range resources {
+	for _, resource := range resources {
+		for _, policy := range validatingAdmissionPolicies {
 			applyPolicyConfig := common.ApplyPolicyConfig{
 				ValidatingAdmissionPolicy: policy,
 				Resource:                  resource,

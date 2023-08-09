@@ -21,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// all polices on one resource
 // ApplyPolicyOnResource - function to apply policy on resource
 func ApplyPolicyOnResource(c ApplyPolicyConfig) ([]engineapi.EngineResponse, error) {
 	jp := jmespath.New(config.NewDefaultConfiguration(false))
@@ -160,6 +159,13 @@ OuterLoop:
 		}
 	}
 
+	verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
+	if !verifyImageResponse.IsEmpty() {
+		verifyImageResponse = combineRuleResponses(verifyImageResponse)
+		engineResponses = append(engineResponses, verifyImageResponse)
+		ProcessValidateEngineResponse(c.Policy, verifyImageResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
+	}
+
 	var policyHasValidate bool
 	for _, rule := range autogen.ComputeRules(c.Policy) {
 		if rule.HasValidate() || rule.HasVerifyImageChecks() {
@@ -178,14 +184,6 @@ OuterLoop:
 
 	if !validateResponse.IsEmpty() {
 		engineResponses = append(engineResponses, validateResponse)
-	}
-
-	// incorrect
-	verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
-	if !verifyImageResponse.IsEmpty() {
-		verifyImageResponse = combineRuleResponses(verifyImageResponse)
-		engineResponses = append(engineResponses, verifyImageResponse)
-		ProcessValidateEngineResponse(c.Policy, verifyImageResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
 	}
 
 	var policyHasGenerate bool
