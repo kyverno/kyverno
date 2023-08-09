@@ -146,11 +146,11 @@ func (c *controller) reconcile(itemKey string) error {
 		logger.Info("object is not of type metav1.Object")
 		return err
 	}
-	
-		// if the object is being deleted, return early
-		if metaObj.GetDeletionTimestamp() != nil {
-			return nil
-		}
+
+	// if the object is being deleted, return early
+	if metaObj.GetDeletionTimestamp() != nil {
+		return nil
+	}
 
 	labels := metaObj.GetLabels()
 	ttlValue, ok := labels[kyverno.LabelCleanupTtl]
