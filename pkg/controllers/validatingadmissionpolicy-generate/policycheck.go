@@ -4,24 +4,20 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 )
 
-func checkResources(resources ...kyvernov1.ResourceDescription) (bool, string) {
+func checkResources(resource kyvernov1.ResourceDescription) (bool, string) {
 	var msg string
-	for _, res := range resources {
-		if len(res.Namespaces) != 0 || len(res.Annotations) != 0 {
-			msg = "skip generating validating admission policy: Namespaces / Annotations in resource description isn't applicable."
-			return false, msg
-		}
+	if len(resource.Namespaces) != 0 || len(resource.Annotations) != 0 {
+		msg = "skip generating validating admission policy: Namespaces / Annotations in resource description isn't applicable."
+		return false, msg
 	}
 	return true, msg
 }
 
-func checkUserInfo(userInfos ...kyvernov1.UserInfo) (bool, string) {
+func checkUserInfo(info kyvernov1.UserInfo) (bool, string) {
 	var msg string
-	for _, info := range userInfos {
-		if !info.IsEmpty() {
-			msg = "skip generating validating admission policy: Roles / ClusterRoles / Subjects in `any/all` isn't applicable."
-			return false, msg
-		}
+	if !info.IsEmpty() {
+		msg = "skip generating validating admission policy: Roles / ClusterRoles / Subjects in `any/all` isn't applicable."
+		return false, msg
 	}
 	return true, msg
 }
@@ -57,10 +53,14 @@ func canGenerateVAP(spec *kyvernov1.Spec) (bool, string) {
 
 	// check the matched/excluded resources of the CEL rule.
 	match, exclude := rule.MatchResources, rule.ExcludeResources
-	if ok, msg := checkUserInfo(match.UserInfo, exclude.UserInfo); !ok {
+	if !exclude.UserInfo.IsEmpty() || !exclude.ResourceDescription.IsEmpty() || exclude.All != nil || exclude.Any != nil {
+		msg = "skip generating validating admission policy: Exclude isn't applicable."
 		return false, msg
 	}
-	if ok, msg := checkResources(match.ResourceDescription, exclude.ResourceDescription); !ok {
+	if ok, msg := checkUserInfo(match.UserInfo); !ok {
+		return false, msg
+	}
+	if ok, msg := checkResources(match.ResourceDescription); !ok {
 		return false, msg
 	}
 

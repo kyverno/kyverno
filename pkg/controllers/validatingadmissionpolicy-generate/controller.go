@@ -211,37 +211,23 @@ func (c *controller) buildValidatingAdmissionPolicy(vap *v1alpha1.ValidatingAdmi
 
 	// construct validating admission policy resource rules
 	var matchResources v1alpha1.MatchResources
+	var matchRules []v1alpha1.NamedRuleWithOperations
 
 	rule := cpol.GetSpec().Rules[0]
-	match, exclude := rule.MatchResources, rule.ExcludeResources
+	match := rule.MatchResources
 	if !match.ResourceDescription.IsEmpty() {
-		if err := c.translateResource(&matchResources, match.ResourceDescription, false); err != nil {
-			return err
-		}
-	}
-	if !exclude.ResourceDescription.IsEmpty() {
-		if err := c.translateResource(&matchResources, match.ResourceDescription, true); err != nil {
+		if err := c.translateResource(&matchResources, &matchRules, match.ResourceDescription); err != nil {
 			return err
 		}
 	}
 
 	if match.Any != nil {
-		if err := c.translateResourceFilters(&matchResources, match.Any, false); err != nil {
+		if err := c.translateResourceFilters(&matchResources, &matchRules, match.Any); err != nil {
 			return err
 		}
 	}
 	if match.All != nil {
-		if err := c.translateResourceFilters(&matchResources, match.All, false); err != nil {
-			return err
-		}
-	}
-	if exclude.Any != nil {
-		if err := c.translateResourceFilters(&matchResources, match.Any, true); err != nil {
-			return err
-		}
-	}
-	if exclude.All != nil {
-		if err := c.translateResourceFilters(&matchResources, match.All, true); err != nil {
+		if err := c.translateResourceFilters(&matchResources, &matchRules, match.All); err != nil {
 			return err
 		}
 	}

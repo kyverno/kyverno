@@ -10,9 +10,9 @@ import (
 	"k8s.io/api/admissionregistration/v1alpha1"
 )
 
-func (c *controller) translateResourceFilters(matchResources *v1alpha1.MatchResources, resFilters kyvernov1.ResourceFilters, exclude bool) error {
+func (c *controller) translateResourceFilters(matchResources *v1alpha1.MatchResources, rules *[]v1alpha1.NamedRuleWithOperations, resFilters kyvernov1.ResourceFilters) error {
 	for _, filter := range resFilters {
-		err := c.translateResource(matchResources, filter.ResourceDescription, exclude)
+		err := c.translateResource(matchResources, rules, filter.ResourceDescription)
 		if err != nil {
 			return err
 		}
@@ -20,26 +20,19 @@ func (c *controller) translateResourceFilters(matchResources *v1alpha1.MatchReso
 	return nil
 }
 
-func (c *controller) translateResource(matchResources *v1alpha1.MatchResources, res kyvernov1.ResourceDescription, exclude bool) error {
-	rules, err := c.constructValidatingAdmissionPolicyRules(res.Kinds, res.GetOperations())
+func (c *controller) translateResource(matchResources *v1alpha1.MatchResources, rules *[]v1alpha1.NamedRuleWithOperations, res kyvernov1.ResourceDescription) error {
+	err := c.constructValidatingAdmissionPolicyRules(rules, res.Kinds, res.GetOperations())
 	if err != nil {
 		return err
 	}
 
+	matchResources.ResourceRules = *rules
 	matchResources.NamespaceSelector = res.NamespaceSelector
 	matchResources.ObjectSelector = res.Selector
-
-	if !exclude {
-		matchResources.ResourceRules = rules
-	} else {
-		matchResources.ExcludeResourceRules = rules
-	}
 	return nil
 }
 
-func (c *controller) constructValidatingAdmissionPolicyRules(kinds []string, operations []string) ([]v1alpha1.NamedRuleWithOperations, error) {
-	var rules []v1alpha1.NamedRuleWithOperations
-
+func (c *controller) constructValidatingAdmissionPolicyRules(rules *[]v1alpha1.NamedRuleWithOperations, kinds []string, operations []string) error {
 	// translate operations to their corresponding values in validating admission policy.
 	ops := c.translateOperations(operations)
 
@@ -54,10 +47,10 @@ func (c *controller) constructValidatingAdmissionPolicyRules(kinds []string, ope
 		group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 		gvrss, err := c.discoveryClient.FindResources(group, version, kind, subresource)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if len(gvrss) != 1 {
-			return nil, fmt.Errorf("no unique match for kind %s", kind)
+			return fmt.Errorf("no unique match for kind %s", kind)
 		}
 
 		for topLevelApi, apiResource := range gvrss {
@@ -67,9 +60,9 @@ func (c *controller) constructValidatingAdmissionPolicyRules(kinds []string, ope
 			//           apiVersions: ["v1"]
 			//           resources:   ["deployments", "statefulsets"]
 			// Otherwise, a new rule is created.
-			for i := range rules {
-				if slices.Contains(rules[i].APIGroups, topLevelApi.Group) && slices.Contains(rules[i].APIVersions, topLevelApi.Version) {
-					rules[i].Resources = append(rules[i].Resources, apiResource.Name)
+			for i := range *rules {
+				if slices.Contains((*rules)[i].APIGroups, topLevelApi.Group) && slices.Contains((*rules)[i].APIVersions, topLevelApi.Version) {
+					(*rules)[i].Resources = append((*rules)[i].Resources, apiResource.Name)
 					isNewRule = false
 					break
 				}
@@ -85,11 +78,11 @@ func (c *controller) constructValidatingAdmissionPolicyRules(kinds []string, ope
 						Operations: ops,
 					},
 				}
-				rules = append(rules, r)
+				*rules = append(*rules, r)
 			}
 		}
 	}
-	return rules, nil
+	return nil
 }
 
 func (c *controller) translateOperations(operations []string) []admissionregistrationv1.OperationType {
