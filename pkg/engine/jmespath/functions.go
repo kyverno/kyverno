@@ -52,7 +52,6 @@ var (
 	regexMatch             = "regex_match"
 	patternMatch           = "pattern_match"
 	labelMatch             = "label_match"
-	toBoolean              = "to_boolean"
 	add                    = "add"
 	sum                    = "sum"
 	subtract               = "subtract"
@@ -234,16 +233,6 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		},
 		ReturnType: []jpType{jpBool},
 		Note:       "object arguments must be enclosed in backticks; ex. `{{request.object.spec.template.metadata.labels}}`",
-	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
-			Name: toBoolean,
-			Arguments: []argSpec{
-				{Types: []jpType{jpString}},
-			},
-			Handler: jpToBoolean,
-		},
-		ReturnType: []jpType{jpBool},
-		Note:       "It returns true or false for any string, such as 'True', 'TruE', 'False', 'FAlse', 'faLSE', etc.",
 	}, {
 		FunctionEntry: gojmespath.FunctionEntry{
 			Name: add,
@@ -794,21 +783,6 @@ func jpLabelMatch(arguments []interface{}) (interface{}, error) {
 	}
 
 	return true, nil
-}
-
-func jpToBoolean(arguments []interface{}) (interface{}, error) {
-	if input, err := validateArg(toBoolean, arguments, 0, reflect.String); err != nil {
-		return nil, err
-	} else {
-		switch strings.ToLower(input.String()) {
-		case "true":
-			return true, nil
-		case "false":
-			return false, nil
-		default:
-			return nil, formatError(genericError, toBoolean, fmt.Sprintf("lowercase argument must be 'true' or 'false' (provided: '%s')", input.String()))
-		}
-	}
 }
 
 func _jpAdd(arguments []interface{}, operator string) (interface{}, error) {

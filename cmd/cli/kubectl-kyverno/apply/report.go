@@ -98,9 +98,7 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 						UID:        engineResponse.Resource.GetUID(),
 					},
 				},
-				Scored:   true,
-				Category: ann[kyverno.AnnotationPolicyCategory],
-				Severity: reportutils.SeverityFromString(ann[kyverno.AnnotationPolicySeverity]),
+				Scored: true,
 			}
 
 			if ruleResponse.Status() == engineapi.RuleStatusSkip {
