@@ -1,0 +1,211 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  annotations:
+    kyverno.io/kubernetes-version: 1.22-1.23
+    kyverno.io/kyverno-version: 1.6.0
+    policies.kyverno.io/category: Pod Security Standards (Restricted)
+    policies.kyverno.io/description: Adding capabilities other than `NET_BIND_SERVICE`
+      is disallowed. In addition, all containers must explicitly drop `ALL` capabilities.
+    policies.kyverno.io/minversion: 1.6.0
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/title: Disallow Capabilities (Strict)
+  creationTimestamp: "2023-07-08T06:11:16Z"
+  generation: 1
+  name: disallow-capabilities-strict
+  resourceVersion: "2040"
+  uid: 90995533-6389-4d68-97c2-ce5b1f918d7b
+spec:
+  background: true
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: require-drop-all
+    preconditions:
+      all:
+      - key: '{{ request.operation || ''BACKGROUND'' }}'
+        operator: NotEquals
+        value: DELETE
+    validate:
+      foreach:
+      - deny:
+          conditions:
+            all:
+            - key: ALL
+              operator: AnyNotIn
+              value: '{{ element.securityContext.capabilities.drop[] || `[]` }}'
+        list: request.object.spec.[ephemeralContainers, initContainers, containers][]
+      message: Containers must drop `ALL` capabilities.
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: adding-capabilities-strict
+    preconditions:
+      all:
+      - key: '{{ request.operation || ''BACKGROUND'' }}'
+        operator: NotEquals
+        value: DELETE
+    validate:
+      foreach:
+      - deny:
+          conditions:
+            all:
+            - key: '{{ element.securityContext.capabilities.add[] || `[]` }}'
+              operator: AnyNotIn
+              value:
+              - NET_BIND_SERVICE
+              - ""
+        list: request.object.spec.[ephemeralContainers, initContainers, containers][]
+      message: Any capabilities added other than NET_BIND_SERVICE are disallowed.
+  validationFailureAction: audit
+status:
+  autogen:
+    rules:
+    - exclude:
+        resources: {}
+      generate:
+        clone: {}
+        cloneList: {}
+      match:
+        any:
+        - resources:
+            kinds:
+            - DaemonSet
+            - Deployment
+            - Job
+            - StatefulSet
+            - ReplicaSet
+            - ReplicationController
+        resources: {}
+      mutate: {}
+      name: autogen-require-drop-all
+      preconditions:
+        all:
+        - key: '{{ request.operation || ''BACKGROUND'' }}'
+          operator: NotEquals
+          value: DELETE
+      validate:
+        foreach:
+        - deny:
+            conditions:
+              all:
+              - key: ALL
+                operator: AnyNotIn
+                value: '{{ element.securityContext.capabilities.drop[] || `[]` }}'
+          list: request.object.spec.template.spec.[ephemeralContainers, initContainers,
+            containers][]
+        message: Containers must drop `ALL` capabilities.
+    - exclude:
+        resources: {}
+      generate:
+        clone: {}
+        cloneList: {}
+      match:
+        any:
+        - resources:
+            kinds:
+            - CronJob
+        resources: {}
+      mutate: {}
+      name: autogen-cronjob-require-drop-all
+      preconditions:
+        all:
+        - key: '{{ request.operation || ''BACKGROUND'' }}'
+          operator: NotEquals
+          value: DELETE
+      validate:
+        foreach:
+        - deny:
+            conditions:
+              all:
+              - key: ALL
+                operator: AnyNotIn
+                value: '{{ element.securityContext.capabilities.drop[] || `[]` }}'
+          list: request.object.spec.jobTemplate.spec.template.spec.[ephemeralContainers,
+            initContainers, containers][]
+        message: Containers must drop `ALL` capabilities.
+    - exclude:
+        resources: {}
+      generate:
+        clone: {}
+        cloneList: {}
+      match:
+        any:
+        - resources:
+            kinds:
+            - DaemonSet
+            - Deployment
+            - Job
+            - StatefulSet
+            - ReplicaSet
+            - ReplicationController
+        resources: {}
+      mutate: {}
+      name: autogen-adding-capabilities-strict
+      preconditions:
+        all:
+        - key: '{{ request.operation || ''BACKGROUND'' }}'
+          operator: NotEquals
+          value: DELETE
+      validate:
+        foreach:
+        - deny:
+            conditions:
+              all:
+              - key: '{{ element.securityContext.capabilities.add[] || `[]` }}'
+                operator: AnyNotIn
+                value:
+                - NET_BIND_SERVICE
+                - ""
+          list: request.object.spec.template.spec.[ephemeralContainers, initContainers,
+            containers][]
+        message: Any capabilities added other than NET_BIND_SERVICE are disallowed.
+    - exclude:
+        resources: {}
+      generate:
+        clone: {}
+        cloneList: {}
+      match:
+        any:
+        - resources:
+            kinds:
+            - CronJob
+        resources: {}
+      mutate: {}
+      name: autogen-cronjob-adding-capabilities-strict
+      preconditions:
+        all:
+        - key: '{{ request.operation || ''BACKGROUND'' }}'
+          operator: NotEquals
+          value: DELETE
+      validate:
+        foreach:
+        - deny:
+            conditions:
+              all:
+              - key: '{{ element.securityContext.capabilities.add[] || `[]` }}'
+                operator: AnyNotIn
+                value:
+                - NET_BIND_SERVICE
+                - ""
+          list: request.object.spec.jobTemplate.spec.template.spec.[ephemeralContainers,
+            initContainers, containers][]
+        message: Any capabilities added other than NET_BIND_SERVICE are disallowed.
+  conditions:
+  - lastTransitionTime: "2023-07-08T06:11:16Z"
+    message: ""
+    reason: Succeeded
+    status: "True"
+    type: Ready
+  ready: true
+  rulecount:
+    generate: 0
+    mutate: 0
+    validate: 2
+    verifyimages: 0
