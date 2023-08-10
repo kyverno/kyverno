@@ -358,8 +358,8 @@ grafana:
   labels:
     grafana_dashboard: "1"
 
-  # -- create GrafanaDashboard CustomResource 
-  # referencing to the configMap. according to https://grafana-operator.github.io/grafana-operator/docs/examples/dashboard_from_configmap/readme/
+  # -- create GrafanaDashboard custom resource referencing to the configMap.
+  # according to https://grafana-operator.github.io/grafana-operator/docs/examples/dashboard_from_configmap/readme/
   grafanaDashboard:
     create: false
     matchLabels:
