@@ -78,7 +78,7 @@ func HasVariables(policy kyvernov1.PolicyInterface) [][]string {
 }
 
 // GetPolicies - Extracting the policies from multiple YAML
-func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, errors []error) {
+func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, validatingAdmissionPolicyBindings []v1alpha1.ValidatingAdmissionPolicyBinding, errors []error) {
 	for _, path := range paths {
 		log.V(5).Info("reading policies", "path", path)
 
@@ -117,10 +117,11 @@ func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, validati
 				}
 			}
 
-			policiesFromDir, admissionPoliciesFromDir, errorsFromDir := GetPolicies(listOfFiles)
+			policiesFromDir, admissionPoliciesFromDir, bindingsFromDir, errorsFromDir := GetPolicies(listOfFiles)
 			errors = append(errors, errorsFromDir...)
 			policies = append(policies, policiesFromDir...)
 			validatingAdmissionPolicies = append(validatingAdmissionPolicies, admissionPoliciesFromDir...)
+			validatingAdmissionPolicyBindings = append(validatingAdmissionPolicyBindings, bindingsFromDir...)
 		} else {
 			var fileBytes []byte
 			if isHTTPPath {
@@ -162,7 +163,7 @@ func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, validati
 				}
 			}
 
-			policiesFromFile, admissionPoliciesFromFile, errFromFile := yamlutils.GetPolicy(fileBytes)
+			policiesFromFile, admissionPoliciesFromFile, bindingsFromFile, errFromFile := yamlutils.GetPolicy(fileBytes)
 			if errFromFile != nil {
 				err := fmt.Errorf("failed to process %s: %v", path, errFromFile.Error())
 				errors = append(errors, err)
@@ -171,11 +172,12 @@ func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, validati
 
 			policies = append(policies, policiesFromFile...)
 			validatingAdmissionPolicies = append(validatingAdmissionPolicies, admissionPoliciesFromFile...)
+			validatingAdmissionPolicyBindings = append(validatingAdmissionPolicyBindings, bindingsFromFile...)
 		}
 	}
 
 	log.V(3).Info("read policies", "policies", len(policies), "errors", len(errors))
-	return policies, validatingAdmissionPolicies, errors
+	return policies, validatingAdmissionPolicies, validatingAdmissionPolicyBindings, errors
 }
 
 // IsInputFromPipe - check if input is passed using pipe
@@ -350,7 +352,7 @@ func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml stri
 }
 
 // GetPoliciesFromPaths - get policies according to the resource path
-func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, policyResourcePath string) (policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, err error) {
+func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, policyResourcePath string) (policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, validatingAdmissionPolicyBindings []v1alpha1.ValidatingAdmissionPolicyBinding, err error) {
 	if isGit {
 		for _, pp := range dirPath {
 			filep, err := fs.Open(filepath.Join(policyResourcePath, pp))
@@ -368,13 +370,14 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 				fmt.Printf("failed to convert to JSON: %v", err)
 				continue
 			}
-			policiesFromFile, admissionPoliciesFromFile, errFromFile := yamlutils.GetPolicy(policyBytes)
+			policiesFromFile, admissionPoliciesFromFile, bindingsFromFile, errFromFile := yamlutils.GetPolicy(policyBytes)
 			if errFromFile != nil {
 				fmt.Printf("failed to process : %v", errFromFile.Error())
 				continue
 			}
 			policies = append(policies, policiesFromFile...)
 			validatingAdmissionPolicies = append(validatingAdmissionPolicies, admissionPoliciesFromFile...)
+			validatingAdmissionPolicyBindings = append(validatingAdmissionPolicyBindings, bindingsFromFile...)
 		}
 	} else {
 		if len(dirPath) > 0 && dirPath[0] == "-" {
@@ -385,19 +388,19 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 					policyStr = policyStr + scanner.Text() + "\n"
 				}
 				yamlBytes := []byte(policyStr)
-				policies, validatingAdmissionPolicies, err = yamlutils.GetPolicy(yamlBytes)
+				policies, validatingAdmissionPolicies, validatingAdmissionPolicyBindings, err = yamlutils.GetPolicy(yamlBytes)
 				if err != nil {
-					return nil, nil, sanitizederror.NewWithError("failed to extract the resources", err)
+					return nil, nil, nil, sanitizederror.NewWithError("failed to extract the resources", err)
 				}
 			}
 		} else {
 			var errors []error
-			policies, validatingAdmissionPolicies, errors = GetPolicies(dirPath)
+			policies, validatingAdmissionPolicies, validatingAdmissionPolicyBindings, errors = GetPolicies(dirPath)
 			if len(policies) == 0 && len(validatingAdmissionPolicies) == 0 {
 				if len(errors) > 0 {
-					return nil, nil, sanitizederror.NewWithErrors("failed to read file", errors)
+					return nil, nil, nil, sanitizederror.NewWithErrors("failed to read file", errors)
 				}
-				return nil, nil, sanitizederror.New(fmt.Sprintf("no file found in paths %v", dirPath))
+				return nil, nil, nil, sanitizederror.New(fmt.Sprintf("no file found in paths %v", dirPath))
 			}
 			if len(errors) > 0 && log.V(1).Enabled() {
 				fmt.Printf("ignoring errors: \n")

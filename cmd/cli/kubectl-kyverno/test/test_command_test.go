@@ -59,7 +59,7 @@ func Test_selectResourcesForCheck(t *testing.T) {
 		assert.NilError(t, err)
 
 		// read policies
-		policies, validatingAdmissionPolicies, err := common.GetPoliciesFromPaths(
+		policies, validatingAdmissionPolicies, _, err := common.GetPoliciesFromPaths(
 			fs,
 			[]string{filepath.Join(baseTestDir, values.Policies[0])},
 			false,

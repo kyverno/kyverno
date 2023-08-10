@@ -103,7 +103,7 @@ func applyPoliciesFromPath(
 		values.Results[i].CloneSourceResource = CloneSourceResourceFullPath[0]
 	}
 
-	policies, validatingAdmissionPolicies, err := common.GetPoliciesFromPaths(fs, policyFullPath, isGit, policyResourcePath)
+	policies, validatingAdmissionPolicies, _, err := common.GetPoliciesFromPaths(fs, policyFullPath, isGit, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
 		os.Exit(1)

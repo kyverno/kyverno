@@ -286,6 +286,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 	fs := memfs.New()
 	var policies []kyvernov1.PolicyInterface
 	var validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy
+	var validatingAdmissionPolicyBindings []v1alpha1.ValidatingAdmissionPolicyBinding
 
 	isGit := common.IsGitSourcePath(c.PolicyPaths)
 
@@ -320,7 +321,8 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 		sort.Strings(policyYamls)
 		c.PolicyPaths = policyYamls
 	}
-	policies, validatingAdmissionPolicies, err = common.GetPoliciesFromPaths(fs, c.PolicyPaths, isGit, "")
+	policies, validatingAdmissionPolicies, validatingAdmissionPolicyBindings, err = common.GetPoliciesFromPaths(fs, c.PolicyPaths, isGit, "")
+	fmt.Println(validatingAdmissionPolicyBindings)
 	if err != nil {
 		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
 		osExit(1)

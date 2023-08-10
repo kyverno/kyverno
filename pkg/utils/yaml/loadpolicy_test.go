@@ -15,11 +15,12 @@ func TestGetPolicy(t *testing.T) {
 		namespace string
 	}
 	tests := []struct {
-		name                        string
-		args                        args
-		wantPolicies                []policy
-		validatingAdmissionPolicies []policy
-		wantErr                     bool
+		name                              string
+		args                              args
+		wantPolicies                      []policy
+		validatingAdmissionPolicies       []policy
+		validatingAdmissionPolicyBindings []policy
+		wantErr                           bool
 	}{{
 		name: "policy",
 		args: args{
@@ -299,7 +300,7 @@ items:
 		},
 		wantErr: false,
 	}, {
-		name: "ValidatingAdmissionPolicy",
+		name: "ValidatingAdmissionPolicy and its binding",
 		args: args{
 			[]byte(`
 apiVersion: admissionregistration.k8s.io/v1alpha1
@@ -316,13 +317,27 @@ spec:
         resources:   ["deployments"]
     validations:
       - expression: "object.spec.replicas <= 5"
+---
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: "demo-binding-test.example.com"
+spec:
+  policyName: "demo-policy.example.com"
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        environment: test
 `),
 		}, validatingAdmissionPolicies: []policy{
 			{"ValidatingAdmissionPolicy", ""},
+		}, validatingAdmissionPolicyBindings: []policy{
+			{"ValidatingAdmissionPolicyBinding", ""},
 		},
 		wantErr: false,
 	}, {
-		name: "ValidatingAdmissionPolicy and Policy",
+		name: "ValidatingAdmissionPolicy, ValidatingAdmissionPolicyBinding and Policy",
 		args: args{
 			[]byte(`
 apiVersion: admissionregistration.k8s.io/v1alpha1
@@ -339,6 +354,18 @@ spec:
         resources:   ["deployments"]
     validations:
       - expression: "object.spec.replicas <= 5"
+---
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: "demo-binding-test.example.com"
+spec:
+  policyName: "demo-policy.example.com"
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        environment: test
 ---
 apiVersion: kyverno.io/v1
 kind: Policy
@@ -373,10 +400,12 @@ spec:
 		},
 		validatingAdmissionPolicies: []policy{
 			{"ValidatingAdmissionPolicy", ""},
+		}, validatingAdmissionPolicyBindings: []policy{
+			{"ValidatingAdmissionPolicyBinding", ""},
 		},
 		wantErr: false,
 	}, {
-		name: "ValidatingAdmissionPolicy and ClusterPolicy",
+		name: "ValidatingAdmissionPolicy, ValidatingAdmissionPolicyBinding and ClusterPolicy",
 		args: args{
 			[]byte(`
 apiVersion: admissionregistration.k8s.io/v1alpha1
@@ -393,6 +422,18 @@ spec:
         resources:   ["deployments"]
     validations:
       - expression: "object.spec.replicas <= 5"
+---
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: "demo-binding-test.example.com"
+spec:
+  policyName: "demo-policy.example.com"
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        environment: test
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -426,12 +467,14 @@ spec:
 		},
 		validatingAdmissionPolicies: []policy{
 			{"ValidatingAdmissionPolicy", ""},
+		}, validatingAdmissionPolicyBindings: []policy{
+			{"ValidatingAdmissionPolicyBinding", ""},
 		},
 		wantErr: false,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotPolicies, gotValidatingAdmissionPolicies, err := GetPolicy(tt.args.bytes)
+			gotPolicies, gotVap, gotVapBinding, err := GetPolicy(tt.args.bytes)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -443,12 +486,17 @@ spec:
 					}
 				}
 
-				if assert.Equal(t, len(tt.validatingAdmissionPolicies), len(gotValidatingAdmissionPolicies)) {
+				if assert.Equal(t, len(tt.validatingAdmissionPolicies), len(gotVap)) {
 					for i := range tt.validatingAdmissionPolicies {
-						assert.Equal(t, tt.validatingAdmissionPolicies[i].kind, gotValidatingAdmissionPolicies[i].Kind)
+						assert.Equal(t, tt.validatingAdmissionPolicies[i].kind, gotVap[i].Kind)
 					}
 				}
 
+				if assert.Equal(t, len(tt.validatingAdmissionPolicyBindings), len(gotVapBinding)) {
+					for i := range tt.validatingAdmissionPolicies {
+						assert.Equal(t, tt.validatingAdmissionPolicyBindings[i].kind, gotVapBinding[i].Kind)
+					}
+				}
 			}
 		})
 	}
