@@ -12,17 +12,21 @@ data:
 {{ (.Files.Glob "grafana/*").AsConfig | indent 2 }}
 ---
 {{- if .Values.grafana.grafanaDashboard.create -}}
+{{ range $path, $_ := .Files.Glob  "grafana/*" -}}
+{{ $name := base $path }}
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
-  name: {{ tpl .Values.grafana.configMapName . }}-dashboard
-  namespace: {{ default (include "kyverno.namespace" .) .Values.grafana.namespace }}
+  name: {{ tpl $.Values.grafana.configMapName $ }}-{{ $name }}
+  namespace: {{ default (include "kyverno.namespace" $ ) $.Values.grafana.namespace }}
 spec:
   instanceSelector:
     matchLabels:
-      {{- toYaml .Values.grafana.grafanaDashboard.matchLabels | nindent 6 }}
+      {{- toYaml $.Values.grafana.grafanaDashboard.matchLabels | nindent 6 }}
   configMapRef:
-    name: {{ tpl .Values.grafana.configMapName . }}
-    key: json
+    name: {{ tpl $.Values.grafana.configMapName $ }}
+    key: {{ base $path }}
+---
+{{ end -}}
 {{- end -}}
 {{- end -}}
