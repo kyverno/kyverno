@@ -324,13 +324,13 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 		}
 
 		policiesFromFile, admissionPoliciesFromFile, err := common.GetPoliciesFromPaths(fs, policyPaths, isGit, "")
-		policies = append(policies, policiesFromFile...)
-		validatingAdmissionPolicies = append(validatingAdmissionPolicies, admissionPoliciesFromFile...)
-
 		if err != nil {
 			fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
 			osExit(1)
 		}
+
+		policies = append(policies, policiesFromFile...)
+		validatingAdmissionPolicies = append(validatingAdmissionPolicies, admissionPoliciesFromFile...)
 	}
 
 	// load resources
