@@ -194,8 +194,12 @@ func (a *apiCall) getToken() string {
 }
 
 func (a *apiCall) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client, error) {
-	if service.CABundle == "" && service.TLSSecret != nil {
-		secret, err := a.secretLister.Secrets(service.TLSSecret.Namespace).Get(service.TLSSecret.Name)
+	if service == nil {
+		return http.DefaultClient, nil
+	}
+
+	if service.CABundle == "" && service.CABundleFromSecret != nil {
+		secret, err := a.secretLister.Secrets(service.CABundleFromSecret.Namespace).Get(service.CABundleFromSecret.Name)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get CA bundle from secret for APICall %s", a.entry.Name)
 		}
@@ -206,9 +210,11 @@ func (a *apiCall) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client,
 		service.CABundle = service.CABundle + string(secret.Data[corev1.TLSCertKey]) + "\n"
 		service.CABundle = service.CABundle + string(secret.Data[corev1.TLSPrivateKeyKey]) + "\n"
 	}
+
 	if service == nil || service.CABundle == "" {
 		return http.DefaultClient, nil
 	}
+
 	caCertPool := x509.NewCertPool()
 	if ok := caCertPool.AppendCertsFromPEM([]byte(service.CABundle)); !ok {
 		return nil, fmt.Errorf("failed to parse PEM CA bundle for APICall %s", a.entry.Name)
