@@ -1061,6 +1061,12 @@ func validateAPICall(entry kyvernov1.ContextEntry) error {
 		}
 	}
 
+	if entry.APICall.Service != nil {
+		if entry.APICall.Service.CABundle != "" && entry.APICall.Service.CABundleFromSecret != nil {
+			return fmt.Errorf("both cabundle and secret reference for a service call cannot be defined together")
+		}
+	}
+
 	// If JMESPath contains variables, the validation will fail because it's not
 	// possible to infer which value will be inserted by the variable
 	// Skip validation if a variable is detected
