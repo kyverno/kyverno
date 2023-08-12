@@ -10,6 +10,3 @@ metadata:
     name: disallow-host-path-t9
 spec:
   policyName: disallow-host-path-t9
-  validationActions:
-  - Audit
-  - Warn

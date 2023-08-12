@@ -198,7 +198,6 @@ func createrLeaderControllers(
 		)
 		leaderControllers = append(leaderControllers, internal.NewController(vapcontroller.ControllerName, vapController, vapcontroller.Workers))
 	}
-
 	return leaderControllers, nil, nil
 }
 
@@ -265,6 +264,12 @@ func main() {
 	if tlsSecretName == "" {
 		setup.Logger.Error(errors.New("exiting... tlsSecretName is a required flag"), "exiting... tlsSecretName is a required flag")
 		os.Exit(1)
+	// check if server version is supported for validating admission policy generation
+	if generateValidatingAdmissionPolicy {
+		if !kubeutils.HigherThanKubernetesVersion(setup.KubeClient.Discovery(), setup.Logger, 1, 26, 0) {
+			setup.Logger.Error(errors.New("validating admission policy aren't supported"), "validating admission policy aren't supported")
+			os.Exit(1)
+		}
 	}
 	caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), caSecretName, resyncPeriod)
 	tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tlsSecretName, resyncPeriod)
