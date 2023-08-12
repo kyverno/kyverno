@@ -29,12 +29,6 @@ func canGenerateVAP(spec *kyvernov1.Spec) (bool, string) {
 		return false, msg
 	}
 
-	// check the common policy settings that apply to all rules.
-	if !spec.HasValidate() {
-		msg = "skip generating validating admission policy for non validate rules."
-		return false, msg
-	}
-
 	rule := spec.Rules[0]
 	if !rule.HasValidateCEL() {
 		msg = "skip generating validating admission policy for non CEL rules."

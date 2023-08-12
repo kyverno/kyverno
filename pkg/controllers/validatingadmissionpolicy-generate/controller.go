@@ -290,6 +290,10 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	}
 
 	spec := policy.GetSpec()
+	if !spec.HasValidate() {
+		return nil
+	}
+
 	if ok, msg := canGenerateVAP(spec); !ok {
 		c.updateClusterPolicyStatus(ctx, *policy, false, msg)
 		return nil
