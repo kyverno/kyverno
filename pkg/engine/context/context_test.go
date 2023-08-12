@@ -122,4 +122,18 @@ func Test_addResourceAndUserContext(t *testing.T) {
 	if !reflect.DeepEqual(expectedResult, result) {
 		t.Error("expected result does not match")
 	}
+	var value interface{}
+	err = ctx.AddVariable("com.example/my-label", value)
+	if err != nil {
+		t.Error(err)
+	}
+	result, err = ctx.Query("request")
+	if err != nil{
+		t.Error(err)
+	}
+	expectedResult = "com.example/my-label"
+	t.Log(result)
+	if !reflect.DeepEqual(expectedResult, result) {
+		t.Error("expected result does not match")
+	}
 }
