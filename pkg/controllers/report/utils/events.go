@@ -2,6 +2,7 @@ package utils
 
 import (
 	"github.com/go-logr/logr"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -21,7 +22,8 @@ func GenerateEvents(logger logr.Logger, eventGen event.Interface, config config.
 
 func generateSuccessEvents(log logr.Logger, ers ...engineapi.EngineResponse) (eventInfos []event.Info) {
 	for _, er := range ers {
-		logger := log.WithValues("policy", er.Policy().GetName(), "kind", er.Resource.GetKind(), "namespace", er.Resource.GetNamespace(), "name", er.Resource.GetName())
+		pol := er.Policy().GetPolicy().(kyvernov1.PolicyInterface)
+		logger := log.WithValues("policy", pol.GetName(), "kind", er.Resource.GetKind(), "namespace", er.Resource.GetNamespace(), "name", er.Resource.GetName())
 		if !er.IsFailed() {
 			logger.V(4).Info("generating event on policy for success rules")
 			e := event.NewPolicyAppliedEvent(event.PolicyController, er)
@@ -51,8 +53,9 @@ func generateFailEvents(log logr.Logger, ers ...engineapi.EngineResponse) (event
 
 func generateFailEventsPerEr(log logr.Logger, er engineapi.EngineResponse) []event.Info {
 	var eventInfos []event.Info
+	pol := er.Policy().GetPolicy().(kyvernov1.PolicyInterface)
 	logger := log.WithValues(
-		"policy", er.Policy().GetName(),
+		"policy", pol.GetName(),
 		"kind", er.Resource.GetKind(),
 		"namespace", er.Resource.GetNamespace(),
 		"name", er.Resource.GetName(),

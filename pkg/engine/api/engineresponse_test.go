@@ -12,7 +12,7 @@ import (
 func TestEngineResponse_IsEmpty(t *testing.T) {
 	type fields struct {
 		PatchedResource unstructured.Unstructured
-		Policy          kyvernov1.PolicyInterface
+		Policy          Policy
 		PolicyResponse  PolicyResponse
 		namespaceLabels map[string]string
 	}
@@ -54,7 +54,7 @@ func TestEngineResponse_IsEmpty(t *testing.T) {
 func TestEngineResponse_IsNil(t *testing.T) {
 	type fields struct {
 		PatchedResource unstructured.Unstructured
-		Policy          kyvernov1.PolicyInterface
+		Policy          Policy
 		PolicyResponse  PolicyResponse
 		namespaceLabels map[string]string
 	}
@@ -96,7 +96,7 @@ func TestEngineResponse_IsNil(t *testing.T) {
 func TestEngineResponse_IsOneOf(t *testing.T) {
 	type fields struct {
 		PatchedResource unstructured.Unstructured
-		Policy          kyvernov1.PolicyInterface
+		Policy          Policy
 		PolicyResponse  PolicyResponse
 		namespaceLabels map[string]string
 	}
@@ -183,7 +183,7 @@ func TestEngineResponse_IsOneOf(t *testing.T) {
 func TestEngineResponse_IsSuccessful(t *testing.T) {
 	type fields struct {
 		PatchedResource unstructured.Unstructured
-		Policy          kyvernov1.PolicyInterface
+		Policy          Policy
 		PolicyResponse  PolicyResponse
 		namespaceLabels map[string]string
 	}
@@ -256,7 +256,7 @@ func TestEngineResponse_IsSuccessful(t *testing.T) {
 func TestEngineResponse_IsSkipped(t *testing.T) {
 	type fields struct {
 		PatchedResource unstructured.Unstructured
-		Policy          kyvernov1.PolicyInterface
+		Policy          Policy
 		PolicyResponse  PolicyResponse
 		namespaceLabels map[string]string
 	}
@@ -329,7 +329,7 @@ func TestEngineResponse_IsSkipped(t *testing.T) {
 func TestEngineResponse_IsFailed(t *testing.T) {
 	type fields struct {
 		PatchedResource unstructured.Unstructured
-		Policy          kyvernov1.PolicyInterface
+		Policy          Policy
 		PolicyResponse  PolicyResponse
 		namespaceLabels map[string]string
 	}
@@ -402,7 +402,7 @@ func TestEngineResponse_IsFailed(t *testing.T) {
 func TestEngineResponse_IsError(t *testing.T) {
 	type fields struct {
 		PatchedResource unstructured.Unstructured
-		Policy          kyvernov1.PolicyInterface
+		Policy          Policy
 		PolicyResponse  PolicyResponse
 		namespaceLabels map[string]string
 	}
@@ -475,7 +475,7 @@ func TestEngineResponse_IsError(t *testing.T) {
 func TestEngineResponse_GetFailedRules(t *testing.T) {
 	type fields struct {
 		PatchedResource unstructured.Unstructured
-		Policy          kyvernov1.PolicyInterface
+		Policy          Policy
 		PolicyResponse  PolicyResponse
 		namespaceLabels map[string]string
 	}
@@ -564,7 +564,7 @@ func TestEngineResponse_GetFailedRules(t *testing.T) {
 func TestEngineResponse_GetSuccessRules(t *testing.T) {
 	type fields struct {
 		PatchedResource unstructured.Unstructured
-		Policy          kyvernov1.PolicyInterface
+		Policy          Policy
 		PolicyResponse  PolicyResponse
 		namespaceLabels map[string]string
 	}
@@ -682,7 +682,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 	resource.SetNamespace("foo")
 	type fields struct {
 		PatchedResource unstructured.Unstructured
-		Policy          kyvernov1.PolicyInterface
+		Policy          Policy
 		PolicyResponse  PolicyResponse
 		namespaceLabels map[string]string
 	}
@@ -692,25 +692,25 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 		want   kyvernov1.ValidationFailureAction
 	}{{
 		fields: fields{
-			Policy: &kyvernov1.ClusterPolicy{
+			Policy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
 				Spec: kyvernov1.Spec{
 					ValidationFailureAction: kyvernov1.Audit,
 				},
-			},
+			}),
 		},
 		want: kyvernov1.Audit,
 	}, {
 		fields: fields{
-			Policy: &kyvernov1.ClusterPolicy{
+			Policy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
 				Spec: kyvernov1.Spec{
 					ValidationFailureAction: kyvernov1.Enforce,
 				},
-			},
+			}),
 		},
 		want: kyvernov1.Enforce,
 	}, {
 		fields: fields{
-			Policy: &kyvernov1.ClusterPolicy{
+			Policy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
 				Spec: kyvernov1.Spec{
 					ValidationFailureAction: kyvernov1.Enforce,
 					ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
@@ -718,12 +718,12 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 						Namespaces: []string{"*"},
 					}},
 				},
-			},
+			}),
 		},
 		want: kyvernov1.Audit,
 	}, {
 		fields: fields{
-			Policy: &kyvernov1.ClusterPolicy{
+			Policy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
 				Spec: kyvernov1.Spec{
 					ValidationFailureAction: kyvernov1.Enforce,
 					ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
@@ -731,13 +731,13 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 						Namespaces: []string{"*"},
 					}},
 				},
-			},
+			}),
 		},
 		want: kyvernov1.Enforce,
 	}, {
 		fields: fields{
 			PatchedResource: resource,
-			Policy: &kyvernov1.ClusterPolicy{
+			Policy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
 				Spec: kyvernov1.Spec{
 					ValidationFailureAction: kyvernov1.Enforce,
 					ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
@@ -745,13 +745,13 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 						Namespaces: []string{"foo"},
 					}},
 				},
-			},
+			}),
 		},
 		want: kyvernov1.Audit,
 	}, {
 		fields: fields{
 			PatchedResource: resource,
-			Policy: &kyvernov1.ClusterPolicy{
+			Policy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
 				Spec: kyvernov1.Spec{
 					ValidationFailureAction: kyvernov1.Enforce,
 					ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
@@ -759,7 +759,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 						Namespaces: []string{"bar"},
 					}},
 				},
-			},
+			}),
 		},
 		want: kyvernov1.Enforce,
 	}, {
@@ -768,7 +768,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 				"foo": "bar",
 			},
 			PatchedResource: resource,
-			Policy: &kyvernov1.ClusterPolicy{
+			Policy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
 				Spec: kyvernov1.Spec{
 					ValidationFailureAction: kyvernov1.Enforce,
 					ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
@@ -780,7 +780,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 						},
 					}},
 				},
-			},
+			}),
 		},
 		want: kyvernov1.Enforce,
 	}, {
@@ -789,7 +789,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 				"foo": "bar",
 			},
 			PatchedResource: resource,
-			Policy: &kyvernov1.ClusterPolicy{
+			Policy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
 				Spec: kyvernov1.Spec{
 					ValidationFailureAction: kyvernov1.Enforce,
 					ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
@@ -801,7 +801,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 						},
 					}},
 				},
-			},
+			}),
 		},
 		want: kyvernov1.Audit,
 	}, {
@@ -810,7 +810,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 				"foo": "bar",
 			},
 			PatchedResource: resource,
-			Policy: &kyvernov1.ClusterPolicy{
+			Policy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
 				Spec: kyvernov1.Spec{
 					ValidationFailureAction: kyvernov1.Enforce,
 					ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
@@ -823,7 +823,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 						},
 					}},
 				},
-			},
+			}),
 		},
 		want: kyvernov1.Enforce,
 	}, {
@@ -832,7 +832,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 				"foo": "bar",
 			},
 			PatchedResource: resource,
-			Policy: &kyvernov1.ClusterPolicy{
+			Policy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
 				Spec: kyvernov1.Spec{
 					ValidationFailureAction: kyvernov1.Enforce,
 					ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
@@ -845,7 +845,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 						},
 					}},
 				},
-			},
+			}),
 		},
 		want: kyvernov1.Enforce,
 	}, {
@@ -854,7 +854,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 				"foo": "bar",
 			},
 			PatchedResource: resource,
-			Policy: &kyvernov1.ClusterPolicy{
+			Policy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
 				Spec: kyvernov1.Spec{
 					ValidationFailureAction: kyvernov1.Enforce,
 					ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
@@ -867,7 +867,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 						},
 					}},
 				},
-			},
+			}),
 		},
 		want: kyvernov1.Audit,
 	}, {
@@ -876,7 +876,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 				"foo": "bar",
 			},
 			PatchedResource: resource,
-			Policy: &kyvernov1.ClusterPolicy{
+			Policy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
 				Spec: kyvernov1.Spec{
 					ValidationFailureAction: kyvernov1.Enforce,
 					ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
@@ -889,7 +889,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 						},
 					}},
 				},
-			},
+			}),
 		},
 		want: kyvernov1.Audit,
 	}}
@@ -1026,7 +1026,7 @@ func TestEngineResponse_GetResourceSpec(t *testing.T) {
 	clusteredResource.SetUID("12345")
 	type fields struct {
 		PatchedResource unstructured.Unstructured
-		Policy          kyvernov1.PolicyInterface
+		Policy          Policy
 		PolicyResponse  PolicyResponse
 		namespaceLabels map[string]string
 	}

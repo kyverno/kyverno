@@ -773,10 +773,11 @@ func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyCont
 		return nil, err
 	}
 
+	pol := generateResponse.Policy().GetPolicy().(kyvernov1.PolicyInterface)
 	gr := kyvernov1beta1.UpdateRequest{
 		Spec: kyvernov1beta1.UpdateRequestSpec{
 			Type:   kyvernov1beta1.Generate,
-			Policy: generateResponse.Policy().GetName(),
+			Policy: pol.GetName(),
 			Resource: kyvernov1.ResourceSpec{
 				Kind:       generateResponse.Resource.GetKind(),
 				Namespace:  generateResponse.Resource.GetNamespace(),
@@ -881,7 +882,11 @@ func GetGitBranchOrPolicyPaths(gitBranch, repoURL string, policyPaths []string) 
 func processEngineResponses(responses []engineapi.EngineResponse, c ApplyPolicyConfig) {
 	for _, response := range responses {
 		if !response.IsEmpty() {
-			for _, rule := range autogen.ComputeRules(response.Policy()) {
+			pol := response.Policy()
+			if polType := pol.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
+				return
+			}
+			for _, rule := range autogen.ComputeRules(pol.GetPolicy().(kyvernov1.PolicyInterface)) {
 				if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
 					ruleFoundInEngineResponse := false
 					for _, valResponseRule := range response.PolicyResponse.Rules {

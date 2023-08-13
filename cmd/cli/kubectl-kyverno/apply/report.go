@@ -6,9 +6,11 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/api/kyverno"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	"k8s.io/api/admissionregistration/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -41,9 +43,9 @@ func buildPolicyReports(auditWarn bool, engineResponses ...engineapi.EngineRespo
 				Results: result,
 				Summary: reportutils.CalculateSummary(result),
 			}
-			ns := strings.ReplaceAll(scope, "policyreport-ns-", "")
+			policyNamespace := strings.ReplaceAll(scope, "policyreport-ns-", "")
 			report.SetName(scope)
-			report.SetNamespace(ns)
+			report.SetNamespace(policyNamespace)
 			namespaced = append(namespaced, report)
 		}
 	}
@@ -58,26 +60,27 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 
 	for _, engineResponse := range engineResponses {
-		var ns, policyName string
+		var policyNamespace, policyName string
 		var ann map[string]string
 
-		isVAP := engineResponse.IsValidatingAdmissionPolicy()
+		pol := engineResponse.Policy()
+		polType := pol.GetType()
 
-		if isVAP {
-			vap := engineResponse.ValidatingAdmissionPolicy()
-			ns = vap.GetNamespace()
-			policyName = vap.GetName()
-			ann = vap.GetAnnotations()
+		if polType == engineapi.ValidatingAdmissionPolicyType {
+			policy := pol.GetPolicy().(v1alpha1.ValidatingAdmissionPolicy)
+			policyNamespace = policy.GetNamespace()
+			policyName = policy.GetName()
+			ann = policy.GetAnnotations()
 		} else {
-			kyvernoPolicy := engineResponse.Policy()
-			ns = kyvernoPolicy.GetNamespace()
-			policyName = kyvernoPolicy.GetName()
-			ann = kyvernoPolicy.GetAnnotations()
+			policy := pol.GetPolicy().(kyvernov1.PolicyInterface)
+			policyNamespace = policy.GetNamespace()
+			policyName = policy.GetName()
+			ann = policy.GetAnnotations()
 		}
 
 		var appname string
-		if ns != "" {
-			appname = fmt.Sprintf("policyreport-ns-%s", ns)
+		if policyNamespace != "" {
+			appname = fmt.Sprintf("policyreport-ns-%s", policyNamespace)
 		} else {
 			appname = clusterpolicyreport
 		}
@@ -121,7 +124,7 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 				fmt.Println(ruleResponse)
 			}
 
-			if !isVAP {
+			if polType == engineapi.KyvernoPolicyType {
 				result.Rule = ruleResponse.Name()
 			}
 			result.Message = ruleResponse.Message()

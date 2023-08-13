@@ -26,7 +26,8 @@ func getAction(hasViolations bool, i int) string {
 func BlockRequest(engineResponses []engineapi.EngineResponse, failurePolicy kyvernov1.FailurePolicyType, log logr.Logger) bool {
 	for _, er := range engineResponses {
 		if engineutils.BlockRequest(er, failurePolicy) {
-			log.V(2).Info("blocking admission request", "policy", er.Policy().GetName())
+			pol := er.Policy().GetPolicy().(kyvernov1.PolicyInterface)
+			log.V(2).Info("blocking admission request", "policy", pol.GetName())
 			return true
 		}
 	}
@@ -48,7 +49,8 @@ func GetBlockedMessages(engineResponses []engineapi.EngineResponse) string {
 			}
 		}
 		if len(ruleToReason) != 0 {
-			failures[er.Policy().GetName()] = ruleToReason
+			pol := er.Policy().GetPolicy().(kyvernov1.PolicyInterface)
+			failures[pol.GetName()] = ruleToReason
 		}
 	}
 	if len(failures) == 0 {
