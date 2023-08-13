@@ -97,7 +97,7 @@ func (c *cache) Set(ctx context.Context, policy kyvernov1.PolicyInterface, ruleN
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	c.logger.Info("Setting cache", "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
+	c.logger.WithValues("Setting cache", "namespace", policy.GetNamespace(), "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
 	if !c.isCacheEnabled {
 		return false, nil
 	}
@@ -105,7 +105,7 @@ func (c *cache) Set(ctx context.Context, policy kyvernov1.PolicyInterface, ruleN
 
 	stored := c.cache.SetWithTTL(key, nil, 1, c.ttl)
 	if stored {
-		c.logger.Info("Successfully set cache", "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
+		c.logger.WithValues("Successfully set cache", "namespace", policy.GetNamespace(), "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
 		return true, nil
 	}
 	return false, nil
@@ -114,16 +114,16 @@ func (c *cache) Set(ctx context.Context, policy kyvernov1.PolicyInterface, ruleN
 func (c *cache) Get(ctx context.Context, policy kyvernov1.PolicyInterface, ruleName string, imageRef string) (bool, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	c.logger.Info("Searching in cache", "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
+	c.logger.WithValues("Searching in cache", "namespace", policy.GetNamespace(), "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
 	if !c.isCacheEnabled {
 		return false, nil
 	}
 	key := generateKey(policy, ruleName, imageRef)
 	_, found := c.cache.Get(key)
 	if found {
-		c.logger.Info("Cache entry found", "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
+		c.logger.WithValues("Cache entry found", "namespace", policy.GetNamespace(), policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
 		return true, nil
 	}
-	c.logger.Info("Cache entry not found", "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
+	c.logger.WithValues("Cache entry not found", "namespace", policy.GetNamespace(), "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
 	return false, nil
 }
