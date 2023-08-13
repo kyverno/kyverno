@@ -125,7 +125,7 @@ func Validate(policy v1alpha1.ValidatingAdmissionPolicy, resource unstructured.U
 		ruleResp = engineapi.RuleError(policy.GetName(), engineapi.Validation, "Error creating composited compiler", err)
 		policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
 		engineResponse = engineResponse.WithPolicyResponse(policyResp)
-		return engineResponse
+		return &engineResponse, nil
 	}
 
 	filter := compositedCompiler.Compile(

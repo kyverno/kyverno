@@ -6,9 +6,11 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/api/kyverno"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	"k8s.io/api/admissionregistration/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -58,10 +60,23 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 
 	for _, engineResponse := range engineResponses {
-		policy := engineResponse.Policy()
-		policyName := policy.GetName()
-		policyNamespace := policy.GetNamespace()
-		ann := policy.GetAnnotations()
+		var policyNamespace, policyName string
+		var ann map[string]string
+
+		pol := engineResponse.Policy()
+		polType := pol.GetType()
+
+		if polType == engineapi.ValidatingAdmissionPolicyType {
+			policy := pol.GetPolicy().(v1alpha1.ValidatingAdmissionPolicy)
+			policyNamespace = policy.GetNamespace()
+			policyName = policy.GetName()
+			ann = policy.GetAnnotations()
+		} else {
+			policy := pol.GetPolicy().(kyvernov1.PolicyInterface)
+			policyNamespace = policy.GetNamespace()
+			policyName = policy.GetName()
+			ann = policy.GetAnnotations()
+		}
 
 		var appname string
 		if policyNamespace != "" {
@@ -109,7 +124,7 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 				fmt.Println(ruleResponse)
 			}
 
-			if policy.GetType() == engineapi.KyvernoPolicyType {
+			if polType == engineapi.KyvernoPolicyType {
 				result.Rule = ruleResponse.Name()
 			}
 			result.Message = ruleResponse.Message()

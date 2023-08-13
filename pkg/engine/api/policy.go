@@ -15,19 +15,11 @@ const (
 	ValidatingAdmissionPolicyType PolicyType = "ValidatingAdmissionPolicy"
 )
 
-// GenericPolicy abstracts the policy type (Kyverno policy vs Validating admission policy)
-// It is intended to be used in EngineResponse
-type GenericPolicy interface {
+type Policy interface {
 	// GetPolicy returns either kyverno policy or validating admission policy
 	GetPolicy() interface{}
 	// GetType returns policy type
 	GetType() PolicyType
-	// GetName returns policy name
-	GetName() string
-	// GetNamespace returns policy namespace
-	GetNamespace() string
-	// GetAnnotations returns policy annotations
-	GetAnnotations() map[string]string
 }
 
 type KyvernoPolicy struct {
@@ -40,18 +32,6 @@ func (p KyvernoPolicy) GetPolicy() interface{} {
 
 func (p KyvernoPolicy) GetType() PolicyType {
 	return KyvernoPolicyType
-}
-
-func (p KyvernoPolicy) GetName() string {
-	return p.policy.GetName()
-}
-
-func (p KyvernoPolicy) GetNamespace() string {
-	return p.policy.GetNamespace()
-}
-
-func (p KyvernoPolicy) GetAnnotations() map[string]string {
-	return p.policy.GetAnnotations()
 }
 
 func NewKyvernoPolicy(pol kyvernov1.PolicyInterface) KyvernoPolicy {
@@ -70,18 +50,6 @@ func (p ValidatingAdmissionPolicy) GetPolicy() interface{} {
 
 func (p ValidatingAdmissionPolicy) GetType() PolicyType {
 	return ValidatingAdmissionPolicyType
-}
-
-func (p ValidatingAdmissionPolicy) GetName() string {
-	return p.policy.GetName()
-}
-
-func (p ValidatingAdmissionPolicy) GetNamespace() string {
-	return p.policy.GetNamespace()
-}
-
-func (p ValidatingAdmissionPolicy) GetAnnotations() map[string]string {
-	return p.policy.GetAnnotations()
 }
 
 func NewValidatingAdmissionPolicy(pol v1alpha1.ValidatingAdmissionPolicy) ValidatingAdmissionPolicy {
