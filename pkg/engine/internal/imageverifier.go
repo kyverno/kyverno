@@ -243,8 +243,24 @@ func (iv *ImageVerifier) Verify(
 			iv.ivm.Add(image, true)
 			continue
 		}
+		found, err := iv.ivCache.Get(ctx, iv.policyContext.Policy(), iv.rule.Name, image)
+		if err != nil {
+			iv.logger.WithValues("Count not get cache", err)
+		}
 
-		ruleResp, digest := iv.verifyImage(ctx, imageVerify, imageInfo, cfg)
+		var ruleResp *engineapi.RuleResponse
+		var digest string
+		if found {
+			ruleResp = engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, "verified from cache")
+			digest = imageInfo.Digest
+		} else {
+			verifyImageRuleResponse, imageDigest := iv.verifyImage(ctx, imageVerify, imageInfo, cfg)
+			ruleResp = verifyImageRuleResponse
+			digest = imageDigest
+			if ruleResp.Status() == engineapi.RuleStatusPass {
+				iv.ivCache.Set(ctx, iv.policyContext.Policy(), iv.rule.Name, image)
+			}
+		}
 
 		if imageVerify.MutateDigest {
 			patch, retrievedDigest, err := iv.handleMutateDigest(ctx, digest, imageInfo)
