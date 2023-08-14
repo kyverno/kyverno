@@ -40,6 +40,8 @@ jobs:
             values:
               - standard
         k8s-version:
+          - name: v1.23
+            version: v1.23.17
           - name: v1.24
             version: v1.24.12
           - name: v1.25
@@ -111,6 +113,8 @@ jobs:
               - standard
               - force-failure-policy-ignore
         k8s-version:
+          - name: v1.23
+            version: v1.23.17
           - name: v1.24
             version: v1.24.12
           - name: v1.25
@@ -166,6 +170,8 @@ jobs:
             values:
               - default
         k8s-version:
+          - name: v1.23
+            version: v1.23.17
           - name: v1.24
             version: v1.24.12
           - name: v1.25
