@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -923,4 +924,89 @@ func Test_ParsePEMDelimited(t *testing.T) {
 	assert.Assert(t, verifiedImages.Data != nil)
 	assert.Equal(t, len(verifiedImages.Data), 1)
 	assert.Equal(t, verifiedImages.IsVerified(image), true)
+}
+
+func testImageVerifyCache(
+	ivCache imageverifycache.Client,
+	ctx context.Context,
+	rclient registryclient.Client,
+	cmResolver engineapi.ConfigmapResolver,
+	pContext engineapi.PolicyContext,
+	cfg config.Configuration,
+) (engineapi.EngineResponse, engineapi.ImageVerificationMetadata) {
+	e := NewEngine(
+		cfg,
+		metricsCfg,
+		jp,
+		nil,
+		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+		ivCache,
+		factories.DefaultContextLoaderFactory(cmResolver),
+		nil,
+		"",
+	)
+	return e.VerifyAndPatchImages(
+		ctx,
+		pContext,
+	)
+}
+
+func Test_ImageVerifyCache(t *testing.T) {
+
+	opts := []imageverifycache.Option{
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(1000),
+		imageverifycache.WithTTLDuration(3600 * time.Second),
+	}
+	imageVerifyCache, err := imageverifycache.New(opts...)
+
+	if err != nil {
+		fmt.Println("errro occured")
+	}
+
+	policyContext := buildContext(t, testPolicyGood, testResource, "")
+	err = cosign.SetMock("ghcr.io/jimbugwadia/pause2:latest", attestationPayloads)
+	assert.NilError(t, err)
+
+	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+	assert.Equal(t, ivm.IsEmpty(), false)
+	assert.Equal(t, ivm.IsVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
+
+	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+	assert.Equal(t, ivm.IsEmpty(), false)
+	assert.Equal(t, ivm.IsVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
+}
+
+func Test_ImageVerifyCacheExpired(t *testing.T) {
+
+	opts := []imageverifycache.Option{
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(1000),
+		imageverifycache.WithTTLDuration(1),
+	}
+	imageVerifyCache, err := imageverifycache.New(opts...)
+
+	if err != nil {
+		fmt.Println("errro occured")
+	}
+
+	policyContext := buildContext(t, testPolicyGood, testResource, "")
+	err = cosign.SetMock("ghcr.io/jimbugwadia/pause2:latest", attestationPayloads)
+	assert.NilError(t, err)
+
+	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+	assert.Equal(t, ivm.IsEmpty(), false)
+	assert.Equal(t, ivm.IsVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
+	time.Sleep(1 * time.Minute)
+	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+	assert.Equal(t, ivm.IsEmpty(), false)
+	assert.Equal(t, ivm.IsVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
 }

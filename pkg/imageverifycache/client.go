@@ -10,11 +10,6 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 )
 
-const (
-	defaultTTL     = 1 * time.Hour
-	defaultMaxSize = 1000
-)
-
 type cache struct {
 	logger         logr.Logger
 	isCacheEnabled bool
@@ -71,9 +66,6 @@ func WithCacheEnableFlag(b bool) Option {
 
 func WithMaxSize(s int64) Option {
 	return func(c *cache) error {
-		if s <= 0 {
-			s = defaultMaxSize
-		}
 		c.maxSize = s
 		return nil
 	}
@@ -81,10 +73,7 @@ func WithMaxSize(s int64) Option {
 
 func WithTTLDuration(t time.Duration) Option {
 	return func(c *cache) error {
-		if t <= 0 {
-			t = defaultTTL
-		}
-		c.ttl = t
+		c.ttl = t * time.Minute
 		return nil
 	}
 }
@@ -104,6 +93,7 @@ func (c *cache) Set(ctx context.Context, policy kyvernov1.PolicyInterface, ruleN
 	key := generateKey(policy, ruleName, imageRef)
 
 	stored := c.cache.SetWithTTL(key, nil, 1, c.ttl)
+	c.cache.Wait()
 	if stored {
 		c.logger.WithValues("Successfully set cache", "namespace", policy.GetNamespace(), "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
 		return true, nil
