@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -98,7 +99,7 @@ func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unst
 	annotations := resource.GetAnnotations()
 	if annotations != nil {
 		resource = *resource.DeepCopy()
-		delete(annotations, "kyverno.io/verify-images")
+		delete(annotations, kyverno.AnnotationImageVerify)
 		resource.SetAnnotations(annotations)
 	}
 	policyCtx, err := engine.NewPolicyContext(s.jp, resource, kyvernov1.Create, nil, s.config)

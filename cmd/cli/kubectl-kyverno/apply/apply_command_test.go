@@ -176,8 +176,27 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../test/cli/test-vap/check-deployments-replica/policy.yaml"},
-				ResourcePaths: []string{"../../../../test/cli/test-vap/check-deployments-replica/deployment1.yaml"},
+				PolicyPaths:   []string{"../../../../test/cli/apply/policies-set"},
+				ResourcePaths: []string{"../../../../test/cli/apply/resources-set"},
+				Variables:     []string{"request.operation=UPDATE"},
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []preport.PolicyReport{
+				{
+					Summary: preport.PolicyReportSummary{
+						Pass:  2,
+						Fail:  0,
+						Skip:  4,
+						Error: 0,
+						Warn:  0,
+					},
+				},
+			},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/check-deployments-replica/policy.yaml"},
+				ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/check-deployments-replica/deployment1.yaml"},
 				PolicyReport:  true,
 			},
 			expectedPolicyReports: []preport.PolicyReport{
@@ -194,8 +213,8 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../test/cli/test-vap/check-deployments-replica/policy.yaml"},
-				ResourcePaths: []string{"../../../../test/cli/test-vap/check-deployments-replica/deployment2.yaml"},
+				PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/check-deployments-replica/policy.yaml"},
+				ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/check-deployments-replica/deployment2.yaml"},
 				PolicyReport:  true,
 			},
 			expectedPolicyReports: []preport.PolicyReport{
@@ -212,8 +231,8 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../test/cli/test-vap/disallow-host-path/policy.yaml"},
-				ResourcePaths: []string{"../../../../test/cli/test-vap/disallow-host-path/pod1.yaml"},
+				PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/disallow-host-path/policy.yaml"},
+				ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod1.yaml"},
 				PolicyReport:  true,
 			},
 			expectedPolicyReports: []preport.PolicyReport{
@@ -230,8 +249,8 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../test/cli/test-vap/disallow-host-path/policy.yaml"},
-				ResourcePaths: []string{"../../../../test/cli/test-vap/disallow-host-path/pod2.yaml"},
+				PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/disallow-host-path/policy.yaml"},
+				ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod2.yaml"},
 				PolicyReport:  true,
 			},
 			expectedPolicyReports: []preport.PolicyReport{

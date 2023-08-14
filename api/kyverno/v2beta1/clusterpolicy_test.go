@@ -45,7 +45,7 @@ func Test_ClusterPolicy_Autogen_All(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "policy",
 			Annotations: map[string]string{
-				kyverno.PodControllersAnnotation: "all",
+				kyverno.AnnotationAutogenControllers: "all",
 			},
 		},
 	}

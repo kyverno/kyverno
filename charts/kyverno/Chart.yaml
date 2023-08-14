@@ -26,6 +26,8 @@ annotations:
       url: https://kyverno.io/docs
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
+    - kind: changed
+      description: only create ServiceMonitor if cluster supports it
     - kind: fixed
       description: rbac templating issues
     - kind: added
@@ -58,3 +60,5 @@ annotations:
       description: allow affinity settings for cleanup jobs
     - kind: added
       description: Add helper to handle the labels for cleanup jobs, add component label
+    - kind: added
+      description: allow podSecurityContext and securityContext for webhooksCleanup

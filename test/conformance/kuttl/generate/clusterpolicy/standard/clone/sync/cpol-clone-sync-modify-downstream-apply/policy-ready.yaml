@@ -1,7 +1,7 @@
-apiVersion: kyverno.io/v1
+apiVersion: kyverno.io/v2beta1
 kind: ClusterPolicy
 metadata:
-  name: secret-in-keys
+  name: cpol-clone-sync-modify-downstream-apply
 status:
   conditions:
   - reason: Succeeded

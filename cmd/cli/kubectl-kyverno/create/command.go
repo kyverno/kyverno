@@ -1,8 +1,10 @@
 package create
 
 import (
+	metricsconfig "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/create/metrics-config"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/create/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/create/userinfo"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/create/values"
 	"github.com/spf13/cobra"
 )
 
@@ -14,6 +16,11 @@ func Command() *cobra.Command {
 			return cmd.Help()
 		},
 	}
-	cmd.AddCommand(test.Command(), userinfo.Command())
+	cmd.AddCommand(
+		metricsconfig.Command(),
+		test.Command(),
+		userinfo.Command(),
+		values.Command(),
+	)
 	return cmd
 }

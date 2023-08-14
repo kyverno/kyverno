@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/go-git/go-billy/v5/memfs"
-	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/color"
@@ -147,7 +146,7 @@ More info: https://kyverno.io/docs/kyverno-cli/
 
 func Command() *cobra.Command {
 	var cmd *cobra.Command
-	var removeColor, compact, table bool
+	var removeColor, detailedResults, table bool
 	applyCommandConfig := &ApplyCommandConfig{}
 	cmd = &cobra.Command{
 		Use:     "apply",
@@ -172,7 +171,7 @@ func Command() *cobra.Command {
 			if applyCommandConfig.PolicyReport {
 				printReport(responses, applyCommandConfig.AuditWarn)
 			} else if table {
-				printTable(compact, applyCommandConfig.AuditWarn, responses...)
+				printTable(detailedResults, applyCommandConfig.AuditWarn, responses...)
 			} else {
 				printViolations(rc)
 			}
@@ -198,7 +197,7 @@ func Command() *cobra.Command {
 	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	cmd.Flags().BoolVar(&applyCommandConfig.warnNoPassed, "warn-no-pass", false, "Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag")
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
-	cmd.Flags().BoolVar(&compact, "compact", true, "Does not show detailed results")
+	cmd.Flags().BoolVar(&detailedResults, "detailed-results", false, "If set to true, display detailed results")
 	cmd.Flags().BoolVarP(&table, "table", "t", false, "Show results in table format")
 	return cmd
 }
@@ -332,9 +331,6 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
 		osExit(1)
 	}
-	if (len(resources) > 1 || len(policies) > 1) && c.Variables != nil {
-		return nil, resources, skipInvalidPolicies, nil, sanitizederror.NewWithError("currently `set` flag supports variable for single policy applied on single resource ", nil)
-	}
 	// init variables
 	if len(variables) != 0 {
 		variables = common.SetInStoreContext(policies, variables)
@@ -403,52 +399,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 			if err != nil {
 				return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}
-			for _, response := range ers {
-				if !response.IsEmpty() {
-					for _, rule := range autogen.ComputeRules(response.Policy()) {
-						if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
-							ruleFoundInEngineResponse := false
-							for _, valResponseRule := range response.PolicyResponse.Rules {
-								if rule.Name == valResponseRule.Name() {
-									ruleFoundInEngineResponse = true
-									switch valResponseRule.Status() {
-									case engineapi.RuleStatusPass:
-										rc.Pass++
-									case engineapi.RuleStatusFail:
-										ann := policy.GetAnnotations()
-										if scored, ok := ann[kyverno.AnnotationPolicyScored]; ok && scored == "false" {
-											rc.Warn++
-											break
-										} else if applyPolicyConfig.AuditWarn && response.GetValidationFailureAction().Audit() {
-											rc.Warn++
-										} else {
-											rc.Fail++
-										}
-									case engineapi.RuleStatusError:
-										rc.Error++
-									case engineapi.RuleStatusWarn:
-										rc.Warn++
-									case engineapi.RuleStatusSkip:
-										rc.Skip++
-									}
-									continue
-								}
-							}
-							if !ruleFoundInEngineResponse {
-								rc.Skip++
-								response.PolicyResponse.Rules = append(response.PolicyResponse.Rules,
-									*engineapi.RuleSkip(
-										rule.Name,
-										engineapi.Validation,
-										rule.Validation.Message,
-									),
-								)
-							}
-						}
-					}
-				}
-				responses = append(responses, response)
-			}
+			responses = append(responses, processSkipEngineResponses(ers, applyPolicyConfig)...)
 		}
 	}
 
@@ -521,4 +472,33 @@ func exit(rc *common.ResultCounts, warnExitCode int, warnNoPassed bool) {
 	} else if rc.Pass == 0 && warnNoPassed {
 		osExit(warnExitCode)
 	}
+}
+
+func processSkipEngineResponses(responses []engineapi.EngineResponse, c common.ApplyPolicyConfig) []engineapi.EngineResponse {
+	var processedEngineResponses []engineapi.EngineResponse
+	for _, response := range responses {
+		if !response.IsEmpty() {
+			for _, rule := range autogen.ComputeRules(response.Policy()) {
+				if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
+					ruleFoundInEngineResponse := false
+					for _, valResponseRule := range response.PolicyResponse.Rules {
+						if rule.Name == valResponseRule.Name() {
+							ruleFoundInEngineResponse = true
+						}
+					}
+					if !ruleFoundInEngineResponse {
+						response.PolicyResponse.Rules = append(response.PolicyResponse.Rules,
+							*engineapi.RuleSkip(
+								rule.Name,
+								engineapi.Validation,
+								rule.Validation.Message,
+							),
+						)
+					}
+				}
+			}
+		}
+		processedEngineResponses = append(processedEngineResponses, response)
+	}
+	return processedEngineResponses
 }

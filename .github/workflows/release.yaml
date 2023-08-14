@@ -135,7 +135,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.7.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.8.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/kyverno
       digest: "${{ needs.release-images.outputs.kyverno-digest }}"
@@ -150,7 +150,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.7.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.8.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/kyvernopre
       digest: "${{ needs.release-images.outputs.kyverno-init-digest }}"
@@ -165,7 +165,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.7.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.8.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/background-controller
       digest: "${{ needs.release-images.outputs.background-controller-digest }}"
@@ -180,7 +180,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.7.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.8.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/cleanup-controller
       digest: "${{ needs.release-images.outputs.cleanup-controller-digest }}"
@@ -195,7 +195,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.7.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.8.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/kyverno-cli
       digest: "${{ needs.release-images.outputs.cli-digest }}"
@@ -210,7 +210,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.7.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.8.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/reports-controller
       digest: "${{ needs.release-images.outputs.reports-controller-digest }}"
@@ -241,7 +241,7 @@ jobs:
           make release-notes > release/release-notes.out
           cat release/release-notes.out
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@336e29918d653399e599bfca99fadc1d7ffbc9f7 # v4.3.0
+        uses: goreleaser/goreleaser-action@3fa32b8bb5620a2c1afe798654bbad59f9da4906 # v4.4.0
         with:
           version: latest
           args: release --rm-dist --debug --release-notes=release/release-notes.out
@@ -269,14 +269,14 @@ jobs:
       - name: Build yaml manifest
         run: VERSION=${{ github.ref_name }} make codegen-manifest-release
       - name: Upload install manifest
-        uses: svenstaro/upload-release-action@2b9d2847a97b04d02ad5c3df2d3a27baa97ce689 # 2.6.1
+        uses: svenstaro/upload-release-action@1beeb572c19a9242f4361f4cee78f8e0d9aec5df # 2.7.0
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: .manifest/release.yaml
           asset_name: install.yaml
           tag: ${{ github.ref }}
       - name: Upload CRD manifest
-        uses: svenstaro/upload-release-action@2b9d2847a97b04d02ad5c3df2d3a27baa97ce689 # 2.6.1
+        uses: svenstaro/upload-release-action@1beeb572c19a9242f4361f4cee78f8e0d9aec5df # 2.7.0
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: config/crds/*.yaml
