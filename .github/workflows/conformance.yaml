@@ -30,7 +30,7 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
-  # runs conformance test suites with configuration:
+  # runs conformance test suites with configuration 1.23 to 1.27:
   standard:
     strategy:
       fail-fast: false
