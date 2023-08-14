@@ -39095,27 +39095,18 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
-  namespace: kyverno
 rules:
   - apiGroups:
       - ''
     resources:
       - secrets
     verbs:
-      - create
-  - apiGroups:
-      - ''
-    resources:
-      - secrets
-    verbs:
-      - delete
       - get
       - list
-      - update
       - watch
-    resourceNames:
-      - kyverno-cleanup-controller.kyverno.svc.kyverno-tls-ca
-      - kyverno-cleanup-controller.kyverno.svc.kyverno-tls-pair
+      - create
+      - update
+      - delete
   - apiGroups:
       - ''
     resources:
