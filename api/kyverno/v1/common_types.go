@@ -174,7 +174,8 @@ type ServiceCall struct {
 	CABundle string `json:"caBundle" yaml:"caBundle"`
 
 	// CABundleFromSecret is a Reference to a CABundleFromSecret resource that contains a CABundle
-	CABundleFromSecret *SecretReference `json:"caBundleFromSecret,omitempty" yaml:"caBundleFromSecret,omitempty"`
+	// +kubebuilder:validation:Optional
+	CABundleFromSecret *SecretReference `json:"caBundleFromSecret" yaml:"caBundleFromSecret"`
 }
 
 // Method is a HTTP request type.
