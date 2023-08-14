@@ -201,7 +201,7 @@ func (a *apiCall) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client,
 	if service.CABundle == "" && service.CABundleFromSecret != nil {
 		secret, err := a.secretLister.Secrets(service.CABundleFromSecret.Namespace).Get(service.CABundleFromSecret.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get CA bundle from secret for APICall %s", a.entry.Name)
+			return nil, fmt.Errorf("failed to get CA bundle from secret for APICall %v name: %v, namespace: %s", err, service.CABundleFromSecret.Name, service.CABundleFromSecret.Namespace)
 		}
 		if secret.Type != corev1.SecretTypeTLS {
 			return nil, fmt.Errorf("secret %s must be of type %s", secret.Name, corev1.SecretTypeTLS)

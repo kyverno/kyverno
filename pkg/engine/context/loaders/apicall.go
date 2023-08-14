@@ -34,12 +34,13 @@ func NewAPILoader(
 	secretLister corev1listers.SecretLister,
 ) enginecontext.Loader {
 	return &apiLoader{
-		ctx:       ctx,
-		logger:    logger,
-		entry:     entry,
-		enginectx: enginectx,
-		jp:        jp,
-		client:    client,
+		ctx:          ctx,
+		logger:       logger,
+		entry:        entry,
+		enginectx:    enginectx,
+		jp:           jp,
+		client:       client,
+		secretLister: secretLister,
 	}
 }
 
