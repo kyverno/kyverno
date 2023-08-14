@@ -4,6 +4,7 @@ metadata:
    name: test-pod-1
    labels:
      foo: bar
+     op: UPDATE
 spec:
    containers:
      - name: nginx
@@ -15,6 +16,7 @@ metadata:
    name: test-pod-2
    labels:
      foo: bar
+     op: UPDATE
 spec:
    containers:
      - name: nginx

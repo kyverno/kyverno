@@ -178,7 +178,7 @@ func Test_Apply(t *testing.T) {
 			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../../../test/cli/apply/policies-set"},
 				ResourcePaths: []string{"../../../../test/cli/apply/resources-set"},
-				Variables:     []string{},
+				Variables:     []string{"request.operation=UPDATE"},
 				PolicyReport:  true,
 			},
 			expectedPolicyReports: []preport.PolicyReport{

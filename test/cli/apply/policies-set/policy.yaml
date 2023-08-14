@@ -17,4 +17,4 @@ spec:
          pattern:
            metadata:
              labels:
-               foo: bar               
+               op: "{{ request.operation }}"              
