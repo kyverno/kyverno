@@ -986,7 +986,7 @@ func Test_ImageVerifyCacheExpired(t *testing.T) {
 	opts := []imageverifycache.Option{
 		imageverifycache.WithCacheEnableFlag(true),
 		imageverifycache.WithMaxSize(1000),
-		imageverifycache.WithTTLDuration(1),
+		imageverifycache.WithTTLDuration(20 * time.Second),
 	}
 	imageVerifyCache, err := imageverifycache.New(opts...)
 
@@ -1003,7 +1003,7 @@ func Test_ImageVerifyCacheExpired(t *testing.T) {
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
 	assert.Equal(t, ivm.IsEmpty(), false)
 	assert.Equal(t, ivm.IsVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
-	time.Sleep(1 * time.Minute)
+	time.Sleep(20 * time.Second)
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
