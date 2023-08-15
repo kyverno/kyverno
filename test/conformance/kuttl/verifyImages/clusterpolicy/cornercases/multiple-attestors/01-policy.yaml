@@ -25,6 +25,10 @@ spec:
                 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM
                 5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
                 -----END PUBLIC KEY-----
+              rekor:
+                url: https://rekor.sigstore.dev
+                ignoreTlog: true
+                ignoreSCT: true
         imageReferences:
         - ghcr.io/kyverno/test-verify-image:*
         mutateDigest: true
@@ -46,6 +50,10 @@ spec:
                 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEOUD2uzRHLnx1oH6XAnF+8haL73BF
                 zh9pMI1x1/c4Nj/w+rsrgMCDyV/S8hmsXEbizhYD3QndVtV1piBDfDIb8w==
                 -----END PUBLIC KEY-----
+              rekor:
+                url: https://rekor.sigstore.dev
+                ignoreTlog: true
+                ignoreSCT: true
         imageReferences:
         - my.local.repo/*
         mutateDigest: false
