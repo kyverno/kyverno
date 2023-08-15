@@ -72,11 +72,10 @@ func applyUpdateRequest(
 
 func transform(admissionRequestInfo kyvernov1beta1.AdmissionRequestInfoObject, userRequestInfo kyvernov1beta1.RequestInfo, er *engineapi.EngineResponse, ruleType kyvernov1beta1.RequestType) (urs []kyvernov1beta1.UpdateRequestSpec) {
 	var PolicyNameNamespaceKey string
-	pol := er.Policy().GetPolicy().(kyvernov1.PolicyInterface)
-	if pol.GetNamespace() != "" {
-		PolicyNameNamespaceKey = pol.GetNamespace() + "/" + pol.GetName()
+	if er.Policy().GetNamespace() != "" {
+		PolicyNameNamespaceKey = er.Policy().GetNamespace() + "/" + er.Policy().GetName()
 	} else {
-		PolicyNameNamespaceKey = pol.GetName()
+		PolicyNameNamespaceKey = er.Policy().GetName()
 	}
 
 	for _, rule := range er.PolicyResponse.Rules {
