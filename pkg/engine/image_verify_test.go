@@ -97,6 +97,66 @@ var testPolicyGood = `{
   }
 }`
 
+var testChangedPolicyGood = `{
+	"apiVersion": "kyverno.io/v1",
+	"kind": "ClusterPolicy",
+	"metadata": {
+	  "name": "attest-2"
+	},
+	"spec": {
+	  "rules": [
+		{
+		  "name": "attest-testing",
+		  "match": {
+			"resources": {
+			  "kinds": [
+				"Pod"
+			  ]
+			}
+		  },
+		  "verifyImages": [
+			{
+			  "image": "*",
+			  "key": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHMmDjK65krAyDaGaeyWNzgvIu155JI50B2vezCw8+3CVeE0lJTL5dbL3OP98Za0oAEBJcOxky8Riy/XcmfKZbw==\n-----END PUBLIC KEY-----",
+			  "attestations": [
+				{
+				  "predicateType": "https://example.com/CodeReview/v1",
+				  "attestors": [
+					  {
+						  "entries": [
+							  {
+								  "keys": {
+									  "publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHMmDjK65krAyDaGaeyWNzgvIu155JI50B2vezCw8+3CVeE0lJTL5dbL3OP98Za0oAEBJcOxky8Riy/XcmfKZbw==\n-----END PUBLIC KEY-----"
+								  }
+							  }
+						  ]
+					  }
+				  ],
+				  "conditions": [
+					{
+					  "all": [
+						{
+						  "key": "{{ repo.uri }}",
+						  "operator": "Equals",
+						  "value": "https://github.com/example/my-project"
+						},
+						{
+						  "key": "{{ repo.branch }}",
+						  "operator": "Equals",
+						  "value": "main"
+						}
+					  ]
+					}
+				  ]
+				}
+			  ]
+			}
+		  ]
+		}
+	  ]
+	}
+  }`
+
 var testPolicyBad = `{
   "apiVersion": "kyverno.io/v1",
   "kind": "ClusterPolicy",
@@ -956,7 +1016,7 @@ func Test_ImageVerifyCache(t *testing.T) {
 	opts := []imageverifycache.Option{
 		imageverifycache.WithCacheEnableFlag(true),
 		imageverifycache.WithMaxSize(1000),
-		imageverifycache.WithTTLDuration(3600 * time.Second),
+		imageverifycache.WithTTLDuration(24 * time.Hour),
 	}
 	imageVerifyCache, err := imageverifycache.New(opts...)
 
@@ -967,14 +1027,20 @@ func Test_ImageVerifyCache(t *testing.T) {
 	policyContext := buildContext(t, testPolicyGood, testResource, "")
 	err = cosign.SetMock("ghcr.io/jimbugwadia/pause2:latest", attestationPayloads)
 	assert.NilError(t, err)
-
+	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	end := time.Now()
+	duration := end.Sub(start)
+	fmt.Printf("First Operation took %v\n", duration)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
 	assert.Equal(t, ivm.IsEmpty(), false)
 	assert.Equal(t, ivm.IsVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
-
+	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	end = time.Now()
+	duration = end.Sub(start)
+	fmt.Printf("Second Operation took %v\n", duration)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
 	assert.Equal(t, ivm.IsEmpty(), false)
@@ -997,14 +1063,58 @@ func Test_ImageVerifyCacheExpired(t *testing.T) {
 	policyContext := buildContext(t, testPolicyGood, testResource, "")
 	err = cosign.SetMock("ghcr.io/jimbugwadia/pause2:latest", attestationPayloads)
 	assert.NilError(t, err)
-
+	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	end := time.Now()
+	duration := end.Sub(start)
+	fmt.Printf("First Operation took %v\n", duration)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
 	assert.Equal(t, ivm.IsEmpty(), false)
 	assert.Equal(t, ivm.IsVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
 	time.Sleep(20 * time.Second)
+	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	end = time.Now()
+	duration = end.Sub(start)
+	fmt.Printf("Second Operation took %v\n", duration)
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+	assert.Equal(t, ivm.IsEmpty(), false)
+	assert.Equal(t, ivm.IsVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
+}
+
+func Test_changePolicyCacheVerification(t *testing.T) {
+	opts := []imageverifycache.Option{
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(1000),
+		imageverifycache.WithTTLDuration(60 * time.Minute),
+	}
+	imageVerifyCache, err := imageverifycache.New(opts...)
+
+	if err != nil {
+		fmt.Println("errro occured")
+	}
+
+	policyContext := buildContext(t, testPolicyGood, testResource, "")
+	err = cosign.SetMock("ghcr.io/jimbugwadia/pause2:latest", attestationPayloads)
+	assert.NilError(t, err)
+	start := time.Now()
+	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	end := time.Now()
+	duration := end.Sub(start)
+	fmt.Printf("First Operation took %v\n", duration)
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+	assert.Equal(t, ivm.IsEmpty(), false)
+	assert.Equal(t, ivm.IsVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
+
+	policyContext = buildContext(t, testChangedPolicyGood, testResource, "")
+	start = time.Now()
+	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	end = time.Now()
+	duration = end.Sub(start)
+	fmt.Printf("Second Operation took %v\n", duration)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
 	assert.Equal(t, ivm.IsEmpty(), false)
