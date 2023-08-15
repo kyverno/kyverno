@@ -6,10 +6,10 @@ import (
 
 	"github.com/distribution/distribution/reference"
 	"github.com/kyverno/kyverno/pkg/config"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"github.com/kyverno/kyverno/pkg/logging"
 )
 
-var logger = log.Log.WithName("image")
+var logger = logging.GlobalLogger().WithName("image")
 
 type ImageInfo struct {
 	// Registry is the URL address of the image registry e.g. `docker.io`
