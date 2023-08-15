@@ -478,7 +478,12 @@ func processSkipEngineResponses(responses []engineapi.EngineResponse, c common.A
 	var processedEngineResponses []engineapi.EngineResponse
 	for _, response := range responses {
 		if !response.IsEmpty() {
-			for _, rule := range autogen.ComputeRules(response.Policy()) {
+			pol := response.Policy()
+			if polType := pol.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
+				return processedEngineResponses
+			}
+
+			for _, rule := range autogen.ComputeRules(pol.GetPolicy().(kyvernov1.PolicyInterface)) {
 				if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
 					ruleFoundInEngineResponse := false
 					for _, valResponseRule := range response.PolicyResponse.Rules {
