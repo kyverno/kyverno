@@ -1,0 +1,16 @@
+name: test-image-verify-signature
+policies:
+  - policy.yml
+resources:
+  - resources.yaml
+results:
+  - policy: check-image
+    rule: verify-signature
+    resource: signed-first
+    kind: Pod
+    status: fail
+  - policy: check-image
+    rule: verify-signature
+    resource: unsigned-first
+    kind: Pod
+    status: fail
