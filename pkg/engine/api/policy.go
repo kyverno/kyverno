@@ -15,7 +15,9 @@ const (
 	ValidatingAdmissionPolicyType PolicyType = "ValidatingAdmissionPolicy"
 )
 
-type Policy interface {
+// GenericPolicy abstracts the policy type (Kyverno policy vs Validating admission policy)
+// It is intended to be used in EngineResponse
+type GenericPolicy interface {
 	// GetPolicy returns either kyverno policy or validating admission policy
 	GetPolicy() interface{}
 	// GetType returns policy type

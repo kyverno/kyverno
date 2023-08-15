@@ -16,7 +16,7 @@ type EngineResponse struct {
 	// Resource is the original resource
 	Resource unstructured.Unstructured
 	// Policy is the original policy
-	policy Policy
+	policy GenericPolicy
 	// namespaceLabels given by policy context
 	namespaceLabels map[string]string
 	// PatchedResource is the resource patched with the engine action changes
@@ -45,7 +45,7 @@ func NewEngineResponseFromPolicyContext(policyContext PolicyContext) EngineRespo
 
 func NewEngineResponse(
 	resource unstructured.Unstructured,
-	policy Policy,
+	policy GenericPolicy,
 	namespaceLabels map[string]string,
 ) EngineResponse {
 	return EngineResponse{
@@ -56,7 +56,7 @@ func NewEngineResponse(
 	}
 }
 
-func (er EngineResponse) WithPolicy(policy Policy) EngineResponse {
+func (er EngineResponse) WithPolicy(policy GenericPolicy) EngineResponse {
 	er.policy = policy
 	return er
 }
@@ -85,7 +85,7 @@ func (er *EngineResponse) NamespaceLabels() map[string]string {
 	return er.namespaceLabels
 }
 
-func (er *EngineResponse) Policy() Policy {
+func (er *EngineResponse) Policy() GenericPolicy {
 	return er.policy
 }
 
