@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/sigstore/cosign/pkg/oci/remote"
+	"github.com/sigstore/cosign/v2/pkg/oci/remote"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
