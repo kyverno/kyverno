@@ -15,7 +15,7 @@ func setupImageVerifyCache(ctx context.Context, logger logr.Logger) imageverifyc
 		imageverifycache.WithLogger(logger),
 		imageverifycache.WithCacheEnableFlag(imageVerifyCacheEnabled),
 		imageverifycache.WithMaxSize(imageVerifyCacheMaxSize),
-		imageverifycache.WithTTLDuration(time.Duration(imageVerifyCacheTTLDuration)),
+		imageverifycache.WithTTLDuration(time.Duration(imageVerifyCacheTTLDuration) * time.Minute),
 	}
 	imageVerifyCache, err := imageverifycache.New(opts...)
 	checkError(logger, err, "failed to create image verify cache client")
