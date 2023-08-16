@@ -43,6 +43,6 @@ data:
   webhookAnnotations: {{ toJson . | quote }}
   {{- end }}
   {{- with .Values.config.matchConditions }}
-  webhookAnnotations: {{ toJson . | quote }}
+  matchConditions: {{ toJson . | quote }}
   {{- end }}
 {{- end -}}
