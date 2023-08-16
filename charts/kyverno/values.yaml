@@ -210,6 +210,9 @@ config:
     # Example to disable admission enforcer on AKS:
     # 'admissions.enforcer/disabled': 'true'
 
+  # -- Defines match conditions to set on webhook configurations.
+  matchConditions: []
+
   # -- Exclude Kyverno namespace
   # Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters
   excludeKyvernoNamespace: true
