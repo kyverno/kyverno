@@ -1021,7 +1021,7 @@ func Test_ImageVerifyCache(t *testing.T) {
 	imageVerifyCache, err := imageverifycache.New(opts...)
 
 	if err != nil {
-		fmt.Println("errro occured")
+		fmt.Println("error occurred")
 	}
 
 	policyContext := buildContext(t, testPolicyGood, testResource, "")
@@ -1057,7 +1057,7 @@ func Test_ImageVerifyCacheExpired(t *testing.T) {
 	imageVerifyCache, err := imageverifycache.New(opts...)
 
 	if err != nil {
-		fmt.Println("errro occured")
+		fmt.Println("error occurred")
 	}
 
 	policyContext := buildContext(t, testPolicyGood, testResource, "")
@@ -1093,7 +1093,7 @@ func Test_changePolicyCacheVerification(t *testing.T) {
 	imageVerifyCache, err := imageverifycache.New(opts...)
 
 	if err != nil {
-		fmt.Println("errro occured")
+		fmt.Println("error occurred")
 	}
 
 	policyContext := buildContext(t, testPolicyGood, testResource, "")
