@@ -518,6 +518,7 @@ func (c *controller) buildVerifyMutatingWebhookConfiguration(_ context.Context, 
 						"app.kubernetes.io/name": kyverno.ValueKyvernoApp,
 					},
 				},
+				MatchConditions: cfg.GetMatchConditions(),
 			}},
 		},
 		nil
@@ -541,6 +542,7 @@ func (c *controller) buildPolicyMutatingWebhookConfiguration(_ context.Context, 
 				SideEffects:             &noneOnDryRun,
 				ReinvocationPolicy:      &ifNeeded,
 				AdmissionReviewVersions: []string{"v1"},
+				MatchConditions:         cfg.GetMatchConditions(),
 			}},
 		},
 		nil
@@ -563,6 +565,7 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(_ context.Context
 				TimeoutSeconds:          &c.defaultTimeout,
 				SideEffects:             &none,
 				AdmissionReviewVersions: []string{"v1"},
+				MatchConditions:         cfg.GetMatchConditions(),
 			}},
 		},
 		nil
@@ -590,6 +593,7 @@ func (c *controller) buildDefaultResourceMutatingWebhookConfiguration(_ context.
 				AdmissionReviewVersions: []string{"v1"},
 				TimeoutSeconds:          &c.defaultTimeout,
 				ReinvocationPolicy:      &ifNeeded,
+				MatchConditions:         cfg.GetMatchConditions(),
 			}, {
 				Name:         config.MutatingWebhookName + "-fail",
 				ClientConfig: c.clientConfig(caBundle, config.MutatingWebhookServicePath+"/fail"),
@@ -609,6 +613,7 @@ func (c *controller) buildDefaultResourceMutatingWebhookConfiguration(_ context.
 				AdmissionReviewVersions: []string{"v1"},
 				TimeoutSeconds:          &c.defaultTimeout,
 				ReinvocationPolicy:      &ifNeeded,
+				MatchConditions:         cfg.GetMatchConditions(),
 			}},
 		},
 		nil
@@ -659,6 +664,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 					ObjectSelector:          webhookCfg.ObjectSelector,
 					TimeoutSeconds:          &timeout,
 					ReinvocationPolicy:      &ifNeeded,
+					MatchConditions:         cfg.GetMatchConditions(),
 				},
 			)
 		}
@@ -677,6 +683,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 					ObjectSelector:          webhookCfg.ObjectSelector,
 					TimeoutSeconds:          &timeout,
 					ReinvocationPolicy:      &ifNeeded,
+					MatchConditions:         cfg.GetMatchConditions(),
 				},
 			)
 		}
@@ -713,6 +720,7 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ contex
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
 				TimeoutSeconds:          &c.defaultTimeout,
+				MatchConditions:         cfg.GetMatchConditions(),
 			}, {
 				Name:         config.ValidatingWebhookName + "-fail",
 				ClientConfig: c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/fail"),
@@ -733,6 +741,7 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ contex
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
 				TimeoutSeconds:          &c.defaultTimeout,
+				MatchConditions:         cfg.GetMatchConditions(),
 			}},
 		},
 		nil
@@ -786,6 +795,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 					NamespaceSelector:       webhookCfg.NamespaceSelector,
 					ObjectSelector:          webhookCfg.ObjectSelector,
 					TimeoutSeconds:          &timeout,
+					MatchConditions:         cfg.GetMatchConditions(),
 				},
 			)
 		}
@@ -803,6 +813,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 					NamespaceSelector:       webhookCfg.NamespaceSelector,
 					ObjectSelector:          webhookCfg.ObjectSelector,
 					TimeoutSeconds:          &timeout,
+					MatchConditions:         cfg.GetMatchConditions(),
 				},
 			)
 		}

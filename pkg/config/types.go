@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -46,6 +47,14 @@ func parseExclusions(in string) (exclusions, inclusions []string) {
 
 func parseWebhookAnnotations(in string) (map[string]string, error) {
 	var out map[string]string
+	if err := json.Unmarshal([]byte(in), &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func parseMatchConditions(in string) ([]admissionregistrationv1.MatchCondition, error) {
+	var out []admissionregistrationv1.MatchCondition
 	if err := json.Unmarshal([]byte(in), &out); err != nil {
 		return nil, err
 	}
