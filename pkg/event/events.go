@@ -16,10 +16,12 @@ func NewPolicyFailEvent(source Source, reason Reason, engineResponse engineapi.E
 		action = ResourceBlocked
 	}
 
+	pol := engineResponse.Policy().GetPolicy().(kyvernov1.PolicyInterface)
+
 	return Info{
-		Kind:              getPolicyKind(engineResponse.Policy()),
-		Name:              engineResponse.Policy().GetName(),
-		Namespace:         engineResponse.Policy().GetNamespace(),
+		Kind:              getPolicyKind(pol),
+		Name:              pol.GetName(),
+		Namespace:         pol.GetNamespace(),
 		RelatedAPIVersion: engineResponse.GetResourceSpec().APIVersion,
 		RelatedKind:       engineResponse.GetResourceSpec().Kind,
 		RelatedName:       engineResponse.GetResourceSpec().Name,
@@ -77,9 +79,10 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 		res = fmt.Sprintf("%s %s", resource.GetKind(), resource.GetName())
 	}
 
-	hasValidate := engineResponse.Policy().GetSpec().HasValidate()
-	hasVerifyImages := engineResponse.Policy().GetSpec().HasVerifyImages()
-	hasMutate := engineResponse.Policy().GetSpec().HasMutate()
+	pol := engineResponse.Policy().GetPolicy().(kyvernov1.PolicyInterface)
+	hasValidate := pol.GetSpec().HasValidate()
+	hasVerifyImages := pol.GetSpec().HasVerifyImages()
+	hasMutate := pol.GetSpec().HasMutate()
 
 	var action Action
 	if hasValidate || hasVerifyImages {
@@ -91,9 +94,9 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 	}
 
 	return Info{
-		Kind:              getPolicyKind(engineResponse.Policy()),
-		Name:              engineResponse.Policy().GetName(),
-		Namespace:         engineResponse.Policy().GetNamespace(),
+		Kind:              getPolicyKind(pol),
+		Name:              pol.GetName(),
+		Namespace:         pol.GetNamespace(),
 		RelatedAPIVersion: resource.GetAPIVersion(),
 		RelatedKind:       resource.GetKind(),
 		RelatedName:       resource.GetName(),
@@ -109,7 +112,8 @@ func NewResourceViolationEvent(source Source, reason Reason, engineResponse engi
 	var bldr strings.Builder
 	defer bldr.Reset()
 
-	fmt.Fprintf(&bldr, "policy %s/%s %s: %s", engineResponse.Policy().GetName(),
+	pol := engineResponse.Policy().GetPolicy().(kyvernov1.PolicyInterface)
+	fmt.Fprintf(&bldr, "policy %s/%s %s: %s", pol.GetName(),
 		ruleResp.Name(), ruleResp.Status(), ruleResp.Message())
 	resource := engineResponse.GetResourceSpec()
 
@@ -190,16 +194,17 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 	exception := ruleResp.Exception()
 	exceptionName, exceptionNamespace := exception.GetName(), exception.GetNamespace()
 	policyMessage := fmt.Sprintf("resource %s was skipped from rule %s due to policy exception %s/%s", resourceKey(engineResponse.PatchedResource), ruleResp.Name(), exceptionNamespace, exceptionName)
+	pol := engineResponse.Policy().GetPolicy().(kyvernov1.PolicyInterface)
 	var exceptionMessage string
-	if engineResponse.Policy().GetNamespace() == "" {
-		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s", resourceKey(engineResponse.PatchedResource), engineResponse.Policy().GetName(), ruleResp.Name())
+	if pol.GetNamespace() == "" {
+		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s", resourceKey(engineResponse.PatchedResource), pol.GetName(), ruleResp.Name())
 	} else {
-		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s/%s", resourceKey(engineResponse.PatchedResource), engineResponse.Policy().GetNamespace(), engineResponse.Policy().GetName(), ruleResp.Name())
+		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s/%s", resourceKey(engineResponse.PatchedResource), pol.GetNamespace(), pol.GetName(), ruleResp.Name())
 	}
 	policyEvent := Info{
-		Kind:              getPolicyKind(engineResponse.Policy()),
-		Name:              engineResponse.Policy().GetName(),
-		Namespace:         engineResponse.Policy().GetNamespace(),
+		Kind:              getPolicyKind(pol),
+		Name:              pol.GetName(),
+		Namespace:         pol.GetNamespace(),
 		RelatedAPIVersion: engineResponse.PatchedResource.GetAPIVersion(),
 		RelatedKind:       engineResponse.PatchedResource.GetKind(),
 		RelatedName:       engineResponse.PatchedResource.GetName(),

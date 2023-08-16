@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/tracing"
@@ -31,6 +32,7 @@ type engine struct {
 	jp                       jmespath.Interface
 	client                   engineapi.Client
 	rclientFactory           engineapi.RegistryClientFactory
+	ivCache                  imageverifycache.Client
 	contextLoader            engineapi.ContextLoaderFactory
 	exceptionSelector        engineapi.PolicyExceptionSelector
 	imageSignatureRepository string
@@ -47,6 +49,7 @@ func NewEngine(
 	jp jmespath.Interface,
 	client engineapi.Client,
 	rclientFactory engineapi.RegistryClientFactory,
+	ivCache imageverifycache.Client,
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,
 	imageSignatureRepository string,
@@ -72,6 +75,7 @@ func NewEngine(
 		jp:                       jp,
 		client:                   client,
 		rclientFactory:           rclientFactory,
+		ivCache:                  ivCache,
 		contextLoader:            contextLoader,
 		exceptionSelector:        exceptionSelector,
 		imageSignatureRepository: imageSignatureRepository,
@@ -176,6 +180,7 @@ func (e *engine) ContextLoader(
 			e.jp,
 			e.client,
 			e.rclientFactory,
+			e.ivCache,
 			contextEntries,
 			jsonContext,
 		)

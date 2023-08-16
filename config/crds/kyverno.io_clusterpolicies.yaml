@@ -3019,6 +3019,24 @@ spec:
                                                 the public instance of Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
+                                                ignoreSCT:
+                                                  description: IgnoreSCT requires
+                                                    that a certificate contain an
+                                                    embedded SCT during verification.
+                                                    An SCT is proof of inclusion in
+                                                    a certificate transparency log.
+                                                  type: boolean
+                                                ignoreTlog:
+                                                  description: IgnoreTlog skip tlog
+                                                    verification
+                                                  type: boolean
+                                                pubkey:
+                                                  description: RekorPubKey is an optional
+                                                    PEM encoded public key to use
+                                                    for a custom Rekor. If set, is
+                                                    used to validate signatures on
+                                                    log entries from Rekor.
+                                                  type: string
                                                 url:
                                                   description: URL is the address
                                                     of the transparency log. Defaults
@@ -3054,6 +3072,24 @@ spec:
                                                 Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
+                                                ignoreSCT:
+                                                  description: IgnoreSCT requires
+                                                    that a certificate contain an
+                                                    embedded SCT during verification.
+                                                    An SCT is proof of inclusion in
+                                                    a certificate transparency log.
+                                                  type: boolean
+                                                ignoreTlog:
+                                                  description: IgnoreTlog skip tlog
+                                                    verification
+                                                  type: boolean
+                                                pubkey:
+                                                  description: RekorPubKey is an optional
+                                                    PEM encoded public key to use
+                                                    for a custom Rekor. If set, is
+                                                    used to validate signatures on
+                                                    log entries from Rekor.
+                                                  type: string
                                                 url:
                                                   description: URL is the address
                                                     of the transparency log. Defaults
@@ -3105,11 +3141,29 @@ spec:
                                             rekor:
                                               description: Rekor provides configuration
                                                 for the Rekor transparency log service.
-                                                If the value is nil, Rekor is not
-                                                checked. If an empty object is provided
-                                                the public instance of Rekor (https://rekor.sigstore.dev)
+                                                If the value is nil, or an empty object
+                                                is provided, the public instance of
+                                                Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
+                                                ignoreSCT:
+                                                  description: IgnoreSCT requires
+                                                    that a certificate contain an
+                                                    embedded SCT during verification.
+                                                    An SCT is proof of inclusion in
+                                                    a certificate transparency log.
+                                                  type: boolean
+                                                ignoreTlog:
+                                                  description: IgnoreTlog skip tlog
+                                                    verification
+                                                  type: boolean
+                                                pubkey:
+                                                  description: RekorPubKey is an optional
+                                                    PEM encoded public key to use
+                                                    for a custom Rekor. If set, is
+                                                    used to validate signatures on
+                                                    log entries from Rekor.
+                                                  type: string
                                                 url:
                                                   description: URL is the address
                                                     of the transparency log. Defaults
@@ -3371,6 +3425,26 @@ spec:
                                                     instance of Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                        An SCT is proof of inclusion
+                                                        in a certificate transparency
+                                                        log.
+                                                      type: boolean
+                                                    ignoreTlog:
+                                                      description: IgnoreTlog skip
+                                                        tlog verification
+                                                      type: boolean
+                                                    pubkey:
+                                                      description: RekorPubKey is
+                                                        an optional PEM encoded public
+                                                        key to use for a custom Rekor.
+                                                        If set, is used to validate
+                                                        signatures on log entries
+                                                        from Rekor.
+                                                      type: string
                                                     url:
                                                       description: URL is the address
                                                         of the transparency log. Defaults
@@ -3407,6 +3481,26 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                        An SCT is proof of inclusion
+                                                        in a certificate transparency
+                                                        log.
+                                                      type: boolean
+                                                    ignoreTlog:
+                                                      description: IgnoreTlog skip
+                                                        tlog verification
+                                                      type: boolean
+                                                    pubkey:
+                                                      description: RekorPubKey is
+                                                        an optional PEM encoded public
+                                                        key to use for a custom Rekor.
+                                                        If set, is used to validate
+                                                        signatures on log entries
+                                                        from Rekor.
+                                                      type: string
                                                     url:
                                                       description: URL is the address
                                                         of the transparency log. Defaults
@@ -3462,11 +3556,30 @@ spec:
                                                   description: Rekor provides configuration
                                                     for the Rekor transparency log
                                                     service. If the value is nil,
-                                                    Rekor is not checked. If an empty
-                                                    object is provided the public
-                                                    instance of Rekor (https://rekor.sigstore.dev)
+                                                    or an empty object is provided,
+                                                    the public instance of Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                        An SCT is proof of inclusion
+                                                        in a certificate transparency
+                                                        log.
+                                                      type: boolean
+                                                    ignoreTlog:
+                                                      description: IgnoreTlog skip
+                                                        tlog verification
+                                                      type: boolean
+                                                    pubkey:
+                                                      description: RekorPubKey is
+                                                        an optional PEM encoded public
+                                                        key to use for a custom Rekor.
+                                                        If set, is used to validate
+                                                        signatures on log entries
+                                                        from Rekor.
+                                                      type: string
                                                     url:
                                                       description: URL is the address
                                                         of the transparency log. Defaults
@@ -3704,6 +3817,24 @@ spec:
                                               instance of Rekor (https://rekor.sigstore.dev)
                                               is used.
                                             properties:
+                                              ignoreSCT:
+                                                description: IgnoreSCT requires that
+                                                  a certificate contain an embedded
+                                                  SCT during verification. An SCT
+                                                  is proof of inclusion in a certificate
+                                                  transparency log.
+                                                type: boolean
+                                              ignoreTlog:
+                                                description: IgnoreTlog skip tlog
+                                                  verification
+                                                type: boolean
+                                              pubkey:
+                                                description: RekorPubKey is an optional
+                                                  PEM encoded public key to use for
+                                                  a custom Rekor. If set, is used
+                                                  to validate signatures on log entries
+                                                  from Rekor.
+                                                type: string
                                               url:
                                                 description: URL is the address of
                                                   the transparency log. Defaults to
@@ -3738,6 +3869,24 @@ spec:
                                               the public instance of Rekor (https://rekor.sigstore.dev)
                                               is used.
                                             properties:
+                                              ignoreSCT:
+                                                description: IgnoreSCT requires that
+                                                  a certificate contain an embedded
+                                                  SCT during verification. An SCT
+                                                  is proof of inclusion in a certificate
+                                                  transparency log.
+                                                type: boolean
+                                              ignoreTlog:
+                                                description: IgnoreTlog skip tlog
+                                                  verification
+                                                type: boolean
+                                              pubkey:
+                                                description: RekorPubKey is an optional
+                                                  PEM encoded public key to use for
+                                                  a custom Rekor. If set, is used
+                                                  to validate signatures on log entries
+                                                  from Rekor.
+                                                type: string
                                               url:
                                                 description: URL is the address of
                                                   the transparency log. Defaults to
@@ -3788,11 +3937,29 @@ spec:
                                           rekor:
                                             description: Rekor provides configuration
                                               for the Rekor transparency log service.
-                                              If the value is nil, Rekor is not checked.
-                                              If an empty object is provided the public
-                                              instance of Rekor (https://rekor.sigstore.dev)
-                                              is used.
+                                              If the value is nil, or an empty object
+                                              is provided, the public instance of
+                                              Rekor (https://rekor.sigstore.dev) is
+                                              used.
                                             properties:
+                                              ignoreSCT:
+                                                description: IgnoreSCT requires that
+                                                  a certificate contain an embedded
+                                                  SCT during verification. An SCT
+                                                  is proof of inclusion in a certificate
+                                                  transparency log.
+                                                type: boolean
+                                              ignoreTlog:
+                                                description: IgnoreTlog skip tlog
+                                                  verification
+                                                type: boolean
+                                              pubkey:
+                                                description: RekorPubKey is an optional
+                                                  PEM encoded public key to use for
+                                                  a custom Rekor. If set, is used
+                                                  to validate signatures on log entries
+                                                  from Rekor.
+                                                type: string
                                               url:
                                                 description: URL is the address of
                                                   the transparency log. Defaults to
@@ -3931,6 +4098,11 @@ spec:
                             - Cosign
                             - Notary
                             type: string
+                          useCache:
+                            default: true
+                            description: UseCache enables caching of image verify
+                              responses for this rule
+                            type: boolean
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -3946,6 +4118,12 @@ spec:
                 description: SchemaValidation skips validation checks for policies
                   as well as patched resources. Optional. The default value is set
                   to "true", it must be set to "false" to disable the validation checks.
+                type: boolean
+              useServerSideApply:
+                description: UseServerSideApply controls whether to use server-side
+                  apply for generate rules If is set to "true" create & update for
+                  generate rules will use apply instead of create/update. Defaults
+                  to "false" if not specified.
                 type: boolean
               validationFailureAction:
                 default: Audit
@@ -7075,6 +7253,26 @@ spec:
                                                     instance of Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                        An SCT is proof of inclusion
+                                                        in a certificate transparency
+                                                        log.
+                                                      type: boolean
+                                                    ignoreTlog:
+                                                      description: IgnoreTlog skip
+                                                        tlog verification
+                                                      type: boolean
+                                                    pubkey:
+                                                      description: RekorPubKey is
+                                                        an optional PEM encoded public
+                                                        key to use for a custom Rekor.
+                                                        If set, is used to validate
+                                                        signatures on log entries
+                                                        from Rekor.
+                                                      type: string
                                                     url:
                                                       description: URL is the address
                                                         of the transparency log. Defaults
@@ -7111,6 +7309,26 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                        An SCT is proof of inclusion
+                                                        in a certificate transparency
+                                                        log.
+                                                      type: boolean
+                                                    ignoreTlog:
+                                                      description: IgnoreTlog skip
+                                                        tlog verification
+                                                      type: boolean
+                                                    pubkey:
+                                                      description: RekorPubKey is
+                                                        an optional PEM encoded public
+                                                        key to use for a custom Rekor.
+                                                        If set, is used to validate
+                                                        signatures on log entries
+                                                        from Rekor.
+                                                      type: string
                                                     url:
                                                       description: URL is the address
                                                         of the transparency log. Defaults
@@ -7166,11 +7384,30 @@ spec:
                                                   description: Rekor provides configuration
                                                     for the Rekor transparency log
                                                     service. If the value is nil,
-                                                    Rekor is not checked. If an empty
-                                                    object is provided the public
-                                                    instance of Rekor (https://rekor.sigstore.dev)
+                                                    or an empty object is provided,
+                                                    the public instance of Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                        An SCT is proof of inclusion
+                                                        in a certificate transparency
+                                                        log.
+                                                      type: boolean
+                                                    ignoreTlog:
+                                                      description: IgnoreTlog skip
+                                                        tlog verification
+                                                      type: boolean
+                                                    pubkey:
+                                                      description: RekorPubKey is
+                                                        an optional PEM encoded public
+                                                        key to use for a custom Rekor.
+                                                        If set, is used to validate
+                                                        signatures on log entries
+                                                        from Rekor.
+                                                      type: string
                                                     url:
                                                       description: URL is the address
                                                         of the transparency log. Defaults
@@ -7442,6 +7679,27 @@ spec:
                                                         instance of Rekor (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
+                                                        ignoreSCT:
+                                                          description: IgnoreSCT requires
+                                                            that a certificate contain
+                                                            an embedded SCT during
+                                                            verification. An SCT is
+                                                            proof of inclusion in
+                                                            a certificate transparency
+                                                            log.
+                                                          type: boolean
+                                                        ignoreTlog:
+                                                          description: IgnoreTlog
+                                                            skip tlog verification
+                                                          type: boolean
+                                                        pubkey:
+                                                          description: RekorPubKey
+                                                            is an optional PEM encoded
+                                                            public key to use for
+                                                            a custom Rekor. If set,
+                                                            is used to validate signatures
+                                                            on log entries from Rekor.
+                                                          type: string
                                                         url:
                                                           description: URL is the
                                                             address of the transparency
@@ -7480,6 +7738,27 @@ spec:
                                                         of Rekor (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
+                                                        ignoreSCT:
+                                                          description: IgnoreSCT requires
+                                                            that a certificate contain
+                                                            an embedded SCT during
+                                                            verification. An SCT is
+                                                            proof of inclusion in
+                                                            a certificate transparency
+                                                            log.
+                                                          type: boolean
+                                                        ignoreTlog:
+                                                          description: IgnoreTlog
+                                                            skip tlog verification
+                                                          type: boolean
+                                                        pubkey:
+                                                          description: RekorPubKey
+                                                            is an optional PEM encoded
+                                                            public key to use for
+                                                            a custom Rekor. If set,
+                                                            is used to validate signatures
+                                                            on log entries from Rekor.
+                                                          type: string
                                                         url:
                                                           description: URL is the
                                                             address of the transparency
@@ -7540,12 +7819,33 @@ spec:
                                                       description: Rekor provides
                                                         configuration for the Rekor
                                                         transparency log service.
-                                                        If the value is nil, Rekor
-                                                        is not checked. If an empty
-                                                        object is provided the public
-                                                        instance of Rekor (https://rekor.sigstore.dev)
+                                                        If the value is nil, or an
+                                                        empty object is provided,
+                                                        the public instance of Rekor
+                                                        (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
+                                                        ignoreSCT:
+                                                          description: IgnoreSCT requires
+                                                            that a certificate contain
+                                                            an embedded SCT during
+                                                            verification. An SCT is
+                                                            proof of inclusion in
+                                                            a certificate transparency
+                                                            log.
+                                                          type: boolean
+                                                        ignoreTlog:
+                                                          description: IgnoreTlog
+                                                            skip tlog verification
+                                                          type: boolean
+                                                        pubkey:
+                                                          description: RekorPubKey
+                                                            is an optional PEM encoded
+                                                            public key to use for
+                                                            a custom Rekor. If set,
+                                                            is used to validate signatures
+                                                            on log entries from Rekor.
+                                                          type: string
                                                         url:
                                                           description: URL is the
                                                             address of the transparency
@@ -7793,6 +8093,26 @@ spec:
                                                   the public instance of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
+                                                  ignoreSCT:
+                                                    description: IgnoreSCT requires
+                                                      that a certificate contain an
+                                                      embedded SCT during verification.
+                                                      An SCT is proof of inclusion
+                                                      in a certificate transparency
+                                                      log.
+                                                    type: boolean
+                                                  ignoreTlog:
+                                                    description: IgnoreTlog skip tlog
+                                                      verification
+                                                    type: boolean
+                                                  pubkey:
+                                                    description: RekorPubKey is an
+                                                      optional PEM encoded public
+                                                      key to use for a custom Rekor.
+                                                      If set, is used to validate
+                                                      signatures on log entries from
+                                                      Rekor.
+                                                    type: string
                                                   url:
                                                     description: URL is the address
                                                       of the transparency log. Defaults
@@ -7828,6 +8148,26 @@ spec:
                                                   of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
+                                                  ignoreSCT:
+                                                    description: IgnoreSCT requires
+                                                      that a certificate contain an
+                                                      embedded SCT during verification.
+                                                      An SCT is proof of inclusion
+                                                      in a certificate transparency
+                                                      log.
+                                                    type: boolean
+                                                  ignoreTlog:
+                                                    description: IgnoreTlog skip tlog
+                                                      verification
+                                                    type: boolean
+                                                  pubkey:
+                                                    description: RekorPubKey is an
+                                                      optional PEM encoded public
+                                                      key to use for a custom Rekor.
+                                                      If set, is used to validate
+                                                      signatures on log entries from
+                                                      Rekor.
+                                                    type: string
                                                   url:
                                                     description: URL is the address
                                                       of the transparency log. Defaults
@@ -7881,11 +8221,31 @@ spec:
                                               rekor:
                                                 description: Rekor provides configuration
                                                   for the Rekor transparency log service.
-                                                  If the value is nil, Rekor is not
-                                                  checked. If an empty object is provided
-                                                  the public instance of Rekor (https://rekor.sigstore.dev)
+                                                  If the value is nil, or an empty
+                                                  object is provided, the public instance
+                                                  of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
+                                                  ignoreSCT:
+                                                    description: IgnoreSCT requires
+                                                      that a certificate contain an
+                                                      embedded SCT during verification.
+                                                      An SCT is proof of inclusion
+                                                      in a certificate transparency
+                                                      log.
+                                                    type: boolean
+                                                  ignoreTlog:
+                                                    description: IgnoreTlog skip tlog
+                                                      verification
+                                                    type: boolean
+                                                  pubkey:
+                                                    description: RekorPubKey is an
+                                                      optional PEM encoded public
+                                                      key to use for a custom Rekor.
+                                                      If set, is used to validate
+                                                      signatures on log entries from
+                                                      Rekor.
+                                                    type: string
                                                   url:
                                                     description: URL is the address
                                                       of the transparency log. Defaults
@@ -8028,6 +8388,11 @@ spec:
                                 - Cosign
                                 - Notary
                                 type: string
+                              useCache:
+                                default: true
+                                description: UseCache enables caching of image verify
+                                  responses for this rule
+                                type: boolean
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have
@@ -10901,6 +11266,24 @@ spec:
                                                 the public instance of Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
+                                                ignoreSCT:
+                                                  description: IgnoreSCT requires
+                                                    that a certificate contain an
+                                                    embedded SCT during verification.
+                                                    An SCT is proof of inclusion in
+                                                    a certificate transparency log.
+                                                  type: boolean
+                                                ignoreTlog:
+                                                  description: IgnoreTlog skip tlog
+                                                    verification
+                                                  type: boolean
+                                                pubkey:
+                                                  description: RekorPubKey is an optional
+                                                    PEM encoded public key to use
+                                                    for a custom Rekor. If set, is
+                                                    used to validate signatures on
+                                                    log entries from Rekor.
+                                                  type: string
                                                 url:
                                                   description: URL is the address
                                                     of the transparency log. Defaults
@@ -10936,6 +11319,24 @@ spec:
                                                 Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
+                                                ignoreSCT:
+                                                  description: IgnoreSCT requires
+                                                    that a certificate contain an
+                                                    embedded SCT during verification.
+                                                    An SCT is proof of inclusion in
+                                                    a certificate transparency log.
+                                                  type: boolean
+                                                ignoreTlog:
+                                                  description: IgnoreTlog skip tlog
+                                                    verification
+                                                  type: boolean
+                                                pubkey:
+                                                  description: RekorPubKey is an optional
+                                                    PEM encoded public key to use
+                                                    for a custom Rekor. If set, is
+                                                    used to validate signatures on
+                                                    log entries from Rekor.
+                                                  type: string
                                                 url:
                                                   description: URL is the address
                                                     of the transparency log. Defaults
@@ -10987,11 +11388,29 @@ spec:
                                             rekor:
                                               description: Rekor provides configuration
                                                 for the Rekor transparency log service.
-                                                If the value is nil, Rekor is not
-                                                checked. If an empty object is provided
-                                                the public instance of Rekor (https://rekor.sigstore.dev)
+                                                If the value is nil, or an empty object
+                                                is provided, the public instance of
+                                                Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
+                                                ignoreSCT:
+                                                  description: IgnoreSCT requires
+                                                    that a certificate contain an
+                                                    embedded SCT during verification.
+                                                    An SCT is proof of inclusion in
+                                                    a certificate transparency log.
+                                                  type: boolean
+                                                ignoreTlog:
+                                                  description: IgnoreTlog skip tlog
+                                                    verification
+                                                  type: boolean
+                                                pubkey:
+                                                  description: RekorPubKey is an optional
+                                                    PEM encoded public key to use
+                                                    for a custom Rekor. If set, is
+                                                    used to validate signatures on
+                                                    log entries from Rekor.
+                                                  type: string
                                                 url:
                                                   description: URL is the address
                                                     of the transparency log. Defaults
@@ -11238,6 +11657,26 @@ spec:
                                                     instance of Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                        An SCT is proof of inclusion
+                                                        in a certificate transparency
+                                                        log.
+                                                      type: boolean
+                                                    ignoreTlog:
+                                                      description: IgnoreTlog skip
+                                                        tlog verification
+                                                      type: boolean
+                                                    pubkey:
+                                                      description: RekorPubKey is
+                                                        an optional PEM encoded public
+                                                        key to use for a custom Rekor.
+                                                        If set, is used to validate
+                                                        signatures on log entries
+                                                        from Rekor.
+                                                      type: string
                                                     url:
                                                       description: URL is the address
                                                         of the transparency log. Defaults
@@ -11274,6 +11713,26 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                        An SCT is proof of inclusion
+                                                        in a certificate transparency
+                                                        log.
+                                                      type: boolean
+                                                    ignoreTlog:
+                                                      description: IgnoreTlog skip
+                                                        tlog verification
+                                                      type: boolean
+                                                    pubkey:
+                                                      description: RekorPubKey is
+                                                        an optional PEM encoded public
+                                                        key to use for a custom Rekor.
+                                                        If set, is used to validate
+                                                        signatures on log entries
+                                                        from Rekor.
+                                                      type: string
                                                     url:
                                                       description: URL is the address
                                                         of the transparency log. Defaults
@@ -11329,11 +11788,30 @@ spec:
                                                   description: Rekor provides configuration
                                                     for the Rekor transparency log
                                                     service. If the value is nil,
-                                                    Rekor is not checked. If an empty
-                                                    object is provided the public
-                                                    instance of Rekor (https://rekor.sigstore.dev)
+                                                    or an empty object is provided,
+                                                    the public instance of Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                        An SCT is proof of inclusion
+                                                        in a certificate transparency
+                                                        log.
+                                                      type: boolean
+                                                    ignoreTlog:
+                                                      description: IgnoreTlog skip
+                                                        tlog verification
+                                                      type: boolean
+                                                    pubkey:
+                                                      description: RekorPubKey is
+                                                        an optional PEM encoded public
+                                                        key to use for a custom Rekor.
+                                                        If set, is used to validate
+                                                        signatures on log entries
+                                                        from Rekor.
+                                                      type: string
                                                     url:
                                                       description: URL is the address
                                                         of the transparency log. Defaults
@@ -11571,6 +12049,24 @@ spec:
                                               instance of Rekor (https://rekor.sigstore.dev)
                                               is used.
                                             properties:
+                                              ignoreSCT:
+                                                description: IgnoreSCT requires that
+                                                  a certificate contain an embedded
+                                                  SCT during verification. An SCT
+                                                  is proof of inclusion in a certificate
+                                                  transparency log.
+                                                type: boolean
+                                              ignoreTlog:
+                                                description: IgnoreTlog skip tlog
+                                                  verification
+                                                type: boolean
+                                              pubkey:
+                                                description: RekorPubKey is an optional
+                                                  PEM encoded public key to use for
+                                                  a custom Rekor. If set, is used
+                                                  to validate signatures on log entries
+                                                  from Rekor.
+                                                type: string
                                               url:
                                                 description: URL is the address of
                                                   the transparency log. Defaults to
@@ -11605,6 +12101,24 @@ spec:
                                               the public instance of Rekor (https://rekor.sigstore.dev)
                                               is used.
                                             properties:
+                                              ignoreSCT:
+                                                description: IgnoreSCT requires that
+                                                  a certificate contain an embedded
+                                                  SCT during verification. An SCT
+                                                  is proof of inclusion in a certificate
+                                                  transparency log.
+                                                type: boolean
+                                              ignoreTlog:
+                                                description: IgnoreTlog skip tlog
+                                                  verification
+                                                type: boolean
+                                              pubkey:
+                                                description: RekorPubKey is an optional
+                                                  PEM encoded public key to use for
+                                                  a custom Rekor. If set, is used
+                                                  to validate signatures on log entries
+                                                  from Rekor.
+                                                type: string
                                               url:
                                                 description: URL is the address of
                                                   the transparency log. Defaults to
@@ -11655,11 +12169,29 @@ spec:
                                           rekor:
                                             description: Rekor provides configuration
                                               for the Rekor transparency log service.
-                                              If the value is nil, Rekor is not checked.
-                                              If an empty object is provided the public
-                                              instance of Rekor (https://rekor.sigstore.dev)
-                                              is used.
+                                              If the value is nil, or an empty object
+                                              is provided, the public instance of
+                                              Rekor (https://rekor.sigstore.dev) is
+                                              used.
                                             properties:
+                                              ignoreSCT:
+                                                description: IgnoreSCT requires that
+                                                  a certificate contain an embedded
+                                                  SCT during verification. An SCT
+                                                  is proof of inclusion in a certificate
+                                                  transparency log.
+                                                type: boolean
+                                              ignoreTlog:
+                                                description: IgnoreTlog skip tlog
+                                                  verification
+                                                type: boolean
+                                              pubkey:
+                                                description: RekorPubKey is an optional
+                                                  PEM encoded public key to use for
+                                                  a custom Rekor. If set, is used
+                                                  to validate signatures on log entries
+                                                  from Rekor.
+                                                type: string
                                               url:
                                                 description: URL is the address of
                                                   the transparency log. Defaults to
@@ -11773,6 +12305,11 @@ spec:
                             - Cosign
                             - Notary
                             type: string
+                          useCache:
+                            default: true
+                            description: UseCache enables caching of image verify
+                              responses for this rule
+                            type: boolean
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -11788,6 +12325,12 @@ spec:
                 description: SchemaValidation skips validation checks for policies
                   as well as patched resources. Optional. The default value is set
                   to "true", it must be set to "false" to disable the validation checks.
+                type: boolean
+              useServerSideApply:
+                description: UseServerSideApply controls whether to use server-side
+                  apply for generate rules If is set to "true" create & update for
+                  generate rules will use apply instead of create/update. Defaults
+                  to "false" if not specified.
                 type: boolean
               validationFailureAction:
                 default: Audit
@@ -14917,6 +15460,26 @@ spec:
                                                     instance of Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                        An SCT is proof of inclusion
+                                                        in a certificate transparency
+                                                        log.
+                                                      type: boolean
+                                                    ignoreTlog:
+                                                      description: IgnoreTlog skip
+                                                        tlog verification
+                                                      type: boolean
+                                                    pubkey:
+                                                      description: RekorPubKey is
+                                                        an optional PEM encoded public
+                                                        key to use for a custom Rekor.
+                                                        If set, is used to validate
+                                                        signatures on log entries
+                                                        from Rekor.
+                                                      type: string
                                                     url:
                                                       description: URL is the address
                                                         of the transparency log. Defaults
@@ -14953,6 +15516,26 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                        An SCT is proof of inclusion
+                                                        in a certificate transparency
+                                                        log.
+                                                      type: boolean
+                                                    ignoreTlog:
+                                                      description: IgnoreTlog skip
+                                                        tlog verification
+                                                      type: boolean
+                                                    pubkey:
+                                                      description: RekorPubKey is
+                                                        an optional PEM encoded public
+                                                        key to use for a custom Rekor.
+                                                        If set, is used to validate
+                                                        signatures on log entries
+                                                        from Rekor.
+                                                      type: string
                                                     url:
                                                       description: URL is the address
                                                         of the transparency log. Defaults
@@ -15008,11 +15591,30 @@ spec:
                                                   description: Rekor provides configuration
                                                     for the Rekor transparency log
                                                     service. If the value is nil,
-                                                    Rekor is not checked. If an empty
-                                                    object is provided the public
-                                                    instance of Rekor (https://rekor.sigstore.dev)
+                                                    or an empty object is provided,
+                                                    the public instance of Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                        An SCT is proof of inclusion
+                                                        in a certificate transparency
+                                                        log.
+                                                      type: boolean
+                                                    ignoreTlog:
+                                                      description: IgnoreTlog skip
+                                                        tlog verification
+                                                      type: boolean
+                                                    pubkey:
+                                                      description: RekorPubKey is
+                                                        an optional PEM encoded public
+                                                        key to use for a custom Rekor.
+                                                        If set, is used to validate
+                                                        signatures on log entries
+                                                        from Rekor.
+                                                      type: string
                                                     url:
                                                       description: URL is the address
                                                         of the transparency log. Defaults
@@ -15284,6 +15886,27 @@ spec:
                                                         instance of Rekor (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
+                                                        ignoreSCT:
+                                                          description: IgnoreSCT requires
+                                                            that a certificate contain
+                                                            an embedded SCT during
+                                                            verification. An SCT is
+                                                            proof of inclusion in
+                                                            a certificate transparency
+                                                            log.
+                                                          type: boolean
+                                                        ignoreTlog:
+                                                          description: IgnoreTlog
+                                                            skip tlog verification
+                                                          type: boolean
+                                                        pubkey:
+                                                          description: RekorPubKey
+                                                            is an optional PEM encoded
+                                                            public key to use for
+                                                            a custom Rekor. If set,
+                                                            is used to validate signatures
+                                                            on log entries from Rekor.
+                                                          type: string
                                                         url:
                                                           description: URL is the
                                                             address of the transparency
@@ -15322,6 +15945,27 @@ spec:
                                                         of Rekor (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
+                                                        ignoreSCT:
+                                                          description: IgnoreSCT requires
+                                                            that a certificate contain
+                                                            an embedded SCT during
+                                                            verification. An SCT is
+                                                            proof of inclusion in
+                                                            a certificate transparency
+                                                            log.
+                                                          type: boolean
+                                                        ignoreTlog:
+                                                          description: IgnoreTlog
+                                                            skip tlog verification
+                                                          type: boolean
+                                                        pubkey:
+                                                          description: RekorPubKey
+                                                            is an optional PEM encoded
+                                                            public key to use for
+                                                            a custom Rekor. If set,
+                                                            is used to validate signatures
+                                                            on log entries from Rekor.
+                                                          type: string
                                                         url:
                                                           description: URL is the
                                                             address of the transparency
@@ -15382,12 +16026,33 @@ spec:
                                                       description: Rekor provides
                                                         configuration for the Rekor
                                                         transparency log service.
-                                                        If the value is nil, Rekor
-                                                        is not checked. If an empty
-                                                        object is provided the public
-                                                        instance of Rekor (https://rekor.sigstore.dev)
+                                                        If the value is nil, or an
+                                                        empty object is provided,
+                                                        the public instance of Rekor
+                                                        (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
+                                                        ignoreSCT:
+                                                          description: IgnoreSCT requires
+                                                            that a certificate contain
+                                                            an embedded SCT during
+                                                            verification. An SCT is
+                                                            proof of inclusion in
+                                                            a certificate transparency
+                                                            log.
+                                                          type: boolean
+                                                        ignoreTlog:
+                                                          description: IgnoreTlog
+                                                            skip tlog verification
+                                                          type: boolean
+                                                        pubkey:
+                                                          description: RekorPubKey
+                                                            is an optional PEM encoded
+                                                            public key to use for
+                                                            a custom Rekor. If set,
+                                                            is used to validate signatures
+                                                            on log entries from Rekor.
+                                                          type: string
                                                         url:
                                                           description: URL is the
                                                             address of the transparency
@@ -15635,6 +16300,26 @@ spec:
                                                   the public instance of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
+                                                  ignoreSCT:
+                                                    description: IgnoreSCT requires
+                                                      that a certificate contain an
+                                                      embedded SCT during verification.
+                                                      An SCT is proof of inclusion
+                                                      in a certificate transparency
+                                                      log.
+                                                    type: boolean
+                                                  ignoreTlog:
+                                                    description: IgnoreTlog skip tlog
+                                                      verification
+                                                    type: boolean
+                                                  pubkey:
+                                                    description: RekorPubKey is an
+                                                      optional PEM encoded public
+                                                      key to use for a custom Rekor.
+                                                      If set, is used to validate
+                                                      signatures on log entries from
+                                                      Rekor.
+                                                    type: string
                                                   url:
                                                     description: URL is the address
                                                       of the transparency log. Defaults
@@ -15670,6 +16355,26 @@ spec:
                                                   of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
+                                                  ignoreSCT:
+                                                    description: IgnoreSCT requires
+                                                      that a certificate contain an
+                                                      embedded SCT during verification.
+                                                      An SCT is proof of inclusion
+                                                      in a certificate transparency
+                                                      log.
+                                                    type: boolean
+                                                  ignoreTlog:
+                                                    description: IgnoreTlog skip tlog
+                                                      verification
+                                                    type: boolean
+                                                  pubkey:
+                                                    description: RekorPubKey is an
+                                                      optional PEM encoded public
+                                                      key to use for a custom Rekor.
+                                                      If set, is used to validate
+                                                      signatures on log entries from
+                                                      Rekor.
+                                                    type: string
                                                   url:
                                                     description: URL is the address
                                                       of the transparency log. Defaults
@@ -15723,11 +16428,31 @@ spec:
                                               rekor:
                                                 description: Rekor provides configuration
                                                   for the Rekor transparency log service.
-                                                  If the value is nil, Rekor is not
-                                                  checked. If an empty object is provided
-                                                  the public instance of Rekor (https://rekor.sigstore.dev)
+                                                  If the value is nil, or an empty
+                                                  object is provided, the public instance
+                                                  of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
+                                                  ignoreSCT:
+                                                    description: IgnoreSCT requires
+                                                      that a certificate contain an
+                                                      embedded SCT during verification.
+                                                      An SCT is proof of inclusion
+                                                      in a certificate transparency
+                                                      log.
+                                                    type: boolean
+                                                  ignoreTlog:
+                                                    description: IgnoreTlog skip tlog
+                                                      verification
+                                                    type: boolean
+                                                  pubkey:
+                                                    description: RekorPubKey is an
+                                                      optional PEM encoded public
+                                                      key to use for a custom Rekor.
+                                                      If set, is used to validate
+                                                      signatures on log entries from
+                                                      Rekor.
+                                                    type: string
                                                   url:
                                                     description: URL is the address
                                                       of the transparency log. Defaults
@@ -15870,6 +16595,11 @@ spec:
                                 - Cosign
                                 - Notary
                                 type: string
+                              useCache:
+                                default: true
+                                description: UseCache enables caching of image verify
+                                  responses for this rule
+                                type: boolean
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have

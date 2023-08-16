@@ -109,6 +109,11 @@ type ImageVerification struct {
 	// ImageRegistryCredentials provides credentials that will be used for authentication with registry
 	// +kubebuilder:validation:Optional
 	ImageRegistryCredentials *ImageRegistryCredentials `json:"imageRegistryCredentials,omitempty" yaml:"imageRegistryCredentials,omitempty"`
+
+	// UseCache enables caching of image verify responses for this rule
+	// +kubebuilder:default=true
+	// +kubebuilder:validation:Optional
+	UseCache bool `json:"useCache" yaml:"useCache"`
 }
 
 type AttestorSet struct {
@@ -183,7 +188,7 @@ type StaticKeyAttestor struct {
 	Secret *SecretReference `json:"secret,omitempty" yaml:"secret,omitempty"`
 
 	// Rekor provides configuration for the Rekor transparency log service. If the value is nil,
-	// Rekor is not checked. If an empty object is provided the public instance of
+	// or an empty object is provided, the public instance of
 	// Rekor (https://rekor.sigstore.dev) is used.
 	// +kubebuilder:validation:Optional
 	Rekor *CTLog `json:"rekor,omitempty" yaml:"rekor,omitempty"`
@@ -243,6 +248,19 @@ type CTLog struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:Default:=https://rekor.sigstore.dev
 	URL string `json:"url" yaml:"url"`
+
+	// RekorPubKey is an optional PEM encoded public key to use for a custom Rekor.
+	// If set, is used to validate signatures on log entries from Rekor.
+	// +kubebuilder:validation:Optional
+	RekorPubKey string `json:"pubkey,omitempty" yaml:"pubkey,omitempty"`
+
+	// IgnoreSCT requires that a certificate contain an embedded SCT during verification. An SCT is proof of inclusion in a certificate transparency log.
+	// +kubebuilder:validation:Optional
+	IgnoreSCT bool `json:"ignoreSCT,omitempty" yaml:"ignoreSCT,omitempty"`
+
+	// IgnoreTlog skip tlog verification
+	// +kubebuilder:validation:Optional
+	IgnoreTlog bool `json:"ignoreTlog,omitempty" yaml:"ignoreTlog,omitempty"`
 }
 
 // Attestation are checks for signed in-toto Statements that are used to verify the image.

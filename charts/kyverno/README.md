@@ -311,6 +311,7 @@ The chart values are organised per component.
 | features.registryClient.allowInsecure | bool | `false` | Allow insecure registry |
 | features.registryClient.credentialHelpers | list | `["default","google","amazon","azure","github"]` | Enable registry client helpers |
 | features.reports.chunkSize | int | `1000` | Reports chunk size |
+| features.ttlController.reconciliationInterval | string | `"1m"` | Reconciliation interval for the label based cleanup manager |
 
 ### Admission controller
 
@@ -607,6 +608,7 @@ The chart values are organised per component.
 | grafana.namespace | string | `nil` | Namespace to create the grafana dashboard configmap. If not set, it will be created in the same namespace where the chart is deployed. |
 | grafana.annotations | object | `{}` | Grafana dashboard configmap annotations. |
 | grafana.labels | object | `{"grafana_dashboard":"1"}` | Grafana dashboard configmap labels |
+| grafana.grafanaDashboard | object | `{"create":false,"matchLabels":{"dashboards":"grafana"}}` | create GrafanaDashboard custom resource referencing to the configMap. according to https://grafana-operator.github.io/grafana-operator/docs/examples/dashboard_from_configmap/readme/ |
 
 ### Webhooks cleanup
 
@@ -615,11 +617,13 @@ The chart values are organised per component.
 | webhooksCleanup.enabled | bool | `true` | Create a helm pre-delete hook to cleanup webhooks. |
 | webhooksCleanup.image | string | `"bitnami/kubectl:latest"` | `kubectl` image to run commands for deleting webhooks. |
 | webhooksCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
+| webhooksCleanup.podSecurityContext | object | `{}` | Security context for the pod |
 | webhooksCleanup.nodeSelector | object | `{}` | Node labels for pod assignment |
 | webhooksCleanup.tolerations | list | `[]` | List of node taints to tolerate |
 | webhooksCleanup.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
 | webhooksCleanup.podAffinity | object | `{}` | Pod affinity constraints. |
 | webhooksCleanup.nodeAffinity | object | `{}` | Node affinity constraints. |
+| webhooksCleanup.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
 
 ### Test
 

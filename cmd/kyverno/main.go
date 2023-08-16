@@ -152,6 +152,7 @@ func createrLeaderControllers(
 		config.ExceptionValidatingWebhookServicePath,
 		serverIP,
 		servicePort,
+		nil,
 		[]admissionregistrationv1.RuleWithOperations{{
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{"kyverno.io"},
@@ -215,6 +216,7 @@ func main() {
 		internal.WithDeferredLoading(),
 		internal.WithCosign(),
 		internal.WithRegistryClient(),
+		internal.WithImageVerifyCache(),
 		internal.WithLeaderElection(),
 		internal.WithKyvernoClient(),
 		internal.WithDynamicClient(),
@@ -308,6 +310,7 @@ func main() {
 		setup.Jp,
 		setup.KyvernoDynamicClient,
 		setup.RegistryClient,
+		setup.ImageVerifyCacheClient,
 		setup.KubeClient,
 		setup.KyvernoClient,
 		setup.RegistrySecretLister,

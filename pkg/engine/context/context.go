@@ -1,6 +1,7 @@
 package context
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -146,7 +147,13 @@ func (ctx *context) AddRequest(request admissionv1.AdmissionRequest) error {
 }
 
 func (ctx *context) AddVariable(key string, value interface{}) error {
-	return addToContext(ctx, value, strings.Split(key, ".")...)
+	reader := csv.NewReader(strings.NewReader(key))
+	reader.Comma = '.'
+	if fields, err := reader.Read(); err != nil {
+		return err
+	} else {
+		return addToContext(ctx, value, fields...)
+	}
 }
 
 func (ctx *context) AddContextEntry(name string, dataRaw []byte) error {

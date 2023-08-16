@@ -6,6 +6,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/imageverifycache"
 )
 
 type RegistryClientFactory interface {
@@ -24,6 +25,7 @@ type ContextLoader interface {
 		jp jmespath.Interface,
 		client RawClient,
 		rclientFactory RegistryClientFactory,
+		ivCache imageverifycache.Client,
 		contextEntries []kyvernov1.ContextEntry,
 		jsonContext enginecontext.Interface,
 	) error

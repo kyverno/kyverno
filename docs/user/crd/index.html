@@ -275,6 +275,20 @@ If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to e
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>useServerSideApply</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>UseServerSideApply controls whether to use server-side apply for generate rules
+If is set to &ldquo;true&rdquo; create &amp; update for generate rules will use apply instead of create/update.
+Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -523,6 +537,20 @@ bool
 <em>(Optional)</em>
 <p>GenerateExisting controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
+Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>useServerSideApply</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>UseServerSideApply controls whether to use server-side apply for generate rules
+If is set to &ldquo;true&rdquo; create &amp; update for generate rules will use apply instead of create/update.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
@@ -1068,6 +1096,40 @@ string
 </td>
 <td>
 <p>URL is the address of the transparency log. Defaults to the public log <a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>pubkey</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>RekorPubKey is an optional PEM encoded public key to use for a custom Rekor.
+If set, is used to validate signatures on log entries from Rekor.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ignoreSCT</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>IgnoreSCT requires that a certificate contain an embedded SCT during verification. An SCT is proof of inclusion in a certificate transparency log.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ignoreTlog</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>IgnoreTlog skip tlog verification</p>
 </td>
 </tr>
 </tbody>
@@ -2280,6 +2342,17 @@ ImageRegistryCredentials
 </td>
 <td>
 <p>ImageRegistryCredentials provides credentials that will be used for authentication with registry</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>useCache</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>UseCache enables caching of image verify responses for this rule</p>
 </td>
 </tr>
 </tbody>
@@ -3679,6 +3752,20 @@ If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to e
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>useServerSideApply</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>UseServerSideApply controls whether to use server-side apply for generate rules
+If is set to &ldquo;true&rdquo; create &amp; update for generate rules will use apply instead of create/update.
+Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -3763,7 +3850,7 @@ CTLog
 </td>
 <td>
 <p>Rekor provides configuration for the Rekor transparency log service. If the value is nil,
-Rekor is not checked. If an empty object is provided the public instance of
+or an empty object is provided, the public instance of
 Rekor (<a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>) is used.</p>
 </td>
 </tr>
@@ -6070,6 +6157,20 @@ If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to e
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>useServerSideApply</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>UseServerSideApply controls whether to use server-side apply for generate rules
+If is set to &ldquo;true&rdquo; create &amp; update for generate rules will use apply instead of create/update.
+Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -6317,6 +6418,20 @@ bool
 <em>(Optional)</em>
 <p>GenerateExisting controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
+Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>useServerSideApply</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>UseServerSideApply controls whether to use server-side apply for generate rules
+If is set to &ldquo;true&rdquo; create &amp; update for generate rules will use apply instead of create/update.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
@@ -6646,6 +6761,17 @@ ImageRegistryCredentials
 </td>
 <td>
 <p>ImageRegistryCredentials provides credentials that will be used for authentication with registry</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>useCache</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>UseCache enables caching of image verify responses for this rule</p>
 </td>
 </tr>
 </tbody>
@@ -7239,6 +7365,20 @@ bool
 <em>(Optional)</em>
 <p>GenerateExisting controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
+Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>useServerSideApply</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>UseServerSideApply controls whether to use server-side apply for generate rules
+If is set to &ldquo;true&rdquo; create &amp; update for generate rules will use apply instead of create/update.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>

@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -71,21 +72,26 @@ func toPolicyResult(status engineapi.RuleStatus) policyreportv1alpha2.PolicyResu
 
 func SeverityFromString(severity string) policyreportv1alpha2.PolicySeverity {
 	switch severity {
+	case policyreportv1alpha2.SeverityCritical:
+		return policyreportv1alpha2.SeverityCritical
 	case policyreportv1alpha2.SeverityHigh:
 		return policyreportv1alpha2.SeverityHigh
 	case policyreportv1alpha2.SeverityMedium:
 		return policyreportv1alpha2.SeverityMedium
 	case policyreportv1alpha2.SeverityLow:
 		return policyreportv1alpha2.SeverityLow
+	case policyreportv1alpha2.SeverityInfo:
+		return policyreportv1alpha2.SeverityInfo
 	}
 	return ""
 }
 
 func EngineResponseToReportResults(response engineapi.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
-	key, _ := cache.MetaNamespaceKeyFunc(response.Policy())
+	pol := response.Policy().GetPolicy().(kyvernov1.PolicyInterface)
+	key, _ := cache.MetaNamespaceKeyFunc(pol)
 	var results []policyreportv1alpha2.PolicyReportResult
 	for _, ruleResult := range response.PolicyResponse.Rules {
-		annotations := response.Policy().GetAnnotations()
+		annotations := pol.GetAnnotations()
 		result := policyreportv1alpha2.PolicyReportResult{
 			Source:  kyverno.ValueKyvernoApp,
 			Policy:  key,
@@ -157,7 +163,8 @@ func SetResults(report kyvernov1alpha2.ReportInterface, results ...policyreportv
 func SetResponses(report kyvernov1alpha2.ReportInterface, engineResponses ...engineapi.EngineResponse) {
 	var ruleResults []policyreportv1alpha2.PolicyReportResult
 	for _, result := range engineResponses {
-		SetPolicyLabel(report, result.Policy())
+		pol := result.Policy().GetPolicy().(kyvernov1.PolicyInterface)
+		SetPolicyLabel(report, pol)
 		ruleResults = append(ruleResults, EngineResponseToReportResults(result)...)
 	}
 	SetResults(report, ruleResults...)

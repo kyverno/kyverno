@@ -27,6 +27,7 @@ spec:
                 issuer: "https://token.actions.githubusercontent.com"
                 rekor:
                   url: https://rekor.sigstore.dev
+                  ignoreSCT: true
           conditions:
           - all:
             - key: "{{ regex_match('^https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@refs/heads/main','{{ builder.id}}') }}"
