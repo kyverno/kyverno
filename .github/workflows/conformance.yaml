@@ -53,6 +53,8 @@ jobs:
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
+          - name: v1.28
+            version: v1.28.0
         tests:
           - autogen
           - background-only
@@ -130,6 +132,8 @@ jobs:
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
+          - name: v1.28
+            version: v1.28.0
         tests:
           - ttl
     needs: prepare-images
@@ -189,6 +193,8 @@ jobs:
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
+          - name: v1.28
+            version: v1.28.0
         tests:
           - force-failure-policy-ignore
           - rbac
@@ -248,6 +254,8 @@ jobs:
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
+          - name: v1.28
+            version: v1.28.0
         tests:
           - rbac
     needs: prepare-images
@@ -304,6 +312,8 @@ jobs:
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
+          - name: v1.28
+            version: v1.28.0
         tests:
           - argo
           - aws
