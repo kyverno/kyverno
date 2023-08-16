@@ -24,7 +24,6 @@ import (
 	v1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -35,9 +34,9 @@ type FakeClusterBackgroundScanReports struct {
 	Fake *FakeKyvernoV1alpha2
 }
 
-var clusterbackgroundscanreportsResource = schema.GroupVersionResource{Group: "kyverno.io", Version: "v1alpha2", Resource: "clusterbackgroundscanreports"}
+var clusterbackgroundscanreportsResource = v1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports")
 
-var clusterbackgroundscanreportsKind = schema.GroupVersionKind{Group: "kyverno.io", Version: "v1alpha2", Kind: "ClusterBackgroundScanReport"}
+var clusterbackgroundscanreportsKind = v1alpha2.SchemeGroupVersion.WithKind("ClusterBackgroundScanReport")
 
 // Get takes name of the clusterBackgroundScanReport, and returns the corresponding clusterBackgroundScanReport object, and an error if there is any.
 func (c *FakeClusterBackgroundScanReports) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha2.ClusterBackgroundScanReport, err error) {
