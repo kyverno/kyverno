@@ -7,7 +7,7 @@
 GIT_SHA              := $(shell git rev-parse HEAD)
 REGISTRY             ?= ghcr.io
 REPO                 ?= kyverno
-KIND_IMAGE           ?= kindest/node:v1.26.6
+KIND_IMAGE           ?= kindest/node:v1.27.3
 KIND_NAME            ?= kind
 GOOS                 ?= $(shell go env GOOS)
 GOARCH               ?= $(shell go env GOARCH)
