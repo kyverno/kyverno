@@ -22,7 +22,3 @@ spec:
       - spec:
           volumes:
           - configMap: "*"
-
-
-
-
