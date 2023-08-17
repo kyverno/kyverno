@@ -666,6 +666,16 @@ test-cli-test-case-selector-flag: $(CLI_BIN)
 test-cli-registry: $(CLI_BIN)
 	@$(CLI_BIN) test ./test/cli/registry --registry
 
+.PHONY: test-cli-registry
+test-cli-registry: $(CLI_BIN)
+	@$(CLI_BIN) test ./test/cli/registry --registry
+	@$(CLI_BIN) test ./scenario_to_cli --registry
+
+.PHONY: test-cli-scenario-to-cli
+test-cli-scenario-to-cli: $(CLI_BIN)
+	@$(CLI_BIN) test ./scenario_to_cli --registry
+
+
 #############
 # HELM TEST #
 #############
