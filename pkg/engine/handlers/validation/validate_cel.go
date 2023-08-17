@@ -17,6 +17,7 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
+	"k8s.io/apiserver/pkg/cel/environment"
 )
 
 type validateCELHandler struct {
@@ -43,6 +44,7 @@ func (h validateCELHandler) Process(
 	}
 
 	oldResource := policyContext.OldResource()
+	gvr := schema.GroupVersionResource(policyContext.RequestResource())
 
 	var object, oldObject, versionedParams runtime.Object
 	object = resource.DeepCopyObject()
@@ -114,15 +116,18 @@ func (h validateCELHandler) Process(
 		auditExpressions = append(auditExpressions, auditCondition)
 	}
 
-	filterCompiler := cel.NewFilterCompiler()
-	filter := filterCompiler.Compile(expressions, cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}, celconfig.PerCallLimit)
-	messageExpressionfilter := filterCompiler.Compile(messageExpressions, cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}, celconfig.PerCallLimit)
-	auditAnnotationFilter := filterCompiler.Compile(auditExpressions, cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}, celconfig.PerCallLimit)
-	matchConditionFilter := filterCompiler.Compile(matchExpressions, cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}, celconfig.PerCallLimit)
+	compositedCompiler, err := cel.NewCompositedCompiler(environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion()))
+	if err != nil {
+		return resource, handlers.WithError(rule, engineapi.Validation, "Error while creating composited complier", err)
+	}
+	filter := compositedCompiler.Compile(expressions, cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}, environment.StoredExpressions)
+	messageExpressionfilter := compositedCompiler.Compile(messageExpressions, cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}, environment.StoredExpressions)
+	auditAnnotationFilter := compositedCompiler.Compile(auditExpressions, cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}, environment.StoredExpressions)
+	matchConditionFilter := compositedCompiler.Compile(matchExpressions, cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}, environment.StoredExpressions)
 
-	newMatcher := matchconditions.NewMatcher(matchConditionFilter, nil, nil, "", "")
+	newMatcher := matchconditions.NewMatcher(matchConditionFilter, nil, "", "", "")
 
-	validator := validatingadmissionpolicy.NewValidator(filter, newMatcher, auditAnnotationFilter, messageExpressionfilter, nil, nil)
+	validator := validatingadmissionpolicy.NewValidator(filter, newMatcher, auditAnnotationFilter, messageExpressionfilter, nil)
 
 	admissionAttributes := admission.NewAttributesRecord(
 		object,
@@ -130,7 +135,7 @@ func (h validateCELHandler) Process(
 		resource.GroupVersionKind(),
 		resource.GetNamespace(),
 		resource.GetName(),
-		schema.GroupVersionResource{},
+		gvr,
 		"",
 		admission.Operation(policyContext.Operation()),
 		nil,
@@ -138,7 +143,7 @@ func (h validateCELHandler) Process(
 		nil,
 	)
 	versionedAttr, _ := admission.NewVersionedAttributes(admissionAttributes, admissionAttributes.GetKind(), nil)
-	validateResult := validator.Validate(ctx, versionedAttr, versionedParams, celconfig.RuntimeCELCostBudget)
+	validateResult := validator.Validate(ctx, gvr, versionedAttr, versionedParams, nil, celconfig.RuntimeCELCostBudget, nil)
 
 	for _, decision := range validateResult.Decisions {
 		switch decision.Action {
