@@ -13,11 +13,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// These constants MUST be equal to the corresponding names in service definition in definitions/install.yaml
+// These MUST be equal to the corresponding names in service definition in definitions/install.yaml
 
 // webhook configuration names
-const (
-	// PolicyValidatingWebhookConfigurationName default policy validating webhook configuration name
+var (
+	WebhookConfigurationsNamePrefix = osutils.GetEnvWithFallback("KYVERNO_WEBHOOK_CONFIGS_NAME_PREFIX", "kyverno")
+
+	// PolicyValidatingWebhookConfigurationName policy VALIDATING webhook configuration name
 	PolicyValidatingWebhookConfigurationName = "kyverno-policy-validating-webhook-cfg"
 	// ValidatingWebhookConfigurationName ...
 	ValidatingWebhookConfigurationName = "kyverno-resource-validating-webhook-cfg"
@@ -25,14 +27,15 @@ const (
 	ExceptionValidatingWebhookConfigurationName = "kyverno-exception-validating-webhook-cfg"
 	// CleanupValidatingWebhookConfigurationName ...
 	CleanupValidatingWebhookConfigurationName = "kyverno-cleanup-validating-webhook-cfg"
-	// PolicyMutatingWebhookConfigurationName default policy mutating webhook configuration name
-	PolicyMutatingWebhookConfigurationName = "kyverno-policy-mutating-webhook-cfg"
-	// MutatingWebhookConfigurationName default resource mutating webhook configuration name
-	MutatingWebhookConfigurationName = "kyverno-resource-mutating-webhook-cfg"
-	// VerifyMutatingWebhookConfigurationName default verify mutating webhook configuration name
-	VerifyMutatingWebhookConfigurationName = "kyverno-verify-mutating-webhook-cfg"
-	// TtlValidatingWebhookConfigurationName ttl label validating webhook configuration name
-	TtlValidatingWebhookConfigurationName = "kyverno-ttl-validating-webhook-cfg"
+
+	// PolicyMutatingWebhookConfigurationName policy MUTATING webhook configuration name
+	PolicyMutatingWebhookConfigurationName = fmt.Sprintf("%s-policy-mutating-webhook-cfg", WebhookConfigurationsNamePrefix)
+	// MutatingWebhookConfigurationName ...
+	MutatingWebhookConfigurationName = fmt.Sprintf("%s-resource-mutating-webhook-cfg", WebhookConfigurationsNamePrefix)
+	// VerifyMutatingWebhookConfigurationName ...
+	VerifyMutatingWebhookConfigurationName = fmt.Sprintf("%s-verify-mutating-webhook-cfg", WebhookConfigurationsNamePrefix)
+	// TtlValidatingWebhookConfigurationName ...
+	TtlValidatingWebhookConfigurationName = fmt.Sprintf("%s-ttl-validating-webhook-cfg", WebhookConfigurationsNamePrefix)
 )
 
 // webhook names
