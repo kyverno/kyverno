@@ -45,8 +45,6 @@ jobs:
             values:
               - standard
         k8s-version:
-          - name: v1.24
-            version: v1.24.15
           - name: v1.25
             version: v1.25.11
           - name: v1.26
@@ -124,8 +122,6 @@ jobs:
               - standard
               - ttl
         k8s-version:
-          - name: v1.24
-            version: v1.24.15
           - name: v1.25
             version: v1.25.11
           - name: v1.26
@@ -185,8 +181,6 @@ jobs:
               - standard
               - force-failure-policy-ignore
         k8s-version:
-          - name: v1.24
-            version: v1.24.15
           - name: v1.25
             version: v1.25.11
           - name: v1.26
@@ -246,8 +240,6 @@ jobs:
             values:
               - default
         k8s-version:
-          - name: v1.24
-            version: v1.24.15
           - name: v1.25
             version: v1.25.11
           - name: v1.26
@@ -304,8 +296,6 @@ jobs:
             values:
               - standard
         k8s-version:
-          - name: v1.24
-            version: v1.24.15
           - name: v1.25
             version: v1.25.11
           - name: v1.26
