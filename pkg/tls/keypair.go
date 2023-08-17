@@ -60,21 +60,19 @@ func generateTLS(server string, caCert *x509.Certificate, caKey *rsa.PrivateKey,
 	}
 	var ips []net.IP
 	if server != "" {
-		serverHost := ""
-		if strings.Contains(server, ":") {
-			host, _, err := net.SplitHostPort(server)
+		serverHost := server
+		if strings.Contains(serverHost, ":") {
+			host, _, err := net.SplitHostPort(serverHost)
 			if err != nil {
-				logger.Error(err, "failed to split server host/port", "server", server)
+				logger.Error(err, "failed to split server host/port", "server", serverHost)
 			}
 			serverHost = host
 		}
-		if serverHost != "" {
-			ip := net.ParseIP(serverHost)
-			if ip == nil || ip.IsUnspecified() {
-				dnsNames = append(dnsNames, serverHost)
-			} else {
-				ips = append(ips, ip)
-			}
+		ip := net.ParseIP(serverHost)
+		if ip == nil || ip.IsUnspecified() {
+			dnsNames = append(dnsNames, serverHost)
+		} else {
+			ips = append(ips, ip)
 		}
 	}
 	templ := &x509.Certificate{
