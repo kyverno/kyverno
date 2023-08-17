@@ -3,6 +3,7 @@ policies:
   - policy.yaml
 resources:
   - resource.yaml
+  patchedresource: test/output/output_mutate_validate_qos.yaml
 results:
   - policy: policy-qos
     rule: add-memory-limit
