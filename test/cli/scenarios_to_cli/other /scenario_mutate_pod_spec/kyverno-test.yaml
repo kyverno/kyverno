@@ -3,6 +3,7 @@ policies:
   - policy.yaml
 resources:
   - resource.yaml
+  patchedresource: test/output/output_mutate_pod_spec.yaml
 results:
   - policy: mutate-pods-spec
     rule: disable-servicelink-and-token
