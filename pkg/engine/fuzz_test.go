@@ -103,7 +103,7 @@ func FuzzVerifyImageAndPatchTest(f *testing.F) {
 		}
 
 		verifyImageAndPatchEngine := NewEngine(
-			cfg,
+			fuzzCfg,
 			fuzzMetricsCfg,
 			fuzzJp,
 			nil,
