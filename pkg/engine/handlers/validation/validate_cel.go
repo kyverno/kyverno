@@ -118,7 +118,7 @@ func (h validateCELHandler) Process(
 
 	compositedCompiler, err := cel.NewCompositedCompiler(environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion()))
 	if err != nil {
-		return resource, handlers.WithError(rule, engineapi.Validation, "Error while creating composited complier", err)
+		return resource, handlers.WithError(rule, engineapi.Validation, "Error while creating composited compiler", err)
 	}
 	filter := compositedCompiler.Compile(expressions, cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}, environment.StoredExpressions)
 	messageExpressionfilter := compositedCompiler.Compile(messageExpressions, cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}, environment.StoredExpressions)
