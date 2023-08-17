@@ -13,7 +13,6 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -633,6 +632,78 @@ func Test_BackGroundUserInfo_mutate_patchStrategicMerge1(t *testing.T) {
 	assert.Assert(t, err != nil)
 }
 
+func Test_Context_Variable_Substitution(t *testing.T) {
+	var err error
+	rawPolicy := []byte(`{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "check-images"
+  },
+  "spec": {
+    "validationFailureAction": "Enforce",
+    "webhookTimeoutSeconds": 30,
+    "rules": [
+      {
+        "name": "call-aws-signer-extension",
+        "match": {
+          "any": [
+            {
+              "resources": {
+                "namespaces": [
+                  "test-notation"
+                ],
+                "kinds": [
+                  "Pod"
+                ]
+              }
+            }
+          ]
+        },
+        "context": [
+          {
+            "name": "response",
+            "apiCall": {
+              "method": "POST",
+              "data": [
+                {
+                  "key": "imagesInfo",
+                  "value": "{{ images }}"
+                }
+              ],
+              "service": {
+                "url": "https://svc.kyverno-notation-aws/checkimages",
+                "caBundle": "-----BEGIN CERTIFICATE-----\nMIICizCCAjGgAwIBAgIRAIUEJcm7TtwJEtRtsI2yUcMwCgYIKoZIzj0EAwIwGzEZ\nMBcGA1UEAxMQbXktc2VsZnNpZ25lZC1jYTAeFw0yMzA1MTAwNTI5MzBaFw0yMzA4\nMDgwNTI5MzBaMDExEDAOBgNVBAoTB25pcm1hdGExHTAbBgNVBAMTFGt5dmVybm8t\nbm90YXRpb24tYXdzMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxrSr\nVXUbuQbF4rhh0/jqDE6agtXqS9jko6vHTEZUF2Y9f0LdSycEdCocIKZmPerWER7l\nVUmMFPQLSGOZrCIM22L9+EXDyL7q2PN3koDxKOyqVOod8j3hKdRL+KIiZuUeD4zD\ncos+AFxA1XAM/220JKfPSUpBL0DAP299Baqjs/Ae5wU5wT4qZVa1I3pcV2uicPvE\nRSZO3ZT+y1nYBWtTTzzXP3f9ou8IHweCl57Sk16mbFFZ+TrCSekewYchzn88z7lq\nL+56LtBUjcJozypLGEWM+kc4S5wBNYUaFPGiCHIrdQ5ScmfnY7mDvO8u47E+xw13\nbz7NUAlT73rBqBv6hQIDAQABo3UwczAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYB\nBQUHAwIwDAYDVR0TAQH/BAIwADAfBgNVHSMEGDAWgBRXZIp2KalD6pjRfPua2kFn\nMBuJJTAjBgNVHREEHDAaghhzdmMua3l2ZXJuby1ub3RhdGlvbi1hd3MwCgYIKoZI\nzj0EAwIDSAAwRQIhAKob5SV/N56VqP8VPdHqCAULRj92qhWwW3hb7fzaGxnHAiBP\n3c8K2Vrxx2KRsjnWwn1vUMz7UyM2Tmib1C4YM3f+xg==\n-----END CERTIFICATE-----\n-----BEGIN CERTIFICATE-----\nMIIBdjCCAR2gAwIBAgIRAP1VDXD3R744lE7t/I5MK44wCgYIKoZIzj0EAwIwGzEZ\nMBcGA1UEAxMQbXktc2VsZnNpZ25lZC1jYTAeFw0yMzA1MTAwNTI5MjVaFw0yMzA4\nMDgwNTI5MjVaMBsxGTAXBgNVBAMTEG15LXNlbGZzaWduZWQtY2EwWTATBgcqhkjO\nPQIBBggqhkjOPQMBBwNCAAQrFCRBF8PjKPcT/lrXmyP474fNuhlhGFAlLaoTSUuP\nS3VK2O7hWrlJ/AhCccY8EPBi/DdFEaCB2+hTo00clmvfo0IwQDAOBgNVHQ8BAf8E\nBAMCAqQwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUV2SKdimpQ+qY0Xz7mtpB\nZzAbiSUwCgYIKoZIzj0EAwIDRwAwRAIgU3O7Qnk9PGCV4aXgZAXp0h4Iz2O7XUnP\nUfv4SgD7neECIHLb+BDvRFPJ77FpfIYxBO70AHB7Kp0nWKCqyv3FK4aT\n-----END CERTIFICATE-----"
+              }
+            }
+          }
+        ],
+        "validate": {
+          "message": "not allowed",
+          "deny": {
+            "conditions": {
+              "all": [
+                {
+                  "key": "{{ response.verified }}",
+                  "operator": "EQUALS",
+                  "value": false
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}`)
+	var policy *kyverno.ClusterPolicy
+	err = json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	err = ValidateVariables(policy, true)
+	assert.NilError(t, err)
+}
+
 func Test_BackGroundUserInfo_mutate_patchStrategicMerge2(t *testing.T) {
 	var err error
 	rawPolicy := []byte(`
@@ -1092,136 +1163,6 @@ func Test_Namespced_Policy(t *testing.T) {
 	openApiManager, _ := openapi.NewManager(logr.Discard())
 	_, err = Validate(policy, nil, nil, true, openApiManager, "admin")
 	assert.Assert(t, err != nil)
-}
-
-func Test_Namespaced_Generate_Policy(t *testing.T) {
-	testcases := []struct {
-		description     string
-		rule            []byte
-		policyNamespace string
-		expectedError   error
-	}{
-		{
-			description: "Only generate resource where the policy exists",
-			rule: []byte(`
-			{"name": "gen-zk",
-                "generate": {
-                    "synchronize": false,
-                    "apiVersion": "v1",
-                    "kind": "ConfigMap",
-                    "name": "zk",
-                    "namespace": "default",
-                    "data": {
-                        "kind": "ConfigMap",
-                        "metadata": {
-                            "labels": {
-                                "somekey": "somevalue"
-                            }
-                        },
-                        "data": {
-                            "ZK_ADDRESS": "192.168.10.10:2181",
-                            "KAFKA_ADDRESS": "192.168.10.13:9092"
-                        }
-                    }
-                }
-					}`),
-			policyNamespace: "poltest",
-			expectedError:   errors.New("path: spec.rules[gen-zk]: a namespaced policy cannot generate resources in other namespaces, expected: poltest, received: default"),
-		},
-		{
-			description: "Not allowed to clone resource outside the policy namespace",
-			rule: []byte(`
-        {
-            "name": "sync-image-pull-secret",
-            "generate": {
-                "apiVersion": "v1",
-                "kind": "Secret",
-                "name": "secret-basic-auth-gen",
-                "namespace": "poltest",
-                "synchronize": true,
-                "clone": {
-                    "namespace": "default",
-                    "name": "secret-basic-auth"
-                }
-            }
-        }`),
-			policyNamespace: "poltest",
-			expectedError:   errors.New("path: spec.rules[sync-image-pull-secret]: a namespaced policy cannot clone resources to or from other namespaces, expected: poltest, received: default"),
-		},
-		{
-			description: "Do not mention the namespace to generate cluster scoped resource",
-			rule: []byte(`
-        {
-            "name": "sync-clone",
-            "generate": {
-                "apiVersion": "storage.k8s.io/v1",
-                "kind": "StorageClass",
-                "name": "local-class",
-                "namespace": "poltest",
-                "synchronize": true,
-                "clone": {
-                    "name": "pv-class"
-                }
-            }
-        }`),
-			policyNamespace: "poltest",
-			expectedError:   errors.New("path: spec.rules[sync-clone]: do not mention the namespace to generate a non namespaced resource"),
-		},
-		{
-			description: "Not allowed to clone cluster scoped resource",
-			rule: []byte(`
-        {
-            "name": "sync-clone",
-            "generate": {
-                "apiVersion": "storage.k8s.io/v1",
-                "kind": "StorageClass",
-                "name": "local-class",
-                "synchronize": true,
-                "clone": {
-                    "name": "pv-class"
-                }
-            }
-        }`),
-			policyNamespace: "poltest",
-			expectedError:   errors.New("path: spec.rules[sync-clone]: a namespaced policy cannot generate cluster-wide resources"),
-		},
-		{
-			description: "Not allowed to multi clone cluster scoped resource",
-			rule: []byte(`
-    {
-        "name": "sync-multi-clone",
-        "generate": {
-            "namespace": "staging",
-            "synchronize": true,
-            "cloneList": {
-                "namespace": "staging",
-                "kinds": [
-                    "storage.k8s.io/v1/StorageClass"
-                ],
-                "selector": {
-                    "matchLabels": {
-                        "allowedToBeCloned": "true"
-                    }
-                }
-            }
-        }
-    }`),
-			policyNamespace: "staging",
-			expectedError:   errors.New("path: spec.rules[sync-multi-clone]: a namespaced policy cannot generate cluster-wide resources"),
-		},
-	}
-	for _, tc := range testcases {
-		t.Run(tc.description, func(t *testing.T) {
-			var rule kyverno.Rule
-			_ = json.Unmarshal(tc.rule, &rule)
-			err := checkClusterResourceInMatchAndExclude(rule, sets.New[string](), tc.policyNamespace, false, testResourceList())
-			if tc.expectedError != nil {
-				assert.Error(t, err, tc.expectedError.Error())
-			} else {
-				assert.NilError(t, err)
-			}
-		})
-	}
 }
 
 func Test_patchesJson6902_Policy(t *testing.T) {

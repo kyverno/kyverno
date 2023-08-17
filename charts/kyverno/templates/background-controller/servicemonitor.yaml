@@ -1,5 +1,5 @@
 {{- if .Values.backgroundController.enabled -}}
-{{- if .Values.backgroundController.serviceMonitor.enabled -}}
+{{- if and .Values.backgroundController.serviceMonitor.enabled (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") -}}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -29,6 +29,14 @@ spec:
     scheme: https
     tlsConfig:
       {{- toYaml .Values.backgroundController.serviceMonitor.tlsConfig | nindent 8 }}
+    {{- end }}
+    {{- with .Values.backgroundController.serviceMonitor.relabelings }}
+    relabelings:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.backgroundController.serviceMonitor.metricRelabelings }}
+    metricRelabelings:
+      {{- toYaml . | nindent 6 }}
     {{- end }}
 {{- end -}}
 {{- end -}}

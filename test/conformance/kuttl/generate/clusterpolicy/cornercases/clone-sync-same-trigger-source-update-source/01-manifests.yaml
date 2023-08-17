@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: clone-sync-same-trigger-source-update-source-trigger-ns
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: clone-sync-same-trigger-source-update-source-target-ns-1
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: clone-sync-same-trigger-source-update-source-target-ns-2
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: clone-sync-same-trigger-source-update-source-cpol
+spec:
+  rules:
+  - name: sync-secret
+    match:
+      all:
+      - resources:
+          annotations:
+            myProj/cluster.addon.sync.targetNamespace: "?*"
+          kinds:
+          - Secret
+          namespaces:
+          - clone-sync-same-trigger-source-update-source-trigger-ns
+    generate:
+      namespace: '{{ request.object.metadata.annotations."myProj/cluster.addon.sync.targetNamespace" }}'
+      kind: Secret
+      apiVersion: v1
+      name: mysecret
+      synchronize: true
+      clone:
+        namespace: clone-sync-same-trigger-source-update-source-trigger-ns
+        name: mysecret

@@ -1,0 +1,13 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+- file: policy-fail-1-no-ns-namespaced-target.yaml
+  shouldFail: true
+- file: policy-fail-2-ns-cluster-target.yaml
+  shouldFail: true
+- file: policy-pass-1-ns-namespaced-target.yaml
+  shouldFail: false
+- file: policy-pass-2-no-ns-cluster-target.yaml
+  shouldFail: false
+- file: policy-pass-3.yaml
+  shouldFail: false

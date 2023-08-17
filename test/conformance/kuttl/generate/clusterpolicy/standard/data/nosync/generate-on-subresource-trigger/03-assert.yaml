@@ -9,7 +9,8 @@ metadata:
     generate.kyverno.io/policy-name: zk-kafka-address
     generate.kyverno.io/policy-namespace: ""
     generate.kyverno.io/rule-name: k-kafka-address
-    generate.kyverno.io/trigger-apiversion: v1
+    generate.kyverno.io/trigger-version: v1
+    generate.kyverno.io/trigger-group: ""
     generate.kyverno.io/trigger-kind: PodExecOptions
     generate.kyverno.io/trigger-name: ""
     generate.kyverno.io/trigger-namespace: test-generate-exec

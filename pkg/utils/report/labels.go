@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -17,6 +18,7 @@ import (
 )
 
 const (
+	LabelDomain = "kyverno.io"
 	//	resource labels
 	LabelResourceHash      = "audit.kyverno.io/resource.hash"
 	LabelResourceUid       = "audit.kyverno.io/resource.uid"
@@ -66,8 +68,17 @@ func PolicyLabel(policy kyvernov1.PolicyInterface) string {
 	return PolicyLabelPrefix(policy) + policy.GetName()
 }
 
+func CleanupKyvernoLabels(obj metav1.Object) {
+	labels := obj.GetLabels()
+	for key := range labels {
+		if strings.Contains(key, LabelDomain) {
+			delete(labels, key)
+		}
+	}
+}
+
 func SetManagedByKyvernoLabel(obj metav1.Object) {
-	controllerutils.SetLabel(obj, kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp)
+	controllerutils.SetLabel(obj, kyverno.LabelAppManagedBy, kyverno.ValueKyvernoApp)
 }
 
 func SetResourceUid(report kyvernov1alpha2.ReportInterface, uid types.UID) {

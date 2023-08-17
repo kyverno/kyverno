@@ -18,7 +18,7 @@ import (
 
 // FetchClusteredResources retieves the list of clustered resources
 func FetchClusteredResources(logger logr.Logger, client dclient.Interface) (sets.Set[string], error) {
-	res, err := discovery.ServerPreferredResources(client.Discovery().DiscoveryInterface())
+	res, err := discovery.ServerPreferredResources(client.Discovery().CachedDiscoveryInterface())
 	if err != nil {
 		if discovery.IsGroupDiscoveryFailedError(err) {
 			err := err.(*discovery.ErrGroupDiscoveryFailed)
@@ -33,6 +33,7 @@ func FetchClusteredResources(logger logr.Logger, client dclient.Interface) (sets
 	for _, resList := range res {
 		for _, r := range resList.APIResources {
 			if !r.Namespaced {
+				clusterResources.Insert(resList.GroupVersion + "/" + r.Kind)
 				clusterResources.Insert(r.Kind)
 			}
 		}

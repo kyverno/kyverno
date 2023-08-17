@@ -1,0 +1,11 @@
+## Description
+
+This test checks to ensure that updates to a trigger which cause it to no longer match a precondition of the rule, with a generate clone declaration and sync enabled, results in the downstream resource's deletion.
+
+## Expected Behavior
+
+If the downstream resource is deleted, the test passes. If it remains, the test fails.
+
+## Reference Issue(s)
+
+https://github.com/kyverno/kyverno/issues/7481

@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/toggle"
 )
 
 var (
@@ -43,6 +44,10 @@ var (
 	registryCredentialHelpers string
 	// leader election
 	leaderElectionRetryPeriod time.Duration
+	// image verify cache
+	imageVerifyCacheEnabled     bool
+	imageVerifyCacheTTLDuration int64
+	imageVerifyCacheMaxSize     int64
 )
 
 func initLoggingFlags() {
@@ -87,6 +92,10 @@ func initConfigMapCachingFlags() {
 	flag.BoolVar(&enableConfigMapCaching, "enableConfigMapCaching", true, "Enable config maps caching.")
 }
 
+func initDeferredLoadingFlags() {
+	flag.Func(toggle.EnableDeferredLoadingFlagName, toggle.EnableDeferredLoadingDescription, toggle.EnableDeferredLoading.Parse)
+}
+
 func initCosignFlags() {
 	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "(DEPRECATED, will be removed in 1.12) Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
 }
@@ -94,7 +103,13 @@ func initCosignFlags() {
 func initRegistryClientFlags() {
 	flag.BoolVar(&allowInsecureRegistry, "allowInsecureRegistry", false, "Whether to allow insecure connections to registries. Don't use this for anything but testing.")
 	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
-	flag.StringVar(&registryCredentialHelpers, "registryCredentialHelpers", "", "Credential helpers to enable (default,google,amazon,azure,github), all will be enabled if empty.")
+	flag.StringVar(&registryCredentialHelpers, "registryCredentialHelpers", "", "Credential helpers to enable (default,google,amazon,azure,github). No helpers are added when this flag is empty.")
+}
+
+func initImageVerifyCacheFlags() {
+	flag.BoolVar(&imageVerifyCacheEnabled, "imageVerifyCacheEnabled", true, "Whether to use a TTL cache for storing verified images.")
+	flag.Int64Var(&imageVerifyCacheMaxSize, "imageVerifyCacheMaxSize", 0, "Max size limit for the TTL cache, 0 means no size limit.")
+	flag.Int64Var(&imageVerifyCacheTTLDuration, "imageVerifyCacheTTLDuration", 0, "Max TTL value for a cache, 0 means no TTL.")
 }
 
 func initLeaderElectionFlags() {
@@ -160,6 +175,10 @@ func initFlags(config Configuration, opts ...Option) {
 	if config.UsesConfigMapCaching() {
 		initConfigMapCachingFlags()
 	}
+	// deferred loading
+	if config.UsesDeferredLoading() {
+		initDeferredLoadingFlags()
+	}
 	// cosign
 	if config.UsesCosign() {
 		initCosignFlags()
@@ -167,6 +186,10 @@ func initFlags(config Configuration, opts ...Option) {
 	// registry client
 	if config.UsesRegistryClient() {
 		initRegistryClientFlags()
+	}
+	// image verify cache
+	if config.UsesImageVerifyCache() {
+		initImageVerifyCacheFlags()
 	}
 	// leader election
 	if config.UsesLeaderElection() {

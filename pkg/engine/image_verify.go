@@ -11,13 +11,14 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/handlers/mutation"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func (e *engine) verifyAndPatchImages(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
-) (engineapi.PolicyResponse, engineapi.ImageVerificationMetadata) {
+) (engineapi.PolicyResponse, unstructured.Unstructured, engineapi.ImageVerificationMetadata) {
 	resp := engineapi.NewPolicyResponse()
 	policy := policyContext.Policy()
 	matchedResource := policyContext.NewResource()
@@ -39,7 +40,8 @@ func (e *engine) verifyAndPatchImages(
 				matchedResource,
 				rule,
 				e.configuration,
-				e.rclient,
+				e.rclientFactory,
+				e.ivCache,
 				&ivm,
 				e.imageSignatureRepository,
 			)
@@ -59,6 +61,5 @@ func (e *engine) verifyAndPatchImages(
 			break
 		}
 	}
-	// TODO: it doesn't make sense to not return the patched resource here
-	return resp, ivm
+	return resp, matchedResource, ivm
 }

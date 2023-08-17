@@ -14,16 +14,17 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
-	"github.com/mattbaird/jsonpatch"
+	"gomodules.xyz/jsonpatch/v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type mutateImageHandler struct {
 	configuration            config.Configuration
-	rclient                  registryclient.Client
+	rclientFactory           engineapi.RegistryClientFactory
+	ivCache                  imageverifycache.Client
 	ivm                      *engineapi.ImageVerificationMetadata
 	images                   []apiutils.ImageInfo
 	imageSignatureRepository string
@@ -34,7 +35,8 @@ func NewMutateImageHandler(
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
 	configuration config.Configuration,
-	rclient registryclient.Client,
+	rclientFactory engineapi.RegistryClientFactory,
+	ivCache imageverifycache.Client,
 	ivm *engineapi.ImageVerificationMetadata,
 	imageSignatureRepository string,
 ) (handlers.Handler, error) {
@@ -50,7 +52,7 @@ func NewMutateImageHandler(
 	}
 	return mutateImageHandler{
 		configuration:            configuration,
-		rclient:                  rclient,
+		rclientFactory:           rclientFactory,
 		ivm:                      ivm,
 		images:                   ruleImages,
 		imageSignatureRepository: imageSignatureRepository,
@@ -72,14 +74,19 @@ func (h mutateImageHandler) Process(
 			engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to substitute variables", err),
 		)
 	}
-	iv := internal.NewImageVerifier(logger, h.rclient, policyContext, *ruleCopy, h.ivm, h.imageSignatureRepository)
 	var engineResponses []*engineapi.RuleResponse
-	for _, imageVerify := range ruleCopy.VerifyImages {
-		engineResponses = append(engineResponses, iv.Verify(ctx, imageVerify, h.images, h.configuration)...)
-	}
 	var patches []jsonpatch.JsonPatchOperation
-	for _, response := range engineResponses {
-		patches = append(patches, response.Patches()...)
+	for _, imageVerify := range ruleCopy.VerifyImages {
+		rclient, err := h.rclientFactory.GetClient(ctx, imageVerify.ImageRegistryCredentials)
+		if err != nil {
+			return resource, handlers.WithResponses(
+				engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to fetch secrets", err),
+			)
+		}
+		iv := internal.NewImageVerifier(logger, rclient, h.ivCache, policyContext, *ruleCopy, h.ivm, h.imageSignatureRepository)
+		patch, ruleResponse := iv.Verify(ctx, imageVerify, h.images, h.configuration)
+		patches = append(patches, patch...)
+		engineResponses = append(engineResponses, ruleResponse...)
 	}
 	if len(patches) != 0 {
 		patch := jsonutils.JoinPatches(patch.ConvertPatches(patches...)...)

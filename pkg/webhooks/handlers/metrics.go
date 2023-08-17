@@ -9,9 +9,9 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/metric/global"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 )
 
@@ -20,7 +20,7 @@ func (inner AdmissionHandler) WithMetrics(logger logr.Logger, metricsConfig conf
 }
 
 func (inner AdmissionHandler) withMetrics(logger logr.Logger, metricsConfig config.MetricsConfiguration, attrs ...attribute.KeyValue) AdmissionHandler {
-	meter := global.MeterProvider().Meter(metrics.MeterName)
+	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
 	requestsMetric, err := meter.Int64Counter(
 		"kyverno_admission_requests",
 		metric.WithDescription("can be used to track the number of admission requests encountered by Kyverno in the cluster"),
@@ -67,7 +67,7 @@ func (inner HttpHandler) WithMetrics(logger logr.Logger, attrs ...attribute.KeyV
 }
 
 func (inner HttpHandler) withMetrics(logger logr.Logger, attrs ...attribute.KeyValue) HttpHandler {
-	meter := global.MeterProvider().Meter(metrics.MeterName)
+	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
 	requestsMetric, err := meter.Int64Counter(
 		"kyverno_http_requests",
 		metric.WithDescription("can be used to track the number of http requests"),

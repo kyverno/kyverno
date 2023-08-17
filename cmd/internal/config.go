@@ -11,8 +11,10 @@ type Configuration interface {
 	UsesKubeconfig() bool
 	UsesPolicyExceptions() bool
 	UsesConfigMapCaching() bool
+	UsesDeferredLoading() bool
 	UsesCosign() bool
 	UsesRegistryClient() bool
+	UsesImageVerifyCache() bool
 	UsesLeaderElection() bool
 	UsesKyvernoClient() bool
 	UsesDynamicClient() bool
@@ -68,6 +70,12 @@ func WithConfigMapCaching() ConfigurationOption {
 	}
 }
 
+func WithDeferredLoading() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesDeferredLoading = true
+	}
+}
+
 func WithCosign() ConfigurationOption {
 	return func(c *configuration) {
 		c.usesCosign = true
@@ -77,6 +85,12 @@ func WithCosign() ConfigurationOption {
 func WithRegistryClient() ConfigurationOption {
 	return func(c *configuration) {
 		c.usesRegistryClient = true
+	}
+}
+
+func WithImageVerifyCache() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesImageVerifyCache = true
 	}
 }
 
@@ -131,8 +145,10 @@ type configuration struct {
 	usesKubeconfig           bool
 	usesPolicyExceptions     bool
 	usesConfigMapCaching     bool
+	usesDeferredLoading      bool
 	usesCosign               bool
 	usesRegistryClient       bool
+	usesImageVerifyCache     bool
 	usesLeaderElection       bool
 	usesKyvernoClient        bool
 	usesDynamicClient        bool
@@ -166,12 +182,20 @@ func (c *configuration) UsesConfigMapCaching() bool {
 	return c.usesConfigMapCaching
 }
 
+func (c *configuration) UsesDeferredLoading() bool {
+	return c.usesDeferredLoading
+}
+
 func (c *configuration) UsesCosign() bool {
 	return c.usesCosign
 }
 
 func (c *configuration) UsesRegistryClient() bool {
 	return c.usesRegistryClient
+}
+
+func (c *configuration) UsesImageVerifyCache() bool {
+	return c.usesImageVerifyCache
 }
 
 func (c *configuration) UsesLeaderElection() bool {

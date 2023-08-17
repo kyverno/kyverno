@@ -302,11 +302,43 @@ customLabels: {}
 
 webhooksCleanup:
   # -- Create a helm pre-delete hook to cleanup webhooks.
-  enabled: false
+  enabled: true
   # -- `kubectl` image to run commands for deleting webhooks.
   image: bitnami/kubectl:latest
   # -- Image pull secrets
   imagePullSecrets: []
+
+  # -- Security context for the pod
+  podSecurityContext: {}
+
+  # -- Node labels for pod assignment
+  nodeSelector: {}
+
+  # -- List of node taints to tolerate
+  tolerations: []
+
+  # -- Pod anti affinity constraints.
+  podAntiAffinity: {}
+
+  # -- Pod affinity constraints.
+  podAffinity: {}
+
+  # -- Node affinity constraints.
+  nodeAffinity: {}
+
+  # -- Security context for the hook containers
+  securityContext:
+    runAsUser: 65534
+    runAsGroup: 65534
+    runAsNonRoot: true
+    privileged: false
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
 
 grafana:
   # -- Enable grafana dashboard creation.
@@ -322,9 +354,26 @@ grafana:
   # -- Grafana dashboard configmap annotations.
   annotations: {}
 
+  # -- Grafana dashboard configmap labels
+  labels:
+    grafana_dashboard: "1"
+
+  # -- create GrafanaDashboard custom resource referencing to the configMap.
+  # according to https://grafana-operator.github.io/grafana-operator/docs/examples/dashboard_from_configmap/readme/
+  grafanaDashboard:
+    create: false
+    matchLabels:
+      dashboards: "grafana"
+
 # Features configuration
 features:
   admissionReports:
+    # -- Enables the feature
+    enabled: true
+  aggregateReports:
+    # -- Enables the feature
+    enabled: true
+  policyReports:
     # -- Enables the feature
     enabled: true
   autoUpdateWebhooks:
@@ -340,6 +389,9 @@ features:
     # -- Skips resource filters in background scan
     skipResourceFilters: true
   configMapCaching:
+    # -- Enables the feature
+    enabled: true
+  deferredLoading:
     # -- Enables the feature
     enabled: true
   dumpPayload:
@@ -381,6 +433,9 @@ features:
   reports:
     # -- Reports chunk size
     chunkSize: 1000
+  ttlController:
+    # -- Reconciliation interval for the label based cleanup manager
+    reconciliationInterval: 1m
 
 # Cleanup cronjobs to prevent internal resources from stacking up in the cluster
 cleanupJobs:
@@ -402,6 +457,10 @@ cleanupJobs:
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~
 
+    # -- Image pull secrets
+    imagePullSecrets: []
+      # - name: secretName
+
     # -- Cronjob schedule
     schedule: '*/10 * * * *'
 
@@ -434,8 +493,23 @@ cleanupJobs:
     # -- List of node taints to tolerate
     tolerations: []
 
+    # -- Node labels for pod assignment
+    nodeSelector: {}
+
     # -- Pod Annotations
     podAnnotations: {}
+
+    # -- Pod labels
+    podLabels: {}
+
+    # -- Pod anti affinity constraints.
+    podAntiAffinity: {}
+
+    # -- Pod affinity constraints.
+    podAffinity: {}
+
+    # -- Node affinity constraints.
+    nodeAffinity: {}
 
   clusterAdmissionReports:
 
@@ -454,6 +528,10 @@ cleanupJobs:
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~
 
+    # -- Image pull secrets
+    imagePullSecrets: []
+      # - name: secretName
+
     # -- Cronjob schedule
     schedule: '*/10 * * * *'
 
@@ -486,8 +564,23 @@ cleanupJobs:
     # -- List of node taints to tolerate
     tolerations: []
 
+    # -- Node labels for pod assignment
+    nodeSelector: {}
+
     # -- Pod Annotations
     podAnnotations: {}
+
+    # -- Pod Labels
+    podLabels: {}
+
+    # -- Pod anti affinity constraints.
+    podAntiAffinity: {}
+
+    # -- Pod affinity constraints.
+    podAffinity: {}
+
+    # -- Node affinity constraints.
+    nodeAffinity: {}
 
 # Admission controller configuration
 admissionController:
@@ -545,6 +638,24 @@ admissionController:
 
   # -- Optional priority class
   priorityClassName: ''
+
+  # -- Change `apiPriorityAndFairness` to `true` if you want to insulate the API calls made by Kyverno admission controller activities.
+  # This will help ensure Kyverno stability in busy clusters.
+  # Ref: https://kubernetes.io/docs/concepts/cluster-administration/flow-control/
+  apiPriorityAndFairness: false
+
+  # -- Priority level configuration.
+  # The block is directly forwarded into the priorityLevelConfiguration, so you can use whatever specification you want.
+  # ref: https://kubernetes.io/docs/concepts/cluster-administration/flow-control/#prioritylevelconfiguration
+  # @default -- See [values.yaml](values.yaml)
+  priorityLevelConfigurationSpec:
+    type: Limited
+    limited:
+      nominalConcurrencyShares: 10
+      limitResponse:
+        queuing:
+          queueLengthLimit: 50
+        type: Queue
 
   # -- Change `hostNetwork` to `true` when you want the pod to share its host's network namespace.
   # Useful for situations like when you end up dealing with a custom CNI over Amazon EKS.
@@ -796,6 +907,10 @@ admissionController:
     secure: false
     # -- TLS Configuration for endpoint
     tlsConfig: {}
+    # -- RelabelConfigs to apply to samples before scraping
+    relabelings: []
+    # -- MetricRelabelConfigs to apply to samples before ingestion.
+    metricRelabelings: []
 
   tracing:
     # -- Enable tracing
@@ -904,6 +1019,9 @@ backgroundController:
   # -- Extra arguments passed to the container on the command line
   extraArgs: {}
 
+  # -- Additional container environment variables.
+  extraEnvVars: []
+
   resources:
     # -- Pod resource limits
     limits:
@@ -1008,6 +1126,10 @@ backgroundController:
     secure: false
     # -- TLS Configuration for endpoint
     tlsConfig: {}
+    # -- RelabelConfigs to apply to samples before scraping
+    relabelings: []
+    # -- MetricRelabelConfigs to apply to samples before ingestion.
+    metricRelabelings: []
 
   tracing:
     # -- Enable tracing
@@ -1059,6 +1181,10 @@ cleanupController:
       #     - ''
       #   resources:
       #     - pods
+      #   verbs:
+      #     - delete
+      #     - list
+      #     - watch
 
   # -- Create self-signed certificates at deployment time.
   # The certificates won't be automatically renewed if this is set to `true`.
@@ -1114,6 +1240,9 @@ cleanupController:
 
   # -- Extra arguments passed to the container on the command line
   extraArgs: {}
+
+  # -- Additional container environment variables.
+  extraEnvVars: []
 
   resources:
     # -- Pod resource limits
@@ -1273,6 +1402,10 @@ cleanupController:
     secure: false
     # -- TLS Configuration for endpoint
     tlsConfig: {}
+    # -- RelabelConfigs to apply to samples before scraping
+    relabelings: []
+    # -- MetricRelabelConfigs to apply to samples before ingestion.
+    metricRelabelings: []
 
   tracing:
     # -- Enable tracing
@@ -1363,6 +1496,24 @@ reportsController:
   # -- Optional priority class
   priorityClassName: ''
 
+  # -- Change `apiPriorityAndFairness` to `true` if you want to insulate the API calls made by Kyverno reports controller activities.
+  # This will help ensure Kyverno reports stability in busy clusters.
+  # Ref: https://kubernetes.io/docs/concepts/cluster-administration/flow-control/
+  apiPriorityAndFairness: false
+
+  # -- Priority level configuration.
+  # The block is directly forwarded into the priorityLevelConfiguration, so you can use whatever specification you want.
+  # ref: https://kubernetes.io/docs/concepts/cluster-administration/flow-control/#prioritylevelconfiguration
+  # @default -- See [values.yaml](values.yaml)
+  priorityLevelConfigurationSpec:
+    type: Limited
+    limited:
+      nominalConcurrencyShares: 10
+      limitResponse:
+        queuing:
+          queueLengthLimit: 50
+        type: Queue
+
   # -- Change `hostNetwork` to `true` when you want the pod to share its host's network namespace.
   # Useful for situations like when you end up dealing with a custom CNI over Amazon EKS.
   # Update the `dnsPolicy` accordingly as well to suit the host network mode.
@@ -1375,6 +1526,9 @@ reportsController:
 
   # -- Extra arguments passed to the container on the command line
   extraArgs: {}
+
+  # -- Additional container environment variables.
+  extraEnvVars: []
 
   resources:
     # -- Pod resource limits
@@ -1487,6 +1641,10 @@ reportsController:
     secure: false
     # -- TLS Configuration for endpoint
     tlsConfig: {}
+    # -- RelabelConfigs to apply to samples before scraping
+    relabelings: []
+    # -- MetricRelabelConfigs to apply to samples before ingestion.
+    metricRelabelings: []
 
   tracing:
     # -- Enable tracing

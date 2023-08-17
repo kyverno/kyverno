@@ -109,8 +109,11 @@ spec:
             {{- end }}
             {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.reportsController.featuresOverride)
               "admissionReports"
+              "aggregateReports"
+              "policyReports"
               "backgroundScan"
               "configMapCaching"
+              "deferredLoading"
               "logging"
               "omitEvents"
               "policyExceptions"
@@ -123,6 +126,10 @@ spec:
             {{- end }}
             {{- end }}
           env:
+          - name: KYVERNO_SERVICEACCOUNT_NAME
+            value: {{ template "kyverno.reports-controller.serviceAccountName" . }}
+          - name: KYVERNO_DEPLOYMENT
+            value: {{ template "kyverno.reports-controller.name" . }}
           - name: INIT_CONFIG
             value: {{ template "kyverno.config.configMapName" . }}
           - name: METRICS_CONFIG
@@ -137,8 +144,12 @@ spec:
                 fieldPath: metadata.namespace
           - name: TUF_ROOT
             value: {{ .Values.reportsController.tufRootMountPath }}
+          {{- with .Values.reportsController.extraEnvVars }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
           {{- with .Values.reportsController.resources }}
-          resources: {{ tpl (toYaml .) $ | nindent 12 }}
+          resources:
+            {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           {{- with .Values.reportsController.securityContext }}
           securityContext:

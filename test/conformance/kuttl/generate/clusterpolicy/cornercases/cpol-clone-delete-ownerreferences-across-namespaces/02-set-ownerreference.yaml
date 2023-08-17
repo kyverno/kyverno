@@ -1,0 +1,16 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: >
+      kubectl -n cpol-clone-delete-ownerreferences-across-namespaces-source-ns get configmap owner -o json |
+      jq '{
+        "metadata": {
+          "ownerReferences": [{
+            "apiVersion": "v1",
+            "kind": "ConfigMap",
+            "name": "owner",
+            "uid": .metadata.uid
+          }]
+        }
+      }' |
+      kubectl patch -n cpol-clone-delete-ownerreferences-across-namespaces-source-ns secret cpol-clone-delete-ownerreferences-across-namespaces --patch-file=/dev/stdin

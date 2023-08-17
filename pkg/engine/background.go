@@ -69,7 +69,6 @@ func (e *engine) filterRule(
 	newResource := policyContext.NewResource()
 	oldResource := policyContext.OldResource()
 	admissionInfo := policyContext.AdmissionInfo()
-	ctx := policyContext.JSONContext()
 	namespaceLabels := policyContext.NamespaceLabels()
 	policy := policyContext.Policy()
 	gvk, subresource := policyContext.ResourceKind()
@@ -102,13 +101,28 @@ func (e *engine) filterRule(
 	}
 
 	// evaluate pre-conditions
-	if val, msg, err := variables.EvaluateConditions(logger, ctx, copyConditions); err != nil {
+	pass, msg, err := variables.EvaluateConditions(logger, policyContext.JSONContext(), copyConditions)
+	if err != nil {
 		return engineapi.RuleError(rule.Name, ruleType, "failed to evaluate conditions", err)
-	} else if !val {
-		logger.V(4).Info("skip rule as preconditions are not met", "rule", rule.Name, "message", msg)
-		return engineapi.RuleSkip(rule.Name, ruleType, "")
 	}
 
-	// build rule Response
-	return engineapi.RulePass(rule.Name, ruleType, "")
+	if pass {
+		return engineapi.RulePass(rule.Name, ruleType, "")
+	}
+
+	if policyContext.OldResource().Object != nil {
+		if err = policyContext.JSONContext().AddResource(policyContext.OldResource().Object); err != nil {
+			return engineapi.RuleError(rule.Name, ruleType, "failed to update JSON context for old resource", err)
+		}
+		if val, msg, err := variables.EvaluateConditions(logger, policyContext.JSONContext(), copyConditions); err != nil {
+			return engineapi.RuleError(rule.Name, ruleType, "failed to evaluate conditions for old resource", err)
+		} else {
+			if val {
+				return engineapi.RuleFail(rule.Name, ruleType, msg)
+			}
+		}
+	}
+
+	logger.V(4).Info("skip rule as preconditions are not met", "rule", rule.Name, "message", msg)
+	return engineapi.RuleSkip(rule.Name, ruleType, "")
 }

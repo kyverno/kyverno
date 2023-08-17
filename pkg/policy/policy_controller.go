@@ -25,7 +25,6 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -33,10 +32,9 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1informers "k8s.io/client-go/informers/core/v1"
-	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -60,7 +58,7 @@ type policyController struct {
 	npInformer kyvernov1informers.PolicyInformer
 
 	eventGen      event.Interface
-	eventRecorder record.EventRecorder
+	eventRecorder events.EventRecorder
 
 	// Policies that need to be synced
 	queue workqueue.RateLimitingInterface
@@ -108,10 +106,15 @@ func NewPolicyController(
 	jp jmespath.Interface,
 ) (*policyController, error) {
 	// Event broad caster
-	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(log.V(5).Info)
 	eventInterface := client.GetEventsInterface()
-	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: eventInterface})
+	eventBroadcaster := events.NewBroadcaster(
+		&events.EventSinkImpl{
+			Interface: eventInterface,
+		},
+	)
+	eventBroadcaster.StartStructuredLogging(0)
+	stopCh := make(chan struct{})
+	eventBroadcaster.StartRecordingToSink(stopCh)
 
 	pc := policyController{
 		client:          client,
@@ -120,7 +123,7 @@ func NewPolicyController(
 		pInformer:       pInformer,
 		npInformer:      npInformer,
 		eventGen:        eventGen,
-		eventRecorder:   eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "policy_controller"}),
+		eventRecorder:   eventBroadcaster.NewRecorder(scheme.Scheme, "policy_controller"),
 		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
 		configuration:   configuration,
 		reconcilePeriod: reconcilePeriod,
@@ -158,17 +161,7 @@ func (pc *policyController) canBackgroundProcess(p kyvernov1.PolicyInterface) bo
 
 func (pc *policyController) addPolicy(obj interface{}) {
 	logger := pc.log
-	var p kyvernov1.PolicyInterface
-
-	switch obj := obj.(type) {
-	case *kyvernov1.ClusterPolicy:
-		p = obj
-	case *kyvernov1.Policy:
-		p = obj
-	default:
-		return
-	}
-
+	p := castPolicy(obj)
 	logger.Info("policy created", "uid", p.GetUID(), "kind", p.GetKind(), "namespace", p.GetNamespace(), "name", p.GetName())
 
 	if !pc.canBackgroundProcess(p) {
@@ -181,26 +174,8 @@ func (pc *policyController) addPolicy(obj interface{}) {
 
 func (pc *policyController) updatePolicy(old, cur interface{}) {
 	logger := pc.log
-	var oldP, curP kyvernov1.PolicyInterface
-
-	switch obj := old.(type) {
-	case *kyvernov1.ClusterPolicy:
-		oldP = obj
-	case *kyvernov1.Policy:
-		oldP = obj
-	default:
-		return
-	}
-
-	switch obj := cur.(type) {
-	case *kyvernov1.ClusterPolicy:
-		curP = obj
-	case *kyvernov1.Policy:
-		curP = obj
-	default:
-		return
-	}
-
+	oldP := castPolicy(old)
+	curP := castPolicy(cur)
 	if !pc.canBackgroundProcess(curP) {
 		return
 	}
@@ -419,7 +394,7 @@ func (pc *policyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest
 
 	for _, ruleResponse := range engineResponse.PolicyResponse.Rules {
 		if ruleResponse.Status() != engineapi.RuleStatusPass {
-			pc.log.Error(err, "can not create new UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule.Status", ruleResponse.Status())
+			pc.log.V(4).Info("skip creating URs on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule.Status", ruleResponse.Status())
 			continue
 		}
 

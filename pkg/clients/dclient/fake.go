@@ -78,17 +78,26 @@ func (c *fakeDiscoveryClient) GetGVRFromGVK(gvk schema.GroupVersionKind) (schema
 }
 
 func (c *fakeDiscoveryClient) FindResources(group, version, kind, subresource string) (map[TopLevelApiDescription]metav1.APIResource, error) {
-	return nil, fmt.Errorf("not implemented")
+	r := strings.ToLower(kind) + "s"
+	for _, resource := range c.registeredResources {
+		if resource.Resource == r {
+			return map[TopLevelApiDescription]metav1.APIResource{
+				{
+					GroupVersion: schema.GroupVersion{Group: resource.Group, Version: resource.Version},
+					Kind:         kind,
+					Resource:     r,
+					SubResource:  subresource,
+				}: {},
+			}, nil
+		}
+	}
+	return nil, fmt.Errorf("not found")
 }
 
 func (c *fakeDiscoveryClient) OpenAPISchema() (*openapiv2.Document, error) {
 	return nil, nil
 }
 
-func (c *fakeDiscoveryClient) DiscoveryCache() discovery.CachedDiscoveryInterface {
-	return nil
-}
-
-func (c *fakeDiscoveryClient) DiscoveryInterface() discovery.DiscoveryInterface {
+func (c *fakeDiscoveryClient) CachedDiscoveryInterface() discovery.CachedDiscoveryInterface {
 	return nil
 }

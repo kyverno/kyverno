@@ -12,18 +12,22 @@ import (
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/values"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
+	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/logging"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -46,39 +50,6 @@ type ResultCounts struct {
 	Error int
 	Skip  int
 }
-type Policy struct {
-	Name      string     `json:"name"`
-	Resources []Resource `json:"resources"`
-	Rules     []Rule     `json:"rules"`
-}
-
-type Rule struct {
-	Name          string                   `json:"name"`
-	Values        map[string]interface{}   `json:"values"`
-	ForeachValues map[string][]interface{} `json:"foreachValues"`
-}
-
-type Values struct {
-	Policies           []Policy            `json:"policies"`
-	GlobalValues       map[string]string   `json:"globalValues"`
-	NamespaceSelectors []NamespaceSelector `json:"namespaceSelector"`
-	Subresources       []Subresource       `json:"subresources"`
-}
-
-type Resource struct {
-	Name   string                 `json:"name"`
-	Values map[string]interface{} `json:"values"`
-}
-
-type Subresource struct {
-	APIResource    metav1.APIResource `json:"subresource"`
-	ParentResource metav1.APIResource `json:"parentResource"`
-}
-
-type NamespaceSelector struct {
-	Name   string            `json:"name"`
-	Labels map[string]string `json:"labels"`
-}
 
 type ApplyPolicyConfig struct {
 	Policy                    kyvernov1.PolicyInterface
@@ -96,7 +67,7 @@ type ApplyPolicyConfig struct {
 	RuleToCloneSourceResource map[string]string
 	Client                    dclient.Interface
 	AuditWarn                 bool
-	Subresources              []Subresource
+	Subresources              []values.Subresource
 }
 
 // HasVariables - check for variables in the policy
@@ -229,81 +200,56 @@ func RemoveDuplicateAndObjectVariables(matches [][]string) string {
 	return variableStr
 }
 
-func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit bool, policyResourcePath string) (map[string]string, map[string]string, map[string]map[string]Resource, map[string]map[string]string, []Subresource, error) {
-	valuesMapResource := make(map[string]map[string]Resource)
-	valuesMapRule := make(map[string]map[string]Rule)
+func GetVariable(
+	variablesString []string,
+	valuesFile string,
+	fs billy.Filesystem,
+	isGit bool,
+	policyResourcePath string,
+) (map[string]string, map[string]string, map[string]map[string]values.Resource, map[string]map[string]string, []values.Subresource, error) {
+	valuesMapResource := make(map[string]map[string]values.Resource)
+	valuesMapRule := make(map[string]map[string]values.Rule)
 	namespaceSelectorMap := make(map[string]map[string]string)
 	variables := make(map[string]string)
-	subresources := make([]Subresource, 0)
+	subresources := make([]values.Subresource, 0)
 	globalValMap := make(map[string]string)
 	reqObjVars := ""
 
-	var yamlFile []byte
-	var err error
-	if variablesString != "" {
-		kvpairs := strings.Split(strings.Trim(variablesString, " "), ",")
-		for _, kvpair := range kvpairs {
-			kvs := strings.Split(strings.Trim(kvpair, " "), "=")
-			if strings.Contains(kvs[0], "request.object") {
-				if !strings.Contains(reqObjVars, kvs[0]) {
-					reqObjVars = reqObjVars + "," + kvs[0]
-				}
-				continue
+	for _, kvpair := range variablesString {
+		kvs := strings.Split(strings.Trim(kvpair, " "), "=")
+		if strings.Contains(kvs[0], "request.object") {
+			if !strings.Contains(reqObjVars, kvs[0]) {
+				reqObjVars = reqObjVars + "," + kvs[0]
 			}
-
-			variables[strings.Trim(kvs[0], " ")] = strings.Trim(kvs[1], " ")
+			continue
 		}
+		variables[strings.Trim(kvs[0], " ")] = strings.Trim(kvs[1], " ")
 	}
 
 	if valuesFile != "" {
-		if isGit {
-			filep, err := fs.Open(filepath.Join(policyResourcePath, valuesFile))
-			if err != nil {
-				fmt.Printf("Unable to open variable file: %s. error: %s", valuesFile, err)
-			}
-			yamlFile, err = io.ReadAll(filep)
-			if err != nil {
-				fmt.Printf("Unable to read variable files: %s. error: %s \n", filep, err)
-			}
-		} else {
-			// We accept the risk of including a user provided file here.
-			yamlFile, err = os.ReadFile(filepath.Join(policyResourcePath, valuesFile)) // #nosec G304
-			if err != nil {
-				fmt.Printf("\n Unable to open variable file: %s. error: %s \n", valuesFile, err)
-			}
-		}
-
+		vals, err := values.Load(fs, filepath.Join(policyResourcePath, valuesFile))
 		if err != nil {
+			fmt.Printf("Unable to load variable file: %s. error: %s \n", valuesFile, err)
 			return variables, globalValMap, valuesMapResource, namespaceSelectorMap, subresources, sanitizederror.NewWithError("unable to read yaml", err)
 		}
 
-		valuesBytes, err := yaml.ToJSON(yamlFile)
-		if err != nil {
-			return variables, globalValMap, valuesMapResource, namespaceSelectorMap, subresources, sanitizederror.NewWithError("failed to convert json", err)
-		}
-
-		values := &Values{}
-		if err := json.Unmarshal(valuesBytes, values); err != nil {
-			return variables, globalValMap, valuesMapResource, namespaceSelectorMap, subresources, sanitizederror.NewWithError("failed to decode yaml", err)
-		}
-
-		if values.GlobalValues == nil {
-			values.GlobalValues = make(map[string]string)
-			values.GlobalValues["request.operation"] = "CREATE"
+		if vals.GlobalValues == nil {
+			vals.GlobalValues = make(map[string]string)
+			vals.GlobalValues["request.operation"] = "CREATE"
 			log.V(3).Info("Defaulting request.operation to CREATE")
 		} else {
-			if val, ok := values.GlobalValues["request.operation"]; ok {
+			if val, ok := vals.GlobalValues["request.operation"]; ok {
 				if val == "" {
-					values.GlobalValues["request.operation"] = "CREATE"
-					log.V(3).Info("Globally request.operation value provided by the user is empty, defaulting it to CREATE", "request.opearation: ", values.GlobalValues)
+					vals.GlobalValues["request.operation"] = "CREATE"
+					log.V(3).Info("Globally request.operation value provided by the user is empty, defaulting it to CREATE", "request.opearation: ", vals.GlobalValues)
 				}
 			}
 		}
 
-		globalValMap = values.GlobalValues
+		globalValMap = vals.GlobalValues
 
-		for _, p := range values.Policies {
-			resourceMap := make(map[string]Resource)
+		for _, p := range vals.Policies {
+			resourceMap := make(map[string]values.Resource)
 			for _, r := range p.Resources {
 				if val, ok := r.Values["request.operation"]; ok {
 					if val == "" {
@@ -325,7 +271,7 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 			valuesMapResource[p.Name] = resourceMap
 
 			if p.Rules != nil {
-				ruleMap := make(map[string]Rule)
+				ruleMap := make(map[string]values.Rule)
 				for _, r := range p.Rules {
 					ruleMap[r.Name] = r
 				}
@@ -333,11 +279,11 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 			}
 		}
 
-		for _, n := range values.NamespaceSelectors {
+		for _, n := range vals.NamespaceSelectors {
 			namespaceSelectorMap[n.Name] = n.Labels
 		}
 
-		subresources = values.Subresources
+		subresources = vals.Subresources
 	}
 
 	if reqObjVars != "" {
@@ -370,60 +316,6 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 	store.SetPolicies(storePolicies...)
 
 	return variables, globalValMap, valuesMapResource, namespaceSelectorMap, subresources, nil
-}
-
-func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateResponse engineapi.EngineResponse, resPath string, rc *ResultCounts, policyReport bool, auditWarn bool) {
-	printCount := 0
-	for _, policyRule := range autogen.ComputeRules(policy) {
-		ruleFoundInEngineResponse := false
-		if !policyRule.HasValidate() && !policyRule.HasVerifyImageChecks() && !policyRule.HasVerifyImages() {
-			continue
-		}
-
-		for i, valResponseRule := range validateResponse.PolicyResponse.Rules {
-			if policyRule.Name == valResponseRule.Name() {
-				ruleFoundInEngineResponse = true
-				switch valResponseRule.Status() {
-				case engineapi.RuleStatusPass:
-					rc.Pass++
-				case engineapi.RuleStatusFail:
-					auditWarning := false
-					ann := policy.GetAnnotations()
-					if scored, ok := ann[kyvernov1.AnnotationPolicyScored]; ok && scored == "false" {
-						rc.Warn++
-						break
-					} else if auditWarn && validateResponse.GetValidationFailureAction().Audit() {
-						rc.Warn++
-						auditWarning = true
-					} else {
-						rc.Fail++
-					}
-					if !policyReport {
-						if printCount < 1 {
-							if auditWarning {
-								fmt.Printf("\npolicy %s -> resource %s failed as audit warning: \n", policy.GetName(), resPath)
-							} else {
-								fmt.Printf("\npolicy %s -> resource %s failed: \n", policy.GetName(), resPath)
-							}
-							printCount++
-						}
-
-						fmt.Printf("%d. %s: %s \n", i+1, valResponseRule.Name(), valResponseRule.Message())
-					}
-				case engineapi.RuleStatusError:
-					rc.Error++
-				case engineapi.RuleStatusWarn:
-					rc.Warn++
-				case engineapi.RuleStatusSkip:
-					rc.Skip++
-				}
-				continue
-			}
-		}
-		if !ruleFoundInEngineResponse {
-			rc.Skip++
-		}
-	}
 }
 
 // PrintMutatedOutput - function to print output in provided file or directory
@@ -707,21 +599,10 @@ func processMutateEngineResponse(c ApplyPolicyConfig, mutateResponse *engineapi.
 	return nil
 }
 
-func PrintMutatedPolicy(mutatedPolicies []kyvernov1.PolicyInterface) error {
-	for _, policy := range mutatedPolicies {
-		p, err := json.Marshal(policy)
-		if err != nil {
-			return sanitizederror.NewWithError("failed to marsal mutated policy", err)
-		}
-		log.V(5).Info("mutated Policy:", string(p))
-	}
-	return nil
-}
-
-func CheckVariableForPolicy(valuesMap map[string]map[string]Resource, globalValMap map[string]string, policyName string, resourceName string, resourceKind string, variables map[string]string, kindOnwhichPolicyIsApplied map[string]struct{}, variable string) (map[string]interface{}, error) {
+func CheckVariableForPolicy(valuesMap map[string]map[string]values.Resource, globalValMap map[string]string, policyName string, resourceName string, resourceKind string, variables map[string]string, kindOnwhichPolicyIsApplied map[string]struct{}, variable string) (map[string]interface{}, error) {
 	// get values from file for this policy resource combination
 	thisPolicyResourceValues := make(map[string]interface{})
-	if len(valuesMap[policyName]) != 0 && !datautils.DeepEqual(valuesMap[policyName][resourceName], Resource{}) {
+	if len(valuesMap[policyName]) != 0 && !datautils.DeepEqual(valuesMap[policyName][resourceName], values.Resource{}) {
 		thisPolicyResourceValues = valuesMap[policyName][resourceName].Values
 	}
 
@@ -748,7 +629,7 @@ func CheckVariableForPolicy(valuesMap map[string]map[string]Resource, globalValM
 	return thisPolicyResourceValues, nil
 }
 
-func GetKindsFromPolicy(policy kyvernov1.PolicyInterface, subresources []Subresource, dClient dclient.Interface) map[string]struct{} {
+func GetKindsFromPolicy(policy kyvernov1.PolicyInterface, subresources []values.Subresource, dClient dclient.Interface) map[string]struct{} {
 	kindOnwhichPolicyIsApplied := make(map[string]struct{})
 	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
@@ -771,7 +652,7 @@ func GetKindsFromPolicy(policy kyvernov1.PolicyInterface, subresources []Subreso
 	return kindOnwhichPolicyIsApplied
 }
 
-func getKind(kind string, subresources []Subresource, dClient dclient.Interface) (string, error) {
+func getKind(kind string, subresources []values.Subresource, dClient dclient.Interface) (string, error) {
 	group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 	if subresource == "" {
 		return kind, nil
@@ -793,7 +674,7 @@ func getKind(kind string, subresources []Subresource, dClient dclient.Interface)
 	return kind, nil
 }
 
-func getSubresourceKind(groupVersion, parentKind, subresourceName string, subresources []Subresource) (string, error) {
+func getSubresourceKind(groupVersion, parentKind, subresourceName string, subresources []values.Subresource) (string, error) {
 	for _, subresource := range subresources {
 		parentResourceGroupVersion := metav1.GroupVersion{
 			Group:   subresource.ParentResource.Group,
@@ -847,15 +728,15 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 		fmt.Printf("Failed to mock dynamic client")
 		return nil, err
 	}
-
 	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
 	cfg := config.NewDefaultConfiguration(false)
 	c := generate.NewGenerateControllerWithOnlyClient(client, engine.NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
 		jmespath.New(cfg),
-		client,
+		adapters.Client(client),
 		nil,
+		imageverifycache.DisabledImageVerifyCache(),
 		store.ContextLoaderFactory(nil),
 		nil,
 		"",
@@ -913,12 +794,13 @@ func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyCont
 			return nil, err
 		}
 
-		unstrGenResource, err := c.GetUnstrResource(genResource[0])
-		if err != nil {
-			return nil, err
+		if genResource != nil {
+			unstrGenResource, err := c.GetUnstrResource(genResource[0])
+			if err != nil {
+				return nil, err
+			}
+			newRuleResponse = append(newRuleResponse, *rule.WithGeneratedResource(*unstrGenResource))
 		}
-
-		newRuleResponse = append(newRuleResponse, *rule.WithGeneratedResource(*unstrGenResource))
 	}
 
 	return newRuleResponse, nil
@@ -994,4 +876,49 @@ func GetGitBranchOrPolicyPaths(gitBranch, repoURL string, policyPaths []string) 
 		gitPathToYamls = strings.ReplaceAll(policyPaths[0], repoURL, "/")
 	}
 	return gitBranch, gitPathToYamls
+}
+
+func processEngineResponses(responses []engineapi.EngineResponse, c ApplyPolicyConfig) {
+	for _, response := range responses {
+		if !response.IsEmpty() {
+			pol := response.Policy()
+			if polType := pol.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
+				return
+			}
+			for _, rule := range autogen.ComputeRules(pol.GetPolicy().(kyvernov1.PolicyInterface)) {
+				if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
+					ruleFoundInEngineResponse := false
+					for _, valResponseRule := range response.PolicyResponse.Rules {
+						if rule.Name == valResponseRule.Name() {
+							ruleFoundInEngineResponse = true
+							switch valResponseRule.Status() {
+							case engineapi.RuleStatusPass:
+								c.Rc.Pass++
+							case engineapi.RuleStatusFail:
+								ann := c.Policy.GetAnnotations()
+								if scored, ok := ann[kyverno.AnnotationPolicyScored]; ok && scored == "false" {
+									c.Rc.Warn++
+									break
+								} else if c.AuditWarn && response.GetValidationFailureAction().Audit() {
+									c.Rc.Warn++
+								} else {
+									c.Rc.Fail++
+								}
+							case engineapi.RuleStatusError:
+								c.Rc.Error++
+							case engineapi.RuleStatusWarn:
+								c.Rc.Warn++
+							case engineapi.RuleStatusSkip:
+								c.Rc.Skip++
+							}
+							continue
+						}
+					}
+					if !ruleFoundInEngineResponse {
+						c.Rc.Skip++
+					}
+				}
+			}
+		}
+	}
 }

@@ -5,6 +5,9 @@
 ### Note
 
 - Deprecated flag `--imageSignatureRepository`. Will be removed in 1.12. Use per rule configuration `verifyImages.Repository` instead.
+- Added `--aggregateReports` flag for reports controller to enable/disable aggregated reports (default value is `true`).
+- Added `--policyReports` flag for reports controller to enable/disable policy reports (default value is  `true`).
+- Renamed CLI flag `--compact` to `--detailed-results` (and changed default value from `true` to `false`).
 
 ## v1.10.0
 

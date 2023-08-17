@@ -12,8 +12,9 @@ import (
 
 	"github.com/distribution/distribution/reference"
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	"github.com/jmespath/go-jmespath"
 	"github.com/jmoiron/jsonq"
+	"github.com/kyverno/go-jmespath"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
@@ -38,25 +39,22 @@ import (
 )
 
 var (
-	allowedVariables                   = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images\.|image\.|([a-z_0-9]+\()[^{}]`)
-	allowedVariablesBackground         = regexp.MustCompile(`request\.|element|elementIndex|@|images\.|image\.|([a-z_0-9]+\()[^{}]`)
-	allowedVariablesInTarget           = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
-	allowedVariablesBackgroundInTarget = regexp.MustCompile(`request\.|element|elementIndex|@|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
+	allowedVariables                   = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images|images\.|image\.|([a-z_0-9]+\()[^{}]`)
+	allowedVariablesBackground         = regexp.MustCompile(`request\.|element|elementIndex|@|images|images\.|image\.|([a-z_0-9]+\()[^{}]`)
+	allowedVariablesInTarget           = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
+	allowedVariablesBackgroundInTarget = regexp.MustCompile(`request\.|element|elementIndex|@|images|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
 	// wildCardAllowedVariables represents regex for the allowed fields in wildcards
 	wildCardAllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace)[^{}]*\}\}`)
 	errOperationForbidden    = errors.New("variables are forbidden in the path of a JSONPatch")
 )
+
+var allowedJsonPatch = regexp.MustCompile("^/")
 
 // validateJSONPatchPathForForwardSlash checks for forward slash
 func validateJSONPatchPathForForwardSlash(patch string) error {
 	// Replace all variables in PatchesJSON6902, all variable checks should have happened already.
 	// This prevents further checks from failing unexpectedly.
 	patch = variables.ReplaceAllVars(patch, func(s string) string { return "kyvernojsonpatchvariable" })
-
-	re, err := regexp.Compile("^/")
-	if err != nil {
-		return err
-	}
 
 	jsonPatch, err := yaml.ToJSON([]byte(patch))
 	if err != nil {
@@ -74,7 +72,7 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 			return err
 		}
 
-		val := re.MatchString(path)
+		val := allowedJsonPatch.MatchString(path)
 
 		if !val {
 			return fmt.Errorf("%s", path)
@@ -151,7 +149,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	clusterResources := sets.New[string]()
 	if !mock {
 		// Get all the cluster type kind supported by cluster
-		res, err = discovery.ServerPreferredResources(client.Discovery().DiscoveryInterface())
+		res, err = discovery.ServerPreferredResources(client.Discovery().CachedDiscoveryInterface())
 		if err != nil {
 			if discovery.IsGroupDiscoveryFailedError(err) {
 				err := err.(*discovery.ErrGroupDiscoveryFailed)
@@ -165,6 +163,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		for _, resList := range res {
 			for _, r := range resList.APIResources {
 				if !r.Namespaced {
+					clusterResources.Insert(resList.GroupVersion + "/" + r.Kind)
 					clusterResources.Insert(r.Kind)
 				}
 			}
@@ -179,6 +178,14 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		err := validateNamespaces(spec, specPath.Child("validationFailureActionOverrides"))
 		if err != nil {
 			return warnings, err
+		}
+	}
+	if !policy.AdmissionProcessingEnabled() && !policy.BackgroundProcessingEnabled() {
+		return warnings, fmt.Errorf("disabling both admission and background processing is not allowed")
+	}
+	if !policy.AdmissionProcessingEnabled() {
+		if spec.HasMutate() || spec.HasGenerate() || spec.HasVerifyImages() {
+			return warnings, fmt.Errorf("disabling admission processing is only allowed with validation policies")
 		}
 	}
 
@@ -274,14 +281,6 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		} else {
 			if len(rule.MatchResources.Kinds) == 0 {
 				return warnings, validateMatchKindHelper(rule)
-			}
-		}
-
-		// validate Cluster Resources in namespaced policy
-		// For namespaced policy, ClusterResource type field and values are not allowed in match and exclude
-		if policy.IsNamespaced() {
-			if err := checkClusterResourceInMatchAndExclude(rule, clusterResources, policy.GetNamespace(), mock, res); err != nil {
-				return warnings, err
 			}
 		}
 
@@ -492,11 +491,19 @@ func cleanup(policy kyvernov1.PolicyInterface) kyvernov1.PolicyInterface {
 		policy.SetAnnotations(ann)
 	}
 	if policy.GetNamespace() == "" {
-		pol := policy.(*kyvernov1.ClusterPolicy)
+		var pol *kyvernov1.ClusterPolicy
+		var ok bool
+		if pol, ok = policy.(*kyvernov1.ClusterPolicy); !ok {
+			return policy
+		}
 		pol.Status.Autogen.Rules = nil
 		return pol
 	} else {
-		pol := policy.(*kyvernov1.Policy)
+		var pol *kyvernov1.Policy
+		var ok bool
+		if pol, ok = policy.(*kyvernov1.Policy); !ok {
+			return policy
+		}
 		pol.Status.Autogen.Rules = nil
 		return pol
 	}
@@ -1126,7 +1133,7 @@ func jsonPatchOnPod(rule kyvernov1.Rule) bool {
 
 func podControllerAutoGenExclusion(policy kyvernov1.PolicyInterface) bool {
 	annotations := policy.GetAnnotations()
-	val, ok := annotations[kyvernov1.PodControllersAnnotation]
+	val, ok := annotations[kyverno.AnnotationAutogenControllers]
 	if !ok || val == "none" {
 		return false
 	}
@@ -1255,6 +1262,9 @@ func validateNamespaces(s *kyvernov1.Spec, path *field.Path) error {
 	}
 
 	for i, vfa := range s.ValidationFailureActionOverrides {
+		if !vfa.Action.IsValid() {
+			return fmt.Errorf("invalid action")
+		}
 		patternList, nsList := wildcard.SeperateWildcards(vfa.Namespaces)
 
 		if vfa.Action.Audit() {
@@ -1314,7 +1324,7 @@ func checkForDeprecatedFieldsInVerifyImages(rule kyvernov1.Rule, warnings *[]str
 	for _, imageVerify := range rule.VerifyImages {
 		for _, attestation := range imageVerify.Attestations {
 			if attestation.PredicateType != "" {
-				msg := fmt.Sprintf("predicateType has been deprecated use 'type: %s' instead of 'prediacteType: %s'", attestation.PredicateType, attestation.PredicateType)
+				msg := fmt.Sprintf("predicateType has been deprecated use 'type: %s' instead of 'predicateType: %s'", attestation.PredicateType, attestation.PredicateType)
 				*warnings = append(*warnings, msg)
 			}
 		}

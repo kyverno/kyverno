@@ -13,9 +13,19 @@ import (
 // +kubebuilder:default=Cosign
 type ImageVerificationType string
 
+// ImageRegistryCredentialsProvidersType provides the list of credential providers required.
+// +kubebuilder:validation:Enum=default;amazon;azure;google;github
+type ImageRegistryCredentialsProvidersType string
+
 const (
 	Cosign ImageVerificationType = "Cosign"
 	Notary ImageVerificationType = "Notary"
+
+	DEFAULT ImageRegistryCredentialsProvidersType = "default"
+	AWS     ImageRegistryCredentialsProvidersType = "amazon"
+	ACR     ImageRegistryCredentialsProvidersType = "azure"
+	GCP     ImageRegistryCredentialsProvidersType = "google"
+	GHCR    ImageRegistryCredentialsProvidersType = "github"
 )
 
 // ImageVerification validates that images that match the specified pattern
@@ -95,6 +105,15 @@ type ImageVerification struct {
 	// +kubebuilder:default=true
 	// +kubebuilder:validation:Optional
 	Required bool `json:"required" yaml:"required"`
+
+	// ImageRegistryCredentials provides credentials that will be used for authentication with registry
+	// +kubebuilder:validation:Optional
+	ImageRegistryCredentials *ImageRegistryCredentials `json:"imageRegistryCredentials,omitempty" yaml:"imageRegistryCredentials,omitempty"`
+
+	// UseCache enables caching of image verify responses for this rule
+	// +kubebuilder:default=true
+	// +kubebuilder:validation:Optional
+	UseCache bool `json:"useCache" yaml:"useCache"`
 }
 
 type AttestorSet struct {
@@ -169,7 +188,7 @@ type StaticKeyAttestor struct {
 	Secret *SecretReference `json:"secret,omitempty" yaml:"secret,omitempty"`
 
 	// Rekor provides configuration for the Rekor transparency log service. If the value is nil,
-	// Rekor is not checked. If an empty object is provided the public instance of
+	// or an empty object is provided, the public instance of
 	// Rekor (https://rekor.sigstore.dev) is used.
 	// +kubebuilder:validation:Optional
 	Rekor *CTLog `json:"rekor,omitempty" yaml:"rekor,omitempty"`
@@ -229,6 +248,19 @@ type CTLog struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:Default:=https://rekor.sigstore.dev
 	URL string `json:"url" yaml:"url"`
+
+	// RekorPubKey is an optional PEM encoded public key to use for a custom Rekor.
+	// If set, is used to validate signatures on log entries from Rekor.
+	// +kubebuilder:validation:Optional
+	RekorPubKey string `json:"pubkey,omitempty" yaml:"pubkey,omitempty"`
+
+	// IgnoreSCT requires that a certificate contain an embedded SCT during verification. An SCT is proof of inclusion in a certificate transparency log.
+	// +kubebuilder:validation:Optional
+	IgnoreSCT bool `json:"ignoreSCT,omitempty" yaml:"ignoreSCT,omitempty"`
+
+	// IgnoreTlog skip tlog verification
+	// +kubebuilder:validation:Optional
+	IgnoreTlog bool `json:"ignoreTlog,omitempty" yaml:"ignoreTlog,omitempty"`
 }
 
 // Attestation are checks for signed in-toto Statements that are used to verify the image.
@@ -252,6 +284,22 @@ type Attestation struct {
 	// the attestation check is satisfied as long there are predicates that match the predicate type.
 	// +kubebuilder:validation:Optional
 	Conditions []AnyAllConditions `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+}
+
+type ImageRegistryCredentials struct {
+	// AllowInsecureRegistry allows insecure access to a registry
+	// +kubebuilder:validation:Optional
+	AllowInsecureRegistry bool `json:"allowInsecureRegistry,omitempty" yaml:"allowInsecureRegistry,omitempty"`
+
+	// Providers specifies a list of OCI Registry names, whose authentication providers are provided
+	// It can be of one of these values: AWS, ACR, GCP, GHCR
+	// +kubebuilder:validation:Optional
+	Providers []ImageRegistryCredentialsProvidersType `json:"providers,omitempty" yaml:"providers,omitempty"`
+
+	// Secrets specifies a list of secrets that are provided for credentials
+	// Secrets must live in the Kyverno namespace
+	// +kubebuilder:validation:Optional
+	Secrets []string `json:"secrets,omitempty" yaml:"secrets,omitempty"`
 }
 
 func (iv *ImageVerification) GetType() ImageVerificationType {

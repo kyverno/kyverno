@@ -1,14 +1,14 @@
 package controller
 
 import (
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 )
 
 func SelectorNotManagedByKyverno() (labels.Selector, error) {
 	selector := labels.Everything()
-	requirement, err := labels.NewRequirement(kyvernov1.LabelAppManagedBy, selection.NotEquals, []string{kyvernov1.ValueKyvernoApp})
+	requirement, err := labels.NewRequirement(kyverno.LabelAppManagedBy, selection.NotEquals, []string{kyverno.ValueKyvernoApp})
 	if err == nil {
 		selector = selector.Add(*requirement)
 	}

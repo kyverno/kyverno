@@ -16,17 +16,17 @@ import (
 	"github.com/kyverno/kyverno/pkg/tracing"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
-	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
-	"github.com/sigstore/cosign/cmd/cosign/cli/options"
-	"github.com/sigstore/cosign/cmd/cosign/cli/rekor"
-	"github.com/sigstore/cosign/pkg/cosign"
-	"github.com/sigstore/cosign/pkg/cosign/attestation"
-	"github.com/sigstore/cosign/pkg/oci"
-	"github.com/sigstore/cosign/pkg/oci/remote"
-	sigs "github.com/sigstore/cosign/pkg/signature"
+	"github.com/sigstore/cosign/v2/pkg/cosign"
+	"github.com/sigstore/cosign/v2/pkg/cosign/attestation"
+	"github.com/sigstore/cosign/v2/pkg/oci"
+	"github.com/sigstore/cosign/v2/pkg/oci/remote"
+	sigs "github.com/sigstore/cosign/v2/pkg/signature"
+	rekorclient "github.com/sigstore/rekor/pkg/client"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
+	"github.com/sigstore/sigstore/pkg/fulcioroots"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/payload"
+	"github.com/sigstore/sigstore/pkg/tuf"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
 )
@@ -94,12 +94,8 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 		"sha256": crypto.SHA256,
 		"sha512": crypto.SHA512,
 	}
-	ro := options.RegistryOptions{}
-	remoteOpts, err = ro.ClientOpts(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("constructing client options: %w", err)
-	}
-	remoteOpts = append(remoteOpts, opts.RegistryClient.BuildRemoteOption(ctx))
+
+	remoteOpts = append(remoteOpts, opts.Client.BuildRemoteOption(ctx))
 	cosignOpts := &cosign.CheckOpts{
 		Annotations:        map[string]interface{}{},
 		RegistryClientOpts: remoteOpts,
@@ -166,7 +162,7 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 		} else {
 			// if key, cert, and roots are not provided, default to Fulcio roots
 			if cosignOpts.RootCerts == nil {
-				roots, err := fulcio.GetRoots()
+				roots, err := fulcioroots.Get()
 				if err != nil {
 					return nil, fmt.Errorf("failed to get roots from fulcio: %w", err)
 				}
@@ -178,11 +174,21 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 		}
 	}
 
-	if opts.RekorURL != "" {
-		cosignOpts.RekorClient, err = rekor.NewClient(opts.RekorURL)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create Rekor client from URL %s: %w", opts.RekorURL, err)
-		}
+	cosignOpts.IgnoreTlog = opts.IgnoreTlog
+	cosignOpts.RekorClient, err = rekorclient.GetRekorClient(opts.RekorURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Rekor client from URL %s: %w", opts.RekorURL, err)
+	}
+
+	cosignOpts.RekorPubKeys, err = getRekorPubs(ctx, opts.RekorPubKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load Rekor public keys: %w", err)
+	}
+
+	cosignOpts.IgnoreSCT = opts.IgnoreSCT
+	cosignOpts.CTLogPubKeys, err = cosign.GetCTLogPubs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load Rekor public keys: %w", err)
 	}
 
 	if opts.Repository != "" {
@@ -564,4 +570,16 @@ func checkAnnotations(payload []payload.SimpleContainerImage, annotations map[st
 		}
 	}
 	return nil
+}
+
+func getRekorPubs(ctx context.Context, rekorPubKey string) (*cosign.TrustedTransparencyLogPubKeys, error) {
+	if rekorPubKey == "" {
+		return cosign.GetRekorPubs(ctx)
+	}
+
+	publicKeys := cosign.NewTrustedTransparencyLogPubKeys()
+	if err := publicKeys.AddTransparencyLogPubKey([]byte(rekorPubKey), tuf.Active); err != nil {
+		return nil, fmt.Errorf("AddRekorPubKey: %w", err)
+	}
+	return &publicKeys, nil
 }

@@ -7,6 +7,8 @@ import (
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/manifest"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/color"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/output/table"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/openapi"
@@ -19,7 +21,7 @@ func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var testCase string
 	var fileName, gitBranch string
-	var registryAccess, failOnly, removeColor, manifestValidate, manifestMutate, compact bool
+	var registryAccess, failOnly, removeColor, manifestValidate, manifestMutate, detailedResults bool
 	cmd = &cobra.Command{
 		Use: "test <path_to_folder_Containing_test.yamls> [flags]\n  kyverno test <path_to_gitRepository_with_dir> --git-branch <branchName>\n  kyverno test --manifest-mutate > kyverno-test.yaml\n  kyverno test --manifest-validate > kyverno-test.yaml",
 		// Args:    cobra.ExactArgs(1),
@@ -27,7 +29,7 @@ func Command() *cobra.Command {
 		Long:    longHelp,
 		Example: exampleHelp,
 		RunE: func(cmd *cobra.Command, dirPath []string) (err error) {
-			initColors(removeColor)
+			color.InitColors(removeColor)
 			defer func() {
 				if err != nil {
 					if !sanitizederror.IsErrorSanitized(err) {
@@ -42,7 +44,7 @@ func Command() *cobra.Command {
 				manifest.PrintValidate()
 			} else {
 				store.SetRegistryAccess(registryAccess)
-				_, err = testCommandExecute(dirPath, fileName, gitBranch, testCase, failOnly, false, compact)
+				_, err = testCommandExecute(dirPath, fileName, gitBranch, testCase, failOnly, false, detailedResults)
 				if err != nil {
 					log.Log.V(3).Info("a directory is required")
 					return err
@@ -54,54 +56,13 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "test filename")
 	cmd.Flags().StringVarP(&gitBranch, "git-branch", "b", "", "test github repository branch")
 	cmd.Flags().StringVarP(&testCase, "test-case-selector", "t", "", `run some specific test cases by passing a string argument in double quotes to this flag like - "policy=<policy_name>, rule=<rule_name>, resource=<resource_name". The argument could be any combination of policy, rule and resource.`)
-	cmd.Flags().BoolVarP(&manifestMutate, "manifest-mutate", "", false, "prints out a template test manifest for a mutate policy")
-	cmd.Flags().BoolVarP(&manifestValidate, "manifest-validate", "", false, "prints out a template test manifest for a validate policy")
-	cmd.Flags().BoolVarP(&registryAccess, "registry", "", false, "If set to true, access the image registry using local docker credentials to populate external data")
-	cmd.Flags().BoolVarP(&failOnly, "fail-only", "", false, "If set to true, display all the failing test only as output for the test command")
-	cmd.Flags().BoolVarP(&removeColor, "remove-color", "", false, "Remove any color from output")
-	cmd.Flags().BoolVarP(&compact, "compact", "", true, "Does not show detailed results")
+	cmd.Flags().BoolVar(&manifestMutate, "manifest-mutate", false, "prints out a template test manifest for a mutate policy")
+	cmd.Flags().BoolVar(&manifestValidate, "manifest-validate", false, "prints out a template test manifest for a validate policy")
+	cmd.Flags().BoolVar(&registryAccess, "registry", false, "If set to true, access the image registry using local docker credentials to populate external data")
+	cmd.Flags().BoolVar(&failOnly, "fail-only", false, "If set to true, display all the failing test only as output for the test command")
+	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
+	cmd.Flags().BoolVar(&detailedResults, "detailed-results", false, "If set to true, display detailed results")
 	return cmd
-}
-
-type Table struct {
-	rows []Row
-}
-
-func (t *Table) Rows(compact bool) interface{} {
-	if !compact {
-		return t.rows
-	}
-	var rows []CompactRow
-	for _, row := range t.rows {
-		rows = append(rows, row.CompactRow)
-	}
-	return rows
-}
-
-func (t *Table) AddFailed(rows ...Row) {
-	for _, row := range rows {
-		if row.isFailure {
-			t.rows = append(t.rows, row)
-		}
-	}
-}
-
-func (t *Table) Add(rows ...Row) {
-	t.rows = append(t.rows, rows...)
-}
-
-type CompactRow struct {
-	isFailure bool
-	ID        int    `header:"id"`
-	Policy    string `header:"policy"`
-	Rule      string `header:"rule"`
-	Resource  string `header:"resource"`
-	Result    string `header:"result"`
-}
-
-type Row struct {
-	CompactRow `header:"inline"`
-	Message    string `header:"message"`
 }
 
 type resultCounts struct {
@@ -117,7 +78,7 @@ func testCommandExecute(
 	testCase string,
 	failOnly bool,
 	auditWarn bool,
-	compact bool,
+	detailedResults bool,
 ) (rc *resultCounts, err error) {
 	// check input dir
 	if len(dirPath) == 0 {
@@ -136,7 +97,7 @@ func testCommandExecute(
 		fmt.Printf("\n No test yamls available \n")
 	}
 	rc = &resultCounts{}
-	var table Table
+	var table table.Table
 	for _, p := range policies {
 		if reports, tests, err := applyPoliciesFromPath(
 			fs,
@@ -149,10 +110,10 @@ func testCommandExecute(
 			auditWarn,
 		); err != nil {
 			return rc, sanitizederror.NewWithError("failed to apply test command", err)
-		} else if t, err := printTestResult(reports, tests, rc, failOnly, compact); err != nil {
+		} else if t, err := printTestResult(reports, tests, rc, failOnly, detailedResults); err != nil {
 			return rc, sanitizederror.NewWithError("failed to print test result:", err)
 		} else {
-			table.AddFailed(t.rows...)
+			table.AddFailed(t.RawRows...)
 		}
 	}
 	if len(errors) > 0 && log.Log.V(1).Enabled() {
@@ -167,35 +128,37 @@ func testCommandExecute(
 		fmt.Printf("\nTest Summary: %d out of %d tests failed\n", rc.Fail, rc.Pass+rc.Skip+rc.Fail)
 	}
 	fmt.Println()
-	if rc.Fail > 0 && !failOnly {
-		printFailedTestResult(table, compact)
+	if rc.Fail > 0 {
+		if !failOnly {
+			printFailedTestResult(table, detailedResults)
+		}
 		os.Exit(1)
 	}
 	os.Exit(0)
 	return rc, nil
 }
 
-func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, testResults []api.TestResults, rc *resultCounts, failOnly bool, compact bool) (Table, error) {
-	printer := newTablePrinter()
-	var table Table
+func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, testResults []api.TestResults, rc *resultCounts, failOnly bool, detailedResults bool) (table.Table, error) {
+	printer := table.NewTablePrinter()
+	var resultsTable table.Table
 	var countDeprecatedResource int
 	testCount := 1
 	for _, v := range testResults {
-		var row Row
+		var row table.Row
 		row.ID = testCount
 		if v.Resources == nil {
 			testCount++
 		}
-		row.Policy = boldFgCyan.Sprint(v.Policy)
-		row.Rule = boldFgCyan.Sprint(v.Rule)
+		row.Policy = color.Policy("", v.Policy)
+		row.Rule = color.Rule(v.Rule)
 
 		if v.Resources != nil {
 			for _, resource := range v.Resources {
 				row.ID = testCount
 				testCount++
-				row.Resource = boldFgCyan.Sprint(v.Namespace) + "/" + boldFgCyan.Sprint(v.Kind) + "/" + boldFgCyan.Sprint(resource)
+				row.Resource = color.Resource(v.Kind, v.Namespace, resource)
 				var ruleNameInResultKey string
-				if !v.IsVap {
+				if !v.IsValidatingAdmissionPolicy {
 					if v.AutoGeneratedRule != "" {
 						ruleNameInResultKey = fmt.Sprintf("%s-%s", v.AutoGeneratedRule, v.Rule)
 					} else {
@@ -204,7 +167,7 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 				}
 
 				var resultKey string
-				if !v.IsVap {
+				if !v.IsValidatingAdmissionPolicy {
 					resultKey = fmt.Sprintf("%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Kind, resource)
 				} else {
 					resultKey = fmt.Sprintf("%s-%s-%s", v.Policy, v.Kind, resource)
@@ -214,24 +177,23 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 				var ns string
 				ns, v.Policy = getUserDefinedPolicyNameAndNamespace(v.Policy)
 				if found && v.Namespace != "" {
-					if !v.IsVap {
+					if !v.IsValidatingAdmissionPolicy {
 						resultKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, resource)
 					} else {
 						resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", ns, v.Policy, v.Namespace, v.Kind, resource)
 					}
 				} else if found {
-					if !v.IsVap {
+					if !v.IsValidatingAdmissionPolicy {
 						resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Kind, resource)
 					} else {
 						resultKey = fmt.Sprintf("%s-%s-%s-%s", ns, v.Policy, v.Kind, resource)
 					}
-
-					row.Policy = boldFgCyan.Sprint(ns) + "/" + boldFgCyan.Sprint(v.Policy)
-					row.Resource = boldFgCyan.Sprint(v.Namespace) + "/" + boldFgCyan.Sprint(v.Kind) + "/" + boldFgCyan.Sprint(resource)
+					row.Policy = color.Policy(ns, v.Policy)
+					row.Resource = color.Resource(v.Kind, v.Namespace, resource)
 				} else if v.Namespace != "" {
-					row.Resource = boldFgCyan.Sprint(v.Namespace) + "/" + boldFgCyan.Sprint(v.Kind) + "/" + boldFgCyan.Sprint(resource)
+					row.Resource = color.Resource(v.Kind, v.Namespace, resource)
 
-					if !v.IsVap {
+					if !v.IsValidatingAdmissionPolicy {
 						resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, resource)
 					} else {
 						resultKey = fmt.Sprintf("%s-%s-%s-%s", v.Policy, v.Namespace, v.Kind, resource)
@@ -243,10 +205,10 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 					testRes = val
 				} else {
 					log.Log.V(2).Info("result not found", "key", resultKey)
-					row.Result = boldYellow.Sprint("Not found")
+					row.Result = color.NotFound()
 					rc.Fail++
-					row.isFailure = true
-					table.Add(row)
+					row.IsFailure = true
+					resultsTable.Add(row)
 					continue
 				}
 				row.Message = testRes.Message
@@ -255,7 +217,7 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 				}
 
 				if testRes.Result == v.Result {
-					row.Result = boldGreen.Sprint("Pass")
+					row.Result = color.ResultPass()
 					if testRes.Result == policyreportv1alpha2.StatusSkip {
 						rc.Skip++
 					} else {
@@ -263,24 +225,24 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 					}
 				} else {
 					log.Log.V(2).Info("result mismatch", "expected", v.Result, "received", testRes.Result, "key", resultKey)
-					row.Result = boldRed.Sprint("Fail")
+					row.Result = color.ResultFail()
 					rc.Fail++
-					row.isFailure = true
+					row.IsFailure = true
 				}
 
 				if failOnly {
-					if row.Result == boldRed.Sprintf("Fail") || row.Result == "Fail" {
-						table.Add(row)
+					if row.Result == color.ResultFail() || row.Result == "Fail" {
+						resultsTable.Add(row)
 					}
 				} else {
-					table.Add(row)
+					resultsTable.Add(row)
 				}
 			}
 		} else if v.Resource != "" {
 			countDeprecatedResource++
-			row.Resource = boldFgCyan.Sprint(v.Namespace) + "/" + boldFgCyan.Sprint(v.Kind) + "/" + boldFgCyan.Sprint(v.Resource)
+			row.Resource = color.Resource(v.Kind, v.Namespace, v.Resource)
 			var ruleNameInResultKey string
-			if !v.IsVap {
+			if !v.IsValidatingAdmissionPolicy {
 				if v.AutoGeneratedRule != "" {
 					ruleNameInResultKey = fmt.Sprintf("%s-%s", v.AutoGeneratedRule, v.Rule)
 				} else {
@@ -289,7 +251,7 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 			}
 
 			var resultKey string
-			if !v.IsVap {
+			if !v.IsValidatingAdmissionPolicy {
 				resultKey = fmt.Sprintf("%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Kind, v.Resource)
 			} else {
 				resultKey = fmt.Sprintf("%s-%s-%s", v.Policy, v.Kind, v.Resource)
@@ -299,24 +261,24 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 			var ns string
 			ns, v.Policy = getUserDefinedPolicyNameAndNamespace(v.Policy)
 			if found && v.Namespace != "" {
-				if !v.IsVap {
+				if !v.IsValidatingAdmissionPolicy {
 					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, v.Resource)
 				} else {
 					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", ns, v.Policy, v.Namespace, v.Kind, v.Resource)
 				}
 			} else if found {
-				if !v.IsVap {
+				if !v.IsValidatingAdmissionPolicy {
 					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Kind, v.Resource)
 				} else {
 					resultKey = fmt.Sprintf("%s-%s-%s-%s", ns, v.Policy, v.Kind, v.Resource)
 				}
 
-				row.Policy = boldFgCyan.Sprint(ns) + "/" + boldFgCyan.Sprint(v.Policy)
-				row.Resource = boldFgCyan.Sprint(v.Namespace) + "/" + boldFgCyan.Sprint(v.Kind) + "/" + boldFgCyan.Sprint(v.Resource)
+				row.Policy = color.Policy(ns, v.Policy)
+				row.Resource = color.Resource(v.Kind, v.Namespace, v.Resource)
 			} else if v.Namespace != "" {
-				row.Resource = boldFgCyan.Sprint(v.Namespace) + "/" + boldFgCyan.Sprint(v.Kind) + "/" + boldFgCyan.Sprint(v.Resource)
+				row.Resource = color.Resource(v.Kind, v.Namespace, v.Resource)
 
-				if !v.IsVap {
+				if !v.IsValidatingAdmissionPolicy {
 					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, v.Resource)
 				} else {
 					resultKey = fmt.Sprintf("%s-%s-%s-%s", v.Policy, v.Namespace, v.Kind, v.Resource)
@@ -328,10 +290,10 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 				testRes = val
 			} else {
 				log.Log.V(2).Info("result not found", "key", resultKey)
-				row.Result = boldYellow.Sprint("Not found")
+				row.Result = color.NotFound()
 				rc.Fail++
-				row.isFailure = true
-				table.Add(row)
+				row.IsFailure = true
+				resultsTable.Add(row)
 				continue
 			}
 
@@ -342,7 +304,7 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 			}
 
 			if testRes.Result == v.Result {
-				row.Result = boldGreen.Sprint("Pass")
+				row.Result = color.ResultPass()
 				if testRes.Result == policyreportv1alpha2.StatusSkip {
 					rc.Skip++
 				} else {
@@ -350,31 +312,31 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 				}
 			} else {
 				log.Log.V(2).Info("result mismatch", "expected", v.Result, "received", testRes.Result, "key", resultKey)
-				row.Result = boldRed.Sprint("Fail")
+				row.Result = color.ResultFail()
 				rc.Fail++
-				row.isFailure = true
+				row.IsFailure = true
 			}
 
 			if failOnly {
-				if row.Result == boldRed.Sprintf("Fail") || row.Result == "Fail" {
-					table.Add(row)
+				if row.Result == color.ResultFail() || row.Result == "Fail" {
+					resultsTable.Add(row)
 				}
 			} else {
-				table.Add(row)
+				resultsTable.Add(row)
 			}
 		}
 	}
 	fmt.Printf("\n")
-	printer.Print(table.Rows(compact))
-	return table, nil
+	printer.Print(resultsTable.Rows(detailedResults))
+	return resultsTable, nil
 }
 
-func printFailedTestResult(table Table, compact bool) {
-	printer := newTablePrinter()
-	for i := range table.rows {
-		table.rows[i].ID = i + 1
+func printFailedTestResult(resultsTable table.Table, detailedResults bool) {
+	printer := table.NewTablePrinter()
+	for i := range resultsTable.RawRows {
+		resultsTable.RawRows[i].ID = i + 1
 	}
 	fmt.Printf("Aggregated Failed Test Cases : ")
 	fmt.Println()
-	printer.Print(table.Rows(compact))
+	printer.Print(resultsTable.Rows(detailedResults))
 }

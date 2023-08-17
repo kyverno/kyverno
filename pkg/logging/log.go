@@ -25,9 +25,9 @@ const (
 	// Default logging mode is TextFormat.
 	TextFormat = "text"
 	// LogLevelController is the log level to use for controllers plumbing.
-	LogLevelController = 3
+	LogLevelController = 1
 	// LogLevelClient is the log level to use for clients.
-	LogLevelClient = 3
+	LogLevelClient = 1
 )
 
 // Initially, globalLog comes from controller-runtime/log with logger created earlier by controller-runtime.
