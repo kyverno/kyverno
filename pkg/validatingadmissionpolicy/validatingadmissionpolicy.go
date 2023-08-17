@@ -155,7 +155,7 @@ func Validate(policy v1alpha1.ValidatingAdmissionPolicy, resource unstructured.U
 	versionedAttr, _ := admission.NewVersionedAttributes(admissionAttributes, admissionAttributes.GetKind(), nil)
 	validateResult := validator.Validate(context.TODO(), versionedAttr, nil, celconfig.RuntimeCELCostBudget)
 
-	engineResponse := engineapi.NewEngineResponseWithValidatingAdmissionPolicy(resource, policy, nil)
+	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
 	policyResp := engineapi.NewPolicyResponse()
 	var ruleResp *engineapi.RuleResponse
 	isPass := true

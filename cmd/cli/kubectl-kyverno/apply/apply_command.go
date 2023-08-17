@@ -6,12 +6,10 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/go-git/go-billy/v5/memfs"
-	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/color"
@@ -356,52 +354,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, 
 			if err != nil {
 				return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}
-			for _, response := range ers {
-				if !response.IsEmpty() {
-					for _, rule := range autogen.ComputeRules(response.Policy()) {
-						if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
-							ruleFoundInEngineResponse := false
-							for _, valResponseRule := range response.PolicyResponse.Rules {
-								if rule.Name == valResponseRule.Name() {
-									ruleFoundInEngineResponse = true
-									switch valResponseRule.Status() {
-									case engineapi.RuleStatusPass:
-										rc.Pass++
-									case engineapi.RuleStatusFail:
-										ann := policy.GetAnnotations()
-										if scored, ok := ann[kyverno.AnnotationPolicyScored]; ok && scored == "false" {
-											rc.Warn++
-											break
-										} else if applyPolicyConfig.AuditWarn && response.GetValidationFailureAction().Audit() {
-											rc.Warn++
-										} else {
-											rc.Fail++
-										}
-									case engineapi.RuleStatusError:
-										rc.Error++
-									case engineapi.RuleStatusWarn:
-										rc.Warn++
-									case engineapi.RuleStatusSkip:
-										rc.Skip++
-									}
-									continue
-								}
-							}
-							if !ruleFoundInEngineResponse {
-								rc.Skip++
-								response.PolicyResponse.Rules = append(response.PolicyResponse.Rules,
-									*engineapi.RuleSkip(
-										rule.Name,
-										engineapi.Validation,
-										rule.Validation.Message,
-									),
-								)
-							}
-						}
-					}
-				}
-				responses = append(responses, response)
-			}
+			responses = append(responses, processSkipEngineResponses(ers, applyPolicyConfig)...)
 		}
 	}
 	return &rc, resources, skipInvalidPolicies, responses, nil
@@ -420,47 +373,54 @@ func (c *ApplyCommandConfig) loadResources(policies []kyvernov1.PolicyInterface,
 func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPolicies) (*common.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error, []kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy) {
 	// load policies
 	fs := memfs.New()
+	var policies []kyvernov1.PolicyInterface
+	var validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy
 
-	isGit := common.IsGitSourcePath(c.PolicyPaths)
+	for _, policy := range c.PolicyPaths {
+		policyPaths := []string{policy}
+		isGit := common.IsGitSourcePath(policyPaths)
 
-	if isGit {
-		gitSourceURL, err := url.Parse(c.PolicyPaths[0])
+		if isGit {
+			gitSourceURL, err := url.Parse(policyPaths[0])
+			if err != nil {
+				fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
+				osExit(1)
+			}
+
+			pathElems := strings.Split(gitSourceURL.Path[1:], "/")
+			if len(pathElems) <= 1 {
+				err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
+				fmt.Printf("Error: failed to parse URL \nCause: %s\n", err)
+				osExit(1)
+			}
+			gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
+			repoURL := gitSourceURL.String()
+			var gitPathToYamls string
+			c.GitBranch, gitPathToYamls = common.GetGitBranchOrPolicyPaths(c.GitBranch, repoURL, policyPaths)
+			_, cloneErr := gitutils.Clone(repoURL, fs, c.GitBranch)
+			if cloneErr != nil {
+				fmt.Printf("Error: failed to clone repository \nCause: %s\n", cloneErr)
+				log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", cloneErr)
+				osExit(1)
+			}
+			policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
+			if err != nil {
+				return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("failed to list YAMLs in repository", err), nil, nil
+			}
+
+			policyPaths = policyYamls
+		}
+
+		policiesFromFile, admissionPoliciesFromFile, err := common.GetPoliciesFromPaths(fs, policyPaths, isGit, "")
 		if err != nil {
 			fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
 			osExit(1)
 		}
 
-		pathElems := strings.Split(gitSourceURL.Path[1:], "/")
-		if len(pathElems) <= 1 {
-			err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
-			fmt.Printf("Error: failed to parse URL \nCause: %s\n", err)
-			osExit(1)
-		}
+		policies = append(policies, policiesFromFile...)
+		validatingAdmissionPolicies = append(validatingAdmissionPolicies, admissionPoliciesFromFile...)
+	}
 
-		gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
-		repoURL := gitSourceURL.String()
-		var gitPathToYamls string
-		c.GitBranch, gitPathToYamls = common.GetGitBranchOrPolicyPaths(c.GitBranch, repoURL, c.PolicyPaths)
-		_, cloneErr := gitutils.Clone(repoURL, fs, c.GitBranch)
-		if cloneErr != nil {
-			fmt.Printf("Error: failed to clone repository \nCause: %s\n", cloneErr)
-			log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", cloneErr)
-			osExit(1)
-		}
-		policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
-		if err != nil {
-			return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("failed to list YAMLs in repository", err), nil, nil
-		}
-		sort.Strings(policyYamls)
-		c.PolicyPaths = policyYamls
-	}
-	// var policies []kyvernov1.PolicyInterface
-	// var validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy
-	policies, validatingAdmissionPolicies, err := common.GetPoliciesFromPaths(fs, c.PolicyPaths, isGit, "")
-	if err != nil {
-		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
-		osExit(1)
-	}
 	return nil, nil, skipInvalidPolicies, nil, nil, policies, validatingAdmissionPolicies
 }
 
@@ -573,4 +533,38 @@ func exit(rc *common.ResultCounts, warnExitCode int, warnNoPassed bool) {
 	} else if rc.Pass == 0 && warnNoPassed {
 		osExit(warnExitCode)
 	}
+}
+
+func processSkipEngineResponses(responses []engineapi.EngineResponse, c common.ApplyPolicyConfig) []engineapi.EngineResponse {
+	var processedEngineResponses []engineapi.EngineResponse
+	for _, response := range responses {
+		if !response.IsEmpty() {
+			pol := response.Policy()
+			if polType := pol.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
+				return processedEngineResponses
+			}
+
+			for _, rule := range autogen.ComputeRules(pol.GetPolicy().(kyvernov1.PolicyInterface)) {
+				if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
+					ruleFoundInEngineResponse := false
+					for _, valResponseRule := range response.PolicyResponse.Rules {
+						if rule.Name == valResponseRule.Name() {
+							ruleFoundInEngineResponse = true
+						}
+					}
+					if !ruleFoundInEngineResponse {
+						response.PolicyResponse.Rules = append(response.PolicyResponse.Rules,
+							*engineapi.RuleSkip(
+								rule.Name,
+								engineapi.Validation,
+								rule.Validation.Message,
+							),
+						)
+					}
+				}
+			}
+		}
+		processedEngineResponses = append(processedEngineResponses, response)
+	}
+	return processedEngineResponses
 }

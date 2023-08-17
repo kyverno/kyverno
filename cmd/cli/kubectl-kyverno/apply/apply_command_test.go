@@ -176,6 +176,25 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../test/cli/apply/policies-set"},
+				ResourcePaths: []string{"../../../../test/cli/apply/resources-set"},
+				Variables:     []string{"request.operation=UPDATE"},
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []preport.PolicyReport{
+				{
+					Summary: preport.PolicyReportSummary{
+						Pass:  2,
+						Fail:  0,
+						Skip:  4,
+						Error: 0,
+						Warn:  0,
+					},
+				},
+			},
+		},
+		{
+			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/check-deployments-replica/policy.yaml"},
 				ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/check-deployments-replica/deployment1.yaml"},
 				PolicyReport:  true,
@@ -240,6 +259,45 @@ func Test_Apply(t *testing.T) {
 						Pass:  0,
 						Fail:  1,
 						Skip:  0,
+						Error: 0,
+						Warn:  0,
+					},
+				},
+			},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"https://github.com/kyverno/policies/best-practices/require-labels/", "../../../../test/best_practices/disallow_latest_tag.yaml"},
+				ResourcePaths: []string{"../../../../test/resources/pod_with_version_tag.yaml"},
+				GitBranch:     "main",
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []preport.PolicyReport{
+				{
+					Summary: preport.PolicyReportSummary{
+						Pass:  2,
+						Fail:  1,
+						Skip:  2,
+						Error: 0,
+						Warn:  0,
+					},
+				},
+			},
+		},
+		{
+			// Same as the above test case but the policy paths are reordered
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../test/best_practices/disallow_latest_tag.yaml", "https://github.com/kyverno/policies/best-practices/require-labels/"},
+				ResourcePaths: []string{"../../../../test/resources/pod_with_version_tag.yaml"},
+				GitBranch:     "main",
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []preport.PolicyReport{
+				{
+					Summary: preport.PolicyReportSummary{
+						Pass:  2,
+						Fail:  1,
+						Skip:  2,
 						Error: 0,
 						Warn:  0,
 					},

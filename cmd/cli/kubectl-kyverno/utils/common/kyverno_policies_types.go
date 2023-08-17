@@ -163,7 +163,6 @@ OuterLoop:
 	if !verifyImageResponse.IsEmpty() {
 		verifyImageResponse = combineRuleResponses(verifyImageResponse)
 		engineResponses = append(engineResponses, verifyImageResponse)
-		ProcessValidateEngineResponse(c.Policy, verifyImageResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
 	}
 
 	var policyHasValidate bool
@@ -179,7 +178,6 @@ OuterLoop:
 	if policyHasValidate {
 		validateResponse = eng.Validate(context.Background(), policyContext)
 		validateResponse = combineRuleResponses(validateResponse)
-		ProcessValidateEngineResponse(c.Policy, validateResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
 	}
 
 	if !validateResponse.IsEmpty() {
@@ -207,6 +205,8 @@ OuterLoop:
 		}
 		updateResultCounts(c.Policy, &generateResponse, resPath, c.Rc, c.AuditWarn)
 	}
+
+	processEngineResponses(engineResponses, c)
 
 	return engineResponses, nil
 }

@@ -334,28 +334,14 @@ func buildPolicyResults(
 	results := map[string]policyreportv1alpha2.PolicyReportResult{}
 
 	for _, resp := range engineResponses {
-		var ns, name string
-		var ann map[string]string
+		policy := resp.Policy()
+		policyName := policy.GetName()
+		policyNamespace := policy.GetNamespace()
+		ann := policy.GetAnnotations()
 
-		isVAP := resp.IsValidatingAdmissionPolicy()
-
-		if isVAP {
-			vap := resp.ValidatingAdmissionPolicy()
-			ns = vap.GetNamespace()
-			name = vap.GetName()
-			ann = vap.GetAnnotations()
-		} else {
-			kyvernoPolicy := resp.Policy()
-			ns = kyvernoPolicy.GetNamespace()
-			name = kyvernoPolicy.GetName()
-			ann = kyvernoPolicy.GetAnnotations()
-		}
-
-		policyName := name
 		resourceName := resp.Resource.GetName()
 		resourceKind := resp.Resource.GetKind()
 		resourceNamespace := resp.Resource.GetNamespace()
-		policyNamespace := ns
 
 		var rules []string
 		for _, rule := range resp.PolicyResponse.Rules {

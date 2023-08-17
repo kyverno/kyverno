@@ -46,22 +46,22 @@ func Test_getAction(t *testing.T) {
 }
 
 func TestBlockRequest(t *testing.T) {
-	auditPolicy := &kyvernov1.ClusterPolicy{
+	auditPolicy := engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "test",
 		},
 		Spec: kyvernov1.Spec{
 			ValidationFailureAction: kyvernov1.Audit,
 		},
-	}
-	enforcePolicy := &kyvernov1.ClusterPolicy{
+	})
+	enforcePolicy := engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "test",
 		},
 		Spec: kyvernov1.Spec{
 			ValidationFailureAction: kyvernov1.Enforce,
 		},
-	}
+	})
 	resource := unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"kind": "foo",
@@ -174,14 +174,14 @@ func TestBlockRequest(t *testing.T) {
 }
 
 func TestGetBlockedMessages(t *testing.T) {
-	enforcePolicy := &kyvernov1.ClusterPolicy{
+	enforcePolicy := engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "test",
 		},
 		Spec: kyvernov1.Spec{
 			ValidationFailureAction: kyvernov1.Enforce,
 		},
-	}
+	})
 	resource := unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"kind": "foo",

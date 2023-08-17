@@ -27,6 +27,7 @@ spec:
                 issuer: "https://token.actions.githubusercontent.com"
                 rekor:
                   url: https://rekor.sigstore.dev
+                  ignoreSCT: true
           conditions:
           - all:
             - key: "{{ regex_match('^pkg:github/aquasecurity/trivy@0.34.0','{{ scanner.uri }}') }}"

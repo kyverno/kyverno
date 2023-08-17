@@ -1324,7 +1324,7 @@ func checkForDeprecatedFieldsInVerifyImages(rule kyvernov1.Rule, warnings *[]str
 	for _, imageVerify := range rule.VerifyImages {
 		for _, attestation := range imageVerify.Attestations {
 			if attestation.PredicateType != "" {
-				msg := fmt.Sprintf("predicateType has been deprecated use 'type: %s' instead of 'prediacteType: %s'", attestation.PredicateType, attestation.PredicateType)
+				msg := fmt.Sprintf("predicateType has been deprecated use 'type: %s' instead of 'predicateType: %s'", attestation.PredicateType, attestation.PredicateType)
 				*warnings = append(*warnings, msg)
 			}
 		}

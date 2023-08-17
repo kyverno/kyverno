@@ -318,61 +318,6 @@ func GetVariable(
 	return variables, globalValMap, valuesMapResource, namespaceSelectorMap, subresources, nil
 }
 
-func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateResponse engineapi.EngineResponse, resPath string, rc *ResultCounts, policyReport bool, auditWarn bool) {
-	printCount := 0
-	for _, policyRule := range autogen.ComputeRules(policy) {
-		ruleFoundInEngineResponse := false
-		if !policyRule.HasValidate() && !policyRule.HasVerifyImageChecks() && !policyRule.HasVerifyImages() {
-			continue
-		}
-
-		for i, valResponseRule := range validateResponse.PolicyResponse.Rules {
-			if policyRule.Name == valResponseRule.Name() {
-				ruleFoundInEngineResponse = true
-				switch valResponseRule.Status() {
-				case engineapi.RuleStatusPass:
-					rc.Pass++
-				case engineapi.RuleStatusFail:
-					auditWarning := false
-					ann := policy.GetAnnotations()
-					if scored, ok := ann[kyverno.AnnotationPolicyScored]; ok && scored == "false" {
-						rc.Warn++
-						break
-					} else if auditWarn && validateResponse.GetValidationFailureAction().Audit() {
-						rc.Warn++
-						auditWarning = true
-					} else {
-						rc.Fail++
-					}
-					if !policyReport {
-						if printCount < 1 {
-							if auditWarning {
-								fmt.Printf("\npolicy %s -> resource %s failed as audit warning: \n", policy.GetName(), resPath)
-							} else {
-								fmt.Printf("\npolicy %s -> resource %s failed: \n", policy.GetName(), resPath)
-							}
-							printCount++
-						}
-
-						fmt.Printf("%d. %s: %s \n", i+1, valResponseRule.Name(), valResponseRule.Message())
-					}
-				case engineapi.RuleStatusError:
-					fmt.Printf("\npolicy %s -> resource %s error: %s\n", policy.GetName(), resPath, valResponseRule.Message())
-					rc.Error++
-				case engineapi.RuleStatusWarn:
-					rc.Warn++
-				case engineapi.RuleStatusSkip:
-					rc.Skip++
-				}
-				continue
-			}
-		}
-		if !ruleFoundInEngineResponse {
-			rc.Skip++
-		}
-	}
-}
-
 // PrintMutatedOutput - function to print output in provided file or directory
 func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml string, fileName string) error {
 	var f *os.File
@@ -931,4 +876,49 @@ func GetGitBranchOrPolicyPaths(gitBranch, repoURL string, policyPaths []string) 
 		gitPathToYamls = strings.ReplaceAll(policyPaths[0], repoURL, "/")
 	}
 	return gitBranch, gitPathToYamls
+}
+
+func processEngineResponses(responses []engineapi.EngineResponse, c ApplyPolicyConfig) {
+	for _, response := range responses {
+		if !response.IsEmpty() {
+			pol := response.Policy()
+			if polType := pol.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
+				return
+			}
+			for _, rule := range autogen.ComputeRules(pol.GetPolicy().(kyvernov1.PolicyInterface)) {
+				if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
+					ruleFoundInEngineResponse := false
+					for _, valResponseRule := range response.PolicyResponse.Rules {
+						if rule.Name == valResponseRule.Name() {
+							ruleFoundInEngineResponse = true
+							switch valResponseRule.Status() {
+							case engineapi.RuleStatusPass:
+								c.Rc.Pass++
+							case engineapi.RuleStatusFail:
+								ann := c.Policy.GetAnnotations()
+								if scored, ok := ann[kyverno.AnnotationPolicyScored]; ok && scored == "false" {
+									c.Rc.Warn++
+									break
+								} else if c.AuditWarn && response.GetValidationFailureAction().Audit() {
+									c.Rc.Warn++
+								} else {
+									c.Rc.Fail++
+								}
+							case engineapi.RuleStatusError:
+								c.Rc.Error++
+							case engineapi.RuleStatusWarn:
+								c.Rc.Warn++
+							case engineapi.RuleStatusSkip:
+								c.Rc.Skip++
+							}
+							continue
+						}
+					}
+					if !ruleFoundInEngineResponse {
+						c.Rc.Skip++
+					}
+				}
+			}
+		}
+	}
 }
