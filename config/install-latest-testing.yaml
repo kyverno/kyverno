@@ -41182,6 +41182,7 @@ spec:
       containers:
         - name: controller
           image: "ghcr.io/kyverno/background-controller:latest"
+          imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 9443
             name: https
@@ -41279,6 +41280,7 @@ spec:
       containers:
         - name: controller
           image: "ghcr.io/kyverno/cleanup-controller:latest"
+          imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 9443
             name: https
@@ -41407,6 +41409,7 @@ spec:
       containers:
         - name: controller
           image: "ghcr.io/kyverno/reports-controller:latest"
+          imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 9443
             name: https
