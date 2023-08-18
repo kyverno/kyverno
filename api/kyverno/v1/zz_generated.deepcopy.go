@@ -231,7 +231,7 @@ func (in *CEL) DeepCopyInto(out *CEL) {
 	if in.ParamRef != nil {
 		in, out := &in.ParamRef, &out.ParamRef
 		*out = new(v1alpha1.ParamRef)
-		**out = **in
+		(*in).DeepCopyInto(*out)
 	}
 	if in.AuditAnnotations != nil {
 		in, out := &in.AuditAnnotations, &out.AuditAnnotations
