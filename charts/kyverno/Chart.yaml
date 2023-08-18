@@ -66,3 +66,5 @@ annotations:
       description: allow podSecurityContext and securityContext for webhooksCleanup
     - kind: added
       description: match conditions support in webhooks
+    - kind: fixed
+      description: missing image pull policy missing in a couple of deployments
