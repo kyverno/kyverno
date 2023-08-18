@@ -178,6 +178,7 @@ func (c *controller) build(cfg config.Configuration, caBundle []byte) (*admissio
 				SideEffects:             c.sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
 				ObjectSelector:          c.labelSelector,
+				MatchConditions:         cfg.GetMatchConditions(),
 			}},
 		},
 		nil

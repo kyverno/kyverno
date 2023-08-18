@@ -659,6 +659,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 					ObjectSelector:          webhookCfg.ObjectSelector,
 					TimeoutSeconds:          &timeout,
 					ReinvocationPolicy:      &ifNeeded,
+					MatchConditions:         cfg.GetMatchConditions(),
 				},
 			)
 		}
@@ -677,6 +678,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 					ObjectSelector:          webhookCfg.ObjectSelector,
 					TimeoutSeconds:          &timeout,
 					ReinvocationPolicy:      &ifNeeded,
+					MatchConditions:         cfg.GetMatchConditions(),
 				},
 			)
 		}
@@ -786,6 +788,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 					NamespaceSelector:       webhookCfg.NamespaceSelector,
 					ObjectSelector:          webhookCfg.ObjectSelector,
 					TimeoutSeconds:          &timeout,
+					MatchConditions:         cfg.GetMatchConditions(),
 				},
 			)
 		}
@@ -803,6 +806,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 					NamespaceSelector:       webhookCfg.NamespaceSelector,
 					ObjectSelector:          webhookCfg.ObjectSelector,
 					TimeoutSeconds:          &timeout,
+					MatchConditions:         cfg.GetMatchConditions(),
 				},
 			)
 		}
