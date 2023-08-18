@@ -41,9 +41,9 @@ func buildPolicyReports(auditWarn bool, engineResponses ...engineapi.EngineRespo
 				Results: result,
 				Summary: reportutils.CalculateSummary(result),
 			}
-			ns := strings.ReplaceAll(scope, "policyreport-ns-", "")
+			policyNamespace := strings.ReplaceAll(scope, "policyreport-ns-", "")
 			report.SetName(scope)
-			report.SetNamespace(ns)
+			report.SetNamespace(policyNamespace)
 			namespaced = append(namespaced, report)
 		}
 	}
@@ -58,26 +58,14 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 
 	for _, engineResponse := range engineResponses {
-		var ns, policyName string
-		var ann map[string]string
-
-		isVAP := engineResponse.IsValidatingAdmissionPolicy()
-
-		if isVAP {
-			vap := engineResponse.ValidatingAdmissionPolicy()
-			ns = vap.GetNamespace()
-			policyName = vap.GetName()
-			ann = vap.GetAnnotations()
-		} else {
-			kyvernoPolicy := engineResponse.Policy()
-			ns = kyvernoPolicy.GetNamespace()
-			policyName = kyvernoPolicy.GetName()
-			ann = kyvernoPolicy.GetAnnotations()
-		}
+		policy := engineResponse.Policy()
+		policyName := policy.GetName()
+		policyNamespace := policy.GetNamespace()
+		ann := policy.GetAnnotations()
 
 		var appname string
-		if ns != "" {
-			appname = fmt.Sprintf("policyreport-ns-%s", ns)
+		if policyNamespace != "" {
+			appname = fmt.Sprintf("policyreport-ns-%s", policyNamespace)
 		} else {
 			appname = clusterpolicyreport
 		}
@@ -121,7 +109,7 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 				fmt.Println(ruleResponse)
 			}
 
-			if !isVAP {
+			if policy.GetType() == engineapi.KyvernoPolicyType {
 				result.Rule = ruleResponse.Name()
 			}
 			result.Message = ruleResponse.Message()

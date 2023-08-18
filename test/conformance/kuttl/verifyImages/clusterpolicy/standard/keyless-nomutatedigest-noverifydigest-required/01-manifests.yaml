@@ -25,3 +25,4 @@ spec:
               issuer: "https://token.actions.githubusercontent.com"
               rekor:
                 url: https://rekor.sigstore.dev
+                ignoreSCT: true

@@ -881,7 +881,11 @@ func GetGitBranchOrPolicyPaths(gitBranch, repoURL string, policyPaths []string) 
 func processEngineResponses(responses []engineapi.EngineResponse, c ApplyPolicyConfig) {
 	for _, response := range responses {
 		if !response.IsEmpty() {
-			for _, rule := range autogen.ComputeRules(response.Policy()) {
+			pol := response.Policy()
+			if polType := pol.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
+				return
+			}
+			for _, rule := range autogen.ComputeRules(pol.GetPolicy().(kyvernov1.PolicyInterface)) {
 				if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
 					ruleFoundInEngineResponse := false
 					for _, valResponseRule := range response.PolicyResponse.Rules {

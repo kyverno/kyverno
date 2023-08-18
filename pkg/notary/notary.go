@@ -9,7 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
+	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/images"
 	"github.com/kyverno/kyverno/pkg/logging"
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
@@ -146,16 +146,17 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 
 	v.log.V(4).Info("client setup done", "repo", ref)
 
-	repoDesc, err := remote.Head(ref, remoteOpts...)
+	repoDesc, err := gcrremote.Head(ref, remoteOpts...)
 	if err != nil {
 		return nil, err
 	}
 	v.log.V(4).Info("fetched repository", "repoDesc", repoDesc)
 
-	referrers, err := remote.Referrers(ref.Context().Digest(repoDesc.Digest.String()), remoteOpts...)
+	referrers, err := gcrremote.Referrers(ref.Context().Digest(repoDesc.Digest.String()), remoteOpts...)
 	if err != nil {
 		return nil, err
 	}
+
 	referrersDescs, err := referrers.IndexManifest()
 	if err != nil {
 		return nil, err
@@ -265,7 +266,7 @@ func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Referenc
 	return targetDesc, nil
 }
 
-func extractStatements(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, remoteOpts []remote.Option) ([]map[string]interface{}, error) {
+func extractStatements(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, remoteOpts []gcrremote.Option) ([]map[string]interface{}, error) {
 	statements := make([]map[string]interface{}, 0)
 	data, err := extractStatement(ctx, repoRef, desc, remoteOpts)
 	if err != nil {
@@ -279,14 +280,14 @@ func extractStatements(ctx context.Context, repoRef name.Reference, desc v1.Desc
 	return statements, nil
 }
 
-func extractStatement(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, remoteOpts []remote.Option) (map[string]interface{}, error) {
+func extractStatement(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, remoteOpts []gcrremote.Option) (map[string]interface{}, error) {
 	refStr := repoRef.Context().RegistryStr() + "/" + repoRef.Context().RepositoryStr() + "@" + desc.Digest.String()
 	ref, err := name.ParseReference(refStr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse image reference: %s", refStr)
 	}
 
-	remoteDesc, err := remote.Get(ref, remoteOpts...)
+	remoteDesc, err := gcrremote.Get(ref, remoteOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("error in fetching manifest: %w", err)
 	}
@@ -307,7 +308,7 @@ func extractStatement(ctx context.Context, repoRef name.Reference, desc v1.Descr
 	}
 	predicateDesc := manifest.Layers[0]
 
-	layer, err := remote.Layer(ref.Context().Digest(predicateDesc.Digest.String()), remoteOpts...)
+	layer, err := gcrremote.Layer(ref.Context().Digest(predicateDesc.Digest.String()), remoteOpts...)
 	if err != nil {
 		return nil, err
 	}

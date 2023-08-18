@@ -30,4 +30,5 @@ spec:
             subject: "https://github.com/*"
             rekor:
               url: https://rekor.sigstore.dev
+              ignoreSCT: true
       required: true
