@@ -246,25 +246,25 @@ func (iv *ImageVerifier) Verify(
 
 		found, err := iv.ivCache.Get(ctx, iv.policyContext.Policy(), iv.rule.Name, image)
 		if err != nil {
-			iv.logger.WithValues("error occurred during cache get", err)
+			iv.logger.Error(err, "error occurred during cache get")
 		}
 
 		var ruleResp *engineapi.RuleResponse
 		var digest string
 		if found {
-			iv.logger.WithValues("verified from cache", iv.policyContext.Policy().GetName(), iv.policyContext.Policy().GetNamespace(), iv.rule.Name, image)
+			iv.logger.Info("cache entry found", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
 			ruleResp = engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, "verified from cache")
 			digest = imageInfo.Digest
 		} else {
-			iv.logger.WithValues("not found in cache", iv.policyContext.Policy().GetName(), iv.policyContext.Policy().GetNamespace(), iv.rule.Name, image)
+			iv.logger.Info("cache entry not found", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
 			ruleResp, digest = iv.verifyImage(ctx, imageVerify, imageInfo, cfg)
 			if ruleResp != nil && ruleResp.Status() == engineapi.RuleStatusPass {
 				setted, err := iv.ivCache.Set(ctx, iv.policyContext.Policy(), iv.rule.Name, image)
 				if err != nil {
-					iv.logger.WithValues("error occurred during cache set.", iv.policyContext.Policy().GetName(), iv.policyContext.Policy().GetNamespace(), iv.rule.Name, image)
+					iv.logger.Error(err, "error occurred during cache set")
 				} else {
 					if setted {
-						iv.logger.WithValues("stored in cache.", iv.policyContext.Policy().GetName(), iv.policyContext.Policy().GetNamespace(), iv.rule.Name, image)
+						iv.logger.Info("successfully set cache", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
 					}
 				}
 			}

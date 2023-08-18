@@ -83,10 +83,6 @@ func generateKey(policy kyvernov1.PolicyInterface, ruleName string, imageRef str
 }
 
 func (c *cache) Set(ctx context.Context, policy kyvernov1.PolicyInterface, ruleName string, imageRef string) (bool, error) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	c.logger.WithValues("Setting cache", "namespace", policy.GetNamespace(), "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
 	if !c.isCacheEnabled {
 		return false, nil
 	}
@@ -94,25 +90,19 @@ func (c *cache) Set(ctx context.Context, policy kyvernov1.PolicyInterface, ruleN
 
 	stored := c.cache.SetWithTTL(key, nil, 1, c.ttl)
 	if stored {
-		c.logger.WithValues("Successfully set cache", "namespace", policy.GetNamespace(), "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
 		return true, nil
 	}
 	return false, nil
 }
 
 func (c *cache) Get(ctx context.Context, policy kyvernov1.PolicyInterface, ruleName string, imageRef string) (bool, error) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	c.logger.WithValues("Searching in cache", "namespace", policy.GetNamespace(), "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
 	if !c.isCacheEnabled {
 		return false, nil
 	}
 	key := generateKey(policy, ruleName, imageRef)
 	_, found := c.cache.Get(key)
 	if found {
-		c.logger.WithValues("Cache entry found", "namespace", policy.GetNamespace(), policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
 		return true, nil
 	}
-	c.logger.WithValues("Cache entry not found", "namespace", policy.GetNamespace(), "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
 	return false, nil
 }
