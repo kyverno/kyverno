@@ -310,7 +310,6 @@ func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, 
 	var responses []engineapi.EngineResponse
 	for _, resource := range resources {
 		for _, policy := range policies {
-
 			_, err := policyvalidation.Validate(policy, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
 			if err != nil {
 				log.Log.Error(err, "policy validation error")
