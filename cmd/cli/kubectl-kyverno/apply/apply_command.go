@@ -248,8 +248,13 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 	}
 	resources := c.loadResources(policies, validatingAdmissionPolicies, dClient)
 	rc, uu, skipInvalidPolicies, er, err = c.applyPolicytoResource(variables, policies, validatingAdmissionPolicies, resources, openApiManager, skipInvalidPolicies, valuesMap, dClient, subresources, globalValMap, userInfo, mutateLogPathIsDir, namespaceSelectorMap)
+	if err != nil {
+		return rc, uu, skipInvalidPolicies, er, err
+	}
 	rc, uu, skipInvalidPolicies, er, err = c.applyValidatingAdmissionPolicytoResource(validatingAdmissionPolicies, resources, rc, dClient, subresources, skipInvalidPolicies, er)
-
+	if err != nil {
+		return rc, uu, skipInvalidPolicies, er, err
+	}
 	return rc, resources, skipInvalidPolicies, er, nil
 }
 
@@ -304,7 +309,6 @@ func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, 
 	var rc common.ResultCounts
 	var responses []engineapi.EngineResponse
 	for _, resource := range resources {
-
 		for _, policy := range policies {
 
 			_, err := policyvalidation.Validate(policy, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
@@ -358,7 +362,6 @@ func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, 
 		}
 	}
 	return &rc, resources, skipInvalidPolicies, responses, nil
-
 }
 
 func (c *ApplyCommandConfig) loadResources(policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, dClient dclient.Interface) []*unstructured.Unstructured {
