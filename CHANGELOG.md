@@ -4,6 +4,7 @@
 
 ### Note
 
+- Added match conditions support in kyverno config map.
 - Deprecated flag `--imageSignatureRepository`. Will be removed in 1.12. Use per rule configuration `verifyImages.Repository` instead.
 - Added `--aggregateReports` flag for reports controller to enable/disable aggregated reports (default value is `true`).
 - Added `--policyReports` flag for reports controller to enable/disable policy reports (default value is  `true`).
