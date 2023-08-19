@@ -9,14 +9,14 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 )
 
-// Authorizer implements authorizer.Authorizer interface
+// Authorizer implements authorizer.Authorizer interface. It is intended to be used in validate.cel subrules.
 type Authorizer struct {
 	Client       engineapi.Client
 	ResourceKind schema.GroupVersionKind
 }
 
 func (a Authorizer) Authorize(ctx context.Context, attributes authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
-	ok, err := a.Client.CanI(ctx,
+	ok, reason, err := a.Client.CanI(ctx,
 		a.ResourceKind.Kind,
 		attributes.GetNamespace(),
 		attributes.GetVerb(),
@@ -24,17 +24,17 @@ func (a Authorizer) Authorize(ctx context.Context, attributes authorizer.Attribu
 		attributes.GetUser().GetName(),
 	)
 	if err != nil {
-		return authorizer.DecisionDeny, "", err
+		return authorizer.DecisionDeny, reason, err
 	}
 
 	if ok {
-		return authorizer.DecisionAllow, "", nil
+		return authorizer.DecisionAllow, reason, nil
 	} else {
-		return authorizer.DecisionDeny, "", nil
+		return authorizer.DecisionDeny, reason, nil
 	}
 }
 
-// User implements user.Info interface
+// User implements user.Info interface. It is intended to be used in validate.cel subrules.
 type User struct {
 	Name   string
 	UID    string
