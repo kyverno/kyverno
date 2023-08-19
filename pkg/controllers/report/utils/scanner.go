@@ -31,7 +31,8 @@ type ScanResult struct {
 }
 
 type Scanner interface {
-	ScanResource(context.Context, unstructured.Unstructured, map[string]string) ScanResult
+	ScanResource(context.Context, unstructured.Unstructured, map[string]string, kyvernov1.PolicyInterface) ScanResult
+	ScanVAPResource(context.Context, unstructured.Unstructured, map[string]string, v1alpha1.ValidatingAdmissionPolicy) ScanResult
 }
 
 func NewScanner(
@@ -52,15 +53,10 @@ func NewScanner(
 	}
 }
 
-func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string) ScanResult {
-	results := ScanResult{}
-	policy := s.policies
-	vapPolicy := s.vapPolicies
+func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) ScanResult {
 	var errors []error
 	logger := s.logger.WithValues("kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
 	response, err := s.validateResource(ctx, resource, nsLabels, policy)
-	vapresponse, err := validatingadmissionpolicy.Validate(vapPolicy, resource)
-	response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, vapresponse.PolicyResponse.Rules...)
 	if err != nil {
 		logger.Error(err, "failed to scan resource")
 		errors = append(errors, err)
@@ -78,8 +74,18 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 			response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ivResponse.PolicyResponse.Rules...)
 		}
 	}
-	results = ScanResult{response, multierr.Combine(errors...)}
-	return results
+return ScanResult{response, multierr.Combine(errors...)}
+}
+
+func (s *scanner) ScanVAPResource(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, vapPolicy v1alpha1.ValidatingAdmissionPolicy) ScanResult {
+	var errors []error
+	logger := s.logger.WithValues("kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
+	vapresponse, err := validatingadmissionpolicy.Validate(vapPolicy, resource)
+	if err != nil {
+		logger.Error(err, "failed to validate ValidatingAdmissionPolicy")
+		errors = append(errors, err)
+	}
+	return ScanResult{vapresponse, multierr.Combine(errors...)}
 }
 
 func (s *scanner) validateResource(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*engineapi.EngineResponse, error) {

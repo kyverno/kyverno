@@ -152,17 +152,17 @@ func (c *controller) deletePolicy(obj kyvernov1.PolicyInterface) {
 	c.enqueueResources()
 }
 
-func (c *controller) addValidatingAdmissionPolicy(obj v1alpha1.ValidatingAdmissionPolicy) {
+func (c *controller) addValidatingAdmissionPolicy(obj *v1alpha1.ValidatingAdmissionPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateValidatingAdmissionPolicy(old, obj v1alpha1.ValidatingAdmissionPolicy) {
+func (c *controller) updateValidatingAdmissionPolicy(old, obj *v1alpha1.ValidatingAdmissionPolicy) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteValidatingAdmissionPolicy(obj v1alpha1.ValidatingAdmissionPolicy) {
+func (c *controller) deleteValidatingAdmissionPolicy(obj *v1alpha1.ValidatingAdmissionPolicy) {
 	c.enqueueResources()
 }
 
@@ -241,6 +241,33 @@ func (c *controller) needsReconcile(namespace, name, hash string, backgroundPoli
 	return false, false, nil
 }
 
+func (c *controller) needsVAPReconcile(namespace, name, hash string, vapPolicies ...v1alpha1.ValidatingAdmissionPolicy) (bool, bool, error) {
+	// if the reportMetadata does not exist, we need a full reconcile
+	reportMetadata, err := c.getMeta(namespace, name)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return true, true, nil
+		}
+		return false, false, err
+	}
+	// if the resource changed, we need a full reconcile
+	if !reportutils.CompareHash(reportMetadata, hash) {
+		return true, true, nil
+	}
+	// if the last scan time is older than recomputation interval, we need a full reconcile
+	reportAnnotations := reportMetadata.GetAnnotations()
+	if reportAnnotations == nil {
+		return true, true, nil
+	} else {
+		if err != nil {
+			logger.Error(err, "failed to parse last scan time annotation", "namespace", namespace, "name", name, "hash", hash)
+			return true, true, nil
+		}
+	}
+	// no need to reconcile
+	return false, false, nil
+}
+
 func (c *controller) reconcileReport(
 	ctx context.Context,
 	namespace string,
@@ -307,7 +334,7 @@ func (c *controller) reconcileReport(
 	for _, policy := range backgroundPolicies {
 		if full || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
 			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.policies, c.vapPolicies)
-			result := scanner.ScanResource(ctx, *target, nsLabels)
+			result := scanner.ScanResource(ctx, *target, nsLabels, policy)
 			if result.Error != nil {
 				return result.Error
 			} else if result.EngineResponse != nil {
@@ -330,6 +357,77 @@ func (c *controller) reconcileReport(
 	if full || !controllerutils.HasAnnotation(desired, annotationLastScanTime) {
 		controllerutils.SetAnnotation(desired, annotationLastScanTime, time.Now().Format(time.RFC3339))
 	}
+	if c.policyReports {
+		return c.storeReport(ctx, observed, desired)
+	}
+	return nil
+}
+
+func (c *controller) reconcileVAPReport(
+	ctx context.Context,
+	namespace string,
+	name string,
+	full bool,
+	uid types.UID,
+	gvk schema.GroupVersionKind,
+	resource resource.Resource,
+	backgroundPolicies ...v1alpha1.ValidatingAdmissionPolicy,
+) error {
+	// namespace labels to be used by the scanner
+	var nsLabels map[string]string
+	if namespace != "" {
+		ns, err := c.nsLister.Get(namespace)
+		if err != nil {
+			return err
+		}
+		nsLabels = ns.GetLabels()
+	}
+	// load target resource
+	target, err := c.client.GetResource(ctx, gvk.GroupVersion().String(), gvk.Kind, resource.Namespace, resource.Name)
+	if err != nil {
+		return err
+	}
+	// load observed report
+	observed, err := c.getReport(ctx, namespace, name)
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			return err
+		}
+		observed = reportutils.NewBackgroundScanReport(namespace, name, gvk, resource.Name, uid)
+	}
+
+	var ruleResults []policyreportv1alpha2.PolicyReportResult
+	if !full {
+		policyNameToLabel := map[string]string{}
+		// keep up to date results
+		for _, result := range observed.GetResults() {
+			// if the policy did not change, keep the result
+			label := policyNameToLabel[result.Policy]
+			if label != "" {
+				ruleResults = append(ruleResults, result)
+			}
+		}
+	}
+	// calculate necessary results
+	for _, policy := range backgroundPolicies {
+		if full {
+			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.policies, c.vapPolicies)
+			result := scanner.ScanVAPResource(ctx, *target, nsLabels, policy)
+			if result.Error != nil {
+				return result.Error
+			} else if result.EngineResponse != nil {
+				ruleResults = append(ruleResults, reportutils.EngineResponseToReportResults(*result.EngineResponse)...)
+				utils.GenerateEvents(logger, c.eventGen, c.config, *result.EngineResponse)
+			}
+		}
+	}
+	desired := reportutils.DeepCopy(observed)
+	for key := range desired.GetLabels() {
+		if reportutils.IsPolicyLabel(key) {
+			delete(desired.GetLabels(), key)
+		}
+	}
+	reportutils.SetResults(desired, ruleResults...)
 	if c.policyReports {
 		return c.storeReport(ctx, observed, desired)
 	}
@@ -386,6 +484,10 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 	if err != nil {
 		return err
 	}
+	vapPolicies, err := utils.FetchValidatingAdmissionPolicies(c.vapLister)
+	if err != nil {
+		return err
+	}
 	if namespace != "" {
 		pols, err := utils.FetchPolicies(c.polLister, namespace)
 		if err != nil {
@@ -404,6 +506,16 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		}()
 		if needsReconcile {
 			return c.reconcileReport(ctx, namespace, name, full, uid, gvk, resource, backgroundPolicies...)
+		}
+	}
+	if needsVAPReconcile, full, err := c.needsVAPReconcile(namespace, name, resource.Hash, vapPolicies...); err != nil {
+		return err
+	} else {
+		defer func() {
+			c.queue.AddAfter(key, c.forceDelay)
+		}()
+		if needsVAPReconcile {
+			return c.reconcileVAPReport(ctx, namespace, name, full, uid, gvk, resource, vapPolicies...)
 		}
 	}
 	return nil

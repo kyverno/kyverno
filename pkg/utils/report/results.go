@@ -12,6 +12,7 @@ import (
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"golang.org/x/exp/slices"
+	"k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 )
@@ -87,47 +88,70 @@ func SeverityFromString(severity string) policyreportv1alpha2.PolicySeverity {
 }
 
 func EngineResponseToReportResults(response engineapi.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
-	pol := response.Policy().GetPolicy().(kyvernov1.PolicyInterface)
-	key, _ := cache.MetaNamespaceKeyFunc(pol)
+	pol := response.Policy()
+	polType := pol.GetType()
 	var results []policyreportv1alpha2.PolicyReportResult
-	for _, ruleResult := range response.PolicyResponse.Rules {
-		annotations := pol.GetAnnotations()
-		result := policyreportv1alpha2.PolicyReportResult{
-			Source:  kyverno.ValueKyvernoApp,
-			Policy:  key,
-			Rule:    ruleResult.Name(),
-			Message: ruleResult.Message(),
-			Result:  toPolicyResult(ruleResult.Status()),
-			Scored:  annotations[kyverno.AnnotationPolicyScored] != "false",
-			Timestamp: metav1.Timestamp{
-				Seconds: time.Now().Unix(),
-			},
-			Category: annotations[kyverno.AnnotationPolicyCategory],
-			Severity: SeverityFromString(annotations[kyverno.AnnotationPolicySeverity]),
+	if polType == engineapi.ValidatingAdmissionPolicyType {
+		vap := pol.GetPolicy().(v1alpha1.ValidatingAdmissionPolicy)	
+		key, _ := cache.MetaNamespaceKeyFunc(vap)
+		for _, ruleResult := range response.PolicyResponse.Rules {
+			result := policyreportv1alpha2.PolicyReportResult{
+				Source:  "ValidatingAdmissionPolicy",
+				Policy:  key,
+				Rule:    ruleResult.Name(),
+				Message: ruleResult.Message(),
+				Result:  toPolicyResult(ruleResult.Status()),
+				Timestamp: metav1.Timestamp{
+					Seconds: time.Now().Unix(),
+				},
+			}
+			if result.Result == "fail" && !result.Scored {
+				result.Result = "warn"
+			}
+			results = append(results, result)
 		}
-		pss := ruleResult.PodSecurityChecks()
-		if pss != nil {
-			var controls []string
-			for _, check := range pss.Checks {
-				if !check.CheckResult.Allowed {
-					controls = append(controls, check.ID)
+	} else {
+		kyvernopol := pol.GetPolicy().(kyvernov1.PolicyInterface)
+		key, _ := cache.MetaNamespaceKeyFunc(kyvernopol)
+		for _, ruleResult := range response.PolicyResponse.Rules {
+			annotations := kyvernopol.GetAnnotations()
+			result := policyreportv1alpha2.PolicyReportResult{
+				Source:  kyverno.ValueKyvernoApp,
+				Policy:  key,
+				Rule:    ruleResult.Name(),
+				Message: ruleResult.Message(),
+				Result:  toPolicyResult(ruleResult.Status()),
+				Scored:  annotations[kyverno.AnnotationPolicyScored] != "false",
+				Timestamp: metav1.Timestamp{
+					Seconds: time.Now().Unix(),
+				},
+				Category: annotations[kyverno.AnnotationPolicyCategory],
+				Severity: SeverityFromString(annotations[kyverno.AnnotationPolicySeverity]),
+			}
+			pss := ruleResult.PodSecurityChecks()
+			if pss != nil {
+				var controls []string
+				for _, check := range pss.Checks {
+					if !check.CheckResult.Allowed {
+						controls = append(controls, check.ID)
+					}
+				}
+				if len(controls) > 0 {
+					sort.Strings(controls)
+					result.Properties = map[string]string{
+						"standard": string(pss.Level),
+						"version":  pss.Version,
+						"controls": strings.Join(controls, ","),
+					}
 				}
 			}
-			if len(controls) > 0 {
-				sort.Strings(controls)
-				result.Properties = map[string]string{
-					"standard": string(pss.Level),
-					"version":  pss.Version,
-					"controls": strings.Join(controls, ","),
-				}
+			if result.Result == "fail" && !result.Scored {
+				result.Result = "warn"
 			}
+			results = append(results, result)
 		}
-		if result.Result == "fail" && !result.Scored {
-			result.Result = "warn"
-		}
-		results = append(results, result)
 	}
-	return results
+		return results
 }
 
 func SplitResultsByPolicy(logger logr.Logger, results []policyreportv1alpha2.PolicyReportResult) map[string][]policyreportv1alpha2.PolicyReportResult {
