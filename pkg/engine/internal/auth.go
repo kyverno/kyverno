@@ -4,7 +4,6 @@ import (
 	"context"
 
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 )
