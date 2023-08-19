@@ -159,6 +159,12 @@ OuterLoop:
 		}
 	}
 
+	verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
+	if !verifyImageResponse.IsEmpty() {
+		verifyImageResponse = combineRuleResponses(verifyImageResponse)
+		engineResponses = append(engineResponses, verifyImageResponse)
+	}
+
 	var policyHasValidate bool
 	for _, rule := range autogen.ComputeRules(c.Policy) {
 		if rule.HasValidate() || rule.HasVerifyImageChecks() {
@@ -176,12 +182,6 @@ OuterLoop:
 
 	if !validateResponse.IsEmpty() {
 		engineResponses = append(engineResponses, validateResponse)
-	}
-
-	verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
-	if !verifyImageResponse.IsEmpty() {
-		verifyImageResponse = combineRuleResponses(verifyImageResponse)
-		engineResponses = append(engineResponses, verifyImageResponse)
 	}
 
 	var policyHasGenerate bool
