@@ -1,11 +1,11 @@
 ## Description
 
-This test creates a policy, excluding service account `system:serviceaccount:kyverno:kyverno`.
+This test creates a policy, matching service account `system:serviceaccount:kyverno:kyverno`.
 This policy denies pod creation.
 
 ## Expected Behavior
 
-The pod should be denied (user is `kubernetes-admin`).
+The pod should be accepted (user is `kubernetes-admin`).
 
 ## Related issue(s)
 
