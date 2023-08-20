@@ -19,6 +19,7 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
+	"k8s.io/apiserver/pkg/cel/environment"
 )
 
 func GetKinds(policy v1alpha1.ValidatingAdmissionPolicy) []string {
@@ -115,30 +116,41 @@ func Validate(policy v1alpha1.ValidatingAdmissionPolicy, resource unstructured.U
 		auditExpressions = append(auditExpressions, auditCondition)
 	}
 
-	filterCompiler := cel.NewFilterCompiler()
-	filter := filterCompiler.Compile(
+	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
+	policyResp := engineapi.NewPolicyResponse()
+	var ruleResp *engineapi.RuleResponse
+
+	compositedCompiler, err := cel.NewCompositedCompiler(environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion()))
+	if err != nil {
+		ruleResp = engineapi.RuleError(policy.GetName(), engineapi.Validation, "Error creating composited compiler", err)
+		policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
+		engineResponse = engineResponse.WithPolicyResponse(policyResp)
+		return engineResponse
+	}
+
+	filter := compositedCompiler.Compile(
 		expressions,
 		cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false},
-		celconfig.PerCallLimit,
+		environment.StoredExpressions,
 	)
-	messageExpressionfilter := filterCompiler.Compile(
+	messageExpressionfilter := compositedCompiler.Compile(
 		messageExpressions,
 		cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false},
-		celconfig.PerCallLimit,
+		environment.StoredExpressions,
 	)
-	auditAnnotationFilter := filterCompiler.Compile(
+	auditAnnotationFilter := compositedCompiler.Compile(
 		auditExpressions,
 		cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false},
-		celconfig.PerCallLimit,
+		environment.StoredExpressions,
 	)
-	matchConditionFilter := filterCompiler.Compile(
+	matchConditionFilter := compositedCompiler.Compile(
 		matchExpressions,
 		cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false},
-		celconfig.PerCallLimit,
+		environment.StoredExpressions,
 	)
 
-	newMatcher := matchconditions.NewMatcher(matchConditionFilter, nil, &failPolicy, string(matchPolicy), "")
-	validator := validatingadmissionpolicy.NewValidator(filter, newMatcher, auditAnnotationFilter, messageExpressionfilter, nil, nil)
+	newMatcher := matchconditions.NewMatcher(matchConditionFilter, &failPolicy, "", string(matchPolicy), "")
+	validator := validatingadmissionpolicy.NewValidator(filter, newMatcher, auditAnnotationFilter, messageExpressionfilter, nil)
 
 	admissionAttributes := admission.NewAttributesRecord(
 		resource.DeepCopyObject(),
@@ -153,13 +165,9 @@ func Validate(policy v1alpha1.ValidatingAdmissionPolicy, resource unstructured.U
 		nil,
 	)
 	versionedAttr, _ := admission.NewVersionedAttributes(admissionAttributes, admissionAttributes.GetKind(), nil)
-	validateResult := validator.Validate(context.TODO(), versionedAttr, nil, celconfig.RuntimeCELCostBudget)
+	validateResult := validator.Validate(context.TODO(), schema.GroupVersionResource{}, versionedAttr, nil, nil, celconfig.RuntimeCELCostBudget, nil)
 
-	engineResponse := engineapi.NewEngineResponseWithValidatingAdmissionPolicy(resource, policy, nil)
-	policyResp := engineapi.NewPolicyResponse()
-	var ruleResp *engineapi.RuleResponse
 	isPass := true
-
 	for _, policyDecision := range validateResult.Decisions {
 		if policyDecision.Evaluation == validatingadmissionpolicy.EvalError {
 			isPass = false

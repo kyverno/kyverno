@@ -210,6 +210,9 @@ config:
     # Example to disable admission enforcer on AKS:
     # 'admissions.enforcer/disabled': 'true'
 
+  # -- Defines match conditions to set on webhook configurations (requires Kubernetes 1.27+).
+  matchConditions: []
+
   # -- Exclude Kyverno namespace
   # Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters
   excludeKyvernoNamespace: true
@@ -303,8 +306,10 @@ customLabels: {}
 webhooksCleanup:
   # -- Create a helm pre-delete hook to cleanup webhooks.
   enabled: true
+
   # -- `kubectl` image to run commands for deleting webhooks.
   image: bitnami/kubectl:latest
+
   # -- Image pull secrets
   imagePullSecrets: []
 
@@ -357,6 +362,13 @@ grafana:
   # -- Grafana dashboard configmap labels
   labels:
     grafana_dashboard: "1"
+
+  # -- create GrafanaDashboard custom resource referencing to the configMap.
+  # according to https://grafana-operator.github.io/grafana-operator/docs/examples/dashboard_from_configmap/readme/
+  grafanaDashboard:
+    create: false
+    matchLabels:
+      dashboards: "grafana"
 
 # Features configuration
 features:

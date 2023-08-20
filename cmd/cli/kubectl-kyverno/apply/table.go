@@ -11,22 +11,10 @@ func printTable(compact, auditWarn bool, engineResponses ...engineapi.EngineResp
 	var resultsTable table.Table
 	id := 1
 	for _, engineResponse := range engineResponses {
-		var policyNamespace, policyName string
-		var ann map[string]string
-
-		isVAP := engineResponse.IsValidatingAdmissionPolicy()
-
-		if isVAP {
-			policy := engineResponse.ValidatingAdmissionPolicy()
-			policyNamespace = policy.GetNamespace()
-			policyName = policy.GetName()
-			ann = policy.GetAnnotations()
-		} else {
-			policy := engineResponse.Policy()
-			policyNamespace = policy.GetNamespace()
-			policyName = policy.GetName()
-			ann = policy.GetAnnotations()
-		}
+		policy := engineResponse.Policy()
+		policyName := policy.GetName()
+		policyNamespace := policy.GetNamespace()
+		ann := policy.GetAnnotations()
 		resourceKind := engineResponse.Resource.GetKind()
 		resourceNamespace := engineResponse.Resource.GetNamespace()
 		resourceName := engineResponse.Resource.GetName()
@@ -36,7 +24,7 @@ func printTable(compact, auditWarn bool, engineResponses ...engineapi.EngineResp
 			row.ID = id
 			id++
 			row.Policy = color.Policy(policyNamespace, policyName)
-			if !isVAP {
+			if policy.GetType() == engineapi.KyvernoPolicyType {
 				row.Rule = color.Rule(ruleResponse.Name())
 			}
 			row.Resource = color.Resource(resourceKind, resourceNamespace, resourceName)
