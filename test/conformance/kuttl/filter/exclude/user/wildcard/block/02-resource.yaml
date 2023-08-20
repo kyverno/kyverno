@@ -2,4 +2,4 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 apply:
 - file: resource.yaml
-  shouldFail: false
+  shouldFail: true
