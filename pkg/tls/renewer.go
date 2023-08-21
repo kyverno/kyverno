@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	corev1 "k8s.io/api/core/v1"
@@ -22,9 +22,7 @@ const (
 	CAValidityDuration = 365 * 24 * time.Hour
 	// TLSValidityDuration is the valid duration for TLS certificates
 	TLSValidityDuration = 150 * 24 * time.Hour
-	// managedByLabel is added to Kyverno managed secrets
-	managedByLabel = "cert.kyverno.io/managed-by"
-	rootCAKey      = "rootCA.crt"
+	rootCAKey           = "rootCA.crt"
 )
 
 type CertValidator interface {
@@ -228,7 +226,7 @@ func (c *certRenewer) writeSecret(ctx context.Context, name string, key *rsa.Pri
 				Name:      name,
 				Namespace: config.KyvernoNamespace(),
 				Labels: map[string]string{
-					managedByLabel: kyvernov1.ValueKyvernoApp,
+					kyverno.LabelCertManagedBy: kyverno.ValueKyvernoApp,
 				},
 			},
 			Type: corev1.SecretTypeTLS,

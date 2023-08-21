@@ -11,7 +11,7 @@ import (
 )
 
 // generateKeychainForPullSecrets generates keychain by fetching secrets data from imagePullSecrets.
-func generateKeychainForPullSecrets(ctx context.Context, lister corev1listers.SecretNamespaceLister, imagePullSecrets ...string) (authn.Keychain, error) {
+func generateKeychainForPullSecrets(lister corev1listers.SecretNamespaceLister, imagePullSecrets ...string) (authn.Keychain, error) {
 	var secrets []corev1.Secret
 	for _, imagePullSecret := range imagePullSecrets {
 		secret, err := lister.Get(imagePullSecret)
@@ -21,5 +21,5 @@ func generateKeychainForPullSecrets(ctx context.Context, lister corev1listers.Se
 			return nil, err
 		}
 	}
-	return kauth.NewFromPullSecrets(ctx, secrets)
+	return kauth.NewFromPullSecrets(context.TODO(), secrets)
 }

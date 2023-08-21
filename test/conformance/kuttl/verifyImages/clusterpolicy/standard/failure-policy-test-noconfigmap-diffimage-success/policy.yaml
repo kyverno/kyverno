@@ -28,5 +28,9 @@ spec:
             - entries:
                 - keys:
                     publicKeys: '{{myconfigmap.data.configmapkey}}'
+                    rekor:
+                      url: https://rekor.sigstore.dev
+                      ignoreTlog: true
+                      ignoreSCT: true
   validationFailureAction: Audit
   webhookTimeoutSeconds: 30

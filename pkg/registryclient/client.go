@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"runtime"
 	"time"
 
 	"github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
@@ -17,20 +18,15 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/google"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/tracing"
-	"github.com/sigstore/cosign/pkg/oci/remote"
+	"github.com/sigstore/cosign/v2/pkg/oci/remote"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"k8s.io/apimachinery/pkg/util/sets"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"sigs.k8s.io/release-utils/version"
 )
 
 var (
-	baseKeychain = authn.NewMultiKeychain(
-		authn.DefaultKeychain,
-		google.Keychain,
-		authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard))),
-		authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()),
-		github.Keychain,
-	)
+	defaultKeychain  = AnonymousKeychain
 	defaultTransport = &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
@@ -46,6 +42,8 @@ var (
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 	}
+
+	userAgent = fmt.Sprintf("cosign/%s (%s; %s)", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH)
 )
 
 // Client provides registry related objects.
@@ -62,22 +60,17 @@ type Client interface {
 
 	// BuildRemoteOption builds remote.Option based on client.
 	BuildRemoteOption(context.Context) remote.Option
-
-	// RefreshKeychainPullSecrets loads fresh data from pull secrets (if non-empty) and updates Keychain.
-	RefreshKeychainPullSecrets(ctx context.Context) error
 }
 
 type client struct {
-	keychain            authn.Keychain
-	transport           http.RoundTripper
-	pullSecretRefresher func(context.Context, *client) error
+	keychain  authn.Keychain
+	transport http.RoundTripper
 }
 
 type config struct {
-	keychain            authn.Keychain
-	transport           *http.Transport
-	pullSecretRefresher func(context.Context, *client) error
-	tracing             bool
+	keychain  []authn.Keychain
+	transport *http.Transport
+	tracing   bool
 }
 
 // Option is an option to initialize registry client.
@@ -86,7 +79,6 @@ type Option = func(*config) error
 // New creates a new Client with options
 func New(options ...Option) (Client, error) {
 	cfg := &config{
-		keychain:  baseKeychain,
 		transport: defaultTransport,
 	}
 	for _, opt := range options {
@@ -95,9 +87,11 @@ func New(options ...Option) (Client, error) {
 		}
 	}
 	c := &client{
-		keychain:            cfg.keychain,
-		transport:           cfg.transport,
-		pullSecretRefresher: cfg.pullSecretRefresher,
+		keychain:  defaultKeychain,
+		transport: cfg.transport,
+	}
+	if len(cfg.keychain) > 0 {
+		c.keychain = authn.NewMultiKeychain(cfg.keychain...)
 	}
 	if cfg.tracing {
 		c.transport = tracing.Transport(cfg.transport, otelhttp.WithFilter(tracing.RequestFilterIsInSpan))
@@ -115,24 +109,18 @@ func NewOrDie(options ...Option) Client {
 }
 
 // WithKeychainPullSecrets provides initialize registry client option that allows to use pull secrets.
-func WithKeychainPullSecrets(ctx context.Context, lister corev1listers.SecretNamespaceLister, imagePullSecrets ...string) Option {
-	return func(conf *config) error {
-		conf.pullSecretRefresher = func(ctx context.Context, c *client) error {
-			freshKeychain, err := generateKeychainForPullSecrets(ctx, lister, imagePullSecrets...)
-			if err != nil {
-				return err
-			}
-			c.keychain = authn.NewMultiKeychain(
-				conf.keychain,
-				freshKeychain,
-			)
-			return nil
+func WithKeychainPullSecrets(lister corev1listers.SecretNamespaceLister, imagePullSecrets ...string) Option {
+	return func(c *config) error {
+		kc, err := NewAutoRefreshSecretsKeychain(lister, imagePullSecrets...)
+		if err != nil {
+			return err
 		}
+		c.keychain = append(c.keychain, kc)
 		return nil
 	}
 }
 
-// WithKeychainPullSecrets provides initialize registry client option that allows to use insecure registries.
+// WithCredentialProviders initialize registry client option by using registries credentials
 func WithCredentialProviders(credentialProviders ...string) Option {
 	return func(c *config) error {
 		var chains []authn.Keychain
@@ -152,12 +140,12 @@ func WithCredentialProviders(credentialProviders ...string) Option {
 		if helpers.Has("github") {
 			chains = append(chains, github.Keychain)
 		}
-		c.keychain = authn.NewMultiKeychain(chains...)
+		c.keychain = append(c.keychain, chains...)
 		return nil
 	}
 }
 
-// WithKeychainPullSecrets provides initialize registry client option that allows to use insecure registries.
+// WithAllowInsecureRegistry initialize registry client option that allows to use insecure registries.
 func WithAllowInsecureRegistry() Option {
 	return func(c *config) error {
 		c.transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec
@@ -168,8 +156,7 @@ func WithAllowInsecureRegistry() Option {
 // WithLocalKeychain provides initialize keychain with the default local keychain.
 func WithLocalKeychain() Option {
 	return func(c *config) error {
-		c.pullSecretRefresher = nil
-		c.keychain = authn.DefaultKeychain
+		c.keychain = append(c.keychain, authn.DefaultKeychain)
 		return nil
 	}
 }
@@ -188,15 +175,13 @@ func (c *client) BuildRemoteOption(ctx context.Context) remote.Option {
 		gcrremote.WithAuthFromKeychain(c.keychain),
 		gcrremote.WithTransport(c.transport),
 		gcrremote.WithContext(ctx),
+		gcrremote.WithUserAgent(userAgent),
 	)
 }
 
 // FetchImageDescriptor fetches Descriptor from registry with given imageRef
 // and provides access to metadata about remote artifact.
 func (c *client) FetchImageDescriptor(ctx context.Context, imageRef string) (*gcrremote.Descriptor, error) {
-	if err := c.RefreshKeychainPullSecrets(ctx); err != nil {
-		return nil, fmt.Errorf("failed to refresh image pull secrets, error: %v", err)
-	}
 	parsedRef, err := name.ParseReference(imageRef)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse image reference: %s, error: %v", imageRef, err)
@@ -206,14 +191,6 @@ func (c *client) FetchImageDescriptor(ctx context.Context, imageRef string) (*gc
 		return nil, fmt.Errorf("failed to fetch image reference: %s, error: %v", imageRef, err)
 	}
 	return desc, nil
-}
-
-// refreshKeychainPullSecrets loads fresh data from pull secrets (if non-empty) and updates Keychain.
-func (c *client) RefreshKeychainPullSecrets(ctx context.Context) error {
-	if c.pullSecretRefresher == nil {
-		return nil
-	}
-	return c.pullSecretRefresher(ctx, c)
 }
 
 func (c *client) Keychain() authn.Keychain {

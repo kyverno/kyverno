@@ -156,11 +156,11 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 				err := fmt.Errorf("failed to mutate existing resource, rule response%v: %s", r.Status(), r.Message())
 				logger.Error(err, "")
 				errs = append(errs, err)
-				c.report(err, ur.Spec.Policy, rule.Name, patched)
+				c.report(err, policy, rule.Name, patched)
 
 			case engineapi.RuleStatusSkip:
 				logger.Info("mutate existing rule skipped", "rule", r.Name(), "message", r.Message())
-				c.report(err, ur.Spec.Policy, rule.Name, patched)
+				c.report(err, policy, rule.Name, patched)
 
 			case engineapi.RuleStatusPass:
 				patchedNew := patched
@@ -195,7 +195,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 						logger.WithName(rule.Name).V(4).Info("successfully mutated existing resource", "namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())
 					}
 
-					c.report(updateErr, ur.Spec.Policy, rule.Name, patched)
+					c.report(updateErr, policy, rule.Name, patched)
 				}
 			}
 		}
@@ -218,17 +218,20 @@ func (c *mutateExistingController) getPolicy(ur *kyvernov1beta1.UpdateRequest) (
 	return c.policyLister.Get(pName)
 }
 
-func (c *mutateExistingController) report(err error, policy, rule string, target *unstructured.Unstructured) {
+func (c *mutateExistingController) report(err error, policy kyvernov1.PolicyInterface, rule string, target *unstructured.Unstructured) {
 	var events []event.Info
 
 	if target == nil {
-		c.log.WithName("mutateExisting").Info("cannot generate events for empty target resource", "policy", policy, "rule", rule)
+		c.log.WithName("mutateExisting").Info("cannot generate events for empty target resource", "policy", policy.GetName(), "rule", rule)
+		return
 	}
 
 	if err != nil {
-		events = event.NewBackgroundFailedEvent(err, policy, rule, event.MutateExistingController, target)
+		events = event.NewBackgroundFailedEvent(err, policy, rule, event.MutateExistingController,
+			kyvernov1.ResourceSpec{Kind: target.GetKind(), Namespace: target.GetNamespace(), Name: target.GetName()})
 	} else {
-		events = event.NewBackgroundSuccessEvent(policy, rule, event.MutateExistingController, target)
+		events = event.NewBackgroundSuccessEvent(event.MutateExistingController, policy,
+			[]kyvernov1.ResourceSpec{{Kind: target.GetKind(), Namespace: target.GetNamespace(), Name: target.GetName()}})
 	}
 
 	c.eventGen.Add(events...)

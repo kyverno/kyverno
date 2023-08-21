@@ -5,7 +5,7 @@ metadata:
   name: {{ template "kyverno.name" . }}-cleanup-cluster-admission-reports
   namespace: {{ template "kyverno.namespace" . }}
   labels:
-    {{- include "kyverno.labels.merge" (list (include "kyverno.labels.common" .) (include "kyverno.matchLabels.common" .)) | nindent 4 }}
+    {{- include "kyverno.cleanup.labels" . | nindent 4 }}
 spec:
   schedule: {{ .Values.cleanupJobs.clusterAdmissionReports.schedule | quote }}
   concurrencyPolicy: Forbid
@@ -17,6 +17,10 @@ spec:
         metadata:
           {{- with .Values.cleanupJobs.clusterAdmissionReports.podAnnotations }}
           annotations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.cleanupJobs.clusterAdmissionReports.podLabels }}
+          labels:
             {{- toYaml . | nindent 12 }}
           {{- end }}
         spec:
@@ -56,5 +60,24 @@ spec:
           {{- with .Values.cleanupJobs.clusterAdmissionReports.tolerations }}
           tolerations:
             {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- with .Values.cleanupJobs.clusterAdmissionReports.nodeSelector }}
+          nodeSelector:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- if or .Values.cleanupJobs.clusterAdmissionReports.podAntiAffinity .Values.cleanupJobs.clusterAdmissionReports.podAffinity .Values.cleanupJobs.clusterAdmissionReports.nodeAffinity }}
+          affinity:
+            {{- with .Values.cleanupJobs.clusterAdmissionReports.podAntiAffinity }}
+            podAntiAffinity:
+              {{- tpl (toYaml .) $ | nindent 14 }}
+            {{- end }}
+            {{- with .Values.cleanupJobs.clusterAdmissionReports.podAffinity }}
+            podAffinity:
+              {{- tpl (toYaml .) $ | nindent 14 }}
+            {{- end }}
+            {{- with .Values.cleanupJobs.clusterAdmissionReports.nodeAffinity }}
+            nodeAffinity:
+              {{- tpl (toYaml .) $ | nindent 14 }}
+            {{- end }}
           {{- end }}
 {{- end -}}

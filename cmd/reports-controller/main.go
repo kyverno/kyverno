@@ -37,6 +37,7 @@ func createReportControllers(
 	backgroundScan bool,
 	admissionReports bool,
 	aggregateReports bool,
+	policyReports bool,
 	reportsChunkSize int,
 	backgroundScanWorkers int,
 	client dclient.Interface,
@@ -107,6 +108,7 @@ func createReportControllers(
 					configuration,
 					jp,
 					eventGenerator,
+					policyReports,
 				),
 				backgroundScanWorkers,
 			))
@@ -127,6 +129,7 @@ func createrLeaderControllers(
 	backgroundScan bool,
 	admissionReports bool,
 	aggregateReports bool,
+	policyReports bool,
 	reportsChunkSize int,
 	backgroundScanWorkers int,
 	kubeInformer kubeinformers.SharedInformerFactory,
@@ -144,6 +147,7 @@ func createrLeaderControllers(
 		backgroundScan,
 		admissionReports,
 		aggregateReports,
+		policyReports,
 		reportsChunkSize,
 		backgroundScanWorkers,
 		dynamicClient,
@@ -164,6 +168,7 @@ func main() {
 		backgroundScan         bool
 		admissionReports       bool
 		aggregateReports       bool
+		policyReports          bool
 		reportsChunkSize       int
 		backgroundScanWorkers  int
 		backgroundScanInterval time.Duration
@@ -175,6 +180,7 @@ func main() {
 	flagset.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable background scan.")
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flagset.BoolVar(&aggregateReports, "aggregateReports", true, "Enable or disable aggregated policy reports.")
+	flagset.BoolVar(&policyReports, "policyReports", true, "Enable or disable policy reports.")
 	flagset.IntVar(&reportsChunkSize, "reportsChunkSize", 1000, "Max number of results in generated reports, reports will be split accordingly if there are more results to be stored.")
 	flagset.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
 	flagset.DurationVar(&backgroundScanInterval, "backgroundScanInterval", time.Hour, "Configure background scan interval.")
@@ -192,6 +198,7 @@ func main() {
 		internal.WithDeferredLoading(),
 		internal.WithCosign(),
 		internal.WithRegistryClient(),
+		internal.WithImageVerifyCache(),
 		internal.WithLeaderElection(),
 		internal.WithKyvernoClient(),
 		internal.WithDynamicClient(),
@@ -235,6 +242,7 @@ func main() {
 		setup.Jp,
 		setup.KyvernoDynamicClient,
 		setup.RegistryClient,
+		setup.ImageVerifyCacheClient,
 		setup.KubeClient,
 		setup.KyvernoClient,
 		setup.RegistrySecretLister,
@@ -268,6 +276,7 @@ func main() {
 				backgroundScan,
 				admissionReports,
 				aggregateReports,
+				policyReports,
 				reportsChunkSize,
 				backgroundScanWorkers,
 				kubeInformer,

@@ -7,10 +7,9 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
+	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/images"
 	"github.com/kyverno/kyverno/pkg/logging"
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
@@ -139,7 +138,6 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse authenticator: %s", opts.ImageRef)
 	}
-	craneOpts := crane.WithAuth(*authenticator)
 
 	remoteOpts, err := getRemoteOpts(*authenticator)
 	if err != nil {
@@ -148,16 +146,17 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 
 	v.log.V(4).Info("client setup done", "repo", ref)
 
-	repoDesc, err := crane.Head(opts.ImageRef, craneOpts)
+	repoDesc, err := gcrremote.Head(ref, remoteOpts...)
 	if err != nil {
 		return nil, err
 	}
 	v.log.V(4).Info("fetched repository", "repoDesc", repoDesc)
 
-	referrers, err := remote.Referrers(ref.Context().Digest(repoDesc.Digest.String()), remoteOpts...)
+	referrers, err := gcrremote.Referrers(ref.Context().Digest(repoDesc.Digest.String()), remoteOpts...)
 	if err != nil {
 		return nil, err
 	}
+
 	referrersDescs, err := referrers.IndexManifest()
 	if err != nil {
 		return nil, err
@@ -186,7 +185,7 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 		}
 
 		v.log.V(4).Info("extracting statements", "desc", referrer, "repo", ref)
-		statements, err = extractStatements(ctx, ref, referrer, craneOpts)
+		statements, err = extractStatements(ctx, ref, referrer, remoteOpts)
 		if err != nil {
 			msg := err.Error()
 			v.log.V(4).Info("failed to extract statements %s", "err", msg)
@@ -267,9 +266,9 @@ func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Referenc
 	return targetDesc, nil
 }
 
-func extractStatements(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, craneOpts ...crane.Option) ([]map[string]interface{}, error) {
+func extractStatements(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, remoteOpts []gcrremote.Option) ([]map[string]interface{}, error) {
 	statements := make([]map[string]interface{}, 0)
-	data, err := extractStatement(ctx, repoRef, desc, craneOpts...)
+	data, err := extractStatement(ctx, repoRef, desc, remoteOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -281,14 +280,18 @@ func extractStatements(ctx context.Context, repoRef name.Reference, desc v1.Desc
 	return statements, nil
 }
 
-func extractStatement(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, craneOpts ...crane.Option) (map[string]interface{}, error) {
+func extractStatement(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, remoteOpts []gcrremote.Option) (map[string]interface{}, error) {
 	refStr := repoRef.Context().RegistryStr() + "/" + repoRef.Context().RepositoryStr() + "@" + desc.Digest.String()
 	ref, err := name.ParseReference(refStr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse image reference: %s", refStr)
 	}
 
-	manifestBytes, err := crane.Manifest(refStr, craneOpts...)
+	remoteDesc, err := gcrremote.Get(ref, remoteOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("error in fetching manifest: %w", err)
+	}
+	manifestBytes, err := remoteDesc.RawManifest()
 	if err != nil {
 		return nil, fmt.Errorf("error in fetching statement: %w", err)
 	}
@@ -304,9 +307,8 @@ func extractStatement(ctx context.Context, repoRef name.Reference, desc v1.Descr
 		return nil, fmt.Errorf("multiple layers in predicate not supported: %+v", manifest)
 	}
 	predicateDesc := manifest.Layers[0]
-	predicateRef := ref.Context().RegistryStr() + "/" + ref.Context().RepositoryStr() + "@" + predicateDesc.Digest.String()
 
-	layer, err := crane.PullLayer(predicateRef, craneOpts...)
+	layer, err := gcrremote.Layer(ref.Context().Digest(predicateDesc.Digest.String()), remoteOpts...)
 	if err != nil {
 		return nil, err
 	}

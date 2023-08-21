@@ -21,10 +21,10 @@ type TestResults struct {
 	// It's required in case policy is a kyverno policy.
 	// +optional
 	Rule string `json:"rule,omitempty"`
-	// IsVap indicates if the policy is a validating admission policy.
+	// IsValidatingAdmissionPolicy indicates if the policy is a validating admission policy.
 	// It's required in case policy is a validating admission policy.
 	// +optional
-	IsVap bool `json:"isVap"`
+	IsValidatingAdmissionPolicy bool `json:"isValidatingAdmissionPolicy"`
 	// Result mentions the result that the user is expecting.
 	// Possible values are pass, fail and skip.
 	Result policyreportv1alpha2.PolicyResult `json:"result"`
@@ -56,18 +56,4 @@ type TestResults struct {
 type ReportResult struct {
 	TestResults
 	Resources []*corev1.ObjectReference `json:"resources"`
-}
-
-type Resource struct {
-	Name   string            `json:"name"`
-	Values map[string]string `json:"values"`
-}
-
-type Policy struct {
-	Name      string     `json:"name"`
-	Resources []Resource `json:"resources"`
-}
-
-type Values struct {
-	Policies []Policy `json:"policies"`
 }

@@ -7,8 +7,8 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
-	"github.com/google/gnostic/compiler"
-	openapiv2 "github.com/google/gnostic/openapiv2"
+	"github.com/google/gnostic-models/compiler"
+	openapiv2 "github.com/google/gnostic-models/openapiv2"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
@@ -133,11 +133,20 @@ func (o *manager) ValidatePolicyMutation(policy kyvernov1.PolicyInterface) error
 	}
 
 	for kind, rules := range kindToRules {
+		if kind == "CustomResourceDefinition" {
+			continue
+		}
 		newPolicy := policy.CreateDeepCopy()
 		spec := newPolicy.GetSpec()
 		spec.SetRules(rules)
-		k, _ := o.gvkToDefinitionName.Get(kind)
-		d, _ := o.definitions.Get(k)
+		k, ok := o.gvkToDefinitionName.Get(kind)
+		if !ok {
+			continue
+		}
+		d, ok := o.definitions.Get(k)
+		if !ok {
+			continue
+		}
 		resource, _ := o.generateEmptyResource(d).(map[string]interface{})
 		if len(resource) == 0 {
 			o.logger.V(2).Info("unable to validate resource. OpenApi definition not found", "kind", kind)

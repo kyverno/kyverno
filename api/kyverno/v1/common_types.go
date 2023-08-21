@@ -7,7 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	admissionv1 "k8s.io/api/admission/v1"
-	"k8s.io/api/admissionregistration/v1alpha1"
+	"k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -434,30 +434,30 @@ type PodSecurityStandard struct {
 // CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
 type CEL struct {
 	// Expressions is a list of CELExpression types.
-	Expressions []v1alpha1.Validation `json:"expressions,omitempty" yaml:"expressions,omitempty"`
+	Expressions []v1beta1.Validation `json:"expressions,omitempty" yaml:"expressions,omitempty"`
 
 	// ParamKind is a tuple of Group Kind and Version.
 	// +optional
-	ParamKind *v1alpha1.ParamKind `json:"paramKind,omitempty" yaml:"paramKind,omitempty"`
+	ParamKind *v1beta1.ParamKind `json:"paramKind,omitempty" yaml:"paramKind,omitempty"`
 
 	// ParamRef references a parameter resource.
 	// +optional
-	ParamRef *v1alpha1.ParamRef `json:"paramRef,omitempty" yaml:"paramRef,omitempty"`
+	ParamRef *v1beta1.ParamRef `json:"paramRef,omitempty" yaml:"paramRef,omitempty"`
 
 	// AuditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the API request.
 	// +optional
-	AuditAnnotations []v1alpha1.AuditAnnotation `json:"auditAnnotations,omitempty" yaml:"auditAnnotations,omitempty"`
+	AuditAnnotations []v1beta1.AuditAnnotation `json:"auditAnnotations,omitempty" yaml:"auditAnnotations,omitempty"`
 }
 
 func (c *CEL) HasParam() bool {
 	return c.ParamKind != nil && c.ParamRef != nil
 }
 
-func (c *CEL) GetParamKind() v1alpha1.ParamKind {
+func (c *CEL) GetParamKind() v1beta1.ParamKind {
 	return *c.ParamKind
 }
 
-func (c *CEL) GetParamRef() v1alpha1.ParamRef {
+func (c *CEL) GetParamRef() v1beta1.ParamRef {
 	return *c.ParamRef
 }
 
@@ -626,12 +626,20 @@ type CloneList struct {
 
 func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if namespaced {
-		if err := g.validateTargetsScope(clusterResources, policyNamespace); err != nil {
+		if err := g.validateNamespacedTargetsScope(clusterResources, policyNamespace); err != nil {
 			errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
 		}
-	} else {
-		if g.GetNamespace() == "" && g.CloneList.Namespace == "" {
-			errs = append(errs, field.Forbidden(path.Child("generate"), "target namespace must be set in a clusterpolicy"))
+	}
+
+	if g.GetKind() != "" {
+		if !clusterResources.Has(g.GetAPIVersion() + "/" + g.GetKind()) {
+			if g.GetNamespace() == "" {
+				errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), "target namespace must be set for a namespaced resource"))
+			}
+		} else {
+			if g.GetNamespace() != "" {
+				errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), "target namespace must not be set for a cluster-wide resource"))
+			}
 		}
 	}
 
@@ -661,6 +669,45 @@ func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace
 			errs = append(errs, field.Forbidden(path.Child("generate").Child("name"), "name can not be empty"))
 		}
 	}
+
+	errs = append(errs, g.ValidateCloneList(path.Child("generate"), namespaced, policyNamespace, clusterResources)...)
+	return errs
+}
+
+func (g *Generation) ValidateCloneList(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+	if len(g.CloneList.Kinds) == 0 {
+		return nil
+	}
+
+	if namespaced {
+		for _, kind := range g.CloneList.Kinds {
+			if clusterResources.Has(kind) {
+				errs = append(errs, field.Forbidden(path.Child("cloneList").Child("kinds"), fmt.Sprintf("the source in cloneList must be a namespaced resource: %v", kind)))
+			}
+			if g.CloneList.Namespace != policyNamespace {
+				errs = append(errs, field.Forbidden(path.Child("cloneList").Child("namespace"), fmt.Sprintf("a namespaced policy cannot clone resources from other namespace, expected: %v, received: %v", policyNamespace, g.CloneList.Namespace)))
+			}
+		}
+	}
+
+	clusterScope := clusterResources.Has(g.CloneList.Kinds[0])
+	for _, gvk := range g.CloneList.Kinds[1:] {
+		if clusterScope != clusterResources.Has(gvk) {
+			errs = append(errs, field.Forbidden(path.Child("cloneList").Child("kinds"), "mixed scope of target resources is forbidden"))
+			break
+		}
+		clusterScope = clusterScope && clusterResources.Has(gvk)
+	}
+
+	if !clusterScope {
+		if g.CloneList.Namespace == "" {
+			errs = append(errs, field.Forbidden(path.Child("cloneList").Child("namespace"), "namespace is required for namespaced target resources"))
+		}
+	} else if clusterScope && !namespaced {
+		if g.CloneList.Namespace != "" {
+			errs = append(errs, field.Forbidden(path.Child("cloneList").Child("namespace"), "namespace is forbidden for cluster-wide target resources"))
+		}
+	}
 	return errs
 }
 
@@ -672,7 +719,7 @@ func (g *Generation) SetData(in apiextensions.JSON) {
 	g.RawData = ToJSON(in)
 }
 
-func (g *Generation) validateTargetsScope(clusterResources sets.Set[string], policyNamespace string) error {
+func (g *Generation) validateNamespacedTargetsScope(clusterResources sets.Set[string], policyNamespace string) error {
 	target := g.ResourceSpec
 	if clusterResources.Has(target.GetAPIVersion() + "/" + target.GetKind()) {
 		return fmt.Errorf("the target must be a namespaced resource: %v/%v", target.GetAPIVersion(), target.GetKind())
@@ -687,16 +734,6 @@ func (g *Generation) validateTargetsScope(clusterResources sets.Set[string], pol
 			return fmt.Errorf("a namespaced policy cannot clone resources from other namespaces, expected: %v, received: %v", policyNamespace, g.Clone.Namespace)
 		}
 	}
-
-	for _, kind := range g.CloneList.Kinds {
-		if clusterResources.Has(kind) {
-			return fmt.Errorf("the source in cloneList must be a namespaced resource: %v/%v", target.GetAPIVersion(), target.GetKind())
-		}
-		if g.CloneList.Namespace != policyNamespace {
-			return fmt.Errorf("a namespaced policy cannot clone resources from other namespace, expected: %v, received: %v", policyNamespace, g.CloneList.Namespace)
-		}
-	}
-
 	return nil
 }
 

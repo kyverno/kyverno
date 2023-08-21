@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apply"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/create"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/jp"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/oci"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
@@ -32,12 +33,6 @@ func main() {
 func configureLogs(cli *cobra.Command) {
 	logging.InitFlags(nil)
 	cli.PersistentFlags().AddGoFlagSet(flag.CommandLine)
-	_ = cli.PersistentFlags().MarkHidden("alsologtostderr")
-	_ = cli.PersistentFlags().MarkHidden("logtostderr")
-	_ = cli.PersistentFlags().MarkHidden("log_dir")
-	_ = cli.PersistentFlags().MarkHidden("log_backtrace_at")
-	_ = cli.PersistentFlags().MarkHidden("stderrthreshold")
-	_ = cli.PersistentFlags().MarkHidden("vmodule")
 }
 
 func enableExperimental() bool {
@@ -48,7 +43,7 @@ func enableExperimental() bool {
 }
 
 func registerCommands(cli *cobra.Command) {
-	cli.AddCommand(version.Command(), apply.Command(), test.Command(), jp.Command())
+	cli.AddCommand(version.Command(), create.Command(), apply.Command(), test.Command(), jp.Command())
 	if enableExperimental() {
 		cli.AddCommand(oci.Command())
 	}

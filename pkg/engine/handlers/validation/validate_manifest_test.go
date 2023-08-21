@@ -714,7 +714,7 @@ func Test_VerifyManifest_MustAll_InvalidYAML(t *testing.T) {
 	})
 	logger := logr.Discard()
 	verified, _, err := h.verifyManifest(context.TODO(), logger, policyContext, verifyRule)
-	errMsg := `.attestors[0].entries[1].keys: failed to verify signature: verification failed for 1 signature. all trials: ["[publickey 1/1] [signature 1/1] error: cosign.VerifyBlobCmd() returned an error: invalid signature when validating ASN.1 encoded signature"]`
+	errMsg := `.attestors[0].entries[1].keys: failed to verify signature: verification failed for 1 signature. all trials: ["[publickey 1/1] [signature 1/1] error: cosign.VerifyBlobCmd.Exec() returned an error: invalid signature when validating ASN.1 encoded signature"]`
 	assert.Error(t, err, errMsg)
 	assert.Equal(t, verified, false)
 }

@@ -18,6 +18,15 @@ rules:
   - update
   - delete
   - get
+- apiGroups:
+  - "kyverno.io"
+  resources:
+  - clustercleanuppolicies
+  verbs:
+  - create
+  - update
+  - delete
+  - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

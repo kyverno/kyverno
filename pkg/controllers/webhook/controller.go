@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -17,7 +18,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/tls"
-	"github.com/kyverno/kyverno/pkg/utils"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
@@ -211,7 +211,7 @@ func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
 							Name:      "kyverno-health",
 							Namespace: config.KyvernoNamespace(),
 							Labels: map[string]string{
-								"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
+								"app.kubernetes.io/name": kyverno.ValueKyvernoApp,
 							},
 							Annotations: map[string]string{
 								AnnotationLastRequestTime: time.Now().Format(time.RFC3339),
@@ -227,7 +227,7 @@ func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
 			} else {
 				lease := lease.DeepCopy()
 				lease.Labels = map[string]string{
-					"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
+					"app.kubernetes.io/name": kyverno.ValueKyvernoApp,
 				}
 				_, err = c.leaseClient.Update(ctx, lease, metav1.UpdateOptions{})
 				if err != nil {
@@ -515,7 +515,7 @@ func (c *controller) buildVerifyMutatingWebhookConfiguration(_ context.Context, 
 				AdmissionReviewVersions: []string{"v1"},
 				ObjectSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
+						"app.kubernetes.io/name": kyverno.ValueKyvernoApp,
 					},
 				},
 			}},
@@ -659,6 +659,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 					ObjectSelector:          webhookCfg.ObjectSelector,
 					TimeoutSeconds:          &timeout,
 					ReinvocationPolicy:      &ifNeeded,
+					MatchConditions:         cfg.GetMatchConditions(),
 				},
 			)
 		}
@@ -677,6 +678,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 					ObjectSelector:          webhookCfg.ObjectSelector,
 					TimeoutSeconds:          &timeout,
 					ReinvocationPolicy:      &ifNeeded,
+					MatchConditions:         cfg.GetMatchConditions(),
 				},
 			)
 		}
@@ -786,6 +788,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 					NamespaceSelector:       webhookCfg.NamespaceSelector,
 					ObjectSelector:          webhookCfg.ObjectSelector,
 					TimeoutSeconds:          &timeout,
+					MatchConditions:         cfg.GetMatchConditions(),
 				},
 			)
 		}
@@ -803,6 +806,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 					NamespaceSelector:       webhookCfg.NamespaceSelector,
 					ObjectSelector:          webhookCfg.ObjectSelector,
 					TimeoutSeconds:          &timeout,
+					MatchConditions:         cfg.GetMatchConditions(),
 				},
 			)
 		}
@@ -888,7 +892,7 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 
 func (c *controller) buildOwner() []metav1.OwnerReference {
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
-		utils.KyvernoComponentLabel: "kyverno",
+		kyverno.LabelAppComponent: "kyverno",
 	}))
 
 	clusterroles, err := c.clusterroleLister.List(selector)
