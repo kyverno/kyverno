@@ -83,6 +83,7 @@ func Test_Apply(t *testing.T) {
 				PolicyPaths:   []string{"../../../../test/cli/apply/policies"},
 				ResourcePaths: []string{"../../../../test/cli/apply/resource"},
 				PolicyReport:  true,
+				worker:        4,
 			},
 			expectedPolicyReports: []preport.PolicyReport{
 				{
