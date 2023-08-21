@@ -28,7 +28,12 @@ type client struct {
 	kyvernoClientSet    *kyverno.Clientset
 }
 
+type sysdumpConfig struct {
+	includePolicies bool
+}
+
 func Command() *cobra.Command {
+	sysdumpConfiguration := &sysdumpConfig{}
 	cmd := &cobra.Command{
 		Use:   "sysdump",
 		Short: "Collect and package information for troubleshooting",
@@ -49,6 +54,13 @@ func Command() *cobra.Command {
 				return err
 			}
 
+			if sysdumpConfiguration.includePolicies {
+				err := exportClusterPoliciesInfo(clients, dir)
+				if err != nil {
+					return err
+				}
+			}
+
 			if err := createArchive(dir, homeDir); err != nil {
 				return err
 			}
@@ -56,6 +68,7 @@ func Command() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&sysdumpConfiguration.includePolicies, "include-policies", false, "If set to true, will export clusterpolicies to sysdump archive")
 	return cmd
 }
 
@@ -88,7 +101,7 @@ func createArchive(source, archiveDestination string) error {
 	if err := archiver.Archive([]string{source}, sysdumpFile); err != nil {
 		return fmt.Errorf("failed to create sysdump zip file: %v", err)
 	}
-	fmt.Printf("Sysdump zip file created at %s", archiveDestination)
+	fmt.Printf("Sysdump zip file created at %s\n", archiveDestination)
 	return nil
 }
 
@@ -101,6 +114,32 @@ func exportNodesInfo(clients *client, destination string) error {
 	if err := writeYaml(path.Join(destination, "nodes-info.yaml"), n); err != nil {
 		return err
 	}
+	return nil
+}
+
+func exportClusterPoliciesInfo(clients *client, destination string) error {
+	destination = filepath.Join(destination, "clusterpolicies")
+	err := os.Mkdir(destination, 0700)
+	if err != nil {
+		return fmt.Errorf("failed to create clusterpolicies directory for sysdump: %v", err)
+	}
+
+	clusterPolicyList, err := clients.kyvernoClientSet.KyvernoV1().ClusterPolicies().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get ClusterPolicyList: %v", err)
+	}
+
+	for _, clusterPolicy := range clusterPolicyList.Items {
+		cp, err := clients.kyvernoClientSet.KyvernoV1().ClusterPolicies().Get(context.Background(), clusterPolicy.Name, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to get clusterpolicy %v: %v", cp, err)
+		}
+
+		if err := writeYaml(path.Join(destination, clusterPolicy.Name+".yaml"), cp); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
