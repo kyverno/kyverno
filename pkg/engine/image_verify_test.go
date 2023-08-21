@@ -951,126 +951,70 @@ func testImageVerifyCache(
 	)
 }
 
-var verifyImageCacheCosignPolicy = `{
+var testUpdatedPolicyGood = `{
 	"apiVersion": "kyverno.io/v1",
 	"kind": "ClusterPolicy",
 	"metadata": {
-		"name": "keyed-basic-policy"
+	  "name": "attest"
 	},
 	"spec": {
-		"validationFailureAction": "Enforce",
-		"background": false,
-		"webhookTimeoutSeconds": 30,
-		"failurePolicy": "Fail",
-		"rules": [
+	  "rules": [
+		{
+		  "name": "attest-testing",
+		  "match": {
+			"resources": {
+			  "kinds": [
+				"Pod"
+			  ]
+			}
+		  },
+		  "verifyImages": [
 			{
-				"name": "keyed-basic-rule",
-				"match": {
-					"any": [
-						{
-							"resources": {
-								"kinds": [
-									"Pod"
-								]
-							}
-						}
-					]
-				},
-				"verifyImages": [
+			  "image": "*",
+			  "key": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHMmDjK65krAyDaGaeyWNzgvIu155JI50B2vezCw8+3CVeE0lJTL5dbL3OP98Za0oAEBJcOxky8Riy/XcmfKZbw==\n-----END PUBLIC KEY-----",
+			  "attestations": [
+				{
+				  "predicateType": "https://example.com/CodeReview/v1",
+				  "attestors": [
+					  {
+						  "entries": [
+							  {
+								  "keys": {
+									  "publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHMmDjK65krAyDaGaeyWNzgvIu155JI50B2vezCw8+3CVeE0lJTL5dbL3OP98Za0oAEBJcOxky8Riy/XcmfKZbw==\n-----END PUBLIC KEY-----",
+									  "rekor": {
+										  "url": "https://rekor.sigstore.dev",
+										  "ignoreSCT": true,
+										  "ignoreTlog": true
+									  }
+								  }
+							  }
+						  ]
+					  }
+				  ],
+				  "conditions": [
 					{
-						"imageReferences": [
-							"ghcr.io/kyverno/test-verify-image:*"
-						],
-						"attestors": [
-							{
-								"entries": [
-									{
-										"keys": {
-											"publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM\n5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----",
-											"rekor": {
-												"url": "https://rekor.sigstore.dev",
-												"ignoreTlog": true
-											}
-										}
-									}
-								]
-							}
-						]
-					}
-				]
-			}
-		]
-	}
-}`
-
-var verifyImageCacheUpdatedCosignPolicy = `{
-	"apiVersion": "kyverno.io/v1",
-	"kind": "ClusterPolicy",
-	"metadata": {
-		"name": "keyed-basic-policy"
-	},
-	"spec": {
-		"validationFailureAction": "Enforce",
-		"background": false,
-		"webhookTimeoutSeconds": 30,
-		"failurePolicy": "Fail",
-		"rules": [
-			{
-				"name": "keyed-basic-rule-1",
-				"match": {
-					"any": [
+					  "all": [
 						{
-							"resources": {
-								"kinds": [
-									"Pod"
-								]
-							}
+						  "key": "{{ repo.uri }}",
+						  "operator": "Equals",
+						  "value": "https://github.com/example/my-project"
+						},
+						{
+						  "key": "{{ repo.branch }}",
+						  "operator": "Equals",
+						  "value": "main"
 						}
-					]
-				},
-				"verifyImages": [
-					{
-						"imageReferences": [
-							"ghcr.io/kyverno/test-verify-image:*"
-						],
-						"attestors": [
-							{
-								"entries": [
-									{
-										"keys": {
-											"publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM\n5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----",
-											"rekor": {
-												"url": "https://rekor.sigstore.dev",
-												"ignoreTlog": true
-											}
-										}
-									}
-								]
-							}
-						]
+					  ]
 					}
-				]
+				  ]
+				}
+			  ]
 			}
-		]
+		  ]
+		}
+	  ]
 	}
-}`
-
-var verifyImageCacheCosignResource = `{
-	"apiVersion": "v1",
-	"kind": "Pod",
-	"metadata": {
-		"name": "test-secret-pod",
-		"namespace": "default"
-	},
-	"spec": {
-		"containers": [
-			{
-				"image": "ghcr.io/kyverno/test-verify-image:signed",
-				"name": "test-secret"
-			}
-		]
-	}
-}`
+  }`
 
 func Test_ImageVerifyCacheCosign(t *testing.T) {
 
@@ -1083,8 +1027,11 @@ func Test_ImageVerifyCacheCosign(t *testing.T) {
 	if err != nil {
 		fmt.Println("error occurred")
 	}
+	policyContext := buildContext(t, testPolicyGood, testResource, "")
 
-	policyContext := buildContext(t, verifyImageCacheCosignPolicy, verifyImageCacheCosignResource, "")
+	err = cosign.SetMock("ghcr.io/jimbugwadia/pause2:latest", attestationPayloads)
+	assert.NilError(t, err)
+
 	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	end := time.Now()
@@ -1093,7 +1040,8 @@ func Test_ImageVerifyCacheCosign(t *testing.T) {
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
 	assert.Equal(t, ivm.IsEmpty(), false)
-	assert.Equal(t, ivm.IsVerified("ghcr.io/kyverno/test-verify-image:signed"), true)
+	assert.Equal(t, ivm.IsVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
+
 	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	end = time.Now()
@@ -1102,7 +1050,7 @@ func Test_ImageVerifyCacheCosign(t *testing.T) {
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
 	assert.Equal(t, ivm.IsEmpty(), false)
-	assert.Equal(t, ivm.IsVerified("ghcr.io/kyverno/test-verify-image:signed"), true)
+	assert.Equal(t, ivm.IsVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
 }
 
 func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
@@ -1118,7 +1066,10 @@ func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
 		fmt.Println("error occurred")
 	}
 
-	policyContext := buildContext(t, verifyImageCacheCosignPolicy, verifyImageCacheCosignResource, "")
+	policyContext := buildContext(t, testPolicyGood, testResource, "")
+
+	err = cosign.SetMock("ghcr.io/jimbugwadia/pause2:latest", attestationPayloads)
+	assert.NilError(t, err)
 
 	assert.NilError(t, err)
 	start := time.Now()
@@ -1129,7 +1080,7 @@ func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
 	assert.Equal(t, ivm.IsEmpty(), false)
-	assert.Equal(t, ivm.IsVerified("ghcr.io/kyverno/test-verify-image:signed"), true)
+	assert.Equal(t, ivm.IsVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
 
 	time.Sleep(5 * time.Second)
 	start = time.Now()
@@ -1140,7 +1091,7 @@ func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
 	assert.Equal(t, ivm.IsEmpty(), false)
-	assert.Equal(t, ivm.IsVerified("ghcr.io/kyverno/test-verify-image:signed"), true)
+	assert.Equal(t, ivm.IsVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
 }
 
 func Test_changePolicyCacheVerificationCosign(t *testing.T) {
@@ -1155,7 +1106,10 @@ func Test_changePolicyCacheVerificationCosign(t *testing.T) {
 		fmt.Println("error occurred")
 	}
 
-	policyContext := buildContext(t, verifyImageCacheUpdatedCosignPolicy, verifyImageCacheCosignResource, "")
+	policyContext := buildContext(t, testPolicyGood, testResource, "")
+
+	err = cosign.SetMock("ghcr.io/jimbugwadia/pause2:latest", attestationPayloads)
+	assert.NilError(t, err)
 
 	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
@@ -1165,9 +1119,9 @@ func Test_changePolicyCacheVerificationCosign(t *testing.T) {
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
 	assert.Equal(t, ivm.IsEmpty(), false)
-	assert.Equal(t, ivm.IsVerified("ghcr.io/kyverno/test-verify-image:signed"), true)
+	assert.Equal(t, ivm.IsVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
 
-	policyContext = buildContext(t, verifyImageCacheCosignPolicy, verifyImageCacheCosignResource, "")
+	policyContext = buildContext(t, testUpdatedPolicyGood, testResource, "")
 
 	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
@@ -1177,7 +1131,7 @@ func Test_changePolicyCacheVerificationCosign(t *testing.T) {
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
 	assert.Equal(t, ivm.IsEmpty(), false)
-	assert.Equal(t, ivm.IsVerified("ghcr.io/kyverno/test-verify-image:signed"), true)
+	assert.Equal(t, ivm.IsVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
 }
 
 var verifyImageNotaryPolicy = `{
