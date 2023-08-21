@@ -29,7 +29,8 @@ type client struct {
 }
 
 type sysdumpConfig struct {
-	includePolicies bool
+	includePolicies      bool
+	includePolicyReports bool
 }
 
 func Command() *cobra.Command {
@@ -61,6 +62,13 @@ func Command() *cobra.Command {
 				}
 			}
 
+			if sysdumpConfiguration.includePolicyReports {
+				err := exportPolicyReports(clients, dir)
+				if err != nil {
+					return err
+				}
+			}
+
 			if err := createArchive(dir, homeDir); err != nil {
 				return err
 			}
@@ -69,6 +77,7 @@ func Command() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&sysdumpConfiguration.includePolicies, "include-policies", false, "If set to true, will export clusterpolicies to sysdump archive")
+	cmd.Flags().BoolVar(&sysdumpConfiguration.includePolicyReports, "include-policy-reports", false, "If set to true, will export policy reports to sysdump archive")
 	return cmd
 }
 
@@ -132,11 +141,45 @@ func exportClusterPoliciesInfo(clients *client, destination string) error {
 	for _, clusterPolicy := range clusterPolicyList.Items {
 		cp, err := clients.kyvernoClientSet.KyvernoV1().ClusterPolicies().Get(context.Background(), clusterPolicy.Name, metav1.GetOptions{})
 		if err != nil {
-			return fmt.Errorf("failed to get clusterpolicy %v: %v", cp, err)
+			return fmt.Errorf("failed to get clusterpolicy: %v", err)
 		}
 
 		if err := writeYaml(path.Join(destination, clusterPolicy.Name+".yaml"), cp); err != nil {
 			return err
+		}
+	}
+
+	return nil
+}
+
+func exportPolicyReports(clients *client, destination string) error {
+	destination = filepath.Join(destination, "policy-reports")
+	err := os.Mkdir(destination, 0700)
+	if err != nil {
+		return fmt.Errorf("failed to create policy-reports directory for sysdump: %v", err)
+	}
+
+	namespaceList, err := clients.kubernetesClientSet.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get NamespaceList: %v", err)
+	}
+
+	for _, namespace := range namespaceList.Items {
+		nameSpaceName := namespace.Name
+		policyReportList, err := clients.kyvernoClientSet.Wgpolicyk8sV1alpha2().PolicyReports(nameSpaceName).List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to get PolicyReportList: %v", err)
+		}
+		for _, policyReport := range policyReportList.Items {
+			polr, err := clients.kyvernoClientSet.Wgpolicyk8sV1alpha2().PolicyReports(nameSpaceName).Get(context.Background(), policyReport.Name, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to get policy report: %v", err)
+			}
+
+			fileName := nameSpaceName + "-polr-" + polr.Name
+			if err := writeYaml(path.Join(destination, fileName+".yaml"), polr); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -155,7 +198,7 @@ func writeYaml(p string, o runtime.Object) error {
 	}
 	var b bytes.Buffer
 	if err := w.PrintObj(o, &b); err != nil {
-		return fmt.Errorf("failed to print %v to YAML: %v", o, err)
+		return fmt.Errorf("failed to print object to YAML: %v", err)
 	}
 	return writeToFile(p, b.String())
 }
