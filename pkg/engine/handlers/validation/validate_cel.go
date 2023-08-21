@@ -48,7 +48,7 @@ func (h validateCELHandler) Process(
 	gvr := schema.GroupVersionResource(policyContext.RequestResource())
 	gvk := resource.GroupVersionKind()
 	namespaceName := resource.GetNamespace()
-	resourceName := resource.GetNamespace()
+	resourceName := resource.GetName()
 
 	var object, oldObject, versionedParams runtime.Object
 	oldResource := policyContext.OldResource()
