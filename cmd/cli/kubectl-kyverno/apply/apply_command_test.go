@@ -354,5 +354,5 @@ func copyFileToThisDir(sourceFile string) (string, error) {
 		return "", err
 	}
 
-	return filepath.Base(sourceFile), os.WriteFile(filepath.Base(sourceFile), input, 0644)
+	return filepath.Base(sourceFile), os.WriteFile(filepath.Base(sourceFile), input, 0o644)
 }
