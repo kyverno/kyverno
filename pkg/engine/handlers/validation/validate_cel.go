@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	celutils "github.com/kyverno/kyverno/pkg/utils/cel"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -53,7 +54,7 @@ func (h validateCELHandler) Process(
 
 	object := resource.DeepCopyObject()
 	// in case of update request, set the oldObject to the current resource before it gets updated
-	var oldObject, versionedParams runtime.Object
+	var oldObject runtime.Object
 	oldResource := policyContext.OldResource()
 	if oldResource.Object == nil {
 		oldObject = nil
@@ -70,31 +71,7 @@ func (h validateCELHandler) Process(
 	validations := rule.Validation.CEL.Expressions
 	auditAnnotations := rule.Validation.CEL.AuditAnnotations
 
-	// get the parameter resource if exists
-	if hasParam && h.client != nil {
-		paramKind := rule.Validation.CEL.GetParamKind()
-		paramRef := rule.Validation.CEL.GetParamRef()
-
-		apiVersion := paramKind.APIVersion
-		kind := paramKind.Kind
-
-		name := paramRef.Name
-		namespace := paramRef.Namespace
-
-		if namespace == "" {
-			namespace = "default"
-		}
-
-		paramResource, err := h.client.GetResource(ctx, apiVersion, kind, namespace, name, "")
-		if err != nil {
-			return resource, handlers.WithError(rule, engineapi.Validation, "Error while getting the parameterized resource", err)
-		}
-
-		versionedParams = paramResource.DeepCopyObject()
-	}
-
 	optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}
-
 	// compile CEL expressions
 	compiler, err := celutils.NewCompiler(validations, auditAnnotations, matchConditions, variables)
 	if err != nil {
@@ -129,20 +106,39 @@ func (h validateCELHandler) Process(
 	admissionAttributes := admission.NewAttributesRecord(object, oldObject, gvk, namespaceName, resourceName, gvr, "", admission.Operation(policyContext.Operation()), nil, false, nil)
 	versionedAttr, _ := admission.NewVersionedAttributes(admissionAttributes, admissionAttributes.GetKind(), nil)
 	// validate the incoming object against the rule
-	validateResult := validator.Validate(ctx, gvr, versionedAttr, versionedParams, namespace, celconfig.RuntimeCELCostBudget, nil)
+	var validationResults []validatingadmissionpolicy.ValidateResult
+	if hasParam {
+		paramKind := rule.Validation.CEL.ParamKind
+		paramRef := rule.Validation.CEL.ParamRef
 
-	for _, decision := range validateResult.Decisions {
-		switch decision.Action {
-		case validatingadmissionpolicy.ActionAdmit:
-			if decision.Evaluation == validatingadmissionpolicy.EvalError {
+		params, err := collectParams(ctx, h.client, paramKind, paramRef, namespaceName)
+		if err != nil {
+			return resource, handlers.WithResponses(
+				engineapi.RuleError(rule.Name, engineapi.Validation, "error in parameterized resource", err),
+			)
+		}
+
+		for _, param := range params {
+			validationResults = append(validationResults, validator.Validate(ctx, gvr, versionedAttr, param, namespace, celconfig.RuntimeCELCostBudget, nil))
+		}
+	} else {
+		validationResults = append(validationResults, validator.Validate(ctx, gvr, versionedAttr, nil, namespace, celconfig.RuntimeCELCostBudget, nil))
+	}
+
+	for _, validationResult := range validationResults {
+		for _, decision := range validationResult.Decisions {
+			switch decision.Action {
+			case validatingadmissionpolicy.ActionAdmit:
+				if decision.Evaluation == validatingadmissionpolicy.EvalError {
+					return resource, handlers.WithResponses(
+						engineapi.RuleError(rule.Name, engineapi.Validation, decision.Message, nil),
+					)
+				}
+			case validatingadmissionpolicy.ActionDeny:
 				return resource, handlers.WithResponses(
-					engineapi.RuleError(rule.Name, engineapi.Validation, decision.Message, nil),
+					engineapi.RuleFail(rule.Name, engineapi.Validation, decision.Message),
 				)
 			}
-		case validatingadmissionpolicy.ActionDeny:
-			return resource, handlers.WithResponses(
-				engineapi.RuleFail(rule.Name, engineapi.Validation, decision.Message),
-			)
 		}
 	}
 
@@ -150,4 +146,62 @@ func (h validateCELHandler) Process(
 	return resource, handlers.WithResponses(
 		engineapi.RulePass(rule.Name, engineapi.Validation, msg),
 	)
+}
+
+func collectParams(ctx context.Context, client engineapi.Client, paramKind *admissionregistrationv1alpha1.ParamKind, paramRef *admissionregistrationv1alpha1.ParamRef, namespace string) ([]runtime.Object, error) {
+	var params []runtime.Object
+
+	apiVersion := paramKind.APIVersion
+	kind := paramKind.Kind
+	gv, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		return nil, fmt.Errorf("can't parse the parameter resource group version")
+	}
+
+	// If `paramKind` is cluster-scoped, then paramRef.namespace MUST be unset.
+	// If `paramKind` is namespace-scoped, the namespace of the object being evaluated for admission will be used
+	// when paramRef.namespace is left unset.
+	var paramsNamespace string
+	isNamespaced, err := client.IsNamespaced(gv.Group, gv.Version, kind, "")
+	if err != nil {
+		return nil, err
+	}
+
+	// check if `paramKind` is namespace-scoped
+	if isNamespaced {
+		// set params namespace to the incoming object's namespace by default.
+		paramsNamespace = namespace
+		if paramRef.Namespace != "" {
+			paramsNamespace = paramRef.Namespace
+		} else if paramsNamespace == "" {
+			return nil, fmt.Errorf("can't use namespaced paramRef to match cluster-scoped resources")
+		}
+	} else {
+		// It isn't allowed to set namespace for cluster-scoped params
+		if paramRef.Namespace != "" {
+			return nil, fmt.Errorf("paramRef.namespace must not be provided for a cluster-scoped `paramKind`")
+		}
+	}
+
+	if paramRef.Name != "" {
+		param, err := client.GetResource(ctx, apiVersion, kind, paramsNamespace, paramRef.Name, "")
+		if err != nil {
+			return nil, err
+		}
+		return []runtime.Object{param}, nil
+	} else if paramRef.Selector != nil {
+		paramList, err := client.ListResource(ctx, apiVersion, kind, paramsNamespace, paramRef.Selector)
+		if err != nil {
+			return nil, err
+		}
+		for _, item := range paramList.Items {
+			params = append(params, &item)
+		}
+	}
+
+	if len(params) == 0 && paramRef.ParameterNotFoundAction != nil && *paramRef.ParameterNotFoundAction == admissionregistrationv1alpha1.DenyAction {
+		return nil, fmt.Errorf("no params found")
+	}
+
+	return params, nil
 }
