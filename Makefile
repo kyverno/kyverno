@@ -9,6 +9,7 @@ REGISTRY             ?= ghcr.io
 REPO                 ?= kyverno
 KIND_IMAGE           ?= kindest/node:v1.27.3
 KIND_NAME            ?= kind
+KIND_CONFIG          ?= default
 GOOS                 ?= $(shell go env GOOS)
 GOARCH               ?= $(shell go env GOARCH)
 KOCACHE              ?= /tmp/ko-cache
@@ -794,7 +795,7 @@ docker-save-image-all: $(KIND) image-build-all ## Save docker images in archive
 .PHONY: kind-create-cluster
 kind-create-cluster: $(KIND) ## Create kind cluster
 	@echo Create kind cluster... >&2
-	@$(KIND) create cluster --name $(KIND_NAME) --image $(KIND_IMAGE) --config ./scripts/config/kind.yaml
+	@$(KIND) create cluster --name $(KIND_NAME) --image $(KIND_IMAGE) --config ./scripts/config/kind/$(KIND_CONFIG).yaml
 
 .PHONY: kind-delete-cluster
 kind-delete-cluster: $(KIND) ## Delete kind cluster
