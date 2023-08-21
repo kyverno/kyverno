@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -243,10 +244,10 @@ func (iv *ImageVerifier) Verify(
 			iv.ivm.Add(image, true)
 			continue
 		}
-
+		start := time.Now()
 		found, err := iv.ivCache.Get(ctx, iv.policyContext.Policy(), iv.rule.Name, image)
 		if err != nil {
-			iv.logger.V(4).Info("error occurred during cache get", err)
+			iv.logger.V(4).Error(err, "error occurred during cache get")
 		}
 
 		var ruleResp *engineapi.RuleResponse
@@ -261,7 +262,7 @@ func (iv *ImageVerifier) Verify(
 			if ruleResp != nil && ruleResp.Status() == engineapi.RuleStatusPass {
 				setted, err := iv.ivCache.Set(ctx, iv.policyContext.Policy(), iv.rule.Name, image)
 				if err != nil {
-					iv.logger.V(4).Info("error occurred during cache set", err)
+					iv.logger.V(4).Error(err, "error occurred during cache set")
 				} else {
 					if setted {
 						iv.logger.V(4).Info("successfully set cache", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
@@ -269,6 +270,7 @@ func (iv *ImageVerifier) Verify(
 				}
 			}
 		}
+		iv.logger.V(4).Info("Time taken by the image verify operation : ", time.Since(start))
 
 		if imageVerify.MutateDigest {
 			patch, retrievedDigest, err := iv.handleMutateDigest(ctx, digest, imageInfo)
