@@ -368,11 +368,7 @@ jobs:
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Install latest Kyverno CLI
-        run: |
-          download_url=$(curl -s "https://api.github.com/repos/kyverno/kyverno/releases/latest" | grep browser_download_url | grep kyverno-cli | grep linux_x86_64.tar.gz\" | cut -d '"' -f 4)
-          curl -L "$download_url" -o kyverno-cli.tar.gz
-          tar -xvf kyverno-cli.tar.gz
-          sudo cp kyverno /usr/local/bin/
+        uses: kyverno/action-install-cli@a3d781ac3f6e385c0ce5b133418f79c4646cc85d # v0.1.0
       - name: Test policy library with kuttl
         run: |
           cd policies
