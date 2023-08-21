@@ -2,7 +2,6 @@ package imageverifycache
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/dgraph-io/ristretto"
@@ -15,7 +14,6 @@ type cache struct {
 	isCacheEnabled bool
 	maxSize        int64
 	ttl            time.Duration
-	lock           sync.Mutex
 	cache          *ristretto.Cache
 }
 
