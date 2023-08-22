@@ -639,6 +639,17 @@ func validateMatchKindHelper(rule kyvernov1.Rule) error {
 	return fmt.Errorf("at least one element must be specified in a kind block, the kind attribute is mandatory when working with the resources element")
 }
 
+// isMapStringString goes through a map to verify values are string
+func isMapStringString(m map[string]interface{}) bool {
+	// range over labels
+	for _, val := range m {
+		if val == nil || reflect.TypeOf(val).String() != "string" {
+			return false
+		}
+	}
+	return true
+}
+
 // isLabelAndAnnotationsString :- Validate if labels and annotations contains only string values
 func isLabelAndAnnotationsString(rule kyvernov1.Rule) bool {
 	checkLabelAnnotation := func(metaKey map[string]interface{}) bool {
@@ -646,21 +657,15 @@ func isLabelAndAnnotationsString(rule kyvernov1.Rule) bool {
 			if mk == "labels" {
 				labelKey, ok := metaKey[mk].(map[string]interface{})
 				if ok {
-					// range over labels
-					for _, val := range labelKey {
-						if reflect.TypeOf(val).String() != "string" {
-							return false
-						}
+					if !isMapStringString(labelKey) {
+						return false
 					}
 				}
 			} else if mk == "annotations" {
 				annotationKey, ok := metaKey[mk].(map[string]interface{})
 				if ok {
-					// range over annotations
-					for _, val := range annotationKey {
-						if reflect.TypeOf(val).String() != "string" {
-							return false
-						}
+					if !isMapStringString(annotationKey) {
+						return false
 					}
 				}
 			}
