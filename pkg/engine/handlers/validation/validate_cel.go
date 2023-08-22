@@ -194,8 +194,8 @@ func collectParams(ctx context.Context, client engineapi.Client, paramKind *admi
 		if err != nil {
 			return nil, err
 		}
-		for _, item := range paramList.Items {
-			params = append(params, &item)
+		for i := range paramList.Items {
+			params = append(params, &paramList.Items[i])
 		}
 	}
 
