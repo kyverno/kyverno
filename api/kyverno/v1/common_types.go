@@ -7,7 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	admissionv1 "k8s.io/api/admission/v1"
-	"k8s.io/api/admissionregistration/v1beta1"
+	"k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -434,30 +434,30 @@ type PodSecurityStandard struct {
 // CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
 type CEL struct {
 	// Expressions is a list of CELExpression types.
-	Expressions []v1beta1.Validation `json:"expressions,omitempty" yaml:"expressions,omitempty"`
+	Expressions []v1alpha1.Validation `json:"expressions,omitempty" yaml:"expressions,omitempty"`
 
 	// ParamKind is a tuple of Group Kind and Version.
 	// +optional
-	ParamKind *v1beta1.ParamKind `json:"paramKind,omitempty" yaml:"paramKind,omitempty"`
+	ParamKind *v1alpha1.ParamKind `json:"paramKind,omitempty" yaml:"paramKind,omitempty"`
 
 	// ParamRef references a parameter resource.
 	// +optional
-	ParamRef *v1beta1.ParamRef `json:"paramRef,omitempty" yaml:"paramRef,omitempty"`
+	ParamRef *v1alpha1.ParamRef `json:"paramRef,omitempty" yaml:"paramRef,omitempty"`
 
 	// AuditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the API request.
 	// +optional
-	AuditAnnotations []v1beta1.AuditAnnotation `json:"auditAnnotations,omitempty" yaml:"auditAnnotations,omitempty"`
+	AuditAnnotations []v1alpha1.AuditAnnotation `json:"auditAnnotations,omitempty" yaml:"auditAnnotations,omitempty"`
 }
 
 func (c *CEL) HasParam() bool {
 	return c.ParamKind != nil && c.ParamRef != nil
 }
 
-func (c *CEL) GetParamKind() v1beta1.ParamKind {
+func (c *CEL) GetParamKind() v1alpha1.ParamKind {
 	return *c.ParamKind
 }
 
-func (c *CEL) GetParamRef() v1beta1.ParamRef {
+func (c *CEL) GetParamRef() v1alpha1.ParamRef {
 	return *c.ParamRef
 }
 
