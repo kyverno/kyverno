@@ -648,7 +648,7 @@ func isLabelAndAnnotationsString(rule kyvernov1.Rule) bool {
 				if ok {
 					// range over labels
 					for _, val := range labelKey {
-						if reflect.TypeOf(val).String() != "string" {
+						if val == nil || reflect.TypeOf(val).String() != "string" {
 							return false
 						}
 					}
@@ -658,7 +658,7 @@ func isLabelAndAnnotationsString(rule kyvernov1.Rule) bool {
 				if ok {
 					// range over annotations
 					for _, val := range annotationKey {
-						if reflect.TypeOf(val).String() != "string" {
+						if val == nil || reflect.TypeOf(val).String() != "string" {
 							return false
 						}
 					}
