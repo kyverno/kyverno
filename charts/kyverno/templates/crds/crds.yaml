@@ -6421,14 +6421,10 @@ spec:
                               description: ParamRef references a parameter resource.
                               properties:
                                 name:
-                                  description: "name is the name of the resource being
-                                    referenced. \n One of `name` or `selector` must
-                                    be set, but `name` and `selector` are mutually
-                                    exclusive properties. If one is set, the other
-                                    must be unset. \n A single parameter used for
-                                    all admission requests can be configured by setting
-                                    the `name` field, leaving `selector` blank, and
-                                    setting namespace if `paramKind` is namespace-scoped."
+                                  description: "`name` is the name of the resource
+                                    being referenced. \n `name` and `selector` are
+                                    mutually exclusive properties. If one is set,
+                                    the other must be unset."
                                   type: string
                                 namespace:
                                   description: "namespace is the namespace of the
@@ -6456,7 +6452,7 @@ spec:
                                     binding. If set to `Deny`, then no matched parameters
                                     will be subject to the `failurePolicy` of the
                                     policy. \n Allowed values are `Allow` or `Deny`
-                                    \n Required"
+                                    Default to `Deny`"
                                   type: string
                                 selector:
                                   description: "selector can be used to match multiple
@@ -10733,15 +10729,10 @@ spec:
                                   description: ParamRef references a parameter resource.
                                   properties:
                                     name:
-                                      description: "name is the name of the resource
-                                        being referenced. \n One of `name` or `selector`
-                                        must be set, but `name` and `selector` are
-                                        mutually exclusive properties. If one is set,
-                                        the other must be unset. \n A single parameter
-                                        used for all admission requests can be configured
-                                        by setting the `name` field, leaving `selector`
-                                        blank, and setting namespace if `paramKind`
-                                        is namespace-scoped."
+                                      description: "`name` is the name of the resource
+                                        being referenced. \n `name` and `selector`
+                                        are mutually exclusive properties. If one
+                                        is set, the other must be unset."
                                       type: string
                                     namespace:
                                       description: "namespace is the namespace of
@@ -10771,7 +10762,7 @@ spec:
                                         by the binding. If set to `Deny`, then no
                                         matched parameters will be subject to the
                                         `failurePolicy` of the policy. \n Allowed
-                                        values are `Allow` or `Deny` \n Required"
+                                        values are `Allow` or `Deny` Default to `Deny`"
                                       type: string
                                     selector:
                                       description: "selector can be used to match
@@ -14772,14 +14763,10 @@ spec:
                               description: ParamRef references a parameter resource.
                               properties:
                                 name:
-                                  description: "name is the name of the resource being
-                                    referenced. \n One of `name` or `selector` must
-                                    be set, but `name` and `selector` are mutually
-                                    exclusive properties. If one is set, the other
-                                    must be unset. \n A single parameter used for
-                                    all admission requests can be configured by setting
-                                    the `name` field, leaving `selector` blank, and
-                                    setting namespace if `paramKind` is namespace-scoped."
+                                  description: "`name` is the name of the resource
+                                    being referenced. \n `name` and `selector` are
+                                    mutually exclusive properties. If one is set,
+                                    the other must be unset."
                                   type: string
                                 namespace:
                                   description: "namespace is the namespace of the
@@ -14807,7 +14794,7 @@ spec:
                                     binding. If set to `Deny`, then no matched parameters
                                     will be subject to the `failurePolicy` of the
                                     policy. \n Allowed values are `Allow` or `Deny`
-                                    \n Required"
+                                    Default to `Deny`"
                                   type: string
                                 selector:
                                   description: "selector can be used to match multiple
@@ -19138,15 +19125,10 @@ spec:
                                   description: ParamRef references a parameter resource.
                                   properties:
                                     name:
-                                      description: "name is the name of the resource
-                                        being referenced. \n One of `name` or `selector`
-                                        must be set, but `name` and `selector` are
-                                        mutually exclusive properties. If one is set,
-                                        the other must be unset. \n A single parameter
-                                        used for all admission requests can be configured
-                                        by setting the `name` field, leaving `selector`
-                                        blank, and setting namespace if `paramKind`
-                                        is namespace-scoped."
+                                      description: "`name` is the name of the resource
+                                        being referenced. \n `name` and `selector`
+                                        are mutually exclusive properties. If one
+                                        is set, the other must be unset."
                                       type: string
                                     namespace:
                                       description: "namespace is the namespace of
@@ -19176,7 +19158,7 @@ spec:
                                         by the binding. If set to `Deny`, then no
                                         matched parameters will be subject to the
                                         `failurePolicy` of the policy. \n Allowed
-                                        values are `Allow` or `Deny` \n Required"
+                                        values are `Allow` or `Deny` Default to `Deny`"
                                       type: string
                                     selector:
                                       description: "selector can be used to match
@@ -23542,14 +23524,10 @@ spec:
                               description: ParamRef references a parameter resource.
                               properties:
                                 name:
-                                  description: "name is the name of the resource being
-                                    referenced. \n One of `name` or `selector` must
-                                    be set, but `name` and `selector` are mutually
-                                    exclusive properties. If one is set, the other
-                                    must be unset. \n A single parameter used for
-                                    all admission requests can be configured by setting
-                                    the `name` field, leaving `selector` blank, and
-                                    setting namespace if `paramKind` is namespace-scoped."
+                                  description: "`name` is the name of the resource
+                                    being referenced. \n `name` and `selector` are
+                                    mutually exclusive properties. If one is set,
+                                    the other must be unset."
                                   type: string
                                 namespace:
                                   description: "namespace is the namespace of the
@@ -23577,7 +23555,7 @@ spec:
                                     binding. If set to `Deny`, then no matched parameters
                                     will be subject to the `failurePolicy` of the
                                     policy. \n Allowed values are `Allow` or `Deny`
-                                    \n Required"
+                                    Default to `Deny`"
                                   type: string
                                 selector:
                                   description: "selector can be used to match multiple
@@ -27855,15 +27833,10 @@ spec:
                                   description: ParamRef references a parameter resource.
                                   properties:
                                     name:
-                                      description: "name is the name of the resource
-                                        being referenced. \n One of `name` or `selector`
-                                        must be set, but `name` and `selector` are
-                                        mutually exclusive properties. If one is set,
-                                        the other must be unset. \n A single parameter
-                                        used for all admission requests can be configured
-                                        by setting the `name` field, leaving `selector`
-                                        blank, and setting namespace if `paramKind`
-                                        is namespace-scoped."
+                                      description: "`name` is the name of the resource
+                                        being referenced. \n `name` and `selector`
+                                        are mutually exclusive properties. If one
+                                        is set, the other must be unset."
                                       type: string
                                     namespace:
                                       description: "namespace is the namespace of
@@ -27893,7 +27866,7 @@ spec:
                                         by the binding. If set to `Deny`, then no
                                         matched parameters will be subject to the
                                         `failurePolicy` of the policy. \n Allowed
-                                        values are `Allow` or `Deny` \n Required"
+                                        values are `Allow` or `Deny` Default to `Deny`"
                                       type: string
                                     selector:
                                       description: "selector can be used to match
@@ -31895,14 +31868,10 @@ spec:
                               description: ParamRef references a parameter resource.
                               properties:
                                 name:
-                                  description: "name is the name of the resource being
-                                    referenced. \n One of `name` or `selector` must
-                                    be set, but `name` and `selector` are mutually
-                                    exclusive properties. If one is set, the other
-                                    must be unset. \n A single parameter used for
-                                    all admission requests can be configured by setting
-                                    the `name` field, leaving `selector` blank, and
-                                    setting namespace if `paramKind` is namespace-scoped."
+                                  description: "`name` is the name of the resource
+                                    being referenced. \n `name` and `selector` are
+                                    mutually exclusive properties. If one is set,
+                                    the other must be unset."
                                   type: string
                                 namespace:
                                   description: "namespace is the namespace of the
@@ -31930,7 +31899,7 @@ spec:
                                     binding. If set to `Deny`, then no matched parameters
                                     will be subject to the `failurePolicy` of the
                                     policy. \n Allowed values are `Allow` or `Deny`
-                                    \n Required"
+                                    Default to `Deny`"
                                   type: string
                                 selector:
                                   description: "selector can be used to match multiple
@@ -36261,15 +36230,10 @@ spec:
                                   description: ParamRef references a parameter resource.
                                   properties:
                                     name:
-                                      description: "name is the name of the resource
-                                        being referenced. \n One of `name` or `selector`
-                                        must be set, but `name` and `selector` are
-                                        mutually exclusive properties. If one is set,
-                                        the other must be unset. \n A single parameter
-                                        used for all admission requests can be configured
-                                        by setting the `name` field, leaving `selector`
-                                        blank, and setting namespace if `paramKind`
-                                        is namespace-scoped."
+                                      description: "`name` is the name of the resource
+                                        being referenced. \n `name` and `selector`
+                                        are mutually exclusive properties. If one
+                                        is set, the other must be unset."
                                       type: string
                                     namespace:
                                       description: "namespace is the namespace of
@@ -36299,7 +36263,7 @@ spec:
                                         by the binding. If set to `Deny`, then no
                                         matched parameters will be subject to the
                                         `failurePolicy` of the policy. \n Allowed
-                                        values are `Allow` or `Deny` \n Required"
+                                        values are `Allow` or `Deny` Default to `Deny`"
                                       type: string
                                     selector:
                                       description: "selector can be used to match
