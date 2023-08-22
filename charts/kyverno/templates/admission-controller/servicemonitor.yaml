@@ -1,4 +1,4 @@
-{{- if .Values.admissionController.serviceMonitor.enabled }}
+{{- if and .Values.admissionController.serviceMonitor.enabled (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -28,5 +28,13 @@ spec:
     scheme: https
     tlsConfig:
       {{- toYaml .Values.admissionController.serviceMonitor.tlsConfig | nindent 8 }}
+    {{- end }}
+    {{- with .Values.admissionController.serviceMonitor.relabelings }}
+    relabelings:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.admissionController.serviceMonitor.metricRelabelings }}
+    metricRelabelings:
+      {{- toYaml . | nindent 6 }}
     {{- end }}
 {{- end -}}

@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -16,7 +17,7 @@ import (
 
 const namespaceControllerUsername = "system:serviceaccount:kube-system:namespace-controller"
 
-var kyvernoUsername = fmt.Sprintf("system:serviceaccount:%s:%s", config.KyvernoNamespace(), config.KyvernoServiceAccountName())
+var kyvernoUsernamePrefix = fmt.Sprintf("system:serviceaccount:%s:", config.KyvernoNamespace())
 
 func (inner AdmissionHandler) WithProtection(enabled bool) AdmissionHandler {
 	if !enabled {
@@ -33,14 +34,14 @@ func (inner AdmissionHandler) withProtection() AdmissionHandler {
 		}
 		newResource, oldResource, err := admissionutils.ExtractResources(nil, request.AdmissionRequest)
 		if err != nil {
-			logger.Error(err, "Failed to extract resources")
+			logger.Error(err, "failed to extract resources")
 			return admissionutils.Response(request.UID, err)
 		}
 		for _, resource := range []unstructured.Unstructured{newResource, oldResource} {
 			resLabels := resource.GetLabels()
-			if resLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp {
-				if request.UserInfo.Username != kyvernoUsername {
-					logger.Info("Access to the resource not authorized, this is a kyverno managed resource and should be altered only by kyverno")
+			if resLabels[kyverno.LabelAppManagedBy] == kyverno.ValueKyvernoApp {
+				if !strings.HasPrefix(request.UserInfo.Username, kyvernoUsernamePrefix) {
+					logger.V(2).Info("access to the resource not authorized, this is a kyverno managed resource and should be altered only by kyverno")
 					return admissionutils.Response(request.UID, errors.New("A kyverno managed resource can only be modified by kyverno"))
 				}
 			}

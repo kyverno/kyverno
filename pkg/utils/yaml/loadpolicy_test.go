@@ -15,10 +15,11 @@ func TestGetPolicy(t *testing.T) {
 		namespace string
 	}
 	tests := []struct {
-		name         string
-		args         args
-		wantPolicies []policy
-		wantErr      bool
+		name                        string
+		args                        args
+		wantPolicies                []policy
+		validatingAdmissionPolicies []policy
+		wantErr                     bool
 	}{{
 		name: "policy",
 		args: args{
@@ -297,10 +298,140 @@ items:
 			{"ClusterPolicy", ""},
 		},
 		wantErr: false,
+	}, {
+		name: "ValidatingAdmissionPolicy",
+		args: args{
+			[]byte(`
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: "demo-policy.example.com"
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups:   ["apps"]
+        apiVersions: ["v1"]
+        operations:  ["CREATE", "UPDATE"]
+        resources:   ["deployments"]
+    validations:
+      - expression: "object.spec.replicas <= 5"
+`),
+		}, validatingAdmissionPolicies: []policy{
+			{"ValidatingAdmissionPolicy", ""},
+		},
+		wantErr: false,
+	}, {
+		name: "ValidatingAdmissionPolicy and Policy",
+		args: args{
+			[]byte(`
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: "demo-policy.example.com"
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups:   ["apps"]
+        apiVersions: ["v1"]
+        operations:  ["CREATE", "UPDATE"]
+        resources:   ["deployments"]
+    validations:
+      - expression: "object.spec.replicas <= 5"
+---
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: generate-policy
+  namespace: ns-1
+spec:
+  rules:
+  - name: copy-game-demo
+    match:
+      resources:
+        kinds:
+        - Namespace
+    exclude:
+      resources:
+        namespaces:
+        - kube-system
+        - default
+        - kube-public
+        - kyverno
+    generate:
+      kind: ConfigMap
+      name: game-demo
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      clone:
+        namespace: default
+        name: game-demo
+`),
+		}, wantPolicies: []policy{
+			{"Policy", "ns-1"},
+		},
+		validatingAdmissionPolicies: []policy{
+			{"ValidatingAdmissionPolicy", ""},
+		},
+		wantErr: false,
+	}, {
+		name: "ValidatingAdmissionPolicy and ClusterPolicy",
+		args: args{
+			[]byte(`
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: "demo-policy.example.com"
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups:   ["apps"]
+        apiVersions: ["v1"]
+        operations:  ["CREATE", "UPDATE"]
+        resources:   ["deployments"]
+    validations:
+      - expression: "object.spec.replicas <= 5"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-policy
+spec:
+  rules:
+  - name: copy-game-demo
+    match:
+      resources:
+        kinds:
+        - Namespace
+    exclude:
+      resources:
+        namespaces:
+        - kube-system
+        - default
+        - kube-public
+        - kyverno
+    generate:
+      kind: ConfigMap
+      name: game-demo
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      clone:
+        namespace: default
+        name: game-demo
+`),
+		}, wantPolicies: []policy{
+			{"ClusterPolicy", ""},
+		},
+		validatingAdmissionPolicies: []policy{
+			{"ValidatingAdmissionPolicy", ""},
+		},
+		wantErr: false,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotPolicies, err := GetPolicy(tt.args.bytes)
+			gotPolicies, gotValidatingAdmissionPolicies, err := GetPolicy(tt.args.bytes)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -311,6 +442,13 @@ items:
 						assert.Equal(t, tt.wantPolicies[i].namespace, gotPolicies[i].GetNamespace())
 					}
 				}
+
+				if assert.Equal(t, len(tt.validatingAdmissionPolicies), len(gotValidatingAdmissionPolicies)) {
+					for i := range tt.validatingAdmissionPolicies {
+						assert.Equal(t, tt.validatingAdmissionPolicies[i].kind, gotValidatingAdmissionPolicies[i].Kind)
+					}
+				}
+
 			}
 		})
 	}

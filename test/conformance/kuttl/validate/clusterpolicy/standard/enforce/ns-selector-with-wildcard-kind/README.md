@@ -10,3 +10,4 @@ The pod `test-validate/nginx-block` is blocked, and the pod `default/nginx-pass`
 ## Reference Issue(s)
 
 https://github.com/kyverno/kyverno/issues/6015
+https://github.com/kyverno/kyverno/issues/7771

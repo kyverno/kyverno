@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+delete:
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  name: my-app-ingress
+  namespace: test-ingress

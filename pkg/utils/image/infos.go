@@ -6,10 +6,10 @@ import (
 
 	"github.com/distribution/distribution/reference"
 	"github.com/kyverno/kyverno/pkg/config"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"github.com/kyverno/kyverno/pkg/logging"
 )
 
-var logger = log.Log.WithName("image")
+var logger = logging.WithName("image")
 
 type ImageInfo struct {
 	// Registry is the URL address of the image registry e.g. `docker.io`
@@ -51,8 +51,8 @@ func (i *ImageInfo) ReferenceWithTag() string {
 }
 
 func GetImageInfo(image string, cfg config.Configuration) (*ImageInfo, error) {
-	logger.V(2).Info(
-		"Getting the image info",
+	logger.V(3).Info(
+		"getting the image info",
 		"image", image,
 		"defaultRegistry", config.Configuration.GetDefaultRegistry(cfg),
 		"enableDefaultRegistryMutation", config.Configuration.GetEnableDefaultRegistryMutation(cfg),
@@ -86,8 +86,8 @@ func GetImageInfo(image string, cfg config.Configuration) (*ImageInfo, error) {
 		registry = ""
 	}
 
-	logger.V(2).Info(
-		"Getting the image info",
+	logger.V(3).Info(
+		"getting the image info",
 		"image", image,
 		"registry", registry,
 		"name", name,

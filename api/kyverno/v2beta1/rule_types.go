@@ -5,6 +5,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -15,7 +16,7 @@ import (
 type Rule struct {
 	// Name is a label to identify the rule, It must be unique within the policy.
 	// +kubebuilder:validation:MaxLength=63
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+	Name string `json:"name" yaml:"name"`
 
 	// Context defines variables and data sources that can be used during rule execution.
 	// +optional
@@ -44,6 +45,11 @@ type Rule struct {
 	// See: https://kyverno.io/docs/writing-policies/preconditions/
 	// +optional
 	RawAnyAllConditions *AnyAllConditions `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+
+	// CELPreconditions are used to determine if a policy rule should be applied by evaluating a
+	// set of CEL conditions. It can only be used with the validate.cel subrule
+	// +optional
+	CELPreconditions []admissionregistrationv1.MatchCondition `json:"celPreconditions,omitempty" yaml:"celPreconditions,omitempty"`
 
 	// Mutation is used to modify matching resources.
 	// +optional
@@ -97,6 +103,11 @@ func (r Rule) HasValidatePodSecurity() bool {
 	return r.Validation.PodSecurity != nil && !datautils.DeepEqual(r.Validation.PodSecurity, &kyvernov1.PodSecurity{})
 }
 
+// HasValidateCEL checks for validate.cel rule
+func (r *Rule) HasValidateCEL() bool {
+	return r.Validation.CEL != nil && !datautils.DeepEqual(r.Validation.CEL, &kyvernov1.CEL{})
+}
+
 // HasValidate checks for validate rule
 func (r *Rule) HasValidate() bool {
 	return !datautils.DeepEqual(r.Validation, Validation{})
@@ -112,18 +123,11 @@ func (r *Rule) IsMutateExisting() bool {
 	return r.Mutation.Targets != nil
 }
 
-// IsCloneSyncGenerate checks if the generate rule has the clone block with sync=true
-func (r *Rule) GetCloneSyncForGenerate() (clone bool, sync bool) {
+func (r *Rule) GetGenerateTypeAndSync() (_ kyvernov1.GenerateType, sync bool) {
 	if !r.HasGenerate() {
 		return
 	}
-
-	if r.Generation.Clone.Name != "" {
-		clone = true
-	}
-
-	sync = r.Generation.Synchronize
-	return
+	return r.Generation.GetTypeAndSync()
 }
 
 // ValidateRuleType checks only one type of rule is defined per rule
@@ -172,23 +176,20 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 	return append(errs, field.Invalid(path, r, "Rule is matching an empty set"))
 }
 
-func (r *Rule) ValidateGenerateVariables(path *field.Path) (errs field.ErrorList) {
+func (r *Rule) ValidateGenerate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if !r.HasGenerate() {
 		return nil
 	}
 
-	if err := r.Generation.Validate(); err != nil {
-		errs = append(errs, field.Forbidden(path.Child("generate").Child("clone/cloneList"), fmt.Sprintf("Generation Rule Clone/CloneList \"%s\" should not have variables", r.Name)))
-	}
-	return errs
+	return r.Generation.Validate(path, namespaced, policyNamespace, clusterResources)
 }
 
 // Validate implements programmatic validation
-func (r *Rule) Validate(path *field.Path, namespaced bool, clusterResources sets.Set[string]) (errs field.ErrorList) {
+func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, r.ValidateRuleType(path)...)
 	errs = append(errs, r.ValidateMatchExcludeConflict(path)...)
 	errs = append(errs, r.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)
 	errs = append(errs, r.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
-	errs = append(errs, r.ValidateGenerateVariables(path)...)
+	errs = append(errs, r.ValidateGenerate(path, namespaced, policyNamespace, clusterResources)...)
 	return errs
 }

@@ -75,6 +75,11 @@ func (p *CleanupPolicy) GetAPIVersion() string {
 	return p.APIVersion
 }
 
+// IsNamespaced indicates if the policy is namespace scoped
+func (p *CleanupPolicy) IsNamespaced() bool {
+	return true
+}
+
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -128,6 +133,11 @@ func (p *ClusterCleanupPolicy) GetAPIVersion() string {
 	return p.APIVersion
 }
 
+// IsNamespaced indicates if the policy is namespace scoped
+func (p *ClusterCleanupPolicy) IsNamespaced() bool {
+	return false
+}
+
 // Validate implements programmatic validation
 func (p *ClusterCleanupPolicy) Validate(clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, kyvernov1.ValidatePolicyName(field.NewPath("metadata").Child("name"), p.Name)...)
@@ -148,6 +158,10 @@ type ClusterCleanupPolicyList struct {
 // CleanupPolicySpec stores specifications for selecting resources that the user needs to delete
 // and schedule when the matching resources needs deleted.
 type CleanupPolicySpec struct {
+	// Context defines variables and data sources that can be used during rule execution.
+	// +optional
+	Context []kyvernov1.ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
+
 	// MatchResources defines when cleanuppolicy should be applied. The match
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the user name or role.
@@ -175,6 +189,8 @@ type CleanupPolicyStatus struct {
 
 // Validate implements programmatic validation
 func (p *CleanupPolicySpec) Validate(path *field.Path, clusterResources sets.Set[string], namespaced bool) (errs field.ErrorList) {
+	// Write context validation code here by following other validations.
+	errs = append(errs, ValidateContext(path.Child("context"), p.Context)...)
 	errs = append(errs, ValidateSchedule(path.Child("schedule"), p.Schedule)...)
 	if userInfoErrs := p.MatchResources.ValidateNoUserInfo(path.Child("match")); len(userInfoErrs) != 0 {
 		errs = append(errs, userInfoErrs...)
@@ -189,6 +205,17 @@ func (p *CleanupPolicySpec) Validate(path *field.Path, clusterResources sets.Set
 		}
 	}
 	errs = append(errs, p.ValidateMatchExcludeConflict(path)...)
+	return errs
+}
+
+func ValidateContext(path *field.Path, context []kyvernov1.ContextEntry) (errs field.ErrorList) {
+	for _, entry := range context {
+		if entry.ImageRegistry != nil {
+			errs = append(errs, field.Invalid(path, context, "ImageRegistry is not allowed in CleanUp Policy"))
+		} else if entry.ConfigMap != nil {
+			errs = append(errs, field.Invalid(path, context, "ConfigMap is not allowed in CleanUp Policy"))
+		}
+	}
 	return errs
 }
 

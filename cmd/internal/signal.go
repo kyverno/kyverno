@@ -11,7 +11,7 @@ import (
 
 var Context = context.Background()
 
-func SetupSignals(logger logr.Logger) (context.Context, context.CancelFunc) {
+func setupSignals(logger logr.Logger) (context.Context, context.CancelFunc) {
 	logger = logger.WithName("signals")
 	logger.Info("setup signals...")
 	return signal.NotifyContext(Context, os.Interrupt, syscall.SIGTERM)

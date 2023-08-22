@@ -29,20 +29,22 @@ type server struct {
 }
 
 type (
-	TlsProvider       = func() ([]byte, []byte, error)
-	ValidationHandler = func(context.Context, logr.Logger, handlers.AdmissionRequest, time.Time) handlers.AdmissionResponse
-	CleanupHandler    = func(context.Context, logr.Logger, string, time.Time, config.Configuration) error
+	TlsProvider            = func() ([]byte, []byte, error)
+	ValidationHandler      = func(context.Context, logr.Logger, handlers.AdmissionRequest, time.Time) handlers.AdmissionResponse
+	LabelValidationHandler = func(context.Context, logr.Logger, handlers.AdmissionRequest, time.Time) handlers.AdmissionResponse
+	CleanupHandler         = func(context.Context, logr.Logger, string, time.Time, config.Configuration) error
 )
 
 type Probes interface {
-	IsReady() bool
-	IsLive() bool
+	IsReady(context.Context) bool
+	IsLive(context.Context) bool
 }
 
 // NewServer creates new instance of server accordingly to given configuration
 func NewServer(
 	tlsProvider TlsProvider,
 	validationHandler ValidationHandler,
+	labelValidationHandler LabelValidationHandler,
 	cleanupHandler CleanupHandler,
 	metricsConfig metrics.MetricsConfigManager,
 	debugModeOpts webhooks.DebugModeOptions,
@@ -50,6 +52,7 @@ func NewServer(
 	cfg config.Configuration,
 ) Server {
 	policyLogger := logging.WithName("cleanup-policy")
+	labelLogger := logging.WithName("ttl-label")
 	cleanupLogger := logging.WithName("cleanup")
 	cleanupHandlerFunc := func(w http.ResponseWriter, r *http.Request) {
 		policy := r.URL.Query().Get("policy")
@@ -74,6 +77,16 @@ func NewServer(
 			WithSubResourceFilter().
 			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookValidating).
 			WithAdmission(policyLogger.WithName("validate")).
+			ToHandlerFunc(),
+	)
+	mux.HandlerFunc(
+		"POST",
+		config.TtlValidatingWebhookServicePath,
+		handlers.FromAdmissionFunc("VALIDATE", labelValidationHandler).
+			WithDump(debugModeOpts.DumpPayload).
+			WithSubResourceFilter().
+			WithMetrics(labelLogger, metricsConfig.Config(), metrics.WebhookValidating).
+			WithAdmission(labelLogger.WithName("validate")).
 			ToHandlerFunc(),
 	)
 	mux.HandlerFunc(
@@ -102,6 +115,15 @@ func NewServer(
 					return &pair, nil
 				},
 				MinVersion: tls.VersionTLS12,
+				CipherSuites: []uint16{
+					// AEADs w/ ECDHE
+					tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+					tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+					tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+					tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+					tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+					tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+				},
 			},
 			Handler:           mux,
 			ReadTimeout:       30 * time.Second,

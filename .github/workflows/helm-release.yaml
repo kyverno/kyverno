@@ -1,5 +1,7 @@
 name: helm-release
 
+permissions: {}
+
 on:
   push:
     tags:
@@ -13,10 +15,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
-      - uses: actions/setup-python@d27e3f3d7c64b4bbf8e4abfb9b63b83e846e0435 # v4.5.0
+      - uses: actions/setup-python@61a6322f88396a6271a6ee3565807d608ecaddd1 # v4.7.0
         with:
           python-version: 3.7
       - name: Set up chart-testing
@@ -31,7 +33,7 @@ jobs:
       options: --user root
     steps:
       - name: Checkout
-        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Run ah lint
         working-directory: ./charts/
         run: ah lint
@@ -46,7 +48,7 @@ jobs:
       pages: write
     steps:
       - name: Checkout
-        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
 
@@ -56,9 +58,7 @@ jobs:
           version: v3.10.3
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@9becc617647dfa20ae7b1151972e9b3a2c338a2b # v2.8.1
-        with:
-          cosign-release: 'v1.13.0'
+        uses: sigstore/cosign-installer@6e04d228eb30da1757ee4e1dd75a0ec73a653e06 # v3.1.1
 
       - name: Set version
         run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
@@ -91,14 +91,12 @@ jobs:
           helm registry login --username ${GITHUB_ACTOR} --password ${{ secrets.GITHUB_TOKEN }} ghcr.io
       
       - name: Publish OCI Charts
-        env:
-          COSIGN_EXPERIMENTAL: 1
         run: |
           for dir in `find charts-tmp -maxdepth 1 -mindepth 1 -type d -print`; do
             chart=${dir##*/}
             echo "Found chart: ${chart}"
             helm package charts-tmp/${chart} --destination .dist
             helm push .dist/${chart}-*.tgz oci://ghcr.io/${{ github.repository_owner }}/charts |& tee .digest
-            cosign login --username ${GITHUB_ACTOR} --password ${{ secrets.CR_PAT_ARTIFACTS }} ghcr.io
-            cosign sign ghcr.io/${{ github.repository_owner }}/charts/${chart}@$(cat .digest | awk -F "[, ]+" '/Digest/{print $NF}')
+            cosign login --username ${GITHUB_ACTOR} --password ${{ secrets.GITHUB_TOKEN }} ghcr.io
+            cosign sign --yes ghcr.io/${{ github.repository_owner }}/charts/${chart}@$(cat .digest | awk -F "[, ]+" '/Digest/{print $NF}')
           done

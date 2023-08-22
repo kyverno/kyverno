@@ -174,17 +174,147 @@ func Test_Apply(t *testing.T) {
 				},
 			},
 		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../test/cli/apply/policies-set"},
+				ResourcePaths: []string{"../../../../test/cli/apply/resources-set"},
+				Variables:     []string{"request.operation=UPDATE"},
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []preport.PolicyReport{
+				{
+					Summary: preport.PolicyReportSummary{
+						Pass:  2,
+						Fail:  0,
+						Skip:  4,
+						Error: 0,
+						Warn:  0,
+					},
+				},
+			},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/check-deployments-replica/policy.yaml"},
+				ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/check-deployments-replica/deployment1.yaml"},
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []preport.PolicyReport{
+				{
+					Summary: preport.PolicyReportSummary{
+						Pass:  1,
+						Fail:  0,
+						Skip:  0,
+						Error: 0,
+						Warn:  0,
+					},
+				},
+			},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/check-deployments-replica/policy.yaml"},
+				ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/check-deployments-replica/deployment2.yaml"},
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []preport.PolicyReport{
+				{
+					Summary: preport.PolicyReportSummary{
+						Pass:  0,
+						Fail:  1,
+						Skip:  0,
+						Error: 0,
+						Warn:  0,
+					},
+				},
+			},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/disallow-host-path/policy.yaml"},
+				ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod1.yaml"},
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []preport.PolicyReport{
+				{
+					Summary: preport.PolicyReportSummary{
+						Pass:  1,
+						Fail:  0,
+						Skip:  0,
+						Error: 0,
+						Warn:  0,
+					},
+				},
+			},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/disallow-host-path/policy.yaml"},
+				ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod2.yaml"},
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []preport.PolicyReport{
+				{
+					Summary: preport.PolicyReportSummary{
+						Pass:  0,
+						Fail:  1,
+						Skip:  0,
+						Error: 0,
+						Warn:  0,
+					},
+				},
+			},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"https://github.com/kyverno/policies/best-practices/require-labels/", "../../../../test/best_practices/disallow_latest_tag.yaml"},
+				ResourcePaths: []string{"../../../../test/resources/pod_with_version_tag.yaml"},
+				GitBranch:     "main",
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []preport.PolicyReport{
+				{
+					Summary: preport.PolicyReportSummary{
+						Pass:  2,
+						Fail:  1,
+						Skip:  2,
+						Error: 0,
+						Warn:  0,
+					},
+				},
+			},
+		},
+		{
+			// Same as the above test case but the policy paths are reordered
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../test/best_practices/disallow_latest_tag.yaml", "https://github.com/kyverno/policies/best-practices/require-labels/"},
+				ResourcePaths: []string{"../../../../test/resources/pod_with_version_tag.yaml"},
+				GitBranch:     "main",
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []preport.PolicyReport{
+				{
+					Summary: preport.PolicyReportSummary{
+						Pass:  2,
+						Fail:  1,
+						Skip:  2,
+						Error: 0,
+						Warn:  0,
+					},
+				},
+			},
+		},
 	}
 
-	compareSummary := func(expected preport.PolicyReportSummary, actual map[string]interface{}, desc string) {
-		assert.Equal(t, actual[preport.StatusPass].(int64), int64(expected.Pass), desc)
-		assert.Equal(t, actual[preport.StatusFail].(int64), int64(expected.Fail), desc)
-		assert.Equal(t, actual[preport.StatusSkip].(int64), int64(expected.Skip), desc)
-		assert.Equal(t, actual[preport.StatusWarn].(int64), int64(expected.Warn), desc)
-		assert.Equal(t, actual[preport.StatusError].(int64), int64(expected.Error), desc)
+	compareSummary := func(expected preport.PolicyReportSummary, actual preport.PolicyReportSummary, desc string) {
+		assert.Equal(t, int64(actual.Pass), int64(expected.Pass), desc)
+		assert.Equal(t, int64(actual.Fail), int64(expected.Fail), desc)
+		assert.Equal(t, int64(actual.Skip), int64(expected.Skip), desc)
+		assert.Equal(t, int64(actual.Warn), int64(expected.Warn), desc)
+		assert.Equal(t, int64(actual.Error), int64(expected.Error), desc)
 	}
 
-	verifyTestcase := func(t *testing.T, tc *TestCase, compareSummary func(preport.PolicyReportSummary, map[string]interface{}, string)) {
+	verifyTestcase := func(t *testing.T, tc *TestCase, compareSummary func(preport.PolicyReportSummary, preport.PolicyReportSummary, string)) {
 		if tc.stdinFile != "" {
 			oldStdin := os.Stdin
 			input, err := os.OpenFile(tc.stdinFile, os.O_RDONLY, 0)
@@ -206,10 +336,10 @@ func Test_Apply(t *testing.T) {
 		_, _, _, info, err := tc.config.applyCommandHelper()
 		assert.NilError(t, err, desc)
 
-		resps := buildPolicyReports(info)
-		assert.Assert(t, len(resps) > 0, "policy reports should not be empty: %s", desc)
-		for i, resp := range resps {
-			compareSummary(tc.expectedPolicyReports[i].Summary, resp.UnstructuredContent()["summary"].(map[string]interface{}), desc)
+		clustered, _ := buildPolicyReports(tc.config.AuditWarn, info...)
+		assert.Assert(t, len(clustered) > 0, "policy reports should not be empty: %s", desc)
+		for i, resp := range clustered {
+			compareSummary(tc.expectedPolicyReports[i].Summary, resp.Summary, desc)
 		}
 	}
 
@@ -224,5 +354,5 @@ func copyFileToThisDir(sourceFile string) (string, error) {
 		return "", err
 	}
 
-	return filepath.Base(sourceFile), os.WriteFile(filepath.Base(sourceFile), input, 0644)
+	return filepath.Base(sourceFile), os.WriteFile(filepath.Base(sourceFile), input, 0o644)
 }

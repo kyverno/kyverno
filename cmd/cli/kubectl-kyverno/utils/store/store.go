@@ -20,19 +20,21 @@ type Rule struct {
 }
 
 var (
-	mock           bool
+	local          bool
 	registryClient registryclient.Client
 	allowApiCalls  bool
 	policies       []Policy
 	foreachElement int
 )
 
-func SetMock(m bool) {
-	mock = m
+// SetLocal sets local (clusterless) execution for the CLI
+func SetLocal(m bool) {
+	local = m
 }
 
-func IsMock() bool {
-	return mock
+// IsLocal returns 'true' if the CLI is in local (clusterless) execution
+func IsLocal() bool {
+	return local
 }
 
 func SetForEachElement(element int) {

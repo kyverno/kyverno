@@ -17,13 +17,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	corev1informers "k8s.io/client-go/informers/core/v1"
@@ -59,13 +59,14 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 
 	// cache
-	metadataCache          resource.MetadataCache
-	informerCacheResolvers engineapi.ConfigmapResolver
-	forceDelay             time.Duration
+	metadataCache resource.MetadataCache
+	forceDelay    time.Duration
 
 	// config
-	config   config.Configuration
-	eventGen event.Interface
+	config        config.Configuration
+	jp            jmespath.Interface
+	eventGen      event.Interface
+	policyReports bool
 }
 
 func NewController(
@@ -77,29 +78,31 @@ func NewController(
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	nsInformer corev1informers.NamespaceInformer,
 	metadataCache resource.MetadataCache,
-	informerCacheResolvers engineapi.ConfigmapResolver,
 	forceDelay time.Duration,
 	config config.Configuration,
+	jp jmespath.Interface,
 	eventGen event.Interface,
+	policyReports bool,
 ) controllers.Controller {
 	bgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("backgroundscanreports"))
 	cbgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
-		client:                 client,
-		kyvernoClient:          kyvernoClient,
-		engine:                 engine,
-		polLister:              polInformer.Lister(),
-		cpolLister:             cpolInformer.Lister(),
-		bgscanrLister:          bgscanr.Lister(),
-		cbgscanrLister:         cbgscanr.Lister(),
-		nsLister:               nsInformer.Lister(),
-		queue:                  queue,
-		metadataCache:          metadataCache,
-		informerCacheResolvers: informerCacheResolvers,
-		forceDelay:             forceDelay,
-		config:                 config,
-		eventGen:               eventGen,
+		client:         client,
+		kyvernoClient:  kyvernoClient,
+		engine:         engine,
+		polLister:      polInformer.Lister(),
+		cpolLister:     cpolInformer.Lister(),
+		bgscanrLister:  bgscanr.Lister(),
+		cbgscanrLister: cbgscanr.Lister(),
+		nsLister:       nsInformer.Lister(),
+		queue:          queue,
+		metadataCache:  metadataCache,
+		forceDelay:     forceDelay,
+		config:         config,
+		jp:             jp,
+		eventGen:       eventGen,
+		policyReports:  policyReports,
 	}
 	controllerutils.AddDefaultEventHandlers(logger, bgscanr.Informer(), queue)
 	controllerutils.AddDefaultEventHandlers(logger, cbgscanr.Informer(), queue)
@@ -142,32 +145,6 @@ func (c *controller) enqueueResources() {
 	for _, key := range c.metadataCache.GetAllResourceKeys() {
 		c.queue.Add(key)
 	}
-}
-
-// TODO: utils
-func (c *controller) fetchClusterPolicies() ([]kyvernov1.PolicyInterface, error) {
-	var policies []kyvernov1.PolicyInterface
-	if cpols, err := c.cpolLister.List(labels.Everything()); err != nil {
-		return nil, err
-	} else {
-		for _, cpol := range cpols {
-			policies = append(policies, cpol)
-		}
-	}
-	return policies, nil
-}
-
-// TODO: utils
-func (c *controller) fetchPolicies(namespace string) ([]kyvernov1.PolicyInterface, error) {
-	var policies []kyvernov1.PolicyInterface
-	if pols, err := c.polLister.Policies(namespace).List(labels.Everything()); err != nil {
-		return nil, err
-	} else {
-		for _, pol := range pols {
-			policies = append(policies, pol)
-		}
-	}
-	return policies, nil
 }
 
 func (c *controller) getReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
@@ -304,13 +281,13 @@ func (c *controller) reconcileReport(
 	// calculate necessary results
 	for _, policy := range backgroundPolicies {
 		if full || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
-			scanner := utils.NewScanner(logger, c.engine, c.config)
+			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp)
 			for _, result := range scanner.ScanResource(ctx, *target, nsLabels, policy) {
 				if result.Error != nil {
 					return result.Error
-				} else {
-					ruleResults = append(ruleResults, reportutils.EngineResponseToReportResults(result.EngineResponse)...)
-					utils.GenerateEvents(logger, c.eventGen, c.config, result.EngineResponse)
+				} else if result.EngineResponse != nil {
+					ruleResults = append(ruleResults, reportutils.EngineResponseToReportResults(*result.EngineResponse)...)
+					utils.GenerateEvents(logger, c.eventGen, c.config, *result.EngineResponse)
 				}
 			}
 		}
@@ -329,7 +306,14 @@ func (c *controller) reconcileReport(
 	if full || !controllerutils.HasAnnotation(desired, annotationLastScanTime) {
 		controllerutils.SetAnnotation(desired, annotationLastScanTime, time.Now().Format(time.RFC3339))
 	}
-	// store report
+	if c.policyReports {
+		return c.storeReport(ctx, observed, desired)
+	}
+	return nil
+}
+
+func (c *controller) storeReport(ctx context.Context, observed, desired kyvernov1alpha2.ReportInterface) error {
+	var err error
 	hasReport := observed.GetResourceVersion() != ""
 	wantsReport := desired != nil && len(desired.GetResults()) != 0
 	if !hasReport && !wantsReport {
@@ -374,12 +358,12 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		}
 	}
 	// load all policies
-	policies, err := c.fetchClusterPolicies()
+	policies, err := utils.FetchClusterPolicies(c.cpolLister)
 	if err != nil {
 		return err
 	}
 	if namespace != "" {
-		pols, err := c.fetchPolicies(namespace)
+		pols, err := utils.FetchPolicies(c.polLister, namespace)
 		if err != nil {
 			return err
 		}

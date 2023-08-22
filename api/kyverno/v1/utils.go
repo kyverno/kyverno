@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"github.com/kyverno/kyverno/api/kyverno"
 	log "github.com/kyverno/kyverno/pkg/logging"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -28,7 +29,7 @@ func ToJSON(in apiextensions.JSON) *apiextv1.JSON {
 
 // ValidatePolicyName validates policy name
 func ValidateAutogenAnnotation(path *field.Path, annotations map[string]string) (errs field.ErrorList) {
-	value, ok := annotations[PodControllersAnnotation]
+	value, ok := annotations[kyverno.AnnotationAutogenControllers]
 	if ok {
 		if value == "all" {
 			errs = append(errs, field.Forbidden(path, "Autogen annotation does not support 'all' anymore, remove the annotation or set it to a valid value"))

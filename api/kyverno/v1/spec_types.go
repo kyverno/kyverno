@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/kyverno/kyverno/pkg/toggle"
@@ -79,6 +80,12 @@ type Spec struct {
 	// +optional
 	ValidationFailureActionOverrides []ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty" yaml:"validationFailureActionOverrides,omitempty"`
 
+	// Admission controls if rules are applied during admission.
+	// Optional. Default value is "true".
+	// +optional
+	// +kubebuilder:default=true
+	Admission *bool `json:"admission,omitempty" yaml:"admission,omitempty"`
+
 	// Background controls if rules are applied to existing resources during a background scan.
 	// Optional. Default value is "true". The value must be set to "false" if the policy rule
 	// uses variables that are only available in the admission review request (e.g. user name).
@@ -110,6 +117,12 @@ type Spec struct {
 	// Defaults to "false" if not specified.
 	// +optional
 	GenerateExisting bool `json:"generateExisting,omitempty" yaml:"generateExisting,omitempty"`
+
+	// UseServerSideApply controls whether to use server-side apply for generate rules
+	// If is set to "true" create & update for generate rules will use apply instead of create/update.
+	// Defaults to "false" if not specified.
+	// +optional
+	UseServerSideApply bool `json:"useServerSideApply,omitempty" yaml:"useServerSideApply,omitempty"`
 }
 
 func (s *Spec) SetRules(rules []Rule) {
@@ -186,6 +199,15 @@ func (s *Spec) HasVerifyManifests() bool {
 	return false
 }
 
+// AdmissionProcessingEnabled checks if admission is set to true
+func (s *Spec) AdmissionProcessingEnabled() bool {
+	if s.Admission == nil {
+		return true
+	}
+
+	return *s.Admission
+}
+
 // BackgroundProcessingEnabled checks if background is set to true
 func (s *Spec) BackgroundProcessingEnabled() bool {
 	if s.Background == nil {
@@ -218,8 +240,8 @@ func (s *Spec) IsGenerateExisting() bool {
 }
 
 // GetFailurePolicy returns the failure policy to be applied
-func (s *Spec) GetFailurePolicy() FailurePolicyType {
-	if toggle.ForceFailurePolicyIgnore.Enabled() {
+func (s *Spec) GetFailurePolicy(ctx context.Context) FailurePolicyType {
+	if toggle.FromContext(ctx).ForceFailurePolicyIgnore() {
 		return Ignore
 	} else if s.FailurePolicy == nil {
 		return Fail
@@ -258,6 +280,7 @@ func (s *Spec) ValidateRuleNames(path *field.Path) (errs field.ErrorList) {
 // ValidateRules implements programmatic validation of Rules
 func (s *Spec) ValidateRules(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, s.ValidateRuleNames(path)...)
+
 	for i, rule := range s.Rules {
 		errs = append(errs, rule.Validate(path.Index(i), namespaced, policyNamespace, clusterResources)...)
 	}
@@ -265,8 +288,8 @@ func (s *Spec) ValidateRules(path *field.Path, namespaced bool, policyNamespace 
 }
 
 func (s *Spec) validateDeprecatedFields(path *field.Path) (errs field.ErrorList) {
-	if s.GenerateExistingOnPolicyUpdate != nil {
-		errs = append(errs, field.Forbidden(path.Child("generateExistingOnPolicyUpdate"), "deprecated field, define generateExisting instead"))
+	if s.GenerateExistingOnPolicyUpdate != nil && s.GenerateExisting {
+		errs = append(errs, field.Forbidden(path.Child("generateExistingOnPolicyUpdate"), "remove the deprecated field and use generateExisting instead"))
 	}
 	return errs
 }

@@ -28,7 +28,7 @@ func TestHasChanged(t *testing.T) {
 
 func TestRequestNotInitialize(t *testing.T) {
 	request := admissionv1.AdmissionRequest{}
-	ctx := NewContext()
+	ctx := NewContext(jp)
 	ctx.AddRequest(request)
 
 	_, err := ctx.HasChanged("x.y.z")
@@ -37,7 +37,7 @@ func TestRequestNotInitialize(t *testing.T) {
 
 func TestMissingOldObject(t *testing.T) {
 	request := admissionv1.AdmissionRequest{}
-	ctx := NewContext()
+	ctx := NewContext(jp)
 	ctx.AddRequest(request)
 	request.Object.Raw = []byte(`{"a": {"b": 1, "c": 2}, "d": 3}`)
 
@@ -47,7 +47,7 @@ func TestMissingOldObject(t *testing.T) {
 
 func TestMissingObject(t *testing.T) {
 	request := admissionv1.AdmissionRequest{}
-	ctx := NewContext()
+	ctx := NewContext(jp)
 	ctx.AddRequest(request)
 	request.OldObject.Raw = []byte(`{"a": {"b": 1, "c": 2}, "d": 3}`)
 
@@ -61,7 +61,7 @@ func createTestContext(obj, oldObj string) Interface {
 	request.Object.Raw = []byte(obj)
 	request.OldObject.Raw = []byte(oldObj)
 
-	ctx := NewContext()
+	ctx := NewContext(jp)
 	ctx.AddRequest(request)
 	return ctx
 }

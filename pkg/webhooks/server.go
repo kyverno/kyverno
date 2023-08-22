@@ -8,18 +8,16 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/toggle"
-	"github.com/kyverno/kyverno/pkg/utils"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionv1 "k8s.io/api/admission/v1"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	coordinationv1 "k8s.io/api/coordination/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
@@ -60,15 +58,16 @@ type ResourceHandlers interface {
 type server struct {
 	server      *http.Server
 	runtime     runtimeutils.Runtime
-	mwcClient   controllerutils.DeleteCollectionClient[*admissionregistrationv1.MutatingWebhookConfiguration]
-	vwcClient   controllerutils.DeleteCollectionClient[*admissionregistrationv1.ValidatingWebhookConfiguration]
-	leaseClient controllerutils.DeleteClient[*coordinationv1.Lease]
+	mwcClient   controllerutils.DeleteCollectionClient
+	vwcClient   controllerutils.DeleteCollectionClient
+	leaseClient controllerutils.DeleteClient
 }
 
 type TlsProvider func() ([]byte, []byte, error)
 
 // NewServer creates new instance of server accordingly to given configuration
 func NewServer(
+	ctx context.Context,
 	policyHandlers PolicyHandlers,
 	resourceHandlers ResourceHandlers,
 	exceptionHandlers ExceptionHandlers,
@@ -76,9 +75,9 @@ func NewServer(
 	metricsConfig metrics.MetricsConfigManager,
 	debugModeOpts DebugModeOptions,
 	tlsProvider TlsProvider,
-	mwcClient controllerutils.DeleteCollectionClient[*admissionregistrationv1.MutatingWebhookConfiguration],
-	vwcClient controllerutils.DeleteCollectionClient[*admissionregistrationv1.ValidatingWebhookConfiguration],
-	leaseClient controllerutils.DeleteClient[*coordinationv1.Lease],
+	mwcClient controllerutils.DeleteCollectionClient,
+	vwcClient controllerutils.DeleteCollectionClient,
+	leaseClient controllerutils.DeleteClient,
 	runtime runtimeutils.Runtime,
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
@@ -97,7 +96,7 @@ func NewServer(
 		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
 			return handler.
 				WithFilter(configuration).
-				WithProtection(toggle.ProtectManagedResources.Enabled()).
+				WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 				WithDump(debugModeOpts.DumpPayload).
 				WithTopLevelGVK(discovery).
 				WithRoles(rbLister, crbLister).
@@ -114,7 +113,7 @@ func NewServer(
 		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
 			return handler.
 				WithFilter(configuration).
-				WithProtection(toggle.ProtectManagedResources.Enabled()).
+				WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 				WithDump(debugModeOpts.DumpPayload).
 				WithTopLevelGVK(discovery).
 				WithRoles(rbLister, crbLister).
@@ -176,6 +175,15 @@ func NewServer(
 					return &pair, nil
 				},
 				MinVersion: tls.VersionTLS12,
+				CipherSuites: []uint16{
+					// AEADs w/ ECDHE
+					tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+					tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+					tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+					tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+					tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+					tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+				},
 			},
 			Handler:           mux,
 			ReadTimeout:       30 * time.Second,
@@ -228,16 +236,16 @@ func (s *server) cleanup(ctx context.Context) {
 		}
 		deleteVwc := func() {
 			if err := s.vwcClient.DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
-				LabelSelector: utils.ManagedByLabel,
+				LabelSelector: kyverno.LabelWebhookManagedBy,
 			}); err != nil && !apierrors.IsNotFound(err) {
-				logger.Error(err, "failed to clean up validating webhook configuration", "label", utils.ManagedByLabel)
+				logger.Error(err, "failed to clean up validating webhook configuration", "label", kyverno.LabelWebhookManagedBy)
 			}
 		}
 		deleteMwc := func() {
 			if err := s.mwcClient.DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
-				LabelSelector: utils.ManagedByLabel,
+				LabelSelector: kyverno.LabelWebhookManagedBy,
 			}); err != nil && !apierrors.IsNotFound(err) {
-				logger.Error(err, "failed to clean up mutating webhook configuration", "label", utils.ManagedByLabel)
+				logger.Error(err, "failed to clean up mutating webhook configuration", "label", kyverno.LabelWebhookManagedBy)
 			}
 		}
 		deleteLease("kyvernopre-lock")

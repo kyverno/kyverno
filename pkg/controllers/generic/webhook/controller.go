@@ -6,12 +6,11 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/tls"
-	"github.com/kyverno/kyverno/pkg/utils"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -29,10 +28,12 @@ const (
 )
 
 var (
-	none = admissionregistrationv1.SideEffectClassNone
-	fail = admissionregistrationv1.Fail
-	None = &none
-	Fail = &fail
+	none   = admissionregistrationv1.SideEffectClassNone
+	fail   = admissionregistrationv1.Fail
+	ignore = admissionregistrationv1.Ignore
+	None   = &none
+	Fail   = &fail
+	Ignore = &ignore
 )
 
 type controller struct {
@@ -40,9 +41,8 @@ type controller struct {
 	vwcClient controllerutils.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration]
 
 	// listers
-	vwcLister       admissionregistrationv1listers.ValidatingWebhookConfigurationLister
-	secretLister    corev1listers.SecretNamespaceLister
-	configMapLister corev1listers.ConfigMapLister
+	vwcLister    admissionregistrationv1listers.ValidatingWebhookConfigurationLister
+	secretLister corev1listers.SecretNamespaceLister
 
 	// queue
 	queue workqueue.RateLimitingInterface
@@ -57,6 +57,8 @@ type controller struct {
 	rules          []admissionregistrationv1.RuleWithOperations
 	failurePolicy  *admissionregistrationv1.FailurePolicyType
 	sideEffects    *admissionregistrationv1.SideEffectClass
+	configuration  config.Configuration
+	labelSelector  *metav1.LabelSelector
 }
 
 func NewController(
@@ -64,31 +66,33 @@ func NewController(
 	vwcClient controllerutils.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration],
 	vwcInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer,
 	secretInformer corev1informers.SecretInformer,
-	configMapInformer corev1informers.ConfigMapInformer,
 	webhookName string,
 	path string,
 	server string,
 	servicePort int32,
+	labelSelector *metav1.LabelSelector,
 	rules []admissionregistrationv1.RuleWithOperations,
 	failurePolicy *admissionregistrationv1.FailurePolicyType,
 	sideEffects *admissionregistrationv1.SideEffectClass,
+	configuration config.Configuration,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 	c := controller{
-		vwcClient:       vwcClient,
-		vwcLister:       vwcInformer.Lister(),
-		secretLister:    secretInformer.Lister().Secrets(config.KyvernoNamespace()),
-		configMapLister: configMapInformer.Lister(),
-		queue:           queue,
-		controllerName:  controllerName,
-		logger:          logging.ControllerLogger(controllerName),
-		webhookName:     webhookName,
-		path:            path,
-		server:          server,
-		servicePort:     servicePort,
-		rules:           rules,
-		failurePolicy:   failurePolicy,
-		sideEffects:     sideEffects,
+		vwcClient:      vwcClient,
+		vwcLister:      vwcInformer.Lister(),
+		secretLister:   secretInformer.Lister().Secrets(config.KyvernoNamespace()),
+		queue:          queue,
+		controllerName: controllerName,
+		logger:         logging.ControllerLogger(controllerName),
+		webhookName:    webhookName,
+		path:           path,
+		server:         server,
+		servicePort:    servicePort,
+		rules:          rules,
+		failurePolicy:  failurePolicy,
+		sideEffects:    sideEffects,
+		configuration:  configuration,
+		labelSelector:  labelSelector,
 	}
 	controllerutils.AddDefaultEventHandlers(c.logger, vwcInformer.Informer(), queue)
 	controllerutils.AddEventHandlersT(
@@ -109,24 +113,7 @@ func NewController(
 			}
 		},
 	)
-	controllerutils.AddEventHandlersT(
-		configMapInformer.Informer(),
-		func(obj *corev1.ConfigMap) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoConfigMapName() {
-				c.enqueue()
-			}
-		},
-		func(_, obj *corev1.ConfigMap) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoConfigMapName() {
-				c.enqueue()
-			}
-		},
-		func(obj *corev1.ConfigMap) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoConfigMapName() {
-				c.enqueue()
-			}
-		},
-	)
+	configuration.OnChanged(c.enqueue)
 	return &c
 }
 
@@ -139,15 +126,6 @@ func (c *controller) enqueue() {
 	c.queue.Add(c.webhookName)
 }
 
-func (c *controller) loadConfig() config.Configuration {
-	cfg := config.NewDefaultConfiguration(false)
-	cm, err := c.configMapLister.ConfigMaps(config.KyvernoNamespace()).Get(config.KyvernoConfigMapName())
-	if err == nil {
-		cfg.Load(cm)
-	}
-	return cfg
-}
-
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, _ string) error {
 	if key != c.webhookName {
 		return nil
@@ -156,7 +134,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	if err != nil {
 		return err
 	}
-	desired, err := c.build(c.loadConfig(), caData)
+	desired, err := c.build(c.configuration, caData)
 	if err != nil {
 		return err
 	}
@@ -182,7 +160,7 @@ func objectMeta(name string, annotations map[string]string, owner ...metav1.Owne
 	return metav1.ObjectMeta{
 		Name: name,
 		Labels: map[string]string{
-			utils.ManagedByLabel: kyvernov1.ValueKyvernoApp,
+			kyverno.LabelWebhookManagedBy: kyverno.ValueKyvernoApp,
 		},
 		Annotations:     annotations,
 		OwnerReferences: owner,
@@ -199,6 +177,8 @@ func (c *controller) build(cfg config.Configuration, caBundle []byte) (*admissio
 				FailurePolicy:           c.failurePolicy,
 				SideEffects:             c.sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
+				ObjectSelector:          c.labelSelector,
+				MatchConditions:         cfg.GetMatchConditions(),
 			}},
 		},
 		nil

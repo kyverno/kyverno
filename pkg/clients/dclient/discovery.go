@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	openapiv2 "github.com/google/gnostic/openapiv2"
+	openapiv2 "github.com/google/gnostic-models/openapiv2"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,8 +49,7 @@ type IDiscovery interface {
 	GetGVRFromGVK(schema.GroupVersionKind) (schema.GroupVersionResource, error)
 	GetGVKFromGVR(schema.GroupVersionResource) (schema.GroupVersionKind, error)
 	OpenAPISchema() (*openapiv2.Document, error)
-	DiscoveryCache() discovery.CachedDiscoveryInterface
-	DiscoveryInterface() discovery.DiscoveryInterface
+	CachedDiscoveryInterface() discovery.CachedDiscoveryInterface
 }
 
 // apiResourceWithListGV is a wrapper for metav1.APIResource with the group-version of its metav1.APIResourceList
@@ -64,13 +63,8 @@ type serverResources struct {
 	cachedClient discovery.CachedDiscoveryInterface
 }
 
-// DiscoveryCache gets the discovery client cache
-func (c serverResources) DiscoveryCache() discovery.CachedDiscoveryInterface {
-	return c.cachedClient
-}
-
-// DiscoveryInterface gets the discovery client
-func (c serverResources) DiscoveryInterface() discovery.DiscoveryInterface {
+// CachedDiscoveryInterface gets the discovery client cache
+func (c serverResources) CachedDiscoveryInterface() discovery.CachedDiscoveryInterface {
 	return c.cachedClient
 }
 
@@ -257,8 +251,7 @@ func (c serverResources) findResource(groupVersion string, kind string) (apiReso
 	serverPreferredResources, _ := c.cachedClient.ServerPreferredResources()
 	_, serverGroupsAndResources, err := c.cachedClient.ServerGroupsAndResources()
 	if err != nil && !strings.Contains(err.Error(), "Got empty response for") {
-		_, err := schema.ParseGroupVersion(groupVersion)
-		if err != nil {
+		if _, err := schema.ParseGroupVersion(groupVersion); err != nil {
 			logger.Error(err, "failed to parse group/version", "groupVersion", groupVersion)
 			return nil, nil, schema.GroupVersionResource{}, err
 		}

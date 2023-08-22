@@ -5,11 +5,13 @@
 /docs                   @chipzoller
 /pkg/autogen            @eddycharly
 /pkg/background         @realshuting
-/pkg/engine             @marcelmue @realshuting
+/pkg/engine             @marcelmue @realshuting @MariamFahmy98
 /pkg/policy/mutate      @marcelmue
 /pkg/pss                @realshuting
 /pkg/utils              @eddycharly
 /pkg/userinfo           @realshuting
 /pkg/validation         @realshuting
 /pkg/webhooks           @marcelmue @realshuting
-/test                   @chipzoller @eddycharly @realshuting
+/test                   @chipzoller @eddycharly @realshuting @MariamFahmy98
+/pkg/cosign             @Vishal-Chdhry
+/pkg/notary             @Vishal-Chdhry

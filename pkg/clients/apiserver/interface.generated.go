@@ -9,8 +9,10 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+type UpstreamInterface = k8s_io_apiextensions_apiserver_pkg_client_clientset_clientset.Interface
+
 type Interface interface {
-	k8s_io_apiextensions_apiserver_pkg_client_clientset_clientset.Interface
+	UpstreamInterface
 	WithMetrics(metrics.MetricsConfigManager, metrics.ClientType) Interface
 	WithTracing() Interface
 	WithLogging(logr.Logger) Interface

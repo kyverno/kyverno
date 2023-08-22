@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+- file: deployment-pass.yaml
+  shouldFail: false
+- file: deployment-fail.yaml
+  shouldFail: true

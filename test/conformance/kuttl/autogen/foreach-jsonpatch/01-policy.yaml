@@ -1,0 +1,8 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+- policy.yaml
+assert:
+- policy-assert.yaml
+error:
+- policy-error.yaml

@@ -14,6 +14,10 @@ fullnameOverride: ~
 # -- (string) Override the namespace the chart deploys to
 namespaceOverride: ~
 
+upgrade:
+  # -- Upgrading from v2 to v3 is not allowed by default, set this to true once changes have been reviewed.
+  fromV2: false
+
 apiVersionOverride:
   # -- (string) Override api version used to create `PodDisruptionBudget`` resources.
   # When not specified the chart will check if `policy/v1/PodDisruptionBudget` is available to
@@ -51,12 +55,11 @@ config:
 
   # -- Exclude groups
   excludeGroups:
-    - system:serviceaccounts:kube-system
     - system:nodes
 
   # -- Exclude usernames
   excludeUsernames: []
-    # - system:kube-scheduler
+    # - '!system:kube-scheduler'
 
   # -- Exclude roles
   excludeRoles: []
@@ -207,6 +210,9 @@ config:
     # Example to disable admission enforcer on AKS:
     # 'admissions.enforcer/disabled': 'true'
 
+  # -- Defines match conditions to set on webhook configurations (requires Kubernetes 1.27+).
+  matchConditions: []
+
   # -- Exclude Kyverno namespace
   # Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters
   excludeKyvernoNamespace: true
@@ -299,11 +305,45 @@ customLabels: {}
 
 webhooksCleanup:
   # -- Create a helm pre-delete hook to cleanup webhooks.
-  enabled: false
+  enabled: true
+
   # -- `kubectl` image to run commands for deleting webhooks.
   image: bitnami/kubectl:latest
+
   # -- Image pull secrets
   imagePullSecrets: []
+
+  # -- Security context for the pod
+  podSecurityContext: {}
+
+  # -- Node labels for pod assignment
+  nodeSelector: {}
+
+  # -- List of node taints to tolerate
+  tolerations: []
+
+  # -- Pod anti affinity constraints.
+  podAntiAffinity: {}
+
+  # -- Pod affinity constraints.
+  podAffinity: {}
+
+  # -- Node affinity constraints.
+  nodeAffinity: {}
+
+  # -- Security context for the hook containers
+  securityContext:
+    runAsUser: 65534
+    runAsGroup: 65534
+    runAsNonRoot: true
+    privileged: false
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
 
 grafana:
   # -- Enable grafana dashboard creation.
@@ -319,8 +359,239 @@ grafana:
   # -- Grafana dashboard configmap annotations.
   annotations: {}
 
+  # -- Grafana dashboard configmap labels
+  labels:
+    grafana_dashboard: "1"
+
+  # -- create GrafanaDashboard custom resource referencing to the configMap.
+  # according to https://grafana-operator.github.io/grafana-operator/docs/examples/dashboard_from_configmap/readme/
+  grafanaDashboard:
+    create: false
+    matchLabels:
+      dashboards: "grafana"
+
+# Features configuration
+features:
+  admissionReports:
+    # -- Enables the feature
+    enabled: true
+  aggregateReports:
+    # -- Enables the feature
+    enabled: true
+  policyReports:
+    # -- Enables the feature
+    enabled: true
+  autoUpdateWebhooks:
+    # -- Enables the feature
+    enabled: true
+  backgroundScan:
+    # -- Enables the feature
+    enabled: true
+    # -- Number of background scan workers
+    backgroundScanWorkers: 2
+    # -- Background scan interval
+    backgroundScanInterval: 1h
+    # -- Skips resource filters in background scan
+    skipResourceFilters: true
+  configMapCaching:
+    # -- Enables the feature
+    enabled: true
+  deferredLoading:
+    # -- Enables the feature
+    enabled: true
+  dumpPayload:
+    # -- Enables the feature
+    enabled: false
+  forceFailurePolicyIgnore:
+    # -- Enables the feature
+    enabled: false
+  logging:
+    # -- Logging format
+    format: text
+    # -- Logging verbosity
+    verbosity: 2
+  omitEvents:
+    # -- Events which should not be emitted (possible values `PolicyViolation`, `PolicyApplied`, `PolicyError`, and `PolicySkipped`)
+    eventTypes: []
+      # - PolicyViolation
+      # - PolicyApplied
+      # - PolicyError
+      # - PolicySkipped
+  policyExceptions:
+    # -- Enables the feature
+    enabled: false
+    # -- Restrict policy exceptions to a single namespace
+    namespace: ''
+  protectManagedResources:
+    # -- Enables the feature
+    enabled: false
+  registryClient:
+    # -- Allow insecure registry
+    allowInsecure: false
+    # -- Enable registry client helpers
+    credentialHelpers:
+    - default
+    - google
+    - amazon
+    - azure
+    - github
+  reports:
+    # -- Reports chunk size
+    chunkSize: 1000
+  ttlController:
+    # -- Reconciliation interval for the label based cleanup manager
+    reconciliationInterval: 1m
+
+# Cleanup cronjobs to prevent internal resources from stacking up in the cluster
+cleanupJobs:
+
+  admissionReports:
+
+    # -- Enable cleanup cronjob
+    enabled: true
+
+    image:
+      # -- (string) Image registry
+      registry: ~
+      # -- Image repository
+      repository: bitnami/kubectl
+      # -- Image tag
+      # Defaults to `latest` if omitted
+      tag: '1.26.4'
+      # -- (string) Image pull policy
+      # Defaults to image.pullPolicy if omitted
+      pullPolicy: ~
+
+    # -- Image pull secrets
+    imagePullSecrets: []
+      # - name: secretName
+
+    # -- Cronjob schedule
+    schedule: '*/10 * * * *'
+
+    # -- Reports threshold, if number of reports are above this value the cronjob will start deleting them
+    threshold: 10000
+
+    # -- Cronjob history
+    history:
+      success: 1
+      failure: 1
+
+    # -- Security context for the pod
+    podSecurityContext: {}
+
+    # -- Security context for the containers
+    securityContext:
+      runAsNonRoot: true
+      privileged: false
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
+
+    # -- Job resources
+    resources: {}
+
+    # -- List of node taints to tolerate
+    tolerations: []
+
+    # -- Node labels for pod assignment
+    nodeSelector: {}
+
+    # -- Pod Annotations
+    podAnnotations: {}
+
+    # -- Pod labels
+    podLabels: {}
+
+    # -- Pod anti affinity constraints.
+    podAntiAffinity: {}
+
+    # -- Pod affinity constraints.
+    podAffinity: {}
+
+    # -- Node affinity constraints.
+    nodeAffinity: {}
+
+  clusterAdmissionReports:
+
+    # -- Enable cleanup cronjob
+    enabled: true
+
+    image:
+      # -- (string) Image registry
+      registry: ~
+      # -- Image repository
+      repository: bitnami/kubectl
+      # -- Image tag
+      # Defaults to `latest` if omitted
+      tag: '1.26.4'
+      # -- (string) Image pull policy
+      # Defaults to image.pullPolicy if omitted
+      pullPolicy: ~
+
+    # -- Image pull secrets
+    imagePullSecrets: []
+      # - name: secretName
+
+    # -- Cronjob schedule
+    schedule: '*/10 * * * *'
+
+    # -- Reports threshold, if number of reports are above this value the cronjob will start deleting them
+    threshold: 10000
+
+    # -- Cronjob history
+    history:
+      success: 1
+      failure: 1
+
+    # -- Security context for the pod
+    podSecurityContext: {}
+
+    # -- Security context for the containers
+    securityContext:
+      runAsNonRoot: true
+      privileged: false
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
+
+    # -- Job resources
+    resources: {}
+
+    # -- List of node taints to tolerate
+    tolerations: []
+
+    # -- Node labels for pod assignment
+    nodeSelector: {}
+
+    # -- Pod Annotations
+    podAnnotations: {}
+
+    # -- Pod Labels
+    podLabels: {}
+
+    # -- Pod anti affinity constraints.
+    podAntiAffinity: {}
+
+    # -- Pod affinity constraints.
+    podAffinity: {}
+
+    # -- Node affinity constraints.
+    nodeAffinity: {}
+
 # Admission controller configuration
 admissionController:
+
+  # -- Overrides features defined at the root level
+  featuresOverride: {}
 
   rbac:
     # -- Create RBAC resources
@@ -372,6 +643,24 @@ admissionController:
 
   # -- Optional priority class
   priorityClassName: ''
+
+  # -- Change `apiPriorityAndFairness` to `true` if you want to insulate the API calls made by Kyverno admission controller activities.
+  # This will help ensure Kyverno stability in busy clusters.
+  # Ref: https://kubernetes.io/docs/concepts/cluster-administration/flow-control/
+  apiPriorityAndFairness: false
+
+  # -- Priority level configuration.
+  # The block is directly forwarded into the priorityLevelConfiguration, so you can use whatever specification you want.
+  # ref: https://kubernetes.io/docs/concepts/cluster-administration/flow-control/#prioritylevelconfiguration
+  # @default -- See [values.yaml](values.yaml)
+  priorityLevelConfigurationSpec:
+    type: Limited
+    limited:
+      nominalConcurrencyShares: 10
+      limitResponse:
+        queuing:
+          queueLengthLimit: 50
+        type: Queue
 
   # -- Change `hostNetwork` to `true` when you want the pod to share its host's network namespace.
   # Useful for situations like when you end up dealing with a custom CNI over Amazon EKS.
@@ -623,6 +912,10 @@ admissionController:
     secure: false
     # -- TLS Configuration for endpoint
     tlsConfig: {}
+    # -- RelabelConfigs to apply to samples before scraping
+    relabelings: []
+    # -- MetricRelabelConfigs to apply to samples before ingestion.
+    metricRelabelings: []
 
   tracing:
     # -- Enable tracing
@@ -633,10 +926,6 @@ admissionController:
     port:
     # -- Traces receiver credentials
     creds: ''
-
-  logging:
-    # -- Logging format
-    format: text
 
   metering:
     # -- Disable metrics export
@@ -650,10 +939,13 @@ admissionController:
     # -- Otel collector credentials
     creds: ''
 
-# Cleanup controller configuration
-cleanupController:
+# Background controller configuration
+backgroundController:
 
-  # -- Enable cleanup controller.
+  # -- Overrides features defined at the root level
+  featuresOverride: {}
+
+  # -- Enable background controller.
   enabled: true
 
   rbac:
@@ -675,19 +967,20 @@ cleanupController:
       #     - ''
       #   resources:
       #     - pods
-
-  # -- Create self-signed certificates at deployment time.
-  # The certificates won't be automatically renewed if this is set to `true`.
-  createSelfSignedCert: false
+      #   verbs:
+      #     - create
+      #     - update
+      #     - delete
+      #     - patch
 
   image:
     # -- Image registry
     registry: ghcr.io
     # -- Image repository
-    repository: kyverno/cleanup-controller
-    # -- (string) Image tag
+    repository: kyverno/background-controller
+    # -- Image tag
     # Defaults to appVersion in Chart.yaml if omitted
-    tag: ~
+    tag:  # replaced in e2e tests
     # -- Image pull policy
     pullPolicy: IfNotPresent
 
@@ -697,6 +990,14 @@ cleanupController:
 
   # -- (int) Desired number of pods
   replicas: ~
+
+  # -- Additional labels to add to each pod
+  podLabels: {}
+  # example.com/label: foo
+
+  # -- Additional annotations to add to each pod
+  podAnnotations: {}
+  # example.com/annotation: foo
 
   # -- Deployment update strategy.
   # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
@@ -722,6 +1023,231 @@ cleanupController:
 
   # -- Extra arguments passed to the container on the command line
   extraArgs: {}
+
+  # -- Additional container environment variables.
+  extraEnvVars: []
+
+  resources:
+    # -- Pod resource limits
+    limits:
+      memory: 128Mi
+    # -- Pod resource requests
+    requests:
+      cpu: 100m
+      memory: 64Mi
+
+  # -- Node labels for pod assignment
+  nodeSelector: {}
+
+  # -- List of node taints to tolerate
+  tolerations: []
+
+  antiAffinity:
+    # -- Pod antiAffinities toggle.
+    # Enabled by default but can be disabled if you want to schedule pods to the same node.
+    enabled: true
+
+  # -- Pod anti affinity constraints.
+  # @default -- See [values.yaml](values.yaml)
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 1
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values:
+                  - background-controller
+          topologyKey: kubernetes.io/hostname
+
+  # -- Pod affinity constraints.
+  podAffinity: {}
+
+  # -- Node affinity constraints.
+  nodeAffinity: {}
+
+  # -- Topology spread constraints.
+  topologySpreadConstraints: []
+
+  # -- Security context for the pod
+  podSecurityContext: {}
+
+  # -- Security context for the containers
+  securityContext:
+    runAsNonRoot: true
+    privileged: false
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
+
+  podDisruptionBudget:
+    # -- Configures the minimum available pods for disruptions.
+    # Cannot be used if `maxUnavailable` is set.
+    minAvailable: 1
+    # -- Configures the maximum unavailable pods for disruptions.
+    # Cannot be used if `minAvailable` is set.
+    maxUnavailable:
+
+  metricsService:
+    # -- Create service.
+    create: true
+    # -- Service port.
+    # Metrics server will be exposed at this port.
+    port: 8000
+    # -- Service type.
+    type: ClusterIP
+    # -- Service node port.
+    # Only used if `metricsService.type` is `NodePort`.
+    nodePort:
+    # -- Service annotations.
+    annotations: {}
+
+  networkPolicy:
+
+    # -- When true, use a NetworkPolicy to allow ingress to the webhook
+    # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
+    enabled: false
+
+    # -- A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies.
+    ingressFrom: []
+
+  serviceMonitor:
+    # -- Create a `ServiceMonitor` to collect Prometheus metrics.
+    enabled: false
+    # -- Additional labels
+    additionalLabels: {}
+    # -- (string) Override namespace
+    namespace: ~
+    # --  Interval to scrape metrics
+    interval: 30s
+    # -- Timeout if metrics can't be retrieved in given time interval
+    scrapeTimeout: 25s
+    # -- Is TLS required for endpoint
+    secure: false
+    # -- TLS Configuration for endpoint
+    tlsConfig: {}
+    # -- RelabelConfigs to apply to samples before scraping
+    relabelings: []
+    # -- MetricRelabelConfigs to apply to samples before ingestion.
+    metricRelabelings: []
+
+  tracing:
+    # -- Enable tracing
+    enabled: false
+    # -- Traces receiver address
+    address:
+    # -- Traces receiver port
+    port:
+    # -- Traces receiver credentials
+    creds: ''
+
+  metering:
+    # -- Disable metrics export
+    disabled: false
+    # -- Otel configuration, can be `prometheus` or `grpc`
+    config: prometheus
+    # -- Prometheus endpoint port
+    port: 8000
+    # -- Otel collector endpoint
+    collector: ''
+    # -- Otel collector credentials
+    creds: ''
+
+# Cleanup controller configuration
+cleanupController:
+
+  # -- Overrides features defined at the root level
+  featuresOverride: {}
+
+  # -- Enable cleanup controller.
+  enabled: true
+
+  rbac:
+    # -- Create RBAC resources
+    create: true
+
+    serviceAccount:
+      # -- Service account name
+      name:
+
+      # -- Annotations for the ServiceAccount
+      annotations: {}
+        # example.com/annotation: value
+
+    clusterRole:
+      # -- Extra resource permissions to add in the cluster role
+      extraResources: []
+      # - apiGroups:
+      #     - ''
+      #   resources:
+      #     - pods
+      #   verbs:
+      #     - delete
+      #     - list
+      #     - watch
+
+  # -- Create self-signed certificates at deployment time.
+  # The certificates won't be automatically renewed if this is set to `true`.
+  createSelfSignedCert: false
+
+  image:
+    # -- Image registry
+    registry: ghcr.io
+    # -- Image repository
+    repository: kyverno/cleanup-controller
+    # -- (string) Image tag
+    # Defaults to appVersion in Chart.yaml if omitted
+    tag: ~
+    # -- Image pull policy
+    pullPolicy: IfNotPresent
+
+  # -- Image pull secrets
+  imagePullSecrets: []
+    # - secretName
+
+  # -- (int) Desired number of pods
+  replicas: ~
+
+  # -- Additional labels to add to each pod
+  podLabels: {}
+  # example.com/label: foo
+
+  # -- Additional annotations to add to each pod
+  podAnnotations: {}
+  # example.com/annotation: foo
+
+  # -- Deployment update strategy.
+  # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
+  # @default -- See [values.yaml](values.yaml)
+  updateStrategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 40%
+    type: RollingUpdate
+
+  # -- Optional priority class
+  priorityClassName: ''
+
+  # -- Change `hostNetwork` to `true` when you want the pod to share its host's network namespace.
+  # Useful for situations like when you end up dealing with a custom CNI over Amazon EKS.
+  # Update the `dnsPolicy` accordingly as well to suit the host network mode.
+  hostNetwork: false
+
+  # -- `dnsPolicy` determines the manner in which DNS resolution happens in the cluster.
+  # In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`.
+  # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy.
+  dnsPolicy: ClusterFirst
+
+  # -- Extra arguments passed to the container on the command line
+  extraArgs: {}
+
+  # -- Additional container environment variables.
+  extraEnvVars: []
 
   resources:
     # -- Pod resource limits
@@ -881,6 +1407,10 @@ cleanupController:
     secure: false
     # -- TLS Configuration for endpoint
     tlsConfig: {}
+    # -- RelabelConfigs to apply to samples before scraping
+    relabelings: []
+    # -- MetricRelabelConfigs to apply to samples before ingestion.
+    metricRelabelings: []
 
   tracing:
     # -- Enable tracing
@@ -891,10 +1421,6 @@ cleanupController:
     port:
     # -- Traces receiver credentials
     creds: ''
-
-  logging:
-    # -- Logging format
-    format: text
 
   metering:
     # -- Disable metrics export
@@ -910,6 +1436,9 @@ cleanupController:
 
 # Reports controller configuration
 reportsController:
+
+  # -- Overrides features defined at the root level
+  featuresOverride: {}
 
   # -- Enable reports controller.
   enabled: true
@@ -952,6 +1481,14 @@ reportsController:
   # -- (int) Desired number of pods
   replicas: ~
 
+  # -- Additional labels to add to each pod
+  podLabels: {}
+  # example.com/label: foo
+
+  # -- Additional annotations to add to each pod
+  podAnnotations: {}
+  # example.com/annotation: foo
+
   # -- Deployment update strategy.
   # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
   # @default -- See [values.yaml](values.yaml)
@@ -964,6 +1501,24 @@ reportsController:
   # -- Optional priority class
   priorityClassName: ''
 
+  # -- Change `apiPriorityAndFairness` to `true` if you want to insulate the API calls made by Kyverno reports controller activities.
+  # This will help ensure Kyverno reports stability in busy clusters.
+  # Ref: https://kubernetes.io/docs/concepts/cluster-administration/flow-control/
+  apiPriorityAndFairness: false
+
+  # -- Priority level configuration.
+  # The block is directly forwarded into the priorityLevelConfiguration, so you can use whatever specification you want.
+  # ref: https://kubernetes.io/docs/concepts/cluster-administration/flow-control/#prioritylevelconfiguration
+  # @default -- See [values.yaml](values.yaml)
+  priorityLevelConfigurationSpec:
+    type: Limited
+    limited:
+      nominalConcurrencyShares: 10
+      limitResponse:
+        queuing:
+          queueLengthLimit: 50
+        type: Queue
+
   # -- Change `hostNetwork` to `true` when you want the pod to share its host's network namespace.
   # Useful for situations like when you end up dealing with a custom CNI over Amazon EKS.
   # Update the `dnsPolicy` accordingly as well to suit the host network mode.
@@ -975,10 +1530,10 @@ reportsController:
   dnsPolicy: ClusterFirst
 
   # -- Extra arguments passed to the container on the command line
-  extraArgs:
-    clientRateLimitQPS: 300
-    clientRateLimitBurst: 300
-    skipResourceFilters: true
+  extraArgs: {}
+
+  # -- Additional container environment variables.
+  extraEnvVars: []
 
   resources:
     # -- Pod resource limits
@@ -988,50 +1543,6 @@ reportsController:
     requests:
       cpu: 100m
       memory: 64Mi
-
-  # TODO
-  # # -- Startup probe.
-  # # The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want.
-  # # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
-  # # @default -- See [values.yaml](values.yaml)
-  # startupProbe:
-  #   httpGet:
-  #     path: /health/liveness
-  #     port: 9443
-  #     scheme: HTTPS
-  #   failureThreshold: 20
-  #   initialDelaySeconds: 2
-  #   periodSeconds: 6
-
-  # # -- Liveness probe.
-  # # The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want.
-  # # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
-  # # @default -- See [values.yaml](values.yaml)
-  # livenessProbe:
-  #   httpGet:
-  #     path: /health/liveness
-  #     port: 9443
-  #     scheme: HTTPS
-  #   initialDelaySeconds: 15
-  #   periodSeconds: 30
-  #   timeoutSeconds: 5
-  #   failureThreshold: 2
-  #   successThreshold: 1
-
-  # # -- Readiness Probe.
-  # # The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want.
-  # # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
-  # # @default -- See [values.yaml](values.yaml)
-  # readinessProbe:
-  #   httpGet:
-  #     path: /health/readiness
-  #     port: 9443
-  #     scheme: HTTPS
-  #   initialDelaySeconds: 5
-  #   periodSeconds: 10
-  #   timeoutSeconds: 5
-  #   failureThreshold: 6
-  #   successThreshold: 1
 
   # -- Node labels for pod assignment
   nodeSelector: {}
@@ -1135,6 +1646,10 @@ reportsController:
     secure: false
     # -- TLS Configuration for endpoint
     tlsConfig: {}
+    # -- RelabelConfigs to apply to samples before scraping
+    relabelings: []
+    # -- MetricRelabelConfigs to apply to samples before ingestion.
+    metricRelabelings: []
 
   tracing:
     # -- Enable tracing
@@ -1145,10 +1660,6 @@ reportsController:
     port: ~
     # -- (string) Traces receiver credentials
     creds: ~
-
-  logging:
-    # -- Logging format
-    format: text
 
   metering:
     # -- Disable metrics export
@@ -1161,206 +1672,3 @@ reportsController:
     collector: ~
     # -- (string) Otel collector credentials
     creds: ~
-
-# Background controller configuration
-backgroundController:
-
-  # -- Enable background controller.
-  enabled: true
-
-  rbac:
-    # -- Create RBAC resources
-    create: true
-
-    serviceAccount:
-      # -- Service account name
-      name:
-
-      # -- Annotations for the ServiceAccount
-      annotations: {}
-        # example.com/annotation: value
-
-    clusterRole:
-      # -- Extra resource permissions to add in the cluster role
-      extraResources: []
-      # - apiGroups:
-      #     - ''
-      #   resources:
-      #     - pods
-
-  image:
-    # -- (string) Image registry
-    registry: ~
-    # If you want to manage the registry you should remove it from the repository
-    # registry: ghcr.io
-    # repository: kyverno/background-controller
-    # -- Image repository
-    repository: ghcr.io/kyverno/background-controller
-    # -- Image tag
-    # Defaults to appVersion in Chart.yaml if omitted
-    tag:  # replaced in e2e tests
-    # -- Image pull policy
-    pullPolicy: IfNotPresent
-
-  # -- Image pull secrets
-  imagePullSecrets: []
-    # - secretName
-
-  # -- (int) Desired number of pods
-  replicas: ~
-
-  # -- Deployment update strategy.
-  # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
-  # @default -- See [values.yaml](values.yaml)
-  updateStrategy:
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 40%
-    type: RollingUpdate
-
-  # -- Optional priority class
-  priorityClassName: ''
-
-  # -- Change `hostNetwork` to `true` when you want the pod to share its host's network namespace.
-  # Useful for situations like when you end up dealing with a custom CNI over Amazon EKS.
-  # Update the `dnsPolicy` accordingly as well to suit the host network mode.
-  hostNetwork: false
-
-  # -- `dnsPolicy` determines the manner in which DNS resolution happens in the cluster.
-  # In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`.
-  # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy.
-  dnsPolicy: ClusterFirst
-
-  # -- Extra arguments passed to the container on the command line
-  extraArgs: {}
-
-  resources:
-    # -- Pod resource limits
-    limits:
-      memory: 128Mi
-    # -- Pod resource requests
-    requests:
-      cpu: 100m
-      memory: 64Mi
-
-  # -- Node labels for pod assignment
-  nodeSelector: {}
-
-  # -- List of node taints to tolerate
-  tolerations: []
-
-  antiAffinity:
-    # -- Pod antiAffinities toggle.
-    # Enabled by default but can be disabled if you want to schedule pods to the same node.
-    enabled: true
-
-  # -- Pod anti affinity constraints.
-  # @default -- See [values.yaml](values.yaml)
-  podAntiAffinity:
-    preferredDuringSchedulingIgnoredDuringExecution:
-      - weight: 1
-        podAffinityTerm:
-          labelSelector:
-            matchExpressions:
-              - key: app.kubernetes.io/component
-                operator: In
-                values:
-                  - background-controller
-          topologyKey: kubernetes.io/hostname
-
-  # -- Pod affinity constraints.
-  podAffinity: {}
-
-  # -- Node affinity constraints.
-  nodeAffinity: {}
-
-  # -- Topology spread constraints.
-  topologySpreadConstraints: []
-
-  # -- Security context for the pod
-  podSecurityContext: {}
-
-  # -- Security context for the containers
-  securityContext:
-    runAsNonRoot: true
-    privileged: false
-    allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: true
-    capabilities:
-      drop:
-        - ALL
-    seccompProfile:
-      type: RuntimeDefault
-
-  podDisruptionBudget:
-    # -- Configures the minimum available pods for disruptions.
-    # Cannot be used if `maxUnavailable` is set.
-    minAvailable: 1
-    # -- Configures the maximum unavailable pods for disruptions.
-    # Cannot be used if `minAvailable` is set.
-    maxUnavailable:
-
-  metricsService:
-    # -- Create service.
-    create: true
-    # -- Service port.
-    # Metrics server will be exposed at this port.
-    port: 8000
-    # -- Service type.
-    type: ClusterIP
-    # -- Service node port.
-    # Only used if `metricsService.type` is `NodePort`.
-    nodePort:
-    # -- Service annotations.
-    annotations: {}
-
-  networkPolicy:
-
-    # -- When true, use a NetworkPolicy to allow ingress to the webhook
-    # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
-    enabled: false
-
-    # -- A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies.
-    ingressFrom: []
-
-  serviceMonitor:
-    # -- Create a `ServiceMonitor` to collect Prometheus metrics.
-    enabled: false
-    # -- Additional labels
-    additionalLabels: {}
-    # -- (string) Override namespace
-    namespace: ~
-    # --  Interval to scrape metrics
-    interval: 30s
-    # -- Timeout if metrics can't be retrieved in given time interval
-    scrapeTimeout: 25s
-    # -- Is TLS required for endpoint
-    secure: false
-    # -- TLS Configuration for endpoint
-    tlsConfig: {}
-
-  tracing:
-    # -- Enable tracing
-    enabled: false
-    # -- Traces receiver address
-    address:
-    # -- Traces receiver port
-    port:
-    # -- Traces receiver credentials
-    creds: ''
-
-  logging:
-    # -- Logging format
-    format: text
-
-  metering:
-    # -- Disable metrics export
-    disabled: false
-    # -- Otel configuration, can be `prometheus` or `grpc`
-    config: prometheus
-    # -- Prometheus endpoint port
-    port: 8000
-    # -- Otel collector endpoint
-    collector: ''
-    # -- Otel collector credentials
-    creds: ''

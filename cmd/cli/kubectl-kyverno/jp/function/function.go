@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slices"
@@ -34,7 +35,7 @@ func Command() *cobra.Command {
 }
 
 func printFunctions(names ...string) {
-	functions := jmespath.GetFunctions()
+	functions := jmespath.GetFunctions(config.NewDefaultConfiguration(false))
 	slices.SortFunc(functions, func(a, b jmespath.FunctionEntry) bool {
 		return a.String() < b.String()
 	})

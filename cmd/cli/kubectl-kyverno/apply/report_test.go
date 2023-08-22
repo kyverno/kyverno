@@ -6,11 +6,8 @@ import (
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	preport "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
-	kyvCommon "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"gotest.tools/assert"
-	v1 "k8s.io/api/core/v1"
 )
 
 var rawPolicy = []byte(`
@@ -20,7 +17,9 @@ var rawPolicy = []byte(`
 	"metadata": {
 	  "name": "pod-requirements",
 	  "annotations": {
-		"pod-policies.kyverno.io/autogen-controllers": "none"
+		"pod-policies.kyverno.io/autogen-controllers": "none",
+		"policies.kyverno.io/severity": "medium",
+		"policies.kyverno.io/category": "Pod Security Standards (Restricted)"
 	  }
 	},
 	"spec": {
@@ -84,14 +83,12 @@ var rawPolicy = []byte(`
 `)
 
 func Test_buildPolicyReports(t *testing.T) {
-	rc := &kyvCommon.ResultCounts{}
-	var pvInfos []common.Info
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	er := engineapi.EngineResponse{}
-	er.Policy = &policy
+	er = er.WithPolicy(engineapi.NewKyvernoPolicy(&policy))
 	er.PolicyResponse.Add(
 		engineapi.ExecutionStats{},
 		*engineapi.RuleFail(
@@ -106,40 +103,27 @@ func Test_buildPolicyReports(t *testing.T) {
 		),
 	)
 
-	info := kyvCommon.ProcessValidateEngineResponse(&policy, &er, "", rc, true, false)
-	pvInfos = append(pvInfos, info)
-
-	reports := buildPolicyReports(pvInfos)
-	assert.Assert(t, len(reports) == 1, len(reports))
-
-	for _, report := range reports {
-		if report.GetNamespace() == "" {
-			assert.Assert(t, report.GetName() == clusterpolicyreport)
-			assert.Assert(t, report.GetKind() == "ClusterPolicyReport")
-			assert.Assert(t, len(report.UnstructuredContent()["results"].([]interface{})) == 2)
-			assert.Assert(t,
-				report.UnstructuredContent()["summary"].(map[string]interface{})[preport.StatusPass].(int64) == 1,
-				report.UnstructuredContent()["summary"].(map[string]interface{})[preport.StatusPass].(int64))
-		} else {
-			assert.Assert(t, report.GetName() == "policyreport-ns-default")
-			assert.Assert(t, report.GetKind() == "PolicyReport")
-			assert.Assert(t, len(report.UnstructuredContent()["results"].([]interface{})) == 2)
-
-			summary := report.UnstructuredContent()["summary"].(map[string]interface{})
-			assert.Assert(t, summary[preport.StatusPass].(int64) == 1, summary[preport.StatusPass].(int64))
-		}
+	clustered, namespaced := buildPolicyReports(false, er)
+	assert.Assert(t, len(clustered) == 1, len(clustered))
+	assert.Assert(t, len(namespaced) == 0, len(namespaced))
+	{
+		report := clustered[0]
+		assert.Assert(t, report.GetName() == clusterpolicyreport)
+		assert.Assert(t, report.Kind == "ClusterPolicyReport")
+		assert.Assert(t, len(report.Results) == 2)
+		assert.Equal(t, string(report.Results[0].Severity), "medium")
+		assert.Equal(t, report.Results[0].Category, "Pod Security Standards (Restricted)")
+		assert.Assert(t, report.Summary.Pass == 1, report.Summary.Pass)
 	}
 }
 
 func Test_buildPolicyResults(t *testing.T) {
-	rc := &kyvCommon.ResultCounts{}
-	var pvInfos []common.Info
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	er := engineapi.EngineResponse{}
-	er.Policy = &policy
+	er = er.WithPolicy(engineapi.NewKyvernoPolicy(&policy))
 	er.PolicyResponse.Add(
 		engineapi.ExecutionStats{}, *engineapi.RuleFail(
 			"pods-require-account",
@@ -153,10 +137,7 @@ func Test_buildPolicyResults(t *testing.T) {
 		),
 	)
 
-	info := kyvCommon.ProcessValidateEngineResponse(&policy, &er, "", rc, true, false)
-	pvInfos = append(pvInfos, info)
-
-	results := buildPolicyResults(pvInfos)
+	results := buildPolicyResults(false, er)
 
 	for _, result := range results {
 		assert.Assert(t, len(result) == 2, len(result))
@@ -169,27 +150,4 @@ func Test_buildPolicyResults(t *testing.T) {
 			}
 		}
 	}
-}
-
-func Test_calculateSummary(t *testing.T) {
-	results := []preport.PolicyReportResult{
-		{
-			Resources: make([]v1.ObjectReference, 5),
-			Result:    preport.PolicyResult(preport.StatusPass),
-		},
-		{Result: preport.PolicyResult(preport.StatusFail)},
-		{Result: preport.PolicyResult(preport.StatusFail)},
-		{Result: preport.PolicyResult(preport.StatusFail)},
-		{
-			Resources: make([]v1.ObjectReference, 1),
-			Result:    preport.PolicyResult(preport.StatusPass)},
-		{
-			Resources: make([]v1.ObjectReference, 4),
-			Result:    preport.PolicyResult(preport.StatusPass),
-		},
-	}
-
-	summary := calculateSummary(results)
-	assert.Assert(t, summary.Pass == 3)
-	assert.Assert(t, summary.Fail == 3)
 }

@@ -42,17 +42,17 @@ rules:
     resources:
       - clustercleanuppolicies
       - cleanuppolicies
-      - clustercleanuppolicies/*
-      - cleanuppolicies/*
     verbs:
-      - create
-      - delete
+      - list
+      - watch
+  - apiGroups:
+      - ''
+    resources:
+      - configmaps
+    verbs:
       - get
       - list
-      - patch
-      - update
       - watch
-      - deletecollection
   - apiGroups:
       - batch
     resources:
@@ -65,12 +65,20 @@ rules:
       - update
       - watch
   - apiGroups:
-    - ""
+      - ''
+      - events.k8s.io
     resources:
-    - events
+      - events
     verbs:
-    - create
-    - patch
+      - create
+      - patch
+      - update
+  - apiGroups:
+      - authorization.k8s.io
+    resources:
+      - subjectaccessreviews
+    verbs:
+      - create
 {{- with .Values.cleanupController.rbac.clusterRole.extraResources }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -86,8 +94,7 @@ rules:
     resources:
       {{- toYaml .resources | nindent 6 }}
     verbs:
-      - delete
-      - list
+      {{- toYaml .verbs | nindent 6 }}
   {{- end }}
 {{- end }}
 {{- end }}

@@ -3,7 +3,7 @@ package v2beta1
 import (
 	"testing"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -25,7 +25,7 @@ func Test_ClusterPolicy_Name(t *testing.T) {
 }
 
 func Test_ClusterPolicy_IsNamespaced(t *testing.T) {
-	namespaced := ClusterPolicy{
+	namespaced := Policy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "this-is-a-way-too-long-policy-name-that-should-trigger-an-error-when-calling-the-policy-validation-method",
 			Namespace: "abcd",
@@ -45,7 +45,7 @@ func Test_ClusterPolicy_Autogen_All(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "policy",
 			Annotations: map[string]string{
-				kyvernov1.PodControllersAnnotation: "all",
+				kyverno.AnnotationAutogenControllers: "all",
 			},
 		},
 	}

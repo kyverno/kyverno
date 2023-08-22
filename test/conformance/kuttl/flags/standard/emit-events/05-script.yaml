@@ -1,0 +1,12 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+- script: |
+    if kubectl logs deployment/kyverno-admission-controller -n kyverno | grep "reason=\"PolicyViolation\"" 
+    then 
+        echo "Test succeeded. PolicyViolation event was not created."
+        exit 0
+    else 
+        echo "Tested failed. PolicyViolation event should have been created."
+        exit 1
+    fi

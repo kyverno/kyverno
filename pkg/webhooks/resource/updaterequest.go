@@ -29,12 +29,6 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 		policyContext = policyContext.WithNewResource(policyContext.OldResource())
 	}
 
-	resource := policyContext.NewResource()
-	if request.Operation == admissionv1.Update && resource.GetDeletionTimestamp() != nil {
-		logger.V(4).Info("skip creating UR for the trigger resource that is in termination")
-		return
-	}
-
 	var engineResponses []*engineapi.EngineResponse
 	for _, policy := range policies {
 		if !policy.GetSpec().IsMutateExisting() {
@@ -61,8 +55,17 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 	if failedResponse := applyUpdateRequest(ctx, request, kyvernov1beta1.Mutate, h.urGenerator, policyContext.AdmissionInfo(), request.Operation, engineResponses...); failedResponse != nil {
 		for _, failedUR := range failedResponse {
 			err := fmt.Errorf("failed to create update request: %v", failedUR.err)
+
+			var policy kyvernov1.PolicyInterface
+			for _, pol := range policies {
+				if pol.GetName() != failedUR.ur.Policy {
+					continue
+				}
+				policy = pol
+			}
 			resource := policyContext.NewResource()
-			events := event.NewBackgroundFailedEvent(err, failedUR.ur.Policy, "", event.GeneratePolicyController, &resource)
+			events := event.NewBackgroundFailedEvent(err, policy, "", event.GeneratePolicyController,
+				kyvernov1.ResourceSpec{Kind: resource.GetKind(), Namespace: resource.GetNamespace(), Name: resource.GetName()})
 			h.eventGen.Add(events...)
 		}
 	}

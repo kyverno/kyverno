@@ -12,15 +12,17 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/values"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
+	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
+	"k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/yaml"
 )
 
@@ -29,34 +31,33 @@ import (
 // - local paths to resources, if given
 // - the k8s cluster, if given
 func GetResources(
-	policies []kyvernov1.PolicyInterface, resourcePaths []string, dClient dclient.Interface, cluster bool,
+	policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, resourcePaths []string, dClient dclient.Interface, cluster bool,
 	namespace string, policyReport bool,
 ) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	var err error
 
 	if cluster && dClient != nil {
-		resourceTypesMap := make(map[schema.GroupVersionKind]bool)
-		var resourceTypes []schema.GroupVersionKind
-		var subresourceMap map[schema.GroupVersionKind]Subresource
+		if len(policies) > 0 {
+			matchedResources := &KyvernoResources{
+				policies: policies,
+			}
 
-		for _, policy := range policies {
-			for _, rule := range autogen.ComputeRules(policy) {
-				var resourceTypesInRule map[schema.GroupVersionKind]bool
-				resourceTypesInRule, subresourceMap = GetKindsFromRule(rule, dClient)
-				for resourceKind := range resourceTypesInRule {
-					resourceTypesMap[resourceKind] = true
-				}
+			resources, err = matchedResources.FetchResourcesFromPolicy(resourcePaths, dClient, namespace, policyReport)
+			if err != nil {
+				return resources, err
 			}
 		}
 
-		for kind := range resourceTypesMap {
-			resourceTypes = append(resourceTypes, kind)
-		}
+		if len(validatingAdmissionPolicies) > 0 {
+			matchedResources := &ValidatingAdmissionResources{
+				policies: validatingAdmissionPolicies,
+			}
 
-		resources, err = whenClusterIsTrue(resourceTypes, subresourceMap, dClient, namespace, resourcePaths, policyReport)
-		if err != nil {
-			return resources, err
+			resources, err = matchedResources.FetchResourcesFromPolicy(resourcePaths, dClient, namespace, policyReport)
+			if err != nil {
+				return resources, err
+			}
 		}
 	} else if len(resourcePaths) > 0 {
 		resources, err = whenClusterIsFalse(resourcePaths, policyReport)
@@ -67,7 +68,7 @@ func GetResources(
 	return resources, err
 }
 
-func whenClusterIsTrue(resourceTypes []schema.GroupVersionKind, subresourceMap map[schema.GroupVersionKind]Subresource, dClient dclient.Interface, namespace string, resourcePaths []string, policyReport bool) ([]*unstructured.Unstructured, error) {
+func whenClusterIsTrue(resourceTypes []schema.GroupVersionKind, subresourceMap map[schema.GroupVersionKind]values.Subresource, dClient dclient.Interface, namespace string, resourcePaths []string, policyReport bool) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	resourceMap, err := getResourcesOfTypeFromCluster(resourceTypes, subresourceMap, dClient, namespace)
 	if err != nil {
@@ -88,7 +89,7 @@ func whenClusterIsTrue(resourceTypes []schema.GroupVersionKind, subresourceMap m
 			}
 			if lenOfResource >= len(resources) {
 				if policyReport {
-					log.Log.V(3).Info(fmt.Sprintf("%s not found in cluster", resourcePath))
+					log.V(3).Info(fmt.Sprintf("%s not found in cluster", resourcePath))
 				} else {
 					fmt.Printf("\n----------------------------------------------------------------------\nresource %s not found in cluster\n----------------------------------------------------------------------\n", resourcePath)
 				}
@@ -105,7 +106,7 @@ func whenClusterIsFalse(resourcePaths []string, policyReport bool) ([]*unstructu
 		resourceBytes, err := getFileBytes(resourcePath)
 		if err != nil {
 			if policyReport {
-				log.Log.V(3).Info(fmt.Sprintf("failed to load resources: %s.", resourcePath), "error", err)
+				log.V(3).Info(fmt.Sprintf("failed to load resources: %s.", resourcePath), "error", err)
 			} else {
 				fmt.Printf("\n----------------------------------------------------------------------\nfailed to load resources: %s. \nerror: %s\n----------------------------------------------------------------------\n", resourcePath, err)
 			}
@@ -177,7 +178,7 @@ func GetResource(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
 		resource, err := convertResourceToUnstructured(resourceYaml)
 		if err != nil {
 			if strings.Contains(err.Error(), "Object 'Kind' is missing") {
-				log.Log.V(3).Info("skipping resource as kind not found")
+				log.V(3).Info("skipping resource as kind not found")
 				continue
 			}
 			getErrString = getErrString + err.Error() + "\n"
@@ -192,7 +193,7 @@ func GetResource(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
 	return resources, nil
 }
 
-func getResourcesOfTypeFromCluster(resourceTypes []schema.GroupVersionKind, subresourceMap map[schema.GroupVersionKind]Subresource, dClient dclient.Interface, namespace string) (map[string]*unstructured.Unstructured, error) {
+func getResourcesOfTypeFromCluster(resourceTypes []schema.GroupVersionKind, subresourceMap map[schema.GroupVersionKind]values.Subresource, dClient dclient.Interface, namespace string) (map[string]*unstructured.Unstructured, error) {
 	r := make(map[string]*unstructured.Unstructured)
 	for _, kind := range resourceTypes {
 		resourceList, err := dClient.ListResource(context.TODO(), kind.GroupVersion().String(), kind.Kind, namespace, nil)
@@ -313,14 +314,17 @@ func GetPatchedAndGeneratedResource(resourceBytes []byte) (unstructured.Unstruct
 	if err != nil {
 		return unstructured.Unstructured{}, err
 	}
-	resource := *getResource[0]
-	return resource, nil
+	if len(getResource) > 0 && getResource[0] != nil {
+		resource := *getResource[0]
+		return resource, nil
+	}
+	return unstructured.Unstructured{}, err
 }
 
 // GetKindsFromRule will return the kinds from policy match block
-func GetKindsFromRule(rule kyvernov1.Rule, client dclient.Interface) (map[schema.GroupVersionKind]bool, map[schema.GroupVersionKind]Subresource) {
+func GetKindsFromRule(rule kyvernov1.Rule, client dclient.Interface) (map[schema.GroupVersionKind]bool, map[schema.GroupVersionKind]values.Subresource) {
 	resourceTypesMap := make(map[schema.GroupVersionKind]bool)
-	subresourceMap := make(map[schema.GroupVersionKind]Subresource)
+	subresourceMap := make(map[schema.GroupVersionKind]values.Subresource)
 	for _, kind := range rule.MatchResources.Kinds {
 		addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client)
 	}
@@ -341,11 +345,23 @@ func GetKindsFromRule(rule kyvernov1.Rule, client dclient.Interface) (map[schema
 	return resourceTypesMap, subresourceMap
 }
 
-func addGVKToResourceTypesMap(kind string, resourceTypesMap map[schema.GroupVersionKind]bool, subresourceMap map[schema.GroupVersionKind]Subresource, client dclient.Interface) {
+func getKindsFromValidatingAdmissionPolicy(policy v1alpha1.ValidatingAdmissionPolicy, client dclient.Interface) (map[schema.GroupVersionKind]bool, map[schema.GroupVersionKind]values.Subresource) {
+	resourceTypesMap := make(map[schema.GroupVersionKind]bool)
+	subresourceMap := make(map[schema.GroupVersionKind]values.Subresource)
+
+	kinds := validatingadmissionpolicy.GetKinds(policy)
+	for _, kind := range kinds {
+		addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client)
+	}
+
+	return resourceTypesMap, subresourceMap
+}
+
+func addGVKToResourceTypesMap(kind string, resourceTypesMap map[schema.GroupVersionKind]bool, subresourceMap map[schema.GroupVersionKind]values.Subresource, client dclient.Interface) {
 	group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 	gvrss, err := client.Discovery().FindResources(group, version, kind, subresource)
 	if err != nil {
-		log.Log.Info("failed to find resource", "kind", kind, "error", err)
+		log.Info("failed to find resource", "kind", kind, "error", err)
 		return
 	}
 	for parent, child := range gvrss {
@@ -356,7 +372,7 @@ func addGVKToResourceTypesMap(kind string, resourceTypesMap map[schema.GroupVers
 			gvk := schema.GroupVersionKind{
 				Group: child.Group, Version: child.Version, Kind: child.Kind,
 			}
-			subresourceMap[gvk] = Subresource{
+			subresourceMap[gvk] = values.Subresource{
 				APIResource: child,
 				ParentResource: metav1.APIResource{
 					Group:   parent.Group,

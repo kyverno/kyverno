@@ -4,24 +4,12 @@
 # DEFAULTS #
 ############
 
-GIT_VERSION          := $(shell git describe --match "v[0-9]*" --tags $(git rev-list --tags --max-count=1))
-GIT_VERSION_DEV      := $(shell git describe --match "[0-9].[0-9]-dev*")
-GIT_BRANCH           := $(shell git branch --show-current | cut -d ' ' -f2)
-GIT_HASH             := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
-TIMESTAMP            := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
-VERSION              ?= $(shell git describe --match "v[0-9]*")
+GIT_SHA              := $(shell git rev-parse HEAD)
 REGISTRY             ?= ghcr.io
 REPO                 ?= kyverno
-ifeq ($(GIT_BRANCH),main)
-IMAGE_TAG_LATEST     := latest
-else
-IMAGE_TAG_LATEST     := $(subst release-,,$(GIT_BRANCH))-latest
-endif
-IMAGE_TAG_DEV         = $(GIT_VERSION_DEV)
-IMAGE_TAG            ?= $(GIT_VERSION)
-K8S_VERSION          ?= $(shell kubectl version --short | grep -i server | cut -d" " -f3 | cut -c2-)
-KIND_IMAGE           ?= kindest/node:v1.26.2
+KIND_IMAGE           ?= kindest/node:v1.27.3
 KIND_NAME            ?= kind
+KIND_CONFIG          ?= default
 GOOS                 ?= $(shell go env GOOS)
 GOARCH               ?= $(shell go env GOARCH)
 KOCACHE              ?= /tmp/ko-cache
@@ -46,14 +34,18 @@ USE_CONFIG           ?= standard
 
 TOOLS_DIR                          := $(PWD)/.tools
 KIND                               := $(TOOLS_DIR)/kind
-KIND_VERSION                       := v0.17.0
+KIND_VERSION                       := v0.20.0
 CONTROLLER_GEN                     := $(TOOLS_DIR)/controller-gen
-CONTROLLER_GEN_VERSION             := v0.11.3
+CONTROLLER_GEN_VERSION             := v0.12.0
 CLIENT_GEN                         := $(TOOLS_DIR)/client-gen
 LISTER_GEN                         := $(TOOLS_DIR)/lister-gen
 INFORMER_GEN                       := $(TOOLS_DIR)/informer-gen
 OPENAPI_GEN                        := $(TOOLS_DIR)/openapi-gen
-CODE_GEN_VERSION                   := v0.26.3
+REGISTER_GEN                       := $(TOOLS_DIR)/register-gen
+DEEPCOPY_GEN                       := $(TOOLS_DIR)/deepcopy-gen
+DEFAULTER_GEN                      := $(TOOLS_DIR)/defaulter-gen
+APPLYCONFIGURATION_GEN             := $(TOOLS_DIR)/applyconfiguration-gen
+CODE_GEN_VERSION                   := v0.28.0
 GEN_CRD_API_REFERENCE_DOCS         := $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION := latest
 GO_ACC                             := $(TOOLS_DIR)/go-acc
@@ -61,19 +53,20 @@ GO_ACC_VERSION                     := latest
 GOIMPORTS                          := $(TOOLS_DIR)/goimports
 GOIMPORTS_VERSION                  := latest
 HELM                               := $(TOOLS_DIR)/helm
-HELM_VERSION                       := v3.10.1
+HELM_VERSION                       := v3.12.3
 HELM_DOCS                          := $(TOOLS_DIR)/helm-docs
 HELM_DOCS_VERSION                  := v1.11.0
 KO                                 := $(TOOLS_DIR)/ko
-KO_VERSION                         := main #e93dbee8540f28c45ec9a2b8aec5ef8e43123966
+KO_VERSION                         := v0.14.1
 KUTTL                              := $(TOOLS_DIR)/kubectl-kuttl
 KUTTL_VERSION                      := v0.0.0-20230126200340-834a4dac1ec7
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(KUTTL)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(APPLYCONFIGURATION_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(KUTTL)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
 SED                                := sed
 endif
+COMMA                              := ,
 
 $(KIND):
 	@echo Install kind... >&2
@@ -98,6 +91,22 @@ $(INFORMER_GEN):
 $(OPENAPI_GEN):
 	@echo Install openapi-gen... >&2
 	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/openapi-gen@$(CODE_GEN_VERSION)
+
+$(REGISTER_GEN):
+	@echo Install register-gen... >&2
+	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/register-gen@$(CODE_GEN_VERSION)
+
+$(DEEPCOPY_GEN):
+	@echo Install deepcopy-gen... >&2
+	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/deepcopy-gen@$(CODE_GEN_VERSION)
+
+$(DEFAULTER_GEN):
+	@echo Install defaulter-gen... >&2
+	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/defaulter-gen@$(CODE_GEN_VERSION)
+
+$(APPLYCONFIGURATION_GEN):
+	@echo Install applyconfiguration-gen... >&2
+	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/applyconfiguration-gen@$(CODE_GEN_VERSION)
 
 $(GEN_CRD_API_REFERENCE_DOCS):
 	@echo Install gen-crd-api-reference-docs... >&2
@@ -154,8 +163,11 @@ REPORTS_BIN    := $(REPORTS_DIR)/reports-controller
 BACKGROUND_BIN := $(BACKGROUND_DIR)/background-controller
 PACKAGE        ?= github.com/kyverno/kyverno
 CGO_ENABLED    ?= 0
-LD_FLAGS        = "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
-LD_FLAGS_DEV    = "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION_DEV) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
+ifdef VERSION
+LD_FLAGS       := "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(VERSION)"
+else
+LD_FLAGS       := "-s -w"
+endif
 
 .PHONY: fmt
 fmt: ## Run go fmt
@@ -251,6 +263,14 @@ build-all: build-kyverno-init build-kyverno build-cli build-cleanup-controller b
 
 LOCAL_PLATFORM      := linux/$(GOARCH)
 KO_REGISTRY         := ko.local
+ifndef VERSION
+KO_TAGS             := $(GIT_SHA)
+else ifeq ($(VERSION),main)
+KO_TAGS             := $(GIT_SHA),latest
+else
+KO_TAGS             := $(GIT_SHA),$(subst /,-,$(VERSION))
+endif
+
 KO_CLI_REPO         := $(PACKAGE)/$(CLI_DIR)
 KO_KYVERNOPRE_REPO  := $(PACKAGE)/$(KYVERNOPRE_DIR)
 KO_KYVERNO_REPO     := $(PACKAGE)/$(KYVERNO_DIR)
@@ -261,38 +281,38 @@ KO_BACKGROUND_REPO  := $(PACKAGE)/$(BACKGROUND_DIR)
 .PHONY: ko-build-kyverno-init
 ko-build-kyverno-init: $(KO) ## Build kyvernopre local image (with ko)
 	@echo Build kyvernopre local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
-		$(KO) build ./$(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
+		$(KO) build ./$(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-kyverno
 ko-build-kyverno: $(KO) ## Build kyverno local image (with ko)
 	@echo Build kyverno local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
-		$(KO) build ./$(KYVERNO_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
+		$(KO) build ./$(KYVERNO_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-cli
 ko-build-cli: $(KO) ## Build cli local image (with ko)
 	@echo Build cli local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
-		$(KO) build ./$(CLI_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
+		$(KO) build ./$(CLI_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-cleanup-controller
 ko-build-cleanup-controller: $(KO) ## Build cleanup controller local image (with ko)
 	@echo Build cleanup controller local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
-		$(KO) build ./$(CLEANUP_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
+		$(KO) build ./$(CLEANUP_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-reports-controller
 ko-build-reports-controller: $(KO) ## Build reports controller local image (with ko)
 	@echo Build reports controller local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
-		$(KO) build ./$(REPORTS_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
+		$(KO) build ./$(REPORTS_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-background-controller
 ko-build-background-controller: $(KO) ## Build background controller local image (with ko)
 	@echo Build background controller local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
-		$(KO) build ./$(BACKGROUND_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
+		$(KO) build ./$(BACKGROUND_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-all
 ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-cleanup-controller ko-build-reports-controller ko-build-background-controller ## Build all local images (with ko)
@@ -303,8 +323,6 @@ ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-clean
 
 REGISTRY_USERNAME   ?= dummy
 PLATFORMS           := all
-KO_TAGS             := $(IMAGE_TAG_LATEST),$(IMAGE_TAG)
-KO_TAGS_DEV         := $(IMAGE_TAG_LATEST),$(IMAGE_TAG_DEV)
 
 .PHONY: ko-login
 ko-login: $(KO)
@@ -340,41 +358,8 @@ ko-publish-background-controller: ko-login ## Build and publish background contr
 	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_BACKGROUND) \
 		$(KO) build ./$(BACKGROUND_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
-.PHONY: ko-publish-kyverno-init-dev
-ko-publish-kyverno-init-dev: ko-login ## Build and publish kyvernopre dev image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) \
-		$(KO) build ./$(KYVERNOPRE_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
-
-.PHONY: ko-publish-kyverno-dev
-ko-publish-kyverno-dev: ko-login ## Build and publish kyverno dev image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_KYVERNO) \
-		$(KO) build ./$(KYVERNO_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
-
-.PHONY: ko-publish-cli-dev
-ko-publish-cli-dev: ko-login ## Build and publish cli dev image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_CLI) \
-		$(KO) build ./$(CLI_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
-
-.PHONY: ko-publish-cleanup-controller-dev
-ko-publish-cleanup-controller-dev: ko-login ## Build and publish cleanup controller dev image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_CLEANUP) \
-		$(KO) build ./$(CLEANUP_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
-
-.PHONY: ko-publish-reports-controller-dev
-ko-publish-reports-controller-dev: ko-login ## Build and publish reports controller dev image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_REPORTS) \
-		$(KO) build ./$(REPORTS_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
-
-.PHONY: ko-publish-background-controller-dev
-ko-publish-background-controller-dev: ko-login ## Build and publish background controller dev image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_BACKGROUND) \
-		$(KO) build ./$(BACKGROUND_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
-
 .PHONY: ko-publish-all
 ko-publish-all: ko-publish-kyverno-init ko-publish-kyverno ko-publish-cli ko-publish-cleanup-controller ko-publish-reports-controller ko-publish-background-controller ## Build and publish all images (with ko)
-
-.PHONY: ko-publish-all-dev
-ko-publish-all-dev: ko-publish-kyverno-init-dev ko-publish-kyverno-dev ko-publish-cli-dev ko-publish-cleanup-controller-dev ko-publish-reports-controller-dev ko-publish-background-controller-dev ## Build and publish all dev images (with ko)
 
 #################
 # BUILD (IMAGE) #
@@ -413,15 +398,16 @@ image-build-all: $(BUILD_WITH)-build-all
 # CODEGEN #
 ###########
 
-GOPATH_SHIM           := ${PWD}/.gopath
-PACKAGE_SHIM          := $(GOPATH_SHIM)/src/$(PACKAGE)
-OUT_PACKAGE           := $(PACKAGE)/pkg/client
-INPUT_DIRS            := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1alpha2,$(PACKAGE)/api/kyverno/v1beta1,$(PACKAGE)/api/kyverno/v2alpha1,$(PACKAGE)/api/policyreport/v1alpha2
-CLIENTSET_PACKAGE     := $(OUT_PACKAGE)/clientset
-LISTERS_PACKAGE       := $(OUT_PACKAGE)/listers
-INFORMERS_PACKAGE     := $(OUT_PACKAGE)/informers
-CRDS_PATH             := ${PWD}/config/crds
-INSTALL_MANIFEST_PATH := ${PWD}/config/install-latest-testing.yaml
+GOPATH_SHIM                 := ${PWD}/.gopath
+PACKAGE_SHIM                := $(GOPATH_SHIM)/src/$(PACKAGE)
+OUT_PACKAGE                 := $(PACKAGE)/pkg/client
+INPUT_DIRS                  := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1alpha2,$(PACKAGE)/api/kyverno/v1beta1,$(PACKAGE)/api/kyverno/v2beta1,$(PACKAGE)/api/kyverno/v2alpha1,$(PACKAGE)/api/policyreport/v1alpha2
+CLIENTSET_PACKAGE           := $(OUT_PACKAGE)/clientset
+LISTERS_PACKAGE             := $(OUT_PACKAGE)/listers
+INFORMERS_PACKAGE           := $(OUT_PACKAGE)/informers
+APPLYCONFIGURATIONS_PACKAGE := $(OUT_PACKAGE)/applyconfigurations
+CRDS_PATH                   := ${PWD}/config/crds
+INSTALL_MANIFEST_PATH       := ${PWD}/config/install-latest-testing.yaml
 
 $(GOPATH_SHIM):
 	@echo Create gopath shim... >&2
@@ -435,17 +421,30 @@ $(PACKAGE_SHIM): $(GOPATH_SHIM)
 .PHONY: codegen-client-clientset
 codegen-client-clientset: $(PACKAGE_SHIM) $(CLIENT_GEN) ## Generate clientset
 	@echo Generate clientset... >&2
-	@GOPATH=$(GOPATH_SHIM) $(CLIENT_GEN) --go-header-file ./scripts/boilerplate.go.txt --clientset-name versioned --output-package $(CLIENTSET_PACKAGE) --input-base "" --input $(INPUT_DIRS)
+	@GOPATH=$(GOPATH_SHIM) $(CLIENT_GEN) \
+		--go-header-file ./scripts/boilerplate.go.txt \
+		--clientset-name versioned \
+		--output-package $(CLIENTSET_PACKAGE) \
+		--input-base "" \
+		--input $(INPUT_DIRS)
 
 .PHONY: codegen-client-listers
 codegen-client-listers: $(PACKAGE_SHIM) $(LISTER_GEN) ## Generate listers
 	@echo Generate listers... >&2
-	@GOPATH=$(GOPATH_SHIM) $(LISTER_GEN) --go-header-file ./scripts/boilerplate.go.txt --output-package $(LISTERS_PACKAGE) --input-dirs $(INPUT_DIRS)
+	@GOPATH=$(GOPATH_SHIM) $(LISTER_GEN) \
+		--go-header-file ./scripts/boilerplate.go.txt \
+		--output-package $(LISTERS_PACKAGE) \
+		--input-dirs $(INPUT_DIRS)
 
 .PHONY: codegen-client-informers
 codegen-client-informers: $(PACKAGE_SHIM) $(INFORMER_GEN) ## Generate informers
 	@echo Generate informers... >&2
-	@GOPATH=$(GOPATH_SHIM) $(INFORMER_GEN) --go-header-file ./scripts/boilerplate.go.txt --output-package $(INFORMERS_PACKAGE) --input-dirs $(INPUT_DIRS) --versioned-clientset-package $(CLIENTSET_PACKAGE)/versioned --listers-package $(LISTERS_PACKAGE)
+	@GOPATH=$(GOPATH_SHIM) $(INFORMER_GEN) \
+		--go-header-file ./scripts/boilerplate.go.txt \
+		--output-package $(INFORMERS_PACKAGE) \
+		--input-dirs $(INPUT_DIRS) \
+		--versioned-clientset-package $(CLIENTSET_PACKAGE)/versioned \
+		--listers-package $(LISTERS_PACKAGE)
 
 .PHONY: codegen-client-wrappers
 codegen-client-wrappers: codegen-client-clientset $(GOIMPORTS) ## Generate client wrappers
@@ -454,8 +453,36 @@ codegen-client-wrappers: codegen-client-clientset $(GOIMPORTS) ## Generate clien
 	@$(GOIMPORTS) -w ./pkg/clients
 	@go fmt ./pkg/clients/...
 
+.PHONY: codegen-register
+codegen-register: $(PACKAGE_SHIM) $(REGISTER_GEN) ## Generate types registrations
+	@echo Generate registration... >&2
+	@GOPATH=$(GOPATH_SHIM) $(REGISTER_GEN) \
+		--go-header-file=./scripts/boilerplate.go.txt \
+		--input-dirs=$(INPUT_DIRS)
+
+.PHONY: codegen-deepcopy
+codegen-deepcopy: $(PACKAGE_SHIM) $(DEEPCOPY_GEN) ## Generate deep copy functions
+	@echo Generate deep copy functions... >&2
+	@GOPATH=$(GOPATH_SHIM) $(DEEPCOPY_GEN) \
+		--go-header-file=./scripts/boilerplate.go.txt \
+		--input-dirs=$(INPUT_DIRS) \
+		--output-file-base=zz_generated.deepcopy
+
+.PHONY: codegen-defaulters
+codegen-defaulters: $(PACKAGE_SHIM) $(DEFAULTER_GEN) ## Generate defaulters
+	@echo Generate defaulters... >&2
+	@GOPATH=$(GOPATH_SHIM) $(DEFAULTER_GEN) --go-header-file=./scripts/boilerplate.go.txt --input-dirs=$(INPUT_DIRS)
+
+.PHONY: codegen-applyconfigurations
+codegen-applyconfigurations: $(PACKAGE_SHIM) $(APPLYCONFIGURATION_GEN) ## Generate apply configurations
+	@echo Generate applyconfigurations... >&2
+	@GOPATH=$(GOPATH_SHIM) $(APPLYCONFIGURATION_GEN) \
+		--go-header-file=./scripts/boilerplate.go.txt \
+		--input-dirs=$(INPUT_DIRS) \
+		--output-package $(APPLYCONFIGURATIONS_PACKAGE)
+
 .PHONY: codegen-client-all
-codegen-client-all: codegen-client-clientset codegen-client-listers codegen-client-informers codegen-client-wrappers ## Generate clientset, listers and informers
+codegen-client-all: codegen-register codegen-defaulters codegen-applyconfigurations codegen-client-clientset codegen-client-listers codegen-client-informers codegen-client-wrappers ## Generate clientset, listers and informers
 
 .PHONY: codegen-crds-kyverno
 codegen-crds-kyverno: $(CONTROLLER_GEN) ## Generate kyverno CRDs
@@ -469,19 +496,6 @@ codegen-crds-report: $(CONTROLLER_GEN) ## Generate policy reports CRDs
 
 .PHONY: codegen-crds-all
 codegen-crds-all: codegen-crds-kyverno codegen-crds-report ## Generate all CRDs
-
-.PHONY: codegen-deepcopy-kyverno
-codegen-deepcopy-kyverno: $(CONTROLLER_GEN) $(GOIMPORTS) ## Generate kyverno deep copy functions
-	@echo Generate kyverno deep copy functions... >&2
-	@$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./api/kyverno/..." && $(GOIMPORTS) -w ./api/kyverno
-
-.PHONY: codegen-deepcopy-report
-codegen-deepcopy-report: $(CONTROLLER_GEN) $(GOIMPORTS) ## Generate policy reports deep copy functions
-	@echo Generate policy reports deep copy functions... >&2
-	@$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./api/policyreport/..." && $(GOIMPORTS) -w ./api/policyreport
-
-.PHONY: codegen-deepcopy-all
-codegen-deepcopy-all: codegen-deepcopy-kyverno codegen-deepcopy-report ## Generate all deep copy functions
 
 .PHONY: codegen-api-docs
 codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API docs
@@ -504,12 +518,11 @@ codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 	@cat $(CRDS_PATH)/* \
 		| $(SED) -e '1i{{- if .Values.crds.install }}' \
 		| $(SED) -e '$$a{{- end }}' \
- 		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- with .Values.crds.annotations }}' \
- 		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- toYaml . | nindent 4 }}' \
- 		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- end }}' \
- 		| $(SED) -e '/^  creationTimestamp: null/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
- 		| $(SED) -e '/^  creationTimestamp: null/a \ \ labels:' \
- 		| $(SED) -e '/^  creationTimestamp: null/d' \
+		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
+ 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
+		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.crds.annotations }}' \
+ 		| $(SED) -e '/^  annotations:/i \ \ labels:' \
+		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
  		> ./charts/kyverno/templates/crds/crds.yaml
 
 .PHONY: codegen-helm-all
@@ -551,19 +564,19 @@ codegen-manifest-release: $(HELM) ## Create release manifest
 	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
-		--set templating.version=$(GIT_VERSION) \
-		--set admissionController.container.image.tag=$(GIT_VERSION) \
-		--set admissionController.initContainer.image.tag=$(GIT_VERSION) \
-		--set cleanupController.image.tag=$(GIT_VERSION) \
-		--set reportsController.image.tag=$(GIT_VERSION) \
+		--set templating.version=$(VERSION) \
+		--set admissionController.container.image.tag=$(VERSION) \
+		--set admissionController.initContainer.image.tag=$(VERSION) \
+		--set cleanupController.image.tag=$(VERSION) \
+		--set reportsController.image.tag=$(VERSION) \
  		| $(SED) -e '/^#.*/d' \
 		> ./.manifest/release.yaml
 
 .PHONY: codegen-manifest-all
-codegen-manifest-all: codegen-manifest-install-latest codegen-manifest-debug codegen-manifest-release ## Create all manifests
+codegen-manifest-all: codegen-manifest-install-latest codegen-manifest-debug ## Create all manifests
 
 .PHONY: codegen-quick
-codegen-quick: codegen-deepcopy-all codegen-crds-all codegen-api-docs codegen-helm-all codegen-manifest-all ## Generate all generated code except client
+codegen-quick: codegen-deepcopy codegen-crds-all codegen-api-docs codegen-helm-all codegen-manifest-all ## Generate all generated code except client
 
 .PHONY: codegen-slow
 codegen-slow: codegen-client-all ## Generate client code
@@ -596,11 +609,11 @@ verify-client: codegen-client-all ## Check client is up to date
 	@git diff --ignore-space-change --quiet --exit-code pkg/clients
 
 .PHONY: verify-deepcopy
-verify-deepcopy: codegen-deepcopy-all ## Check deepcopy functions are up to date
+verify-deepcopy: codegen-deepcopy ## Check deepcopy functions are up to date
 	@echo Checking deepcopy functions are up to date... >&2
 	@git --no-pager diff api
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-deepcopy-all".' >&2
-	@echo 'To correct this, locally run "make codegen-deepcopy-all", commit the changes, and re-run tests.' >&2
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-deepcopy".' >&2
+	@echo 'To correct this, locally run "make codegen-deepcopy", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code api
 
 .PHONY: verify-api-docs
@@ -679,6 +692,7 @@ test-cli: test-cli-policies test-cli-local test-cli-local-mutate test-cli-local-
 
 .PHONY: test-cli-policies
 test-cli-policies: $(CLI_BIN)
+	@echo Testing against branch $(TEST_GIT_BRANCH)...
 	@$(CLI_BIN) test https://github.com/kyverno/policies/$(TEST_GIT_BRANCH)
 
 .PHONY: test-cli-local
@@ -776,12 +790,12 @@ test-perf: $(PACKAGE_SHIM) ## Run perf tests
 
 .PHONY: docker-save-image-all
 docker-save-image-all: $(KIND) image-build-all ## Save docker images in archive
-	docker save 														\
-		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNOPRE_REPO):$(IMAGE_TAG_DEV) 	\
-		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNO_REPO):$(IMAGE_TAG_DEV) 		\
-		$(LOCAL_REGISTRY)/$(LOCAL_CLEANUP_REPO):$(IMAGE_TAG_DEV) 		\
-		$(LOCAL_REGISTRY)/$(LOCAL_REPORTS_REPO):$(IMAGE_TAG_DEV) 		\
-		$(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(IMAGE_TAG_DEV) 	\
+	docker save 												\
+		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNOPRE_REPO):$(GIT_SHA) 	\
+		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNO_REPO):$(GIT_SHA) 		\
+		$(LOCAL_REGISTRY)/$(LOCAL_CLEANUP_REPO):$(GIT_SHA) 		\
+		$(LOCAL_REGISTRY)/$(LOCAL_REPORTS_REPO):$(GIT_SHA) 		\
+		$(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(GIT_SHA) 	\
 	> kyverno.tar
 
 ########
@@ -791,7 +805,7 @@ docker-save-image-all: $(KIND) image-build-all ## Save docker images in archive
 .PHONY: kind-create-cluster
 kind-create-cluster: $(KIND) ## Create kind cluster
 	@echo Create kind cluster... >&2
-	@$(KIND) create cluster --name $(KIND_NAME) --image $(KIND_IMAGE) --config ./scripts/config/kind.yaml
+	@$(KIND) create cluster --name $(KIND_NAME) --image $(KIND_IMAGE) --config ./scripts/config/kind/$(KIND_CONFIG).yaml
 
 .PHONY: kind-delete-cluster
 kind-delete-cluster: $(KIND) ## Delete kind cluster
@@ -801,27 +815,27 @@ kind-delete-cluster: $(KIND) ## Delete kind cluster
 .PHONY: kind-load-kyverno-init
 kind-load-kyverno-init: $(KIND) image-build-kyverno-init ## Build kyvernopre image and load it in kind cluster
 	@echo Load kyvernopre image... >&2
-	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_KYVERNOPRE_REPO):$(IMAGE_TAG_DEV)
+	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_KYVERNOPRE_REPO):$(GIT_SHA)
 
 .PHONY: kind-load-kyverno
 kind-load-kyverno: $(KIND) image-build-kyverno ## Build kyverno image and load it in kind cluster
 	@echo Load kyverno image... >&2
-	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_KYVERNO_REPO):$(IMAGE_TAG_DEV)
+	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_KYVERNO_REPO):$(GIT_SHA)
 
 .PHONY: kind-load-cleanup-controller
 kind-load-cleanup-controller: $(KIND) image-build-cleanup-controller ## Build cleanup controller image and load it in kind cluster
 	@echo Load cleanup controller image... >&2
-	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_CLEANUP_REPO):$(IMAGE_TAG_DEV)
+	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_CLEANUP_REPO):$(GIT_SHA)
 
 .PHONY: kind-load-reports-controller
 kind-load-reports-controller: $(KIND) image-build-reports-controller ## Build reports controller image and load it in kind cluster
 	@echo Load reports controller image... >&2
-	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_REPORTS_REPO):$(IMAGE_TAG_DEV)
+	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_REPORTS_REPO):$(GIT_SHA)
 
 .PHONY: kind-load-background-controller
 kind-load-background-controller: $(KIND) image-build-background-controller ## Build background controller image and load it in kind cluster
 	@echo Load background controller image... >&2
-	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(IMAGE_TAG_DEV)
+	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(GIT_SHA)
 
 .PHONY: kind-load-all
 kind-load-all: kind-load-kyverno-init kind-load-kyverno kind-load-cleanup-controller kind-load-reports-controller kind-load-background-controller ## Build images and load them in kind cluster
@@ -837,30 +851,30 @@ kind-install-kyverno: $(HELM) ## Install kyverno helm chart
 	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
 		--set admissionController.container.image.registry=$(LOCAL_REGISTRY) \
 		--set admissionController.container.image.repository=$(LOCAL_KYVERNO_REPO) \
-		--set admissionController.container.image.tag=$(IMAGE_TAG_DEV) \
+		--set admissionController.container.image.tag=$(GIT_SHA) \
 		--set admissionController.initContainer.image.registry=$(LOCAL_REGISTRY) \
 		--set admissionController.initContainer.image.repository=$(LOCAL_KYVERNOPRE_REPO) \
-		--set admissionController.initContainer.image.tag=$(IMAGE_TAG_DEV) \
+		--set admissionController.initContainer.image.tag=$(GIT_SHA) \
 		--set cleanupController.image.registry=$(LOCAL_REGISTRY) \
 		--set cleanupController.image.repository=$(LOCAL_CLEANUP_REPO) \
-		--set cleanupController.image.tag=$(IMAGE_TAG_DEV) \
+		--set cleanupController.image.tag=$(GIT_SHA) \
 		--set reportsController.image.registry=$(LOCAL_REGISTRY) \
 		--set reportsController.image.repository=$(LOCAL_REPORTS_REPO) \
-		--set reportsController.image.tag=$(IMAGE_TAG_DEV) \
+		--set reportsController.image.tag=$(GIT_SHA) \
 		--set backgroundController.image.registry=$(LOCAL_REGISTRY) \
 		--set backgroundController.image.repository=$(LOCAL_BACKGROUND_REPO) \
-		--set backgroundController.image.tag=$(IMAGE_TAG_DEV) \
-		--values ./scripts/config/$(USE_CONFIG)/kyverno.yaml
+		--set backgroundController.image.tag=$(GIT_SHA) \
+		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno.yaml)
 
 .PHONY: kind-deploy-kyverno
 kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
-	$(MAKE) kind-install-kyverno
+	@$(MAKE) kind-install-kyverno
 
 .PHONY: kind-deploy-kyverno-policies
 kind-deploy-kyverno-policies: $(HELM) ## Deploy kyverno-policies helm chart
 	@echo Install kyverno-policies chart... >&2
 	@$(HELM) upgrade --install kyverno-policies --namespace kyverno --create-namespace --wait ./charts/kyverno-policies \
-		--values ./scripts/config/$(USE_CONFIG)/kyverno-policies.yaml
+		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno-policies.yaml)
 
 .PHONY: kind-deploy-all
 kind-deploy-all: | kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in kind cluster and deploy helm charts
@@ -934,6 +948,17 @@ dev-lab-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 
 .PHONY: dev-lab-all
 dev-lab-all: dev-lab-ingress-ngingx dev-lab-metrics-server dev-lab-prometheus dev-lab-loki dev-lab-tempo ## Deploy all dev lab components
+
+.PHONY: dev-lab-policy-reporter
+dev-lab-policy-reporter: $(HELM) ## Deploy policy-reporter helm chart
+	@echo Install policy-reporter chart... >&2
+	@$(HELM) upgrade --install policy-reporter --namespace policy-reporter --create-namespace --wait \
+		--repo https://kyverno.github.io/policy-reporter policy-reporter \
+		--values ./scripts/config/dev/policy-reporter.yaml
+
+.PHONY: dev-lab-kwok
+dev-lab-kwok: ## Deploy kwok
+	@kubectl apply -k ./scripts/config/kwok
 
 ########
 # HELP #

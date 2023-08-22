@@ -6,7 +6,7 @@ metadata:
 spec:
   generateExisting: false
   rules:
-  - name: super-secret
+  - name: super-configmap
     match:
       any:
       - resources:
@@ -17,14 +17,13 @@ spec:
     generate:
       synchronize: true
       apiVersion: v1
-      kind: Secret
-      name: supersecret
+      kind: ConfigMap
+      name: superconfigmap
       namespace: pol-data-sync-delete-rule
       data:
-        kind: Secret
-        type: Opaque
+        kind: ConfigMap
         metadata:
           labels:
-            somekey: somesecretvalue
+            somekey: somevalue
         data:
-          mysupersecretkey: bXlzdXBlcnNlY3JldHZhbHVl
+          key: superconfigmap

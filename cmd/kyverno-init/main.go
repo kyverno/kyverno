@@ -7,7 +7,6 @@ import (
 	"context"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/kyverno/kyverno/cmd/internal"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -32,6 +31,9 @@ func main() {
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithKubeconfig(),
+		internal.WithKyvernoClient(),
+		internal.WithDynamicClient(),
+		internal.WithKyvernoDynamicClient(),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
@@ -40,15 +42,10 @@ func main() {
 	// start profiling
 	// setup signals
 	// setup maxprocs
-	ctx, logger, _, sdown := internal.Setup("kyverno-init-controller")
+	ctx, setup, sdown := internal.Setup(appConfig, "kyverno-init-controller", false)
 	defer sdown()
-	// create clients
-	kubeClient := internal.CreateKubernetesClient(logger)
-	dynamicClient := internal.CreateDynamicClient(logger)
-	kyvernoClient := internal.CreateKyvernoClient(logger)
-	client := internal.CreateDClient(logger, ctx, dynamicClient, kubeClient, 15*time.Minute)
 	// Exit for unsupported version of kubernetes cluster
-	if !kubeutils.HigherThanKubernetesVersion(kubeClient.Discovery(), logging.GlobalLogger(), 1, 16, 0) {
+	if !kubeutils.HigherThanKubernetesVersion(setup.KubeClient.Discovery(), logging.GlobalLogger(), 1, 16, 0) {
 		os.Exit(1)
 	}
 	requests := []request{
@@ -67,7 +64,7 @@ func main() {
 
 	run := func(context.Context) {
 		name := tls.GenerateRootCASecretName()
-		_, err := kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
+		_, err := setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			logging.V(2).Info("failed to fetch root CA secret", "name", name, "error", err.Error())
 			if !errors.IsNotFound(err) {
@@ -76,7 +73,7 @@ func main() {
 		}
 
 		name = tls.GenerateTLSPairSecretName()
-		_, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
+		_, err = setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			logging.V(2).Info("failed to fetch TLS Pair secret", "name", name, "error", err.Error())
 			if !errors.IsNotFound(err) {
@@ -84,7 +81,7 @@ func main() {
 			}
 		}
 
-		if err = acquireLeader(ctx, kubeClient); err != nil {
+		if err = acquireLeader(ctx, setup.KubeClient); err != nil {
 			logging.V(2).Info("Failed to create lease 'kyvernopre-lock'")
 			os.Exit(1)
 		}
@@ -93,8 +90,8 @@ func main() {
 		in := gen(done, ctx.Done(), requests...)
 		// process requests
 		// processing routine count : 2
-		p1 := process(client, kyvernoClient, done, ctx.Done(), in)
-		p2 := process(client, kyvernoClient, done, ctx.Done(), in)
+		p1 := process(setup.KyvernoDynamicClient, setup.KyvernoClient, done, ctx.Done(), in)
+		p2 := process(setup.KyvernoDynamicClient, setup.KyvernoClient, done, ctx.Done(), in)
 		// merge results from processing routines
 		for err := range merge(done, ctx.Done(), p1, p2) {
 			if err != nil {
@@ -115,14 +112,14 @@ func main() {
 		logging.WithName("kyvernopre/LeaderElection"),
 		"kyvernopre",
 		config.KyvernoNamespace(),
-		kubeClient,
+		setup.KubeClient,
 		config.KyvernoPodName(),
 		leaderelection.DefaultRetryPeriod,
 		run,
 		nil,
 	)
 	if err != nil {
-		logger.Error(err, "failed to elect a leader")
+		setup.Logger.Error(err, "failed to elect a leader")
 		os.Exit(1)
 	}
 

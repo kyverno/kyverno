@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -21,19 +22,14 @@ type Object interface {
 }
 
 func ManageLabels(unstr *unstructured.Unstructured, triggerResource unstructured.Unstructured, policy kyvernov1.PolicyInterface, ruleName string) {
-	// add managedBY label if not defined
 	labels := unstr.GetLabels()
 	if labels == nil {
 		labels = map[string]string{}
 	}
 
-	// handle managedBy label
 	managedBy(labels)
-
 	PolicyInfo(labels, policy, ruleName)
-
-	TriggerInfo(labels, &triggerResource)
-	// update the labels
+	TriggerInfo(labels, triggerResource)
 	unstr.SetLabels(labels)
 }
 
@@ -72,8 +68,8 @@ func GenerateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
 
 func managedBy(labels map[string]string) {
 	// ManagedBy label
-	key := kyvernov1.LabelAppManagedBy
-	value := kyvernov1.ValueKyvernoApp
+	key := kyverno.LabelAppManagedBy
+	value := kyverno.ValueKyvernoApp
 	val, ok := labels[key]
 	if ok {
 		if val != value {
@@ -93,11 +89,16 @@ func PolicyInfo(labels map[string]string, policy kyvernov1.PolicyInterface, rule
 	labels[GenerateRuleLabel] = ruleName
 }
 
-func TriggerInfo(labels map[string]string, obj Object) {
-	labels[GenerateTriggerAPIVersionLabel] = obj.GetAPIVersion()
+func TriggerInfo(labels map[string]string, obj unstructured.Unstructured) {
+	labels[GenerateTriggerVersionLabel] = obj.GroupVersionKind().Version
+	labels[GenerateTriggerGroupLabel] = obj.GroupVersionKind().Group
 	labels[GenerateTriggerKindLabel] = obj.GetKind()
 	labels[GenerateTriggerNSLabel] = obj.GetNamespace()
 	labels[GenerateTriggerNameLabel] = trimByLength(obj.GetName(), 63)
+}
+
+func TagSource(labels map[string]string, obj Object) {
+	labels[GenerateTypeCloneSourceLabel] = ""
 }
 
 func trimByLength(value string, character int) string {
