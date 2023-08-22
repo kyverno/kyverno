@@ -14,6 +14,7 @@ import (
 	kyvernoscheme "github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	"github.com/mholt/archiver"
 	"github.com/spf13/cobra"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/printers"
@@ -29,8 +30,9 @@ type client struct {
 }
 
 type sysdumpConfig struct {
-	includePolicies      bool
-	includePolicyReports bool
+	includePolicies         bool
+	includePolicyReports    bool
+	includePolicyExceptions bool
 }
 
 func Command() *cobra.Command {
@@ -62,8 +64,20 @@ func Command() *cobra.Command {
 				}
 			}
 
+			namespaceList, err := getNamespaceList(clients)
+			if err != nil {
+				return err
+			}
+
 			if sysdumpConfiguration.includePolicyReports {
-				err := exportPolicyReports(clients, dir)
+				err := exportPolicyReports(clients, namespaceList, dir)
+				if err != nil {
+					return err
+				}
+			}
+
+			if sysdumpConfiguration.includePolicyExceptions {
+				err := exportPolicyExceptions(clients, namespaceList, dir)
 				if err != nil {
 					return err
 				}
@@ -78,6 +92,7 @@ func Command() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&sysdumpConfiguration.includePolicies, "include-policies", false, "If set to true, will export clusterpolicies to sysdump archive")
 	cmd.Flags().BoolVar(&sysdumpConfiguration.includePolicyReports, "include-policy-reports", false, "If set to true, will export policy reports to sysdump archive")
+	cmd.Flags().BoolVar(&sysdumpConfiguration.includePolicyExceptions, "include-policy-exceptions", false, "If set to true, will export policy exceptions to sysdump archive")
 	return cmd
 }
 
@@ -102,6 +117,14 @@ func initializeClients(homeDir string) (*client, error) {
 	_ = kyvernoscheme.AddToScheme(scheme.Scheme)
 
 	return &clients, nil
+}
+
+func getNamespaceList(clients *client) (*k8sv1.NamespaceList, error) {
+	namespaceList, err := clients.kubernetesClientSet.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get NamespaceList: %v", err)
+	}
+	return namespaceList, nil
 }
 
 // Create archive at home directory
@@ -152,16 +175,11 @@ func exportClusterPoliciesInfo(clients *client, destination string) error {
 	return nil
 }
 
-func exportPolicyReports(clients *client, destination string) error {
+func exportPolicyReports(clients *client, namespaceList *k8sv1.NamespaceList, destination string) error {
 	destination = filepath.Join(destination, "policy-reports")
 	err := os.Mkdir(destination, 0700)
 	if err != nil {
 		return fmt.Errorf("failed to create policy-reports directory for sysdump: %v", err)
-	}
-
-	namespaceList, err := clients.kubernetesClientSet.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to get NamespaceList: %v", err)
 	}
 
 	for _, namespace := range namespaceList.Items {
@@ -178,6 +196,35 @@ func exportPolicyReports(clients *client, destination string) error {
 
 			fileName := nameSpaceName + "-polr-" + polr.Name
 			if err := writeYaml(path.Join(destination, fileName+".yaml"), polr); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func exportPolicyExceptions(clients *client, namespaceList *k8sv1.NamespaceList, destination string) error {
+	destination = filepath.Join(destination, "policy-exceptions")
+	err := os.Mkdir(destination, 0700)
+	if err != nil {
+		return fmt.Errorf("failed to create policy-exceptions directory for sysdump: %v", err)
+	}
+
+	for _, namespace := range namespaceList.Items {
+		namespaceName := namespace.Name
+		policyExceptionList, err := clients.kyvernoClientSet.KyvernoV2alpha1().PolicyExceptions(namespaceName).List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to get PolicyExceptionList: %v", err)
+		}
+		for _, policyException := range policyExceptionList.Items {
+			polex, err := clients.kyvernoClientSet.KyvernoV2alpha1().PolicyExceptions(namespaceName).Get(context.Background(), policyException.Name, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to get policy exception: %v", err)
+			}
+
+			fileName := namespaceName + "-polex-" + polex.Name
+			if err := writeYaml(path.Join(destination, fileName+".yaml"), polex); err != nil {
 				return err
 			}
 		}
