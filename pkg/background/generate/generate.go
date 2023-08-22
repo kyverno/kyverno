@@ -99,7 +99,7 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 	trigger, err := c.getTrigger(ur.Spec)
 	if err != nil {
 		logger.V(3).Info("the trigger resource does not exist or is pending creation, re-queueing", "details", err.Error())
-		if err := updateRetryAnnotation(c.kyvernoClient, ur); err != nil {
+		if err := common.UpdateRetryAnnotation(c.kyvernoClient, ur); err != nil {
 			return err
 		}
 	}
