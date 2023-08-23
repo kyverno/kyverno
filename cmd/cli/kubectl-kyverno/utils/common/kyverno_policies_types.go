@@ -18,6 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -26,57 +27,9 @@ func ApplyPolicyOnResource(c ApplyPolicyConfig) ([]engineapi.EngineResponse, err
 	jp := jmespath.New(config.NewDefaultConfiguration(false))
 
 	var engineResponses []engineapi.EngineResponse
-	namespaceLabels := make(map[string]string)
-	operation := kyvernov1.Create
-
-	if c.Variables["request.operation"] == "DELETE" {
-		operation = kyvernov1.Delete
-	}
-
-	policyWithNamespaceSelector := false
-OuterLoop:
-	for _, p := range autogen.ComputeRules(c.Policy) {
-		if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
-			p.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
-			policyWithNamespaceSelector = true
-			break
-		}
-		for _, m := range p.MatchResources.Any {
-			if m.ResourceDescription.NamespaceSelector != nil {
-				policyWithNamespaceSelector = true
-				break OuterLoop
-			}
-		}
-		for _, m := range p.MatchResources.All {
-			if m.ResourceDescription.NamespaceSelector != nil {
-				policyWithNamespaceSelector = true
-				break OuterLoop
-			}
-		}
-		for _, e := range p.ExcludeResources.Any {
-			if e.ResourceDescription.NamespaceSelector != nil {
-				policyWithNamespaceSelector = true
-				break OuterLoop
-			}
-		}
-		for _, e := range p.ExcludeResources.All {
-			if e.ResourceDescription.NamespaceSelector != nil {
-				policyWithNamespaceSelector = true
-				break OuterLoop
-			}
-		}
-	}
-
-	if policyWithNamespaceSelector {
-		resourceNamespace := c.Resource.GetNamespace()
-		namespaceLabels = c.NamespaceSelectorMap[c.Resource.GetNamespace()]
-		if resourceNamespace != "default" && len(namespaceLabels) < 1 {
-			return engineResponses, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", c.Resource.GetName()), nil)
-		}
-	}
 
 	resPath := fmt.Sprintf("%s/%s/%s", c.Resource.GetNamespace(), c.Resource.GetKind(), c.Resource.GetName())
-	log.V(3).Info("applying policy on resource", "policy", c.Policy.GetName(), "resource", resPath)
+	// log.V(3).Info("applying policy on resource", "policy", c.Policy.GetName(), "resource", resPath)
 
 	resourceRaw, err := c.Resource.MarshalJSON()
 	if err != nil {
@@ -92,121 +45,25 @@ OuterLoop:
 		log.Error(err, "failed to load resource in context")
 	}
 
-	cfg := config.NewDefaultConfiguration(false)
-	gvk, subresource := updatedResource.GroupVersionKind(), ""
-	// If --cluster flag is not set, then we need to find the top level resource GVK and subresource
-	if c.Client == nil {
-		for _, s := range c.Subresources {
-			subgvk := schema.GroupVersionKind{
-				Group:   s.APIResource.Group,
-				Version: s.APIResource.Version,
-				Kind:    s.APIResource.Kind,
-			}
-			if gvk == subgvk {
-				gvk = schema.GroupVersionKind{
-					Group:   s.ParentResource.Group,
-					Version: s.ParentResource.Version,
-					Kind:    s.ParentResource.Kind,
-				}
-				parts := strings.Split(s.APIResource.Name, "/")
-				subresource = parts[1]
-			}
-		}
-	}
-	rclient := registryclient.NewOrDie()
-	eng := engine.NewEngine(
-		cfg,
-		config.NewDefaultMetricsConfiguration(),
-		jmespath.New(cfg),
-		adapters.Client(c.Client),
-		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
-		imageverifycache.DisabledImageVerifyCache(),
-		store.ContextLoaderFactory(nil),
-		nil,
-		"",
-	)
-	policyContext, err := engine.NewPolicyContext(
-		jp,
-		*updatedResource,
-		operation,
-		&c.UserInfo,
-		cfg,
-	)
+	engRes, err, mutateResponse := ApplyMutatePoliciesOnResource(c, updatedResource, jp, resPath)
 	if err != nil {
-		log.Error(err, "failed to create policy context")
+		log.Error(err, "Apply mutate policies failed")
 	}
-
-	policyContext = policyContext.
-		WithPolicy(c.Policy).
-		WithNamespaceLabels(namespaceLabels).
-		WithResourceKind(gvk, subresource)
-
-	for key, value := range c.Variables {
-		err = policyContext.JSONContext().AddVariable(key, value)
-		if err != nil {
-			log.Error(err, "failed to add variable to context")
-		}
-	}
-
-	mutateResponse := eng.Mutate(context.Background(), policyContext)
-	combineRuleResponses(mutateResponse)
-	engineResponses = append(engineResponses, mutateResponse)
-
-	err = processMutateEngineResponse(c, &mutateResponse, resPath)
+	engineResponses = append(engineResponses, engRes...)
+	engRes, err, verifyResponse := ApplyVerifyPoliciesOnResource(c, &mutateResponse.PatchedResource, jp)
 	if err != nil {
-		if !sanitizederror.IsErrorSanitized(err) {
-			return engineResponses, sanitizederror.NewWithError("failed to print mutated result", err)
-		}
+		log.Error(err, "Apply verify policies failed")
 	}
-
-	verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
-	if !verifyImageResponse.IsEmpty() {
-		verifyImageResponse = combineRuleResponses(verifyImageResponse)
-		engineResponses = append(engineResponses, verifyImageResponse)
+	engineResponses = append(engineResponses, engRes...)
+	engRes, err, validateResponse := ApplyValidatePoliciesOnResource(c, &verifyResponse.PatchedResource, jp)
+	if err != nil {
+		log.Error(err, "Apply validate policies failed")
 	}
-
-	var policyHasValidate bool
-	for _, rule := range autogen.ComputeRules(c.Policy) {
-		if rule.HasValidate() || rule.HasVerifyImageChecks() {
-			policyHasValidate = true
-		}
+	engRes, err, _ = ApplyGeneratePoliciesOnResource(c, &validateResponse.PatchedResource, jp, resPath)
+	if err != nil {
+		log.Error(err, "Apply verify policies failed")
 	}
-
-	policyContext = policyContext.WithNewResource(mutateResponse.PatchedResource)
-
-	var validateResponse engineapi.EngineResponse
-	if policyHasValidate {
-		validateResponse = eng.Validate(context.Background(), policyContext)
-		validateResponse = combineRuleResponses(validateResponse)
-	}
-
-	if !validateResponse.IsEmpty() {
-		engineResponses = append(engineResponses, validateResponse)
-	}
-
-	var policyHasGenerate bool
-	for _, rule := range autogen.ComputeRules(c.Policy) {
-		if rule.HasGenerate() {
-			policyHasGenerate = true
-		}
-	}
-
-	if policyHasGenerate {
-		generateResponse := eng.ApplyBackgroundChecks(context.TODO(), policyContext)
-		if !generateResponse.IsEmpty() {
-			newRuleResponse, err := handleGeneratePolicy(&generateResponse, *policyContext, c.RuleToCloneSourceResource)
-			if err != nil {
-				log.Error(err, "failed to apply generate policy")
-			} else {
-				generateResponse.PolicyResponse.Rules = newRuleResponse
-			}
-			combineRuleResponses(generateResponse)
-			engineResponses = append(engineResponses, generateResponse)
-		}
-		updateResultCounts(c.Policy, &generateResponse, resPath, c.Rc, c.AuditWarn)
-	}
-
-	processEngineResponses(engineResponses, c)
+	engineResponses = append(engineResponses, engRes...)
 
 	return engineResponses, nil
 }
@@ -281,4 +138,524 @@ func combineRuleResponses(imageResponse engineapi.EngineResponse) engineapi.Engi
 	}
 	imageResponse.PolicyResponse.Rules = combineRuleResponses
 	return imageResponse
+}
+
+func ApplyMutatePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstructured.Unstructured, jp jmespath.Interface, resPath string) ([]engineapi.EngineResponse, error, engineapi.EngineResponse) {
+	var mutateResponse engineapi.EngineResponse
+	var engineResponses []engineapi.EngineResponse
+	namespaceLabels := make(map[string]string)
+	operation := kyvernov1.Create
+
+	if c.Variables["request.operation"] == "DELETE" {
+		operation = kyvernov1.Delete
+	}
+
+	policyWithNamespaceSelector := false
+
+	for _, policy := range c.Policies {
+	OuterLoop:
+		for _, p := range autogen.ComputeRules(policy) {
+			if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
+				p.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
+				policyWithNamespaceSelector = true
+				break
+			}
+			for _, m := range p.MatchResources.Any {
+				if m.ResourceDescription.NamespaceSelector != nil {
+					policyWithNamespaceSelector = true
+					break OuterLoop
+				}
+			}
+			for _, m := range p.MatchResources.All {
+				if m.ResourceDescription.NamespaceSelector != nil {
+					policyWithNamespaceSelector = true
+					break OuterLoop
+				}
+			}
+			for _, e := range p.ExcludeResources.Any {
+				if e.ResourceDescription.NamespaceSelector != nil {
+					policyWithNamespaceSelector = true
+					break OuterLoop
+				}
+			}
+			for _, e := range p.ExcludeResources.All {
+				if e.ResourceDescription.NamespaceSelector != nil {
+					policyWithNamespaceSelector = true
+					break OuterLoop
+				}
+			}
+		}
+
+		if policyWithNamespaceSelector {
+			resourceNamespace := c.Resource.GetNamespace()
+			namespaceLabels = c.NamespaceSelectorMap[c.Resource.GetNamespace()]
+			if resourceNamespace != "default" && len(namespaceLabels) < 1 {
+				return engineResponses, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", c.Resource.GetName()), nil), mutateResponse
+			}
+		}
+
+		cfg := config.NewDefaultConfiguration(false)
+		gvk, subresource := updatedResource.GroupVersionKind(), ""
+		// If --cluster flag is not set, then we need to find the top level resource GVK and subresource
+		if c.Client == nil {
+			for _, s := range c.Subresources {
+				subgvk := schema.GroupVersionKind{
+					Group:   s.APIResource.Group,
+					Version: s.APIResource.Version,
+					Kind:    s.APIResource.Kind,
+				}
+				if gvk == subgvk {
+					gvk = schema.GroupVersionKind{
+						Group:   s.ParentResource.Group,
+						Version: s.ParentResource.Version,
+						Kind:    s.ParentResource.Kind,
+					}
+					parts := strings.Split(s.APIResource.Name, "/")
+					subresource = parts[1]
+				}
+			}
+		}
+		rclient := registryclient.NewOrDie()
+		eng := engine.NewEngine(
+			cfg,
+			config.NewDefaultMetricsConfiguration(),
+			jmespath.New(cfg),
+			adapters.Client(c.Client),
+			factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+			imageverifycache.DisabledImageVerifyCache(),
+			store.ContextLoaderFactory(nil),
+			nil,
+			"",
+		)
+		policyContext, err := engine.NewPolicyContext(
+			jp,
+			*updatedResource,
+			operation,
+			&c.UserInfo,
+			cfg,
+		)
+		if err != nil {
+			log.Error(err, "failed to create policy context")
+		}
+
+		policyContext = policyContext.
+			WithPolicy(policy).
+			WithNamespaceLabels(namespaceLabels).
+			WithResourceKind(gvk, subresource)
+
+		for key, value := range c.Variables {
+			err = policyContext.JSONContext().AddVariable(key, value)
+			if err != nil {
+				log.Error(err, "failed to add variable to context")
+			}
+		}
+
+		mutateResponse := eng.Mutate(context.Background(), policyContext)
+		combineRuleResponses(mutateResponse)
+		engineResponses = append(engineResponses, mutateResponse)
+
+		err = processMutateEngineResponse(c, &mutateResponse, resPath)
+		if err != nil {
+			if !sanitizederror.IsErrorSanitized(err) {
+				return engineResponses, sanitizederror.NewWithError("failed to print mutated result", err), mutateResponse
+			}
+		}
+
+		processEngineResponses(engineResponses, c)
+		policyContext = policyContext.WithNewResource(mutateResponse.PatchedResource)
+	}
+
+	return engineResponses, nil, mutateResponse
+}
+
+func ApplyValidatePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstructured.Unstructured, jp jmespath.Interface) ([]engineapi.EngineResponse, error, engineapi.EngineResponse) {
+	var validateResponse engineapi.EngineResponse
+	var engineResponses []engineapi.EngineResponse
+	namespaceLabels := make(map[string]string)
+	operation := kyvernov1.Create
+
+	if c.Variables["request.operation"] == "DELETE" {
+		operation = kyvernov1.Delete
+	}
+
+	policyWithNamespaceSelector := false
+	for _, policy := range c.Policies {
+	OuterLoop:
+		for _, p := range autogen.ComputeRules(policy) {
+			if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
+				p.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
+				policyWithNamespaceSelector = true
+				break
+			}
+			for _, m := range p.MatchResources.Any {
+				if m.ResourceDescription.NamespaceSelector != nil {
+					policyWithNamespaceSelector = true
+					break OuterLoop
+				}
+			}
+			for _, m := range p.MatchResources.All {
+				if m.ResourceDescription.NamespaceSelector != nil {
+					policyWithNamespaceSelector = true
+					break OuterLoop
+				}
+			}
+			for _, e := range p.ExcludeResources.Any {
+				if e.ResourceDescription.NamespaceSelector != nil {
+					policyWithNamespaceSelector = true
+					break OuterLoop
+				}
+			}
+			for _, e := range p.ExcludeResources.All {
+				if e.ResourceDescription.NamespaceSelector != nil {
+					policyWithNamespaceSelector = true
+					break OuterLoop
+				}
+			}
+		}
+
+		if policyWithNamespaceSelector {
+			resourceNamespace := c.Resource.GetNamespace()
+			namespaceLabels = c.NamespaceSelectorMap[c.Resource.GetNamespace()]
+			if resourceNamespace != "default" && len(namespaceLabels) < 1 {
+				return engineResponses, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", c.Resource.GetName()), nil), validateResponse
+			}
+		}
+
+		cfg := config.NewDefaultConfiguration(false)
+		gvk, subresource := updatedResource.GroupVersionKind(), ""
+		// If --cluster flag is not set, then we need to find the top level resource GVK and subresource
+		if c.Client == nil {
+			for _, s := range c.Subresources {
+				subgvk := schema.GroupVersionKind{
+					Group:   s.APIResource.Group,
+					Version: s.APIResource.Version,
+					Kind:    s.APIResource.Kind,
+				}
+				if gvk == subgvk {
+					gvk = schema.GroupVersionKind{
+						Group:   s.ParentResource.Group,
+						Version: s.ParentResource.Version,
+						Kind:    s.ParentResource.Kind,
+					}
+					parts := strings.Split(s.APIResource.Name, "/")
+					subresource = parts[1]
+				}
+			}
+		}
+		rclient := registryclient.NewOrDie()
+		eng := engine.NewEngine(
+			cfg,
+			config.NewDefaultMetricsConfiguration(),
+			jmespath.New(cfg),
+			adapters.Client(c.Client),
+			factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+			imageverifycache.DisabledImageVerifyCache(),
+			store.ContextLoaderFactory(nil),
+			nil,
+			"",
+		)
+		policyContext, err := engine.NewPolicyContext(
+			jp,
+			*updatedResource,
+			operation,
+			&c.UserInfo,
+			cfg,
+		)
+		if err != nil {
+			log.Error(err, "failed to create policy context")
+		}
+
+		policyContext = policyContext.
+			WithPolicy(policy).
+			WithNamespaceLabels(namespaceLabels).
+			WithResourceKind(gvk, subresource)
+
+		for key, value := range c.Variables {
+			err = policyContext.JSONContext().AddVariable(key, value)
+			if err != nil {
+				log.Error(err, "failed to add variable to context")
+			}
+		}
+
+		var policyHasValidate bool
+		for _, rule := range autogen.ComputeRules(policy) {
+			if rule.HasValidate() || rule.HasVerifyImageChecks() {
+				policyHasValidate = true
+			}
+		}
+
+		policyContext = policyContext.WithNewResource(*updatedResource)
+
+		if policyHasValidate {
+			validateResponse = eng.Validate(context.Background(), policyContext)
+			validateResponse = combineRuleResponses(validateResponse)
+		}
+
+		if !validateResponse.IsEmpty() {
+			engineResponses = append(engineResponses, validateResponse)
+		}
+
+		processEngineResponses(engineResponses, c)
+	}
+
+	return engineResponses, nil, validateResponse
+}
+
+func ApplyVerifyPoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstructured.Unstructured, jp jmespath.Interface) ([]engineapi.EngineResponse, error, engineapi.EngineResponse) {
+	var verifyImageResponse engineapi.EngineResponse
+	var engineResponses []engineapi.EngineResponse
+	namespaceLabels := make(map[string]string)
+	operation := kyvernov1.Create
+
+	if c.Variables["request.operation"] == "DELETE" {
+		operation = kyvernov1.Delete
+	}
+
+	policyWithNamespaceSelector := false
+	for _, policy := range c.Policies {
+	OuterLoop:
+		for _, p := range autogen.ComputeRules(policy) {
+			if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
+				p.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
+				policyWithNamespaceSelector = true
+				break
+			}
+			for _, m := range p.MatchResources.Any {
+				if m.ResourceDescription.NamespaceSelector != nil {
+					policyWithNamespaceSelector = true
+					break OuterLoop
+				}
+			}
+			for _, m := range p.MatchResources.All {
+				if m.ResourceDescription.NamespaceSelector != nil {
+					policyWithNamespaceSelector = true
+					break OuterLoop
+				}
+			}
+			for _, e := range p.ExcludeResources.Any {
+				if e.ResourceDescription.NamespaceSelector != nil {
+					policyWithNamespaceSelector = true
+					break OuterLoop
+				}
+			}
+			for _, e := range p.ExcludeResources.All {
+				if e.ResourceDescription.NamespaceSelector != nil {
+					policyWithNamespaceSelector = true
+					break OuterLoop
+				}
+			}
+		}
+
+		if policyWithNamespaceSelector {
+			resourceNamespace := c.Resource.GetNamespace()
+			namespaceLabels = c.NamespaceSelectorMap[c.Resource.GetNamespace()]
+			if resourceNamespace != "default" && len(namespaceLabels) < 1 {
+				return engineResponses, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", c.Resource.GetName()), nil), verifyImageResponse
+			}
+		}
+
+		cfg := config.NewDefaultConfiguration(false)
+		gvk, subresource := updatedResource.GroupVersionKind(), ""
+		// If --cluster flag is not set, then we need to find the top level resource GVK and subresource
+		if c.Client == nil {
+			for _, s := range c.Subresources {
+				subgvk := schema.GroupVersionKind{
+					Group:   s.APIResource.Group,
+					Version: s.APIResource.Version,
+					Kind:    s.APIResource.Kind,
+				}
+				if gvk == subgvk {
+					gvk = schema.GroupVersionKind{
+						Group:   s.ParentResource.Group,
+						Version: s.ParentResource.Version,
+						Kind:    s.ParentResource.Kind,
+					}
+					parts := strings.Split(s.APIResource.Name, "/")
+					subresource = parts[1]
+				}
+			}
+		}
+		rclient := registryclient.NewOrDie()
+		eng := engine.NewEngine(
+			cfg,
+			config.NewDefaultMetricsConfiguration(),
+			jmespath.New(cfg),
+			adapters.Client(c.Client),
+			factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+			imageverifycache.DisabledImageVerifyCache(),
+			store.ContextLoaderFactory(nil),
+			nil,
+			"",
+		)
+		policyContext, err := engine.NewPolicyContext(
+			jp,
+			*updatedResource,
+			operation,
+			&c.UserInfo,
+			cfg,
+		)
+		if err != nil {
+			log.Error(err, "failed to create policy context")
+		}
+
+		policyContext = policyContext.
+			WithPolicy(policy).
+			WithNamespaceLabels(namespaceLabels).
+			WithResourceKind(gvk, subresource)
+
+		for key, value := range c.Variables {
+			err = policyContext.JSONContext().AddVariable(key, value)
+			if err != nil {
+				log.Error(err, "failed to add variable to context")
+			}
+		}
+
+		verifyImageResponse, _ = eng.VerifyAndPatchImages(context.TODO(), policyContext)
+		if !verifyImageResponse.IsEmpty() {
+			verifyImageResponse = combineRuleResponses(verifyImageResponse)
+			engineResponses = append(engineResponses, verifyImageResponse)
+		}
+
+		processEngineResponses(engineResponses, c)
+	}
+
+	return engineResponses, nil, verifyImageResponse
+}
+
+func ApplyGeneratePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstructured.Unstructured, jp jmespath.Interface, resPath string) ([]engineapi.EngineResponse, error, engineapi.EngineResponse) {
+	var generateResponse engineapi.EngineResponse
+	var engineResponses []engineapi.EngineResponse
+	namespaceLabels := make(map[string]string)
+	operation := kyvernov1.Create
+
+	if c.Variables["request.operation"] == "DELETE" {
+		operation = kyvernov1.Delete
+	}
+
+	policyWithNamespaceSelector := false
+	for _, policy := range c.Policies {
+	OuterLoop:
+		for _, p := range autogen.ComputeRules(policy) {
+			if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
+				p.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
+				policyWithNamespaceSelector = true
+				break
+			}
+			for _, m := range p.MatchResources.Any {
+				if m.ResourceDescription.NamespaceSelector != nil {
+					policyWithNamespaceSelector = true
+					break OuterLoop
+				}
+			}
+			for _, m := range p.MatchResources.All {
+				if m.ResourceDescription.NamespaceSelector != nil {
+					policyWithNamespaceSelector = true
+					break OuterLoop
+				}
+			}
+			for _, e := range p.ExcludeResources.Any {
+				if e.ResourceDescription.NamespaceSelector != nil {
+					policyWithNamespaceSelector = true
+					break OuterLoop
+				}
+			}
+			for _, e := range p.ExcludeResources.All {
+				if e.ResourceDescription.NamespaceSelector != nil {
+					policyWithNamespaceSelector = true
+					break OuterLoop
+				}
+			}
+		}
+
+		if policyWithNamespaceSelector {
+			resourceNamespace := c.Resource.GetNamespace()
+			namespaceLabels = c.NamespaceSelectorMap[c.Resource.GetNamespace()]
+			if resourceNamespace != "default" && len(namespaceLabels) < 1 {
+				return engineResponses, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", c.Resource.GetName()), nil), generateResponse
+			}
+		}
+
+		cfg := config.NewDefaultConfiguration(false)
+		gvk, subresource := updatedResource.GroupVersionKind(), ""
+		// If --cluster flag is not set, then we need to find the top level resource GVK and subresource
+		if c.Client == nil {
+			for _, s := range c.Subresources {
+				subgvk := schema.GroupVersionKind{
+					Group:   s.APIResource.Group,
+					Version: s.APIResource.Version,
+					Kind:    s.APIResource.Kind,
+				}
+				if gvk == subgvk {
+					gvk = schema.GroupVersionKind{
+						Group:   s.ParentResource.Group,
+						Version: s.ParentResource.Version,
+						Kind:    s.ParentResource.Kind,
+					}
+					parts := strings.Split(s.APIResource.Name, "/")
+					subresource = parts[1]
+				}
+			}
+		}
+		rclient := registryclient.NewOrDie()
+		eng := engine.NewEngine(
+			cfg,
+			config.NewDefaultMetricsConfiguration(),
+			jmespath.New(cfg),
+			adapters.Client(c.Client),
+			factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+			imageverifycache.DisabledImageVerifyCache(),
+			store.ContextLoaderFactory(nil),
+			nil,
+			"",
+		)
+		policyContext, err := engine.NewPolicyContext(
+			jp,
+			*updatedResource,
+			operation,
+			&c.UserInfo,
+			cfg,
+		)
+		if err != nil {
+			log.Error(err, "failed to create policy context")
+		}
+
+		policyContext = policyContext.
+			WithPolicy(policy).
+			WithNamespaceLabels(namespaceLabels).
+			WithResourceKind(gvk, subresource)
+
+		for key, value := range c.Variables {
+			err = policyContext.JSONContext().AddVariable(key, value)
+			if err != nil {
+				log.Error(err, "failed to add variable to context")
+			}
+		}
+
+		var policyHasGenerate bool
+		for _, rule := range autogen.ComputeRules(policy) {
+			if rule.HasGenerate() {
+				policyHasGenerate = true
+			}
+		}
+
+		if policyHasGenerate {
+			generateResponse = eng.ApplyBackgroundChecks(context.TODO(), policyContext)
+			if !generateResponse.IsEmpty() {
+				newRuleResponse, err := handleGeneratePolicy(&generateResponse, *policyContext, c.RuleToCloneSourceResource)
+				if err != nil {
+					log.Error(err, "failed to apply generate policy")
+				} else {
+					generateResponse.PolicyResponse.Rules = newRuleResponse
+				}
+				combineRuleResponses(generateResponse)
+				engineResponses = append(engineResponses, generateResponse)
+			}
+			updateResultCounts(policy, &generateResponse, resPath, c.Rc, c.AuditWarn)
+		}
+
+		processEngineResponses(engineResponses, c)
+
+	}
+
+	return engineResponses, nil, generateResponse
 }

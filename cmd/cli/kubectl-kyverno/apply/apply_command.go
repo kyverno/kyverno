@@ -305,7 +305,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, 
 		policyRulesCount += len(validatingAdmissionPolicies)
 		fmt.Printf("\nApplying %d policy rule(s) to %d resource(s)...\n", policyRulesCount, len(resources))
 	}
-
+	//loop policy - add polices - []policies
 	var rc common.ResultCounts
 	var responses []engineapi.EngineResponse
 	for _, resource := range resources {
@@ -338,7 +338,8 @@ func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, 
 				return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.GetName(), resource.GetName()), err)
 			}
 			applyPolicyConfig := common.ApplyPolicyConfig{
-				Policy:               policy,
+				Policies: policies,
+				// policies = []policy
 				Resource:             resource,
 				MutateLogPath:        c.MutateLogPath,
 				MutateLogPathIsDir:   mutateLogPathIsDir,
@@ -353,7 +354,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, 
 				AuditWarn:            c.AuditWarn,
 				Subresources:         subresources,
 			}
-			ers, err := common.ApplyPolicyOnResource(applyPolicyConfig)
+			ers, err := common.ApplyPolicyOnResource(applyPolicyConfig) //ApplyPoliciesOnResource
 			if err != nil {
 				return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}

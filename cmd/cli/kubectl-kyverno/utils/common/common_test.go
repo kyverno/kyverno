@@ -101,7 +101,7 @@ func Test_NamespaceSelector(t *testing.T) {
 		policyArray, _, _ := yamlutils.GetPolicy(tc.policy)
 		resourceArray, _ := GetResource(tc.resource)
 		applyPolicyConfig := ApplyPolicyConfig{
-			Policy:               policyArray[0],
+			Policies:             policyArray,
 			Resource:             resourceArray[0],
 			MutateLogPath:        "",
 			UserInfo:             v1beta1.RequestInfo{},

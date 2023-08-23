@@ -216,7 +216,7 @@ func applyPoliciesFromPath(
 				return nil, nil, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.GetName(), resource.GetName()), err)
 			}
 			applyPolicyConfig := common.ApplyPolicyConfig{
-				Policy:                    policy,
+				Policies:                  policies,
 				Resource:                  resource,
 				MutateLogPath:             "",
 				Variables:                 thisPolicyResourceValues,

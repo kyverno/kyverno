@@ -52,7 +52,7 @@ type ResultCounts struct {
 }
 
 type ApplyPolicyConfig struct {
-	Policy                    kyvernov1.PolicyInterface
+	Policies                  []kyvernov1.PolicyInterface
 	ValidatingAdmissionPolicy v1alpha1.ValidatingAdmissionPolicy
 	Resource                  *unstructured.Unstructured
 	MutateLogPath             string
@@ -531,72 +531,74 @@ func SetInStoreContext(mutatedPolicies []kyvernov1.PolicyInterface, variables ma
 }
 
 func processMutateEngineResponse(c ApplyPolicyConfig, mutateResponse *engineapi.EngineResponse, resPath string) error {
-	var policyHasMutate bool
-	for _, rule := range autogen.ComputeRules(c.Policy) {
-		if rule.HasMutate() {
-			policyHasMutate = true
+	for _, policy := range c.Policies {
+		var policyHasMutate bool
+		for _, rule := range autogen.ComputeRules(policy) {
+			if rule.HasMutate() {
+				policyHasMutate = true
+			}
 		}
-	}
-	if !policyHasMutate {
-		return nil
-	}
+		if !policyHasMutate {
+			return nil
+		}
 
-	printCount := 0
-	printMutatedRes := false
-	for _, policyRule := range autogen.ComputeRules(c.Policy) {
-		ruleFoundInEngineResponse := false
-		for i, mutateResponseRule := range mutateResponse.PolicyResponse.Rules {
-			if policyRule.Name == mutateResponseRule.Name() {
-				ruleFoundInEngineResponse = true
-				if mutateResponseRule.Status() == engineapi.RuleStatusPass {
-					c.Rc.Pass++
-					printMutatedRes = true
-				} else if mutateResponseRule.Status() == engineapi.RuleStatusSkip {
-					fmt.Printf("\nskipped mutate policy %s -> resource %s", c.Policy.GetName(), resPath)
-					c.Rc.Skip++
-				} else if mutateResponseRule.Status() == engineapi.RuleStatusError {
-					fmt.Printf("\nerror while applying mutate policy %s -> resource %s\nerror: %s", c.Policy.GetName(), resPath, mutateResponseRule.Message())
-					c.Rc.Error++
-				} else {
-					if printCount < 1 {
-						fmt.Printf("\nfailed to apply mutate policy %s -> resource %s", c.Policy.GetName(), resPath)
-						printCount++
+		printCount := 0
+		printMutatedRes := false
+		for _, policyRule := range autogen.ComputeRules(policy) {
+			ruleFoundInEngineResponse := false
+			for i, mutateResponseRule := range mutateResponse.PolicyResponse.Rules {
+				if policyRule.Name == mutateResponseRule.Name() {
+					ruleFoundInEngineResponse = true
+					if mutateResponseRule.Status() == engineapi.RuleStatusPass {
+						c.Rc.Pass++
+						printMutatedRes = true
+					} else if mutateResponseRule.Status() == engineapi.RuleStatusSkip {
+						fmt.Printf("\nskipped mutate policy %s -> resource %s", policy.GetName(), resPath)
+						c.Rc.Skip++
+					} else if mutateResponseRule.Status() == engineapi.RuleStatusError {
+						fmt.Printf("\nerror while applying mutate policy %s -> resource %s\nerror: %s", policy.GetName(), resPath, mutateResponseRule.Message())
+						c.Rc.Error++
+					} else {
+						if printCount < 1 {
+							fmt.Printf("\nfailed to apply mutate policy %s -> resource %s", policy.GetName(), resPath)
+							printCount++
+						}
+						fmt.Printf("%d. %s - %s \n", i+1, mutateResponseRule.Name(), mutateResponseRule.Message())
+						c.Rc.Fail++
 					}
-					fmt.Printf("%d. %s - %s \n", i+1, mutateResponseRule.Name(), mutateResponseRule.Message())
-					c.Rc.Fail++
+					continue
 				}
-				continue
+			}
+			if !ruleFoundInEngineResponse {
+				c.Rc.Skip++
 			}
 		}
-		if !ruleFoundInEngineResponse {
-			c.Rc.Skip++
-		}
-	}
 
-	if printMutatedRes && c.PrintPatchResource {
-		yamlEncodedResource, err := yamlv2.Marshal(mutateResponse.PatchedResource.Object)
-		if err != nil {
-			return sanitizederror.NewWithError("failed to marshal", err)
-		}
-
-		if c.MutateLogPath == "" {
-			mutatedResource := string(yamlEncodedResource) + string("\n---")
-			if len(strings.TrimSpace(mutatedResource)) > 0 {
-				if !c.Stdin {
-					fmt.Printf("\nmutate policy %s applied to %s:", c.Policy.GetName(), resPath)
-				}
-				fmt.Printf("\n" + mutatedResource + "\n")
-			}
-		} else {
-			err := PrintMutatedOutput(c.MutateLogPath, c.MutateLogPathIsDir, string(yamlEncodedResource), c.Resource.GetName()+"-mutated")
+		if printMutatedRes && c.PrintPatchResource {
+			yamlEncodedResource, err := yamlv2.Marshal(mutateResponse.PatchedResource.Object)
 			if err != nil {
-				return sanitizederror.NewWithError("failed to print mutated result", err)
+				return sanitizederror.NewWithError("failed to marshal", err)
 			}
-			fmt.Printf("\n\nMutation:\nMutation has been applied successfully. Check the files.")
+
+			if c.MutateLogPath == "" {
+				mutatedResource := string(yamlEncodedResource) + string("\n---")
+				if len(strings.TrimSpace(mutatedResource)) > 0 {
+					if !c.Stdin {
+						fmt.Printf("\nmutate policy %s applied to %s:", policy.GetName(), resPath)
+					}
+					fmt.Printf("\n" + mutatedResource + "\n")
+				}
+			} else {
+				err := PrintMutatedOutput(c.MutateLogPath, c.MutateLogPathIsDir, string(yamlEncodedResource), c.Resource.GetName()+"-mutated")
+				if err != nil {
+					return sanitizederror.NewWithError("failed to print mutated result", err)
+				}
+				fmt.Printf("\n\nMutation:\nMutation has been applied successfully. Check the files.")
+			}
 		}
 	}
-
 	return nil
+
 }
 
 func CheckVariableForPolicy(valuesMap map[string]map[string]values.Resource, globalValMap map[string]string, policyName string, resourceName string, resourceKind string, variables map[string]string, kindOnwhichPolicyIsApplied map[string]struct{}, variable string) (map[string]interface{}, error) {
@@ -879,43 +881,45 @@ func GetGitBranchOrPolicyPaths(gitBranch, repoURL string, policyPaths []string) 
 }
 
 func processEngineResponses(responses []engineapi.EngineResponse, c ApplyPolicyConfig) {
-	for _, response := range responses {
-		if !response.IsEmpty() {
-			pol := response.Policy()
-			if polType := pol.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
-				return
-			}
-			for _, rule := range autogen.ComputeRules(pol.GetPolicy().(kyvernov1.PolicyInterface)) {
-				if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
-					ruleFoundInEngineResponse := false
-					for _, valResponseRule := range response.PolicyResponse.Rules {
-						if rule.Name == valResponseRule.Name() {
-							ruleFoundInEngineResponse = true
-							switch valResponseRule.Status() {
-							case engineapi.RuleStatusPass:
-								c.Rc.Pass++
-							case engineapi.RuleStatusFail:
-								ann := c.Policy.GetAnnotations()
-								if scored, ok := ann[kyverno.AnnotationPolicyScored]; ok && scored == "false" {
+	for _, policy := range c.Policies {
+		for _, response := range responses {
+			if !response.IsEmpty() {
+				pol := response.Policy()
+				if polType := pol.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
+					return
+				}
+				for _, rule := range autogen.ComputeRules(pol.GetPolicy().(kyvernov1.PolicyInterface)) {
+					if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
+						ruleFoundInEngineResponse := false
+						for _, valResponseRule := range response.PolicyResponse.Rules {
+							if rule.Name == valResponseRule.Name() {
+								ruleFoundInEngineResponse = true
+								switch valResponseRule.Status() {
+								case engineapi.RuleStatusPass:
+									c.Rc.Pass++
+								case engineapi.RuleStatusFail:
+									ann := policy.GetAnnotations()
+									if scored, ok := ann[kyverno.AnnotationPolicyScored]; ok && scored == "false" {
+										c.Rc.Warn++
+										break
+									} else if c.AuditWarn && response.GetValidationFailureAction().Audit() {
+										c.Rc.Warn++
+									} else {
+										c.Rc.Fail++
+									}
+								case engineapi.RuleStatusError:
+									c.Rc.Error++
+								case engineapi.RuleStatusWarn:
 									c.Rc.Warn++
-									break
-								} else if c.AuditWarn && response.GetValidationFailureAction().Audit() {
-									c.Rc.Warn++
-								} else {
-									c.Rc.Fail++
+								case engineapi.RuleStatusSkip:
+									c.Rc.Skip++
 								}
-							case engineapi.RuleStatusError:
-								c.Rc.Error++
-							case engineapi.RuleStatusWarn:
-								c.Rc.Warn++
-							case engineapi.RuleStatusSkip:
-								c.Rc.Skip++
+								continue
 							}
-							continue
 						}
-					}
-					if !ruleFoundInEngineResponse {
-						c.Rc.Skip++
+						if !ruleFoundInEngineResponse {
+							c.Rc.Skip++
+						}
 					}
 				}
 			}
