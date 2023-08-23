@@ -715,10 +715,6 @@ test-cli-test-case-selector-flag: $(CLI_BIN)
 test-cli-registry: $(CLI_BIN)
 	@$(CLI_BIN) test ./test/cli/registry --registry
 
-.PHONY: test-cli-registry
-test-cli-registry: $(CLI_BIN)
-	@$(CLI_BIN) test ./test/cli/registry --registry
-
 .PHONY: test-cli-scenarios-to-cli
 test-cli-scenarios-to-cli: $(CLI_BIN)
 	@$(CLI_BIN) test ./test/cli/scenarios_to_cli --registry
