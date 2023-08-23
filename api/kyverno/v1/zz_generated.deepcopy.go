@@ -238,6 +238,11 @@ func (in *CEL) DeepCopyInto(out *CEL) {
 		*out = make([]v1alpha1.AuditAnnotation, len(*in))
 		copy(*out, *in)
 	}
+	if in.Variables != nil {
+		in, out := &in.Variables, &out.Variables
+		*out = make([]v1alpha1.Variable, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

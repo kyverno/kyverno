@@ -2698,6 +2698,35 @@ spec:
                                   x-kubernetes-map-type: atomic
                               type: object
                               x-kubernetes-map-type: atomic
+                            variables:
+                              description: Variables contain definitions of variables
+                                that can be used in composition of other expressions.
+                                Each variable is defined as a named CEL expression.
+                                The variables defined here will be available under
+                                `variables` in other expressions of the policy.
+                              items:
+                                description: Variable is the definition of a variable
+                                  that is used for composition.
+                                properties:
+                                  expression:
+                                    description: Expression is the expression that
+                                      will be evaluated as the value of the variable.
+                                      The CEL expression has access to the same identifiers
+                                      as the CEL expressions in Validation.
+                                    type: string
+                                  name:
+                                    description: Name is the name of the variable.
+                                      The name must be a valid CEL identifier and
+                                      unique among all variables. The variable can
+                                      be accessed in other expressions through `variables`
+                                      For example, if name is "foo", the variable
+                                      will be available as `variables.foo`
+                                    type: string
+                                required:
+                                - expression
+                                - name
+                                type: object
+                              type: array
                           type: object
                         deny:
                           description: Deny defines conditions used to pass or fail
@@ -7010,6 +7039,36 @@ spec:
                                       x-kubernetes-map-type: atomic
                                   type: object
                                   x-kubernetes-map-type: atomic
+                                variables:
+                                  description: Variables contain definitions of variables
+                                    that can be used in composition of other expressions.
+                                    Each variable is defined as a named CEL expression.
+                                    The variables defined here will be available under
+                                    `variables` in other expressions of the policy.
+                                  items:
+                                    description: Variable is the definition of a variable
+                                      that is used for composition.
+                                    properties:
+                                      expression:
+                                        description: Expression is the expression
+                                          that will be evaluated as the value of the
+                                          variable. The CEL expression has access
+                                          to the same identifiers as the CEL expressions
+                                          in Validation.
+                                        type: string
+                                      name:
+                                        description: Name is the name of the variable.
+                                          The name must be a valid CEL identifier
+                                          and unique among all variables. The variable
+                                          can be accessed in other expressions through
+                                          `variables` For example, if name is "foo",
+                                          the variable will be available as `variables.foo`
+                                        type: string
+                                    required:
+                                    - expression
+                                    - name
+                                    type: object
+                                  type: array
                               type: object
                             deny:
                               description: Deny defines conditions used to pass or
@@ -11040,6 +11099,35 @@ spec:
                                   x-kubernetes-map-type: atomic
                               type: object
                               x-kubernetes-map-type: atomic
+                            variables:
+                              description: Variables contain definitions of variables
+                                that can be used in composition of other expressions.
+                                Each variable is defined as a named CEL expression.
+                                The variables defined here will be available under
+                                `variables` in other expressions of the policy.
+                              items:
+                                description: Variable is the definition of a variable
+                                  that is used for composition.
+                                properties:
+                                  expression:
+                                    description: Expression is the expression that
+                                      will be evaluated as the value of the variable.
+                                      The CEL expression has access to the same identifiers
+                                      as the CEL expressions in Validation.
+                                    type: string
+                                  name:
+                                    description: Name is the name of the variable.
+                                      The name must be a valid CEL identifier and
+                                      unique among all variables. The variable can
+                                      be accessed in other expressions through `variables`
+                                      For example, if name is "foo", the variable
+                                      will be available as `variables.foo`
+                                    type: string
+                                required:
+                                - expression
+                                - name
+                                type: object
+                              type: array
                           type: object
                         deny:
                           description: Deny defines conditions used to pass or fail
@@ -15406,6 +15494,36 @@ spec:
                                       x-kubernetes-map-type: atomic
                                   type: object
                                   x-kubernetes-map-type: atomic
+                                variables:
+                                  description: Variables contain definitions of variables
+                                    that can be used in composition of other expressions.
+                                    Each variable is defined as a named CEL expression.
+                                    The variables defined here will be available under
+                                    `variables` in other expressions of the policy.
+                                  items:
+                                    description: Variable is the definition of a variable
+                                      that is used for composition.
+                                    properties:
+                                      expression:
+                                        description: Expression is the expression
+                                          that will be evaluated as the value of the
+                                          variable. The CEL expression has access
+                                          to the same identifiers as the CEL expressions
+                                          in Validation.
+                                        type: string
+                                      name:
+                                        description: Name is the name of the variable.
+                                          The name must be a valid CEL identifier
+                                          and unique among all variables. The variable
+                                          can be accessed in other expressions through
+                                          `variables` For example, if name is "foo",
+                                          the variable will be available as `variables.foo`
+                                        type: string
+                                    required:
+                                    - expression
+                                    - name
+                                    type: object
+                                  type: array
                               type: object
                             deny:
                               description: Deny defines conditions used to pass or
