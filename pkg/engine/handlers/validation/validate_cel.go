@@ -77,7 +77,7 @@ func (h validateCELHandler) Process(
 	auditExpressions := convertAuditAnnotations(auditAnnotations)
 
 	// get the parameter resource if exists
-	if hasParam {
+	if hasParam && h.client != nil {
 		paramKind := rule.Validation.CEL.GetParamKind()
 		paramRef := rule.Validation.CEL.GetParamRef()
 
@@ -122,7 +122,7 @@ func (h validateCELHandler) Process(
 	if gvk.Kind == "Namespace" && gvk.Version == "v1" && gvk.Group == "" {
 		namespaceName = ""
 	}
-	if namespaceName != "" {
+	if namespaceName != "" && h.client != nil {
 		namespace, err = h.client.GetNamespace(ctx, namespaceName, metav1.GetOptions{})
 		if err != nil {
 			return resource, handlers.WithResponses(
