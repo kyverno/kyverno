@@ -951,6 +951,13 @@ func testImageVerifyCache(
 	)
 }
 
+func errorAssertionUtil(t *testing.T, image string, ivm engineapi.ImageVerificationMetadata, er engineapi.EngineResponse) {
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+	assert.Equal(t, ivm.IsEmpty(), false)
+	assert.Equal(t, ivm.IsVerified(image), true)
+}
+
 var testUpdatedPolicyGood = `{
 	"apiVersion": "kyverno.io/v1",
 	"kind": "ClusterPolicy",
@@ -1027,26 +1034,19 @@ func Test_ImageVerifyCacheCosign(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext := buildContext(t, testPolicyGood, testResource, "")
-
-	err = cosign.SetMock("ghcr.io/jimbugwadia/pause2:latest", attestationPayloads)
+	image := "ghcr.io/jimbugwadia/pause2:latest"
+	err = cosign.SetMock(image, attestationPayloads)
 	assert.NilError(t, err)
 
 	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	fmt.Println("Time taken by the first operation : ", time.Since(start))
-	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
-	assert.Equal(t, ivm.IsEmpty(), false)
-	assert.Equal(t, ivm.IsVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
+	errorAssertionUtil(t, image, ivm, er)
 
 	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	fmt.Println("Time taken by the second operation : ", time.Since(start))
-
-	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
-	assert.Equal(t, ivm.IsEmpty(), false)
-	assert.Equal(t, ivm.IsVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
+	errorAssertionUtil(t, image, ivm, er)
 }
 
 func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
@@ -1060,27 +1060,21 @@ func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext := buildContext(t, testPolicyGood, testResource, "")
-
-	err = cosign.SetMock("ghcr.io/jimbugwadia/pause2:latest", attestationPayloads)
+	image := "ghcr.io/jimbugwadia/pause2:latest"
+	err = cosign.SetMock(image, attestationPayloads)
 	assert.NilError(t, err)
 
 	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	fmt.Println("Time taken by the first operation : ", time.Since(start))
-
-	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
-	assert.Equal(t, ivm.IsEmpty(), false)
-	assert.Equal(t, ivm.IsVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
+	errorAssertionUtil(t, image, ivm, er)
 
 	time.Sleep(5 * time.Second)
+
 	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	fmt.Println("Time taken by the second operation : ", time.Since(start))
-	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
-	assert.Equal(t, ivm.IsEmpty(), false)
-	assert.Equal(t, ivm.IsVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
+	errorAssertionUtil(t, image, ivm, er)
 }
 
 func Test_changePolicyCacheVerificationCosign(t *testing.T) {
@@ -1093,29 +1087,21 @@ func Test_changePolicyCacheVerificationCosign(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext := buildContext(t, testPolicyGood, testResource, "")
-
-	err = cosign.SetMock("ghcr.io/jimbugwadia/pause2:latest", attestationPayloads)
+	image := "ghcr.io/jimbugwadia/pause2:latest"
+	err = cosign.SetMock(image, attestationPayloads)
 	assert.NilError(t, err)
 
 	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	fmt.Println("Time taken by the first operation : ", time.Since(start))
-
-	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
-	assert.Equal(t, ivm.IsEmpty(), false)
-	assert.Equal(t, ivm.IsVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
+	errorAssertionUtil(t, image, ivm, er)
 
 	policyContext = buildContext(t, testUpdatedPolicyGood, testResource, "")
 
 	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	fmt.Println("Time taken by the second operation : ", time.Since(start))
-
-	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
-	assert.Equal(t, ivm.IsEmpty(), false)
-	assert.Equal(t, ivm.IsVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
+	errorAssertionUtil(t, image, ivm, er)
 }
 
 var verifyImageNotaryPolicy = `{
@@ -1250,24 +1236,17 @@ func Test_ImageVerifyCacheNotary(t *testing.T) {
 	}
 	imageVerifyCache, err := imageverifycache.New(opts...)
 	assert.NilError(t, err)
-
+	image := "ghcr.io/kyverno/test-verify-image:signed"
 	policyContext := buildContext(t, verifyImageNotaryPolicy, verifyImageNotaryResource, "")
 	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	fmt.Println("Time taken by the first operation : ", time.Since(start))
+	errorAssertionUtil(t, image, ivm, er)
 
-	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
-	assert.Equal(t, ivm.IsEmpty(), false)
-	assert.Equal(t, ivm.IsVerified("ghcr.io/kyverno/test-verify-image:signed"), true)
 	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	fmt.Println("Time taken by the second operation : ", time.Since(start))
-
-	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
-	assert.Equal(t, ivm.IsEmpty(), false)
-	assert.Equal(t, ivm.IsVerified("ghcr.io/kyverno/test-verify-image:signed"), true)
+	errorAssertionUtil(t, image, ivm, er)
 }
 
 func Test_ImageVerifyCacheExpiredNotary(t *testing.T) {
@@ -1279,6 +1258,7 @@ func Test_ImageVerifyCacheExpiredNotary(t *testing.T) {
 	}
 	imageVerifyCache, err := imageverifycache.New(opts...)
 	assert.NilError(t, err)
+	image := "ghcr.io/kyverno/test-verify-image:signed"
 
 	policyContext := buildContext(t, verifyImageNotaryPolicy, verifyImageNotaryResource, "")
 
@@ -1286,20 +1266,14 @@ func Test_ImageVerifyCacheExpiredNotary(t *testing.T) {
 	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	fmt.Println("Time taken by the first operation : ", time.Since(start))
-
-	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
-	assert.Equal(t, ivm.IsEmpty(), false)
-	assert.Equal(t, ivm.IsVerified("ghcr.io/kyverno/test-verify-image:signed"), true)
+	errorAssertionUtil(t, image, ivm, er)
 
 	time.Sleep(5 * time.Second)
+
 	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	fmt.Println("Time taken by the second operation : ", time.Since(start))
-	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
-	assert.Equal(t, ivm.IsEmpty(), false)
-	assert.Equal(t, ivm.IsVerified("ghcr.io/kyverno/test-verify-image:signed"), true)
+	errorAssertionUtil(t, image, ivm, er)
 }
 
 func Test_changePolicyCacheVerificationNotary(t *testing.T) {
@@ -1310,6 +1284,7 @@ func Test_changePolicyCacheVerificationNotary(t *testing.T) {
 	}
 	imageVerifyCache, err := imageverifycache.New(opts...)
 	assert.NilError(t, err)
+	image := "ghcr.io/kyverno/test-verify-image:signed"
 
 	policyContext := buildContext(t, verifyImageNotaryPolicy, verifyImageNotaryResource, "")
 
@@ -1317,19 +1292,11 @@ func Test_changePolicyCacheVerificationNotary(t *testing.T) {
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	fmt.Println("Time taken by the first operation : ", time.Since(start))
 
-	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
-	assert.Equal(t, ivm.IsEmpty(), false)
-	assert.Equal(t, ivm.IsVerified("ghcr.io/kyverno/test-verify-image:signed"), true)
-
+	errorAssertionUtil(t, image, ivm, er)
 	policyContext = buildContext(t, verifyImageNotaryUpdatedPolicy, verifyImageNotaryResource, "")
 
 	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	fmt.Println("Time taken by the second operation : ", time.Since(start))
-
-	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
-	assert.Equal(t, ivm.IsEmpty(), false)
-	assert.Equal(t, ivm.IsVerified("ghcr.io/kyverno/test-verify-image:signed"), true)
+	errorAssertionUtil(t, image, ivm, er)
 }
