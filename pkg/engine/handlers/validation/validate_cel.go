@@ -9,6 +9,8 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/api/admissionregistration/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -45,27 +47,36 @@ func (h validateCELHandler) Process(
 		return resource, nil
 	}
 
+	// get resource's name, namespace, GroupVersionResource, and GroupVersionKind
 	gvr := schema.GroupVersionResource(policyContext.RequestResource())
 	gvk := resource.GroupVersionKind()
 	namespaceName := resource.GetNamespace()
 	resourceName := resource.GetName()
 
-	var object, oldObject, versionedParams runtime.Object
+	object := resource.DeepCopyObject()
+	// in case of update request, set the oldObject to the current resource before it gets updated
+	var oldObject, versionedParams runtime.Object
 	oldResource := policyContext.OldResource()
-	object = resource.DeepCopyObject()
 	if oldResource.Object == nil {
 		oldObject = nil
 	} else {
 		oldObject = oldResource.DeepCopyObject()
 	}
 
-	var expressions, messageExpressions, matchExpressions, auditExpressions []cel.ExpressionAccessor
-
+	// check if the rule uses parameter resources
+	hasParam := rule.Validation.CEL.HasParam()
+	// extract preconditions written as CEL expressions
+	matchConditions := rule.CELPreconditions
+	// extract CEL expressions used in validations and audit annotations
 	validations := rule.Validation.CEL.Expressions
 	auditAnnotations := rule.Validation.CEL.AuditAnnotations
 
+	matchExpressions := convertMatchExpressions(matchConditions)
+	validateExpressions := convertValidations(validations)
+	messageExpressions := convertMessageExpressions(validations)
+	auditExpressions := convertAuditAnnotations(auditAnnotations)
+
 	// get the parameter resource if exists
-	hasParam := rule.Validation.CEL.HasParam()
 	if hasParam {
 		paramKind := rule.Validation.CEL.GetParamKind()
 		paramRef := rule.Validation.CEL.GetParamRef()
@@ -88,56 +99,22 @@ func (h validateCELHandler) Process(
 		versionedParams = paramResource.DeepCopyObject()
 	}
 
-	// extract CEL expressions from validate.cel.expressions
-	for _, cel := range validations {
-		condition := &validatingadmissionpolicy.ValidationCondition{
-			Expression: cel.Expression,
-			Message:    cel.Message,
-		}
-
-		messageCondition := &validatingadmissionpolicy.MessageExpressionCondition{
-			MessageExpression: cel.MessageExpression,
-		}
-
-		expressions = append(expressions, condition)
-		messageExpressions = append(messageExpressions, messageCondition)
-	}
-
-	// extract CEL expressions from rule.celPreconditions
-	for _, condition := range rule.CELPreconditions {
-		matchCondition := &matchconditions.MatchCondition{
-			Name:       condition.Name,
-			Expression: condition.Expression,
-		}
-
-		matchExpressions = append(matchExpressions, matchCondition)
-	}
-
-	// extract CEL expressions from validate.cel.auditAnnotations
-	for _, auditAnnotation := range auditAnnotations {
-		auditCondition := &validatingadmissionpolicy.AuditAnnotationCondition{
-			Key:             auditAnnotation.Key,
-			ValueExpression: auditAnnotation.ValueExpression,
-		}
-
-		auditExpressions = append(auditExpressions, auditCondition)
-	}
+	optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}
 
 	// compile CEL expressions
 	compositedCompiler, err := cel.NewCompositedCompiler(environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion()))
 	if err != nil {
 		return resource, handlers.WithError(rule, engineapi.Validation, "Error while creating composited compiler", err)
 	}
-	filter := compositedCompiler.Compile(expressions, cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}, environment.StoredExpressions)
-	messageExpressionfilter := compositedCompiler.Compile(messageExpressions, cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}, environment.StoredExpressions)
-	auditAnnotationFilter := compositedCompiler.Compile(auditExpressions, cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}, environment.StoredExpressions)
-	matchConditionFilter := compositedCompiler.Compile(matchExpressions, cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}, environment.StoredExpressions)
+	filter := compositedCompiler.Compile(validateExpressions, optionalVars, environment.StoredExpressions)
+	messageExpressionfilter := compositedCompiler.Compile(messageExpressions, optionalVars, environment.StoredExpressions)
+	auditAnnotationFilter := compositedCompiler.Compile(auditExpressions, optionalVars, environment.StoredExpressions)
+	matchConditionFilter := compositedCompiler.Compile(matchExpressions, optionalVars, environment.StoredExpressions)
 
 	// newMatcher will be used to check if the incoming resource matches the CEL preconditions
 	newMatcher := matchconditions.NewMatcher(matchConditionFilter, nil, "", "", "")
+	// newValidator will be used to validate CEL expressions against the incoming object
 	validator := validatingadmissionpolicy.NewValidator(filter, newMatcher, auditAnnotationFilter, messageExpressionfilter, nil)
-	admissionAttributes := admission.NewAttributesRecord(object, oldObject, gvk, namespaceName, resourceName, gvr, "", admission.Operation(policyContext.Operation()), nil, false, nil)
-	versionedAttr, _ := admission.NewVersionedAttributes(admissionAttributes, admissionAttributes.GetKind(), nil)
 
 	var namespace *corev1.Namespace
 	// Special case, the namespace object has the namespace of itself.
@@ -154,6 +131,8 @@ func (h validateCELHandler) Process(
 		}
 	}
 
+	admissionAttributes := admission.NewAttributesRecord(object, oldObject, gvk, namespaceName, resourceName, gvr, "", admission.Operation(policyContext.Operation()), nil, false, nil)
+	versionedAttr, _ := admission.NewVersionedAttributes(admissionAttributes, admissionAttributes.GetKind(), nil)
 	// validate the incoming object against the rule
 	validateResult := validator.Validate(ctx, gvr, versionedAttr, versionedParams, namespace, celconfig.RuntimeCELCostBudget, nil)
 
@@ -176,4 +155,54 @@ func (h validateCELHandler) Process(
 	return resource, handlers.WithResponses(
 		engineapi.RulePass(rule.Name, engineapi.Validation, msg),
 	)
+}
+
+func convertValidations(inputValidations []v1alpha1.Validation) []cel.ExpressionAccessor {
+	celExpressionAccessor := make([]cel.ExpressionAccessor, len(inputValidations))
+	for i, validation := range inputValidations {
+		validation := validatingadmissionpolicy.ValidationCondition{
+			Expression: validation.Expression,
+			Message:    validation.Message,
+			Reason:     validation.Reason,
+		}
+		celExpressionAccessor[i] = &validation
+	}
+	return celExpressionAccessor
+}
+
+func convertMessageExpressions(inputValidations []v1alpha1.Validation) []cel.ExpressionAccessor {
+	celExpressionAccessor := make([]cel.ExpressionAccessor, len(inputValidations))
+	for i, validation := range inputValidations {
+		if validation.MessageExpression != "" {
+			condition := validatingadmissionpolicy.MessageExpressionCondition{
+				MessageExpression: validation.MessageExpression,
+			}
+			celExpressionAccessor[i] = &condition
+		}
+	}
+	return celExpressionAccessor
+}
+
+func convertAuditAnnotations(inputValidations []v1alpha1.AuditAnnotation) []cel.ExpressionAccessor {
+	celExpressionAccessor := make([]cel.ExpressionAccessor, len(inputValidations))
+	for i, validation := range inputValidations {
+		validation := validatingadmissionpolicy.AuditAnnotationCondition{
+			Key:             validation.Key,
+			ValueExpression: validation.ValueExpression,
+		}
+		celExpressionAccessor[i] = &validation
+	}
+	return celExpressionAccessor
+}
+
+func convertMatchExpressions(matchExpressions []admissionregistrationv1.MatchCondition) []cel.ExpressionAccessor {
+	celExpressionAccessor := make([]cel.ExpressionAccessor, len(matchExpressions))
+	for i, condition := range matchExpressions {
+		condition := matchconditions.MatchCondition{
+			Name:       condition.Name,
+			Expression: condition.Expression,
+		}
+		celExpressionAccessor[i] = &condition
+	}
+	return celExpressionAccessor
 }
