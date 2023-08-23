@@ -220,13 +220,12 @@ func (c *controller) reconcile(itemKey string) error {
 				c.metrics.ttlFailureTotal.Add(context.Background(), 1, metric.WithAttributes(commonLabels...))
 			}
 			return err
-		} else {
-			if c.metrics.deletedObjectsTotal != nil {
-				c.metrics.deletedObjectsTotal.Add(context.Background(), 1, metric.WithAttributes(commonLabels...))
-			}
-			logger.Info("resource has been deleted")
-		}
+		} 
+		logger.Info("resource has been deleted")
 	} else {
+		if c.metrics.deletedObjectsTotal != nil {
+			c.metrics.deletedObjectsTotal.Add(context.Background(), 1, metric.WithAttributes(commonLabels...))
+		}
 		// Calculate the remaining time until deletion
 		timeRemaining := time.Until(deletionTime)
 		// Add the item back to the queue after the remaining time
