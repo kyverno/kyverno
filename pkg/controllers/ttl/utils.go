@@ -13,8 +13,6 @@ import (
 	"k8s.io/client-go/discovery"
 )
 
-
-
 func discoverResources(logger logr.Logger, discoveryClient discovery.DiscoveryInterface) ([]schema.GroupVersionResource, error) {
 	var resources []schema.GroupVersionResource
 	apiResourceList, err := discoveryClient.ServerPreferredResources()
