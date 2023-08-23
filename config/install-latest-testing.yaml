@@ -39931,8 +39931,8 @@ rules:
       - rolebindings
       - clusterrolebindings
     verbs:
-      - watch
       - list
+      - watch
   - apiGroups:
       - kyverno.io
     resources:
@@ -40024,6 +40024,8 @@ rules:
   - apiGroups:
       - kyverno.io
     resources:
+      - policies
+      - clusterpolicies
       - updaterequests
       - updaterequests/status
     verbs:
@@ -40035,6 +40037,15 @@ rules:
       - update
       - watch
       - deletecollection
+  - apiGroups:
+      - ''
+    resources:
+      - namespaces
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
   - apiGroups:
       - ''
       - events.k8s.io
