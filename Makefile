@@ -688,7 +688,7 @@ test-kuttl: $(KUTTL) ## Run kuttl tests
 TEST_GIT_BRANCH ?= main
 
 .PHONY: test-cli
-test-cli: test-cli-policies test-cli-local test-cli-local-mutate test-cli-local-generate test-cli-test-case-selector-flag test-cli-registry ## Run all CLI tests
+test-cli: test-cli-policies test-cli-local test-cli-local-mutate test-cli-local-generate test-cli-test-case-selector-flag test-cli-registry test-cli-scenarios-to-cli ## Run all CLI tests
 
 .PHONY: test-cli-policies
 test-cli-policies: $(CLI_BIN)
@@ -718,11 +718,10 @@ test-cli-registry: $(CLI_BIN)
 .PHONY: test-cli-registry
 test-cli-registry: $(CLI_BIN)
 	@$(CLI_BIN) test ./test/cli/registry --registry
-	@$(CLI_BIN) test ./scenario_to_cli --registry
 
-.PHONY: test-cli-scenario-to-cli
-test-cli-scenario-to-cli: $(CLI_BIN)
-	@$(CLI_BIN) test ./scenario_to_cli --registry
+.PHONY: test-cli-scenarios-to-cli
+test-cli-scenarios-to-cli: $(CLI_BIN)
+	@$(CLI_BIN) test ./test/cli/scenarios_to_cli --registry
 
 
 #############
