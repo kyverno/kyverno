@@ -212,11 +212,16 @@ func (c *controller) reconcile(itemKey string) error {
 		err = c.client.Namespace(namespace).Delete(context.Background(), metaObj.GetName(), metav1.DeleteOptions{})
 		if err != nil {
 			logger.Error(err, "failed to delete resource")
-			c.metrics.ttlFailureTotal.Add(context.Background(), 1, metric.WithAttributes(commonLabels...))
+			if(c.metrics.ttlFailureTotal != nil) {
+				c.metrics.ttlFailureTotal.Add(context.Background(), 1, metric.WithAttributes(commonLabels...))
+			}
 			return err
+		} else {
+			if(c.metrics.deletedObjectsTotal!=nil) {
+				c.metrics.deletedObjectsTotal.Add(context.Background(), 1, metric.WithAttributes(commonLabels...))
+			}
+			logger.Info("resource has been deleted")
 		}
-		c.metrics.deletedObjectsTotal.Add(context.Background(), 1, metric.WithAttributes(commonLabels...))
-		logger.Info("resource has been deleted")
 	} else {
 		// Calculate the remaining time until deletion
 		timeRemaining := time.Until(deletionTime)
