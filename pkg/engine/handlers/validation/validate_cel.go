@@ -157,7 +157,7 @@ func (h validateCELHandler) Process(
 	)
 }
 
-func convertValidations(inputValidations []v1alpha1.Validation) []cel.ExpressionAccessor {
+func convertValidations(inputValidations []admissionregistrationv1alpha1.Validation) []cel.ExpressionAccessor {
 	celExpressionAccessor := make([]cel.ExpressionAccessor, len(inputValidations))
 	for i, validation := range inputValidations {
 		validation := validatingadmissionpolicy.ValidationCondition{
@@ -170,7 +170,7 @@ func convertValidations(inputValidations []v1alpha1.Validation) []cel.Expression
 	return celExpressionAccessor
 }
 
-func convertMessageExpressions(inputValidations []v1alpha1.Validation) []cel.ExpressionAccessor {
+func convertMessageExpressions(inputValidations []admissionregistrationv1alpha1.Validation) []cel.ExpressionAccessor {
 	celExpressionAccessor := make([]cel.ExpressionAccessor, len(inputValidations))
 	for i, validation := range inputValidations {
 		if validation.MessageExpression != "" {
@@ -183,7 +183,7 @@ func convertMessageExpressions(inputValidations []v1alpha1.Validation) []cel.Exp
 	return celExpressionAccessor
 }
 
-func convertAuditAnnotations(inputValidations []v1alpha1.AuditAnnotation) []cel.ExpressionAccessor {
+func convertAuditAnnotations(inputValidations []admissionregistrationv1alpha1.AuditAnnotation) []cel.ExpressionAccessor {
 	celExpressionAccessor := make([]cel.ExpressionAccessor, len(inputValidations))
 	for i, validation := range inputValidations {
 		validation := validatingadmissionpolicy.AuditAnnotationCondition{
