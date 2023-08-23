@@ -1,0 +1,12 @@
+name: policy-endpoints
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: policy-endpoints
+    rule: pEP
+    resource: test-endpoint
+    patchedresource: patchedresource.yaml
+    kind: Endpoints
+    result: pass

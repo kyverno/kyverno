@@ -2325,8 +2325,8 @@ sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.14/go.mod h1:LEScyz
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.1.2 h1:trsWhjU5jZrx6UvFu4WzQDrN7Pga4a7Qg+zcfcj64PA=
 sigs.k8s.io/controller-runtime v0.8.2/go.mod h1:U/l+DUopBc1ecfRZ5aviA9JDmGFQKvLf5YkZNx2e0sU=
 sigs.k8s.io/controller-runtime v0.8.3/go.mod h1:U/l+DUopBc1ecfRZ5aviA9JDmGFQKvLf5YkZNx2e0sU=
-sigs.k8s.io/controller-runtime v0.15.1 h1:9UvgKD4ZJGcj24vefUFgZFP3xej/3igL9BsOUTb/+4c=
-sigs.k8s.io/controller-runtime v0.15.1/go.mod h1:7ngYvp1MLT+9GeZ+6lH3LOlcHkp/+tzA/fmHa4iq9kk=
+sigs.k8s.io/controller-runtime v0.16.0 h1:5koYaaRVBHDr0LZAJjO5dWzUjMsh6cwa7q1Mmusrdvk=
+sigs.k8s.io/controller-runtime v0.16.0/go.mod h1:77DnuwA8+J7AO0njzv3wbNlMOnGuLrwFr8JPNwx3J7g=
 sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd h1:EDPBXCAspyGV4jQlpZSudPeMmr1bNJefnuqLsRAsHZo=
 sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd/go.mod h1:B8JuhiUyNFVKdsE8h686QcCxMaH6HrOAZj4vswFpcB0=
 sigs.k8s.io/kustomize/api v0.13.5-0.20230601165947-6ce0bf390ce3 h1:XX3Ajgzov2RKUdc5jW3t5jwY7Bo7dcRm+tFxT+NfgY0=
