@@ -247,7 +247,7 @@ func (iv *ImageVerifier) Verify(
 		start := time.Now()
 		found, err := iv.ivCache.Get(ctx, iv.policyContext.Policy(), iv.rule.Name, image)
 		if err != nil {
-			iv.logger.V(4).Error(err, "error occurred during cache get")
+			iv.logger.Error(err, "error occurred during cache get")
 		}
 
 		var ruleResp *engineapi.RuleResponse
@@ -262,7 +262,7 @@ func (iv *ImageVerifier) Verify(
 			if ruleResp != nil && ruleResp.Status() == engineapi.RuleStatusPass {
 				setted, err := iv.ivCache.Set(ctx, iv.policyContext.Policy(), iv.rule.Name, image)
 				if err != nil {
-					iv.logger.V(4).Error(err, "error occurred during cache set")
+					iv.logger.Error(err, "error occurred during cache set")
 				} else {
 					if setted {
 						iv.logger.V(4).Info("successfully set cache", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
