@@ -39931,8 +39931,8 @@ rules:
       - rolebindings
       - clusterrolebindings
     verbs:
-      - watch
       - list
+      - watch
   - apiGroups:
       - kyverno.io
     resources:
@@ -40022,16 +40022,10 @@ metadata:
     app.kubernetes.io/version: latest
 rules:
   - apiGroups:
-      - '*'
-    resources:
-      - '*'
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
       - kyverno.io
     resources:
+      - policies
+      - clusterpolicies
       - updaterequests
       - updaterequests/status
     verbs:
@@ -40045,46 +40039,66 @@ rules:
       - deletecollection
   - apiGroups:
       - ''
+    resources:
+      - namespaces
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ''
       - events.k8s.io
     resources:
       - events
     verbs:
       - create
-      - update
+      - get
+      - list
       - patch
+      - update
+      - watch
   - apiGroups:
-      - networking.k8s.io
+    - '*'
     resources:
-      - ingresses
-      - ingressclasses
-      - networkpolicies
+    - '*'
     verbs:
-      - create
-      - update
-      - patch
-      - delete
+    - get
+    - list
+    - watch
   - apiGroups:
-      - ""
+    - networking.k8s.io
     resources:
-      - configmaps
-      - secrets
-      - resourcequotas
-      - limitranges
+    - ingresses
+    - ingressclasses
+    - networkpolicies
     verbs:
-      - create
-      - update
-      - patch
-      - delete
+    - create
+    - update
+    - patch
+    - delete
   - apiGroups:
-      - rbac.authorization.k8s.io
+    - rbac.authorization.k8s.io
     resources:
-      - rolebindings
-      - roles
+    - rolebindings
+    - roles
     verbs:
-      - create
-      - update
-      - patch
-      - delete
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - ""
+    resources:
+    - configmaps
+    - secrets
+    - resourcequotas
+    - limitranges
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

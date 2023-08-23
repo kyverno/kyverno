@@ -1,0 +1,11 @@
+name: validate-default-proc-mount
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: validate-default-proc-mount
+    rule: validate-default-proc-mount
+    resource: nginx-proc-mount
+    kind: Pod
+    result: pass
