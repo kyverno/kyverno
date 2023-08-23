@@ -64,3 +64,7 @@ annotations:
       description: Add helper to handle the labels for cleanup jobs, add component label
     - kind: added
       description: allow podSecurityContext and securityContext for webhooksCleanup
+    - kind: added
+      description: match conditions support in webhooks
+    - kind: fixed
+      description: missing image pull policy missing in a couple of deployments

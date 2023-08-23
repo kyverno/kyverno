@@ -7,6 +7,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/auth"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -42,6 +44,10 @@ func (a *dclientAdapter) GetResources(ctx context.Context, group, version, kind,
 
 func (a *dclientAdapter) GetResource(ctx context.Context, apiVersion, kind, namespace, name string, subresources ...string) (*unstructured.Unstructured, error) {
 	return a.client.GetResource(ctx, apiVersion, kind, namespace, name, subresources...)
+}
+
+func (a *dclientAdapter) GetNamespace(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.Namespace, error) {
+	return a.client.GetKubeClient().CoreV1().Namespaces().Get(ctx, name, opts)
 }
 
 func (a *dclientAdapter) CanI(ctx context.Context, kind, namespace, verb, subresource, user string) (bool, error) {

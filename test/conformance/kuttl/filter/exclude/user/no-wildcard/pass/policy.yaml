@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: block-pod
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+  - name: block-pod
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    exclude:
+      any:
+      - subjects:
+        - kind: User
+          name: kubernetes-admin
+    validate:
+      deny: {}
