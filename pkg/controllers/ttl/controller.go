@@ -13,6 +13,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/metadata"
@@ -29,6 +30,7 @@ type controller struct {
 	registration cache.ResourceEventHandlerRegistration
 	logger       logr.Logger
 	metrics      ttlMetrics
+	gvr          schema.GroupVersionResource
 }
 
 type ttlMetrics struct {
@@ -36,7 +38,7 @@ type ttlMetrics struct {
 	ttlFailureTotal     metric.Int64Counter
 }
 
-func newController(client metadata.Getter, metainformer informers.GenericInformer, logger logr.Logger) (*controller, error) {
+func newController(client metadata.Getter, metainformer informers.GenericInformer, logger logr.Logger, gvr schema.GroupVersionResource) (*controller, error) {
 	c := &controller{
 		client:   client,
 		queue:    workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
@@ -181,8 +183,10 @@ func (c *controller) reconcile(itemKey string) error {
 	}
 
 	commonLabels := []attribute.KeyValue{
-		attribute.String("resource_name", metaObj.GetName()),
 		attribute.String("resource_namespace", metaObj.GetNamespace()),
+		attribute.String("resource_group", c.gvr.Group),
+		attribute.String("resource_version", c.gvr.Version),
+		attribute.String("resource", c.gvr.Resource),
 	}
 
 	// if the object is being deleted, return early
@@ -212,12 +216,12 @@ func (c *controller) reconcile(itemKey string) error {
 		err = c.client.Namespace(namespace).Delete(context.Background(), metaObj.GetName(), metav1.DeleteOptions{})
 		if err != nil {
 			logger.Error(err, "failed to delete resource")
-			if(c.metrics.ttlFailureTotal != nil) {
+			if c.metrics.ttlFailureTotal != nil {
 				c.metrics.ttlFailureTotal.Add(context.Background(), 1, metric.WithAttributes(commonLabels...))
 			}
 			return err
 		} else {
-			if(c.metrics.deletedObjectsTotal!=nil) {
+			if c.metrics.deletedObjectsTotal != nil {
 				c.metrics.deletedObjectsTotal.Add(context.Background(), 1, metric.WithAttributes(commonLabels...))
 			}
 			logger.Info("resource has been deleted")
