@@ -13,8 +13,8 @@ spec:
                 - Deployment
                 - Job
                 - StatefulSet
-            namespaces:
-              - test-foo-*
+              namespaces:
+                - test-foo-*
       mutate:
         patchStrategicMerge:
           spec:
