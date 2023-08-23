@@ -22,3 +22,7 @@ compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/engine FuzzMutateTest Fu
 compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/validation/policy FuzzValidatePolicy FuzzValidatePolicy
 compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/engine/anchor FuzzAnchorParseTest FuzzAnchorParseTest
 compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/engine/api FuzzEngineResponse FuzzEngineResponse
+
+cp $SRC/kyverno/test/fuzz/dictionaries/fuzz.dict $OUT/FuzzEngineValidateTest.dict
+cp $SRC/kyverno/test/fuzz/dictionaries/fuzz.dict $OUT/FuzzMutateTest.dict
+cp $SRC/kyverno/test/fuzz/dictionaries/fuzz.dict $OUT/FuzzVerifyImageAndPatchTest.dict
