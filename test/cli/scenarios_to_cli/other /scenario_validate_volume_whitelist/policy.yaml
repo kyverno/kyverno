@@ -12,7 +12,7 @@ spec:
               kinds:
                 - Pod
     validate:
-      message: "Volumes white list"
+      message: "Volume type is not of type hostPath, emptyDir, or configMap."
       anyPattern:
       - spec:
           volumes:
