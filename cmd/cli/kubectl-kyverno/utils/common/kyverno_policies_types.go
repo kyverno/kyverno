@@ -113,12 +113,16 @@ OuterLoop:
 			}
 		}
 	}
+	var client engineapi.Client
+	if c.Client != nil {
+		client = adapters.Client(c.Client)
+	}
 	rclient := registryclient.NewOrDie()
 	eng := engine.NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
 		jmespath.New(cfg),
-		adapters.Client(c.Client),
+		client,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 		imageverifycache.DisabledImageVerifyCache(),
 		store.ContextLoaderFactory(nil),
