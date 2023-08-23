@@ -10,11 +10,11 @@ spec:
           - resources:
               namespaces:
                 - kube-system
-      match:
-        all:
-          - resources:
-              kinds:
-                - Pod
+    match:
+      all:
+        - resources:
+            kinds:
+              - Pod
     validate:
       message: "Prevent mounting of default service account"
       pattern:
