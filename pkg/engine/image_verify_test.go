@@ -1024,9 +1024,8 @@ func Test_ImageVerifyCacheCosign(t *testing.T) {
 		imageverifycache.WithTTLDuration(24 * time.Hour),
 	}
 	imageVerifyCache, err := imageverifycache.New(opts...)
-	if err != nil {
-		fmt.Println("error occurred")
-	}
+	assert.NilError(t, err)
+
 	policyContext := buildContext(t, testPolicyGood, testResource, "")
 
 	err = cosign.SetMock("ghcr.io/jimbugwadia/pause2:latest", attestationPayloads)
@@ -1058,10 +1057,7 @@ func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
 		imageverifycache.WithTTLDuration(5 * time.Second),
 	}
 	imageVerifyCache, err := imageverifycache.New(opts...)
-
-	if err != nil {
-		fmt.Println("error occurred")
-	}
+	assert.NilError(t, err)
 
 	policyContext := buildContext(t, testPolicyGood, testResource, "")
 
@@ -1094,10 +1090,7 @@ func Test_changePolicyCacheVerificationCosign(t *testing.T) {
 		imageverifycache.WithTTLDuration(60 * time.Minute),
 	}
 	imageVerifyCache, err := imageverifycache.New(opts...)
-
-	if err != nil {
-		fmt.Println("error occurred")
-	}
+	assert.NilError(t, err)
 
 	policyContext := buildContext(t, testPolicyGood, testResource, "")
 
@@ -1256,9 +1249,7 @@ func Test_ImageVerifyCacheNotary(t *testing.T) {
 		imageverifycache.WithTTLDuration(24 * time.Hour),
 	}
 	imageVerifyCache, err := imageverifycache.New(opts...)
-	if err != nil {
-		fmt.Println("error occurred")
-	}
+	assert.NilError(t, err)
 
 	policyContext := buildContext(t, verifyImageNotaryPolicy, verifyImageNotaryResource, "")
 	start := time.Now()
@@ -1287,10 +1278,7 @@ func Test_ImageVerifyCacheExpiredNotary(t *testing.T) {
 		imageverifycache.WithTTLDuration(5 * time.Second),
 	}
 	imageVerifyCache, err := imageverifycache.New(opts...)
-
-	if err != nil {
-		fmt.Println("error occurred")
-	}
+	assert.NilError(t, err)
 
 	policyContext := buildContext(t, verifyImageNotaryPolicy, verifyImageNotaryResource, "")
 
@@ -1321,10 +1309,7 @@ func Test_changePolicyCacheVerificationNotary(t *testing.T) {
 		imageverifycache.WithTTLDuration(60 * time.Minute),
 	}
 	imageVerifyCache, err := imageverifycache.New(opts...)
-
-	if err != nil {
-		fmt.Println("error occurred")
-	}
+	assert.NilError(t, err)
 
 	policyContext := buildContext(t, verifyImageNotaryPolicy, verifyImageNotaryResource, "")
 
