@@ -79,6 +79,8 @@ func NewCertRenewer(
 		caValidityDuration:  caValidityDuration,
 		tlsValidityDuration: tlsValidityDuration,
 		server:              server,
+		commonName:          commonName,
+		dnsNames:            dnsNames,
 		namespace:           namespace,
 		caSecret:            caSecret,
 		pairSecret:          pairSecret,
