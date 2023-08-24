@@ -68,6 +68,7 @@ func (h validateCELHandler) Process(
 	// extract preconditions written as CEL expressions
 	matchConditions := rule.CELPreconditions
 	// extract CEL expressions used in validations and audit annotations
+	variables := rule.Validation.CEL.Variables
 	validations := rule.Validation.CEL.Expressions
 	auditAnnotations := rule.Validation.CEL.AuditAnnotations
 
@@ -75,6 +76,7 @@ func (h validateCELHandler) Process(
 	validateExpressions := convertValidations(validations)
 	messageExpressions := convertMessageExpressions(validations)
 	auditExpressions := convertAuditAnnotations(auditAnnotations)
+	variableExpressions := convertVariables(variables)
 
 	// get the parameter resource if exists
 	if hasParam && h.client != nil {
@@ -106,6 +108,7 @@ func (h validateCELHandler) Process(
 	if err != nil {
 		return resource, handlers.WithError(rule, engineapi.Validation, "Error while creating composited compiler", err)
 	}
+	compositedCompiler.CompileAndStoreVariables(variableExpressions, optionalVars, environment.StoredExpressions)
 	filter := compositedCompiler.Compile(validateExpressions, optionalVars, environment.StoredExpressions)
 	messageExpressionfilter := compositedCompiler.Compile(messageExpressions, optionalVars, environment.StoredExpressions)
 	auditAnnotationFilter := compositedCompiler.Compile(auditExpressions, optionalVars, environment.StoredExpressions)
@@ -205,4 +208,15 @@ func convertMatchExpressions(matchExpressions []admissionregistrationv1.MatchCon
 		celExpressionAccessor[i] = &condition
 	}
 	return celExpressionAccessor
+}
+
+func convertVariables(variables []admissionregistrationv1alpha1.Variable) []cel.NamedExpressionAccessor {
+	namedExpressions := make([]cel.NamedExpressionAccessor, len(variables))
+	for i, variable := range variables {
+		namedExpressions[i] = &validatingadmissionpolicy.Variable{
+			Name:       variable.Name,
+			Expression: variable.Expression,
+		}
+	}
+	return namedExpressions
 }
