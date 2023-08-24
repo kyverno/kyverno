@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/api/kyverno"
-	"github.com/kyverno/kyverno/pkg/config"
-	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,11 +35,18 @@ type CertRenewer interface {
 	RenewTLS(context.Context) error
 }
 
+type client interface {
+	Get(context.Context, string, metav1.GetOptions) (*corev1.Secret, error)
+	Create(context.Context, *corev1.Secret, metav1.CreateOptions) (*corev1.Secret, error)
+	Update(context.Context, *corev1.Secret, metav1.UpdateOptions) (*corev1.Secret, error)
+	Delete(context.Context, string, metav1.DeleteOptions) error
+}
+
 // certRenewer creates rootCA and pem pair to register
 // webhook configurations and webhook server
 // renews RootCA at the given interval
 type certRenewer struct {
-	client              controllerutils.ObjectClient[*corev1.Secret]
+	client              client
 	certRenewalInterval time.Duration
 	caValidityDuration  time.Duration
 	tlsValidityDuration time.Duration
@@ -52,7 +57,7 @@ type certRenewer struct {
 
 // NewCertRenewer returns an instance of CertRenewer
 func NewCertRenewer(
-	client controllerutils.ObjectClient[*corev1.Secret],
+	client client,
 	certRenewalInterval,
 	caValidityDuration,
 	tlsValidityDuration time.Duration,
@@ -214,7 +219,7 @@ func (c *certRenewer) decodeTLSSecret(ctx context.Context) (*corev1.Secret, *rsa
 }
 
 func (c *certRenewer) writeSecret(ctx context.Context, name string, key *rsa.PrivateKey, certs ...*x509.Certificate) error {
-	logger := logger.WithValues("name", name, "namespace", config.KyvernoNamespace())
+	logger := logger.WithValues("name", name, "namespace", secretNamespace())
 	secret, err := c.getSecret(ctx, name)
 	if err != nil && !apierrors.IsNotFound(err) {
 		logger.Error(err, "failed to get CA secret")
@@ -224,7 +229,7 @@ func (c *certRenewer) writeSecret(ctx context.Context, name string, key *rsa.Pri
 		secret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
-				Namespace: config.KyvernoNamespace(),
+				Namespace: secretNamespace(),
 				Labels: map[string]string{
 					kyverno.LabelCertManagedBy: kyverno.ValueKyvernoApp,
 				},
