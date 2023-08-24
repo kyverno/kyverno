@@ -1,0 +1,15 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+delete:
+- apiVersion: apps/v1
+  kind: Deployment
+  name: deployment-pass-01
+  namespace: production-ns
+- apiVersion: apps/v1
+  kind: Deployment
+  name: deployment-pass-02
+  namespace: staging-ns
+- apiVersion: apps/v1
+  kind: Deployment
+  name: deployment-pass-03
+  namespace: staging-ns
