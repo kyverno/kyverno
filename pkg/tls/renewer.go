@@ -108,7 +108,22 @@ func (c *certRenewer) RenewCA(ctx context.Context) error {
 		logger.Error(err, "failed to write CA")
 		return err
 	}
+
 	logger.Info("CA was renewed")
+
+	_, _, tlsCert, err := c.decodeTLSSecret(ctx)
+	if err != nil && !apierrors.IsNotFound(err) {
+		logger.Error(err, "failed to read TLS")
+		return err
+	}
+	if err = c.verifyCertChain(ctx, caCert, tlsCert); err != nil {
+		logger.Info("mismatched certs chain, renewing", "CA certificate", GenerateRootCASecretName(), "TLS certificate", GenerateTLSPairSecretName())
+		if err := c.RenewTLS(ctx); err != nil {
+			logger.Error(err, "failed to renew TLS certificate", "name", GenerateTLSPairSecretName())
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -125,10 +140,15 @@ func (c *certRenewer) RenewTLS(ctx context.Context) error {
 		return err
 	}
 	now := time.Now()
-	if cert != nil && !allCertificatesExpired(now.Add(5*c.certRenewalInterval), cert) {
-		logger.V(4).Info("TLS certificate does not need to be renewed")
-		return nil
+	if cert != nil {
+		if err = c.verifyCertChain(ctx, caCerts[len(caCerts)-1], cert); err != nil {
+			logger.Info("invalid cert chain, renewing TLS certificate", "name", GenerateTLSPairSecretName())
+		} else if !allCertificatesExpired(now.Add(5*c.certRenewalInterval), cert) {
+			logger.V(4).Info("TLS certificate does not need to be renewed")
+			return nil
+		}
 	}
+
 	if !isSecretManagedByKyverno(secret) {
 		err := fmt.Errorf("tls is not valid but certificates are not managed by kyverno, we can't renew them")
 		logger.Error(err, "tls is not valid but certificates are not managed by kyverno, we can't renew them")
@@ -166,6 +186,13 @@ func (c *certRenewer) ValidateCert(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	return validateCert(time.Now(), cert, caCerts...), nil
+}
+
+func (c *certRenewer) verifyCertChain(ctx context.Context, rootCert, cert *x509.Certificate) error {
+	roots := x509.NewCertPool()
+	roots.AppendCertsFromPEM(certificateToPem(rootCert))
+	_, err := cert.Verify(x509.VerifyOptions{Roots: roots})
+	return err
 }
 
 func (c *certRenewer) getSecret(ctx context.Context, name string) (*corev1.Secret, error) {
