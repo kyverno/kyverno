@@ -143,7 +143,7 @@ func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, wo
 		stopInformer()
 		return fmt.Errorf("failed to wait for cache sync: %s", gvr.Resource)
 	}
-	controller, err := newController(m.metadataClient.Resource(gvr), informer, logger)
+	controller, err := newController(m.metadataClient.Resource(gvr), informer, logger, gvr)
 	if err != nil {
 		stopInformer()
 		return err

@@ -77,7 +77,7 @@ func NewServer(
 			WithSubResourceFilter().
 			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookValidating).
 			WithAdmission(policyLogger.WithName("validate")).
-			ToHandlerFunc(),
+			ToHandlerFunc("VALIDATE"),
 	)
 	mux.HandlerFunc(
 		"POST",
@@ -87,7 +87,7 @@ func NewServer(
 			WithSubResourceFilter().
 			WithMetrics(labelLogger, metricsConfig.Config(), metrics.WebhookValidating).
 			WithAdmission(labelLogger.WithName("validate")).
-			ToHandlerFunc(),
+			ToHandlerFunc("VALIDATE"),
 	)
 	mux.HandlerFunc(
 		"GET",
@@ -95,7 +95,7 @@ func NewServer(
 		handlers.HttpHandler(cleanupHandlerFunc).
 			WithMetrics(policyLogger).
 			WithTrace("CLEANUP").
-			ToHandlerFunc(),
+			ToHandlerFunc("CLEANUP"),
 	)
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(probes.IsLive))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(probes.IsReady))
