@@ -270,7 +270,7 @@ func (iv *ImageVerifier) Verify(
 				}
 			}
 		}
-		iv.logger.V(4).Info("Time taken by the image verify operation : ", time.Since(start))
+		iv.logger.V(4).Info("time taken by the image verify operation", "duration", time.Since(start))
 
 		if imageVerify.MutateDigest {
 			patch, retrievedDigest, err := iv.handleMutateDigest(ctx, digest, imageInfo)
