@@ -929,6 +929,13 @@ dev-lab-tempo: $(HELM) ## Deploy tempo helm chart
 		--values ./scripts/config/dev/tempo.yaml
 	@kubectl apply -f ./scripts/config/dev/tempo-datasource.yaml
 
+.PHONY: dev-lab-otel-collector
+dev-lab-otel-collector: $(HELM) ## Deploy tempo helm chart
+	@echo Install otel-collector chart... >&2
+	@$(HELM) upgrade --install opentelemetry-collector --namespace monitoring --create-namespace --wait \
+		--repo https://open-telemetry.github.io/opentelemetry-helm-charts opentelemetry-collector \
+		--values ./scripts/config/dev/otel-collector.yaml
+
 .PHONY: dev-lab-metrics-server
 dev-lab-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 	@echo Install metrics-server chart... >&2
@@ -937,7 +944,7 @@ dev-lab-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 		--values ./scripts/config/dev/metrics-server.yaml
 
 .PHONY: dev-lab-all
-dev-lab-all: dev-lab-ingress-ngingx dev-lab-metrics-server dev-lab-prometheus dev-lab-loki dev-lab-tempo ## Deploy all dev lab components
+dev-lab-all: dev-lab-ingress-ngingx dev-lab-metrics-server dev-lab-prometheus dev-lab-loki dev-lab-tempo dev-lab-otel-collector ## Deploy all dev lab components
 
 .PHONY: dev-lab-policy-reporter
 dev-lab-policy-reporter: $(HELM) ## Deploy policy-reporter helm chart
