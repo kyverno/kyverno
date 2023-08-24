@@ -21,7 +21,8 @@ func NewCompiler(
 	validations []admissionregistrationv1alpha1.Validation,
 	auditAnnotations []admissionregistrationv1alpha1.AuditAnnotation,
 	matchConditions []admissionregistrationv1alpha1.MatchCondition,
-	variables []admissionregistrationv1alpha1.Variable) (*Compiler, error) {
+	variables []admissionregistrationv1alpha1.Variable,
+) (*Compiler, error) {
 	compositedCompiler, err := cel.NewCompositedCompiler(environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion()))
 	if err != nil {
 		return nil, err
