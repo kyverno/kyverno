@@ -9,8 +9,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	celutils "github.com/kyverno/kyverno/pkg/utils/cel"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -21,7 +20,6 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
-	"k8s.io/apiserver/pkg/cel/environment"
 )
 
 type validateCELHandler struct {
@@ -72,12 +70,6 @@ func (h validateCELHandler) Process(
 	validations := rule.Validation.CEL.Expressions
 	auditAnnotations := rule.Validation.CEL.AuditAnnotations
 
-	matchExpressions := convertMatchExpressions(matchConditions)
-	validateExpressions := convertValidations(validations)
-	messageExpressions := convertMessageExpressions(validations)
-	auditExpressions := convertAuditAnnotations(auditAnnotations)
-	variableExpressions := convertVariables(variables)
-
 	// get the parameter resource if exists
 	if hasParam && h.client != nil {
 		paramKind := rule.Validation.CEL.GetParamKind()
@@ -104,15 +96,15 @@ func (h validateCELHandler) Process(
 	optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}
 
 	// compile CEL expressions
-	compositedCompiler, err := cel.NewCompositedCompiler(environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion()))
+	compiler, err := celutils.NewCompiler(validations, auditAnnotations, matchConditions, variables)
 	if err != nil {
 		return resource, handlers.WithError(rule, engineapi.Validation, "Error while creating composited compiler", err)
 	}
-	compositedCompiler.CompileAndStoreVariables(variableExpressions, optionalVars, environment.StoredExpressions)
-	filter := compositedCompiler.Compile(validateExpressions, optionalVars, environment.StoredExpressions)
-	messageExpressionfilter := compositedCompiler.Compile(messageExpressions, optionalVars, environment.StoredExpressions)
-	auditAnnotationFilter := compositedCompiler.Compile(auditExpressions, optionalVars, environment.StoredExpressions)
-	matchConditionFilter := compositedCompiler.Compile(matchExpressions, optionalVars, environment.StoredExpressions)
+	compiler.CompileVariables(optionalVars)
+	filter := compiler.CompileValidateExpressions(optionalVars)
+	messageExpressionfilter := compiler.CompileMessageExpressions(optionalVars)
+	auditAnnotationFilter := compiler.CompileAuditAnnotationsExpressions(optionalVars)
+	matchConditionFilter := compiler.CompileMatchExpressions(optionalVars)
 
 	// newMatcher will be used to check if the incoming resource matches the CEL preconditions
 	newMatcher := matchconditions.NewMatcher(matchConditionFilter, nil, "", "", "")
@@ -158,65 +150,4 @@ func (h validateCELHandler) Process(
 	return resource, handlers.WithResponses(
 		engineapi.RulePass(rule.Name, engineapi.Validation, msg),
 	)
-}
-
-func convertValidations(inputValidations []admissionregistrationv1alpha1.Validation) []cel.ExpressionAccessor {
-	celExpressionAccessor := make([]cel.ExpressionAccessor, len(inputValidations))
-	for i, validation := range inputValidations {
-		validation := validatingadmissionpolicy.ValidationCondition{
-			Expression: validation.Expression,
-			Message:    validation.Message,
-			Reason:     validation.Reason,
-		}
-		celExpressionAccessor[i] = &validation
-	}
-	return celExpressionAccessor
-}
-
-func convertMessageExpressions(inputValidations []admissionregistrationv1alpha1.Validation) []cel.ExpressionAccessor {
-	celExpressionAccessor := make([]cel.ExpressionAccessor, len(inputValidations))
-	for i, validation := range inputValidations {
-		if validation.MessageExpression != "" {
-			condition := validatingadmissionpolicy.MessageExpressionCondition{
-				MessageExpression: validation.MessageExpression,
-			}
-			celExpressionAccessor[i] = &condition
-		}
-	}
-	return celExpressionAccessor
-}
-
-func convertAuditAnnotations(inputValidations []admissionregistrationv1alpha1.AuditAnnotation) []cel.ExpressionAccessor {
-	celExpressionAccessor := make([]cel.ExpressionAccessor, len(inputValidations))
-	for i, validation := range inputValidations {
-		validation := validatingadmissionpolicy.AuditAnnotationCondition{
-			Key:             validation.Key,
-			ValueExpression: validation.ValueExpression,
-		}
-		celExpressionAccessor[i] = &validation
-	}
-	return celExpressionAccessor
-}
-
-func convertMatchExpressions(matchExpressions []admissionregistrationv1.MatchCondition) []cel.ExpressionAccessor {
-	celExpressionAccessor := make([]cel.ExpressionAccessor, len(matchExpressions))
-	for i, condition := range matchExpressions {
-		condition := matchconditions.MatchCondition{
-			Name:       condition.Name,
-			Expression: condition.Expression,
-		}
-		celExpressionAccessor[i] = &condition
-	}
-	return celExpressionAccessor
-}
-
-func convertVariables(variables []admissionregistrationv1alpha1.Variable) []cel.NamedExpressionAccessor {
-	namedExpressions := make([]cel.NamedExpressionAccessor, len(variables))
-	for i, variable := range variables {
-		namedExpressions[i] = &validatingadmissionpolicy.Variable{
-			Name:       variable.Name,
-			Expression: variable.Expression,
-		}
-	}
-	return namedExpressions
 }

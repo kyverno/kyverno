@@ -11,7 +11,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -385,7 +385,7 @@ func createRule(f *fuzz.ConsumeFuzzer) (*kyverno.Rule, error) {
 		return rule, err
 	}
 	if setCELPreconditions {
-		celp := make([]admissionregistrationv1.MatchCondition, 0)
+		celp := make([]admissionregistrationv1alpha1.MatchCondition, 0)
 		f.CreateSlice(&celp)
 		if len(celp) != 0 {
 			rule.CELPreconditions = celp

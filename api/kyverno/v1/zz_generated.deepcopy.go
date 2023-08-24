@@ -23,7 +23,6 @@ package v1
 
 import (
 	k8smanifest "github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	v1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -1246,7 +1245,7 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 	}
 	if in.CELPreconditions != nil {
 		in, out := &in.CELPreconditions, &out.CELPreconditions
-		*out = make([]admissionregistrationv1.MatchCondition, len(*in))
+		*out = make([]v1alpha1.MatchCondition, len(*in))
 		copy(*out, *in)
 	}
 	in.Mutation.DeepCopyInto(&out.Mutation)
