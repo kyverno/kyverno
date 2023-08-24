@@ -52,7 +52,12 @@ type certRenewer struct {
 	tlsValidityDuration time.Duration
 
 	// server is an IP address or domain name where Kyverno controller runs. Only required if out-of-cluster.
-	server string
+	server     string
+	commonName string
+	dnsNames   []string
+	namespace  string
+	caSecret   string
+	pairSecret string
 }
 
 // NewCertRenewer returns an instance of CertRenewer
@@ -62,6 +67,11 @@ func NewCertRenewer(
 	caValidityDuration,
 	tlsValidityDuration time.Duration,
 	server string,
+	commonName string,
+	dnsNames []string,
+	namespace string,
+	caSecret string,
+	pairSecret string,
 ) *certRenewer {
 	return &certRenewer{
 		client:              client,
@@ -69,6 +79,9 @@ func NewCertRenewer(
 		caValidityDuration:  caValidityDuration,
 		tlsValidityDuration: tlsValidityDuration,
 		server:              server,
+		namespace:           namespace,
+		caSecret:            caSecret,
+		pairSecret:          pairSecret,
 	}
 }
 
@@ -142,7 +155,7 @@ func (c *certRenewer) RenewTLS(ctx context.Context) error {
 		}
 		return err
 	}
-	tlsKey, tlsCert, err := generateTLS(c.server, caCerts[len(caCerts)-1], caKey, c.tlsValidityDuration)
+	tlsKey, tlsCert, err := generateTLS(c.server, caCerts[len(caCerts)-1], caKey, c.tlsValidityDuration, c.commonName, c.dnsNames)
 	if err != nil {
 		logger.Error(err, "failed to generate TLS")
 		return err
@@ -201,11 +214,11 @@ func (c *certRenewer) decodeSecret(ctx context.Context, name string) (*corev1.Se
 }
 
 func (c *certRenewer) decodeCASecret(ctx context.Context) (*corev1.Secret, *rsa.PrivateKey, []*x509.Certificate, error) {
-	return c.decodeSecret(ctx, GenerateRootCASecretName())
+	return c.decodeSecret(ctx, c.caSecret)
 }
 
 func (c *certRenewer) decodeTLSSecret(ctx context.Context) (*corev1.Secret, *rsa.PrivateKey, *x509.Certificate, error) {
-	secret, key, certs, err := c.decodeSecret(ctx, GenerateTLSPairSecretName())
+	secret, key, certs, err := c.decodeSecret(ctx, c.pairSecret)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -219,7 +232,7 @@ func (c *certRenewer) decodeTLSSecret(ctx context.Context) (*corev1.Secret, *rsa
 }
 
 func (c *certRenewer) writeSecret(ctx context.Context, name string, key *rsa.PrivateKey, certs ...*x509.Certificate) error {
-	logger := logger.WithValues("name", name, "namespace", secretNamespace())
+	logger := logger.WithValues("name", name, "namespace", c.namespace)
 	secret, err := c.getSecret(ctx, name)
 	if err != nil && !apierrors.IsNotFound(err) {
 		logger.Error(err, "failed to get CA secret")
@@ -229,7 +242,7 @@ func (c *certRenewer) writeSecret(ctx context.Context, name string, key *rsa.Pri
 		secret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
-				Namespace: secretNamespace(),
+				Namespace: c.namespace,
 				Labels: map[string]string{
 					kyverno.LabelCertManagedBy: kyverno.ValueKyvernoApp,
 				},
@@ -262,10 +275,10 @@ func (c *certRenewer) writeSecret(ctx context.Context, name string, key *rsa.Pri
 
 // writeCASecret stores the CA cert in secret
 func (c *certRenewer) writeCASecret(ctx context.Context, key *rsa.PrivateKey, certs ...*x509.Certificate) error {
-	return c.writeSecret(ctx, GenerateRootCASecretName(), key, certs...)
+	return c.writeSecret(ctx, c.caSecret, key, certs...)
 }
 
 // writeTLSSecret Writes the pair of TLS certificate and key to the specified secret.
 func (c *certRenewer) writeTLSSecret(ctx context.Context, key *rsa.PrivateKey, cert *x509.Certificate) error {
-	return c.writeSecret(ctx, GenerateTLSPairSecretName(), key, cert)
+	return c.writeSecret(ctx, c.pairSecret, key, cert)
 }

@@ -4,11 +4,9 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"fmt"
 	"time"
 
 	"github.com/kyverno/kyverno/api/kyverno"
-	"github.com/kyverno/kyverno/pkg/config"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -95,32 +93,4 @@ func isSecretManagedByKyverno(secret *corev1.Secret) bool {
 		}
 	}
 	return true
-}
-
-func inClusterServiceName() string {
-	return config.KyvernoServiceName() + "." + config.KyvernoNamespace() + ".svc"
-}
-
-func commonName() string {
-	return config.KyvernoServiceName()
-}
-
-func dnsNames() []string {
-	return []string{
-		commonName(),
-		fmt.Sprintf("%s.%s", config.KyvernoServiceName(), config.KyvernoNamespace()),
-		inClusterServiceName(),
-	}
-}
-
-func secretNamespace() string {
-	return config.KyvernoNamespace()
-}
-
-func GenerateTLSPairSecretName() string {
-	return inClusterServiceName() + ".kyverno-tls-pair"
-}
-
-func GenerateRootCASecretName() string {
-	return inClusterServiceName() + ".kyverno-tls-ca"
 }
