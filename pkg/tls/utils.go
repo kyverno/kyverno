@@ -4,6 +4,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"time"
 
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -96,9 +97,24 @@ func isSecretManagedByKyverno(secret *corev1.Secret) bool {
 	return true
 }
 
-// inClusterServiceName The generated service name should be the common name for TLS certificate
 func inClusterServiceName() string {
 	return config.KyvernoServiceName() + "." + config.KyvernoNamespace() + ".svc"
+}
+
+func commonName() string {
+	return config.KyvernoServiceName()
+}
+
+func dnsNames() []string {
+	return []string{
+		commonName(),
+		fmt.Sprintf("%s.%s", config.KyvernoServiceName(), config.KyvernoNamespace()),
+		inClusterServiceName(),
+	}
+}
+
+func secretNamespace() string {
+	return config.KyvernoNamespace()
 }
 
 func GenerateTLSPairSecretName() string {

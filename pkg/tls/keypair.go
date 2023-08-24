@@ -5,13 +5,10 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"fmt"
 	"math/big"
 	"net"
 	"strings"
 	"time"
-
-	"github.com/kyverno/kyverno/pkg/config"
 )
 
 // generateCA creates the self-signed CA cert and private key
@@ -53,11 +50,7 @@ func generateCA(key *rsa.PrivateKey, certValidityDuration time.Duration) (*rsa.P
 func generateTLS(server string, caCert *x509.Certificate, caKey *rsa.PrivateKey, certValidityDuration time.Duration) (*rsa.PrivateKey, *x509.Certificate, error) {
 	now := time.Now()
 	begin, end := now.Add(-1*time.Hour), now.Add(certValidityDuration)
-	dnsNames := []string{
-		config.KyvernoServiceName(),
-		fmt.Sprintf("%s.%s", config.KyvernoServiceName(), config.KyvernoNamespace()),
-		inClusterServiceName(),
-	}
+	dnsNames := dnsNames()
 	var ips []net.IP
 	if server != "" {
 		serverHost := server
@@ -78,7 +71,7 @@ func generateTLS(server string, caCert *x509.Certificate, caKey *rsa.PrivateKey,
 	templ := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
-			CommonName: config.KyvernoServiceName(),
+			CommonName: commonName(),
 		},
 		DNSNames:              dnsNames,
 		IPAddresses:           ips,
