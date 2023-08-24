@@ -1066,6 +1066,22 @@ Kubernetes admissionregistration/v1alpha1.ParamRef
 <p>AuditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the API request.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>variables</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#variable-v1alpha1-admissionregistration">
+[]Kubernetes admissionregistration/v1alpha1.Variable
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.
+The variables defined here will be available under <code>variables</code> in other expressions of the policy.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
