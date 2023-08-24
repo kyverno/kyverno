@@ -220,7 +220,7 @@ func (c *controller) reconcile(itemKey string) error {
 				c.metrics.ttlFailureTotal.Add(context.Background(), 1, metric.WithAttributes(commonLabels...))
 			}
 			return err
-		} 
+		}
 		logger.Info("resource has been deleted")
 	} else {
 		if c.metrics.deletedObjectsTotal != nil {
