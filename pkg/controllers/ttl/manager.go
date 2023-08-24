@@ -170,7 +170,7 @@ func (m *manager) filterPermissionsResource(resources []schema.GroupVersionResou
 
 func (m *manager) reconcile(ctx context.Context, workers int) error {
 	defer m.logger.V(3).Info("manager reconciliation done")
-	m.logger.V(3).Info("start manager reconciliation after the interval of ", m.interval)
+	m.logger.V(3).Info("beginning reconciliation after configured interval of ", m.interval)
 	desiredState, err := m.getDesiredState()
 	if err != nil {
 		return err
