@@ -130,7 +130,7 @@ func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, wo
 	cont, cancel := context.WithCancel(ctx)
 	var wg wait.Group
 	wg.StartWithContext(cont, func(ctx context.Context) {
-		logger.Info("informer starting...")
+		logger.V(3).Info("informer starting...")
 		informer.Informer().Run(cont.Done())
 	})
 	stopInformer := func() {
@@ -148,7 +148,7 @@ func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, wo
 		stopInformer()
 		return err
 	}
-	logger.Info("controller starting...")
+	logger.V(3).Info("controller starting...")
 	controller.Start(cont, workers)
 	m.resController[gvr] = func() {
 		stopInformer()
@@ -169,8 +169,8 @@ func (m *manager) filterPermissionsResource(resources []schema.GroupVersionResou
 }
 
 func (m *manager) reconcile(ctx context.Context, workers int) error {
-	defer m.logger.Info("manager reconciliation done")
-	m.logger.Info("start manager reconciliation")
+	defer m.logger.V(3).Info("manager reconciliation done")
+	m.logger.V(3).Info("start manager reconciliation after the interval of ", m.interval)
 	desiredState, err := m.getDesiredState()
 	if err != nil {
 		return err
