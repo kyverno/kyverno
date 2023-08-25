@@ -598,7 +598,6 @@ func processMutateEngineResponse(c ApplyPolicyConfig, mutateResponse *engineapi.
 		}
 	}
 	return nil
-
 }
 
 func CheckVariableForPolicy(valuesMap map[string]map[string]values.Resource, globalValMap map[string]string, policyName string, resourceName string, resourceKind string, variables map[string]string, kindOnwhichPolicyIsApplied map[string]struct{}, variable string) (map[string]interface{}, error) {

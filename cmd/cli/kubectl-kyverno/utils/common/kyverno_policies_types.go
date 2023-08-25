@@ -45,21 +45,22 @@ func ApplyPolicyOnResource(c ApplyPolicyConfig) ([]engineapi.EngineResponse, err
 		log.Error(err, "failed to load resource in context")
 	}
 
-	engRes, err, mutateResponse := ApplyMutatePoliciesOnResource(c, updatedResource, jp, resPath)
+	engRes, err, _ := ApplyMutatePoliciesOnResource(c, updatedResource, jp, resPath)
 	if err != nil {
 		log.Error(err, "Apply mutate policies failed")
 	}
 	engineResponses = append(engineResponses, engRes...)
-	engRes, err, verifyResponse := ApplyVerifyPoliciesOnResource(c, &mutateResponse.PatchedResource, jp)
+	engRes, err, _ = ApplyVerifyPoliciesOnResource(c, &engineResponses[0].PatchedResource, jp)
 	if err != nil {
 		log.Error(err, "Apply verify policies failed")
 	}
 	engineResponses = append(engineResponses, engRes...)
-	engRes, err, validateResponse := ApplyValidatePoliciesOnResource(c, &verifyResponse.PatchedResource, jp)
+	engRes, err, _ = ApplyValidatePoliciesOnResource(c, &engineResponses[0].PatchedResource, jp)
 	if err != nil {
 		log.Error(err, "Apply validate policies failed")
 	}
-	engRes, err, _ = ApplyGeneratePoliciesOnResource(c, &validateResponse.PatchedResource, jp, resPath)
+	engineResponses = append(engineResponses, engRes...)
+	engRes, err, _ = ApplyGeneratePoliciesOnResource(c, &engineResponses[0].PatchedResource, jp, resPath)
 	if err != nil {
 		log.Error(err, "Apply verify policies failed")
 	}
