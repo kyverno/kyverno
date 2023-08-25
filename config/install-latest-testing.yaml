@@ -14733,8 +14733,7 @@ spec:
                       description: 'Preconditions are used to determine if a policy
                         rule should be applied by evaluating a set of conditions.
                         The declaration can contain nested `any` or `all` statements.
-                        A direct list of conditions (without `any` or `all` statements
-                        is supported for backwards compatibility but See: https://kyverno.io/docs/writing-policies/preconditions/'
+                        See: https://kyverno.io/docs/writing-policies/preconditions/'
                       properties:
                         all:
                           description: AllConditions enable variable-based conditional
@@ -15155,9 +15154,7 @@ spec:
                           properties:
                             conditions:
                               description: 'Multiple conditions can be declared under
-                                an `any` or `all` statement. A direct list of conditions
-                                (without `any` or `all` statements) is also supported
-                                for backwards compatibility See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
+                                an `any` or `all` statement. See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
                               properties:
                                 all:
                                   description: AllConditions enable variable-based
@@ -31956,8 +31953,7 @@ spec:
                       description: 'Preconditions are used to determine if a policy
                         rule should be applied by evaluating a set of conditions.
                         The declaration can contain nested `any` or `all` statements.
-                        A direct list of conditions (without `any` or `all` statements
-                        is supported for backwards compatibility but See: https://kyverno.io/docs/writing-policies/preconditions/'
+                        See: https://kyverno.io/docs/writing-policies/preconditions/'
                       properties:
                         all:
                           description: AllConditions enable variable-based conditional
@@ -32378,9 +32374,7 @@ spec:
                           properties:
                             conditions:
                               description: 'Multiple conditions can be declared under
-                                an `any` or `all` statement. A direct list of conditions
-                                (without `any` or `all` statements) is also supported
-                                for backwards compatibility See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
+                                an `any` or `all` statement. See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
                               properties:
                                 all:
                                   description: AllConditions enable variable-based
