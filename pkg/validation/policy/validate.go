@@ -1314,7 +1314,8 @@ func checkForScaleSubresource(ruleTypeJson []byte, allKinds []string, warnings *
 }
 
 func checkForStatusSubresource(ruleTypeJson []byte, allKinds []string, warnings *[]string) {
-	if strings.Contains(string(ruleTypeJson), "status") {
+	rule := string(ruleTypeJson)
+	if strings.Contains(rule, ".status") || strings.Contains(rule, "\"status\":") {
 		for _, kind := range allKinds {
 			if strings.Contains(strings.ToLower(kind), "status") {
 				return
