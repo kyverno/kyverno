@@ -40,8 +40,7 @@ type Rule struct {
 	ImageExtractors kyvernov1.ImageExtractorConfigs `json:"imageExtractors,omitempty" yaml:"imageExtractors,omitempty"`
 
 	// Preconditions are used to determine if a policy rule should be applied by evaluating a
-	// set of conditions. The declaration can contain nested `any` or `all` statements. A direct list
-	// of conditions (without `any` or `all` statements is supported for backwards compatibility but
+	// set of conditions. The declaration can contain nested `any` or `all` statements.
 	// See: https://kyverno.io/docs/writing-policies/preconditions/
 	// +optional
 	RawAnyAllConditions *AnyAllConditions `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`

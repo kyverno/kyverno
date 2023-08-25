@@ -61,18 +61,18 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	if err := c.tlsEnqueue(&corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: config.KyvernoNamespace(),
-			Name:      tls.GenerateTLSPairSecretName(),
+			Name:      config.GenerateTLSPairSecretName(),
 		},
 	}); err != nil {
-		logger.Error(err, "failed to enqueue secret", "name", tls.GenerateTLSPairSecretName())
+		logger.Error(err, "failed to enqueue secret", "name", config.GenerateTLSPairSecretName())
 	}
 	if err := c.caEnqueue(&corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: config.KyvernoNamespace(),
-			Name:      tls.GenerateRootCASecretName(),
+			Name:      config.GenerateRootCASecretName(),
 		},
 	}); err != nil {
-		logger.Error(err, "failed to enqueue CA secret", "name", tls.GenerateRootCASecretName())
+		logger.Error(err, "failed to enqueue CA secret", "name", config.GenerateRootCASecretName())
 	}
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile, c.ticker)
 }
@@ -81,7 +81,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	if namespace != config.KyvernoNamespace() {
 		return nil
 	}
-	if name != tls.GenerateTLSPairSecretName() && name != tls.GenerateRootCASecretName() {
+	if name != config.GenerateTLSPairSecretName() && name != config.GenerateRootCASecretName() {
 		return nil
 	}
 	return c.renewCertificates(ctx)

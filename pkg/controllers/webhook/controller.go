@@ -158,17 +158,17 @@ func NewController(
 	controllerutils.AddEventHandlersT(
 		secretInformer.Informer(),
 		func(obj *corev1.Secret) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == tls.GenerateRootCASecretName() {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.GenerateRootCASecretName() {
 				c.enqueueAll()
 			}
 		},
 		func(_, obj *corev1.Secret) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == tls.GenerateRootCASecretName() {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.GenerateRootCASecretName() {
 				c.enqueueAll()
 			}
 		},
 		func(obj *corev1.Secret) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == tls.GenerateRootCASecretName() {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.GenerateRootCASecretName() {
 				c.enqueueAll()
 			}
 		},
@@ -340,7 +340,7 @@ func (c *controller) reconcileVerifyMutatingWebhookConfiguration(ctx context.Con
 }
 
 func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context, autoUpdateWebhooks bool, build func(context.Context, config.Configuration, []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error)) error {
-	caData, err := tls.ReadRootCASecret(c.secretLister.Secrets(config.KyvernoNamespace()))
+	caData, err := tls.ReadRootCASecret(config.GenerateRootCASecretName(), config.KyvernoNamespace(), c.secretLister.Secrets(config.KyvernoNamespace()))
 	if err != nil {
 		return err
 	}
@@ -370,7 +370,7 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 }
 
 func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, autoUpdateWebhooks bool, build func(context.Context, config.Configuration, []byte) (*admissionregistrationv1.MutatingWebhookConfiguration, error)) error {
-	caData, err := tls.ReadRootCASecret(c.secretLister.Secrets(config.KyvernoNamespace()))
+	caData, err := tls.ReadRootCASecret(config.GenerateRootCASecretName(), config.KyvernoNamespace(), c.secretLister.Secrets(config.KyvernoNamespace()))
 	if err != nil {
 		return err
 	}
