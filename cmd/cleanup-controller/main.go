@@ -88,8 +88,8 @@ func main() {
 	ctx, setup, sdown := internal.Setup(appConfig, "kyverno-cleanup-controller", false)
 	defer sdown()
 	// certificates informers
-	caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tls.GenerateRootCASecretName(), resyncPeriod)
-	tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tls.GenerateTLSPairSecretName(), resyncPeriod)
+	caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), config.GenerateRootCASecretName(), resyncPeriod)
+	tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), config.GenerateTLSPairSecretName(), resyncPeriod)
 	if !informers.StartInformersAndWaitForCacheSync(ctx, setup.Logger, caSecret, tlsSecret) {
 		setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		os.Exit(1)
@@ -114,6 +114,11 @@ func main() {
 				tls.CAValidityDuration,
 				tls.TLSValidityDuration,
 				serverIP,
+				config.KyvernoServiceName(),
+				config.DnsNames(),
+				config.KyvernoNamespace(),
+				config.GenerateRootCASecretName(),
+				config.GenerateTLSPairSecretName(),
 			)
 			certController := internal.NewController(
 				certmanager.ControllerName,
@@ -287,7 +292,7 @@ func main() {
 	// create server
 	server := NewServer(
 		func() ([]byte, []byte, error) {
-			secret, err := tlsSecret.Lister().Secrets(config.KyvernoNamespace()).Get(tls.GenerateTLSPairSecretName())
+			secret, err := tlsSecret.Lister().Secrets(config.KyvernoNamespace()).Get(config.GenerateTLSPairSecretName())
 			if err != nil {
 				return nil, nil, err
 			}

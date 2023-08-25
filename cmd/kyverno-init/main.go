@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/tls"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -63,7 +62,7 @@ func main() {
 	failure := false
 
 	run := func(context.Context) {
-		name := tls.GenerateRootCASecretName()
+		name := config.GenerateRootCASecretName()
 		_, err := setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			logging.V(2).Info("failed to fetch root CA secret", "name", name, "error", err.Error())
@@ -72,7 +71,7 @@ func main() {
 			}
 		}
 
-		name = tls.GenerateTLSPairSecretName()
+		name = config.GenerateTLSPairSecretName()
 		_, err = setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			logging.V(2).Info("failed to fetch TLS Pair secret", "name", name, "error", err.Error())

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/api/kyverno"
-	"github.com/kyverno/kyverno/pkg/config"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -94,17 +93,4 @@ func isSecretManagedByKyverno(secret *corev1.Secret) bool {
 		}
 	}
 	return true
-}
-
-// inClusterServiceName The generated service name should be the common name for TLS certificate
-func inClusterServiceName() string {
-	return config.KyvernoServiceName() + "." + config.KyvernoNamespace() + ".svc"
-}
-
-func GenerateTLSPairSecretName() string {
-	return inClusterServiceName() + ".kyverno-tls-pair"
-}
-
-func GenerateRootCASecretName() string {
-	return inClusterServiceName() + ".kyverno-tls-ca"
 }
