@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         with:
@@ -77,7 +77,7 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         with:
@@ -137,7 +137,7 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         with:
@@ -197,7 +197,7 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         with:
@@ -255,7 +255,7 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         with:
@@ -341,9 +341,9 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout kyverno/kyverno
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Checkout kyverno/policies
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
           repository: kyverno/policies
           path: policies
