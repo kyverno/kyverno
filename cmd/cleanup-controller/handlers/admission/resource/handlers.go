@@ -2,6 +2,7 @@ package resource
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -18,7 +19,7 @@ func Validate(ctx context.Context, logger logr.Logger, request handlers.Admissio
 	}
 	if err := validation.ValidateTtlLabel(ctx, metadata); err != nil {
 		logger.Error(err, "metadatas validation errors")
-		return admissionutils.ResponseSuccess(request.UID, err.Error())
+		return admissionutils.ResponseSuccess(request.UID, fmt.Sprintf("cleanup.kyverno.io/ttl label value cannot be parsed as any recognizable format (%s)", err.Error()))
 	}
 	return admissionutils.ResponseSuccess(request.UID)
 }

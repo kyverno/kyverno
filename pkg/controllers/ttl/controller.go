@@ -97,19 +97,19 @@ func (c *controller) handleUpdate(oldObj, newObj interface{}) {
 func (c *controller) Start(ctx context.Context, workers int) {
 	for i := 0; i < workers; i++ {
 		c.wg.StartWithContext(ctx, func(ctx context.Context) {
-			defer c.logger.Info("worker stopped")
-			c.logger.Info("worker starting ....")
+			defer c.logger.V(3).Info("worker stopped")
+			c.logger.V(3).Info("worker starting ....")
 			wait.UntilWithContext(ctx, c.worker, 1*time.Second)
 		})
 	}
 }
 
 func (c *controller) Stop() {
-	defer c.logger.Info("queue stopped")
+	defer c.logger.V(3).Info("queue stopped")
 	defer c.wg.Wait()
 	// Unregister the event handlers
 	c.deregisterEventHandlers()
-	c.logger.Info("queue stopping ....")
+	c.logger.V(3).Info("queue stopping ....")
 	c.queue.ShutDown()
 }
 
@@ -129,7 +129,7 @@ func (c *controller) deregisterEventHandlers() {
 		c.logger.Error(err, "failed to deregister event handlers")
 		return
 	}
-	c.logger.Info("deregistered event handlers")
+	c.logger.V(3).Info("deregistered event handlers")
 }
 
 func (c *controller) worker(ctx context.Context) {
