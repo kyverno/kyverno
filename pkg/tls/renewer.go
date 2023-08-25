@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/api/kyverno"
+	"github.com/kyverno/kyverno/pkg/config"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -131,9 +132,9 @@ func (c *certRenewer) RenewCA(ctx context.Context) error {
 		return err
 	}
 	if !valid {
-		logger.Info("mismatched certs chain, renewing", "CA certificate", GenerateRootCASecretName(), "TLS certificate", GenerateTLSPairSecretName())
+		logger.Info("mismatched certs chain, renewing", "CA certificate", config.GenerateRootCASecretName(), "TLS certificate", config.GenerateTLSPairSecretName())
 		if err := c.RenewTLS(ctx); err != nil {
-			logger.Error(err, "failed to renew TLS certificate", "name", GenerateTLSPairSecretName())
+			logger.Error(err, "failed to renew TLS certificate", "name", config.GenerateTLSPairSecretName())
 			return err
 		}
 	}
@@ -157,7 +158,7 @@ func (c *certRenewer) RenewTLS(ctx context.Context) error {
 	if cert != nil {
 		valid, err := c.ValidateCert(ctx)
 		if err != nil || !valid {
-			logger.Info("invalid cert chain, renewing TLS certificate", "name", GenerateTLSPairSecretName(), "error", err.Error())
+			logger.Info("invalid cert chain, renewing TLS certificate", "name", config.GenerateTLSPairSecretName(), "error", err.Error())
 		} else if !allCertificatesExpired(now.Add(5*c.certRenewalInterval), cert) {
 			logger.V(4).Info("TLS certificate does not need to be renewed")
 			return nil
