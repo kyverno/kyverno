@@ -28,7 +28,7 @@ const (
 	ControllerName = "ttl-controller-manager"
 )
 
-var(
+var (
 	outsideChecker checker.AuthChecker
 )
 
