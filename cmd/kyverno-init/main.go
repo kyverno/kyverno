@@ -62,7 +62,7 @@ func main() {
 	failure := false
 
 	run := func(context.Context) {
-		name := config.GenerateRootCASecretName()
+		name := config.GenerateRootCASecretName(config.KyvernoServiceName(), config.KyvernoNamespace())
 		_, err := setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			logging.V(2).Info("failed to fetch root CA secret", "name", name, "error", err.Error())
@@ -71,7 +71,7 @@ func main() {
 			}
 		}
 
-		name = config.GenerateTLSPairSecretName()
+		name = config.GenerateTLSPairSecretName(config.KyvernoServiceName(), config.KyvernoNamespace())
 		_, err = setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			logging.V(2).Info("failed to fetch TLS Pair secret", "name", name, "error", err.Error())
