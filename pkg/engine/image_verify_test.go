@@ -1038,14 +1038,10 @@ func Test_ImageVerifyCacheCosign(t *testing.T) {
 	err = cosign.SetMock(image, attestationPayloads)
 	assert.NilError(t, err)
 
-	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	fmt.Println("Time taken by the first operation : ", time.Since(start))
 	errorAssertionUtil(t, image, ivm, er)
 
-	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	fmt.Println("Time taken by the second operation : ", time.Since(start))
 	errorAssertionUtil(t, image, ivm, er)
 }
 
@@ -1064,16 +1060,12 @@ func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
 	err = cosign.SetMock(image, attestationPayloads)
 	assert.NilError(t, err)
 
-	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	fmt.Println("Time taken by the first operation : ", time.Since(start))
 	errorAssertionUtil(t, image, ivm, er)
 
 	time.Sleep(5 * time.Second)
 
-	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	fmt.Println("Time taken by the second operation : ", time.Since(start))
 	errorAssertionUtil(t, image, ivm, er)
 }
 
@@ -1091,16 +1083,12 @@ func Test_changePolicyCacheVerificationCosign(t *testing.T) {
 	err = cosign.SetMock(image, attestationPayloads)
 	assert.NilError(t, err)
 
-	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	fmt.Println("Time taken by the first operation : ", time.Since(start))
 	errorAssertionUtil(t, image, ivm, er)
 
 	policyContext = buildContext(t, testUpdatedPolicyGood, testResource, "")
 
-	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	fmt.Println("Time taken by the second operation : ", time.Since(start))
 	errorAssertionUtil(t, image, ivm, er)
 }
 
@@ -1238,14 +1226,10 @@ func Test_ImageVerifyCacheNotary(t *testing.T) {
 	assert.NilError(t, err)
 	image := "ghcr.io/kyverno/test-verify-image:signed"
 	policyContext := buildContext(t, verifyImageNotaryPolicy, verifyImageNotaryResource, "")
-	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	fmt.Println("Time taken by the first operation : ", time.Since(start))
 	errorAssertionUtil(t, image, ivm, er)
 
-	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	fmt.Println("Time taken by the second operation : ", time.Since(start))
 	errorAssertionUtil(t, image, ivm, er)
 }
 
@@ -1263,16 +1247,12 @@ func Test_ImageVerifyCacheExpiredNotary(t *testing.T) {
 	policyContext := buildContext(t, verifyImageNotaryPolicy, verifyImageNotaryResource, "")
 
 	assert.NilError(t, err)
-	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	fmt.Println("Time taken by the first operation : ", time.Since(start))
 	errorAssertionUtil(t, image, ivm, er)
 
 	time.Sleep(5 * time.Second)
 
-	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	fmt.Println("Time taken by the second operation : ", time.Since(start))
 	errorAssertionUtil(t, image, ivm, er)
 }
 
@@ -1288,15 +1268,11 @@ func Test_changePolicyCacheVerificationNotary(t *testing.T) {
 
 	policyContext := buildContext(t, verifyImageNotaryPolicy, verifyImageNotaryResource, "")
 
-	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	fmt.Println("Time taken by the first operation : ", time.Since(start))
 
 	errorAssertionUtil(t, image, ivm, er)
 	policyContext = buildContext(t, verifyImageNotaryUpdatedPolicy, verifyImageNotaryResource, "")
 
-	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	fmt.Println("Time taken by the second operation : ", time.Since(start))
 	errorAssertionUtil(t, image, ivm, er)
 }
