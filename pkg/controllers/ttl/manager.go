@@ -28,6 +28,10 @@ const (
 	ControllerName = "ttl-controller-manager"
 )
 
+var(
+	outsideChecker checker.AuthChecker
+)
+
 type manager struct {
 	metadataClient  metadata.Interface
 	discoveryClient discovery.DiscoveryInterface
@@ -45,6 +49,7 @@ func NewManager(
 ) controllers.Controller {
 	logger := logging.WithName(ControllerName)
 	selfChecker := checker.NewSelfChecker(authorizationInterface.SelfSubjectAccessReviews())
+	outsideChecker = selfChecker
 	resController := map[schema.GroupVersionResource]stopFunc{}
 	return &manager{
 		metadataClient:  metadataInterface,
@@ -190,4 +195,8 @@ func (m *manager) reconcile(ctx context.Context, workers int) error {
 		}
 	}
 	return nil
+}
+
+func GetChecker() checker.AuthChecker {
+	return outsideChecker
 }
