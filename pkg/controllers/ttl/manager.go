@@ -28,9 +28,7 @@ const (
 	ControllerName = "ttl-controller-manager"
 )
 
-var (
-	outsideChecker checker.AuthChecker
-)
+var outsideChecker checker.AuthChecker
 
 type manager struct {
 	metadataClient  metadata.Interface
