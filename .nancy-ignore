@@ -12,9 +12,6 @@ CVE-2022-29946 until=2023-07-31
 CVE-2022-42709 until=2023-07-31
 CVE-2022-42708 until=2023-07-31
 CVE-2021-32026 until=2023-07-31
-# golang/github.com/sigstore/rekor@v1.0.1
-CVE-2023-30551 until=2023-07-31
-CVE-2023-33199 until=2023-07-31
 # golang/github.com/valyala/fasthttp@v1.16.0
 CVE-2022-21221 until=2023-07-31
 # golang/go.etcd.io/etcd/v3@v3.6.0-alpha.0
