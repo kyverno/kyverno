@@ -187,19 +187,17 @@ type StaticKeyAttestor struct {
 	// Reference to a Secret resource that contains a public key
 	Secret *SecretReference `json:"secret,omitempty" yaml:"secret,omitempty"`
 
-	// Rekor provides configuration for the Rekor transparency log service. If the value is nil,
-	// or an empty object is provided, the public instance of
-	// Rekor (https://rekor.sigstore.dev) is used.
+	// Rekor provides configuration for the Rekor transparency log service. If an empty object
+	// is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
 	// +kubebuilder:validation:Optional
 	Rekor *Rekor `json:"rekor,omitempty" yaml:"rekor,omitempty"`
 
-	// CTLog provides configuration for validation of SCTs. If the value is nil,
-	// SCTs are verified using cosign's  ctlog public key
+	// CTLog provides configuration for validation of SCTs.
+	// If the value is nil, default ctlog public key is used
 	// +kubebuilder:validation:Optional
 	CTLog *CTLog `json:"ctlog,omitempty" yaml:"ctlog,omitempty"`
 
-	// TUF provides root and mirror for the Rekor transparency log service.
-	// Sigstore uses TUF as a distribution mechanism for its keys.
+	// TUF provides root and mirror for the custom sigstore using TUF
 	// If the value is nil, cosign's default TUF is used.
 	// +kubebuilder:validation:Optional
 	TUF *TUF `json:"tuf,omitempty" yaml:"tuf,omitempty"`
@@ -222,38 +220,34 @@ type CertificateAttestor struct {
 	// +kubebuilder:validation:Optional
 	CertificateChain string `json:"certChain,omitempty" yaml:"certChain,omitempty"`
 
-	// Rekor provides configuration for the Rekor transparency log service. If the value is nil,
-	// Rekor is not checked. If an empty object is provided the public instance of
-	// Rekor (https://rekor.sigstore.dev) is used.
+	// Rekor provides configuration for the Rekor transparency log service. If an empty object
+	// is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
 	// +kubebuilder:validation:Optional
 	Rekor *Rekor `json:"rekor,omitempty" yaml:"rekor,omitempty"`
 
-	// CTLog provides configuration for validation of SCTs. If the value is nil,
-	// SCTs are verified using cosign's  ctlog public key
+	// CTLog provides configuration for validation of SCTs.
+	// If the value is nil, default ctlog public key is used
 	// +kubebuilder:validation:Optional
 	CTLog *CTLog `json:"ctlog,omitempty" yaml:"ctlog,omitempty"`
 
-	// TUF provides root and mirror for the Rekor transparency log service.
-	// Sigstore uses TUF as a distribution mechanism for its keys.
+	// TUF provides root and mirror for the custom sigstore using TUF
 	// If the value is nil, cosign's default TUF is used.
 	// +kubebuilder:validation:Optional
 	TUF *TUF `json:"tuf,omitempty" yaml:"tuf,omitempty"`
 }
 
 type KeylessAttestor struct {
-	// Rekor provides configuration for the Rekor transparency log service. If the value is nil,
-	// Rekor is not checked and a root certificate chain is expected instead. If an empty object
+	// Rekor provides configuration for the Rekor transparency log service. If an empty object
 	// is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
 	// +kubebuilder:validation:Optional
 	Rekor *Rekor `json:"rekor,omitempty" yaml:"rekor,omitempty"`
 
-	// CTLog provides configuration for validation of SCTs. If the value is nil,
-	// SCTs are verified using cosign's  ctlog public key
+	// CTLog provides configuration for validation of SCTs.
+	// If the value is nil, default ctlog public key is used
 	// +kubebuilder:validation:Optional
 	CTLog *CTLog `json:"ctlog,omitempty" yaml:"ctlog,omitempty"`
 
-	// TUF provides root and mirror for the Rekor transparency log service.
-	// Sigstore uses TUF as a distribution mechanism for its keys.
+	// TUF provides root and mirror for the custom sigstore using TUF
 	// If the value is nil, cosign's default TUF is used.
 	// +kubebuilder:validation:Optional
 	TUF *TUF `json:"tuf,omitempty" yaml:"tuf,omitempty"`
@@ -293,7 +287,7 @@ type Rekor struct {
 }
 
 type CTLog struct {
-	// IgnoreSCT requires that a certificate contain an embedded SCT during verification. An SCT is proof of inclusion in a certificate transparency log.
+	// IgnoreSCT requires that a certificate contain an embedded SCT during verification.
 	// +kubebuilder:validation:Optional
 	IgnoreSCT bool `json:"ignoreSCT,omitempty" yaml:"ignoreSCT,omitempty"`
 

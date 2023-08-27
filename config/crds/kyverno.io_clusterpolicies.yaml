@@ -3135,15 +3135,13 @@ spec:
                                             ctlog:
                                               description: CTLog provides configuration
                                                 for validation of SCTs. If the value
-                                                is nil, SCTs are verified using cosign's  ctlog
-                                                public key
+                                                is nil, default ctlog public key is
+                                                used
                                               properties:
                                                 ignoreSCT:
                                                   description: IgnoreSCT requires
                                                     that a certificate contain an
                                                     embedded SCT during verification.
-                                                    An SCT is proof of inclusion in
-                                                    a certificate transparency log.
                                                   type: boolean
                                                 pubkey:
                                                   description: CTLogPubKey, if set,
@@ -3154,9 +3152,8 @@ spec:
                                             rekor:
                                               description: Rekor provides configuration
                                                 for the Rekor transparency log service.
-                                                If the value is nil, Rekor is not
-                                                checked. If an empty object is provided
-                                                the public instance of Rekor (https://rekor.sigstore.dev)
+                                                If an empty object is provided the
+                                                public instance of Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
                                                 ignoreTlog:
@@ -3180,10 +3177,9 @@ spec:
                                               type: object
                                             tuf:
                                               description: TUF provides root and mirror
-                                                for the Rekor transparency log service.
-                                                Sigstore uses TUF as a distribution
-                                                mechanism for its keys. If the value
-                                                is nil, cosign's default TUF is used.
+                                                for the custom sigstore using TUF
+                                                If the value is nil, cosign's default
+                                                TUF is used.
                                               properties:
                                                 mirror:
                                                   description: Mirror, is the url
@@ -3212,15 +3208,13 @@ spec:
                                             ctlog:
                                               description: CTLog provides configuration
                                                 for validation of SCTs. If the value
-                                                is nil, SCTs are verified using cosign's  ctlog
-                                                public key
+                                                is nil, default ctlog public key is
+                                                used
                                               properties:
                                                 ignoreSCT:
                                                   description: IgnoreSCT requires
                                                     that a certificate contain an
                                                     embedded SCT during verification.
-                                                    An SCT is proof of inclusion in
-                                                    a certificate transparency log.
                                                   type: boolean
                                                 pubkey:
                                                   description: CTLogPubKey, if set,
@@ -3235,11 +3229,8 @@ spec:
                                             rekor:
                                               description: Rekor provides configuration
                                                 for the Rekor transparency log service.
-                                                If the value is nil, Rekor is not
-                                                checked and a root certificate chain
-                                                is expected instead. If an empty object
-                                                is provided the public instance of
-                                                Rekor (https://rekor.sigstore.dev)
+                                                If an empty object is provided the
+                                                public instance of Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
                                                 ignoreTlog:
@@ -3274,10 +3265,9 @@ spec:
                                               type: string
                                             tuf:
                                               description: TUF provides root and mirror
-                                                for the Rekor transparency log service.
-                                                Sigstore uses TUF as a distribution
-                                                mechanism for its keys. If the value
-                                                is nil, cosign's default TUF is used.
+                                                for the custom sigstore using TUF
+                                                If the value is nil, cosign's default
+                                                TUF is used.
                                               properties:
                                                 mirror:
                                                   description: Mirror, is the url
@@ -3298,15 +3288,13 @@ spec:
                                             ctlog:
                                               description: CTLog provides configuration
                                                 for validation of SCTs. If the value
-                                                is nil, SCTs are verified using cosign's  ctlog
-                                                public key
+                                                is nil, default ctlog public key is
+                                                used
                                               properties:
                                                 ignoreSCT:
                                                   description: IgnoreSCT requires
                                                     that a certificate contain an
                                                     embedded SCT during verification.
-                                                    An SCT is proof of inclusion in
-                                                    a certificate transparency log.
                                                   type: boolean
                                                 pubkey:
                                                   description: CTLogPubKey, if set,
@@ -3341,9 +3329,8 @@ spec:
                                             rekor:
                                               description: Rekor provides configuration
                                                 for the Rekor transparency log service.
-                                                If the value is nil, or an empty object
-                                                is provided, the public instance of
-                                                Rekor (https://rekor.sigstore.dev)
+                                                If an empty object is provided the
+                                                public instance of Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
                                                 ignoreTlog:
@@ -3390,10 +3377,9 @@ spec:
                                               type: string
                                             tuf:
                                               description: TUF provides root and mirror
-                                                for the Rekor transparency log service.
-                                                Sigstore uses TUF as a distribution
-                                                mechanism for its keys. If the value
-                                                is nil, cosign's default TUF is used.
+                                                for the custom sigstore using TUF
+                                                If the value is nil, cosign's default
+                                                TUF is used.
                                               properties:
                                                 mirror:
                                                   description: Mirror, is the url
@@ -3630,16 +3616,13 @@ spec:
                                                 ctlog:
                                                   description: CTLog provides configuration
                                                     for validation of SCTs. If the
-                                                    value is nil, SCTs are verified
-                                                    using cosign's  ctlog public key
+                                                    value is nil, default ctlog public
+                                                    key is used
                                                   properties:
                                                     ignoreSCT:
                                                       description: IgnoreSCT requires
                                                         that a certificate contain
                                                         an embedded SCT during verification.
-                                                        An SCT is proof of inclusion
-                                                        in a certificate transparency
-                                                        log.
                                                       type: boolean
                                                     pubkey:
                                                       description: CTLogPubKey, if
@@ -3650,10 +3633,9 @@ spec:
                                                 rekor:
                                                   description: Rekor provides configuration
                                                     for the Rekor transparency log
-                                                    service. If the value is nil,
-                                                    Rekor is not checked. If an empty
-                                                    object is provided the public
-                                                    instance of Rekor (https://rekor.sigstore.dev)
+                                                    service. If an empty object is
+                                                    provided the public instance of
+                                                    Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
                                                     ignoreTlog:
@@ -3678,10 +3660,8 @@ spec:
                                                   type: object
                                                 tuf:
                                                   description: TUF provides root and
-                                                    mirror for the Rekor transparency
-                                                    log service. Sigstore uses TUF
-                                                    as a distribution mechanism for
-                                                    its keys. If the value is nil,
+                                                    mirror for the custom sigstore
+                                                    using TUF If the value is nil,
                                                     cosign's default TUF is used.
                                                   properties:
                                                     mirror:
@@ -3711,16 +3691,13 @@ spec:
                                                 ctlog:
                                                   description: CTLog provides configuration
                                                     for validation of SCTs. If the
-                                                    value is nil, SCTs are verified
-                                                    using cosign's  ctlog public key
+                                                    value is nil, default ctlog public
+                                                    key is used
                                                   properties:
                                                     ignoreSCT:
                                                       description: IgnoreSCT requires
                                                         that a certificate contain
                                                         an embedded SCT during verification.
-                                                        An SCT is proof of inclusion
-                                                        in a certificate transparency
-                                                        log.
                                                       type: boolean
                                                     pubkey:
                                                       description: CTLogPubKey, if
@@ -3735,10 +3712,7 @@ spec:
                                                 rekor:
                                                   description: Rekor provides configuration
                                                     for the Rekor transparency log
-                                                    service. If the value is nil,
-                                                    Rekor is not checked and a root
-                                                    certificate chain is expected
-                                                    instead. If an empty object is
+                                                    service. If an empty object is
                                                     provided the public instance of
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
@@ -3776,10 +3750,8 @@ spec:
                                                   type: string
                                                 tuf:
                                                   description: TUF provides root and
-                                                    mirror for the Rekor transparency
-                                                    log service. Sigstore uses TUF
-                                                    as a distribution mechanism for
-                                                    its keys. If the value is nil,
+                                                    mirror for the custom sigstore
+                                                    using TUF If the value is nil,
                                                     cosign's default TUF is used.
                                                   properties:
                                                     mirror:
@@ -3801,16 +3773,13 @@ spec:
                                                 ctlog:
                                                   description: CTLog provides configuration
                                                     for validation of SCTs. If the
-                                                    value is nil, SCTs are verified
-                                                    using cosign's  ctlog public key
+                                                    value is nil, default ctlog public
+                                                    key is used
                                                   properties:
                                                     ignoreSCT:
                                                       description: IgnoreSCT requires
                                                         that a certificate contain
                                                         an embedded SCT during verification.
-                                                        An SCT is proof of inclusion
-                                                        in a certificate transparency
-                                                        log.
                                                       type: boolean
                                                     pubkey:
                                                       description: CTLogPubKey, if
@@ -3848,9 +3817,9 @@ spec:
                                                 rekor:
                                                   description: Rekor provides configuration
                                                     for the Rekor transparency log
-                                                    service. If the value is nil,
-                                                    or an empty object is provided,
-                                                    the public instance of Rekor (https://rekor.sigstore.dev)
+                                                    service. If an empty object is
+                                                    provided the public instance of
+                                                    Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
                                                     ignoreTlog:
@@ -3899,10 +3868,8 @@ spec:
                                                   type: string
                                                 tuf:
                                                   description: TUF provides root and
-                                                    mirror for the Rekor transparency
-                                                    log service. Sigstore uses TUF
-                                                    as a distribution mechanism for
-                                                    its keys. If the value is nil,
+                                                    mirror for the custom sigstore
+                                                    using TUF If the value is nil,
                                                     cosign's default TUF is used.
                                                   properties:
                                                     mirror:
@@ -4116,15 +4083,13 @@ spec:
                                           ctlog:
                                             description: CTLog provides configuration
                                               for validation of SCTs. If the value
-                                              is nil, SCTs are verified using cosign's  ctlog
-                                              public key
+                                              is nil, default ctlog public key is
+                                              used
                                             properties:
                                               ignoreSCT:
                                                 description: IgnoreSCT requires that
                                                   a certificate contain an embedded
-                                                  SCT during verification. An SCT
-                                                  is proof of inclusion in a certificate
-                                                  transparency log.
+                                                  SCT during verification.
                                                 type: boolean
                                               pubkey:
                                                 description: CTLogPubKey, if set,
@@ -4135,7 +4100,6 @@ spec:
                                           rekor:
                                             description: Rekor provides configuration
                                               for the Rekor transparency log service.
-                                              If the value is nil, Rekor is not checked.
                                               If an empty object is provided the public
                                               instance of Rekor (https://rekor.sigstore.dev)
                                               is used.
@@ -4161,10 +4125,9 @@ spec:
                                             type: object
                                           tuf:
                                             description: TUF provides root and mirror
-                                              for the Rekor transparency log service.
-                                              Sigstore uses TUF as a distribution
-                                              mechanism for its keys. If the value
-                                              is nil, cosign's default TUF is used.
+                                              for the custom sigstore using TUF If
+                                              the value is nil, cosign's default TUF
+                                              is used.
                                             properties:
                                               mirror:
                                                 description: Mirror, is the url of
@@ -4192,15 +4155,13 @@ spec:
                                           ctlog:
                                             description: CTLog provides configuration
                                               for validation of SCTs. If the value
-                                              is nil, SCTs are verified using cosign's  ctlog
-                                              public key
+                                              is nil, default ctlog public key is
+                                              used
                                             properties:
                                               ignoreSCT:
                                                 description: IgnoreSCT requires that
                                                   a certificate contain an embedded
-                                                  SCT during verification. An SCT
-                                                  is proof of inclusion in a certificate
-                                                  transparency log.
+                                                  SCT during verification.
                                                 type: boolean
                                               pubkey:
                                                 description: CTLogPubKey, if set,
@@ -4215,10 +4176,8 @@ spec:
                                           rekor:
                                             description: Rekor provides configuration
                                               for the Rekor transparency log service.
-                                              If the value is nil, Rekor is not checked
-                                              and a root certificate chain is expected
-                                              instead. If an empty object is provided
-                                              the public instance of Rekor (https://rekor.sigstore.dev)
+                                              If an empty object is provided the public
+                                              instance of Rekor (https://rekor.sigstore.dev)
                                               is used.
                                             properties:
                                               ignoreTlog:
@@ -4253,10 +4212,9 @@ spec:
                                             type: string
                                           tuf:
                                             description: TUF provides root and mirror
-                                              for the Rekor transparency log service.
-                                              Sigstore uses TUF as a distribution
-                                              mechanism for its keys. If the value
-                                              is nil, cosign's default TUF is used.
+                                              for the custom sigstore using TUF If
+                                              the value is nil, cosign's default TUF
+                                              is used.
                                             properties:
                                               mirror:
                                                 description: Mirror, is the url of
@@ -4276,15 +4234,13 @@ spec:
                                           ctlog:
                                             description: CTLog provides configuration
                                               for validation of SCTs. If the value
-                                              is nil, SCTs are verified using cosign's  ctlog
-                                              public key
+                                              is nil, default ctlog public key is
+                                              used
                                             properties:
                                               ignoreSCT:
                                                 description: IgnoreSCT requires that
                                                   a certificate contain an embedded
-                                                  SCT during verification. An SCT
-                                                  is proof of inclusion in a certificate
-                                                  transparency log.
+                                                  SCT during verification.
                                                 type: boolean
                                               pubkey:
                                                 description: CTLogPubKey, if set,
@@ -4318,10 +4274,9 @@ spec:
                                           rekor:
                                             description: Rekor provides configuration
                                               for the Rekor transparency log service.
-                                              If the value is nil, or an empty object
-                                              is provided, the public instance of
-                                              Rekor (https://rekor.sigstore.dev) is
-                                              used.
+                                              If an empty object is provided the public
+                                              instance of Rekor (https://rekor.sigstore.dev)
+                                              is used.
                                             properties:
                                               ignoreTlog:
                                                 description: IgnoreTlog skip tlog
@@ -4367,10 +4322,9 @@ spec:
                                             type: string
                                           tuf:
                                             description: TUF provides root and mirror
-                                              for the Rekor transparency log service.
-                                              Sigstore uses TUF as a distribution
-                                              mechanism for its keys. If the value
-                                              is nil, cosign's default TUF is used.
+                                              for the custom sigstore using TUF If
+                                              the value is nil, cosign's default TUF
+                                              is used.
                                             properties:
                                               mirror:
                                                 description: Mirror, is the url of
@@ -7765,16 +7719,13 @@ spec:
                                                 ctlog:
                                                   description: CTLog provides configuration
                                                     for validation of SCTs. If the
-                                                    value is nil, SCTs are verified
-                                                    using cosign's  ctlog public key
+                                                    value is nil, default ctlog public
+                                                    key is used
                                                   properties:
                                                     ignoreSCT:
                                                       description: IgnoreSCT requires
                                                         that a certificate contain
                                                         an embedded SCT during verification.
-                                                        An SCT is proof of inclusion
-                                                        in a certificate transparency
-                                                        log.
                                                       type: boolean
                                                     pubkey:
                                                       description: CTLogPubKey, if
@@ -7785,10 +7736,9 @@ spec:
                                                 rekor:
                                                   description: Rekor provides configuration
                                                     for the Rekor transparency log
-                                                    service. If the value is nil,
-                                                    Rekor is not checked. If an empty
-                                                    object is provided the public
-                                                    instance of Rekor (https://rekor.sigstore.dev)
+                                                    service. If an empty object is
+                                                    provided the public instance of
+                                                    Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
                                                     ignoreTlog:
@@ -7813,10 +7763,8 @@ spec:
                                                   type: object
                                                 tuf:
                                                   description: TUF provides root and
-                                                    mirror for the Rekor transparency
-                                                    log service. Sigstore uses TUF
-                                                    as a distribution mechanism for
-                                                    its keys. If the value is nil,
+                                                    mirror for the custom sigstore
+                                                    using TUF If the value is nil,
                                                     cosign's default TUF is used.
                                                   properties:
                                                     mirror:
@@ -7846,16 +7794,13 @@ spec:
                                                 ctlog:
                                                   description: CTLog provides configuration
                                                     for validation of SCTs. If the
-                                                    value is nil, SCTs are verified
-                                                    using cosign's  ctlog public key
+                                                    value is nil, default ctlog public
+                                                    key is used
                                                   properties:
                                                     ignoreSCT:
                                                       description: IgnoreSCT requires
                                                         that a certificate contain
                                                         an embedded SCT during verification.
-                                                        An SCT is proof of inclusion
-                                                        in a certificate transparency
-                                                        log.
                                                       type: boolean
                                                     pubkey:
                                                       description: CTLogPubKey, if
@@ -7870,10 +7815,7 @@ spec:
                                                 rekor:
                                                   description: Rekor provides configuration
                                                     for the Rekor transparency log
-                                                    service. If the value is nil,
-                                                    Rekor is not checked and a root
-                                                    certificate chain is expected
-                                                    instead. If an empty object is
+                                                    service. If an empty object is
                                                     provided the public instance of
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
@@ -7911,10 +7853,8 @@ spec:
                                                   type: string
                                                 tuf:
                                                   description: TUF provides root and
-                                                    mirror for the Rekor transparency
-                                                    log service. Sigstore uses TUF
-                                                    as a distribution mechanism for
-                                                    its keys. If the value is nil,
+                                                    mirror for the custom sigstore
+                                                    using TUF If the value is nil,
                                                     cosign's default TUF is used.
                                                   properties:
                                                     mirror:
@@ -7936,16 +7876,13 @@ spec:
                                                 ctlog:
                                                   description: CTLog provides configuration
                                                     for validation of SCTs. If the
-                                                    value is nil, SCTs are verified
-                                                    using cosign's  ctlog public key
+                                                    value is nil, default ctlog public
+                                                    key is used
                                                   properties:
                                                     ignoreSCT:
                                                       description: IgnoreSCT requires
                                                         that a certificate contain
                                                         an embedded SCT during verification.
-                                                        An SCT is proof of inclusion
-                                                        in a certificate transparency
-                                                        log.
                                                       type: boolean
                                                     pubkey:
                                                       description: CTLogPubKey, if
@@ -7983,9 +7920,9 @@ spec:
                                                 rekor:
                                                   description: Rekor provides configuration
                                                     for the Rekor transparency log
-                                                    service. If the value is nil,
-                                                    or an empty object is provided,
-                                                    the public instance of Rekor (https://rekor.sigstore.dev)
+                                                    service. If an empty object is
+                                                    provided the public instance of
+                                                    Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
                                                     ignoreTlog:
@@ -8034,10 +7971,8 @@ spec:
                                                   type: string
                                                 tuf:
                                                   description: TUF provides root and
-                                                    mirror for the Rekor transparency
-                                                    log service. Sigstore uses TUF
-                                                    as a distribution mechanism for
-                                                    its keys. If the value is nil,
+                                                    mirror for the custom sigstore
+                                                    using TUF If the value is nil,
                                                     cosign's default TUF is used.
                                                   properties:
                                                     mirror:
@@ -8284,17 +8219,14 @@ spec:
                                                       description: CTLog provides
                                                         configuration for validation
                                                         of SCTs. If the value is nil,
-                                                        SCTs are verified using cosign's  ctlog
-                                                        public key
+                                                        default ctlog public key is
+                                                        used
                                                       properties:
                                                         ignoreSCT:
                                                           description: IgnoreSCT requires
                                                             that a certificate contain
                                                             an embedded SCT during
-                                                            verification. An SCT is
-                                                            proof of inclusion in
-                                                            a certificate transparency
-                                                            log.
+                                                            verification.
                                                           type: boolean
                                                         pubkey:
                                                           description: CTLogPubKey,
@@ -8306,10 +8238,9 @@ spec:
                                                       description: Rekor provides
                                                         configuration for the Rekor
                                                         transparency log service.
-                                                        If the value is nil, Rekor
-                                                        is not checked. If an empty
-                                                        object is provided the public
-                                                        instance of Rekor (https://rekor.sigstore.dev)
+                                                        If an empty object is provided
+                                                        the public instance of Rekor
+                                                        (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
                                                         ignoreTlog:
@@ -8335,12 +8266,10 @@ spec:
                                                       type: object
                                                     tuf:
                                                       description: TUF provides root
-                                                        and mirror for the Rekor transparency
-                                                        log service. Sigstore uses
-                                                        TUF as a distribution mechanism
-                                                        for its keys. If the value
-                                                        is nil, cosign's default TUF
-                                                        is used.
+                                                        and mirror for the custom
+                                                        sigstore using TUF If the
+                                                        value is nil, cosign's default
+                                                        TUF is used.
                                                       properties:
                                                         mirror:
                                                           description: Mirror, is
@@ -8372,17 +8301,14 @@ spec:
                                                       description: CTLog provides
                                                         configuration for validation
                                                         of SCTs. If the value is nil,
-                                                        SCTs are verified using cosign's  ctlog
-                                                        public key
+                                                        default ctlog public key is
+                                                        used
                                                       properties:
                                                         ignoreSCT:
                                                           description: IgnoreSCT requires
                                                             that a certificate contain
                                                             an embedded SCT during
-                                                            verification. An SCT is
-                                                            proof of inclusion in
-                                                            a certificate transparency
-                                                            log.
+                                                            verification.
                                                           type: boolean
                                                         pubkey:
                                                           description: CTLogPubKey,
@@ -8398,12 +8324,9 @@ spec:
                                                       description: Rekor provides
                                                         configuration for the Rekor
                                                         transparency log service.
-                                                        If the value is nil, Rekor
-                                                        is not checked and a root
-                                                        certificate chain is expected
-                                                        instead. If an empty object
-                                                        is provided the public instance
-                                                        of Rekor (https://rekor.sigstore.dev)
+                                                        If an empty object is provided
+                                                        the public instance of Rekor
+                                                        (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
                                                         ignoreTlog:
@@ -8442,12 +8365,10 @@ spec:
                                                       type: string
                                                     tuf:
                                                       description: TUF provides root
-                                                        and mirror for the Rekor transparency
-                                                        log service. Sigstore uses
-                                                        TUF as a distribution mechanism
-                                                        for its keys. If the value
-                                                        is nil, cosign's default TUF
-                                                        is used.
+                                                        and mirror for the custom
+                                                        sigstore using TUF If the
+                                                        value is nil, cosign's default
+                                                        TUF is used.
                                                       properties:
                                                         mirror:
                                                           description: Mirror, is
@@ -8471,17 +8392,14 @@ spec:
                                                       description: CTLog provides
                                                         configuration for validation
                                                         of SCTs. If the value is nil,
-                                                        SCTs are verified using cosign's  ctlog
-                                                        public key
+                                                        default ctlog public key is
+                                                        used
                                                       properties:
                                                         ignoreSCT:
                                                           description: IgnoreSCT requires
                                                             that a certificate contain
                                                             an embedded SCT during
-                                                            verification. An SCT is
-                                                            proof of inclusion in
-                                                            a certificate transparency
-                                                            log.
+                                                            verification.
                                                           type: boolean
                                                         pubkey:
                                                           description: CTLogPubKey,
@@ -8522,8 +8440,7 @@ spec:
                                                       description: Rekor provides
                                                         configuration for the Rekor
                                                         transparency log service.
-                                                        If the value is nil, or an
-                                                        empty object is provided,
+                                                        If an empty object is provided
                                                         the public instance of Rekor
                                                         (https://rekor.sigstore.dev)
                                                         is used.
@@ -8577,12 +8494,10 @@ spec:
                                                       type: string
                                                     tuf:
                                                       description: TUF provides root
-                                                        and mirror for the Rekor transparency
-                                                        log service. Sigstore uses
-                                                        TUF as a distribution mechanism
-                                                        for its keys. If the value
-                                                        is nil, cosign's default TUF
-                                                        is used.
+                                                        and mirror for the custom
+                                                        sigstore using TUF If the
+                                                        value is nil, cosign's default
+                                                        TUF is used.
                                                       properties:
                                                         mirror:
                                                           description: Mirror, is
@@ -8804,16 +8719,13 @@ spec:
                                               ctlog:
                                                 description: CTLog provides configuration
                                                   for validation of SCTs. If the value
-                                                  is nil, SCTs are verified using
-                                                  cosign's  ctlog public key
+                                                  is nil, default ctlog public key
+                                                  is used
                                                 properties:
                                                   ignoreSCT:
                                                     description: IgnoreSCT requires
                                                       that a certificate contain an
                                                       embedded SCT during verification.
-                                                      An SCT is proof of inclusion
-                                                      in a certificate transparency
-                                                      log.
                                                     type: boolean
                                                   pubkey:
                                                     description: CTLogPubKey, if set,
@@ -8824,9 +8736,8 @@ spec:
                                               rekor:
                                                 description: Rekor provides configuration
                                                   for the Rekor transparency log service.
-                                                  If the value is nil, Rekor is not
-                                                  checked. If an empty object is provided
-                                                  the public instance of Rekor (https://rekor.sigstore.dev)
+                                                  If an empty object is provided the
+                                                  public instance of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
                                                   ignoreTlog:
@@ -8851,10 +8762,8 @@ spec:
                                                 type: object
                                               tuf:
                                                 description: TUF provides root and
-                                                  mirror for the Rekor transparency
-                                                  log service. Sigstore uses TUF as
-                                                  a distribution mechanism for its
-                                                  keys. If the value is nil, cosign's
+                                                  mirror for the custom sigstore using
+                                                  TUF If the value is nil, cosign's
                                                   default TUF is used.
                                                 properties:
                                                   mirror:
@@ -8884,16 +8793,13 @@ spec:
                                               ctlog:
                                                 description: CTLog provides configuration
                                                   for validation of SCTs. If the value
-                                                  is nil, SCTs are verified using
-                                                  cosign's  ctlog public key
+                                                  is nil, default ctlog public key
+                                                  is used
                                                 properties:
                                                   ignoreSCT:
                                                     description: IgnoreSCT requires
                                                       that a certificate contain an
                                                       embedded SCT during verification.
-                                                      An SCT is proof of inclusion
-                                                      in a certificate transparency
-                                                      log.
                                                     type: boolean
                                                   pubkey:
                                                     description: CTLogPubKey, if set,
@@ -8908,11 +8814,8 @@ spec:
                                               rekor:
                                                 description: Rekor provides configuration
                                                   for the Rekor transparency log service.
-                                                  If the value is nil, Rekor is not
-                                                  checked and a root certificate chain
-                                                  is expected instead. If an empty
-                                                  object is provided the public instance
-                                                  of Rekor (https://rekor.sigstore.dev)
+                                                  If an empty object is provided the
+                                                  public instance of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
                                                   ignoreTlog:
@@ -8948,10 +8851,8 @@ spec:
                                                 type: string
                                               tuf:
                                                 description: TUF provides root and
-                                                  mirror for the Rekor transparency
-                                                  log service. Sigstore uses TUF as
-                                                  a distribution mechanism for its
-                                                  keys. If the value is nil, cosign's
+                                                  mirror for the custom sigstore using
+                                                  TUF If the value is nil, cosign's
                                                   default TUF is used.
                                                 properties:
                                                   mirror:
@@ -8973,16 +8874,13 @@ spec:
                                               ctlog:
                                                 description: CTLog provides configuration
                                                   for validation of SCTs. If the value
-                                                  is nil, SCTs are verified using
-                                                  cosign's  ctlog public key
+                                                  is nil, default ctlog public key
+                                                  is used
                                                 properties:
                                                   ignoreSCT:
                                                     description: IgnoreSCT requires
                                                       that a certificate contain an
                                                       embedded SCT during verification.
-                                                      An SCT is proof of inclusion
-                                                      in a certificate transparency
-                                                      log.
                                                     type: boolean
                                                   pubkey:
                                                     description: CTLogPubKey, if set,
@@ -9019,9 +8917,8 @@ spec:
                                               rekor:
                                                 description: Rekor provides configuration
                                                   for the Rekor transparency log service.
-                                                  If the value is nil, or an empty
-                                                  object is provided, the public instance
-                                                  of Rekor (https://rekor.sigstore.dev)
+                                                  If an empty object is provided the
+                                                  public instance of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
                                                   ignoreTlog:
@@ -9070,10 +8967,8 @@ spec:
                                                 type: string
                                               tuf:
                                                 description: TUF provides root and
-                                                  mirror for the Rekor transparency
-                                                  log service. Sigstore uses TUF as
-                                                  a distribution mechanism for its
-                                                  keys. If the value is nil, cosign's
+                                                  mirror for the custom sigstore using
+                                                  TUF If the value is nil, cosign's
                                                   default TUF is used.
                                                 properties:
                                                   mirror:
@@ -12188,15 +12083,13 @@ spec:
                                             ctlog:
                                               description: CTLog provides configuration
                                                 for validation of SCTs. If the value
-                                                is nil, SCTs are verified using cosign's  ctlog
-                                                public key
+                                                is nil, default ctlog public key is
+                                                used
                                               properties:
                                                 ignoreSCT:
                                                   description: IgnoreSCT requires
                                                     that a certificate contain an
                                                     embedded SCT during verification.
-                                                    An SCT is proof of inclusion in
-                                                    a certificate transparency log.
                                                   type: boolean
                                                 pubkey:
                                                   description: CTLogPubKey, if set,
@@ -12207,9 +12100,8 @@ spec:
                                             rekor:
                                               description: Rekor provides configuration
                                                 for the Rekor transparency log service.
-                                                If the value is nil, Rekor is not
-                                                checked. If an empty object is provided
-                                                the public instance of Rekor (https://rekor.sigstore.dev)
+                                                If an empty object is provided the
+                                                public instance of Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
                                                 ignoreTlog:
@@ -12233,10 +12125,9 @@ spec:
                                               type: object
                                             tuf:
                                               description: TUF provides root and mirror
-                                                for the Rekor transparency log service.
-                                                Sigstore uses TUF as a distribution
-                                                mechanism for its keys. If the value
-                                                is nil, cosign's default TUF is used.
+                                                for the custom sigstore using TUF
+                                                If the value is nil, cosign's default
+                                                TUF is used.
                                               properties:
                                                 mirror:
                                                   description: Mirror, is the url
@@ -12265,15 +12156,13 @@ spec:
                                             ctlog:
                                               description: CTLog provides configuration
                                                 for validation of SCTs. If the value
-                                                is nil, SCTs are verified using cosign's  ctlog
-                                                public key
+                                                is nil, default ctlog public key is
+                                                used
                                               properties:
                                                 ignoreSCT:
                                                   description: IgnoreSCT requires
                                                     that a certificate contain an
                                                     embedded SCT during verification.
-                                                    An SCT is proof of inclusion in
-                                                    a certificate transparency log.
                                                   type: boolean
                                                 pubkey:
                                                   description: CTLogPubKey, if set,
@@ -12288,11 +12177,8 @@ spec:
                                             rekor:
                                               description: Rekor provides configuration
                                                 for the Rekor transparency log service.
-                                                If the value is nil, Rekor is not
-                                                checked and a root certificate chain
-                                                is expected instead. If an empty object
-                                                is provided the public instance of
-                                                Rekor (https://rekor.sigstore.dev)
+                                                If an empty object is provided the
+                                                public instance of Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
                                                 ignoreTlog:
@@ -12327,10 +12213,9 @@ spec:
                                               type: string
                                             tuf:
                                               description: TUF provides root and mirror
-                                                for the Rekor transparency log service.
-                                                Sigstore uses TUF as a distribution
-                                                mechanism for its keys. If the value
-                                                is nil, cosign's default TUF is used.
+                                                for the custom sigstore using TUF
+                                                If the value is nil, cosign's default
+                                                TUF is used.
                                               properties:
                                                 mirror:
                                                   description: Mirror, is the url
@@ -12351,15 +12236,13 @@ spec:
                                             ctlog:
                                               description: CTLog provides configuration
                                                 for validation of SCTs. If the value
-                                                is nil, SCTs are verified using cosign's  ctlog
-                                                public key
+                                                is nil, default ctlog public key is
+                                                used
                                               properties:
                                                 ignoreSCT:
                                                   description: IgnoreSCT requires
                                                     that a certificate contain an
                                                     embedded SCT during verification.
-                                                    An SCT is proof of inclusion in
-                                                    a certificate transparency log.
                                                   type: boolean
                                                 pubkey:
                                                   description: CTLogPubKey, if set,
@@ -12394,9 +12277,8 @@ spec:
                                             rekor:
                                               description: Rekor provides configuration
                                                 for the Rekor transparency log service.
-                                                If the value is nil, or an empty object
-                                                is provided, the public instance of
-                                                Rekor (https://rekor.sigstore.dev)
+                                                If an empty object is provided the
+                                                public instance of Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
                                                 ignoreTlog:
@@ -12443,10 +12325,9 @@ spec:
                                               type: string
                                             tuf:
                                               description: TUF provides root and mirror
-                                                for the Rekor transparency log service.
-                                                Sigstore uses TUF as a distribution
-                                                mechanism for its keys. If the value
-                                                is nil, cosign's default TUF is used.
+                                                for the custom sigstore using TUF
+                                                If the value is nil, cosign's default
+                                                TUF is used.
                                               properties:
                                                 mirror:
                                                   description: Mirror, is the url
@@ -12668,16 +12549,13 @@ spec:
                                                 ctlog:
                                                   description: CTLog provides configuration
                                                     for validation of SCTs. If the
-                                                    value is nil, SCTs are verified
-                                                    using cosign's  ctlog public key
+                                                    value is nil, default ctlog public
+                                                    key is used
                                                   properties:
                                                     ignoreSCT:
                                                       description: IgnoreSCT requires
                                                         that a certificate contain
                                                         an embedded SCT during verification.
-                                                        An SCT is proof of inclusion
-                                                        in a certificate transparency
-                                                        log.
                                                       type: boolean
                                                     pubkey:
                                                       description: CTLogPubKey, if
@@ -12688,10 +12566,9 @@ spec:
                                                 rekor:
                                                   description: Rekor provides configuration
                                                     for the Rekor transparency log
-                                                    service. If the value is nil,
-                                                    Rekor is not checked. If an empty
-                                                    object is provided the public
-                                                    instance of Rekor (https://rekor.sigstore.dev)
+                                                    service. If an empty object is
+                                                    provided the public instance of
+                                                    Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
                                                     ignoreTlog:
@@ -12716,10 +12593,8 @@ spec:
                                                   type: object
                                                 tuf:
                                                   description: TUF provides root and
-                                                    mirror for the Rekor transparency
-                                                    log service. Sigstore uses TUF
-                                                    as a distribution mechanism for
-                                                    its keys. If the value is nil,
+                                                    mirror for the custom sigstore
+                                                    using TUF If the value is nil,
                                                     cosign's default TUF is used.
                                                   properties:
                                                     mirror:
@@ -12749,16 +12624,13 @@ spec:
                                                 ctlog:
                                                   description: CTLog provides configuration
                                                     for validation of SCTs. If the
-                                                    value is nil, SCTs are verified
-                                                    using cosign's  ctlog public key
+                                                    value is nil, default ctlog public
+                                                    key is used
                                                   properties:
                                                     ignoreSCT:
                                                       description: IgnoreSCT requires
                                                         that a certificate contain
                                                         an embedded SCT during verification.
-                                                        An SCT is proof of inclusion
-                                                        in a certificate transparency
-                                                        log.
                                                       type: boolean
                                                     pubkey:
                                                       description: CTLogPubKey, if
@@ -12773,10 +12645,7 @@ spec:
                                                 rekor:
                                                   description: Rekor provides configuration
                                                     for the Rekor transparency log
-                                                    service. If the value is nil,
-                                                    Rekor is not checked and a root
-                                                    certificate chain is expected
-                                                    instead. If an empty object is
+                                                    service. If an empty object is
                                                     provided the public instance of
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
@@ -12814,10 +12683,8 @@ spec:
                                                   type: string
                                                 tuf:
                                                   description: TUF provides root and
-                                                    mirror for the Rekor transparency
-                                                    log service. Sigstore uses TUF
-                                                    as a distribution mechanism for
-                                                    its keys. If the value is nil,
+                                                    mirror for the custom sigstore
+                                                    using TUF If the value is nil,
                                                     cosign's default TUF is used.
                                                   properties:
                                                     mirror:
@@ -12839,16 +12706,13 @@ spec:
                                                 ctlog:
                                                   description: CTLog provides configuration
                                                     for validation of SCTs. If the
-                                                    value is nil, SCTs are verified
-                                                    using cosign's  ctlog public key
+                                                    value is nil, default ctlog public
+                                                    key is used
                                                   properties:
                                                     ignoreSCT:
                                                       description: IgnoreSCT requires
                                                         that a certificate contain
                                                         an embedded SCT during verification.
-                                                        An SCT is proof of inclusion
-                                                        in a certificate transparency
-                                                        log.
                                                       type: boolean
                                                     pubkey:
                                                       description: CTLogPubKey, if
@@ -12886,9 +12750,9 @@ spec:
                                                 rekor:
                                                   description: Rekor provides configuration
                                                     for the Rekor transparency log
-                                                    service. If the value is nil,
-                                                    or an empty object is provided,
-                                                    the public instance of Rekor (https://rekor.sigstore.dev)
+                                                    service. If an empty object is
+                                                    provided the public instance of
+                                                    Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
                                                     ignoreTlog:
@@ -12937,10 +12801,8 @@ spec:
                                                   type: string
                                                 tuf:
                                                   description: TUF provides root and
-                                                    mirror for the Rekor transparency
-                                                    log service. Sigstore uses TUF
-                                                    as a distribution mechanism for
-                                                    its keys. If the value is nil,
+                                                    mirror for the custom sigstore
+                                                    using TUF If the value is nil,
                                                     cosign's default TUF is used.
                                                   properties:
                                                     mirror:
@@ -13154,15 +13016,13 @@ spec:
                                           ctlog:
                                             description: CTLog provides configuration
                                               for validation of SCTs. If the value
-                                              is nil, SCTs are verified using cosign's  ctlog
-                                              public key
+                                              is nil, default ctlog public key is
+                                              used
                                             properties:
                                               ignoreSCT:
                                                 description: IgnoreSCT requires that
                                                   a certificate contain an embedded
-                                                  SCT during verification. An SCT
-                                                  is proof of inclusion in a certificate
-                                                  transparency log.
+                                                  SCT during verification.
                                                 type: boolean
                                               pubkey:
                                                 description: CTLogPubKey, if set,
@@ -13173,7 +13033,6 @@ spec:
                                           rekor:
                                             description: Rekor provides configuration
                                               for the Rekor transparency log service.
-                                              If the value is nil, Rekor is not checked.
                                               If an empty object is provided the public
                                               instance of Rekor (https://rekor.sigstore.dev)
                                               is used.
@@ -13199,10 +13058,9 @@ spec:
                                             type: object
                                           tuf:
                                             description: TUF provides root and mirror
-                                              for the Rekor transparency log service.
-                                              Sigstore uses TUF as a distribution
-                                              mechanism for its keys. If the value
-                                              is nil, cosign's default TUF is used.
+                                              for the custom sigstore using TUF If
+                                              the value is nil, cosign's default TUF
+                                              is used.
                                             properties:
                                               mirror:
                                                 description: Mirror, is the url of
@@ -13230,15 +13088,13 @@ spec:
                                           ctlog:
                                             description: CTLog provides configuration
                                               for validation of SCTs. If the value
-                                              is nil, SCTs are verified using cosign's  ctlog
-                                              public key
+                                              is nil, default ctlog public key is
+                                              used
                                             properties:
                                               ignoreSCT:
                                                 description: IgnoreSCT requires that
                                                   a certificate contain an embedded
-                                                  SCT during verification. An SCT
-                                                  is proof of inclusion in a certificate
-                                                  transparency log.
+                                                  SCT during verification.
                                                 type: boolean
                                               pubkey:
                                                 description: CTLogPubKey, if set,
@@ -13253,10 +13109,8 @@ spec:
                                           rekor:
                                             description: Rekor provides configuration
                                               for the Rekor transparency log service.
-                                              If the value is nil, Rekor is not checked
-                                              and a root certificate chain is expected
-                                              instead. If an empty object is provided
-                                              the public instance of Rekor (https://rekor.sigstore.dev)
+                                              If an empty object is provided the public
+                                              instance of Rekor (https://rekor.sigstore.dev)
                                               is used.
                                             properties:
                                               ignoreTlog:
@@ -13291,10 +13145,9 @@ spec:
                                             type: string
                                           tuf:
                                             description: TUF provides root and mirror
-                                              for the Rekor transparency log service.
-                                              Sigstore uses TUF as a distribution
-                                              mechanism for its keys. If the value
-                                              is nil, cosign's default TUF is used.
+                                              for the custom sigstore using TUF If
+                                              the value is nil, cosign's default TUF
+                                              is used.
                                             properties:
                                               mirror:
                                                 description: Mirror, is the url of
@@ -13314,15 +13167,13 @@ spec:
                                           ctlog:
                                             description: CTLog provides configuration
                                               for validation of SCTs. If the value
-                                              is nil, SCTs are verified using cosign's  ctlog
-                                              public key
+                                              is nil, default ctlog public key is
+                                              used
                                             properties:
                                               ignoreSCT:
                                                 description: IgnoreSCT requires that
                                                   a certificate contain an embedded
-                                                  SCT during verification. An SCT
-                                                  is proof of inclusion in a certificate
-                                                  transparency log.
+                                                  SCT during verification.
                                                 type: boolean
                                               pubkey:
                                                 description: CTLogPubKey, if set,
@@ -13356,10 +13207,9 @@ spec:
                                           rekor:
                                             description: Rekor provides configuration
                                               for the Rekor transparency log service.
-                                              If the value is nil, or an empty object
-                                              is provided, the public instance of
-                                              Rekor (https://rekor.sigstore.dev) is
-                                              used.
+                                              If an empty object is provided the public
+                                              instance of Rekor (https://rekor.sigstore.dev)
+                                              is used.
                                             properties:
                                               ignoreTlog:
                                                 description: IgnoreTlog skip tlog
@@ -13405,10 +13255,9 @@ spec:
                                             type: string
                                           tuf:
                                             description: TUF provides root and mirror
-                                              for the Rekor transparency log service.
-                                              Sigstore uses TUF as a distribution
-                                              mechanism for its keys. If the value
-                                              is nil, cosign's default TUF is used.
+                                              for the custom sigstore using TUF If
+                                              the value is nil, cosign's default TUF
+                                              is used.
                                             properties:
                                               mirror:
                                                 description: Mirror, is the url of
@@ -16778,16 +16627,13 @@ spec:
                                                 ctlog:
                                                   description: CTLog provides configuration
                                                     for validation of SCTs. If the
-                                                    value is nil, SCTs are verified
-                                                    using cosign's  ctlog public key
+                                                    value is nil, default ctlog public
+                                                    key is used
                                                   properties:
                                                     ignoreSCT:
                                                       description: IgnoreSCT requires
                                                         that a certificate contain
                                                         an embedded SCT during verification.
-                                                        An SCT is proof of inclusion
-                                                        in a certificate transparency
-                                                        log.
                                                       type: boolean
                                                     pubkey:
                                                       description: CTLogPubKey, if
@@ -16798,10 +16644,9 @@ spec:
                                                 rekor:
                                                   description: Rekor provides configuration
                                                     for the Rekor transparency log
-                                                    service. If the value is nil,
-                                                    Rekor is not checked. If an empty
-                                                    object is provided the public
-                                                    instance of Rekor (https://rekor.sigstore.dev)
+                                                    service. If an empty object is
+                                                    provided the public instance of
+                                                    Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
                                                     ignoreTlog:
@@ -16826,10 +16671,8 @@ spec:
                                                   type: object
                                                 tuf:
                                                   description: TUF provides root and
-                                                    mirror for the Rekor transparency
-                                                    log service. Sigstore uses TUF
-                                                    as a distribution mechanism for
-                                                    its keys. If the value is nil,
+                                                    mirror for the custom sigstore
+                                                    using TUF If the value is nil,
                                                     cosign's default TUF is used.
                                                   properties:
                                                     mirror:
@@ -16859,16 +16702,13 @@ spec:
                                                 ctlog:
                                                   description: CTLog provides configuration
                                                     for validation of SCTs. If the
-                                                    value is nil, SCTs are verified
-                                                    using cosign's  ctlog public key
+                                                    value is nil, default ctlog public
+                                                    key is used
                                                   properties:
                                                     ignoreSCT:
                                                       description: IgnoreSCT requires
                                                         that a certificate contain
                                                         an embedded SCT during verification.
-                                                        An SCT is proof of inclusion
-                                                        in a certificate transparency
-                                                        log.
                                                       type: boolean
                                                     pubkey:
                                                       description: CTLogPubKey, if
@@ -16883,10 +16723,7 @@ spec:
                                                 rekor:
                                                   description: Rekor provides configuration
                                                     for the Rekor transparency log
-                                                    service. If the value is nil,
-                                                    Rekor is not checked and a root
-                                                    certificate chain is expected
-                                                    instead. If an empty object is
+                                                    service. If an empty object is
                                                     provided the public instance of
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
@@ -16924,10 +16761,8 @@ spec:
                                                   type: string
                                                 tuf:
                                                   description: TUF provides root and
-                                                    mirror for the Rekor transparency
-                                                    log service. Sigstore uses TUF
-                                                    as a distribution mechanism for
-                                                    its keys. If the value is nil,
+                                                    mirror for the custom sigstore
+                                                    using TUF If the value is nil,
                                                     cosign's default TUF is used.
                                                   properties:
                                                     mirror:
@@ -16949,16 +16784,13 @@ spec:
                                                 ctlog:
                                                   description: CTLog provides configuration
                                                     for validation of SCTs. If the
-                                                    value is nil, SCTs are verified
-                                                    using cosign's  ctlog public key
+                                                    value is nil, default ctlog public
+                                                    key is used
                                                   properties:
                                                     ignoreSCT:
                                                       description: IgnoreSCT requires
                                                         that a certificate contain
                                                         an embedded SCT during verification.
-                                                        An SCT is proof of inclusion
-                                                        in a certificate transparency
-                                                        log.
                                                       type: boolean
                                                     pubkey:
                                                       description: CTLogPubKey, if
@@ -16996,9 +16828,9 @@ spec:
                                                 rekor:
                                                   description: Rekor provides configuration
                                                     for the Rekor transparency log
-                                                    service. If the value is nil,
-                                                    or an empty object is provided,
-                                                    the public instance of Rekor (https://rekor.sigstore.dev)
+                                                    service. If an empty object is
+                                                    provided the public instance of
+                                                    Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
                                                     ignoreTlog:
@@ -17047,10 +16879,8 @@ spec:
                                                   type: string
                                                 tuf:
                                                   description: TUF provides root and
-                                                    mirror for the Rekor transparency
-                                                    log service. Sigstore uses TUF
-                                                    as a distribution mechanism for
-                                                    its keys. If the value is nil,
+                                                    mirror for the custom sigstore
+                                                    using TUF If the value is nil,
                                                     cosign's default TUF is used.
                                                   properties:
                                                     mirror:
@@ -17297,17 +17127,14 @@ spec:
                                                       description: CTLog provides
                                                         configuration for validation
                                                         of SCTs. If the value is nil,
-                                                        SCTs are verified using cosign's  ctlog
-                                                        public key
+                                                        default ctlog public key is
+                                                        used
                                                       properties:
                                                         ignoreSCT:
                                                           description: IgnoreSCT requires
                                                             that a certificate contain
                                                             an embedded SCT during
-                                                            verification. An SCT is
-                                                            proof of inclusion in
-                                                            a certificate transparency
-                                                            log.
+                                                            verification.
                                                           type: boolean
                                                         pubkey:
                                                           description: CTLogPubKey,
@@ -17319,10 +17146,9 @@ spec:
                                                       description: Rekor provides
                                                         configuration for the Rekor
                                                         transparency log service.
-                                                        If the value is nil, Rekor
-                                                        is not checked. If an empty
-                                                        object is provided the public
-                                                        instance of Rekor (https://rekor.sigstore.dev)
+                                                        If an empty object is provided
+                                                        the public instance of Rekor
+                                                        (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
                                                         ignoreTlog:
@@ -17348,12 +17174,10 @@ spec:
                                                       type: object
                                                     tuf:
                                                       description: TUF provides root
-                                                        and mirror for the Rekor transparency
-                                                        log service. Sigstore uses
-                                                        TUF as a distribution mechanism
-                                                        for its keys. If the value
-                                                        is nil, cosign's default TUF
-                                                        is used.
+                                                        and mirror for the custom
+                                                        sigstore using TUF If the
+                                                        value is nil, cosign's default
+                                                        TUF is used.
                                                       properties:
                                                         mirror:
                                                           description: Mirror, is
@@ -17385,17 +17209,14 @@ spec:
                                                       description: CTLog provides
                                                         configuration for validation
                                                         of SCTs. If the value is nil,
-                                                        SCTs are verified using cosign's  ctlog
-                                                        public key
+                                                        default ctlog public key is
+                                                        used
                                                       properties:
                                                         ignoreSCT:
                                                           description: IgnoreSCT requires
                                                             that a certificate contain
                                                             an embedded SCT during
-                                                            verification. An SCT is
-                                                            proof of inclusion in
-                                                            a certificate transparency
-                                                            log.
+                                                            verification.
                                                           type: boolean
                                                         pubkey:
                                                           description: CTLogPubKey,
@@ -17411,12 +17232,9 @@ spec:
                                                       description: Rekor provides
                                                         configuration for the Rekor
                                                         transparency log service.
-                                                        If the value is nil, Rekor
-                                                        is not checked and a root
-                                                        certificate chain is expected
-                                                        instead. If an empty object
-                                                        is provided the public instance
-                                                        of Rekor (https://rekor.sigstore.dev)
+                                                        If an empty object is provided
+                                                        the public instance of Rekor
+                                                        (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
                                                         ignoreTlog:
@@ -17455,12 +17273,10 @@ spec:
                                                       type: string
                                                     tuf:
                                                       description: TUF provides root
-                                                        and mirror for the Rekor transparency
-                                                        log service. Sigstore uses
-                                                        TUF as a distribution mechanism
-                                                        for its keys. If the value
-                                                        is nil, cosign's default TUF
-                                                        is used.
+                                                        and mirror for the custom
+                                                        sigstore using TUF If the
+                                                        value is nil, cosign's default
+                                                        TUF is used.
                                                       properties:
                                                         mirror:
                                                           description: Mirror, is
@@ -17484,17 +17300,14 @@ spec:
                                                       description: CTLog provides
                                                         configuration for validation
                                                         of SCTs. If the value is nil,
-                                                        SCTs are verified using cosign's  ctlog
-                                                        public key
+                                                        default ctlog public key is
+                                                        used
                                                       properties:
                                                         ignoreSCT:
                                                           description: IgnoreSCT requires
                                                             that a certificate contain
                                                             an embedded SCT during
-                                                            verification. An SCT is
-                                                            proof of inclusion in
-                                                            a certificate transparency
-                                                            log.
+                                                            verification.
                                                           type: boolean
                                                         pubkey:
                                                           description: CTLogPubKey,
@@ -17535,8 +17348,7 @@ spec:
                                                       description: Rekor provides
                                                         configuration for the Rekor
                                                         transparency log service.
-                                                        If the value is nil, or an
-                                                        empty object is provided,
+                                                        If an empty object is provided
                                                         the public instance of Rekor
                                                         (https://rekor.sigstore.dev)
                                                         is used.
@@ -17590,12 +17402,10 @@ spec:
                                                       type: string
                                                     tuf:
                                                       description: TUF provides root
-                                                        and mirror for the Rekor transparency
-                                                        log service. Sigstore uses
-                                                        TUF as a distribution mechanism
-                                                        for its keys. If the value
-                                                        is nil, cosign's default TUF
-                                                        is used.
+                                                        and mirror for the custom
+                                                        sigstore using TUF If the
+                                                        value is nil, cosign's default
+                                                        TUF is used.
                                                       properties:
                                                         mirror:
                                                           description: Mirror, is
@@ -17817,16 +17627,13 @@ spec:
                                               ctlog:
                                                 description: CTLog provides configuration
                                                   for validation of SCTs. If the value
-                                                  is nil, SCTs are verified using
-                                                  cosign's  ctlog public key
+                                                  is nil, default ctlog public key
+                                                  is used
                                                 properties:
                                                   ignoreSCT:
                                                     description: IgnoreSCT requires
                                                       that a certificate contain an
                                                       embedded SCT during verification.
-                                                      An SCT is proof of inclusion
-                                                      in a certificate transparency
-                                                      log.
                                                     type: boolean
                                                   pubkey:
                                                     description: CTLogPubKey, if set,
@@ -17837,9 +17644,8 @@ spec:
                                               rekor:
                                                 description: Rekor provides configuration
                                                   for the Rekor transparency log service.
-                                                  If the value is nil, Rekor is not
-                                                  checked. If an empty object is provided
-                                                  the public instance of Rekor (https://rekor.sigstore.dev)
+                                                  If an empty object is provided the
+                                                  public instance of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
                                                   ignoreTlog:
@@ -17864,10 +17670,8 @@ spec:
                                                 type: object
                                               tuf:
                                                 description: TUF provides root and
-                                                  mirror for the Rekor transparency
-                                                  log service. Sigstore uses TUF as
-                                                  a distribution mechanism for its
-                                                  keys. If the value is nil, cosign's
+                                                  mirror for the custom sigstore using
+                                                  TUF If the value is nil, cosign's
                                                   default TUF is used.
                                                 properties:
                                                   mirror:
@@ -17897,16 +17701,13 @@ spec:
                                               ctlog:
                                                 description: CTLog provides configuration
                                                   for validation of SCTs. If the value
-                                                  is nil, SCTs are verified using
-                                                  cosign's  ctlog public key
+                                                  is nil, default ctlog public key
+                                                  is used
                                                 properties:
                                                   ignoreSCT:
                                                     description: IgnoreSCT requires
                                                       that a certificate contain an
                                                       embedded SCT during verification.
-                                                      An SCT is proof of inclusion
-                                                      in a certificate transparency
-                                                      log.
                                                     type: boolean
                                                   pubkey:
                                                     description: CTLogPubKey, if set,
@@ -17921,11 +17722,8 @@ spec:
                                               rekor:
                                                 description: Rekor provides configuration
                                                   for the Rekor transparency log service.
-                                                  If the value is nil, Rekor is not
-                                                  checked and a root certificate chain
-                                                  is expected instead. If an empty
-                                                  object is provided the public instance
-                                                  of Rekor (https://rekor.sigstore.dev)
+                                                  If an empty object is provided the
+                                                  public instance of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
                                                   ignoreTlog:
@@ -17961,10 +17759,8 @@ spec:
                                                 type: string
                                               tuf:
                                                 description: TUF provides root and
-                                                  mirror for the Rekor transparency
-                                                  log service. Sigstore uses TUF as
-                                                  a distribution mechanism for its
-                                                  keys. If the value is nil, cosign's
+                                                  mirror for the custom sigstore using
+                                                  TUF If the value is nil, cosign's
                                                   default TUF is used.
                                                 properties:
                                                   mirror:
@@ -17986,16 +17782,13 @@ spec:
                                               ctlog:
                                                 description: CTLog provides configuration
                                                   for validation of SCTs. If the value
-                                                  is nil, SCTs are verified using
-                                                  cosign's  ctlog public key
+                                                  is nil, default ctlog public key
+                                                  is used
                                                 properties:
                                                   ignoreSCT:
                                                     description: IgnoreSCT requires
                                                       that a certificate contain an
                                                       embedded SCT during verification.
-                                                      An SCT is proof of inclusion
-                                                      in a certificate transparency
-                                                      log.
                                                     type: boolean
                                                   pubkey:
                                                     description: CTLogPubKey, if set,
@@ -18032,9 +17825,8 @@ spec:
                                               rekor:
                                                 description: Rekor provides configuration
                                                   for the Rekor transparency log service.
-                                                  If the value is nil, or an empty
-                                                  object is provided, the public instance
-                                                  of Rekor (https://rekor.sigstore.dev)
+                                                  If an empty object is provided the
+                                                  public instance of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
                                                   ignoreTlog:
@@ -18083,10 +17875,8 @@ spec:
                                                 type: string
                                               tuf:
                                                 description: TUF provides root and
-                                                  mirror for the Rekor transparency
-                                                  log service. Sigstore uses TUF as
-                                                  a distribution mechanism for its
-                                                  keys. If the value is nil, cosign's
+                                                  mirror for the custom sigstore using
+                                                  TUF If the value is nil, cosign's
                                                   default TUF is used.
                                                 properties:
                                                   mirror:
