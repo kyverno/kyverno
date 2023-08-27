@@ -11,6 +11,10 @@ CVE-2020-28466 until=2023-09-30
 CVE-2022-29946 until=2023-09-30
 CVE-2022-42709 until=2023-09-30
 CVE-2022-42708 until=2023-09-30
+# golang/github.com/tektoncd/pipeline@v0.49.0
+CVE-2023-37264 until=2023-09-30
+# golang/k8s.io/apiserver@v0.28.1
+CVE-2020-8561 until=2023-09-30
 # golang/go.etcd.io/etcd/v3@v3.5.8
 CVE-2023-0296 until=2023-09-30
 CVE-2023-32082 until=2023-09-30
