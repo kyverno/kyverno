@@ -28,6 +28,7 @@ spec:
               rekor:
                   url: https://rekor.sigstore.dev
                   ignoreTlog: true
+              ctlog:
                   ignoreSCT: true
 ---
 apiVersion: kyverno.io/v1
@@ -66,4 +67,5 @@ spec:
               rekor:
                   url: https://rekor.sigstore.dev
                   ignoreTlog: true
+              ctlog:
                   ignoreSCT: true
