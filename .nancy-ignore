@@ -1,3 +1,10 @@
+# golang/github.com/hashicorp/consul/api@v1.20.0
+# golang/github.com/hashicorp/consul/sdk@v0.3.0
+CVE-2022-29153 until=2023-09-30
+# golang/github.com/nats-io/jwt@v0.3.2
+# golang/github.com/nats-io/nats-server/v2@v2.1.2
+CVE-2020-26892 until=2023-09-30
+CVE-2021-3127 until=2023-09-30
 # golang/go.etcd.io/etcd/v3@v3.5.8
 CVE-2023-0296 until=2023-09-30
 CVE-2023-32082 until=2023-09-30
