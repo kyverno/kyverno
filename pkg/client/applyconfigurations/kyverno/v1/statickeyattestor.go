@@ -25,7 +25,9 @@ type StaticKeyAttestorApplyConfiguration struct {
 	SignatureAlgorithm *string                            `json:"signatureAlgorithm,omitempty"`
 	KMS                *string                            `json:"kms,omitempty"`
 	Secret             *SecretReferenceApplyConfiguration `json:"secret,omitempty"`
-	Rekor              *CTLogApplyConfiguration           `json:"rekor,omitempty"`
+	Rekor              *RekorApplyConfiguration           `json:"rekor,omitempty"`
+	CTLog              *CTLogApplyConfiguration           `json:"ctlog,omitempty"`
+	TUF                *TUFApplyConfiguration             `json:"tuf,omitempty"`
 }
 
 // StaticKeyAttestorApplyConfiguration constructs an declarative configuration of the StaticKeyAttestor type for use with
@@ -69,7 +71,23 @@ func (b *StaticKeyAttestorApplyConfiguration) WithSecret(value *SecretReferenceA
 // WithRekor sets the Rekor field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Rekor field is set to the value of the last call.
-func (b *StaticKeyAttestorApplyConfiguration) WithRekor(value *CTLogApplyConfiguration) *StaticKeyAttestorApplyConfiguration {
+func (b *StaticKeyAttestorApplyConfiguration) WithRekor(value *RekorApplyConfiguration) *StaticKeyAttestorApplyConfiguration {
 	b.Rekor = value
+	return b
+}
+
+// WithCTLog sets the CTLog field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the CTLog field is set to the value of the last call.
+func (b *StaticKeyAttestorApplyConfiguration) WithCTLog(value *CTLogApplyConfiguration) *StaticKeyAttestorApplyConfiguration {
+	b.CTLog = value
+	return b
+}
+
+// WithTUF sets the TUF field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the TUF field is set to the value of the last call.
+func (b *StaticKeyAttestorApplyConfiguration) WithTUF(value *TUFApplyConfiguration) *StaticKeyAttestorApplyConfiguration {
+	b.TUF = value
 	return b
 }

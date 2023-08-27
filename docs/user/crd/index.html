@@ -1105,29 +1105,6 @@ The variables defined here will be available under <code>variables</code> in oth
 <tbody>
 <tr>
 <td>
-<code>url</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>URL is the address of the transparency log. Defaults to the public log <a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>pubkey</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>RekorPubKey is an optional PEM encoded public key to use for a custom Rekor.
-If set, is used to validate signatures on log entries from Rekor.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>ignoreSCT</code><br/>
 <em>
 bool
@@ -1139,13 +1116,13 @@ bool
 </tr>
 <tr>
 <td>
-<code>ignoreTlog</code><br/>
+<code>pubkey</code><br/>
 <em>
-bool
+string
 </em>
 </td>
 <td>
-<p>IgnoreTlog skip tlog verification</p>
+<p>CTLogPubKey, if set, is used to validate SCTs against those keys.</p>
 </td>
 </tr>
 </tbody>
@@ -1193,8 +1170,8 @@ string
 <td>
 <code>rekor</code><br/>
 <em>
-<a href="#kyverno.io/v1.CTLog">
-CTLog
+<a href="#kyverno.io/v1.Rekor">
+Rekor
 </a>
 </em>
 </td>
@@ -1202,6 +1179,35 @@ CTLog
 <p>Rekor provides configuration for the Rekor transparency log service. If the value is nil,
 Rekor is not checked. If an empty object is provided the public instance of
 Rekor (<a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>) is used.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ctlog</code><br/>
+<em>
+<a href="#kyverno.io/v1.CTLog">
+CTLog
+</a>
+</em>
+</td>
+<td>
+<p>CTLog provides configuration for validation of SCTs. If the value is nil,
+SCTs are verified using cosign&rsquo;s  ctlog public key</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>tuf</code><br/>
+<em>
+<a href="#kyverno.io/v1.TUF">
+TUF
+</a>
+</em>
+</td>
+<td>
+<p>TUF provides root and mirror for the Rekor transparency log service.
+Sigstore uses TUF as a distribution mechanism for its keys.
+If the value is nil, cosign&rsquo;s default TUF is used.</p>
 </td>
 </tr>
 </tbody>
@@ -2404,8 +2410,8 @@ bool
 <td>
 <code>rekor</code><br/>
 <em>
-<a href="#kyverno.io/v1.CTLog">
-CTLog
+<a href="#kyverno.io/v1.Rekor">
+Rekor
 </a>
 </em>
 </td>
@@ -2413,6 +2419,35 @@ CTLog
 <p>Rekor provides configuration for the Rekor transparency log service. If the value is nil,
 Rekor is not checked and a root certificate chain is expected instead. If an empty object
 is provided the public instance of Rekor (<a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>) is used.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ctlog</code><br/>
+<em>
+<a href="#kyverno.io/v1.CTLog">
+CTLog
+</a>
+</em>
+</td>
+<td>
+<p>CTLog provides configuration for validation of SCTs. If the value is nil,
+SCTs are verified using cosign&rsquo;s  ctlog public key</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>tuf</code><br/>
+<em>
+<a href="#kyverno.io/v1.TUF">
+TUF
+</a>
+</em>
+</td>
+<td>
+<p>TUF provides root and mirror for the Rekor transparency log service.
+Sigstore uses TUF as a distribution mechanism for its keys.
+If the value is nil, cosign&rsquo;s default TUF is used.</p>
 </td>
 </tr>
 <tr>
@@ -2938,6 +2973,61 @@ RuleCountStatus
 <td>
 <em>(Optional)</em>
 <p>RuleCount describes total number of rules in a policy</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.Rekor">Rekor
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.CertificateAttestor">CertificateAttestor</a>, 
+<a href="#kyverno.io/v1.KeylessAttestor">KeylessAttestor</a>, 
+<a href="#kyverno.io/v1.StaticKeyAttestor">StaticKeyAttestor</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>url</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>URL is the address of the transparency log. Defaults to the public log <a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>pubkey</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>RekorPubKey is an optional PEM encoded public key to use for a custom Rekor.
+If set, is used to validate signatures on log entries from Rekor.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ignoreTlog</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>IgnoreTlog skip tlog verification</p>
 </td>
 </tr>
 </tbody>
@@ -3859,8 +3949,8 @@ SecretReference
 <td>
 <code>rekor</code><br/>
 <em>
-<a href="#kyverno.io/v1.CTLog">
-CTLog
+<a href="#kyverno.io/v1.Rekor">
+Rekor
 </a>
 </em>
 </td>
@@ -3868,6 +3958,78 @@ CTLog
 <p>Rekor provides configuration for the Rekor transparency log service. If the value is nil,
 or an empty object is provided, the public instance of
 Rekor (<a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>) is used.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ctlog</code><br/>
+<em>
+<a href="#kyverno.io/v1.CTLog">
+CTLog
+</a>
+</em>
+</td>
+<td>
+<p>CTLog provides configuration for validation of SCTs. If the value is nil,
+SCTs are verified using cosign&rsquo;s  ctlog public key</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>tuf</code><br/>
+<em>
+<a href="#kyverno.io/v1.TUF">
+TUF
+</a>
+</em>
+</td>
+<td>
+<p>TUF provides root and mirror for the Rekor transparency log service.
+Sigstore uses TUF as a distribution mechanism for its keys.
+If the value is nil, cosign&rsquo;s default TUF is used.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.TUF">TUF
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.CertificateAttestor">CertificateAttestor</a>, 
+<a href="#kyverno.io/v1.KeylessAttestor">KeylessAttestor</a>, 
+<a href="#kyverno.io/v1.StaticKeyAttestor">StaticKeyAttestor</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>root</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Root is the path to TUF root file or URL.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>mirror</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Mirror, is the url of the mirror repository from which files can be downloaded by cosign.</p>
 </td>
 </tr>
 </tbody>
