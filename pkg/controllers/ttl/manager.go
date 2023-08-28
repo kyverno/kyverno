@@ -10,6 +10,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/metrics"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -46,6 +50,37 @@ func NewManager(
 	logger := logging.WithName(ControllerName)
 	selfChecker := checker.NewSelfChecker(authorizationInterface.SelfSubjectAccessReviews())
 	resController := map[schema.GroupVersionResource]stopFunc{}
+	meterProvider := otel.GetMeterProvider()
+	meter := meterProvider.Meter(metrics.MeterName)
+	infoMetric, err := meter.Int64ObservableCounter(
+		"kyverno_ttl_controller_info_total",
+		metric.WithDescription("can be used to track individual resource controllers running for ttl based cleanup"),
+	)
+	if err != nil {
+		logger.Error(err, "Failed to create instrument, kyverno_ttl_controller_info_total")
+	}
+	if infoMetric != nil {
+		_, err := meter.RegisterCallback(
+			func(ctx context.Context, observer metric.Observer) error {
+				for gvr := range resController {
+					observer.ObserveInt64(
+						infoMetric,
+						1,
+						metric.WithAttributes(
+							attribute.String("resource_group", gvr.Group),
+							attribute.String("resource_version", gvr.Version),
+							attribute.String("resource_resource", gvr.Resource),
+						),
+					)
+				}
+				return nil
+			},
+			infoMetric,
+		)
+		if err != nil {
+			logger.Error(err, "Failed to register callback")
+		}
+	}
 	return &manager{
 		metadataClient:  metadataInterface,
 		discoveryClient: discoveryInterface,
