@@ -9,7 +9,6 @@ func InClusterServiceName(commonName string, namespace string) string {
 func DnsNames(commonName string, namespace string) []string {
 	return []string{
 		commonName,
-		"svc." + commonName,
 		fmt.Sprintf("%s.%s", commonName, namespace),
 		InClusterServiceName(commonName, namespace),
 	}
