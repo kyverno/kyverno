@@ -54,11 +54,11 @@ func NewManager(
 	meterProvider := otel.GetMeterProvider()
 	meter := meterProvider.Meter(metrics.MeterName)
 	infoMetric, err := meter.Int64ObservableGauge(
-		"kyverno_ttl_controller_info_total",
+		"kyverno_ttl_controller_info",
 		metric.WithDescription("can be used to track individual resource controllers running for ttl based cleanup"),
 	)
 	if err != nil {
-		logger.Error(err, "Failed to create instrument, kyverno_ttl_controller_info_total")
+		logger.Error(err, "Failed to create instrument, kyverno_ttl_controller_info")
 	}
 	mgr := &manager{
 		metadataClient:  metadataInterface,
