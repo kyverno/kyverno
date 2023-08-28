@@ -61,24 +61,6 @@ func main() {
 	failure := false
 
 	run := func(context.Context) {
-		// name := config.GenerateRootCASecretName(config.KyvernoServiceName(), config.KyvernoNamespace())
-		// _, err := setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
-		// if err != nil {
-		// 	logging.V(2).Info("failed to fetch root CA secret", "name", name, "error", err.Error())
-		// 	if !errors.IsNotFound(err) {
-		// 		os.Exit(1)
-		// 	}
-		// }
-
-		// name = config.GenerateTLSPairSecretName(config.KyvernoServiceName(), config.KyvernoNamespace())
-		// _, err = setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
-		// if err != nil {
-		// 	logging.V(2).Info("failed to fetch TLS Pair secret", "name", name, "error", err.Error())
-		// 	if !errors.IsNotFound(err) {
-		// 		os.Exit(1)
-		// 	}
-		// }
-
 		if err := acquireLeader(ctx, setup.KubeClient); err != nil {
 			logging.V(2).Info("Failed to create lease 'kyvernopre-lock'")
 			os.Exit(1)

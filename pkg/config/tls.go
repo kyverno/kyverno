@@ -13,11 +13,3 @@ func DnsNames(commonName string, namespace string) []string {
 		InClusterServiceName(commonName, namespace),
 	}
 }
-
-// func GenerateTLSPairSecretName(commonName string, namespace string) string {
-// 	return InClusterServiceName(commonName, namespace) + ".kyverno-tls-pair"
-// }
-
-// func GenerateRootCASecretName(commonName string, namespace string) string {
-// 	return InClusterServiceName(commonName, namespace) + ".kyverno-tls-ca"
-// }

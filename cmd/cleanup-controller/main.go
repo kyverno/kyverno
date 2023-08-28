@@ -86,8 +86,8 @@ func main() {
 		internal.WithKyvernoDynamicClient(),
 		internal.WithConfigMapCaching(),
 		internal.WithDeferredLoading(),
-		internal.WithFlagSets(flagset),
 		internal.WithMetadataClient(),
+		internal.WithFlagSets(flagset),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
@@ -304,7 +304,7 @@ func main() {
 	// create server
 	server := NewServer(
 		func() ([]byte, []byte, error) {
-			secret, err := tlsSecret.Lister().Secrets(config.KyvernoNamespace()).Get(caSecretName)
+			secret, err := tlsSecret.Lister().Secrets(config.KyvernoNamespace()).Get(tlsSecretName)
 			if err != nil {
 				return nil, nil, err
 			}
