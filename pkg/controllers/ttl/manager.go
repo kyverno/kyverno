@@ -164,7 +164,7 @@ func (m *manager) filterPermissionsResource(resources []schema.GroupVersionResou
 	validResources := []schema.GroupVersionResource{}
 	for _, resource := range resources {
 		// Check if the service account has the necessary permissions
-		if hasResourcePermissions(m.logger, resource, m.checker) {
+		if HasResourcePermissions(m.logger, resource, m.checker) {
 			validResources = append(validResources, resource)
 		}
 	}
