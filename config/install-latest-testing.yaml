@@ -41283,6 +41283,8 @@ spec:
           image: "ghcr.io/kyverno/kyverno:latest"
           imagePullPolicy: IfNotPresent
           args:
+            - --caSecretName=kyverno-svc.kyverno.svc.kyverno-tls-ca
+            - --tlsSecretName=kyverno-svc.kyverno.svc.kyverno-tls-pair
             - --backgroundServiceAccountName=system:serviceaccount:kyverno:kyverno-background-controller
             - --servicePort=443
             - --disableMetrics=false
@@ -41533,6 +41535,8 @@ spec:
             name: metrics
             protocol: TCP
           args:
+            - --caSecretName=kyverno-cleanup-controller.kyverno.svc.kyverno-tls-ca
+            - --tlsSecretName=kyverno-cleanup-controller.kyverno.svc.kyverno-tls-pair
             - --servicePort=443
             - --disableMetrics=false
             - --otelConfig=prometheus
