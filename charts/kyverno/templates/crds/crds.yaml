@@ -6973,6 +6973,11 @@ spec:
                                                 public instance of Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
+                                                ignoreSCT:
+                                                  description: IgnoreSCT requires
+                                                    that a certificate contain an
+                                                    embedded SCT during verification.
+                                                  type: boolean
                                                 ignoreTlog:
                                                   description: IgnoreTlog skip tlog
                                                     verification
@@ -7050,6 +7055,11 @@ spec:
                                                 public instance of Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
+                                                ignoreSCT:
+                                                  description: IgnoreSCT requires
+                                                    that a certificate contain an
+                                                    embedded SCT during verification.
+                                                  type: boolean
                                                 ignoreTlog:
                                                   description: IgnoreTlog skip tlog
                                                     verification
@@ -7150,6 +7160,11 @@ spec:
                                                 public instance of Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
+                                                ignoreSCT:
+                                                  description: IgnoreSCT requires
+                                                    that a certificate contain an
+                                                    embedded SCT during verification.
+                                                  type: boolean
                                                 ignoreTlog:
                                                   description: IgnoreTlog skip tlog
                                                     verification
@@ -7455,6 +7470,11 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                      type: boolean
                                                     ignoreTlog:
                                                       description: IgnoreTlog skip
                                                         tlog verification
@@ -7534,6 +7554,11 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                      type: boolean
                                                     ignoreTlog:
                                                       description: IgnoreTlog skip
                                                         tlog verification
@@ -7639,6 +7664,11 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                      type: boolean
                                                     ignoreTlog:
                                                       description: IgnoreTlog skip
                                                         tlog verification
@@ -7921,6 +7951,11 @@ spec:
                                               instance of Rekor (https://rekor.sigstore.dev)
                                               is used.
                                             properties:
+                                              ignoreSCT:
+                                                description: IgnoreSCT requires that
+                                                  a certificate contain an embedded
+                                                  SCT during verification.
+                                                type: boolean
                                               ignoreTlog:
                                                 description: IgnoreTlog skip tlog
                                                   verification
@@ -7997,6 +8032,11 @@ spec:
                                               instance of Rekor (https://rekor.sigstore.dev)
                                               is used.
                                             properties:
+                                              ignoreSCT:
+                                                description: IgnoreSCT requires that
+                                                  a certificate contain an embedded
+                                                  SCT during verification.
+                                                type: boolean
                                               ignoreTlog:
                                                 description: IgnoreTlog skip tlog
                                                   verification
@@ -8095,6 +8135,11 @@ spec:
                                               instance of Rekor (https://rekor.sigstore.dev)
                                               is used.
                                             properties:
+                                              ignoreSCT:
+                                                description: IgnoreSCT requires that
+                                                  a certificate contain an embedded
+                                                  SCT during verification.
+                                                type: boolean
                                               ignoreTlog:
                                                 description: IgnoreTlog skip tlog
                                                   verification
@@ -11558,6 +11603,11 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                      type: boolean
                                                     ignoreTlog:
                                                       description: IgnoreTlog skip
                                                         tlog verification
@@ -11637,6 +11687,11 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                      type: boolean
                                                     ignoreTlog:
                                                       description: IgnoreTlog skip
                                                         tlog verification
@@ -11742,6 +11797,11 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                      type: boolean
                                                     ignoreTlog:
                                                       description: IgnoreTlog skip
                                                         tlog verification
@@ -12060,6 +12120,12 @@ spec:
                                                         (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
+                                                        ignoreSCT:
+                                                          description: IgnoreSCT requires
+                                                            that a certificate contain
+                                                            an embedded SCT during
+                                                            verification.
+                                                          type: boolean
                                                         ignoreTlog:
                                                           description: IgnoreTlog
                                                             skip tlog verification
@@ -12146,6 +12212,12 @@ spec:
                                                         (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
+                                                        ignoreSCT:
+                                                          description: IgnoreSCT requires
+                                                            that a certificate contain
+                                                            an embedded SCT during
+                                                            verification.
+                                                          type: boolean
                                                         ignoreTlog:
                                                           description: IgnoreTlog
                                                             skip tlog verification
@@ -12262,6 +12334,12 @@ spec:
                                                         (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
+                                                        ignoreSCT:
+                                                          description: IgnoreSCT requires
+                                                            that a certificate contain
+                                                            an embedded SCT during
+                                                            verification.
+                                                          type: boolean
                                                         ignoreTlog:
                                                           description: IgnoreTlog
                                                             skip tlog verification
@@ -12557,6 +12635,11 @@ spec:
                                                   public instance of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
+                                                  ignoreSCT:
+                                                    description: IgnoreSCT requires
+                                                      that a certificate contain an
+                                                      embedded SCT during verification.
+                                                    type: boolean
                                                   ignoreTlog:
                                                     description: IgnoreTlog skip tlog
                                                       verification
@@ -12635,6 +12718,11 @@ spec:
                                                   public instance of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
+                                                  ignoreSCT:
+                                                    description: IgnoreSCT requires
+                                                      that a certificate contain an
+                                                      embedded SCT during verification.
+                                                    type: boolean
                                                   ignoreTlog:
                                                     description: IgnoreTlog skip tlog
                                                       verification
@@ -12738,6 +12826,11 @@ spec:
                                                   public instance of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
+                                                  ignoreSCT:
+                                                    description: IgnoreSCT requires
+                                                      that a certificate contain an
+                                                      embedded SCT during verification.
+                                                    type: boolean
                                                   ignoreTlog:
                                                     description: IgnoreTlog skip tlog
                                                       verification
@@ -15921,6 +16014,11 @@ spec:
                                                 public instance of Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
+                                                ignoreSCT:
+                                                  description: IgnoreSCT requires
+                                                    that a certificate contain an
+                                                    embedded SCT during verification.
+                                                  type: boolean
                                                 ignoreTlog:
                                                   description: IgnoreTlog skip tlog
                                                     verification
@@ -15998,6 +16096,11 @@ spec:
                                                 public instance of Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
+                                                ignoreSCT:
+                                                  description: IgnoreSCT requires
+                                                    that a certificate contain an
+                                                    embedded SCT during verification.
+                                                  type: boolean
                                                 ignoreTlog:
                                                   description: IgnoreTlog skip tlog
                                                     verification
@@ -16098,6 +16201,11 @@ spec:
                                                 public instance of Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
+                                                ignoreSCT:
+                                                  description: IgnoreSCT requires
+                                                    that a certificate contain an
+                                                    embedded SCT during verification.
+                                                  type: boolean
                                                 ignoreTlog:
                                                   description: IgnoreTlog skip tlog
                                                     verification
@@ -16388,6 +16496,11 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                      type: boolean
                                                     ignoreTlog:
                                                       description: IgnoreTlog skip
                                                         tlog verification
@@ -16467,6 +16580,11 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                      type: boolean
                                                     ignoreTlog:
                                                       description: IgnoreTlog skip
                                                         tlog verification
@@ -16572,6 +16690,11 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                      type: boolean
                                                     ignoreTlog:
                                                       description: IgnoreTlog skip
                                                         tlog verification
@@ -16854,6 +16977,11 @@ spec:
                                               instance of Rekor (https://rekor.sigstore.dev)
                                               is used.
                                             properties:
+                                              ignoreSCT:
+                                                description: IgnoreSCT requires that
+                                                  a certificate contain an embedded
+                                                  SCT during verification.
+                                                type: boolean
                                               ignoreTlog:
                                                 description: IgnoreTlog skip tlog
                                                   verification
@@ -16930,6 +17058,11 @@ spec:
                                               instance of Rekor (https://rekor.sigstore.dev)
                                               is used.
                                             properties:
+                                              ignoreSCT:
+                                                description: IgnoreSCT requires that
+                                                  a certificate contain an embedded
+                                                  SCT during verification.
+                                                type: boolean
                                               ignoreTlog:
                                                 description: IgnoreTlog skip tlog
                                                   verification
@@ -17028,6 +17161,11 @@ spec:
                                               instance of Rekor (https://rekor.sigstore.dev)
                                               is used.
                                             properties:
+                                              ignoreSCT:
+                                                description: IgnoreSCT requires that
+                                                  a certificate contain an embedded
+                                                  SCT during verification.
+                                                type: boolean
                                               ignoreTlog:
                                                 description: IgnoreTlog skip tlog
                                                   verification
@@ -20466,6 +20604,11 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                      type: boolean
                                                     ignoreTlog:
                                                       description: IgnoreTlog skip
                                                         tlog verification
@@ -20545,6 +20688,11 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                      type: boolean
                                                     ignoreTlog:
                                                       description: IgnoreTlog skip
                                                         tlog verification
@@ -20650,6 +20798,11 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                      type: boolean
                                                     ignoreTlog:
                                                       description: IgnoreTlog skip
                                                         tlog verification
@@ -20968,6 +21121,12 @@ spec:
                                                         (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
+                                                        ignoreSCT:
+                                                          description: IgnoreSCT requires
+                                                            that a certificate contain
+                                                            an embedded SCT during
+                                                            verification.
+                                                          type: boolean
                                                         ignoreTlog:
                                                           description: IgnoreTlog
                                                             skip tlog verification
@@ -21054,6 +21213,12 @@ spec:
                                                         (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
+                                                        ignoreSCT:
+                                                          description: IgnoreSCT requires
+                                                            that a certificate contain
+                                                            an embedded SCT during
+                                                            verification.
+                                                          type: boolean
                                                         ignoreTlog:
                                                           description: IgnoreTlog
                                                             skip tlog verification
@@ -21170,6 +21335,12 @@ spec:
                                                         (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
+                                                        ignoreSCT:
+                                                          description: IgnoreSCT requires
+                                                            that a certificate contain
+                                                            an embedded SCT during
+                                                            verification.
+                                                          type: boolean
                                                         ignoreTlog:
                                                           description: IgnoreTlog
                                                             skip tlog verification
@@ -21465,6 +21636,11 @@ spec:
                                                   public instance of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
+                                                  ignoreSCT:
+                                                    description: IgnoreSCT requires
+                                                      that a certificate contain an
+                                                      embedded SCT during verification.
+                                                    type: boolean
                                                   ignoreTlog:
                                                     description: IgnoreTlog skip tlog
                                                       verification
@@ -21543,6 +21719,11 @@ spec:
                                                   public instance of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
+                                                  ignoreSCT:
+                                                    description: IgnoreSCT requires
+                                                      that a certificate contain an
+                                                      embedded SCT during verification.
+                                                    type: boolean
                                                   ignoreTlog:
                                                     description: IgnoreTlog skip tlog
                                                       verification
@@ -21646,6 +21827,11 @@ spec:
                                                   public instance of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
+                                                  ignoreSCT:
+                                                    description: IgnoreSCT requires
+                                                      that a certificate contain an
+                                                      embedded SCT during verification.
+                                                    type: boolean
                                                   ignoreTlog:
                                                     description: IgnoreTlog skip tlog
                                                       verification
@@ -25103,6 +25289,11 @@ spec:
                                                 public instance of Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
+                                                ignoreSCT:
+                                                  description: IgnoreSCT requires
+                                                    that a certificate contain an
+                                                    embedded SCT during verification.
+                                                  type: boolean
                                                 ignoreTlog:
                                                   description: IgnoreTlog skip tlog
                                                     verification
@@ -25180,6 +25371,11 @@ spec:
                                                 public instance of Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
+                                                ignoreSCT:
+                                                  description: IgnoreSCT requires
+                                                    that a certificate contain an
+                                                    embedded SCT during verification.
+                                                  type: boolean
                                                 ignoreTlog:
                                                   description: IgnoreTlog skip tlog
                                                     verification
@@ -25280,6 +25476,11 @@ spec:
                                                 public instance of Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
+                                                ignoreSCT:
+                                                  description: IgnoreSCT requires
+                                                    that a certificate contain an
+                                                    embedded SCT during verification.
+                                                  type: boolean
                                                 ignoreTlog:
                                                   description: IgnoreTlog skip tlog
                                                     verification
@@ -25585,6 +25786,11 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                      type: boolean
                                                     ignoreTlog:
                                                       description: IgnoreTlog skip
                                                         tlog verification
@@ -25664,6 +25870,11 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                      type: boolean
                                                     ignoreTlog:
                                                       description: IgnoreTlog skip
                                                         tlog verification
@@ -25769,6 +25980,11 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                      type: boolean
                                                     ignoreTlog:
                                                       description: IgnoreTlog skip
                                                         tlog verification
@@ -26051,6 +26267,11 @@ spec:
                                               instance of Rekor (https://rekor.sigstore.dev)
                                               is used.
                                             properties:
+                                              ignoreSCT:
+                                                description: IgnoreSCT requires that
+                                                  a certificate contain an embedded
+                                                  SCT during verification.
+                                                type: boolean
                                               ignoreTlog:
                                                 description: IgnoreTlog skip tlog
                                                   verification
@@ -26127,6 +26348,11 @@ spec:
                                               instance of Rekor (https://rekor.sigstore.dev)
                                               is used.
                                             properties:
+                                              ignoreSCT:
+                                                description: IgnoreSCT requires that
+                                                  a certificate contain an embedded
+                                                  SCT during verification.
+                                                type: boolean
                                               ignoreTlog:
                                                 description: IgnoreTlog skip tlog
                                                   verification
@@ -26225,6 +26451,11 @@ spec:
                                               instance of Rekor (https://rekor.sigstore.dev)
                                               is used.
                                             properties:
+                                              ignoreSCT:
+                                                description: IgnoreSCT requires that
+                                                  a certificate contain an embedded
+                                                  SCT during verification.
+                                                type: boolean
                                               ignoreTlog:
                                                 description: IgnoreTlog skip tlog
                                                   verification
@@ -29689,6 +29920,11 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                      type: boolean
                                                     ignoreTlog:
                                                       description: IgnoreTlog skip
                                                         tlog verification
@@ -29768,6 +30004,11 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                      type: boolean
                                                     ignoreTlog:
                                                       description: IgnoreTlog skip
                                                         tlog verification
@@ -29873,6 +30114,11 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                      type: boolean
                                                     ignoreTlog:
                                                       description: IgnoreTlog skip
                                                         tlog verification
@@ -30191,6 +30437,12 @@ spec:
                                                         (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
+                                                        ignoreSCT:
+                                                          description: IgnoreSCT requires
+                                                            that a certificate contain
+                                                            an embedded SCT during
+                                                            verification.
+                                                          type: boolean
                                                         ignoreTlog:
                                                           description: IgnoreTlog
                                                             skip tlog verification
@@ -30277,6 +30529,12 @@ spec:
                                                         (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
+                                                        ignoreSCT:
+                                                          description: IgnoreSCT requires
+                                                            that a certificate contain
+                                                            an embedded SCT during
+                                                            verification.
+                                                          type: boolean
                                                         ignoreTlog:
                                                           description: IgnoreTlog
                                                             skip tlog verification
@@ -30393,6 +30651,12 @@ spec:
                                                         (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
+                                                        ignoreSCT:
+                                                          description: IgnoreSCT requires
+                                                            that a certificate contain
+                                                            an embedded SCT during
+                                                            verification.
+                                                          type: boolean
                                                         ignoreTlog:
                                                           description: IgnoreTlog
                                                             skip tlog verification
@@ -30688,6 +30952,11 @@ spec:
                                                   public instance of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
+                                                  ignoreSCT:
+                                                    description: IgnoreSCT requires
+                                                      that a certificate contain an
+                                                      embedded SCT during verification.
+                                                    type: boolean
                                                   ignoreTlog:
                                                     description: IgnoreTlog skip tlog
                                                       verification
@@ -30766,6 +31035,11 @@ spec:
                                                   public instance of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
+                                                  ignoreSCT:
+                                                    description: IgnoreSCT requires
+                                                      that a certificate contain an
+                                                      embedded SCT during verification.
+                                                    type: boolean
                                                   ignoreTlog:
                                                     description: IgnoreTlog skip tlog
                                                       verification
@@ -30869,6 +31143,11 @@ spec:
                                                   public instance of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
+                                                  ignoreSCT:
+                                                    description: IgnoreSCT requires
+                                                      that a certificate contain an
+                                                      embedded SCT during verification.
+                                                    type: boolean
                                                   ignoreTlog:
                                                     description: IgnoreTlog skip tlog
                                                       verification
@@ -34053,6 +34332,11 @@ spec:
                                                 public instance of Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
+                                                ignoreSCT:
+                                                  description: IgnoreSCT requires
+                                                    that a certificate contain an
+                                                    embedded SCT during verification.
+                                                  type: boolean
                                                 ignoreTlog:
                                                   description: IgnoreTlog skip tlog
                                                     verification
@@ -34130,6 +34414,11 @@ spec:
                                                 public instance of Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
+                                                ignoreSCT:
+                                                  description: IgnoreSCT requires
+                                                    that a certificate contain an
+                                                    embedded SCT during verification.
+                                                  type: boolean
                                                 ignoreTlog:
                                                   description: IgnoreTlog skip tlog
                                                     verification
@@ -34230,6 +34519,11 @@ spec:
                                                 public instance of Rekor (https://rekor.sigstore.dev)
                                                 is used.
                                               properties:
+                                                ignoreSCT:
+                                                  description: IgnoreSCT requires
+                                                    that a certificate contain an
+                                                    embedded SCT during verification.
+                                                  type: boolean
                                                 ignoreTlog:
                                                   description: IgnoreTlog skip tlog
                                                     verification
@@ -34520,6 +34814,11 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                      type: boolean
                                                     ignoreTlog:
                                                       description: IgnoreTlog skip
                                                         tlog verification
@@ -34599,6 +34898,11 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                      type: boolean
                                                     ignoreTlog:
                                                       description: IgnoreTlog skip
                                                         tlog verification
@@ -34704,6 +35008,11 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                      type: boolean
                                                     ignoreTlog:
                                                       description: IgnoreTlog skip
                                                         tlog verification
@@ -34986,6 +35295,11 @@ spec:
                                               instance of Rekor (https://rekor.sigstore.dev)
                                               is used.
                                             properties:
+                                              ignoreSCT:
+                                                description: IgnoreSCT requires that
+                                                  a certificate contain an embedded
+                                                  SCT during verification.
+                                                type: boolean
                                               ignoreTlog:
                                                 description: IgnoreTlog skip tlog
                                                   verification
@@ -35062,6 +35376,11 @@ spec:
                                               instance of Rekor (https://rekor.sigstore.dev)
                                               is used.
                                             properties:
+                                              ignoreSCT:
+                                                description: IgnoreSCT requires that
+                                                  a certificate contain an embedded
+                                                  SCT during verification.
+                                                type: boolean
                                               ignoreTlog:
                                                 description: IgnoreTlog skip tlog
                                                   verification
@@ -35160,6 +35479,11 @@ spec:
                                               instance of Rekor (https://rekor.sigstore.dev)
                                               is used.
                                             properties:
+                                              ignoreSCT:
+                                                description: IgnoreSCT requires that
+                                                  a certificate contain an embedded
+                                                  SCT during verification.
+                                                type: boolean
                                               ignoreTlog:
                                                 description: IgnoreTlog skip tlog
                                                   verification
@@ -38598,6 +38922,11 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                      type: boolean
                                                     ignoreTlog:
                                                       description: IgnoreTlog skip
                                                         tlog verification
@@ -38677,6 +39006,11 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                      type: boolean
                                                     ignoreTlog:
                                                       description: IgnoreTlog skip
                                                         tlog verification
@@ -38782,6 +39116,11 @@ spec:
                                                     Rekor (https://rekor.sigstore.dev)
                                                     is used.
                                                   properties:
+                                                    ignoreSCT:
+                                                      description: IgnoreSCT requires
+                                                        that a certificate contain
+                                                        an embedded SCT during verification.
+                                                      type: boolean
                                                     ignoreTlog:
                                                       description: IgnoreTlog skip
                                                         tlog verification
@@ -39100,6 +39439,12 @@ spec:
                                                         (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
+                                                        ignoreSCT:
+                                                          description: IgnoreSCT requires
+                                                            that a certificate contain
+                                                            an embedded SCT during
+                                                            verification.
+                                                          type: boolean
                                                         ignoreTlog:
                                                           description: IgnoreTlog
                                                             skip tlog verification
@@ -39186,6 +39531,12 @@ spec:
                                                         (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
+                                                        ignoreSCT:
+                                                          description: IgnoreSCT requires
+                                                            that a certificate contain
+                                                            an embedded SCT during
+                                                            verification.
+                                                          type: boolean
                                                         ignoreTlog:
                                                           description: IgnoreTlog
                                                             skip tlog verification
@@ -39302,6 +39653,12 @@ spec:
                                                         (https://rekor.sigstore.dev)
                                                         is used.
                                                       properties:
+                                                        ignoreSCT:
+                                                          description: IgnoreSCT requires
+                                                            that a certificate contain
+                                                            an embedded SCT during
+                                                            verification.
+                                                          type: boolean
                                                         ignoreTlog:
                                                           description: IgnoreTlog
                                                             skip tlog verification
@@ -39597,6 +39954,11 @@ spec:
                                                   public instance of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
+                                                  ignoreSCT:
+                                                    description: IgnoreSCT requires
+                                                      that a certificate contain an
+                                                      embedded SCT during verification.
+                                                    type: boolean
                                                   ignoreTlog:
                                                     description: IgnoreTlog skip tlog
                                                       verification
@@ -39675,6 +40037,11 @@ spec:
                                                   public instance of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
+                                                  ignoreSCT:
+                                                    description: IgnoreSCT requires
+                                                      that a certificate contain an
+                                                      embedded SCT during verification.
+                                                    type: boolean
                                                   ignoreTlog:
                                                     description: IgnoreTlog skip tlog
                                                       verification
@@ -39778,6 +40145,11 @@ spec:
                                                   public instance of Rekor (https://rekor.sigstore.dev)
                                                   is used.
                                                 properties:
+                                                  ignoreSCT:
+                                                    description: IgnoreSCT requires
+                                                      that a certificate contain an
+                                                      embedded SCT during verification.
+                                                    type: boolean
                                                   ignoreTlog:
                                                     description: IgnoreTlog skip tlog
                                                       verification

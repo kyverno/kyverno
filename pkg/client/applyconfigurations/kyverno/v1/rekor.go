@@ -24,6 +24,7 @@ type RekorApplyConfiguration struct {
 	URL         *string `json:"url,omitempty"`
 	RekorPubKey *string `json:"pubkey,omitempty"`
 	IgnoreTlog  *bool   `json:"ignoreTlog,omitempty"`
+	IgnoreSCT   *bool   `json:"ignoreSCT,omitempty"`
 }
 
 // RekorApplyConfiguration constructs an declarative configuration of the Rekor type for use with
@@ -53,5 +54,13 @@ func (b *RekorApplyConfiguration) WithRekorPubKey(value string) *RekorApplyConfi
 // If called multiple times, the IgnoreTlog field is set to the value of the last call.
 func (b *RekorApplyConfiguration) WithIgnoreTlog(value bool) *RekorApplyConfiguration {
 	b.IgnoreTlog = &value
+	return b
+}
+
+// WithIgnoreSCT sets the IgnoreSCT field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the IgnoreSCT field is set to the value of the last call.
+func (b *RekorApplyConfiguration) WithIgnoreSCT(value bool) *RekorApplyConfiguration {
+	b.IgnoreSCT = &value
 	return b
 }
