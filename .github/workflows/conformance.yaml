@@ -369,7 +369,10 @@ jobs:
         uses: ./.github/actions/kyverno-wait-ready
       - name: Build Kyverno CLI
         run: |
+          set -e
           make build-cli
+          ln -s ./cmd/cli/kubectl-kyverno/kubectl-kyverno ./cmd/cli/kubectl-kyverno/kyverno
+          echo "./cmd/cli/kubectl-kyverno" >> $GITHUB_PATH
       - name: Test policy library with kuttl
         run: |
           cd policies
