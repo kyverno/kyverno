@@ -39,6 +39,7 @@ type manager struct {
 	resController   map[schema.GroupVersionResource]stopFunc
 	logger          logr.Logger
 	interval        time.Duration
+	infoMetric      metric.Int64ObservableGauge
 }
 
 func NewManager(
@@ -48,47 +49,30 @@ func NewManager(
 	timeInterval time.Duration,
 ) controllers.Controller {
 	logger := logging.WithName(ControllerName)
-	selfChecker := checker.NewSelfChecker(authorizationInterface.SelfSubjectAccessReviews())
-	resController := map[schema.GroupVersionResource]stopFunc{}
 	meterProvider := otel.GetMeterProvider()
 	meter := meterProvider.Meter(metrics.MeterName)
-	infoMetric, err := meter.Int64ObservableCounter(
+	infoMetric, err := meter.Int64ObservableGauge(
 		"kyverno_ttl_controller_info_total",
 		metric.WithDescription("can be used to track individual resource controllers running for ttl based cleanup"),
 	)
 	if err != nil {
 		logger.Error(err, "Failed to create instrument, kyverno_ttl_controller_info_total")
 	}
-	if infoMetric != nil {
-		_, err := meter.RegisterCallback(
-			func(ctx context.Context, observer metric.Observer) error {
-				for gvr := range resController {
-					observer.ObserveInt64(
-						infoMetric,
-						1,
-						metric.WithAttributes(
-							attribute.String("resource_group", gvr.Group),
-							attribute.String("resource_version", gvr.Version),
-							attribute.String("resource_resource", gvr.Resource),
-						),
-					)
-				}
-				return nil
-			},
-			infoMetric,
-		)
-		if err != nil {
-			logger.Error(err, "Failed to register callback")
-		}
-	}
-	return &manager{
+	mgr := &manager{
 		metadataClient:  metadataInterface,
 		discoveryClient: discoveryInterface,
-		checker:         selfChecker,
-		resController:   resController,
+		checker:         checker.NewSelfChecker(authorizationInterface.SelfSubjectAccessReviews()),
+		resController:   map[schema.GroupVersionResource]stopFunc{},
 		logger:          logger,
 		interval:        timeInterval,
+		infoMetric:      infoMetric,
 	}
+	if infoMetric != nil {
+		if _, err := meter.RegisterCallback(mgr.report, infoMetric); err != nil {
+			logger.Error(err, "failed to register callback")
+		}
+	}
+	return mgr
 }
 
 func (m *manager) Run(ctx context.Context, worker int) {
@@ -201,6 +185,21 @@ func (m *manager) filterPermissionsResource(resources []schema.GroupVersionResou
 		}
 	}
 	return validResources
+}
+
+func (m *manager) report(ctx context.Context, observer metric.Observer) error {
+	for gvr := range m.resController {
+		observer.ObserveInt64(
+			m.infoMetric,
+			1,
+			metric.WithAttributes(
+				attribute.String("resource_group", gvr.Group),
+				attribute.String("resource_version", gvr.Version),
+				attribute.String("resource_resource", gvr.Resource),
+			),
+		)
+	}
+	return nil
 }
 
 func (m *manager) reconcile(ctx context.Context, workers int) error {
