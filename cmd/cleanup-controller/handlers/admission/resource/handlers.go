@@ -20,7 +20,7 @@ func Validate(ctx context.Context, logger logr.Logger, request handlers.Admissio
 	gvr := admissionutils.GetGVR(request.AdmissionRequest)
 
 	if !hasResourcePermissions(logger, gvr, checker) {
-		logger.Info("resource doesn't have required permissions for deletion ", gvr)
+		logger.Info("resource", gvr, "doesn't have required permissions for deletion")
 	}
 
 	if err != nil {
