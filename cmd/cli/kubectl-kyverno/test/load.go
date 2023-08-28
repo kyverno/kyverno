@@ -12,14 +12,15 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type policy struct {
-	bytes        []byte
+type testCase struct {
+	test         *api.Test
 	resourcePath string
 }
 
@@ -27,8 +28,8 @@ func loadTests(
 	dirPath []string,
 	fileName string,
 	gitBranch string,
-) (billy.Filesystem, []policy, []error) {
-	var policies []policy
+) (billy.Filesystem, []testCase, []error) {
+	var tests []testCase
 	var errors []error
 	if strings.Contains(dirPath[0], "https://") {
 		fs := memfs.New()
@@ -69,49 +70,49 @@ func loadTests(
 				log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", cloneErr)
 				os.Exit(1)
 			}
-			if policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls); err != nil {
+			if yamlFiles, err := gitutils.ListYamls(fs, gitPathToYamls); err != nil {
 				errors = append(errors, sanitizederror.NewWithError("failed to list YAMLs in repository", err))
 			} else {
-				sort.Strings(policyYamls)
-				for _, yamlFilePath := range policyYamls {
+				sort.Strings(yamlFiles)
+				for _, yamlFilePath := range yamlFiles {
 					file, err := fs.Open(yamlFilePath)
 					if err != nil {
 						errors = append(errors, sanitizederror.NewWithError("Error: failed to open file", err))
 						continue
 					}
 					if path.Base(file.Name()) == fileName {
-						policyresoucePath := strings.Trim(yamlFilePath, fileName)
-						bytes, err := io.ReadAll(file)
+						resoucePath := strings.Trim(yamlFilePath, fileName)
+						yamlBytes, err := io.ReadAll(file)
 						if err != nil {
-							errors = append(errors, sanitizederror.NewWithError("Error: failed to read file", err))
+							errors = append(errors, fmt.Errorf("failed to read file (%s)", err))
 							continue
 						}
-						policyBytes, err := yaml.ToJSON(bytes)
+						test, err := loadTest(yamlBytes)
 						if err != nil {
-							errors = append(errors, sanitizederror.NewWithError("failed to convert to JSON", err))
+							errors = append(errors, fmt.Errorf("failed to load test file (%s)", err))
 							continue
 						}
-						policies = append(policies, policy{
-							bytes:        policyBytes,
-							resourcePath: policyresoucePath,
+						tests = append(tests, testCase{
+							test:         test,
+							resourcePath: resoucePath,
 						})
 					}
 				}
 			}
 		}
-		return fs, policies, errors
+		return fs, tests, errors
 	} else {
 		path := filepath.Clean(dirPath[0])
-		policies, errors = loadLocalTest(path, fileName)
-		return nil, policies, errors
+		tests, errors = loadLocalTest(path, fileName)
+		return nil, tests, errors
 	}
 }
 
 func loadLocalTest(
 	path string,
 	fileName string,
-) ([]policy, []error) {
-	var policies []policy
+) ([]testCase, []error) {
+	var policies []testCase
 	var errors []error
 	files, err := os.ReadDir(path)
 	if err != nil {
@@ -124,22 +125,30 @@ func loadLocalTest(
 				errors = append(errors, errs...)
 			} else if file.Name() == fileName {
 				// We accept the risk of including files here as we read the test dir only.
-				yamlFile, err := os.ReadFile(filepath.Join(path, file.Name())) // #nosec G304
+				yamlBytes, err := os.ReadFile(filepath.Join(path, file.Name())) // #nosec G304
 				if err != nil {
-					errors = append(errors, sanitizederror.NewWithError("unable to read yaml", err))
+					errors = append(errors, fmt.Errorf("unable to read yaml (%s)", err))
 					continue
 				}
-				valuesBytes, err := yaml.ToJSON(yamlFile)
+				test, err := loadTest(yamlBytes)
 				if err != nil {
-					errors = append(errors, sanitizederror.NewWithError("failed to convert json", err))
+					errors = append(errors, fmt.Errorf("failed to load test file (%s)", err))
 					continue
 				}
-				policies = append(policies, policy{
-					bytes:        valuesBytes,
+				policies = append(policies, testCase{
+					test:         test,
 					resourcePath: path,
 				})
 			}
 		}
 	}
 	return policies, errors
+}
+
+func loadTest(data []byte) (*api.Test, error) {
+	var test api.Test
+	if err := yaml.UnmarshalStrict(data, &test); err != nil {
+		return nil, err
+	}
+	return &test, nil
 }
