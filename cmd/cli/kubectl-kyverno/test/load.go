@@ -1,7 +1,6 @@
 package test
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/url"
@@ -88,12 +87,7 @@ func loadTests(
 							errors = append(errors, fmt.Errorf("failed to read file (%s)", err))
 							continue
 						}
-						jsonBytes, err := yaml.ToJSON(yamlBytes)
-						if err != nil {
-							errors = append(errors, fmt.Errorf("failed to convert to JSON (%s)", err))
-							continue
-						}
-						test, err := loadTest(jsonBytes)
+						test, err := loadTest(yamlBytes)
 						if err != nil {
 							errors = append(errors, fmt.Errorf("failed to load test file (%s)", err))
 							continue
@@ -136,12 +130,7 @@ func loadLocalTest(
 					errors = append(errors, fmt.Errorf("unable to read yaml (%s)", err))
 					continue
 				}
-				jsonBytes, err := yaml.ToJSON(yamlBytes)
-				if err != nil {
-					errors = append(errors, fmt.Errorf("failed to convert to JSON (%s)", err))
-					continue
-				}
-				test, err := loadTest(jsonBytes)
+				test, err := loadTest(yamlBytes)
 				if err != nil {
 					errors = append(errors, fmt.Errorf("failed to load test file (%s)", err))
 					continue
@@ -158,7 +147,7 @@ func loadLocalTest(
 
 func loadTest(data []byte) (*api.Test, error) {
 	var test api.Test
-	if err := json.Unmarshal(data, &test); err != nil {
+	if err := yaml.UnmarshalStrict(data, &test); err != nil {
 		return nil, err
 	}
 	return &test, nil
