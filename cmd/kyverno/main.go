@@ -54,6 +54,11 @@ const (
 	exceptionWebhookControllerName = "exception-webhook-controller"
 )
 
+var (
+	caSecretName  string
+	tlsSecretName string
+)
+
 func showWarnings(ctx context.Context, logger logr.Logger) {
 	logger = logger.WithName("warnings")
 	// log if `forceFailurePolicyIgnore` flag has been set or not
@@ -121,7 +126,8 @@ func createrLeaderControllers(
 		caInformer,
 		tlsInformer,
 		certRenewer,
-		config.KyvernoServiceName(),
+		caSecretName,
+		tlsSecretName,
 		config.KyvernoNamespace(),
 	)
 	webhookController := webhookcontroller.NewController(
@@ -144,6 +150,7 @@ func createrLeaderControllers(
 		admissionReports,
 		runtime,
 		configuration,
+		caSecretName,
 	)
 	exceptionWebhookController := genericwebhookcontroller.NewController(
 		exceptionWebhookControllerName,
@@ -169,6 +176,7 @@ func createrLeaderControllers(
 		genericwebhookcontroller.Fail,
 		genericwebhookcontroller.None,
 		configuration,
+		caSecretName,
 	)
 	return []internal.Controller{
 			internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers),
@@ -207,6 +215,8 @@ func main() {
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
 	flagset.StringVar(&backgroundServiceAccountName, "backgroundServiceAccountName", "", "Background service account name.")
+	flagset.StringVar(&caSecretName, "caSecretName", "", "Name of the secret containing CA.")
+	flagset.StringVar(&tlsSecretName, "tlsSecretName", "", "Name of the secret containing TLS pair.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -231,8 +241,8 @@ func main() {
 	// setup
 	signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-admission-controller", false)
 	defer sdown()
-	caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), config.GenerateRootCASecretName(config.KyvernoServiceName(), config.KyvernoNamespace()), resyncPeriod)
-	tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), config.GenerateTLSPairSecretName(config.KyvernoServiceName(), config.KyvernoNamespace()), resyncPeriod)
+	caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), caSecretName, resyncPeriod)
+	tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tlsSecretName, resyncPeriod)
 	if !informers.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, caSecret, tlsSecret) {
 		setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		os.Exit(1)
@@ -266,8 +276,8 @@ func main() {
 		config.KyvernoServiceName(),
 		config.DnsNames(config.KyvernoServiceName(), config.KyvernoNamespace()),
 		config.KyvernoNamespace(),
-		config.GenerateRootCASecretName(config.KyvernoServiceName(), config.KyvernoNamespace()),
-		config.GenerateTLSPairSecretName(config.KyvernoServiceName(), config.KyvernoNamespace()),
+		caSecretName,
+		tlsSecretName,
 	)
 	policyCache := policycache.NewCache()
 	omitEventsValues := strings.Split(omitEvents, ",")
@@ -465,7 +475,7 @@ func main() {
 			DumpPayload: dumpPayload,
 		},
 		func() ([]byte, []byte, error) {
-			secret, err := tlsSecret.Lister().Secrets(config.KyvernoNamespace()).Get(config.GenerateTLSPairSecretName(config.KyvernoServiceName(), config.KyvernoNamespace()))
+			secret, err := tlsSecret.Lister().Secrets(config.KyvernoNamespace()).Get(tlsSecretName)
 			if err != nil {
 				return nil, nil, err
 			}

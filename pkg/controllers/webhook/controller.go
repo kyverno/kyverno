@@ -99,6 +99,7 @@ type controller struct {
 	admissionReports   bool
 	runtime            runtimeutils.Runtime
 	configuration      config.Configuration
+	caSecretName       string
 
 	// state
 	lock        sync.Mutex
@@ -125,6 +126,7 @@ func NewController(
 	admissionReports bool,
 	runtime runtimeutils.Runtime,
 	configuration config.Configuration,
+	caSecretName string,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
@@ -148,6 +150,7 @@ func NewController(
 		admissionReports:   admissionReports,
 		runtime:            runtime,
 		configuration:      configuration,
+		caSecretName:       caSecretName,
 		policyState: map[string]sets.Set[string]{
 			config.MutatingWebhookConfigurationName:   sets.New[string](),
 			config.ValidatingWebhookConfigurationName: sets.New[string](),
@@ -158,17 +161,17 @@ func NewController(
 	controllerutils.AddEventHandlersT(
 		secretInformer.Informer(),
 		func(obj *corev1.Secret) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.GenerateRootCASecretName(config.KyvernoServiceName(), config.KyvernoNamespace()) {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == caSecretName {
 				c.enqueueAll()
 			}
 		},
 		func(_, obj *corev1.Secret) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.GenerateRootCASecretName(config.KyvernoServiceName(), config.KyvernoNamespace()) {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == caSecretName {
 				c.enqueueAll()
 			}
 		},
 		func(obj *corev1.Secret) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.GenerateRootCASecretName(config.KyvernoServiceName(), config.KyvernoNamespace()) {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == caSecretName {
 				c.enqueueAll()
 			}
 		},
@@ -340,7 +343,7 @@ func (c *controller) reconcileVerifyMutatingWebhookConfiguration(ctx context.Con
 }
 
 func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context, autoUpdateWebhooks bool, build func(context.Context, config.Configuration, []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error)) error {
-	caData, err := tls.ReadRootCASecret(config.GenerateRootCASecretName(config.KyvernoServiceName(), config.KyvernoNamespace()), config.KyvernoNamespace(), c.secretLister.Secrets(config.KyvernoNamespace()))
+	caData, err := tls.ReadRootCASecret(c.caSecretName, config.KyvernoNamespace(), c.secretLister.Secrets(config.KyvernoNamespace()))
 	if err != nil {
 		return err
 	}
@@ -370,7 +373,7 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 }
 
 func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, autoUpdateWebhooks bool, build func(context.Context, config.Configuration, []byte) (*admissionregistrationv1.MutatingWebhookConfiguration, error)) error {
-	caData, err := tls.ReadRootCASecret(config.GenerateRootCASecretName(config.KyvernoServiceName(), config.KyvernoNamespace()), config.KyvernoNamespace(), c.secretLister.Secrets(config.KyvernoNamespace()))
+	caData, err := tls.ReadRootCASecret(c.caSecretName, config.KyvernoNamespace(), c.secretLister.Secrets(config.KyvernoNamespace()))
 	if err != nil {
 		return err
 	}
