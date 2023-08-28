@@ -367,8 +367,9 @@ jobs:
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
-      - name: Install latest Kyverno CLI
-        uses: kyverno/action-install-cli@fcee92fca5c883169ef9927acf543e0b5fc58289 # v0.2.0
+      - name: Build Kyverno CLI
+        run: |
+          make build-cli
       - name: Test policy library with kuttl
         run: |
           cd policies
