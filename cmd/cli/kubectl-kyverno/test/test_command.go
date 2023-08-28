@@ -104,6 +104,13 @@ func testCommandExecute(
 			fmt.Printf("    %v \n", e.Error())
 		}
 	}
+	if len(policies) == 0 {
+		if len(errors) == 0 {
+			os.Exit(0)
+		} else {
+			os.Exit(1)
+		}
+	}
 	rc = &resultCounts{}
 	var table table.Table
 	for _, p := range policies {
