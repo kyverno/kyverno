@@ -33,10 +33,6 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-// load res
-// load pol
-// apply
-// show res
 const divider = "----------------------------------------------------------------------"
 
 type SkippedInvalidPolicies struct {
@@ -312,7 +308,6 @@ func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, 
 		var applyPolicies []kyvernov1.PolicyInterface
 		policyResourceValues := make(map[string]interface{})
 		for _, policy := range policies {
-			thisPolicyResourceValues := make(map[string]interface{})
 			_, err := policyvalidation.Validate(policy, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
 			if err != nil {
 				log.Log.Error(err, "policy validation error")
@@ -337,7 +332,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, 
 			}
 			applyPolicies = append(applyPolicies, policy)
 			kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy, subresources, dClient)
-			thisPolicyResourceValues, err = common.CheckVariableForPolicy(valuesMap, globalValMap, policy.GetName(), resource.GetName(), resource.GetKind(), variables, kindOnwhichPolicyIsApplied, variable)
+			thisPolicyResourceValues, err := common.CheckVariableForPolicy(valuesMap, globalValMap, policy.GetName(), resource.GetName(), resource.GetKind(), variables, kindOnwhichPolicyIsApplied, variable)
 			if err != nil {
 				return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.GetName(), resource.GetName()), err)
 			}

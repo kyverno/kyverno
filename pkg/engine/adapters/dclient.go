@@ -50,6 +50,21 @@ func (a *dclientAdapter) GetNamespace(ctx context.Context, name string, opts met
 	return a.client.GetKubeClient().CoreV1().Namespaces().Get(ctx, name, opts)
 }
 
+func (a *dclientAdapter) ListResource(ctx context.Context, apiVersion string, kind string, namespace string, lselector *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
+	return a.client.ListResource(ctx, apiVersion, kind, namespace, lselector)
+}
+
+func (a *dclientAdapter) IsNamespaced(group, version, kind string) (bool, error) {
+	gvrss, err := a.client.Discovery().FindResources(group, version, kind, "")
+	if err != nil {
+		return false, err
+	}
+	for _, apiResource := range gvrss {
+		return apiResource.Namespaced, nil
+	}
+	return false, nil
+}
+
 func (a *dclientAdapter) CanI(ctx context.Context, kind, namespace, verb, subresource, user string) (bool, error) {
 	canI := auth.NewCanI(a.client.Discovery(), a.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, verb, subresource, user)
 	ok, err := canI.RunAccessCheck(ctx)
