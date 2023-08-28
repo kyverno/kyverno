@@ -3,6 +3,7 @@ package ttl
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -39,6 +40,7 @@ type manager struct {
 	resController   map[schema.GroupVersionResource]stopFunc
 	logger          logr.Logger
 	interval        time.Duration
+	lock            sync.Mutex
 	infoMetric      metric.Int64ObservableGauge
 }
 
@@ -188,6 +190,8 @@ func (m *manager) filterPermissionsResource(resources []schema.GroupVersionResou
 }
 
 func (m *manager) report(ctx context.Context, observer metric.Observer) error {
+	m.lock.Lock()
+	defer m.lock.Unlock()
 	for gvr := range m.resController {
 		observer.ObserveInt64(
 			m.infoMetric,
@@ -213,6 +217,8 @@ func (m *manager) reconcile(ctx context.Context, workers int) error {
 	if err != nil {
 		return err
 	}
+	m.lock.Lock()
+	defer m.lock.Unlock()
 	for gvr := range observedState.Difference(desiredState) {
 		if err := m.stop(ctx, gvr); err != nil {
 			return err
