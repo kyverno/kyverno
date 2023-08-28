@@ -216,12 +216,16 @@ func ApplyMutatePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstruc
 				}
 			}
 		}
+		var client engineapi.Client
+		if c.Client != nil {
+			client = adapters.Client(c.Client)
+		}
 		rclient := registryclient.NewOrDie()
 		eng := engine.NewEngine(
 			cfg,
 			config.NewDefaultMetricsConfiguration(),
 			jmespath.New(cfg),
-			adapters.Client(c.Client),
+			client,
 			factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 			imageverifycache.DisabledImageVerifyCache(),
 			store.ContextLoaderFactory(nil),
@@ -343,12 +347,16 @@ func ApplyValidatePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstr
 				}
 			}
 		}
+		var client engineapi.Client
+		if c.Client != nil {
+			client = adapters.Client(c.Client)
+		}
 		rclient := registryclient.NewOrDie()
 		eng := engine.NewEngine(
 			cfg,
 			config.NewDefaultMetricsConfiguration(),
 			jmespath.New(cfg),
-			adapters.Client(c.Client),
+			client,
 			factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 			imageverifycache.DisabledImageVerifyCache(),
 			store.ContextLoaderFactory(nil),
@@ -476,12 +484,16 @@ func ApplyVerifyPoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstruc
 				}
 			}
 		}
+		var client engineapi.Client
+		if c.Client != nil {
+			client = adapters.Client(c.Client)
+		}
 		rclient := registryclient.NewOrDie()
 		eng := engine.NewEngine(
 			cfg,
 			config.NewDefaultMetricsConfiguration(),
 			jmespath.New(cfg),
-			adapters.Client(c.Client),
+			client,
 			factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 			imageverifycache.DisabledImageVerifyCache(),
 			store.ContextLoaderFactory(nil),
@@ -597,12 +609,16 @@ func ApplyGeneratePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstr
 				}
 			}
 		}
+		var client engineapi.Client
+		if c.Client != nil {
+			client = adapters.Client(c.Client)
+		}
 		rclient := registryclient.NewOrDie()
 		eng := engine.NewEngine(
 			cfg,
 			config.NewDefaultMetricsConfiguration(),
 			jmespath.New(cfg),
-			adapters.Client(c.Client),
+			client,
 			factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 			imageverifycache.DisabledImageVerifyCache(),
 			store.ContextLoaderFactory(nil),

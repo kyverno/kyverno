@@ -2605,14 +2605,10 @@ spec:
                               description: ParamRef references a parameter resource.
                               properties:
                                 name:
-                                  description: "name is the name of the resource being
-                                    referenced. \n One of `name` or `selector` must
-                                    be set, but `name` and `selector` are mutually
-                                    exclusive properties. If one is set, the other
-                                    must be unset. \n A single parameter used for
-                                    all admission requests can be configured by setting
-                                    the `name` field, leaving `selector` blank, and
-                                    setting namespace if `paramKind` is namespace-scoped."
+                                  description: "`name` is the name of the resource
+                                    being referenced. \n `name` and `selector` are
+                                    mutually exclusive properties. If one is set,
+                                    the other must be unset."
                                   type: string
                                 namespace:
                                   description: "namespace is the namespace of the
@@ -2640,7 +2636,7 @@ spec:
                                     binding. If set to `Deny`, then no matched parameters
                                     will be subject to the `failurePolicy` of the
                                     policy. \n Allowed values are `Allow` or `Deny`
-                                    \n Required"
+                                    Default to `Deny`"
                                   type: string
                                 selector:
                                   description: "selector can be used to match multiple
@@ -2703,6 +2699,35 @@ spec:
                                   x-kubernetes-map-type: atomic
                               type: object
                               x-kubernetes-map-type: atomic
+                            variables:
+                              description: Variables contain definitions of variables
+                                that can be used in composition of other expressions.
+                                Each variable is defined as a named CEL expression.
+                                The variables defined here will be available under
+                                `variables` in other expressions of the policy.
+                              items:
+                                description: Variable is the definition of a variable
+                                  that is used for composition.
+                                properties:
+                                  expression:
+                                    description: Expression is the expression that
+                                      will be evaluated as the value of the variable.
+                                      The CEL expression has access to the same identifiers
+                                      as the CEL expressions in Validation.
+                                    type: string
+                                  name:
+                                    description: Name is the name of the variable.
+                                      The name must be a valid CEL identifier and
+                                      unique among all variables. The variable can
+                                      be accessed in other expressions through `variables`
+                                      For example, if name is "foo", the variable
+                                      will be available as `variables.foo`
+                                    type: string
+                                required:
+                                - expression
+                                - name
+                                type: object
+                              type: array
                           type: object
                         deny:
                           description: Deny defines conditions used to pass or fail
@@ -6918,15 +6943,10 @@ spec:
                                   description: ParamRef references a parameter resource.
                                   properties:
                                     name:
-                                      description: "name is the name of the resource
-                                        being referenced. \n One of `name` or `selector`
-                                        must be set, but `name` and `selector` are
-                                        mutually exclusive properties. If one is set,
-                                        the other must be unset. \n A single parameter
-                                        used for all admission requests can be configured
-                                        by setting the `name` field, leaving `selector`
-                                        blank, and setting namespace if `paramKind`
-                                        is namespace-scoped."
+                                      description: "`name` is the name of the resource
+                                        being referenced. \n `name` and `selector`
+                                        are mutually exclusive properties. If one
+                                        is set, the other must be unset."
                                       type: string
                                     namespace:
                                       description: "namespace is the namespace of
@@ -6956,7 +6976,7 @@ spec:
                                         by the binding. If set to `Deny`, then no
                                         matched parameters will be subject to the
                                         `failurePolicy` of the policy. \n Allowed
-                                        values are `Allow` or `Deny` \n Required"
+                                        values are `Allow` or `Deny` Default to `Deny`"
                                       type: string
                                     selector:
                                       description: "selector can be used to match
@@ -7021,6 +7041,36 @@ spec:
                                       x-kubernetes-map-type: atomic
                                   type: object
                                   x-kubernetes-map-type: atomic
+                                variables:
+                                  description: Variables contain definitions of variables
+                                    that can be used in composition of other expressions.
+                                    Each variable is defined as a named CEL expression.
+                                    The variables defined here will be available under
+                                    `variables` in other expressions of the policy.
+                                  items:
+                                    description: Variable is the definition of a variable
+                                      that is used for composition.
+                                    properties:
+                                      expression:
+                                        description: Expression is the expression
+                                          that will be evaluated as the value of the
+                                          variable. The CEL expression has access
+                                          to the same identifiers as the CEL expressions
+                                          in Validation.
+                                        type: string
+                                      name:
+                                        description: Name is the name of the variable.
+                                          The name must be a valid CEL identifier
+                                          and unique among all variables. The variable
+                                          can be accessed in other expressions through
+                                          `variables` For example, if name is "foo",
+                                          the variable will be available as `variables.foo`
+                                        type: string
+                                    required:
+                                    - expression
+                                    - name
+                                    type: object
+                                  type: array
                               type: object
                             deny:
                               description: Deny defines conditions used to pass or
@@ -10666,8 +10716,7 @@ spec:
                       description: 'Preconditions are used to determine if a policy
                         rule should be applied by evaluating a set of conditions.
                         The declaration can contain nested `any` or `all` statements.
-                        A direct list of conditions (without `any` or `all` statements
-                        is supported for backwards compatibility but See: https://kyverno.io/docs/writing-policies/preconditions/'
+                        See: https://kyverno.io/docs/writing-policies/preconditions/'
                       properties:
                         all:
                           description: AllConditions enable variable-based conditional
@@ -10958,14 +11007,10 @@ spec:
                               description: ParamRef references a parameter resource.
                               properties:
                                 name:
-                                  description: "name is the name of the resource being
-                                    referenced. \n One of `name` or `selector` must
-                                    be set, but `name` and `selector` are mutually
-                                    exclusive properties. If one is set, the other
-                                    must be unset. \n A single parameter used for
-                                    all admission requests can be configured by setting
-                                    the `name` field, leaving `selector` blank, and
-                                    setting namespace if `paramKind` is namespace-scoped."
+                                  description: "`name` is the name of the resource
+                                    being referenced. \n `name` and `selector` are
+                                    mutually exclusive properties. If one is set,
+                                    the other must be unset."
                                   type: string
                                 namespace:
                                   description: "namespace is the namespace of the
@@ -10993,7 +11038,7 @@ spec:
                                     binding. If set to `Deny`, then no matched parameters
                                     will be subject to the `failurePolicy` of the
                                     policy. \n Allowed values are `Allow` or `Deny`
-                                    \n Required"
+                                    Default to `Deny`"
                                   type: string
                                 selector:
                                   description: "selector can be used to match multiple
@@ -11056,6 +11101,35 @@ spec:
                                   x-kubernetes-map-type: atomic
                               type: object
                               x-kubernetes-map-type: atomic
+                            variables:
+                              description: Variables contain definitions of variables
+                                that can be used in composition of other expressions.
+                                Each variable is defined as a named CEL expression.
+                                The variables defined here will be available under
+                                `variables` in other expressions of the policy.
+                              items:
+                                description: Variable is the definition of a variable
+                                  that is used for composition.
+                                properties:
+                                  expression:
+                                    description: Expression is the expression that
+                                      will be evaluated as the value of the variable.
+                                      The CEL expression has access to the same identifiers
+                                      as the CEL expressions in Validation.
+                                    type: string
+                                  name:
+                                    description: Name is the name of the variable.
+                                      The name must be a valid CEL identifier and
+                                      unique among all variables. The variable can
+                                      be accessed in other expressions through `variables`
+                                      For example, if name is "foo", the variable
+                                      will be available as `variables.foo`
+                                    type: string
+                                required:
+                                - expression
+                                - name
+                                type: object
+                              type: array
                           type: object
                         deny:
                           description: Deny defines conditions used to pass or fail
@@ -11063,9 +11137,7 @@ spec:
                           properties:
                             conditions:
                               description: 'Multiple conditions can be declared under
-                                an `any` or `all` statement. A direct list of conditions
-                                (without `any` or `all` statements) is also supported
-                                for backwards compatibility See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
+                                an `any` or `all` statement. See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
                               properties:
                                 all:
                                   description: AllConditions enable variable-based
@@ -15324,15 +15396,10 @@ spec:
                                   description: ParamRef references a parameter resource.
                                   properties:
                                     name:
-                                      description: "name is the name of the resource
-                                        being referenced. \n One of `name` or `selector`
-                                        must be set, but `name` and `selector` are
-                                        mutually exclusive properties. If one is set,
-                                        the other must be unset. \n A single parameter
-                                        used for all admission requests can be configured
-                                        by setting the `name` field, leaving `selector`
-                                        blank, and setting namespace if `paramKind`
-                                        is namespace-scoped."
+                                      description: "`name` is the name of the resource
+                                        being referenced. \n `name` and `selector`
+                                        are mutually exclusive properties. If one
+                                        is set, the other must be unset."
                                       type: string
                                     namespace:
                                       description: "namespace is the namespace of
@@ -15362,7 +15429,7 @@ spec:
                                         by the binding. If set to `Deny`, then no
                                         matched parameters will be subject to the
                                         `failurePolicy` of the policy. \n Allowed
-                                        values are `Allow` or `Deny` \n Required"
+                                        values are `Allow` or `Deny` Default to `Deny`"
                                       type: string
                                     selector:
                                       description: "selector can be used to match
@@ -15427,6 +15494,36 @@ spec:
                                       x-kubernetes-map-type: atomic
                                   type: object
                                   x-kubernetes-map-type: atomic
+                                variables:
+                                  description: Variables contain definitions of variables
+                                    that can be used in composition of other expressions.
+                                    Each variable is defined as a named CEL expression.
+                                    The variables defined here will be available under
+                                    `variables` in other expressions of the policy.
+                                  items:
+                                    description: Variable is the definition of a variable
+                                      that is used for composition.
+                                    properties:
+                                      expression:
+                                        description: Expression is the expression
+                                          that will be evaluated as the value of the
+                                          variable. The CEL expression has access
+                                          to the same identifiers as the CEL expressions
+                                          in Validation.
+                                        type: string
+                                      name:
+                                        description: Name is the name of the variable.
+                                          The name must be a valid CEL identifier
+                                          and unique among all variables. The variable
+                                          can be accessed in other expressions through
+                                          `variables` For example, if name is "foo",
+                                          the variable will be available as `variables.foo`
+                                        type: string
+                                    required:
+                                    - expression
+                                    - name
+                                    type: object
+                                  type: array
                               type: object
                             deny:
                               description: Deny defines conditions used to pass or

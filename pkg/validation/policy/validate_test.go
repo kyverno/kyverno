@@ -3295,3 +3295,60 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 		assert.Assert(t, (err != nil) == test.expectedErr, test.name, err)
 	}
 }
+
+func Test_isMapStringString(t *testing.T) {
+	type args struct {
+		m map[string]interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{{
+		name: "nil",
+		args: args{
+			m: nil,
+		},
+		want: true,
+	}, {
+		name: "empty",
+		args: args{
+			m: map[string]interface{}{},
+		},
+		want: true,
+	}, {
+		name: "string values",
+		args: args{
+			m: map[string]interface{}{
+				"a": "b",
+				"c": "d",
+			},
+		},
+		want: true,
+	}, {
+		name: "int value",
+		args: args{
+			m: map[string]interface{}{
+				"a": "b",
+				"c": 123,
+			},
+		},
+		want: false,
+	}, {
+		name: "nil value",
+		args: args{
+			m: map[string]interface{}{
+				"a": "b",
+				"c": nil,
+			},
+		},
+		want: false,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isMapStringString(tt.args.m); got != tt.want {
+				t.Errorf("checkLabelAnnotation() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
