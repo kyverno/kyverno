@@ -284,6 +284,10 @@ type Rekor struct {
 	// IgnoreTlog skip tlog verification
 	// +kubebuilder:validation:Optional
 	IgnoreTlog bool `json:"ignoreTlog,omitempty" yaml:"ignoreTlog,omitempty"`
+
+	// IgnoreSCT requires that a certificate contain an embedded SCT during verification.
+	// +kubebuilder:validation:Optional
+	IgnoreSCT bool `json:"ignoreSCT,omitempty" yaml:"ignoreSCT,omitempty"`
 }
 
 type CTLog struct {

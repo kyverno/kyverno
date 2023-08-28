@@ -1333,6 +1333,23 @@ func checkForDeprecatedFieldsInVerifyImages(rule kyvernov1.Rule, warnings *[]str
 				msg := fmt.Sprintf("predicateType has been deprecated use 'type: %s' instead of 'predicateType: %s'", attestation.PredicateType, attestation.PredicateType)
 				*warnings = append(*warnings, msg)
 			}
+
+			for _, attestor := range attestation.Attestors {
+				for _, entry := range attestor.Entries {
+					if entry.Keys.Rekor.IgnoreSCT && !entry.Keys.CTLog.IgnoreSCT {
+						msg := "'ignoreSCT' has been moved from rekor.ignoreSCT to ctlog.ignoreSCT. Use ctlog.ignoreSCT instead"
+						*warnings = append(*warnings, msg)
+					}
+					if entry.Keyless.Rekor.IgnoreSCT && !entry.Keyless.CTLog.IgnoreSCT {
+						msg := "'ignoreSCT' has been moved from rekor.ignoreSCT to ctlog.ignoreSCT. Use ctlog.ignoreSCT instead"
+						*warnings = append(*warnings, msg)
+					}
+					if entry.Certificates.Rekor.IgnoreSCT && !entry.Certificates.CTLog.IgnoreSCT {
+						msg := "'ignoreSCT' has been moved from rekor.ignoreSCT to ctlog.ignoreSCT. Use ctlog.ignoreSCT instead"
+						*warnings = append(*warnings, msg)
+					}
+				}
+			}
 		}
 	}
 }
