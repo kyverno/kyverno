@@ -20,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
-	authorizationv1client "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
@@ -32,8 +31,6 @@ const (
 	Workers        = 3
 	ControllerName = "ttl-controller-manager"
 )
-
-var outsideChecker checker.AuthChecker
 
 type manager struct {
 	metadataClient  metadata.Interface
@@ -49,15 +46,10 @@ type manager struct {
 func NewManager(
 	metadataInterface metadata.Interface,
 	discoveryInterface discovery.DiscoveryInterface,
-	authorizationInterface authorizationv1client.AuthorizationV1Interface,
+	checker checker.AuthChecker,
 	timeInterval time.Duration,
 ) controllers.Controller {
 	logger := logging.WithName(ControllerName)
-	selfChecker := checker.NewSelfChecker(authorizationInterface.SelfSubjectAccessReviews())
-	outsideChecker = selfChecker
-	resController := map[schema.GroupVersionResource]stopFunc{}
-	return &manager{
-
 	meterProvider := otel.GetMeterProvider()
 	meter := meterProvider.Meter(metrics.MeterName)
 	infoMetric, err := meter.Int64ObservableGauge(
@@ -70,7 +62,7 @@ func NewManager(
 	mgr := &manager{
 		metadataClient:  metadataInterface,
 		discoveryClient: discoveryInterface,
-		checker:         checker.NewSelfChecker(authorizationInterface.SelfSubjectAccessReviews()),
+		checker:         checker,
 		resController:   map[schema.GroupVersionResource]stopFunc{},
 		logger:          logger,
 		interval:        timeInterval,
@@ -237,8 +229,4 @@ func (m *manager) reconcile(ctx context.Context, workers int) error {
 		}
 	}
 	return nil
-}
-
-func GetChecker() checker.AuthChecker {
-	return outsideChecker
 }

@@ -6,25 +6,32 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/auth/checker"
 	manager "github.com/kyverno/kyverno/pkg/controllers/ttl"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	validation "github.com/kyverno/kyverno/pkg/validation/resource"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
-
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func Validate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, _ time.Time) handlers.AdmissionResponse {
-	checker := manager.GetChecker()
-	metadata, _, err := admissionutils.GetPartialObjectMetadatas(request.AdmissionRequest)
-	gvr := admissionutils.GetGVR(request.AdmissionRequest)
+type validationHandlers struct {
+	checker checker.AuthChecker
+}
 
-	if !manager.HasResourcePermissions(logger, gvr, checker) {
-		logger.Info("doesn't have required permissions for deletion", "gvr", gvr)
+func New(checker checker.AuthChecker) *validationHandlers {
+	return &validationHandlers{
+		checker: checker,
 	}
+}
 
+func (h *validationHandlers) Validate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, _ time.Time) handlers.AdmissionResponse {
+	metadata, _, err := admissionutils.GetPartialObjectMetadatas(request.AdmissionRequest)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal metadatas from admission request")
 		return admissionutils.ResponseSuccess(request.UID, err.Error())
+	}
+	if !manager.HasResourcePermissions(logger, schema.GroupVersionResource(request.AdmissionRequest.Resource), h.checker) {
+		logger.Info("doesn't have required permissions for deletion", "gvr", request.AdmissionRequest.Resource)
 	}
 	if err := validation.ValidateTtlLabel(ctx, metadata); err != nil {
 		logger.Error(err, "metadatas validation errors")

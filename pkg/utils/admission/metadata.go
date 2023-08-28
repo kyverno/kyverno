@@ -5,7 +5,6 @@ import (
 
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func UnmarshalPartialObjectMetadata(raw []byte) (*metav1.PartialObjectMetadata, error) {
@@ -29,13 +28,4 @@ func GetPartialObjectMetadatas(request admissionv1.AdmissionRequest) (*metav1.Pa
 		return nil, nil, err
 	}
 	return object, oldObject, nil
-}
-
-func GetGVR(request admissionv1.AdmissionRequest) schema.GroupVersionResource {
-	metagvr := request.RequestResource
-	return schema.GroupVersionResource{
-		Group:    metagvr.Group,
-		Version:  metagvr.Version,
-		Resource: metagvr.Resource,
-	}
 }
