@@ -13,6 +13,7 @@ import (
 	resourcehandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/resource"
 	cleanuphandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/cleanup"
 	"github.com/kyverno/kyverno/cmd/internal"
+	"github.com/kyverno/kyverno/pkg/auth/checker"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
@@ -101,6 +102,7 @@ func main() {
 		setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		os.Exit(1)
 	}
+	checker := checker.NewSelfChecker(setup.KubeClient.AuthorizationV1().SelfSubjectAccessReviews())
 	// setup leader election
 	le, err := leaderelection.New(
 		setup.Logger.WithName("leader-election"),
@@ -229,7 +231,7 @@ func main() {
 				ttlcontroller.NewManager(
 					setup.MetadataClient,
 					setup.KubeClient.Discovery(),
-					setup.KubeClient.AuthorizationV1(),
+					checker,
 					interval,
 				),
 				ttlcontroller.Workers,
@@ -289,7 +291,8 @@ func main() {
 	var wg sync.WaitGroup
 	go eventGenerator.Run(ctx, 3, &wg)
 	// create handlers
-	admissionHandlers := policyhandlers.New(setup.KyvernoDynamicClient)
+	policyHandlers := policyhandlers.New(setup.KyvernoDynamicClient)
+	resourceHandlers := resourcehandlers.New(checker)
 	cmResolver := internal.NewConfigMapResolver(ctx, setup.Logger, setup.KubeClient, resyncPeriod)
 	cleanupHandlers := cleanuphandlers.New(
 		setup.Logger.WithName("cleanup-handler"),
@@ -310,8 +313,8 @@ func main() {
 			}
 			return secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey], nil
 		},
-		admissionHandlers.Validate,
-		resourcehandlers.Validate,
+		policyHandlers.Validate,
+		resourceHandlers.Validate,
 		cleanupHandlers.Cleanup,
 		setup.MetricsManager,
 		webhooks.DebugModeOptions{

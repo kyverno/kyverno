@@ -20,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
-	authorizationv1client "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
@@ -47,7 +46,7 @@ type manager struct {
 func NewManager(
 	metadataInterface metadata.Interface,
 	discoveryInterface discovery.DiscoveryInterface,
-	authorizationInterface authorizationv1client.AuthorizationV1Interface,
+	checker checker.AuthChecker,
 	timeInterval time.Duration,
 ) controllers.Controller {
 	logger := logging.WithName(ControllerName)
@@ -63,7 +62,7 @@ func NewManager(
 	mgr := &manager{
 		metadataClient:  metadataInterface,
 		discoveryClient: discoveryInterface,
-		checker:         checker.NewSelfChecker(authorizationInterface.SelfSubjectAccessReviews()),
+		checker:         checker,
 		resController:   map[schema.GroupVersionResource]stopFunc{},
 		logger:          logger,
 		interval:        timeInterval,
@@ -182,7 +181,7 @@ func (m *manager) filterPermissionsResource(resources []schema.GroupVersionResou
 	validResources := []schema.GroupVersionResource{}
 	for _, resource := range resources {
 		// Check if the service account has the necessary permissions
-		if hasResourcePermissions(m.logger, resource, m.checker) {
+		if HasResourcePermissions(m.logger, resource, m.checker) {
 			validResources = append(validResources, resource)
 		}
 	}
