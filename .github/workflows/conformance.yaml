@@ -368,7 +368,7 @@ jobs:
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Install latest Kyverno CLI
-        uses: kyverno/action-install-cli@a3d781ac3f6e385c0ce5b133418f79c4646cc85d # v0.1.0
+        uses: kyverno/action-install-cli@fcee92fca5c883169ef9927acf543e0b5fc58289 # v0.2.0
       - name: Test policy library with kuttl
         run: |
           cd policies
