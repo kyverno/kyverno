@@ -123,12 +123,12 @@ func Test_addResourceAndUserContext(t *testing.T) {
 		t.Error("expected result does not match")
 	}
 	var value interface{}
-	err = ctx.AddVariable("com.example/my-label", value)
+	err = ctx.AddVariable("{{ request.oldObject.metadata.labels.\"com.example/my-label\" || '' }}", value)
 	if err != nil {
 		t.Error(err)
 	}
 	result, err = ctx.Query("request")
-	if err != nil{
+	if err != nil {
 		t.Error(err)
 	}
 	expectedResult = "com.example/my-label"
