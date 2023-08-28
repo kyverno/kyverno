@@ -381,6 +381,9 @@ features:
   policyReports:
     # -- Enables the feature
     enabled: true
+  validatingAdmissionPolicyReports:
+    # -- Enables the feature
+    enabled: false
   autoUpdateWebhooks:
     # -- Enables the feature
     enabled: true

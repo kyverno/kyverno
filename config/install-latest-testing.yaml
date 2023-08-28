@@ -42208,6 +42208,7 @@ spec:
             - --admissionReports=true
             - --aggregateReports=true
             - --policyReports=true
+            - --validatingAdmissionPolicyReports=false
             - --backgroundScan=true
             - --backgroundScanWorkers=2
             - --backgroundScanInterval=1h

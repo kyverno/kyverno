@@ -14,6 +14,7 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/controllers"
 	admissionreportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/admission"
 	aggregatereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
 	backgroundscancontroller "github.com/kyverno/kyverno/pkg/controllers/report/background"
@@ -38,6 +39,7 @@ func createReportControllers(
 	admissionReports bool,
 	aggregateReports bool,
 	policyReports bool,
+	validatingAdmissionPolicyReports bool,
 	reportsChunkSize int,
 	backgroundScanWorkers int,
 	client dclient.Interface,
@@ -54,11 +56,22 @@ func createReportControllers(
 	var warmups []func(context.Context) error
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	if backgroundScan || admissionReports {
-		resourceReportController := resourcereportcontroller.NewController(
-			client,
-			kyvernoV1.Policies(),
-			kyvernoV1.ClusterPolicies(),
-		)
+		var resourceReportController resourcereportcontroller.Controller
+		if validatingAdmissionPolicyReports {
+			resourceReportController = resourcereportcontroller.NewController(
+				client,
+				kyvernoV1.Policies(),
+				kyvernoV1.ClusterPolicies(),
+				kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
+			)
+		} else {
+			resourceReportController = resourcereportcontroller.NewController(
+				client,
+				kyvernoV1.Policies(),
+				kyvernoV1.ClusterPolicies(),
+				nil,
+			)
+		}
 		warmups = append(warmups, func(ctx context.Context) error {
 			return resourceReportController.Warmup(ctx)
 		})
@@ -93,15 +106,16 @@ func createReportControllers(
 			))
 		}
 		if backgroundScan {
-			ctrls = append(ctrls, internal.NewController(
-				backgroundscancontroller.ControllerName,
-				backgroundscancontroller.NewController(
+			var backgroundScanController controllers.Controller
+			if validatingAdmissionPolicyReports {
+				backgroundScanController = backgroundscancontroller.NewController(
 					client,
 					kyvernoClient,
 					eng,
 					metadataFactory,
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
+					kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
 					kubeInformer.Core().V1().Namespaces(),
 					resourceReportController,
 					backgroundScanInterval,
@@ -109,9 +123,30 @@ func createReportControllers(
 					jp,
 					eventGenerator,
 					policyReports,
-				),
-				backgroundScanWorkers,
-			))
+				)
+			} else {
+				backgroundScanController = backgroundscancontroller.NewController(
+					client,
+					kyvernoClient,
+					eng,
+					metadataFactory,
+					kyvernoV1.Policies(),
+					kyvernoV1.ClusterPolicies(),
+					nil,
+					kubeInformer.Core().V1().Namespaces(),
+					resourceReportController,
+					backgroundScanInterval,
+					configuration,
+					jp,
+					eventGenerator,
+					policyReports,
+				)
+			}
+			ctrls = append(ctrls, internal.NewController(
+				backgroundscancontroller.ControllerName,
+				backgroundScanController,
+				backgroundScanWorkers),
+			)
 		}
 	}
 	return ctrls, func(ctx context.Context) error {
@@ -130,6 +165,7 @@ func createrLeaderControllers(
 	admissionReports bool,
 	aggregateReports bool,
 	policyReports bool,
+	validatingAdmissionPolicyReports bool,
 	reportsChunkSize int,
 	backgroundScanWorkers int,
 	kubeInformer kubeinformers.SharedInformerFactory,
@@ -148,6 +184,7 @@ func createrLeaderControllers(
 		admissionReports,
 		aggregateReports,
 		policyReports,
+		validatingAdmissionPolicyReports,
 		reportsChunkSize,
 		backgroundScanWorkers,
 		dynamicClient,
@@ -165,22 +202,24 @@ func createrLeaderControllers(
 
 func main() {
 	var (
-		backgroundScan         bool
-		admissionReports       bool
-		aggregateReports       bool
-		policyReports          bool
-		reportsChunkSize       int
-		backgroundScanWorkers  int
-		backgroundScanInterval time.Duration
-		maxQueuedEvents        int
-		omitEvents             string
-		skipResourceFilters    bool
+		backgroundScan                   bool
+		admissionReports                 bool
+		aggregateReports                 bool
+		policyReports                    bool
+		validatingAdmissionPolicyReports bool
+		reportsChunkSize                 int
+		backgroundScanWorkers            int
+		backgroundScanInterval           time.Duration
+		maxQueuedEvents                  int
+		omitEvents                       string
+		skipResourceFilters              bool
 	)
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
 	flagset.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable background scan.")
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flagset.BoolVar(&aggregateReports, "aggregateReports", true, "Enable or disable aggregated policy reports.")
 	flagset.BoolVar(&policyReports, "policyReports", true, "Enable or disable policy reports.")
+	flagset.BoolVar(&validatingAdmissionPolicyReports, "validatingAdmissionPolicyReports", false, "Enable or disable validating admission policy reports.")
 	flagset.IntVar(&reportsChunkSize, "reportsChunkSize", 1000, "Max number of results in generated reports, reports will be split accordingly if there are more results to be stored.")
 	flagset.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
 	flagset.DurationVar(&backgroundScanInterval, "backgroundScanInterval", time.Hour, "Configure background scan interval.")
@@ -277,6 +316,7 @@ func main() {
 				admissionReports,
 				aggregateReports,
 				policyReports,
+				validatingAdmissionPolicyReports,
 				reportsChunkSize,
 				backgroundScanWorkers,
 				kubeInformer,
