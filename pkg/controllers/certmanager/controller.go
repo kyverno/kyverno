@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/tls"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -37,27 +36,30 @@ type controller struct {
 	caEnqueue  controllerutils.EnqueueFunc
 	tlsEnqueue controllerutils.EnqueueFunc
 
-	commonName string
-	namespace  string
+	caSecretName  string
+	tlsSecretName string
+	namespace     string
 }
 
 func NewController(
 	caInformer corev1informers.SecretInformer,
 	tlsInformer corev1informers.SecretInformer,
 	certRenewer tls.CertRenewer,
-	commonName string,
+	caSecretName string,
+	tlsSecretName string,
 	namespace string,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
-		renewer:    certRenewer,
-		caLister:   caInformer.Lister(),
-		tlsLister:  tlsInformer.Lister(),
-		queue:      queue,
-		caEnqueue:  controllerutils.AddDefaultEventHandlers(logger, caInformer.Informer(), queue),
-		tlsEnqueue: controllerutils.AddDefaultEventHandlers(logger, tlsInformer.Informer(), queue),
-		commonName: commonName,
-		namespace:  namespace,
+		renewer:       certRenewer,
+		caLister:      caInformer.Lister(),
+		tlsLister:     tlsInformer.Lister(),
+		queue:         queue,
+		caEnqueue:     controllerutils.AddDefaultEventHandlers(logger, caInformer.Informer(), queue),
+		tlsEnqueue:    controllerutils.AddDefaultEventHandlers(logger, tlsInformer.Informer(), queue),
+		caSecretName:  caSecretName,
+		tlsSecretName: tlsSecretName,
+		namespace:     namespace,
 	}
 	return &c
 }
@@ -68,18 +70,18 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	if err := c.tlsEnqueue(&corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: c.namespace,
-			Name:      config.GenerateTLSPairSecretName(c.commonName, c.namespace),
+			Name:      c.tlsSecretName,
 		},
 	}); err != nil {
-		logger.Error(err, "failed to enqueue secret", "name", config.GenerateTLSPairSecretName(c.commonName, c.namespace))
+		logger.Error(err, "failed to enqueue secret", "name", c.tlsSecretName)
 	}
 	if err := c.caEnqueue(&corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: c.namespace,
-			Name:      config.GenerateRootCASecretName(c.commonName, c.namespace),
+			Name:      c.caSecretName,
 		},
 	}); err != nil {
-		logger.Error(err, "failed to enqueue CA secret", "name", config.GenerateRootCASecretName(c.commonName, c.namespace))
+		logger.Error(err, "failed to enqueue CA secret", "name", c.caSecretName)
 	}
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile, c.ticker)
 }
@@ -88,7 +90,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	if namespace != c.namespace {
 		return nil
 	}
-	if name != config.GenerateTLSPairSecretName(c.commonName, c.namespace) && name != config.GenerateRootCASecretName(c.commonName, c.namespace) {
+	if name != c.caSecretName && name != c.tlsSecretName {
 		return nil
 	}
 	return c.renewCertificates(ctx)
