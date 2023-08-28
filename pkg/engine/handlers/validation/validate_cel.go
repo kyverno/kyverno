@@ -162,7 +162,7 @@ func collectParams(ctx context.Context, client engineapi.Client, paramKind *admi
 	// If `paramKind` is namespace-scoped, the namespace of the object being evaluated for admission will be used
 	// when paramRef.namespace is left unset.
 	var paramsNamespace string
-	isNamespaced, err := client.IsNamespaced(gv.Group, gv.Version, kind, "")
+	isNamespaced, err := client.IsNamespaced(gv.Group, gv.Version, kind)
 	if err != nil {
 		return nil, err
 	}

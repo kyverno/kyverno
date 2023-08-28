@@ -33,7 +33,7 @@ type ResourceClient interface {
 	ListResource(ctx context.Context, apiVersion string, kind string, namespace string, lselector *metav1.LabelSelector) (*unstructured.UnstructuredList, error)
 	GetResources(ctx context.Context, group, version, kind, subresource, namespace, name string) ([]Resource, error)
 	GetNamespace(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.Namespace, error)
-	IsNamespaced(group, version, kind, subresource string) (bool, error)
+	IsNamespaced(group, version, kind string) (bool, error)
 }
 
 type Client interface {

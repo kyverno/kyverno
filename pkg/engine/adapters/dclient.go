@@ -54,8 +54,8 @@ func (a *dclientAdapter) ListResource(ctx context.Context, apiVersion string, ki
 	return a.client.ListResource(ctx, apiVersion, kind, namespace, lselector)
 }
 
-func (a *dclientAdapter) IsNamespaced(group, version, kind, subresource string) (bool, error) {
-	gvrss, err := a.client.Discovery().FindResources(group, version, kind, subresource)
+func (a *dclientAdapter) IsNamespaced(group, version, kind string) (bool, error) {
+	gvrss, err := a.client.Discovery().FindResources(group, version, kind, "")
 	if err != nil {
 		return false, err
 	}
