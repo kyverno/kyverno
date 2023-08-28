@@ -98,17 +98,17 @@ func NewController(
 	controllerutils.AddEventHandlersT(
 		secretInformer.Informer(),
 		func(obj *corev1.Secret) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.GenerateRootCASecretName() {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.GenerateRootCASecretName(config.KyvernoServiceName(), config.KyvernoNamespace()) {
 				c.enqueue()
 			}
 		},
 		func(_, obj *corev1.Secret) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.GenerateRootCASecretName() {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.GenerateRootCASecretName(config.KyvernoServiceName(), config.KyvernoNamespace()) {
 				c.enqueue()
 			}
 		},
 		func(obj *corev1.Secret) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.GenerateRootCASecretName() {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.GenerateRootCASecretName(config.KyvernoServiceName(), config.KyvernoNamespace()) {
 				c.enqueue()
 			}
 		},
@@ -130,7 +130,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	if key != c.webhookName {
 		return nil
 	}
-	caData, err := tls.ReadRootCASecret(config.GenerateRootCASecretName(), config.KyvernoNamespace(), c.secretLister)
+	caData, err := tls.ReadRootCASecret(config.GenerateRootCASecretName(config.KyvernoServiceName(), config.KyvernoNamespace()), config.KyvernoNamespace(), c.secretLister)
 	if err != nil {
 		return err
 	}
