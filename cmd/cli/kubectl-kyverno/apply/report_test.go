@@ -88,7 +88,7 @@ func Test_buildPolicyReports(t *testing.T) {
 	assert.NilError(t, err)
 
 	er := engineapi.EngineResponse{}
-	er = er.WithPolicy(&policy)
+	er = er.WithPolicy(engineapi.NewKyvernoPolicy(&policy))
 	er.PolicyResponse.Add(
 		engineapi.ExecutionStats{},
 		*engineapi.RuleFail(
@@ -123,7 +123,7 @@ func Test_buildPolicyResults(t *testing.T) {
 	assert.NilError(t, err)
 
 	er := engineapi.EngineResponse{}
-	er = er.WithPolicy(&policy)
+	er = er.WithPolicy(engineapi.NewKyvernoPolicy(&policy))
 	er.PolicyResponse.Add(
 		engineapi.ExecutionStats{}, *engineapi.RuleFail(
 			"pods-require-account",

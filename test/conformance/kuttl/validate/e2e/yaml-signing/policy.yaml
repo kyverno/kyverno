@@ -42,3 +42,7 @@ spec:
                   MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEyQfmL5YwHbn9xrrgG3vgbU0KJxMY
                   BibYLJ5L4VSMvGxeMLnBGdM48w5IE//6idUPj3rscigFdHs7GDMH4LLAng==
                   -----END PUBLIC KEY-----
+                rekor:
+                  url: https://rekor.sigstore.dev
+                  ignoreTlog: true
+                  ignoreSCT: true

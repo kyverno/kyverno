@@ -1,0 +1,16 @@
+name: check-probe-exists
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: check-probe-exists
+    rule: check-readinessProbe-exists
+    resource: probe
+    kind: Pod
+    result: pass
+  - policy: check-probe-exists
+    rule: check-livenessProbe-exists
+    resource: probe
+    kind: Pod
+    result: pass

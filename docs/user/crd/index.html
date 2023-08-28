@@ -1066,6 +1066,22 @@ Kubernetes admissionregistration/v1alpha1.ParamRef
 <p>AuditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the API request.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>variables</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#variable-v1alpha1-admissionregistration">
+[]Kubernetes admissionregistration/v1alpha1.Variable
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.
+The variables defined here will be available under <code>variables</code> in other expressions of the policy.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -1096,6 +1112,40 @@ string
 </td>
 <td>
 <p>URL is the address of the transparency log. Defaults to the public log <a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>pubkey</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>RekorPubKey is an optional PEM encoded public key to use for a custom Rekor.
+If set, is used to validate signatures on log entries from Rekor.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ignoreSCT</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>IgnoreSCT requires that a certificate contain an embedded SCT during verification. An SCT is proof of inclusion in a certificate transparency log.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ignoreTlog</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>IgnoreTlog skip tlog verification</p>
 </td>
 </tr>
 </tbody>
@@ -3309,8 +3359,8 @@ See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://k
 <td>
 <code>celPreconditions</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
-[]Kubernetes admissionregistration/v1.MatchCondition
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1alpha1-admissionregistration">
+[]Kubernetes admissionregistration/v1alpha1.MatchCondition
 </a>
 </em>
 </td>
@@ -3816,7 +3866,7 @@ CTLog
 </td>
 <td>
 <p>Rekor provides configuration for the Rekor transparency log service. If the value is nil,
-Rekor is not checked. If an empty object is provided the public instance of
+or an empty object is provided, the public instance of
 Rekor (<a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>) is used.</p>
 </td>
 </tr>
@@ -6586,8 +6636,7 @@ AnyAllConditions
 </em>
 </td>
 <td>
-<p>Multiple conditions can be declared under an <code>any</code> or <code>all</code> statement. A direct list
-of conditions (without <code>any</code> or <code>all</code> statements) is also supported for backwards compatibility
+<p>Multiple conditions can be declared under an <code>any</code> or <code>all</code> statement.
 See: <a href="https://kyverno.io/docs/writing-policies/validate/#deny-rules">https://kyverno.io/docs/writing-policies/validate/#deny-rules</a></p>
 </td>
 </tr>
@@ -7066,8 +7115,7 @@ AnyAllConditions
 <td>
 <em>(Optional)</em>
 <p>Preconditions are used to determine if a policy rule should be applied by evaluating a
-set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements. A direct list
-of conditions (without <code>any</code> or <code>all</code> statements is supported for backwards compatibility but
+set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.
 See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
 </td>
 </tr>

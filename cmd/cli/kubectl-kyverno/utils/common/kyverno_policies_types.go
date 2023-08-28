@@ -113,12 +113,16 @@ OuterLoop:
 			}
 		}
 	}
+	var client engineapi.Client
+	if c.Client != nil {
+		client = adapters.Client(c.Client)
+	}
 	rclient := registryclient.NewOrDie()
 	eng := engine.NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
 		jmespath.New(cfg),
-		adapters.Client(c.Client),
+		client,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 		imageverifycache.DisabledImageVerifyCache(),
 		store.ContextLoaderFactory(nil),
@@ -159,6 +163,12 @@ OuterLoop:
 		}
 	}
 
+	verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
+	if !verifyImageResponse.IsEmpty() {
+		verifyImageResponse = combineRuleResponses(verifyImageResponse)
+		engineResponses = append(engineResponses, verifyImageResponse)
+	}
+
 	var policyHasValidate bool
 	for _, rule := range autogen.ComputeRules(c.Policy) {
 		if rule.HasValidate() || rule.HasVerifyImageChecks() {
@@ -176,12 +186,6 @@ OuterLoop:
 
 	if !validateResponse.IsEmpty() {
 		engineResponses = append(engineResponses, validateResponse)
-	}
-
-	verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
-	if !verifyImageResponse.IsEmpty() {
-		verifyImageResponse = combineRuleResponses(verifyImageResponse)
-		engineResponses = append(engineResponses, verifyImageResponse)
 	}
 
 	var policyHasGenerate bool

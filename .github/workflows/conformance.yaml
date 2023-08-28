@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         with:
@@ -45,14 +45,14 @@ jobs:
             values:
               - standard
         k8s-version:
-          - name: v1.24
-            version: v1.24.15
           - name: v1.25
             version: v1.25.11
           - name: v1.26
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
+          - name: v1.28
+            version: v1.28.0
         tests:
           - autogen
           - background-only
@@ -60,6 +60,7 @@ jobs:
           - deferred
           - events
           - exceptions
+          - filter
           - generate/clusterpolicy
           - generate/policy
           - generate/validation
@@ -76,7 +77,7 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         with:
@@ -122,21 +123,21 @@ jobs:
               - standard
               - ttl
         k8s-version:
-          - name: v1.24
-            version: v1.24.15
           - name: v1.25
             version: v1.25.11
           - name: v1.26
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
+          - name: v1.28
+            version: v1.28.0
         tests:
           - ttl
     needs: prepare-images
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         with:
@@ -181,14 +182,14 @@ jobs:
               - standard
               - force-failure-policy-ignore
         k8s-version:
-          - name: v1.24
-            version: v1.24.15
           - name: v1.25
             version: v1.25.11
           - name: v1.26
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
+          - name: v1.28
+            version: v1.28.0
         tests:
           - force-failure-policy-ignore
           - rbac
@@ -196,7 +197,7 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         with:
@@ -240,21 +241,21 @@ jobs:
             values:
               - default
         k8s-version:
-          - name: v1.24
-            version: v1.24.15
           - name: v1.25
             version: v1.25.11
           - name: v1.26
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
+          - name: v1.28
+            version: v1.28.0
         tests:
           - rbac
     needs: prepare-images
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         with:
@@ -296,14 +297,14 @@ jobs:
             values:
               - standard
         k8s-version:
-          - name: v1.24
-            version: v1.24.15
           - name: v1.25
             version: v1.25.11
           - name: v1.26
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
+          - name: v1.28
+            version: v1.28.0
         tests:
           - argo
           - aws
@@ -340,9 +341,9 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout kyverno/kyverno
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Checkout kyverno/policies
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
           repository: kyverno/policies
           path: policies
@@ -367,11 +368,7 @@ jobs:
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Install latest Kyverno CLI
-        run: |
-          download_url=$(curl -s "https://api.github.com/repos/kyverno/kyverno/releases/latest" | grep browser_download_url | grep kyverno-cli | grep linux_x86_64.tar.gz\" | cut -d '"' -f 4)
-          curl -L "$download_url" -o kyverno-cli.tar.gz
-          tar -xvf kyverno-cli.tar.gz
-          sudo cp kyverno /usr/local/bin/
+        uses: kyverno/action-install-cli@fcee92fca5c883169ef9927acf543e0b5fc58289 # v0.2.0
       - name: Test policy library with kuttl
         run: |
           cd policies

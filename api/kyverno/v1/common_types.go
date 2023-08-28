@@ -447,6 +447,12 @@ type CEL struct {
 	// AuditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the API request.
 	// +optional
 	AuditAnnotations []v1alpha1.AuditAnnotation `json:"auditAnnotations,omitempty" yaml:"auditAnnotations,omitempty"`
+
+	// Variables contain definitions of variables that can be used in composition of other expressions.
+	// Each variable is defined as a named CEL expression.
+	// The variables defined here will be available under `variables` in other expressions of the policy.
+	// +optional
+	Variables []v1alpha1.Variable `json:"variables,omitempty" yaml:"variables,omitempty"`
 }
 
 func (c *CEL) HasParam() bool {
