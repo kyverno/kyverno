@@ -36,12 +36,17 @@ type controller struct {
 	queue      workqueue.RateLimitingInterface
 	caEnqueue  controllerutils.EnqueueFunc
 	tlsEnqueue controllerutils.EnqueueFunc
+
+	commonName string
+	namespace  string
 }
 
 func NewController(
 	caInformer corev1informers.SecretInformer,
 	tlsInformer corev1informers.SecretInformer,
 	certRenewer tls.CertRenewer,
+	commonName string,
+	namespace string,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
@@ -51,6 +56,8 @@ func NewController(
 		queue:      queue,
 		caEnqueue:  controllerutils.AddDefaultEventHandlers(logger, caInformer.Informer(), queue),
 		tlsEnqueue: controllerutils.AddDefaultEventHandlers(logger, tlsInformer.Informer(), queue),
+		commonName: commonName,
+		namespace:  namespace,
 	}
 	return &c
 }
@@ -60,28 +67,28 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	// this way we ensure the reconcile happens (hence renewal/creation)
 	if err := c.tlsEnqueue(&corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: config.KyvernoNamespace(),
-			Name:      config.GenerateTLSPairSecretName(),
+			Namespace: c.namespace,
+			Name:      config.GenerateTLSPairSecretName(c.commonName, c.namespace),
 		},
 	}); err != nil {
-		logger.Error(err, "failed to enqueue secret", "name", config.GenerateTLSPairSecretName())
+		logger.Error(err, "failed to enqueue secret", "name", config.GenerateTLSPairSecretName(c.commonName, c.namespace))
 	}
 	if err := c.caEnqueue(&corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: config.KyvernoNamespace(),
-			Name:      config.GenerateRootCASecretName(),
+			Namespace: c.namespace,
+			Name:      config.GenerateRootCASecretName(c.commonName, c.namespace),
 		},
 	}); err != nil {
-		logger.Error(err, "failed to enqueue CA secret", "name", config.GenerateRootCASecretName())
+		logger.Error(err, "failed to enqueue CA secret", "name", config.GenerateRootCASecretName(c.commonName, c.namespace))
 	}
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile, c.ticker)
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
-	if namespace != config.KyvernoNamespace() {
+	if namespace != c.namespace {
 		return nil
 	}
-	if name != config.GenerateTLSPairSecretName() && name != config.GenerateRootCASecretName() {
+	if name != config.GenerateTLSPairSecretName(c.commonName, c.namespace) && name != config.GenerateRootCASecretName(c.commonName, c.namespace) {
 		return nil
 	}
 	return c.renewCertificates(ctx)

@@ -121,6 +121,8 @@ func createrLeaderControllers(
 		caInformer,
 		tlsInformer,
 		certRenewer,
+		config.KyvernoServiceName(),
+		config.KyvernoNamespace(),
 	)
 	webhookController := webhookcontroller.NewController(
 		dynamicClient.Discovery(),
@@ -229,8 +231,8 @@ func main() {
 	// setup
 	signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-admission-controller", false)
 	defer sdown()
-	caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), config.GenerateRootCASecretName(), resyncPeriod)
-	tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), config.GenerateTLSPairSecretName(), resyncPeriod)
+	caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), config.GenerateRootCASecretName(config.KyvernoServiceName(), config.KyvernoNamespace()), resyncPeriod)
+	tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), config.GenerateTLSPairSecretName(config.KyvernoServiceName(), config.KyvernoNamespace()), resyncPeriod)
 	if !informers.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, caSecret, tlsSecret) {
 		setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		os.Exit(1)
@@ -262,10 +264,10 @@ func main() {
 		tls.TLSValidityDuration,
 		serverIP,
 		config.KyvernoServiceName(),
-		config.DnsNames(),
+		config.DnsNames(config.KyvernoServiceName(), config.KyvernoNamespace()),
 		config.KyvernoNamespace(),
-		config.GenerateRootCASecretName(),
-		config.GenerateTLSPairSecretName(),
+		config.GenerateRootCASecretName(config.KyvernoServiceName(), config.KyvernoNamespace()),
+		config.GenerateTLSPairSecretName(config.KyvernoServiceName(), config.KyvernoNamespace()),
 	)
 	policyCache := policycache.NewCache()
 	omitEventsValues := strings.Split(omitEvents, ",")
@@ -463,7 +465,7 @@ func main() {
 			DumpPayload: dumpPayload,
 		},
 		func() ([]byte, []byte, error) {
-			secret, err := tlsSecret.Lister().Secrets(config.KyvernoNamespace()).Get(config.GenerateTLSPairSecretName())
+			secret, err := tlsSecret.Lister().Secrets(config.KyvernoNamespace()).Get(config.GenerateTLSPairSecretName(config.KyvernoServiceName(), config.KyvernoNamespace()))
 			if err != nil {
 				return nil, nil, err
 			}
