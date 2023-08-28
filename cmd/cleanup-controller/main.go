@@ -39,6 +39,11 @@ const (
 	ttlWebhookControllerName    = "ttl-webhook-controller"
 )
 
+var (
+	caSecretName  string
+	tlsSecretName string
+)
+
 // TODO:
 // - helm review labels / selectors
 // - implement probes
@@ -68,6 +73,8 @@ func main() {
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.DurationVar(&interval, "ttlReconciliationInterval", time.Minute, "Set this flag to set the interval after which the resource controller reconciliation should occur")
+	flagset.StringVar(&caSecretName, "caSecretName", "", "Name of the secret containing CA.")
+	flagset.StringVar(&tlsSecretName, "tlsSecretName", "", "Name of the secret containing TLS pair.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -88,8 +95,8 @@ func main() {
 	ctx, setup, sdown := internal.Setup(appConfig, "kyverno-cleanup-controller", false)
 	defer sdown()
 	// certificates informers
-	caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), config.GenerateRootCASecretName(config.KyvernoServiceName(), config.KyvernoNamespace()), resyncPeriod)
-	tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), config.GenerateTLSPairSecretName(config.KyvernoServiceName(), config.KyvernoNamespace()), resyncPeriod)
+	caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), caSecretName, resyncPeriod)
+	tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tlsSecretName, resyncPeriod)
 	if !informers.StartInformersAndWaitForCacheSync(ctx, setup.Logger, caSecret, tlsSecret) {
 		setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		os.Exit(1)
@@ -117,8 +124,8 @@ func main() {
 				config.KyvernoServiceName(),
 				config.DnsNames(config.KyvernoServiceName(), config.KyvernoNamespace()),
 				config.KyvernoNamespace(),
-				config.GenerateRootCASecretName(config.KyvernoServiceName(), config.KyvernoNamespace()),
-				config.GenerateTLSPairSecretName(config.KyvernoServiceName(), config.KyvernoNamespace()),
+				caSecretName,
+				tlsSecretName,
 			)
 			certController := internal.NewController(
 				certmanager.ControllerName,
@@ -126,7 +133,8 @@ func main() {
 					caSecret,
 					tlsSecret,
 					renewer,
-					config.KyvernoServiceName(),
+					caSecretName,
+					tlsSecretName,
 					config.KyvernoNamespace(),
 				),
 				certmanager.Workers,
@@ -162,6 +170,7 @@ func main() {
 					genericwebhookcontroller.Fail,
 					genericwebhookcontroller.None,
 					setup.Configuration,
+					caSecretName,
 				),
 				webhookWorkers,
 			)
@@ -200,6 +209,7 @@ func main() {
 					genericwebhookcontroller.Ignore,
 					genericwebhookcontroller.None,
 					setup.Configuration,
+					caSecretName,
 				),
 				webhookWorkers,
 			)
@@ -294,7 +304,7 @@ func main() {
 	// create server
 	server := NewServer(
 		func() ([]byte, []byte, error) {
-			secret, err := tlsSecret.Lister().Secrets(config.KyvernoNamespace()).Get(config.GenerateTLSPairSecretName(config.KyvernoServiceName(), config.KyvernoNamespace()))
+			secret, err := tlsSecret.Lister().Secrets(config.KyvernoNamespace()).Get(caSecretName)
 			if err != nil {
 				return nil, nil, err
 			}

@@ -14,10 +14,10 @@ func DnsNames(commonName string, namespace string) []string {
 	}
 }
 
-func GenerateTLSPairSecretName(commonName string, namespace string) string {
-	return InClusterServiceName(commonName, namespace) + ".kyverno-tls-pair"
-}
+// func GenerateTLSPairSecretName(commonName string, namespace string) string {
+// 	return InClusterServiceName(commonName, namespace) + ".kyverno-tls-pair"
+// }
 
-func GenerateRootCASecretName(commonName string, namespace string) string {
-	return InClusterServiceName(commonName, namespace) + ".kyverno-tls-ca"
-}
+// func GenerateRootCASecretName(commonName string, namespace string) string {
+// 	return InClusterServiceName(commonName, namespace) + ".kyverno-tls-ca"
+// }
