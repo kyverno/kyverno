@@ -879,47 +879,43 @@ func GetGitBranchOrPolicyPaths(gitBranch, repoURL string, policyPaths []string) 
 	return gitBranch, gitPathToYamls
 }
 
-func processEngineResponses(responses []engineapi.EngineResponse, c ApplyPolicyConfig) {
-	for _, policy := range c.Policies {
-		for _, response := range responses {
-			if !response.IsEmpty() {
-				pol := response.Policy()
-				if polType := pol.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
-					return
-				}
-				for _, rule := range autogen.ComputeRules(pol.GetPolicy().(kyvernov1.PolicyInterface)) {
-					if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
-						ruleFoundInEngineResponse := false
-						for _, valResponseRule := range response.PolicyResponse.Rules {
-							if rule.Name == valResponseRule.Name() {
-								ruleFoundInEngineResponse = true
-								switch valResponseRule.Status() {
-								case engineapi.RuleStatusPass:
-									c.Rc.Pass++
-								case engineapi.RuleStatusFail:
-									ann := policy.GetAnnotations()
-									if scored, ok := ann[kyverno.AnnotationPolicyScored]; ok && scored == "false" {
-										c.Rc.Warn++
-										break
-									} else if c.AuditWarn && response.GetValidationFailureAction().Audit() {
-										c.Rc.Warn++
-									} else {
-										c.Rc.Fail++
-									}
-								case engineapi.RuleStatusError:
-									c.Rc.Error++
-								case engineapi.RuleStatusWarn:
-									c.Rc.Warn++
-								case engineapi.RuleStatusSkip:
-									c.Rc.Skip++
-								}
-								continue
+func processEngineResponses(response engineapi.EngineResponse, c ApplyPolicyConfig, policy kyvernov1.PolicyInterface) {
+	if !response.IsEmpty() {
+		pol := response.Policy()
+		if polType := pol.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
+			return
+		}
+		for _, rule := range autogen.ComputeRules(pol.GetPolicy().(kyvernov1.PolicyInterface)) {
+			if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
+				ruleFoundInEngineResponse := false
+				for _, valResponseRule := range response.PolicyResponse.Rules {
+					if rule.Name == valResponseRule.Name() {
+						ruleFoundInEngineResponse = true
+						switch valResponseRule.Status() {
+						case engineapi.RuleStatusPass:
+							c.Rc.Pass++
+						case engineapi.RuleStatusFail:
+							ann := policy.GetAnnotations()
+							if scored, ok := ann[kyverno.AnnotationPolicyScored]; ok && scored == "false" {
+								c.Rc.Warn++
+								break
+							} else if c.AuditWarn && response.GetValidationFailureAction().Audit() {
+								c.Rc.Warn++
+							} else {
+								c.Rc.Fail++
 							}
-						}
-						if !ruleFoundInEngineResponse {
+						case engineapi.RuleStatusError:
+							c.Rc.Error++
+						case engineapi.RuleStatusWarn:
+							c.Rc.Warn++
+						case engineapi.RuleStatusSkip:
 							c.Rc.Skip++
 						}
+						continue
 					}
+				}
+				if !ruleFoundInEngineResponse {
+					c.Rc.Skip++
 				}
 			}
 		}

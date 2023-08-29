@@ -45,22 +45,22 @@ func ApplyPolicyOnResource(c ApplyPolicyConfig) ([]engineapi.EngineResponse, err
 		log.Error(err, "failed to load resource in context")
 	}
 
-	engRes, err, _ := ApplyMutatePoliciesOnResource(c, updatedResource, jp, resPath)
+	engRes, err := ApplyMutatePoliciesOnResource(c, updatedResource, jp, resPath)
 	if err != nil {
 		log.Error(err, "Apply mutate policies failed")
 	}
 	engineResponses = append(engineResponses, engRes...)
-	engRes, err, _ = ApplyVerifyPoliciesOnResource(c, &engineResponses[0].PatchedResource, jp)
+	engRes, err = ApplyVerifyPoliciesOnResource(c, &engineResponses[0].PatchedResource, jp)
 	if err != nil {
 		log.Error(err, "Apply verify policies failed")
 	}
 	engineResponses = append(engineResponses, engRes...)
-	engRes, err, _ = ApplyValidatePoliciesOnResource(c, &engineResponses[0].PatchedResource, jp)
+	engRes, err = ApplyValidatePoliciesOnResource(c, &engineResponses[0].PatchedResource, jp)
 	if err != nil {
 		log.Error(err, "Apply validate policies failed")
 	}
 	engineResponses = append(engineResponses, engRes...)
-	engRes, err, _ = ApplyGeneratePoliciesOnResource(c, &engineResponses[0].PatchedResource, jp, resPath)
+	engRes, err = ApplyGeneratePoliciesOnResource(c, &engineResponses[0].PatchedResource, jp, resPath)
 	if err != nil {
 		log.Error(err, "Apply verify policies failed")
 	}
@@ -141,8 +141,8 @@ func combineRuleResponses(imageResponse engineapi.EngineResponse) engineapi.Engi
 	return imageResponse
 }
 
-func ApplyMutatePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstructured.Unstructured, jp jmespath.Interface, resPath string) ([]engineapi.EngineResponse, error, engineapi.EngineResponse) {
-	var mutateResponse engineapi.EngineResponse
+func ApplyMutatePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstructured.Unstructured, jp jmespath.Interface, resPath string) ([]engineapi.EngineResponse, error) {
+
 	var engineResponses []engineapi.EngineResponse
 	namespaceLabels := make(map[string]string)
 	operation := kyvernov1.Create
@@ -154,6 +154,7 @@ func ApplyMutatePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstruc
 	policyWithNamespaceSelector := false
 
 	for _, policy := range c.Policies {
+		var mutateResponse engineapi.EngineResponse
 	OuterLoop:
 		for _, p := range autogen.ComputeRules(policy) {
 			if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
@@ -191,7 +192,7 @@ func ApplyMutatePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstruc
 			resourceNamespace := c.Resource.GetNamespace()
 			namespaceLabels = c.NamespaceSelectorMap[c.Resource.GetNamespace()]
 			if resourceNamespace != "default" && len(namespaceLabels) < 1 {
-				return engineResponses, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", c.Resource.GetName()), nil), mutateResponse
+				return engineResponses, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", c.Resource.GetName()), nil)
 			}
 		}
 
@@ -255,26 +256,26 @@ func ApplyMutatePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstruc
 			}
 		}
 
-		mutateResponse := eng.Mutate(context.Background(), policyContext)
+		mutateResponse = eng.Mutate(context.Background(), policyContext)
 		combineRuleResponses(mutateResponse)
 		engineResponses = append(engineResponses, mutateResponse)
 
 		err = processMutateEngineResponse(c, &mutateResponse, resPath)
 		if err != nil {
 			if !sanitizederror.IsErrorSanitized(err) {
-				return engineResponses, sanitizederror.NewWithError("failed to print mutated result", err), mutateResponse
+				return engineResponses, sanitizederror.NewWithError("failed to print mutated result", err)
 			}
 		}
 
-		processEngineResponses(engineResponses, c)
+		processEngineResponses(mutateResponse, c, policy)
 		policyContext = policyContext.WithNewResource(mutateResponse.PatchedResource)
 	}
 
-	return engineResponses, nil, mutateResponse
+	return engineResponses, nil
 }
 
-func ApplyValidatePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstructured.Unstructured, jp jmespath.Interface) ([]engineapi.EngineResponse, error, engineapi.EngineResponse) {
-	var validateResponse engineapi.EngineResponse
+func ApplyValidatePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstructured.Unstructured, jp jmespath.Interface) ([]engineapi.EngineResponse, error) {
+
 	var engineResponses []engineapi.EngineResponse
 	namespaceLabels := make(map[string]string)
 	operation := kyvernov1.Create
@@ -285,6 +286,7 @@ func ApplyValidatePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstr
 
 	policyWithNamespaceSelector := false
 	for _, policy := range c.Policies {
+		var validateResponse engineapi.EngineResponse
 	OuterLoop:
 		for _, p := range autogen.ComputeRules(policy) {
 			if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
@@ -322,7 +324,7 @@ func ApplyValidatePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstr
 			resourceNamespace := c.Resource.GetNamespace()
 			namespaceLabels = c.NamespaceSelectorMap[c.Resource.GetNamespace()]
 			if resourceNamespace != "default" && len(namespaceLabels) < 1 {
-				return engineResponses, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", c.Resource.GetName()), nil), validateResponse
+				return engineResponses, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", c.Resource.GetName()), nil)
 			}
 		}
 
@@ -404,14 +406,14 @@ func ApplyValidatePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstr
 			engineResponses = append(engineResponses, validateResponse)
 		}
 
-		processEngineResponses(engineResponses, c)
+		processEngineResponses(validateResponse, c, policy)
 	}
 
-	return engineResponses, nil, validateResponse
+	return engineResponses, nil
 }
 
-func ApplyVerifyPoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstructured.Unstructured, jp jmespath.Interface) ([]engineapi.EngineResponse, error, engineapi.EngineResponse) {
-	var verifyImageResponse engineapi.EngineResponse
+func ApplyVerifyPoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstructured.Unstructured, jp jmespath.Interface) ([]engineapi.EngineResponse, error) {
+
 	var engineResponses []engineapi.EngineResponse
 	namespaceLabels := make(map[string]string)
 	operation := kyvernov1.Create
@@ -422,6 +424,7 @@ func ApplyVerifyPoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstruc
 
 	policyWithNamespaceSelector := false
 	for _, policy := range c.Policies {
+		var verifyImageResponse engineapi.EngineResponse
 	OuterLoop:
 		for _, p := range autogen.ComputeRules(policy) {
 			if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
@@ -459,7 +462,7 @@ func ApplyVerifyPoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstruc
 			resourceNamespace := c.Resource.GetNamespace()
 			namespaceLabels = c.NamespaceSelectorMap[c.Resource.GetNamespace()]
 			if resourceNamespace != "default" && len(namespaceLabels) < 1 {
-				return engineResponses, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", c.Resource.GetName()), nil), verifyImageResponse
+				return engineResponses, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", c.Resource.GetName()), nil)
 			}
 		}
 
@@ -529,14 +532,14 @@ func ApplyVerifyPoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstruc
 			engineResponses = append(engineResponses, verifyImageResponse)
 		}
 
-		processEngineResponses(engineResponses, c)
+		processEngineResponses(verifyImageResponse, c, policy)
 	}
 
-	return engineResponses, nil, verifyImageResponse
+	return engineResponses, nil
 }
 
-func ApplyGeneratePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstructured.Unstructured, jp jmespath.Interface, resPath string) ([]engineapi.EngineResponse, error, engineapi.EngineResponse) {
-	var generateResponse engineapi.EngineResponse
+func ApplyGeneratePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstructured.Unstructured, jp jmespath.Interface, resPath string) ([]engineapi.EngineResponse, error) {
+
 	var engineResponses []engineapi.EngineResponse
 	namespaceLabels := make(map[string]string)
 	operation := kyvernov1.Create
@@ -547,6 +550,7 @@ func ApplyGeneratePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstr
 
 	policyWithNamespaceSelector := false
 	for _, policy := range c.Policies {
+		var generateResponse engineapi.EngineResponse
 	OuterLoop:
 		for _, p := range autogen.ComputeRules(policy) {
 			if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
@@ -584,7 +588,7 @@ func ApplyGeneratePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstr
 			resourceNamespace := c.Resource.GetNamespace()
 			namespaceLabels = c.NamespaceSelectorMap[c.Resource.GetNamespace()]
 			if resourceNamespace != "default" && len(namespaceLabels) < 1 {
-				return engineResponses, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", c.Resource.GetName()), nil), generateResponse
+				return engineResponses, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", c.Resource.GetName()), nil)
 			}
 		}
 
@@ -670,9 +674,9 @@ func ApplyGeneratePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstr
 			updateResultCounts(policy, &generateResponse, resPath, c.Rc, c.AuditWarn)
 		}
 
-		processEngineResponses(engineResponses, c)
+		processEngineResponses(generateResponse, c, policy)
 
 	}
 
-	return engineResponses, nil, generateResponse
+	return engineResponses, nil
 }
