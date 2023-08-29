@@ -61,7 +61,7 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 				errors = append(errors, err)
 			}
 			spec := pol.GetSpec()
-			if spec.HasVerifyImages() {
+			if spec.HasVerifyImages() && len(errors) == 0 {
 				ivResponse, err := s.validateImages(ctx, resource, nsLabels, pol)
 				if err != nil {
 					logger.Error(err, "failed to scan images")
