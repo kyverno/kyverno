@@ -1038,11 +1038,16 @@ func Test_ImageVerifyCacheCosign(t *testing.T) {
 	err = cosign.SetMock(image, attestationPayloads)
 	assert.NilError(t, err)
 
+	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	time1 := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 
+	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	time2 := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
+	assert.Check(t, time2 < time1, "cache entry is valid, so image verification should be from cache.", time1, time2)
 }
 
 func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
@@ -1060,13 +1065,18 @@ func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
 	err = cosign.SetMock(image, attestationPayloads)
 	assert.NilError(t, err)
 
+	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	time1 := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 
 	time.Sleep(5 * time.Second)
 
+	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	time2 := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
+	assert.Check(t, time2 > time1/10 && time2 < time1*10, "cache entry is expired, so image verification should not be from cache.")
 }
 
 func Test_changePolicyCacheVerificationCosign(t *testing.T) {
@@ -1083,13 +1093,17 @@ func Test_changePolicyCacheVerificationCosign(t *testing.T) {
 	err = cosign.SetMock(image, attestationPayloads)
 	assert.NilError(t, err)
 
+	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	time1 := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-
 	policyContext = buildContext(t, testUpdatedPolicyGood, testResource, "")
 
+	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	time2 := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
+	assert.Check(t, time2 > time1/10 && time2 < time1*10, "cache entry not found, so image verification should not be from cache.")
 }
 
 var verifyImageNotaryPolicy = `{
@@ -1226,11 +1240,17 @@ func Test_ImageVerifyCacheNotary(t *testing.T) {
 	assert.NilError(t, err)
 	image := "ghcr.io/kyverno/test-verify-image:signed"
 	policyContext := buildContext(t, verifyImageNotaryPolicy, verifyImageNotaryResource, "")
+
+	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	time1 := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 
+	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	time2 := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
+	assert.Check(t, time2 < time1, "cache entry is valid, so image verification should be from cache.", time1, time2)
 }
 
 func Test_ImageVerifyCacheExpiredNotary(t *testing.T) {
@@ -1247,13 +1267,18 @@ func Test_ImageVerifyCacheExpiredNotary(t *testing.T) {
 	policyContext := buildContext(t, verifyImageNotaryPolicy, verifyImageNotaryResource, "")
 
 	assert.NilError(t, err)
+	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	time1 := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-
 	time.Sleep(5 * time.Second)
 
+	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	time2 := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
+	assert.Check(t, time2 > time1/10 && time2 < time1*10, "cache entry is expired, so image verification should not be from cache.")
+
 }
 
 func Test_changePolicyCacheVerificationNotary(t *testing.T) {
@@ -1267,12 +1292,16 @@ func Test_changePolicyCacheVerificationNotary(t *testing.T) {
 	image := "ghcr.io/kyverno/test-verify-image:signed"
 
 	policyContext := buildContext(t, verifyImageNotaryPolicy, verifyImageNotaryResource, "")
-
+	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-
+	time1 := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 	policyContext = buildContext(t, verifyImageNotaryUpdatedPolicy, verifyImageNotaryResource, "")
 
+	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	time2 := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
+	assert.Check(t, time2 > time1/10 && time2 < time1*10, "cache entry not found, so image verification should not be from cache.")
+
 }
