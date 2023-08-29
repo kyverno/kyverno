@@ -21,7 +21,8 @@ package v1
 // KeylessAttestorApplyConfiguration represents an declarative configuration of the KeylessAttestor type for use
 // with apply.
 type KeylessAttestorApplyConfiguration struct {
-	Rekor                *CTLogApplyConfiguration `json:"rekor,omitempty"`
+	Rekor                *RekorApplyConfiguration `json:"rekor,omitempty"`
+	CTLog                *CTLogApplyConfiguration `json:"ctlog,omitempty"`
 	Issuer               *string                  `json:"issuer,omitempty"`
 	Subject              *string                  `json:"subject,omitempty"`
 	Roots                *string                  `json:"roots,omitempty"`
@@ -37,8 +38,16 @@ func KeylessAttestor() *KeylessAttestorApplyConfiguration {
 // WithRekor sets the Rekor field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Rekor field is set to the value of the last call.
-func (b *KeylessAttestorApplyConfiguration) WithRekor(value *CTLogApplyConfiguration) *KeylessAttestorApplyConfiguration {
+func (b *KeylessAttestorApplyConfiguration) WithRekor(value *RekorApplyConfiguration) *KeylessAttestorApplyConfiguration {
 	b.Rekor = value
+	return b
+}
+
+// WithCTLog sets the CTLog field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the CTLog field is set to the value of the last call.
+func (b *KeylessAttestorApplyConfiguration) WithCTLog(value *CTLogApplyConfiguration) *KeylessAttestorApplyConfiguration {
+	b.CTLog = value
 	return b
 }
 
