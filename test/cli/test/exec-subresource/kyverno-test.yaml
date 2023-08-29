@@ -3,7 +3,7 @@ policies:
   - deny-exec-by-pod-label.yaml
 resources:
   - resource.yaml
-variables: values.yaml
+# variables: values.yaml
 results:
   - policy: deny-exec-by-pod-label
     rule: deny-exec-by-label
@@ -11,3 +11,21 @@ results:
     namespace: default
     kind: PodExecOptions
     result: fail
+values:
+  policies:
+    - name: deny-exec-by-pod-label
+      rules:
+        - name: deny-exec-by-label
+          values:
+            podexeclabel: "false"
+  globalValues:
+    request.operation: CONNECT
+  subresources:
+    - subresource:
+        name: "pods/exec"
+        kind: "PodExecOptions"
+        version: "v1"
+      parentResource:
+        name: "pods"
+        kind: "Pod"
+        version: "v1"
