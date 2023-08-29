@@ -1,9 +1,6 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-<<<<<<< HEAD
-  name: nameconstraints.rules.example.com
-=======
   name: nameconstraints.rules.example.com
 status:
   acceptedNames:
@@ -11,4 +8,3 @@ status:
     plural: nameconstraints
   storedVersions:
   - v1
->>>>>>> b2f8677909cffdb7ea70ec03b01498d72ee1a825

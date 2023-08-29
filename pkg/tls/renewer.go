@@ -117,15 +117,8 @@ func (c *certRenewer) RenewCA(ctx context.Context) error {
 		return fmt.Errorf("failed to validate certs (%w)", err)
 	}
 	if !valid {
-<<<<<<< HEAD
-		logger.Info("mismatched certs chain, renewing", "CA certificate", c.caSecret, "TLS certificate", c.pairSecret)
-		if err := c.RenewTLS(ctx); err != nil {
-			logger.Error(err, "failed to renew TLS certificate", "name", c.pairSecret)
-			return err
-=======
 		if err := c.RenewTLS(ctx); err != nil {
 			return fmt.Errorf("failed to renew TLS certificate (%w)", err)
->>>>>>> b2f8677909cffdb7ea70ec03b01498d72ee1a825
 		}
 	}
 
@@ -146,10 +139,6 @@ func (c *certRenewer) RenewTLS(ctx context.Context) error {
 	if cert != nil {
 		valid, err := c.ValidateCert(ctx)
 		if err != nil || !valid {
-<<<<<<< HEAD
-			logger.Info("invalid cert chain, renewing TLS certificate", "name", c.pairSecret, "error", err.Error())
-=======
->>>>>>> b2f8677909cffdb7ea70ec03b01498d72ee1a825
 		} else if !allCertificatesExpired(now.Add(5*c.certRenewalInterval), cert) {
 			return nil
 		}
