@@ -51,6 +51,14 @@ type ResultCounts struct {
 	Skip  int
 }
 
+func (rc *ResultCounts) Add(add ResultCounts) {
+	rc.Pass += add.Pass
+	rc.Fail += add.Fail
+	rc.Warn += add.Warn
+	rc.Error += add.Error
+	rc.Skip += add.Skip
+}
+
 type ApplyPolicyConfig struct {
 	Policy                    kyvernov1.PolicyInterface
 	ValidatingAdmissionPolicy v1alpha1.ValidatingAdmissionPolicy
@@ -891,6 +899,7 @@ func processEngineResponses(responses []engineapi.EngineResponse, c ApplyPolicyC
 					for _, valResponseRule := range response.PolicyResponse.Rules {
 						if rule.Name == valResponseRule.Name() {
 							ruleFoundInEngineResponse = true
+
 							switch valResponseRule.Status() {
 							case engineapi.RuleStatusPass:
 								c.Rc.Pass++
