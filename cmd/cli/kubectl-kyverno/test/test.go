@@ -255,11 +255,13 @@ func applyPoliciesFromPath(
 
 func getFullPath(paths []string, policyResourcePath string, isGit bool) []string {
 	var pols []string
-	var pol string
 	if !isGit {
 		for _, path := range paths {
-			pol = filepath.Join(policyResourcePath, path)
-			pols = append(pols, pol)
+			if !filepath.IsAbs(path) {
+				pols = append(pols, filepath.Join(policyResourcePath, path))
+			} else {
+				pols = append(pols, path)
+			}
 		}
 		return pols
 	}
