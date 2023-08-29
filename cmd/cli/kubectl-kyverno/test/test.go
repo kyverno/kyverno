@@ -618,6 +618,28 @@ func getAndCompareResource(path string, engineResource unstructured.Unstructured
 	resourceType := "patchedResource"
 	if isGenerate {
 		resourceType = "generatedResource"
+
+		// The kyverno generated labels have to be removed before comparison with the generated resource
+		// specified by the user
+		keysToDelete := []string{
+			"generate.kyverno.io/policy-name",
+			"app.kubernetes.io/managed-by",
+			"generate.kyverno.io/policy-namespace",
+			"generate.kyverno.io/rule-name",
+			"generate.kyverno.io/trigger-kind",
+			"generate.kyverno.io/trigger-group",
+			"generate.kyverno.io/trigger-namespace",
+			"generate.kyverno.io/trigger-version",
+			"generate.kyverno.io/trigger-name",
+		}
+		metadata := engineResource.Object["metadata"].(map[string]interface{})
+		labels := metadata["labels"].(map[string]interface{})
+		for _, key := range keysToDelete {
+			delete(labels, key)
+		}
+		if len(labels) == 0 {
+			delete(metadata, "labels")
+		}
 	}
 
 	userResource, err := common.GetResourceFromPath(fs, path, isGit, policyResourcePath, resourceType)

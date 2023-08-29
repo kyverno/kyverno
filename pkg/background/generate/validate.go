@@ -74,6 +74,30 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 		sortedResourceKeys.PushBack(k)
 	}
 
+	if len(resourceMap) != len(patternMap) {
+		// Determine which map has extra fields
+		var extraMap, missingMap map[string]interface{}
+		var mapWithExtraFields, mapWithLesserFields string
+		if len(resourceMap) > len(patternMap) {
+			extraMap = resourceMap
+			missingMap = patternMap
+			mapWithExtraFields = "kyverno generated resource"
+			mapWithLesserFields = "user specified resource"
+		} else {
+			extraMap = patternMap
+			missingMap = resourceMap
+			mapWithExtraFields = "user specified resource"
+			mapWithLesserFields = "kyverno generated resource"
+		}
+
+		// Return missing field as an error
+		for key := range extraMap {
+			if _, exists := missingMap[key]; !exists {
+				return "", fmt.Errorf(fmt.Sprintf("------------------------------------%s: %s present in path %s in %s but not present in %s", key, extraMap[key], path+key, mapWithExtraFields, mapWithLesserFields))
+			}
+		}
+	}
+
 	for e := sortedResourceKeys.Front(); e != nil; e = e.Next() {
 		key := e.Value.(string)
 		handler := NewHandler(key, patternMap[key], path)
@@ -87,6 +111,9 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 
 // If validateResourceElement detects array element inside resource and pattern trees, it goes to validateArray
 func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, originPattern interface{}, path string) (string, error) {
+	if len(patternArray) == 0 && len(resourceArray) == 0 {
+		return "", nil
+	}
 	if len(patternArray) == 0 {
 		return path, fmt.Errorf("pattern Array empty")
 	}
