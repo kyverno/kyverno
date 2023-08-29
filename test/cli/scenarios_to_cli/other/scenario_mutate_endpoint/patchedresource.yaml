@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Endpoints
+metadata:
+  creationTimestamp: 
+  labels:
+    isMutated: 'true'
+    label: test
+  name: test-endpoint
+subsets:
+- addresses:
+  - ip: 192.168.10.171
+  ports:
+  - name: secure-connection
+    port: 9663
+    protocol: TCP

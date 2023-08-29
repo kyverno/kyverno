@@ -6,9 +6,14 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
+	"github.com/kyverno/kyverno/pkg/metrics"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/metadata"
@@ -24,9 +29,16 @@ type controller struct {
 	informer     cache.SharedIndexInformer
 	registration cache.ResourceEventHandlerRegistration
 	logger       logr.Logger
+	metrics      ttlMetrics
+	gvr          schema.GroupVersionResource
 }
 
-func newController(client metadata.Getter, metainformer informers.GenericInformer, logger logr.Logger) (*controller, error) {
+type ttlMetrics struct {
+	deletedObjectsTotal metric.Int64Counter
+	ttlFailureTotal     metric.Int64Counter
+}
+
+func newController(client metadata.Getter, metainformer informers.GenericInformer, logger logr.Logger, gvr schema.GroupVersionResource) (*controller, error) {
 	c := &controller{
 		client:   client,
 		queue:    workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
@@ -34,6 +46,7 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 		wg:       wait.Group{},
 		informer: metainformer.Informer(),
 		logger:   logger,
+		metrics:  newTTLMetrics(logger),
 	}
 	registration, err := c.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.handleAdd,
@@ -45,6 +58,28 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 	}
 	c.registration = registration
 	return c, nil
+}
+
+func newTTLMetrics(logger logr.Logger) ttlMetrics {
+	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
+	deletedObjectsTotal, err := meter.Int64Counter(
+		"kyverno_ttl_controller_deletedobjects",
+		metric.WithDescription("can be used to track number of deleted objects by the ttl resource controller."),
+	)
+	if err != nil {
+		logger.Error(err, "Failed to create instrument, ttl_controller_deletedobjects_total")
+	}
+	ttlFailureTotal, err := meter.Int64Counter(
+		"kyverno_ttl_controller_errors",
+		metric.WithDescription("can be used to track number of ttl cleanup failures."),
+	)
+	if err != nil {
+		logger.Error(err, "Failed to create instrument, ttl_controller_errors_total")
+	}
+	return ttlMetrics{
+		deletedObjectsTotal: deletedObjectsTotal,
+		ttlFailureTotal:     ttlFailureTotal,
+	}
 }
 
 func (c *controller) handleAdd(obj interface{}) {
@@ -62,19 +97,19 @@ func (c *controller) handleUpdate(oldObj, newObj interface{}) {
 func (c *controller) Start(ctx context.Context, workers int) {
 	for i := 0; i < workers; i++ {
 		c.wg.StartWithContext(ctx, func(ctx context.Context) {
-			defer c.logger.Info("worker stopped")
-			c.logger.Info("worker starting ....")
+			defer c.logger.V(3).Info("worker stopped")
+			c.logger.V(3).Info("worker starting ....")
 			wait.UntilWithContext(ctx, c.worker, 1*time.Second)
 		})
 	}
 }
 
 func (c *controller) Stop() {
-	defer c.logger.Info("queue stopped")
+	defer c.logger.V(3).Info("queue stopped")
 	defer c.wg.Wait()
 	// Unregister the event handlers
 	c.deregisterEventHandlers()
-	c.logger.Info("queue stopping ....")
+	c.logger.V(3).Info("queue stopping ....")
 	c.queue.ShutDown()
 }
 
@@ -94,7 +129,7 @@ func (c *controller) deregisterEventHandlers() {
 		c.logger.Error(err, "failed to deregister event handlers")
 		return
 	}
-	c.logger.Info("deregistered event handlers")
+	c.logger.V(3).Info("deregistered event handlers")
 }
 
 func (c *controller) worker(ctx context.Context) {
@@ -147,6 +182,13 @@ func (c *controller) reconcile(itemKey string) error {
 		return err
 	}
 
+	commonLabels := []attribute.KeyValue{
+		attribute.String("resource_namespace", metaObj.GetNamespace()),
+		attribute.String("resource_group", c.gvr.Group),
+		attribute.String("resource_version", c.gvr.Version),
+		attribute.String("resource", c.gvr.Resource),
+	}
+
 	// if the object is being deleted, return early
 	if metaObj.GetDeletionTimestamp() != nil {
 		return nil
@@ -174,10 +216,16 @@ func (c *controller) reconcile(itemKey string) error {
 		err = c.client.Namespace(namespace).Delete(context.Background(), metaObj.GetName(), metav1.DeleteOptions{})
 		if err != nil {
 			logger.Error(err, "failed to delete resource")
+			if c.metrics.ttlFailureTotal != nil {
+				c.metrics.ttlFailureTotal.Add(context.Background(), 1, metric.WithAttributes(commonLabels...))
+			}
 			return err
 		}
 		logger.Info("resource has been deleted")
 	} else {
+		if c.metrics.deletedObjectsTotal != nil {
+			c.metrics.deletedObjectsTotal.Add(context.Background(), 1, metric.WithAttributes(commonLabels...))
+		}
 		// Calculate the remaining time until deletion
 		timeRemaining := time.Until(deletionTime)
 		// Add the item back to the queue after the remaining time

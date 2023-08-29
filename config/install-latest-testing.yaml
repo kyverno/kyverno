@@ -6718,6 +6718,35 @@ spec:
                                   x-kubernetes-map-type: atomic
                               type: object
                               x-kubernetes-map-type: atomic
+                            variables:
+                              description: Variables contain definitions of variables
+                                that can be used in composition of other expressions.
+                                Each variable is defined as a named CEL expression.
+                                The variables defined here will be available under
+                                `variables` in other expressions of the policy.
+                              items:
+                                description: Variable is the definition of a variable
+                                  that is used for composition.
+                                properties:
+                                  expression:
+                                    description: Expression is the expression that
+                                      will be evaluated as the value of the variable.
+                                      The CEL expression has access to the same identifiers
+                                      as the CEL expressions in Validation.
+                                    type: string
+                                  name:
+                                    description: Name is the name of the variable.
+                                      The name must be a valid CEL identifier and
+                                      unique among all variables. The variable can
+                                      be accessed in other expressions through `variables`
+                                      For example, if name is "foo", the variable
+                                      will be available as `variables.foo`
+                                    type: string
+                                required:
+                                - expression
+                                - name
+                                type: object
+                              type: array
                           type: object
                         deny:
                           description: Deny defines conditions used to pass or fail
@@ -11030,6 +11059,36 @@ spec:
                                       x-kubernetes-map-type: atomic
                                   type: object
                                   x-kubernetes-map-type: atomic
+                                variables:
+                                  description: Variables contain definitions of variables
+                                    that can be used in composition of other expressions.
+                                    Each variable is defined as a named CEL expression.
+                                    The variables defined here will be available under
+                                    `variables` in other expressions of the policy.
+                                  items:
+                                    description: Variable is the definition of a variable
+                                      that is used for composition.
+                                    properties:
+                                      expression:
+                                        description: Expression is the expression
+                                          that will be evaluated as the value of the
+                                          variable. The CEL expression has access
+                                          to the same identifiers as the CEL expressions
+                                          in Validation.
+                                        type: string
+                                      name:
+                                        description: Name is the name of the variable.
+                                          The name must be a valid CEL identifier
+                                          and unique among all variables. The variable
+                                          can be accessed in other expressions through
+                                          `variables` For example, if name is "foo",
+                                          the variable will be available as `variables.foo`
+                                        type: string
+                                    required:
+                                    - expression
+                                    - name
+                                    type: object
+                                  type: array
                               type: object
                             deny:
                               description: Deny defines conditions used to pass or
@@ -14674,8 +14733,7 @@ spec:
                       description: 'Preconditions are used to determine if a policy
                         rule should be applied by evaluating a set of conditions.
                         The declaration can contain nested `any` or `all` statements.
-                        A direct list of conditions (without `any` or `all` statements
-                        is supported for backwards compatibility but See: https://kyverno.io/docs/writing-policies/preconditions/'
+                        See: https://kyverno.io/docs/writing-policies/preconditions/'
                       properties:
                         all:
                           description: AllConditions enable variable-based conditional
@@ -15060,6 +15118,35 @@ spec:
                                   x-kubernetes-map-type: atomic
                               type: object
                               x-kubernetes-map-type: atomic
+                            variables:
+                              description: Variables contain definitions of variables
+                                that can be used in composition of other expressions.
+                                Each variable is defined as a named CEL expression.
+                                The variables defined here will be available under
+                                `variables` in other expressions of the policy.
+                              items:
+                                description: Variable is the definition of a variable
+                                  that is used for composition.
+                                properties:
+                                  expression:
+                                    description: Expression is the expression that
+                                      will be evaluated as the value of the variable.
+                                      The CEL expression has access to the same identifiers
+                                      as the CEL expressions in Validation.
+                                    type: string
+                                  name:
+                                    description: Name is the name of the variable.
+                                      The name must be a valid CEL identifier and
+                                      unique among all variables. The variable can
+                                      be accessed in other expressions through `variables`
+                                      For example, if name is "foo", the variable
+                                      will be available as `variables.foo`
+                                    type: string
+                                required:
+                                - expression
+                                - name
+                                type: object
+                              type: array
                           type: object
                         deny:
                           description: Deny defines conditions used to pass or fail
@@ -15067,9 +15154,7 @@ spec:
                           properties:
                             conditions:
                               description: 'Multiple conditions can be declared under
-                                an `any` or `all` statement. A direct list of conditions
-                                (without `any` or `all` statements) is also supported
-                                for backwards compatibility See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
+                                an `any` or `all` statement. See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
                               properties:
                                 all:
                                   description: AllConditions enable variable-based
@@ -19426,6 +19511,36 @@ spec:
                                       x-kubernetes-map-type: atomic
                                   type: object
                                   x-kubernetes-map-type: atomic
+                                variables:
+                                  description: Variables contain definitions of variables
+                                    that can be used in composition of other expressions.
+                                    Each variable is defined as a named CEL expression.
+                                    The variables defined here will be available under
+                                    `variables` in other expressions of the policy.
+                                  items:
+                                    description: Variable is the definition of a variable
+                                      that is used for composition.
+                                    properties:
+                                      expression:
+                                        description: Expression is the expression
+                                          that will be evaluated as the value of the
+                                          variable. The CEL expression has access
+                                          to the same identifiers as the CEL expressions
+                                          in Validation.
+                                        type: string
+                                      name:
+                                        description: Name is the name of the variable.
+                                          The name must be a valid CEL identifier
+                                          and unique among all variables. The variable
+                                          can be accessed in other expressions through
+                                          `variables` For example, if name is "foo",
+                                          the variable will be available as `variables.foo`
+                                        type: string
+                                    required:
+                                    - expression
+                                    - name
+                                    type: object
+                                  type: array
                               type: object
                             deny:
                               description: Deny defines conditions used to pass or
@@ -23821,6 +23936,35 @@ spec:
                                   x-kubernetes-map-type: atomic
                               type: object
                               x-kubernetes-map-type: atomic
+                            variables:
+                              description: Variables contain definitions of variables
+                                that can be used in composition of other expressions.
+                                Each variable is defined as a named CEL expression.
+                                The variables defined here will be available under
+                                `variables` in other expressions of the policy.
+                              items:
+                                description: Variable is the definition of a variable
+                                  that is used for composition.
+                                properties:
+                                  expression:
+                                    description: Expression is the expression that
+                                      will be evaluated as the value of the variable.
+                                      The CEL expression has access to the same identifiers
+                                      as the CEL expressions in Validation.
+                                    type: string
+                                  name:
+                                    description: Name is the name of the variable.
+                                      The name must be a valid CEL identifier and
+                                      unique among all variables. The variable can
+                                      be accessed in other expressions through `variables`
+                                      For example, if name is "foo", the variable
+                                      will be available as `variables.foo`
+                                    type: string
+                                required:
+                                - expression
+                                - name
+                                type: object
+                              type: array
                           type: object
                         deny:
                           description: Deny defines conditions used to pass or fail
@@ -28134,6 +28278,36 @@ spec:
                                       x-kubernetes-map-type: atomic
                                   type: object
                                   x-kubernetes-map-type: atomic
+                                variables:
+                                  description: Variables contain definitions of variables
+                                    that can be used in composition of other expressions.
+                                    Each variable is defined as a named CEL expression.
+                                    The variables defined here will be available under
+                                    `variables` in other expressions of the policy.
+                                  items:
+                                    description: Variable is the definition of a variable
+                                      that is used for composition.
+                                    properties:
+                                      expression:
+                                        description: Expression is the expression
+                                          that will be evaluated as the value of the
+                                          variable. The CEL expression has access
+                                          to the same identifiers as the CEL expressions
+                                          in Validation.
+                                        type: string
+                                      name:
+                                        description: Name is the name of the variable.
+                                          The name must be a valid CEL identifier
+                                          and unique among all variables. The variable
+                                          can be accessed in other expressions through
+                                          `variables` For example, if name is "foo",
+                                          the variable will be available as `variables.foo`
+                                        type: string
+                                    required:
+                                    - expression
+                                    - name
+                                    type: object
+                                  type: array
                               type: object
                             deny:
                               description: Deny defines conditions used to pass or
@@ -31779,8 +31953,7 @@ spec:
                       description: 'Preconditions are used to determine if a policy
                         rule should be applied by evaluating a set of conditions.
                         The declaration can contain nested `any` or `all` statements.
-                        A direct list of conditions (without `any` or `all` statements
-                        is supported for backwards compatibility but See: https://kyverno.io/docs/writing-policies/preconditions/'
+                        See: https://kyverno.io/docs/writing-policies/preconditions/'
                       properties:
                         all:
                           description: AllConditions enable variable-based conditional
@@ -32165,6 +32338,35 @@ spec:
                                   x-kubernetes-map-type: atomic
                               type: object
                               x-kubernetes-map-type: atomic
+                            variables:
+                              description: Variables contain definitions of variables
+                                that can be used in composition of other expressions.
+                                Each variable is defined as a named CEL expression.
+                                The variables defined here will be available under
+                                `variables` in other expressions of the policy.
+                              items:
+                                description: Variable is the definition of a variable
+                                  that is used for composition.
+                                properties:
+                                  expression:
+                                    description: Expression is the expression that
+                                      will be evaluated as the value of the variable.
+                                      The CEL expression has access to the same identifiers
+                                      as the CEL expressions in Validation.
+                                    type: string
+                                  name:
+                                    description: Name is the name of the variable.
+                                      The name must be a valid CEL identifier and
+                                      unique among all variables. The variable can
+                                      be accessed in other expressions through `variables`
+                                      For example, if name is "foo", the variable
+                                      will be available as `variables.foo`
+                                    type: string
+                                required:
+                                - expression
+                                - name
+                                type: object
+                              type: array
                           type: object
                         deny:
                           description: Deny defines conditions used to pass or fail
@@ -32172,9 +32374,7 @@ spec:
                           properties:
                             conditions:
                               description: 'Multiple conditions can be declared under
-                                an `any` or `all` statement. A direct list of conditions
-                                (without `any` or `all` statements) is also supported
-                                for backwards compatibility See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
+                                an `any` or `all` statement. See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
                               properties:
                                 all:
                                   description: AllConditions enable variable-based
@@ -36531,6 +36731,36 @@ spec:
                                       x-kubernetes-map-type: atomic
                                   type: object
                                   x-kubernetes-map-type: atomic
+                                variables:
+                                  description: Variables contain definitions of variables
+                                    that can be used in composition of other expressions.
+                                    Each variable is defined as a named CEL expression.
+                                    The variables defined here will be available under
+                                    `variables` in other expressions of the policy.
+                                  items:
+                                    description: Variable is the definition of a variable
+                                      that is used for composition.
+                                    properties:
+                                      expression:
+                                        description: Expression is the expression
+                                          that will be evaluated as the value of the
+                                          variable. The CEL expression has access
+                                          to the same identifiers as the CEL expressions
+                                          in Validation.
+                                        type: string
+                                      name:
+                                        description: Name is the name of the variable.
+                                          The name must be a valid CEL identifier
+                                          and unique among all variables. The variable
+                                          can be accessed in other expressions through
+                                          `variables` For example, if name is "foo",
+                                          the variable will be available as `variables.foo`
+                                        type: string
+                                    required:
+                                    - expression
+                                    - name
+                                    type: object
+                                  type: array
                               type: object
                             deny:
                               description: Deny defines conditions used to pass or
@@ -39931,8 +40161,8 @@ rules:
       - rolebindings
       - clusterrolebindings
     verbs:
-      - watch
       - list
+      - watch
   - apiGroups:
       - kyverno.io
     resources:
@@ -40022,16 +40252,10 @@ metadata:
     app.kubernetes.io/version: latest
 rules:
   - apiGroups:
-      - '*'
-    resources:
-      - '*'
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
       - kyverno.io
     resources:
+      - policies
+      - clusterpolicies
       - updaterequests
       - updaterequests/status
     verbs:
@@ -40045,46 +40269,66 @@ rules:
       - deletecollection
   - apiGroups:
       - ''
+    resources:
+      - namespaces
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ''
       - events.k8s.io
     resources:
       - events
     verbs:
       - create
-      - update
+      - get
+      - list
       - patch
+      - update
+      - watch
   - apiGroups:
-      - networking.k8s.io
+    - '*'
     resources:
-      - ingresses
-      - ingressclasses
-      - networkpolicies
+    - '*'
     verbs:
-      - create
-      - update
-      - patch
-      - delete
+    - get
+    - list
+    - watch
   - apiGroups:
-      - ""
+    - networking.k8s.io
     resources:
-      - configmaps
-      - secrets
-      - resourcequotas
-      - limitranges
+    - ingresses
+    - ingressclasses
+    - networkpolicies
     verbs:
-      - create
-      - update
-      - patch
-      - delete
+    - create
+    - update
+    - patch
+    - delete
   - apiGroups:
-      - rbac.authorization.k8s.io
+    - rbac.authorization.k8s.io
     resources:
-      - rolebindings
-      - roles
+    - rolebindings
+    - roles
     verbs:
-      - create
-      - update
-      - patch
-      - delete
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - ""
+    resources:
+    - configmaps
+    - secrets
+    - resourcequotas
+    - limitranges
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -41039,6 +41283,8 @@ spec:
           image: "ghcr.io/kyverno/kyverno:latest"
           imagePullPolicy: IfNotPresent
           args:
+            - --caSecretName=kyverno-svc.kyverno.svc.kyverno-tls-ca
+            - --tlsSecretName=kyverno-svc.kyverno.svc.kyverno-tls-pair
             - --backgroundServiceAccountName=system:serviceaccount:kyverno:kyverno-background-controller
             - --servicePort=443
             - --disableMetrics=false
@@ -41289,6 +41535,8 @@ spec:
             name: metrics
             protocol: TCP
           args:
+            - --caSecretName=kyverno-cleanup-controller.kyverno.svc.kyverno-tls-ca
+            - --tlsSecretName=kyverno-cleanup-controller.kyverno.svc.kyverno-tls-pair
             - --servicePort=443
             - --disableMetrics=false
             - --otelConfig=prometheus

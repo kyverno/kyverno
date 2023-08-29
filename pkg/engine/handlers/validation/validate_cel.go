@@ -9,6 +9,10 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	celutils "github.com/kyverno/kyverno/pkg/utils/cel"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -17,7 +21,6 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
-	"k8s.io/apiserver/pkg/cel/environment"
 )
 
 type validateCELHandler struct {
@@ -43,120 +46,99 @@ func (h validateCELHandler) Process(
 		return resource, nil
 	}
 
-	oldResource := policyContext.OldResource()
+	// get resource's name, namespace, GroupVersionResource, and GroupVersionKind
 	gvr := schema.GroupVersionResource(policyContext.RequestResource())
+	gvk := resource.GroupVersionKind()
+	namespaceName := resource.GetNamespace()
+	resourceName := resource.GetName()
 
-	var object, oldObject, versionedParams runtime.Object
-	object = resource.DeepCopyObject()
+	object := resource.DeepCopyObject()
+	// in case of update request, set the oldObject to the current resource before it gets updated
+	var oldObject runtime.Object
+	oldResource := policyContext.OldResource()
 	if oldResource.Object == nil {
 		oldObject = nil
 	} else {
 		oldObject = oldResource.DeepCopyObject()
 	}
 
-	var expressions, messageExpressions, matchExpressions, auditExpressions []cel.ExpressionAccessor
-
+	// check if the rule uses parameter resources
+	hasParam := rule.Validation.CEL.HasParam()
+	// extract preconditions written as CEL expressions
+	matchConditions := rule.CELPreconditions
+	// extract CEL expressions used in validations and audit annotations
+	variables := rule.Validation.CEL.Variables
 	validations := rule.Validation.CEL.Expressions
 	auditAnnotations := rule.Validation.CEL.AuditAnnotations
 
-	// Get the parameter resource
-	hasParam := rule.Validation.CEL.HasParam()
-
-	if hasParam {
-		paramKind := rule.Validation.CEL.GetParamKind()
-		paramRef := rule.Validation.CEL.GetParamRef()
-
-		apiVersion := paramKind.APIVersion
-		kind := paramKind.Kind
-
-		name := paramRef.Name
-		namespace := paramRef.Namespace
-
-		if namespace == "" {
-			namespace = "default"
-		}
-
-		paramResource, err := h.client.GetResource(ctx, apiVersion, kind, namespace, name, "")
-		if err != nil {
-			return resource, handlers.WithError(rule, engineapi.Validation, "Error while getting the parameterized resource", err)
-		}
-
-		versionedParams = paramResource.DeepCopyObject()
-	}
-
-	for _, cel := range validations {
-		condition := &validatingadmissionpolicy.ValidationCondition{
-			Expression: cel.Expression,
-			Message:    cel.Message,
-		}
-
-		messageCondition := &validatingadmissionpolicy.MessageExpressionCondition{
-			MessageExpression: cel.MessageExpression,
-		}
-
-		expressions = append(expressions, condition)
-		messageExpressions = append(messageExpressions, messageCondition)
-	}
-
-	for _, condition := range rule.CELPreconditions {
-		matchCondition := &matchconditions.MatchCondition{
-			Name:       condition.Name,
-			Expression: condition.Expression,
-		}
-
-		matchExpressions = append(matchExpressions, matchCondition)
-	}
-
-	for _, auditAnnotation := range auditAnnotations {
-		auditCondition := &validatingadmissionpolicy.AuditAnnotationCondition{
-			Key:             auditAnnotation.Key,
-			ValueExpression: auditAnnotation.ValueExpression,
-		}
-
-		auditExpressions = append(auditExpressions, auditCondition)
-	}
-
-	compositedCompiler, err := cel.NewCompositedCompiler(environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion()))
+	optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}
+	// compile CEL expressions
+	compiler, err := celutils.NewCompiler(validations, auditAnnotations, matchConditions, variables)
 	if err != nil {
 		return resource, handlers.WithError(rule, engineapi.Validation, "Error while creating composited compiler", err)
 	}
-	filter := compositedCompiler.Compile(expressions, cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}, environment.StoredExpressions)
-	messageExpressionfilter := compositedCompiler.Compile(messageExpressions, cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}, environment.StoredExpressions)
-	auditAnnotationFilter := compositedCompiler.Compile(auditExpressions, cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}, environment.StoredExpressions)
-	matchConditionFilter := compositedCompiler.Compile(matchExpressions, cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}, environment.StoredExpressions)
+	compiler.CompileVariables(optionalVars)
+	filter := compiler.CompileValidateExpressions(optionalVars)
+	messageExpressionfilter := compiler.CompileMessageExpressions(optionalVars)
+	auditAnnotationFilter := compiler.CompileAuditAnnotationsExpressions(optionalVars)
+	matchConditionFilter := compiler.CompileMatchExpressions(optionalVars)
 
+	// newMatcher will be used to check if the incoming resource matches the CEL preconditions
 	newMatcher := matchconditions.NewMatcher(matchConditionFilter, nil, "", "", "")
-
+	// newValidator will be used to validate CEL expressions against the incoming object
 	validator := validatingadmissionpolicy.NewValidator(filter, newMatcher, auditAnnotationFilter, messageExpressionfilter, nil)
 
-	admissionAttributes := admission.NewAttributesRecord(
-		object,
-		oldObject,
-		resource.GroupVersionKind(),
-		resource.GetNamespace(),
-		resource.GetName(),
-		gvr,
-		"",
-		admission.Operation(policyContext.Operation()),
-		nil,
-		false,
-		nil,
-	)
-	versionedAttr, _ := admission.NewVersionedAttributes(admissionAttributes, admissionAttributes.GetKind(), nil)
-	validateResult := validator.Validate(ctx, gvr, versionedAttr, versionedParams, nil, celconfig.RuntimeCELCostBudget, nil)
+	var namespace *corev1.Namespace
+	// Special case, the namespace object has the namespace of itself.
+	// unset it if the incoming object is a namespace
+	if gvk.Kind == "Namespace" && gvk.Version == "v1" && gvk.Group == "" {
+		namespaceName = ""
+	}
+	if namespaceName != "" && h.client != nil {
+		namespace, err = h.client.GetNamespace(ctx, namespaceName, metav1.GetOptions{})
+		if err != nil {
+			return resource, handlers.WithResponses(
+				engineapi.RuleError(rule.Name, engineapi.Validation, "Error getting the resource's namespace", err),
+			)
+		}
+	}
 
-	for _, decision := range validateResult.Decisions {
-		switch decision.Action {
-		case validatingadmissionpolicy.ActionAdmit:
-			if decision.Evaluation == validatingadmissionpolicy.EvalError {
+	admissionAttributes := admission.NewAttributesRecord(object, oldObject, gvk, namespaceName, resourceName, gvr, "", admission.Operation(policyContext.Operation()), nil, false, nil)
+	versionedAttr, _ := admission.NewVersionedAttributes(admissionAttributes, admissionAttributes.GetKind(), nil)
+	// validate the incoming object against the rule
+	var validationResults []validatingadmissionpolicy.ValidateResult
+	if hasParam {
+		paramKind := rule.Validation.CEL.ParamKind
+		paramRef := rule.Validation.CEL.ParamRef
+
+		params, err := collectParams(ctx, h.client, paramKind, paramRef, namespaceName)
+		if err != nil {
+			return resource, handlers.WithResponses(
+				engineapi.RuleError(rule.Name, engineapi.Validation, "error in parameterized resource", err),
+			)
+		}
+
+		for _, param := range params {
+			validationResults = append(validationResults, validator.Validate(ctx, gvr, versionedAttr, param, namespace, celconfig.RuntimeCELCostBudget, nil))
+		}
+	} else {
+		validationResults = append(validationResults, validator.Validate(ctx, gvr, versionedAttr, nil, namespace, celconfig.RuntimeCELCostBudget, nil))
+	}
+
+	for _, validationResult := range validationResults {
+		for _, decision := range validationResult.Decisions {
+			switch decision.Action {
+			case validatingadmissionpolicy.ActionAdmit:
+				if decision.Evaluation == validatingadmissionpolicy.EvalError {
+					return resource, handlers.WithResponses(
+						engineapi.RuleError(rule.Name, engineapi.Validation, decision.Message, nil),
+					)
+				}
+			case validatingadmissionpolicy.ActionDeny:
 				return resource, handlers.WithResponses(
-					engineapi.RuleError(rule.Name, engineapi.Validation, decision.Message, nil),
+					engineapi.RuleFail(rule.Name, engineapi.Validation, decision.Message),
 				)
 			}
-		case validatingadmissionpolicy.ActionDeny:
-			return resource, handlers.WithResponses(
-				engineapi.RuleFail(rule.Name, engineapi.Validation, decision.Message),
-			)
 		}
 	}
 
@@ -164,4 +146,62 @@ func (h validateCELHandler) Process(
 	return resource, handlers.WithResponses(
 		engineapi.RulePass(rule.Name, engineapi.Validation, msg),
 	)
+}
+
+func collectParams(ctx context.Context, client engineapi.Client, paramKind *admissionregistrationv1alpha1.ParamKind, paramRef *admissionregistrationv1alpha1.ParamRef, namespace string) ([]runtime.Object, error) {
+	var params []runtime.Object
+
+	apiVersion := paramKind.APIVersion
+	kind := paramKind.Kind
+	gv, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		return nil, fmt.Errorf("can't parse the parameter resource group version")
+	}
+
+	// If `paramKind` is cluster-scoped, then paramRef.namespace MUST be unset.
+	// If `paramKind` is namespace-scoped, the namespace of the object being evaluated for admission will be used
+	// when paramRef.namespace is left unset.
+	var paramsNamespace string
+	isNamespaced, err := client.IsNamespaced(gv.Group, gv.Version, kind)
+	if err != nil {
+		return nil, err
+	}
+
+	// check if `paramKind` is namespace-scoped
+	if isNamespaced {
+		// set params namespace to the incoming object's namespace by default.
+		paramsNamespace = namespace
+		if paramRef.Namespace != "" {
+			paramsNamespace = paramRef.Namespace
+		} else if paramsNamespace == "" {
+			return nil, fmt.Errorf("can't use namespaced paramRef to match cluster-scoped resources")
+		}
+	} else {
+		// It isn't allowed to set namespace for cluster-scoped params
+		if paramRef.Namespace != "" {
+			return nil, fmt.Errorf("paramRef.namespace must not be provided for a cluster-scoped `paramKind`")
+		}
+	}
+
+	if paramRef.Name != "" {
+		param, err := client.GetResource(ctx, apiVersion, kind, paramsNamespace, paramRef.Name, "")
+		if err != nil {
+			return nil, err
+		}
+		return []runtime.Object{param}, nil
+	} else if paramRef.Selector != nil {
+		paramList, err := client.ListResource(ctx, apiVersion, kind, paramsNamespace, paramRef.Selector)
+		if err != nil {
+			return nil, err
+		}
+		for i := range paramList.Items {
+			params = append(params, &paramList.Items[i])
+		}
+	}
+
+	if len(params) == 0 && paramRef.ParameterNotFoundAction != nil && *paramRef.ParameterNotFoundAction == admissionregistrationv1alpha1.DenyAction {
+		return nil, fmt.Errorf("no params found")
+	}
+
+	return params, nil
 }

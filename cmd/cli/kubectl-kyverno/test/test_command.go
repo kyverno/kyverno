@@ -94,14 +94,29 @@ func testCommandExecute(
 	// load tests
 	fs, policies, errors := loadTests(dirPath, fileName, gitBranch)
 	if len(policies) == 0 {
-		fmt.Printf("\n No test yamls available \n")
+		fmt.Println()
+		fmt.Println("No test yamls available")
+	}
+	if len(errors) > 0 {
+		fmt.Println()
+		fmt.Println("Test errors:")
+		for _, e := range errors {
+			fmt.Printf("    %v \n", e.Error())
+		}
+	}
+	if len(policies) == 0 {
+		if len(errors) == 0 {
+			os.Exit(0)
+		} else {
+			os.Exit(1)
+		}
 	}
 	rc = &resultCounts{}
 	var table table.Table
 	for _, p := range policies {
 		if reports, tests, err := applyPoliciesFromPath(
 			fs,
-			p.bytes,
+			p.test,
 			fs != nil,
 			p.resourcePath,
 			rc,
@@ -114,12 +129,6 @@ func testCommandExecute(
 			return rc, sanitizederror.NewWithError("failed to print test result:", err)
 		} else {
 			table.AddFailed(t.RawRows...)
-		}
-	}
-	if len(errors) > 0 && log.Log.V(1).Enabled() {
-		fmt.Println("test errors:")
-		for _, e := range errors {
-			fmt.Printf("    %v \n", e.Error())
 		}
 	}
 	if !failOnly {
