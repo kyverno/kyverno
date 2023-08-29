@@ -17,7 +17,6 @@ import (
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
-	"go.opentelemetry.io/otel/sdk/metric/aggregation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	"k8s.io/client-go/kubernetes"
@@ -72,10 +71,10 @@ func ShutDownController(ctx context.Context, pusher *sdkmetric.MeterProvider) {
 	}
 }
 
-func aggregationSelector(ik sdkmetric.InstrumentKind) aggregation.Aggregation {
+func aggregationSelector(ik sdkmetric.InstrumentKind) sdkmetric.Aggregation {
 	switch ik {
 	case sdkmetric.InstrumentKindHistogram:
-		return aggregation.ExplicitBucketHistogram{
+		return sdkmetric.AggregationExplicitBucketHistogram{
 			Boundaries: []float64{
 				0.005,
 				0.01,
