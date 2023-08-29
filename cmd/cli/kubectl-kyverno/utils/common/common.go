@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/values"
@@ -67,7 +68,7 @@ type ApplyPolicyConfig struct {
 	RuleToCloneSourceResource map[string]string
 	Client                    dclient.Interface
 	AuditWarn                 bool
-	Subresources              []values.Subresource
+	Subresources              []api.Subresource
 }
 
 // HasVariables - check for variables in the policy
@@ -206,12 +207,12 @@ func GetVariable(
 	fs billy.Filesystem,
 	isGit bool,
 	policyResourcePath string,
-) (map[string]string, map[string]string, map[string]map[string]values.Resource, map[string]map[string]string, []values.Subresource, error) {
-	valuesMapResource := make(map[string]map[string]values.Resource)
-	valuesMapRule := make(map[string]map[string]values.Rule)
+) (map[string]string, map[string]string, map[string]map[string]api.Resource, map[string]map[string]string, []api.Subresource, error) {
+	valuesMapResource := make(map[string]map[string]api.Resource)
+	valuesMapRule := make(map[string]map[string]api.Rule)
 	namespaceSelectorMap := make(map[string]map[string]string)
 	variables := make(map[string]string)
-	subresources := make([]values.Subresource, 0)
+	subresources := make([]api.Subresource, 0)
 	globalValMap := make(map[string]string)
 	reqObjVars := ""
 
@@ -249,7 +250,7 @@ func GetVariable(
 		globalValMap = vals.GlobalValues
 
 		for _, p := range vals.Policies {
-			resourceMap := make(map[string]values.Resource)
+			resourceMap := make(map[string]api.Resource)
 			for _, r := range p.Resources {
 				if val, ok := r.Values["request.operation"]; ok {
 					if val == "" {
@@ -271,7 +272,7 @@ func GetVariable(
 			valuesMapResource[p.Name] = resourceMap
 
 			if p.Rules != nil {
-				ruleMap := make(map[string]values.Rule)
+				ruleMap := make(map[string]api.Rule)
 				for _, r := range p.Rules {
 					ruleMap[r.Name] = r
 				}
@@ -599,10 +600,10 @@ func processMutateEngineResponse(c ApplyPolicyConfig, mutateResponse *engineapi.
 	return nil
 }
 
-func CheckVariableForPolicy(valuesMap map[string]map[string]values.Resource, globalValMap map[string]string, policyName string, resourceName string, resourceKind string, variables map[string]string, kindOnwhichPolicyIsApplied map[string]struct{}, variable string) (map[string]interface{}, error) {
+func CheckVariableForPolicy(valuesMap map[string]map[string]api.Resource, globalValMap map[string]string, policyName string, resourceName string, resourceKind string, variables map[string]string, kindOnwhichPolicyIsApplied map[string]struct{}, variable string) (map[string]interface{}, error) {
 	// get values from file for this policy resource combination
 	thisPolicyResourceValues := make(map[string]interface{})
-	if len(valuesMap[policyName]) != 0 && !datautils.DeepEqual(valuesMap[policyName][resourceName], values.Resource{}) {
+	if len(valuesMap[policyName]) != 0 && !datautils.DeepEqual(valuesMap[policyName][resourceName], api.Resource{}) {
 		thisPolicyResourceValues = valuesMap[policyName][resourceName].Values
 	}
 
@@ -629,7 +630,7 @@ func CheckVariableForPolicy(valuesMap map[string]map[string]values.Resource, glo
 	return thisPolicyResourceValues, nil
 }
 
-func GetKindsFromPolicy(policy kyvernov1.PolicyInterface, subresources []values.Subresource, dClient dclient.Interface) map[string]struct{} {
+func GetKindsFromPolicy(policy kyvernov1.PolicyInterface, subresources []api.Subresource, dClient dclient.Interface) map[string]struct{} {
 	kindOnwhichPolicyIsApplied := make(map[string]struct{})
 	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
@@ -652,7 +653,7 @@ func GetKindsFromPolicy(policy kyvernov1.PolicyInterface, subresources []values.
 	return kindOnwhichPolicyIsApplied
 }
 
-func getKind(kind string, subresources []values.Subresource, dClient dclient.Interface) (string, error) {
+func getKind(kind string, subresources []api.Subresource, dClient dclient.Interface) (string, error) {
 	group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 	if subresource == "" {
 		return kind, nil
@@ -674,7 +675,7 @@ func getKind(kind string, subresources []values.Subresource, dClient dclient.Int
 	return kind, nil
 }
 
-func getSubresourceKind(groupVersion, parentKind, subresourceName string, subresources []values.Subresource) (string, error) {
+func getSubresourceKind(groupVersion, parentKind, subresourceName string, subresources []api.Subresource) (string, error) {
 	for _, subresource := range subresources {
 		parentResourceGroupVersion := metav1.GroupVersion{
 			Group:   subresource.ParentResource.Group,
