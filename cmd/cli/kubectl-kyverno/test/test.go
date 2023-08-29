@@ -1,7 +1,6 @@
 package test
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -33,7 +32,7 @@ import (
 
 func applyPoliciesFromPath(
 	fs billy.Filesystem,
-	policyBytes []byte,
+	values *api.Test,
 	isGit bool,
 	policyResourcePath string,
 	rc *resultCounts,
@@ -43,13 +42,9 @@ func applyPoliciesFromPath(
 ) (map[string]policyreportv1alpha2.PolicyReportResult, []api.TestResults, error) {
 	engineResponses := make([]engineapi.EngineResponse, 0)
 	var dClient dclient.Interface
-	values := &api.Test{}
 	var resultCounts common.ResultCounts
 
 	store.SetLocal(true)
-	if err := json.Unmarshal(policyBytes, values); err != nil {
-		return nil, nil, sanitizederror.NewWithError("failed to decode yaml", err)
-	}
 
 	var filteredResults []api.TestResults
 	for _, res := range values.Results {

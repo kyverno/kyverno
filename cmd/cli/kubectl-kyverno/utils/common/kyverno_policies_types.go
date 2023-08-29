@@ -142,7 +142,6 @@ func combineRuleResponses(imageResponse engineapi.EngineResponse) engineapi.Engi
 }
 
 func ApplyMutatePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstructured.Unstructured, jp jmespath.Interface, resPath string) ([]engineapi.EngineResponse, error) {
-
 	var engineResponses []engineapi.EngineResponse
 	namespaceLabels := make(map[string]string)
 	operation := kyvernov1.Create
@@ -268,14 +267,13 @@ func ApplyMutatePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstruc
 		}
 
 		processEngineResponses(mutateResponse, c, policy)
-		policyContext = policyContext.WithNewResource(mutateResponse.PatchedResource)
+		updatedResource = &mutateResponse.PatchedResource
 	}
 
 	return engineResponses, nil
 }
 
 func ApplyValidatePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstructured.Unstructured, jp jmespath.Interface) ([]engineapi.EngineResponse, error) {
-
 	var engineResponses []engineapi.EngineResponse
 	namespaceLabels := make(map[string]string)
 	operation := kyvernov1.Create
@@ -413,7 +411,6 @@ func ApplyValidatePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstr
 }
 
 func ApplyVerifyPoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstructured.Unstructured, jp jmespath.Interface) ([]engineapi.EngineResponse, error) {
-
 	var engineResponses []engineapi.EngineResponse
 	namespaceLabels := make(map[string]string)
 	operation := kyvernov1.Create
@@ -539,7 +536,6 @@ func ApplyVerifyPoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstruc
 }
 
 func ApplyGeneratePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstructured.Unstructured, jp jmespath.Interface, resPath string) ([]engineapi.EngineResponse, error) {
-
 	var engineResponses []engineapi.EngineResponse
 	namespaceLabels := make(map[string]string)
 	operation := kyvernov1.Create
@@ -673,10 +669,7 @@ func ApplyGeneratePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstr
 			}
 			updateResultCounts(policy, &generateResponse, resPath, c.Rc, c.AuditWarn)
 		}
-
 		processEngineResponses(generateResponse, c, policy)
-
 	}
-
 	return engineResponses, nil
 }

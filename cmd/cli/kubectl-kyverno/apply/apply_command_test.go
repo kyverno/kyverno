@@ -79,7 +79,6 @@ func Test_Apply(t *testing.T) {
 			},
 		},
 		{
-
 			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../../../test/cli/apply/policies"},
 				ResourcePaths: []string{"../../../../test/cli/apply/resource"},
