@@ -4,6 +4,10 @@ featureGates:
   ValidatingAdmissionPolicy: true
 runtimeConfig:
   admissionregistration.k8s.io/v1beta1: true
+<<<<<<< HEAD
+=======
+  admissionregistration.k8s.io/v1alpha1: true
+>>>>>>> b2f8677909cffdb7ea70ec03b01498d72ee1a825
 kubeadmConfigPatches:
   - |-
     kind: ClusterConfiguration
