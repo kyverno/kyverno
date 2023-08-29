@@ -810,11 +810,6 @@ kind-create-cluster: $(KIND) ## Create kind cluster
 	@echo Create kind cluster... >&2
 	@$(KIND) create cluster --name $(KIND_NAME) --image $(KIND_IMAGE) --config ./scripts/config/kind/$(KIND_CONFIG).yaml
 
-.PHONY: kind-create-cluster-with-validating-admission-policy-enabled
-kind-create-cluster-with-validating-admission-policy-enabled: $(KIND) ## Create kind cluster with validating admission policy feature gate enabled
-	@echo Create kind cluster with validating admission policy feature gate enabled... >&2
-	@$(KIND) create cluster --name $(KIND_NAME) --image $(KIND_IMAGE) --config ./scripts/config/kind-with-validating-admission-policy-enabled.yaml
-
 .PHONY: kind-delete-cluster
 kind-delete-cluster: $(KIND) ## Delete kind cluster
 	@echo Delete kind cluster... >&2

@@ -264,6 +264,7 @@ func main() {
 	if tlsSecretName == "" {
 		setup.Logger.Error(errors.New("exiting... tlsSecretName is a required flag"), "exiting... tlsSecretName is a required flag")
 		os.Exit(1)
+	}
 	// check if server version is supported for validating admission policy generation
 	if generateValidatingAdmissionPolicy {
 		if !kubeutils.HigherThanKubernetesVersion(setup.KubeClient.Discovery(), setup.Logger, 1, 26, 0) {
