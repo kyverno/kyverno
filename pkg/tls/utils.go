@@ -46,8 +46,6 @@ func pemToCertificates(raw []byte) []*x509.Certificate {
 		cert, err := x509.ParseCertificate(certPemBlock.Bytes)
 		if err == nil {
 			certs = append(certs, cert)
-		} else {
-			logger.Error(err, "failed to parse cert")
 		}
 	}
 }
