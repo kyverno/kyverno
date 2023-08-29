@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"fmt"
 	"math/big"
 	"net"
 	"strings"
@@ -56,7 +57,7 @@ func generateTLS(server string, caCert *x509.Certificate, caKey *rsa.PrivateKey,
 		if strings.Contains(serverHost, ":") {
 			host, _, err := net.SplitHostPort(serverHost)
 			if err != nil {
-				logger.Error(err, "failed to split server host/port", "server", serverHost)
+				return nil, nil, fmt.Errorf("failed to split server host/port (%w)", err)
 			}
 			serverHost = host
 		}
@@ -86,12 +87,10 @@ func generateTLS(server string, caCert *x509.Certificate, caKey *rsa.PrivateKey,
 	}
 	der, err := x509.CreateCertificate(rand.Reader, templ, caCert, key.Public(), caKey)
 	if err != nil {
-		logger.Error(err, "create certificate failed")
 		return nil, nil, err
 	}
 	cert, err := x509.ParseCertificate(der)
 	if err != nil {
-		logger.Error(err, "parse certificate failed")
 		return nil, nil, err
 	}
 	return key, cert, nil
