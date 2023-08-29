@@ -95,6 +95,14 @@ func main() {
 	// setup
 	ctx, setup, sdown := internal.Setup(appConfig, "kyverno-cleanup-controller", false)
 	defer sdown()
+	if caSecretName == "" {
+		setup.Logger.Error(errors.New("exiting... caSecretName is a required flag"), "exiting... caSecretName is a required flag")
+		os.Exit(1)
+	}
+	if tlsSecretName == "" {
+		setup.Logger.Error(errors.New("exiting... tlsSecretName is a required flag"), "exiting... tlsSecretName is a required flag")
+		os.Exit(1)
+	}
 	// certificates informers
 	caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), caSecretName, resyncPeriod)
 	tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tlsSecretName, resyncPeriod)
