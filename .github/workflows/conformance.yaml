@@ -20,6 +20,7 @@ jobs:
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
+        timeout-minutes: 3
         with:
           build-cache-key: build-images
       - name: ko build
@@ -80,6 +81,7 @@ jobs:
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
+        timeout-minutes: 3
         with:
           build-cache-key: run-conformance
       - name: Create kind cluster
@@ -140,6 +142,7 @@ jobs:
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
+        timeout-minutes: 3
         with:
           build-cache-key: run-conformance
       - name: Create kind cluster
@@ -200,6 +203,7 @@ jobs:
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
+        timeout-minutes: 3
         with:
           build-cache-key: run-conformance
       - name: Create kind cluster
@@ -258,6 +262,7 @@ jobs:
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
+        timeout-minutes: 3
         with:
           build-cache-key: run-conformance
       - name: Create kind cluster
@@ -349,6 +354,7 @@ jobs:
           path: policies
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
+        timeout-minutes: 3
         with:
           build-cache-key: run-conformance
       - name: Create kind cluster
