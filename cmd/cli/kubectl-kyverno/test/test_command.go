@@ -5,7 +5,7 @@ import (
 	"os"
 
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
+	api "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api/test/legacy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/manifest"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/output/table"

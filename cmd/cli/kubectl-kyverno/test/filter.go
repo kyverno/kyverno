@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
+	api "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api/test/legacy"
 )
 
 type filter = func(api.TestResults) bool

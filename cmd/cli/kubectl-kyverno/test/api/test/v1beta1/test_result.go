@@ -1,20 +1,10 @@
-package api
+package v1beta1
 
 import (
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	corev1 "k8s.io/api/core/v1"
 )
 
-type Test struct {
-	Name      string        `json:"name"`
-	Policies  []string      `json:"policies"`
-	Resources []string      `json:"resources"`
-	Variables string        `json:"variables"`
-	UserInfo  string        `json:"userinfo"`
-	Results   []TestResults `json:"results"`
-}
-
-type TestResults struct {
+type TestResult struct {
 	// Policy mentions the name of the policy.
 	Policy string `json:"policy"`
 	// Rule mentions the name of the rule in the policy.
@@ -51,9 +41,4 @@ type TestResults struct {
 	// CloneSourceResource takes the resource configuration file in yaml format
 	// from the user which is meant to be cloned by the generate rule.
 	CloneSourceResource string `json:"cloneSourceResource"`
-}
-
-type ReportResult struct {
-	TestResults
-	Resources []*corev1.ObjectReference `json:"resources"`
 }
