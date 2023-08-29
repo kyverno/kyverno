@@ -13,6 +13,7 @@ type Test struct {
 	Variables string        `json:"variables"`
 	UserInfo  string        `json:"userinfo"`
 	Results   []TestResults `json:"results"`
+	Values    *Values       `json:"values"`
 }
 
 type TestResults struct {

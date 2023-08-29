@@ -32,7 +32,7 @@ import (
 
 func applyPoliciesFromPath(
 	fs billy.Filesystem,
-	values *api.Test,
+	apiTest *api.Test,
 	isGit bool,
 	policyResourcePath string,
 	rc *resultCounts,
@@ -47,22 +47,22 @@ func applyPoliciesFromPath(
 	store.SetLocal(true)
 
 	var filteredResults []api.TestResults
-	for _, res := range values.Results {
+	for _, res := range apiTest.Results {
 		if filter(res) {
 			filteredResults = append(filteredResults, res)
 		}
 	}
-	values.Results = filteredResults
+	apiTest.Results = filteredResults
 
-	if len(values.Results) == 0 {
+	if len(apiTest.Results) == 0 {
 		return nil, nil, nil
 	}
 
-	fmt.Printf("\nExecuting %s...\n", values.Name)
-	valuesFile := values.Variables
-	userInfoFile := values.UserInfo
+	fmt.Printf("\nExecuting %s...\n", apiTest.Name)
+	valuesFile := apiTest.Variables
+	userInfoFile := apiTest.UserInfo
 
-	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(nil, values.Variables, fs, isGit, policyResourcePath)
+	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(nil, apiTest.Values, apiTest.Variables, fs, isGit, policyResourcePath)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return nil, nil, sanitizederror.NewWithError("failed to decode yaml", err)
@@ -81,10 +81,10 @@ func applyPoliciesFromPath(
 		}
 	}
 
-	policyFullPath := pathutils.GetFullPaths(values.Policies, policyResourcePath, isGit)
-	resourceFullPath := pathutils.GetFullPaths(values.Resources, policyResourcePath, isGit)
+	policyFullPath := pathutils.GetFullPaths(apiTest.Policies, policyResourcePath, isGit)
+	resourceFullPath := pathutils.GetFullPaths(apiTest.Resources, policyResourcePath, isGit)
 
-	for i, result := range values.Results {
+	for i, result := range apiTest.Results {
 		arrPatchedResource := []string{result.PatchedResource}
 		arrGeneratedResource := []string{result.GeneratedResource}
 		arrCloneSourceResource := []string{result.CloneSourceResource}
@@ -93,9 +93,9 @@ func applyPoliciesFromPath(
 		generatedResourceFullPath := pathutils.GetFullPaths(arrGeneratedResource, policyResourcePath, isGit)
 		CloneSourceResourceFullPath := pathutils.GetFullPaths(arrCloneSourceResource, policyResourcePath, isGit)
 
-		values.Results[i].PatchedResource = patchedResourceFullPath[0]
-		values.Results[i].GeneratedResource = generatedResourceFullPath[0]
-		values.Results[i].CloneSourceResource = CloneSourceResourceFullPath[0]
+		apiTest.Results[i].PatchedResource = patchedResourceFullPath[0]
+		apiTest.Results[i].GeneratedResource = generatedResourceFullPath[0]
+		apiTest.Results[i].CloneSourceResource = CloneSourceResourceFullPath[0]
 	}
 
 	policies, validatingAdmissionPolicies, err := common.GetPoliciesFromPaths(fs, policyFullPath, isGit, policyResourcePath)
@@ -106,7 +106,7 @@ func applyPoliciesFromPath(
 
 	var filteredPolicies []kyvernov1.PolicyInterface
 	for _, p := range policies {
-		for _, res := range values.Results {
+		for _, res := range apiTest.Results {
 			if p.GetName() == res.Policy {
 				filteredPolicies = append(filteredPolicies, p)
 				break
@@ -116,7 +116,7 @@ func applyPoliciesFromPath(
 
 	var filteredVAPs []v1alpha1.ValidatingAdmissionPolicy
 	for _, p := range validatingAdmissionPolicies {
-		for _, res := range values.Results {
+		for _, res := range apiTest.Results {
 			if p.GetName() == res.Policy {
 				filteredVAPs = append(filteredVAPs, p)
 				break
@@ -130,7 +130,7 @@ func applyPoliciesFromPath(
 		var filteredRules []kyvernov1.Rule
 
 		for _, rule := range autogen.ComputeRules(p) {
-			for _, res := range values.Results {
+			for _, res := range apiTest.Results {
 				if res.IsValidatingAdmissionPolicy {
 					continue
 				}
@@ -168,7 +168,7 @@ func applyPoliciesFromPath(
 		os.Exit(1)
 	}
 
-	checkableResources := selectResourcesForCheck(resources, values)
+	checkableResources := selectResourcesForCheck(resources, apiTest)
 
 	msgPolicies := "1 policy"
 	if len(policies)+len(validatingAdmissionPolicies) > 1 {
@@ -249,7 +249,7 @@ func applyPoliciesFromPath(
 			engineResponses = append(engineResponses, ers...)
 		}
 	}
-	resultsMap, testResults := buildPolicyResults(engineResponses, values.Results, policyResourcePath, fs, isGit, auditWarn)
+	resultsMap, testResults := buildPolicyResults(engineResponses, apiTest.Results, policyResourcePath, fs, isGit, auditWarn)
 	return resultsMap, testResults, nil
 }
 
