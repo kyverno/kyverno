@@ -1,7 +1,6 @@
 package values
 
 import (
-	"encoding/json"
 	"io"
 	"os"
 
@@ -26,12 +25,8 @@ func Load(f billy.Filesystem, filepath string) (*api.Values, error) {
 	if err != nil {
 		return nil, err
 	}
-	jsonBytes, err := yaml.ToJSON(yamlBytes)
-	if err != nil {
-		return nil, err
-	}
 	vals := &api.Values{}
-	if err := json.Unmarshal(jsonBytes, vals); err != nil {
+	if err := yaml.UnmarshalStrict(yamlBytes, vals); err != nil {
 		return nil, err
 	}
 	return vals, nil
