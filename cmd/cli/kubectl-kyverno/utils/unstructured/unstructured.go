@@ -37,6 +37,9 @@ func TidyObject(obj interface{}) interface{} {
 }
 
 func Tidy(obj unstructured.Unstructured) unstructured.Unstructured {
+	if obj.Object == nil {
+		return obj
+	}
 	return unstructured.Unstructured{
 		Object: TidyObject(obj.UnstructuredContent()).(map[string]interface{}),
 	}
