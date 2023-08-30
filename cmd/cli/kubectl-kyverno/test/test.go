@@ -624,7 +624,7 @@ func getAndCompareResource(path string, engineResource unstructured.Unstructured
 	} else {
 		equals, err := unstructuredutils.Compare(engineResource, userResource, true)
 		if err == nil {
-			if equals {
+			if !equals {
 				status = "fail"
 			} else {
 				status = "pass"
