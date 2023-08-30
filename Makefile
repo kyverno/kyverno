@@ -59,7 +59,7 @@ HELM_DOCS_VERSION                  := v1.11.0
 KO                                 := $(TOOLS_DIR)/ko
 KO_VERSION                         := v0.14.1
 KUTTL                              := $(TOOLS_DIR)/kubectl-kuttl
-KUTTL_VERSION                      := v0.0.0-20230126200340-834a4dac1ec7
+KUTTL_VERSION                      := v0.0.0-20230829104447-1e404d2e3902
 TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(APPLYCONFIGURATION_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(KUTTL)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
@@ -688,7 +688,7 @@ test-kuttl: $(KUTTL) ## Run kuttl tests
 TEST_GIT_BRANCH ?= main
 
 .PHONY: test-cli
-test-cli: test-cli-policies test-cli-local test-cli-local-mutate test-cli-local-generate test-cli-test-case-selector-flag test-cli-registry ## Run all CLI tests
+test-cli: test-cli-policies test-cli-local test-cli-local-mutate test-cli-local-generate test-cli-test-case-selector-flag test-cli-registry test-cli-scenarios-to-cli ## Run all CLI tests
 
 .PHONY: test-cli-policies
 test-cli-policies: $(CLI_BIN)
@@ -714,6 +714,11 @@ test-cli-test-case-selector-flag: $(CLI_BIN)
 .PHONY: test-cli-registry
 test-cli-registry: $(CLI_BIN)
 	@$(CLI_BIN) test ./test/cli/registry --registry
+
+.PHONY: test-cli-scenarios-to-cli
+test-cli-scenarios-to-cli: $(CLI_BIN)
+	@$(CLI_BIN) test ./test/cli/scenarios_to_cli --registry
+
 
 #############
 # HELM TEST #
@@ -929,6 +934,13 @@ dev-lab-tempo: $(HELM) ## Deploy tempo helm chart
 		--values ./scripts/config/dev/tempo.yaml
 	@kubectl apply -f ./scripts/config/dev/tempo-datasource.yaml
 
+.PHONY: dev-lab-otel-collector
+dev-lab-otel-collector: $(HELM) ## Deploy tempo helm chart
+	@echo Install otel-collector chart... >&2
+	@$(HELM) upgrade --install opentelemetry-collector --namespace monitoring --create-namespace --wait \
+		--repo https://open-telemetry.github.io/opentelemetry-helm-charts opentelemetry-collector \
+		--values ./scripts/config/dev/otel-collector.yaml
+
 .PHONY: dev-lab-metrics-server
 dev-lab-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 	@echo Install metrics-server chart... >&2
@@ -937,7 +949,7 @@ dev-lab-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 		--values ./scripts/config/dev/metrics-server.yaml
 
 .PHONY: dev-lab-all
-dev-lab-all: dev-lab-ingress-ngingx dev-lab-metrics-server dev-lab-prometheus dev-lab-loki dev-lab-tempo ## Deploy all dev lab components
+dev-lab-all: dev-lab-ingress-ngingx dev-lab-metrics-server dev-lab-prometheus dev-lab-loki dev-lab-tempo dev-lab-otel-collector ## Deploy all dev lab components
 
 .PHONY: dev-lab-policy-reporter
 dev-lab-policy-reporter: $(HELM) ## Deploy policy-reporter helm chart

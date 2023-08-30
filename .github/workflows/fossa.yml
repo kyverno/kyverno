@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Check secret
         id: checksecret
         uses: ./.github/actions/is-defined
@@ -25,6 +25,7 @@ jobs:
       - name: Setup build env
         if: steps.checksecret.outputs.result == 'true'
         uses: ./.github/actions/setup-build-env
+        timeout-minutes: 6
       - name: Run FOSSA analysis
         if: steps.checksecret.outputs.result == 'true'
         uses: fossas/fossa-action@f61a4c0c263690f2ddb54b9822a719c25a7b608f # v1.3.1

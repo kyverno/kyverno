@@ -1066,6 +1066,22 @@ Kubernetes admissionregistration/v1alpha1.ParamRef
 <p>AuditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the API request.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>variables</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#variable-v1alpha1-admissionregistration">
+[]Kubernetes admissionregistration/v1alpha1.Variable
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.
+The variables defined here will be available under <code>variables</code> in other expressions of the policy.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -3343,8 +3359,8 @@ See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://k
 <td>
 <code>celPreconditions</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
-[]Kubernetes admissionregistration/v1.MatchCondition
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1alpha1-admissionregistration">
+[]Kubernetes admissionregistration/v1alpha1.MatchCondition
 </a>
 </em>
 </td>
@@ -6620,8 +6636,7 @@ AnyAllConditions
 </em>
 </td>
 <td>
-<p>Multiple conditions can be declared under an <code>any</code> or <code>all</code> statement. A direct list
-of conditions (without <code>any</code> or <code>all</code> statements) is also supported for backwards compatibility
+<p>Multiple conditions can be declared under an <code>any</code> or <code>all</code> statement.
 See: <a href="https://kyverno.io/docs/writing-policies/validate/#deny-rules">https://kyverno.io/docs/writing-policies/validate/#deny-rules</a></p>
 </td>
 </tr>
@@ -7100,8 +7115,7 @@ AnyAllConditions
 <td>
 <em>(Optional)</em>
 <p>Preconditions are used to determine if a policy rule should be applied by evaluating a
-set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements. A direct list
-of conditions (without <code>any</code> or <code>all</code> statements is supported for backwards compatibility but
+set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.
 See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
 </td>
 </tr>

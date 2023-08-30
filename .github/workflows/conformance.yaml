@@ -17,9 +17,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
+        timeout-minutes: 6
         with:
           build-cache-key: build-images
       - name: ko build
@@ -77,9 +78,10 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
+        timeout-minutes: 6
         with:
           build-cache-key: run-conformance
       - name: Create kind cluster
@@ -137,9 +139,10 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
+        timeout-minutes: 6
         with:
           build-cache-key: run-conformance
       - name: Create kind cluster
@@ -197,9 +200,10 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
+        timeout-minutes: 6
         with:
           build-cache-key: run-conformance
       - name: Create kind cluster
@@ -255,9 +259,10 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
+        timeout-minutes: 6
         with:
           build-cache-key: run-conformance
       - name: Create kind cluster
@@ -341,14 +346,15 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout kyverno/kyverno
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Checkout kyverno/policies
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
           repository: kyverno/policies
           path: policies
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
+        timeout-minutes: 6
         with:
           build-cache-key: run-conformance
       - name: Create kind cluster
@@ -367,8 +373,12 @@ jobs:
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
-      - name: Install latest Kyverno CLI
-        uses: kyverno/action-install-cli@a3d781ac3f6e385c0ce5b133418f79c4646cc85d # v0.1.0
+      - name: Build Kyverno CLI
+        run: |
+          set -e
+          make build-cli
+          ln -s $PWD/cmd/cli/kubectl-kyverno/kubectl-kyverno ./cmd/cli/kubectl-kyverno/kyverno
+          echo "$PWD/cmd/cli/kubectl-kyverno" >> $GITHUB_PATH
       - name: Test policy library with kuttl
         run: |
           cd policies

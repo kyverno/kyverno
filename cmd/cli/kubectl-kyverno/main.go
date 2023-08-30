@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"strconv"
 
@@ -32,6 +33,10 @@ func main() {
 
 func configureLogs(cli *cobra.Command) {
 	logging.InitFlags(nil)
+	if err := logging.Setup(logging.TextFormat, 0); err != nil {
+		fmt.Println("failed to setup logging", err)
+		os.Exit(1)
+	}
 	cli.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 }
 
