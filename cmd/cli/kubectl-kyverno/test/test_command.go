@@ -7,6 +7,7 @@ import (
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/color"
+	filterutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/filter"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/output/table"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
@@ -76,7 +77,14 @@ func testCommandExecute(
 		return rc, sanitizederror.NewWithError("a directory is required", err)
 	}
 	// parse filter
-	filter := parseFilter(testCase)
+	filter, errors := filterutils.ParseFilter(testCase)
+	if len(errors) > 0 {
+		fmt.Println()
+		fmt.Println("Filter errors:")
+		for _, e := range errors {
+			fmt.Printf("    %v \n", e.Error())
+		}
+	}
 	// init openapi manager
 	openApiManager, err := openapi.NewManager(log.Log)
 	if err != nil {
