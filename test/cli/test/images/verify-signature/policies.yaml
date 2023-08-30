@@ -26,9 +26,10 @@ spec:
                 5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
                 -----END PUBLIC KEY-----
               rekor:
-                  url: https://rekor.sigstore.dev
-                  ignoreTlog: true
-                  ignoreSCT: true
+                url: https://rekor.sigstore.dev
+                ignoreTlog: true
+              ctlog:
+                ignoreSCT: true
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -64,6 +65,7 @@ spec:
                 5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
                 -----END PUBLIC KEY-----
               rekor:
-                  url: https://rekor.sigstore.dev
-                  ignoreTlog: true
-                  ignoreSCT: true
+                url: https://rekor.sigstore.dev
+                ignoreTlog: true
+              ctlog:
+                ignoreSCT: true
