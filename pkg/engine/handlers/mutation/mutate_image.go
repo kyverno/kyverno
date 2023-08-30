@@ -54,6 +54,7 @@ func NewMutateImageHandler(
 		configuration:            configuration,
 		rclientFactory:           rclientFactory,
 		ivm:                      ivm,
+		ivCache:                  ivCache,
 		images:                   ruleImages,
 		imageSignatureRepository: imageSignatureRepository,
 	}, nil
