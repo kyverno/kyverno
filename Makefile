@@ -702,7 +702,8 @@ test-cli: test-cli-policies test-cli-local test-cli-local-mutate test-cli-local-
 .PHONY: test-cli-policies
 test-cli-policies: $(CLI_BIN)
 	@echo Testing against branch $(TEST_GIT_BRANCH)...
-	@$(CLI_BIN) test https://github.com/kyverno/policies/$(TEST_GIT_BRANCH)
+	@$(CLI_BIN) test https://github.com/eddycharly/policies/fixes-2
+#	@$(CLI_BIN) test https://github.com/eddycharly/policies/fixes-2 --test-case-selector "policy=k6t-add-services"
 
 .PHONY: test-cli-local
 test-cli-local: $(CLI_BIN)
