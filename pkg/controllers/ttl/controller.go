@@ -7,13 +7,13 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	controllerUtil "github.com/kyverno/kyverno/pkg/utils/controller"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	controllerUtil "github.com/kyverno/kyverno/pkg/utils/controller"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
@@ -24,9 +24,9 @@ import (
 
 const (
 	// Workers is the number of workers for this controller
-	maxRetries     = 10
-	mergeLimit     = 1000
-	enqueueDelay   = 30 * time.Second
+	maxRetries   = 10
+	mergeLimit   = 1000
+	enqueueDelay = 30 * time.Second
 )
 
 type controller struct {
@@ -34,6 +34,7 @@ type controller struct {
 	queue        workqueue.RateLimitingInterface
 	lister       cache.GenericLister
 	wg           wait.Group
+	queueFunc    controllerUtil.EnqueueFunc
 	informer     cache.SharedIndexInformer
 	registration cache.ResourceEventHandlerRegistration
 	logger       logr.Logger
@@ -79,9 +80,10 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 		c.informer,
 		c.handleAdd,
 		c.handleUpdate,
-		func(obj interface{}){}, 
+		func(obj interface{}) {},
 	)
 	c.registration = registration
+	c.queueFunc = controllerUtil.Queue(c.queue)
 	return c, nil
 }
 
@@ -108,15 +110,11 @@ func newTTLMetrics(logger logr.Logger) ttlMetrics {
 }
 
 func (c *controller) handleAdd(obj interface{}) {
-	c.enqueue(obj)
+	controllerUtil.AddFunc(c.logger, c.queueFunc)
 }
 
 func (c *controller) handleUpdate(oldObj, newObj interface{}) {
-	old := oldObj.(metav1.Object)
-	new := newObj.(metav1.Object)
-	if old.GetResourceVersion() != new.GetResourceVersion() {
-		c.enqueue(newObj)
-	}
+	controllerUtil.UpdateFunc(c.logger, c.queueFunc)
 }
 
 func (c *controller) Start(ctx context.Context, workers int) {
@@ -190,7 +188,7 @@ func (c *controller) deregisterEventHandlers() {
 // 	return true
 // }
 
-func (c *controller) reconcile(ctx context.Context, logger logr.Logger,  itemKey string, _, _ string ) error {
+func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey string, _, _ string) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(itemKey)
 	if err != nil {
 		return err
