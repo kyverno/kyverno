@@ -6,7 +6,6 @@ import (
 
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/manifest"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/output/table"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
@@ -21,7 +20,7 @@ func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var testCase string
 	var fileName, gitBranch string
-	var registryAccess, failOnly, removeColor, manifestValidate, manifestMutate, detailedResults bool
+	var registryAccess, failOnly, removeColor, detailedResults bool
 	cmd = &cobra.Command{
 		Use: "test <path_to_folder_Containing_test.yamls> [flags]\n  kyverno test <path_to_gitRepository_with_dir> --git-branch <branchName>\n  kyverno test --manifest-mutate > kyverno-test.yaml\n  kyverno test --manifest-validate > kyverno-test.yaml",
 		// Args:    cobra.ExactArgs(1),
@@ -38,17 +37,11 @@ func Command() *cobra.Command {
 					}
 				}
 			}()
-			if manifestMutate {
-				manifest.PrintMutate()
-			} else if manifestValidate {
-				manifest.PrintValidate()
-			} else {
-				store.SetRegistryAccess(registryAccess)
-				_, err = testCommandExecute(dirPath, fileName, gitBranch, testCase, failOnly, false, detailedResults)
-				if err != nil {
-					log.Log.V(3).Info("a directory is required")
-					return err
-				}
+			store.SetRegistryAccess(registryAccess)
+			_, err = testCommandExecute(dirPath, fileName, gitBranch, testCase, failOnly, false, detailedResults)
+			if err != nil {
+				log.Log.V(3).Info("a directory is required")
+				return err
 			}
 			return nil
 		},
@@ -56,8 +49,6 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "test filename")
 	cmd.Flags().StringVarP(&gitBranch, "git-branch", "b", "", "test github repository branch")
 	cmd.Flags().StringVarP(&testCase, "test-case-selector", "t", "", `run some specific test cases by passing a string argument in double quotes to this flag like - "policy=<policy_name>, rule=<rule_name>, resource=<resource_name". The argument could be any combination of policy, rule and resource.`)
-	cmd.Flags().BoolVar(&manifestMutate, "manifest-mutate", false, "prints out a template test manifest for a mutate policy")
-	cmd.Flags().BoolVar(&manifestValidate, "manifest-validate", false, "prints out a template test manifest for a validate policy")
 	cmd.Flags().BoolVar(&registryAccess, "registry", false, "If set to true, access the image registry using local docker credentials to populate external data")
 	cmd.Flags().BoolVar(&failOnly, "fail-only", false, "If set to true, display all the failing test only as output for the test command")
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
