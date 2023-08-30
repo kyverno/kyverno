@@ -8,6 +8,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -29,6 +30,7 @@ var ErrEmptyPatch error = fmt.Errorf("empty resource to patch")
 type mutateExistingController struct {
 	// clients
 	client        dclient.Interface
+	kyvernoClient versioned.Interface
 	statusControl common.StatusControlInterface
 	engine        engineapi.Engine
 
@@ -47,6 +49,7 @@ type mutateExistingController struct {
 // NewMutateExistingController returns an instance of the MutateExistingController
 func NewMutateExistingController(
 	client dclient.Interface,
+	kyvernoClient versioned.Interface,
 	statusControl common.StatusControlInterface,
 	engine engineapi.Engine,
 	policyLister kyvernov1listers.ClusterPolicyLister,
@@ -59,6 +62,7 @@ func NewMutateExistingController(
 ) *mutateExistingController {
 	c := mutateExistingController{
 		client:        client,
+		kyvernoClient: kyvernoClient,
 		statusControl: statusControl,
 		engine:        engine,
 		policyLister:  policyLister,
@@ -94,6 +98,9 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 			if err != nil || trigger == nil {
 				logger.WithName(rule.Name).Error(err, "failed to get trigger resource")
 				errs = append(errs, err)
+				if err := common.UpdateRetryAnnotation(c.kyvernoClient, ur); err != nil {
+					errs = append(errs, err)
+				}
 				continue
 			}
 		} else {
@@ -103,6 +110,9 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 					if admissionRequest.SubResource == "" {
 						logger.WithName(rule.Name).Error(err, "failed to get trigger resource")
 						errs = append(errs, err)
+						if err := common.UpdateRetryAnnotation(c.kyvernoClient, ur); err != nil {
+							errs = append(errs, err)
+						}
 						continue
 					} else {
 						logger.WithName(rule.Name).Info("trigger resource not found for subresource, reverting to resource in AdmissionReviewRequest", "subresource", admissionRequest.SubResource)
