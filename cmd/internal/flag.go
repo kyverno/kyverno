@@ -46,7 +46,7 @@ var (
 	leaderElectionRetryPeriod time.Duration
 	// image verify cache
 	imageVerifyCacheEnabled     bool
-	imageVerifyCacheTTLDuration int64
+	imageVerifyCacheTTLDuration time.Duration
 	imageVerifyCacheMaxSize     int64
 )
 
@@ -108,8 +108,8 @@ func initRegistryClientFlags() {
 
 func initImageVerifyCacheFlags() {
 	flag.BoolVar(&imageVerifyCacheEnabled, "imageVerifyCacheEnabled", true, "Whether to use a TTL cache for storing verified images.")
-	flag.Int64Var(&imageVerifyCacheMaxSize, "imageVerifyCacheMaxSize", 0, "Max size limit for the TTL cache, 0 means no size limit.")
-	flag.Int64Var(&imageVerifyCacheTTLDuration, "imageVerifyCacheTTLDuration", 0, "Max TTL value for a cache, 0 means no TTL.")
+	flag.Int64Var(&imageVerifyCacheMaxSize, "imageVerifyCacheMaxSize", 1000, "Max size limit for the TTL cache, 0 means default 1000 size limit.")
+	flag.DurationVar(&imageVerifyCacheTTLDuration, "imageVerifyCacheTTLDuration", 60*time.Minute, "Max TTL value for a cache, 0 means default 1 hour TTL.")
 }
 
 func initLeaderElectionFlags() {

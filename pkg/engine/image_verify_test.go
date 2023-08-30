@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -63,8 +64,10 @@ var testPolicyGood = `{
 									"publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHMmDjK65krAyDaGaeyWNzgvIu155JI50B2vezCw8+3CVeE0lJTL5dbL3OP98Za0oAEBJcOxky8Riy/XcmfKZbw==\n-----END PUBLIC KEY-----",
 									"rekor": {
 										"url": "https://rekor.sigstore.dev",
-										"ignoreSCT": true,
 										"ignoreTlog": true
+									},
+									"ctlog": {
+										"ignoreSCT": true
 									}
 								}
 							}
@@ -298,8 +301,10 @@ var testSampleSingleKeyPolicy = `
                                             "publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM\n5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----",
 																						"rekor": {
 																							"url": "https://rekor.sigstore.dev",
-																							"ignoreSCT": true,
 																							"ignoreTlog": true
+																						},
+																						"ctlog": {
+																							"ignoreSCT": true
 																						}
                                         }
                                     }
@@ -353,8 +358,10 @@ var testSampleMultipleKeyPolicy = `
                                             "publicKeys": "KEY1",
 																						"rekor": {
 																							"url": "https://rekor.sigstore.dev",
-																							"ignoreSCT": true,
 																							"ignoreTlog": true
+																						},
+																						"ctlog": {
+																							"ignoreSCT": true
 																						}
                                         }
                                     },
@@ -363,8 +370,10 @@ var testSampleMultipleKeyPolicy = `
                                             "publicKeys": "KEY2",
 																						"rekor": {
 																							"url": "https://rekor.sigstore.dev",
-																							"ignoreSCT": true,
 																							"ignoreTlog": true
+																						},
+																						"ctlog": {
+																							"ignoreSCT": true
 																						}
                                         }
                                     }
@@ -429,8 +438,10 @@ var testConfigMapMissing = `{
                                             "publicKeys": "{{myconfigmap.data.configmapkey}}",
 																						"rekor": {
 																							"url": "https://rekor.sigstore.dev",
-																							"ignoreSCT": true,
 																							"ignoreTlog": true
+																						},
+																						"ctlog": {
+																							"ignoreSCT": true
 																						}
                                         }
                                     }
@@ -673,8 +684,10 @@ var testNestedAttestorPolicy = `
                                             "publicKeys": "KEY1",
 																						"rekor": {
 																							"url": "https://rekor.sigstore.dev",
-																							"ignoreSCT": true,
 																							"ignoreTlog": true
+																						},
+																						"ctlog": {
+																							"ignoreSCT": true
 																						}
                                         }
                                     },
@@ -686,8 +699,10 @@ var testNestedAttestorPolicy = `
                                                         "publicKeys": "KEY2",
 																												"rekor": {
 																													"url": "https://rekor.sigstore.dev",
-																													"ignoreSCT": true,
 																													"ignoreTlog": true
+																												},
+																												"ctlog": {
+																													"ignoreSCT": true
 																												}
                                                     }
                                                 }
@@ -895,8 +910,10 @@ func Test_ParsePEMDelimited(t *testing.T) {
 	                                  "publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfVMHGmFK4OgVqhy36KZ7a3r4R4/o\nCwaCVvXZV4ZULFbkFZ0IodGqKqcVmgycnoj7d8TpKpAUVNF8kKh90ewH3A==\n-----END PUBLIC KEY-----\n-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE0f1W0XigyPFbX8Xq3QmkbL9gDFTf\nRfc8jF7UadBcwKxiyvPSOKZn+igQfXzpNjrwPSZ58JGvF4Fs8BB3fSRP2g==\n-----END PUBLIC KEY-----",
 																		"rekor": {
 																			"url": "https://rekor.sigstore.dev",
-																			"ignoreSCT": true,
 																			"ignoreTlog": true
+																		},
+																		"ctlog": {
+																			"ignoreSCT": true
 																		}
 	                               }
 	                            }
@@ -923,4 +940,384 @@ func Test_ParsePEMDelimited(t *testing.T) {
 	assert.Assert(t, verifiedImages.Data != nil)
 	assert.Equal(t, len(verifiedImages.Data), 1)
 	assert.Equal(t, verifiedImages.IsVerified(image), true)
+}
+
+func testImageVerifyCache(
+	ivCache imageverifycache.Client,
+	ctx context.Context,
+	rclient registryclient.Client,
+	cmResolver engineapi.ConfigmapResolver,
+	pContext engineapi.PolicyContext,
+	cfg config.Configuration,
+) (engineapi.EngineResponse, engineapi.ImageVerificationMetadata) {
+	e := NewEngine(
+		cfg,
+		metricsCfg,
+		jp,
+		nil,
+		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+		ivCache,
+		factories.DefaultContextLoaderFactory(cmResolver),
+		nil,
+		"",
+	)
+	return e.VerifyAndPatchImages(
+		ctx,
+		pContext,
+	)
+}
+
+func errorAssertionUtil(t *testing.T, image string, ivm engineapi.ImageVerificationMetadata, er engineapi.EngineResponse) {
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+	assert.Equal(t, ivm.IsEmpty(), false)
+	assert.Equal(t, ivm.IsVerified(image), true)
+}
+
+var testUpdatedPolicyGood = `{
+	"apiVersion": "kyverno.io/v1",
+	"kind": "ClusterPolicy",
+	"metadata": {
+	  "name": "attest"
+	},
+	"spec": {
+	  "rules": [
+		{
+		  "name": "attest-testing",
+		  "match": {
+			"resources": {
+			  "kinds": [
+				"Pod"
+			  ]
+			}
+		  },
+		  "verifyImages": [
+			{
+			  "image": "*",
+			  "key": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHMmDjK65krAyDaGaeyWNzgvIu155JI50B2vezCw8+3CVeE0lJTL5dbL3OP98Za0oAEBJcOxky8Riy/XcmfKZbw==\n-----END PUBLIC KEY-----",
+			  "attestations": [
+				{
+				  "predicateType": "https://example.com/CodeReview/v1",
+				  "attestors": [
+					  {
+						  "entries": [
+							  {
+								  "keys": {
+									  "publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHMmDjK65krAyDaGaeyWNzgvIu155JI50B2vezCw8+3CVeE0lJTL5dbL3OP98Za0oAEBJcOxky8Riy/XcmfKZbw==\n-----END PUBLIC KEY-----",
+									  "rekor": {
+										  "url": "https://rekor.sigstore.dev",
+										  "ignoreSCT": true,
+										  "ignoreTlog": true
+									  }
+								  }
+							  }
+						  ]
+					  }
+				  ],
+				  "conditions": [
+					{
+					  "all": [
+						{
+						  "key": "{{ repo.uri }}",
+						  "operator": "Equals",
+						  "value": "https://github.com/example/my-project"
+						},
+						{
+						  "key": "{{ repo.branch }}",
+						  "operator": "Equals",
+						  "value": "main"
+						}
+					  ]
+					}
+				  ]
+				}
+			  ]
+			}
+		  ]
+		}
+	  ]
+	}
+  }`
+
+func Test_ImageVerifyCacheCosign(t *testing.T) {
+
+	opts := []imageverifycache.Option{
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(1000),
+		imageverifycache.WithTTLDuration(24 * time.Hour),
+	}
+	imageVerifyCache, err := imageverifycache.New(opts...)
+	assert.NilError(t, err)
+
+	policyContext := buildContext(t, testPolicyGood, testResource, "")
+	image := "ghcr.io/jimbugwadia/pause2:latest"
+	err = cosign.SetMock(image, attestationPayloads)
+	assert.NilError(t, err)
+
+	start := time.Now()
+	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	firstOperationTime := time.Since(start)
+	errorAssertionUtil(t, image, ivm, er)
+
+	start = time.Now()
+	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	secondOperationTime := time.Since(start)
+	errorAssertionUtil(t, image, ivm, er)
+	assert.Check(t, secondOperationTime < firstOperationTime/10, "cache entry is valid, so image verification should be from cache.", firstOperationTime, secondOperationTime)
+}
+
+func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
+
+	opts := []imageverifycache.Option{
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(1000),
+		imageverifycache.WithTTLDuration(5 * time.Second),
+	}
+	imageVerifyCache, err := imageverifycache.New(opts...)
+	assert.NilError(t, err)
+
+	policyContext := buildContext(t, testPolicyGood, testResource, "")
+	image := "ghcr.io/jimbugwadia/pause2:latest"
+	err = cosign.SetMock(image, attestationPayloads)
+	assert.NilError(t, err)
+
+	start := time.Now()
+	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	firstOperationTime := time.Since(start)
+	errorAssertionUtil(t, image, ivm, er)
+
+	time.Sleep(5 * time.Second)
+
+	start = time.Now()
+	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	secondOperationTime := time.Since(start)
+	errorAssertionUtil(t, image, ivm, er)
+	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache entry is expired, so image verification should not be from cache.")
+}
+
+func Test_changePolicyCacheVerificationCosign(t *testing.T) {
+	opts := []imageverifycache.Option{
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(1000),
+		imageverifycache.WithTTLDuration(60 * time.Minute),
+	}
+	imageVerifyCache, err := imageverifycache.New(opts...)
+	assert.NilError(t, err)
+
+	policyContext := buildContext(t, testPolicyGood, testResource, "")
+	image := "ghcr.io/jimbugwadia/pause2:latest"
+	err = cosign.SetMock(image, attestationPayloads)
+	assert.NilError(t, err)
+
+	start := time.Now()
+	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	firstOperationTime := time.Since(start)
+	errorAssertionUtil(t, image, ivm, er)
+	policyContext = buildContext(t, testUpdatedPolicyGood, testResource, "")
+
+	start = time.Now()
+	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	secondOperationTime := time.Since(start)
+	errorAssertionUtil(t, image, ivm, er)
+	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache entry not found, so image verification should not be from cache.")
+}
+
+var verifyImageNotaryPolicy = `{
+	"apiVersion": "kyverno.io/v2beta1",
+	"kind": "ClusterPolicy",
+	"metadata": {
+		"name": "check-image-notary"
+	},
+	"spec": {
+		"validationFailureAction": "Enforce",
+		"webhookTimeoutSeconds": 30,
+		"failurePolicy": "Fail",
+		"rules": [
+			{
+				"name": "verify-signature-notary",
+				"match": {
+					"any": [
+						{
+							"resources": {
+								"kinds": [
+									"Pod"
+								]
+							}
+						}
+					]
+				},
+				"verifyImages": [
+					{
+						"type": "Notary",
+						"imageReferences": [
+							"ghcr.io/kyverno/test-verify-image*"
+						],
+						"attestors": [
+							{
+								"count": 1,
+								"entries": [
+									{
+										"certificates": {
+											"cert": "-----BEGIN CERTIFICATE-----\nMIIDTTCCAjWgAwIBAgIJAPI+zAzn4s0xMA0GCSqGSIb3DQEBCwUAMEwxCzAJBgNV\nBAYTAlVTMQswCQYDVQQIDAJXQTEQMA4GA1UEBwwHU2VhdHRsZTEPMA0GA1UECgwG\nTm90YXJ5MQ0wCwYDVQQDDAR0ZXN0MB4XDTIzMDUyMjIxMTUxOFoXDTMzMDUxOTIx\nMTUxOFowTDELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAldBMRAwDgYDVQQHDAdTZWF0\ndGxlMQ8wDQYDVQQKDAZOb3RhcnkxDTALBgNVBAMMBHRlc3QwggEiMA0GCSqGSIb3\nDQEBAQUAA4IBDwAwggEKAoIBAQDNhTwv+QMk7jEHufFfIFlBjn2NiJaYPgL4eBS+\nb+o37ve5Zn9nzRppV6kGsa161r9s2KkLXmJrojNy6vo9a6g6RtZ3F6xKiWLUmbAL\nhVTCfYw/2n7xNlVMjyyUpE+7e193PF8HfQrfDFxe2JnX5LHtGe+X9vdvo2l41R6m\nIia04DvpMdG4+da2tKPzXIuLUz/FDb6IODO3+qsqQLwEKmmUee+KX+3yw8I6G1y0\nVp0mnHfsfutlHeG8gazCDlzEsuD4QJ9BKeRf2Vrb0ywqNLkGCbcCWF2H5Q80Iq/f\nETVO9z88R7WheVdEjUB8UrY7ZMLdADM14IPhY2Y+tLaSzEVZAgMBAAGjMjAwMAkG\nA1UdEwQCMAAwDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMDMA0G\nCSqGSIb3DQEBCwUAA4IBAQBX7x4Ucre8AIUmXZ5PUK/zUBVOrZZzR1YE8w86J4X9\nkYeTtlijf9i2LTZMfGuG0dEVFN4ae3CCpBst+ilhIndnoxTyzP+sNy4RCRQ2Y/k8\nZq235KIh7uucq96PL0qsF9s2RpTKXxyOGdtp9+HO0Ty5txJE2txtLDUIVPK5WNDF\nByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ\n5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0\nuOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz\n-----END CERTIFICATE-----"
+										}
+									}
+								]
+							}
+						]
+					}
+				]
+			}
+		]
+	}
+}`
+
+var verifyImageNotaryUpdatedPolicy = `{
+	"apiVersion": "kyverno.io/v2beta1",
+	"kind": "ClusterPolicy",
+	"metadata": {
+		"name": "check-image-notary"
+	},
+	"spec": {
+		"validationFailureAction": "Enforce",
+		"webhookTimeoutSeconds": 30,
+		"failurePolicy": "Fail",
+		"rules": [
+			{
+				"name": "verify-signature-notary-1",
+				"match": {
+					"any": [
+						{
+							"resources": {
+								"kinds": [
+									"Pod"
+								]
+							}
+						}
+					]
+				},
+				"verifyImages": [
+					{
+						"type": "Notary",
+						"imageReferences": [
+							"ghcr.io/kyverno/test-verify-image*"
+						],
+						"attestors": [
+							{
+								"count": 1,
+								"entries": [
+									{
+										"certificates": {
+											"cert": "-----BEGIN CERTIFICATE-----\nMIIDTTCCAjWgAwIBAgIJAPI+zAzn4s0xMA0GCSqGSIb3DQEBCwUAMEwxCzAJBgNV\nBAYTAlVTMQswCQYDVQQIDAJXQTEQMA4GA1UEBwwHU2VhdHRsZTEPMA0GA1UECgwG\nTm90YXJ5MQ0wCwYDVQQDDAR0ZXN0MB4XDTIzMDUyMjIxMTUxOFoXDTMzMDUxOTIx\nMTUxOFowTDELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAldBMRAwDgYDVQQHDAdTZWF0\ndGxlMQ8wDQYDVQQKDAZOb3RhcnkxDTALBgNVBAMMBHRlc3QwggEiMA0GCSqGSIb3\nDQEBAQUAA4IBDwAwggEKAoIBAQDNhTwv+QMk7jEHufFfIFlBjn2NiJaYPgL4eBS+\nb+o37ve5Zn9nzRppV6kGsa161r9s2KkLXmJrojNy6vo9a6g6RtZ3F6xKiWLUmbAL\nhVTCfYw/2n7xNlVMjyyUpE+7e193PF8HfQrfDFxe2JnX5LHtGe+X9vdvo2l41R6m\nIia04DvpMdG4+da2tKPzXIuLUz/FDb6IODO3+qsqQLwEKmmUee+KX+3yw8I6G1y0\nVp0mnHfsfutlHeG8gazCDlzEsuD4QJ9BKeRf2Vrb0ywqNLkGCbcCWF2H5Q80Iq/f\nETVO9z88R7WheVdEjUB8UrY7ZMLdADM14IPhY2Y+tLaSzEVZAgMBAAGjMjAwMAkG\nA1UdEwQCMAAwDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMDMA0G\nCSqGSIb3DQEBCwUAA4IBAQBX7x4Ucre8AIUmXZ5PUK/zUBVOrZZzR1YE8w86J4X9\nkYeTtlijf9i2LTZMfGuG0dEVFN4ae3CCpBst+ilhIndnoxTyzP+sNy4RCRQ2Y/k8\nZq235KIh7uucq96PL0qsF9s2RpTKXxyOGdtp9+HO0Ty5txJE2txtLDUIVPK5WNDF\nByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ\n5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0\nuOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz\n-----END CERTIFICATE-----"
+										}
+									}
+								]
+							}
+						]
+					}
+				]
+			}
+		]
+	}
+}`
+
+var verifyImageNotaryResource = `{
+	"apiVersion": "v1",
+	"kind": "Pod",
+	"metadata": {
+		"creationTimestamp": null,
+		"labels": {
+			"run": "test"
+		},
+		"name": "test",
+		"namespace": "default"
+	},
+	"spec": {
+		"containers": [
+			{
+				"image": "ghcr.io/kyverno/test-verify-image:signed",
+				"name": "test",
+				"resources": {}
+			}
+		],
+		"dnsPolicy": "ClusterFirst",
+		"restartPolicy": "Always"
+	},
+	"status": {}
+}`
+
+func Test_ImageVerifyCacheNotary(t *testing.T) {
+
+	opts := []imageverifycache.Option{
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(1000),
+		imageverifycache.WithTTLDuration(24 * time.Hour),
+	}
+	imageVerifyCache, err := imageverifycache.New(opts...)
+	assert.NilError(t, err)
+	image := "ghcr.io/kyverno/test-verify-image:signed"
+	policyContext := buildContext(t, verifyImageNotaryPolicy, verifyImageNotaryResource, "")
+
+	start := time.Now()
+	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	firstOperationTime := time.Since(start)
+	errorAssertionUtil(t, image, ivm, er)
+
+	start = time.Now()
+	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	secondOperationTime := time.Since(start)
+	errorAssertionUtil(t, image, ivm, er)
+	assert.Check(t, secondOperationTime < firstOperationTime/10, "cache entry is valid, so image verification should be from cache.", firstOperationTime, secondOperationTime)
+}
+
+func Test_ImageVerifyCacheExpiredNotary(t *testing.T) {
+
+	opts := []imageverifycache.Option{
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(1000),
+		imageverifycache.WithTTLDuration(5 * time.Second),
+	}
+	imageVerifyCache, err := imageverifycache.New(opts...)
+	assert.NilError(t, err)
+	image := "ghcr.io/kyverno/test-verify-image:signed"
+
+	policyContext := buildContext(t, verifyImageNotaryPolicy, verifyImageNotaryResource, "")
+
+	assert.NilError(t, err)
+	start := time.Now()
+	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	firstOperationTime := time.Since(start)
+	errorAssertionUtil(t, image, ivm, er)
+	time.Sleep(5 * time.Second)
+
+	start = time.Now()
+	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	secondOperationTime := time.Since(start)
+	errorAssertionUtil(t, image, ivm, er)
+	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache entry is expired, so image verification should not be from cache.")
+
+}
+
+func Test_changePolicyCacheVerificationNotary(t *testing.T) {
+	opts := []imageverifycache.Option{
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(1000),
+		imageverifycache.WithTTLDuration(60 * time.Minute),
+	}
+	imageVerifyCache, err := imageverifycache.New(opts...)
+	assert.NilError(t, err)
+	image := "ghcr.io/kyverno/test-verify-image:signed"
+
+	policyContext := buildContext(t, verifyImageNotaryPolicy, verifyImageNotaryResource, "")
+	start := time.Now()
+	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	firstOperationTime := time.Since(start)
+	errorAssertionUtil(t, image, ivm, er)
+	policyContext = buildContext(t, verifyImageNotaryUpdatedPolicy, verifyImageNotaryResource, "")
+
+	start = time.Now()
+	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	secondOperationTime := time.Since(start)
+	errorAssertionUtil(t, image, ivm, er)
+	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache entry not found, so image verification should not be from cache.")
+
 }
