@@ -3,7 +3,6 @@ package test
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -14,6 +13,8 @@ import (
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
+	filterutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/filter"
+	pathutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/path"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
@@ -37,7 +38,7 @@ func applyPoliciesFromPath(
 	policyResourcePath string,
 	rc *resultCounts,
 	openApiManager openapi.Manager,
-	filter filter,
+	filter filterutils.Filter,
 	auditWarn bool,
 ) (map[string]policyreportv1alpha2.PolicyReportResult, []api.TestResults, error) {
 	engineResponses := make([]engineapi.EngineResponse, 0)
@@ -48,7 +49,7 @@ func applyPoliciesFromPath(
 
 	var filteredResults []api.TestResults
 	for _, res := range values.Results {
-		if filter(res) {
+		if filter.Apply(res) {
 			filteredResults = append(filteredResults, res)
 		}
 	}
@@ -81,17 +82,17 @@ func applyPoliciesFromPath(
 		}
 	}
 
-	policyFullPath := getFullPath(values.Policies, policyResourcePath, isGit)
-	resourceFullPath := getFullPath(values.Resources, policyResourcePath, isGit)
+	policyFullPath := pathutils.GetFullPaths(values.Policies, policyResourcePath, isGit)
+	resourceFullPath := pathutils.GetFullPaths(values.Resources, policyResourcePath, isGit)
 
 	for i, result := range values.Results {
 		arrPatchedResource := []string{result.PatchedResource}
 		arrGeneratedResource := []string{result.GeneratedResource}
 		arrCloneSourceResource := []string{result.CloneSourceResource}
 
-		patchedResourceFullPath := getFullPath(arrPatchedResource, policyResourcePath, isGit)
-		generatedResourceFullPath := getFullPath(arrGeneratedResource, policyResourcePath, isGit)
-		CloneSourceResourceFullPath := getFullPath(arrCloneSourceResource, policyResourcePath, isGit)
+		patchedResourceFullPath := pathutils.GetFullPaths(arrPatchedResource, policyResourcePath, isGit)
+		generatedResourceFullPath := pathutils.GetFullPaths(arrGeneratedResource, policyResourcePath, isGit)
+		CloneSourceResourceFullPath := pathutils.GetFullPaths(arrCloneSourceResource, policyResourcePath, isGit)
 
 		values.Results[i].PatchedResource = patchedResourceFullPath[0]
 		values.Results[i].GeneratedResource = generatedResourceFullPath[0]
@@ -251,19 +252,6 @@ func applyPoliciesFromPath(
 	}
 	resultsMap, testResults := buildPolicyResults(engineResponses, values.Results, policyResourcePath, fs, isGit, auditWarn)
 	return resultsMap, testResults, nil
-}
-
-func getFullPath(paths []string, policyResourcePath string, isGit bool) []string {
-	var pols []string
-	var pol string
-	if !isGit {
-		for _, path := range paths {
-			pol = filepath.Join(policyResourcePath, path)
-			pols = append(pols, pol)
-		}
-		return pols
-	}
-	return paths
 }
 
 func selectResourcesForCheck(resources []*unstructured.Unstructured, values *api.Test) []*unstructured.Unstructured {

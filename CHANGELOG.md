@@ -4,6 +4,7 @@
 
 ### Note
 
+- Remove CLI `kyverno test manifest ...` commands (replaced by `kyverno create ...`).
 - Added `--caSecretName` and `--tlsSecretName` flags to control names of certificate related secrets.
 - Added match conditions support in kyverno config map.
 - Deprecated flag `--imageSignatureRepository`. Will be removed in 1.12. Use per rule configuration `verifyImages.Repository` instead.

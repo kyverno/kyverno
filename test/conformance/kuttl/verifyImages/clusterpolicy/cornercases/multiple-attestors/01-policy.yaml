@@ -28,6 +28,7 @@ spec:
               rekor:
                 url: https://rekor.sigstore.dev
                 ignoreTlog: true
+              ctlog:
                 ignoreSCT: true
         imageReferences:
         - ghcr.io/kyverno/test-verify-image:*
@@ -53,6 +54,7 @@ spec:
               rekor:
                 url: https://rekor.sigstore.dev
                 ignoreTlog: true
+              ctlog:
                 ignoreSCT: true
         imageReferences:
         - my.local.repo/*
