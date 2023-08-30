@@ -600,6 +600,37 @@ func isNamespacedPolicy(policyNames string) (bool, error) {
 	return regexp.MatchString("^[a-z]*/[a-z]*", policyNames)
 }
 
+func tidyObject(obj interface{}) interface{} {
+	switch typedPatternElement := obj.(type) {
+	case map[string]interface{}:
+		for k, v := range typedPatternElement {
+			v = tidyObject(v)
+			if v == nil {
+				delete(typedPatternElement, k)
+			} else {
+				typedPatternElement[k] = v
+			}
+		}
+		if len(typedPatternElement) == 0 {
+			return nil
+		}
+		return typedPatternElement
+	case []interface{}:
+		var tidy []interface{}
+		for _, v := range typedPatternElement {
+			v = tidyObject(v)
+			if v != nil {
+				tidy = append(tidy, v)
+			}
+		}
+		return tidy
+	case string, float64, int, int64, bool, nil:
+		return typedPatternElement
+	default:
+		return typedPatternElement
+	}
+}
+
 // getAndCompareResource --> Get the patchedResource or generatedResource from the path provided by user
 // And compare this resource with engine generated resource.
 func getAndCompareResource(path string, engineResource unstructured.Unstructured, isGit bool, policyResourcePath string, fs billy.Filesystem, isGenerate bool) string {
@@ -622,22 +653,28 @@ func getAndCompareResource(path string, engineResource unstructured.Unstructured
 			status = "pass"
 		}
 	} else {
+		userResource = unstructured.Unstructured{Object: tidyObject(userResource.UnstructuredContent()).(map[string]interface{})}
 		expected, err := userResource.MarshalJSON()
 		if err != nil {
 			fmt.Printf("Error: failed to convert patched resource to json (%s)\n", err)
 			return status
 		}
+		engineResource = unstructured.Unstructured{Object: tidyObject(engineResource.UnstructuredContent()).(map[string]interface{})}
 		actual, err := engineResource.MarshalJSON()
 		if err != nil {
 			fmt.Printf("Error: failed to convert engine resource to json (%s)\n", err)
 			return status
 		}
-		patch, err := jsonpatch.CreateMergePatch(expected, actual)
+		patch, err := jsonpatch.CreateMergePatch(actual, expected)
 		if err != nil {
 			fmt.Printf("Error: failed to calculate diff between patched and engine resources (%s)\n", err)
 			return status
 		}
 		if len(patch) > 2 {
+			fmt.Println("actual", string(actual))
+			fmt.Println("expected", string(expected))
+			fmt.Println("patch", string(patch))
+			log.Log.V(3).Info("patchedResource mismatch", "actual", string(actual), "expected", string(expected), "patch", string(patch))
 			log.Log.V(3).Info("patchedResource mismatch", "actual", string(actual), "expected", string(expected), "patch", string(patch))
 			status = "fail"
 		} else {
