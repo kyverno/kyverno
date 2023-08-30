@@ -48,7 +48,7 @@ func applyPoliciesFromPath(
 	store.SetLocal(true)
 
 	var filteredResults []api.TestResults
-	for _, res := range values.Results {
+	for _, res := range apiTest.Results {
 		if filter.Apply(res) {
 			filteredResults = append(filteredResults, res)
 		}
