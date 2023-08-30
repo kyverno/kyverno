@@ -603,18 +603,17 @@ func isNamespacedPolicy(policyNames string) (bool, error) {
 func tidyObject(obj interface{}) interface{} {
 	switch typedPatternElement := obj.(type) {
 	case map[string]interface{}:
+		tidy := map[string]interface{}{}
 		for k, v := range typedPatternElement {
 			v = tidyObject(v)
-			if v == nil {
-				delete(typedPatternElement, k)
-			} else {
-				typedPatternElement[k] = v
+			if v != nil {
+				tidy[k] = v
 			}
 		}
-		if len(typedPatternElement) == 0 {
+		if len(tidy) == 0 {
 			return nil
 		}
-		return typedPatternElement
+		return tidy
 	case []interface{}:
 		var tidy []interface{}
 		for _, v := range typedPatternElement {
@@ -623,11 +622,12 @@ func tidyObject(obj interface{}) interface{} {
 				tidy = append(tidy, v)
 			}
 		}
+		if len(tidy) == 0 {
+			return nil
+		}
 		return tidy
-	case string, float64, int, int64, bool, nil:
-		return typedPatternElement
 	default:
-		return typedPatternElement
+		return obj
 	}
 }
 
@@ -671,10 +671,6 @@ func getAndCompareResource(path string, engineResource unstructured.Unstructured
 			return status
 		}
 		if len(patch) > 2 {
-			fmt.Println("actual", string(actual))
-			fmt.Println("expected", string(expected))
-			fmt.Println("patch", string(patch))
-			log.Log.V(3).Info("patchedResource mismatch", "actual", string(actual), "expected", string(expected), "patch", string(patch))
 			log.Log.V(3).Info("patchedResource mismatch", "actual", string(actual), "expected", string(expected), "patch", string(patch))
 			status = "fail"
 		} else {
