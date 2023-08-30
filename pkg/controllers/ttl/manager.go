@@ -3,6 +3,7 @@ package ttl
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -10,12 +11,15 @@ import (
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/metrics"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
-	authorizationv1client "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
@@ -35,25 +39,41 @@ type manager struct {
 	resController   map[schema.GroupVersionResource]stopFunc
 	logger          logr.Logger
 	interval        time.Duration
+	lock            sync.Mutex
+	infoMetric      metric.Int64ObservableGauge
 }
 
 func NewManager(
 	metadataInterface metadata.Interface,
 	discoveryInterface discovery.DiscoveryInterface,
-	authorizationInterface authorizationv1client.AuthorizationV1Interface,
+	checker checker.AuthChecker,
 	timeInterval time.Duration,
 ) controllers.Controller {
 	logger := logging.WithName(ControllerName)
-	selfChecker := checker.NewSelfChecker(authorizationInterface.SelfSubjectAccessReviews())
-	resController := map[schema.GroupVersionResource]stopFunc{}
-	return &manager{
+	meterProvider := otel.GetMeterProvider()
+	meter := meterProvider.Meter(metrics.MeterName)
+	infoMetric, err := meter.Int64ObservableGauge(
+		"kyverno_ttl_controller_info",
+		metric.WithDescription("can be used to track individual resource controllers running for ttl based cleanup"),
+	)
+	if err != nil {
+		logger.Error(err, "Failed to create instrument, kyverno_ttl_controller_info")
+	}
+	mgr := &manager{
 		metadataClient:  metadataInterface,
 		discoveryClient: discoveryInterface,
-		checker:         selfChecker,
-		resController:   resController,
+		checker:         checker,
+		resController:   map[schema.GroupVersionResource]stopFunc{},
 		logger:          logger,
 		interval:        timeInterval,
+		infoMetric:      infoMetric,
 	}
+	if infoMetric != nil {
+		if _, err := meter.RegisterCallback(mgr.report, infoMetric); err != nil {
+			logger.Error(err, "failed to register callback")
+		}
+	}
+	return mgr
 }
 
 func (m *manager) Run(ctx context.Context, worker int) {
@@ -161,11 +181,28 @@ func (m *manager) filterPermissionsResource(resources []schema.GroupVersionResou
 	validResources := []schema.GroupVersionResource{}
 	for _, resource := range resources {
 		// Check if the service account has the necessary permissions
-		if hasResourcePermissions(m.logger, resource, m.checker) {
+		if HasResourcePermissions(m.logger, resource, m.checker) {
 			validResources = append(validResources, resource)
 		}
 	}
 	return validResources
+}
+
+func (m *manager) report(ctx context.Context, observer metric.Observer) error {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	for gvr := range m.resController {
+		observer.ObserveInt64(
+			m.infoMetric,
+			1,
+			metric.WithAttributes(
+				attribute.String("resource_group", gvr.Group),
+				attribute.String("resource_version", gvr.Version),
+				attribute.String("resource_resource", gvr.Resource),
+			),
+		)
+	}
+	return nil
 }
 
 func (m *manager) reconcile(ctx context.Context, workers int) error {
@@ -179,6 +216,8 @@ func (m *manager) reconcile(ctx context.Context, workers int) error {
 	if err != nil {
 		return err
 	}
+	m.lock.Lock()
+	defer m.lock.Unlock()
 	for gvr := range observedState.Difference(desiredState) {
 		if err := m.stop(ctx, gvr); err != nil {
 			return err

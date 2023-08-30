@@ -310,6 +310,16 @@ type TUF struct {
 	Mirror string `json:"mirror,omitempty" yaml:"mirror,omitempty"`
 }
 
+type CTLog struct {
+	// IgnoreSCT requires that a certificate contain an embedded SCT during verification.
+	// +kubebuilder:validation:Optional
+	IgnoreSCT bool `json:"ignoreSCT,omitempty" yaml:"ignoreSCT,omitempty"`
+
+	// CTLogPubKey, if set, is used to validate SCTs against those keys.
+	// +kubebuilder:validation:Optional
+	CTLogPubKey string `json:"pubkey,omitempty" yaml:"pubkey,omitempty"`
+}
+
 // Attestation are checks for signed in-toto Statements that are used to verify the image.
 // See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the
 // OCI registry and decodes them into a list of Statements.

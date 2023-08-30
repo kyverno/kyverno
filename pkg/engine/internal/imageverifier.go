@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -243,8 +244,33 @@ func (iv *ImageVerifier) Verify(
 			iv.ivm.Add(image, true)
 			continue
 		}
+		start := time.Now()
+		found, err := iv.ivCache.Get(ctx, iv.policyContext.Policy(), iv.rule.Name, image)
+		if err != nil {
+			iv.logger.Error(err, "error occurred during cache get")
+		}
 
-		ruleResp, digest := iv.verifyImage(ctx, imageVerify, imageInfo, cfg)
+		var ruleResp *engineapi.RuleResponse
+		var digest string
+		if found {
+			iv.logger.V(2).Info("cache entry found", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
+			ruleResp = engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, "verified from cache")
+			digest = imageInfo.Digest
+		} else {
+			iv.logger.V(2).Info("cache entry not found", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
+			ruleResp, digest = iv.verifyImage(ctx, imageVerify, imageInfo, cfg)
+			if ruleResp != nil && ruleResp.Status() == engineapi.RuleStatusPass {
+				setted, err := iv.ivCache.Set(ctx, iv.policyContext.Policy(), iv.rule.Name, image)
+				if err != nil {
+					iv.logger.Error(err, "error occurred during cache set")
+				} else {
+					if setted {
+						iv.logger.V(4).Info("successfully set cache", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
+					}
+				}
+			}
+		}
+		iv.logger.V(4).Info("time taken by the image verify operation", "duration", time.Since(start))
 
 		if imageVerify.MutateDigest {
 			patch, retrievedDigest, err := iv.handleMutateDigest(ctx, digest, imageInfo)

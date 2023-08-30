@@ -1027,7 +1027,7 @@ backgroundController:
     repository: kyverno/background-controller
     # -- Image tag
     # Defaults to appVersion in Chart.yaml if omitted
-    tag:  # replaced in e2e tests
+    tag: ~
     # -- Image pull policy
     pullPolicy: IfNotPresent
 

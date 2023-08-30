@@ -11,6 +11,8 @@
                 "--kubeconfig=${userHome}/.kube/config",
                 "--serverIP=<SERVER-IP>:9443",
                 "-v=2",
+                "--caSecretName=kyverno-svc.kyverno.svc.kyverno-tls-ca",
+                "--tlsSecretName=kyverno-svc.kyverno.svc.kyverno-tls-pair",
             ],
             "env": {
                 "KYVERNO_NAMESPACE": "kyverno",
@@ -66,6 +68,8 @@
             "args": [
                 "--kubeconfig=${userHome}/.kube/config",
                 "--serverIP=<SERVER-IP>:9443",
+                "--caSecretName=kyverno-cleanup-controller.kyverno.svc.kyverno-tls-ca",
+                "--tlsSecretName=kyverno-cleanup-controller.kyverno.svc.kyverno-tls-pair",
             ],
             "env": {                 
                 "KYVERNO_NAMESPACE": "kyverno",

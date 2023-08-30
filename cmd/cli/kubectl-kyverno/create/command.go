@@ -11,6 +11,7 @@ import (
 func Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "create",
+		Short:   "Provides a command-line interface to help with the creation of various Kyverno resources.",
 		Example: "",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
