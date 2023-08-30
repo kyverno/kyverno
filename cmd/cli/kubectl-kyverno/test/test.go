@@ -610,29 +610,39 @@ func getAndCompareResource(path string, engineResource unstructured.Unstructured
 	}
 	userResource, err := common.GetResourceFromPath(fs, path, isGit, policyResourcePath, resourceType)
 	if err != nil {
-		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
+		fmt.Printf("Error: failed to load resources (%s)", err)
 		return ""
 	}
-	expected, err := userResource.MarshalJSON()
-	if err != nil {
-		fmt.Printf("Error: failed to convert patched resource to json (%s)\n", err)
-		return ""
-	}
-	actual, err := engineResource.MarshalJSON()
-	if err != nil {
-		fmt.Printf("Error: failed to convert engine resource to json (%s)\n", err)
-		return ""
-	}
-	patch, err := jsonpatch.CreateMergePatch(expected, actual)
-	if err != nil {
-		fmt.Printf("Error: failed to calculate diff between patched and engine resources (%s)\n", err)
-		return ""
-	}
-	if len(patch) > 2 {
-		log.Log.V(3).Info(resourceType+" mismatch", "patch", string(patch))
-		status = "fail"
+	if isGenerate {
+		matched, err := generate.ValidateResourceWithPattern(log.Log, engineResource.UnstructuredContent(), userResource.UnstructuredContent())
+		if err != nil {
+			log.Log.V(3).Info("generatedResource mismatch", "error", err.Error())
+			status = "fail"
+		} else if matched == "" {
+			status = "pass"
+		}
 	} else {
-		status = "pass"
+		expected, err := userResource.MarshalJSON()
+		if err != nil {
+			fmt.Printf("Error: failed to convert patched resource to json (%s)\n", err)
+			return status
+		}
+		actual, err := engineResource.MarshalJSON()
+		if err != nil {
+			fmt.Printf("Error: failed to convert engine resource to json (%s)\n", err)
+			return status
+		}
+		patch, err := jsonpatch.CreateMergePatch(expected, actual)
+		if err != nil {
+			fmt.Printf("Error: failed to calculate diff between patched and engine resources (%s)\n", err)
+			return status
+		}
+		if len(patch) > 2 {
+			log.Log.V(3).Info("patchedResource mismatch", "actual", string(actual), "expected", string(expected), "patch", string(patch))
+			status = "fail"
+		} else {
+			status = "pass"
+		}
 	}
 	return status
 }
