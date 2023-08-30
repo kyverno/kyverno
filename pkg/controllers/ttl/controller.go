@@ -70,17 +70,16 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 	}
 
 	controllerUtil.AddDelayedExplicitEventHandlers(logger, c.informer, c.queue, enqueueDelay, keyFunc)
-	enqueueFromTTL := func(obj metav1.Object) {
-		// no need to consider non aggregated reports
-		if controllerUtil.HasLabel(obj, kyverno.LabelCleanupTtl) {
-			c.queue.Add(keyFunc(obj))
-		}
-	}
-	controllerUtil.AddEventHandlersT(
+	// enqueueFromTTL := func(obj metav1.Object) {
+	// 	if controllerUtil.HasLabel(obj, kyverno.LabelCleanupTtl) {
+	// 		c.queue.Add(keyFunc(obj))
+	// 	}
+	// }
+	controllerUtil.AddEventHandlers(
 		c.informer,
-		func(obj metav1.Object) { enqueueFromTTL(obj) },
-		func(_, obj metav1.Object) { enqueueFromTTL(obj) },
-		func(obj metav1.Object) { enqueueFromTTL(obj) },
+		c.handleAdd,
+		c.handleUpdate,
+		func(obj interface{}){}, 
 	)
 	c.registration = registration
 	return c, nil
