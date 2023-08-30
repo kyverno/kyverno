@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-git/go-billy/v5"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -607,17 +608,30 @@ func getAndCompareResource(path string, engineResource unstructured.Unstructured
 	if isGenerate {
 		resourceType = "generatedResource"
 	}
-
 	userResource, err := common.GetResourceFromPath(fs, path, isGit, policyResourcePath, resourceType)
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
 		return ""
 	}
-	matched, err := generate.ValidateResourceWithPattern(log.Log, engineResource.UnstructuredContent(), userResource.UnstructuredContent())
+	expected, err := userResource.MarshalJSON()
 	if err != nil {
-		log.Log.V(3).Info(resourceType+" mismatch", "error", err.Error())
+		fmt.Printf("Error: failed to convert patched resource to json (%s)\n", err)
+		return ""
+	}
+	actual, err := engineResource.MarshalJSON()
+	if err != nil {
+		fmt.Printf("Error: failed to convert engine resource to json (%s)\n", err)
+		return ""
+	}
+	patch, err := jsonpatch.CreateMergePatch(expected, actual)
+	if err != nil {
+		fmt.Printf("Error: failed to calculate diff between patched and engine resources (%s)\n", err)
+		return ""
+	}
+	if len(patch) > 2 {
+		log.Log.V(3).Info(resourceType+" mismatch", "patch", string(patch))
 		status = "fail"
-	} else if matched == "" {
+	} else {
 		status = "pass"
 	}
 	return status
