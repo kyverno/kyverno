@@ -12,11 +12,11 @@ import (
 	"github.com/go-git/go-billy/v5/memfs"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/values"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -227,7 +227,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 			osExit(1)
 		}
 	}
-	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(c.Variables, c.ValuesFile, nil, false, "")
+	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(c.Variables, nil, c.ValuesFile, nil, false, "")
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("failed to decode yaml", err)
@@ -269,7 +269,7 @@ func (c *ApplyCommandConfig) getMutateLogPathIsDir(skipInvalidPolicies SkippedIn
 	return nil, nil, skipInvalidPolicies, nil, err, mutateLogPathIsDir
 }
 
-func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, resources []*unstructured.Unstructured, rc *common.ResultCounts, dClient dclient.Interface, subresources []values.Subresource, skipInvalidPolicies SkippedInvalidPolicies, responses []engineapi.EngineResponse) (*common.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
+func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, resources []*unstructured.Unstructured, rc *common.ResultCounts, dClient dclient.Interface, subresources []api.Subresource, skipInvalidPolicies SkippedInvalidPolicies, responses []engineapi.EngineResponse) (*common.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	validatingAdmissionPolicy := common.ValidatingAdmissionPolicies{}
 	for _, resource := range resources {
 		for _, policy := range validatingAdmissionPolicies {
@@ -292,7 +292,7 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(validating
 	return rc, resources, skipInvalidPolicies, responses, nil
 }
 
-func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, resources []*unstructured.Unstructured, openApiManager openapi.Manager, skipInvalidPolicies SkippedInvalidPolicies, valuesMap map[string]map[string]values.Resource, dClient dclient.Interface, subresources []values.Subresource, globalValMap map[string]string, userInfo v1beta1.RequestInfo, mutateLogPathIsDir bool, namespaceSelectorMap map[string]map[string]string) (*common.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
+func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, resources []*unstructured.Unstructured, openApiManager openapi.Manager, skipInvalidPolicies SkippedInvalidPolicies, valuesMap map[string]map[string]api.Resource, dClient dclient.Interface, subresources []api.Subresource, globalValMap map[string]string, userInfo v1beta1.RequestInfo, mutateLogPathIsDir bool, namespaceSelectorMap map[string]map[string]string) (*common.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	if len(variables) != 0 {
 		variables = common.SetInStoreContext(policies, variables)
 	}
