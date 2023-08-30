@@ -45,4 +45,5 @@ spec:
                 rekor:
                   url: https://rekor.sigstore.dev
                   ignoreTlog: true
+                ctlog:
                   ignoreSCT: true
