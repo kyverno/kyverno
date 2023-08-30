@@ -13,6 +13,7 @@ import (
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
+	filterutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/filter"
 	pathutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/path"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
@@ -37,7 +38,7 @@ func applyPoliciesFromPath(
 	policyResourcePath string,
 	rc *resultCounts,
 	openApiManager openapi.Manager,
-	filter filter,
+	filter filterutils.Filter,
 	auditWarn bool,
 ) (map[string]policyreportv1alpha2.PolicyReportResult, []api.TestResults, error) {
 	engineResponses := make([]engineapi.EngineResponse, 0)
@@ -47,8 +48,8 @@ func applyPoliciesFromPath(
 	store.SetLocal(true)
 
 	var filteredResults []api.TestResults
-	for _, res := range apiTest.Results {
-		if filter(res) {
+	for _, res := range values.Results {
+		if filter.Apply(res) {
 			filteredResults = append(filteredResults, res)
 		}
 	}
