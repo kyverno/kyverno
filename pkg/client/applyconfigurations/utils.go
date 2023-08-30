@@ -105,6 +105,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov1.PolicyApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("PolicyStatus"):
 		return &kyvernov1.PolicyStatusApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("Rekor"):
+		return &kyvernov1.RekorApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("RequestData"):
 		return &kyvernov1.RequestDataApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ResourceDescription"):

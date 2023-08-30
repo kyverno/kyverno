@@ -23,7 +23,8 @@ package v1
 type CertificateAttestorApplyConfiguration struct {
 	Certificate      *string                  `json:"cert,omitempty"`
 	CertificateChain *string                  `json:"certChain,omitempty"`
-	Rekor            *CTLogApplyConfiguration `json:"rekor,omitempty"`
+	Rekor            *RekorApplyConfiguration `json:"rekor,omitempty"`
+	CTLog            *CTLogApplyConfiguration `json:"ctlog,omitempty"`
 }
 
 // CertificateAttestorApplyConfiguration constructs an declarative configuration of the CertificateAttestor type for use with
@@ -51,7 +52,15 @@ func (b *CertificateAttestorApplyConfiguration) WithCertificateChain(value strin
 // WithRekor sets the Rekor field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Rekor field is set to the value of the last call.
-func (b *CertificateAttestorApplyConfiguration) WithRekor(value *CTLogApplyConfiguration) *CertificateAttestorApplyConfiguration {
+func (b *CertificateAttestorApplyConfiguration) WithRekor(value *RekorApplyConfiguration) *CertificateAttestorApplyConfiguration {
 	b.Rekor = value
+	return b
+}
+
+// WithCTLog sets the CTLog field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the CTLog field is set to the value of the last call.
+func (b *CertificateAttestorApplyConfiguration) WithCTLog(value *CTLogApplyConfiguration) *CertificateAttestorApplyConfiguration {
+	b.CTLog = value
 	return b
 }
