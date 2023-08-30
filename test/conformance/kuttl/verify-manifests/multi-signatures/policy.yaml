@@ -25,9 +25,10 @@ spec:
                     BibYLJ5L4VSMvGxeMLnBGdM48w5IE//6idUPj3rscigFdHs7GDMH4LLAng==
                     -----END PUBLIC KEY-----
                 rekor:
-                    url: https://rekor.sigstore.dev
-                    ignoreTlog: true
-                    ignoreSCT: true
+                  url: https://rekor.sigstore.dev
+                  ignoreTlog: true
+                ctlog:
+                  ignoreSCT: true
             - keys:
                 publicKeys: |-
                     -----BEGIN PUBLIC KEY-----
@@ -35,6 +36,7 @@ spec:
                     FdGxexVrR4YqO1pRViKxmD9oMu4I7K/4sM51nbH65ycB2uRiDfIdRoV/+A==
                     -----END PUBLIC KEY-----
                 rekor:
-                    url: https://rekor.sigstore.dev
-                    ignoreTlog: true
-                    ignoreSCT: true
+                  url: https://rekor.sigstore.dev
+                  ignoreTlog: true
+                ctlog:
+                  ignoreSCT: true
