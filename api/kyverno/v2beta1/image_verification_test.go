@@ -85,7 +85,7 @@ func Test_ImageVerification(t *testing.T) {
 				ImageReferences: []string{"*"},
 				Attestors: []kyvernov1.AttestorSet{
 					{Entries: []kyvernov1.Attestor{{
-						Keyless: &kyvernov1.KeylessAttestor{Rekor: &kyvernov1.CTLog{}, Issuer: "", Subject: ""},
+						Keyless: &kyvernov1.KeylessAttestor{Rekor: &kyvernov1.Rekor{}, Issuer: "", Subject: ""},
 					}}},
 				},
 			},
@@ -102,7 +102,7 @@ func Test_ImageVerification(t *testing.T) {
 				ImageReferences: []string{"*"},
 				Attestors: []kyvernov1.AttestorSet{
 					{Entries: []kyvernov1.Attestor{{
-						Keyless: &kyvernov1.KeylessAttestor{Rekor: &kyvernov1.CTLog{URL: "https://rekor.sigstore.dev"}, Issuer: "bla", Subject: "bla"},
+						Keyless: &kyvernov1.KeylessAttestor{Rekor: &kyvernov1.Rekor{URL: "https://rekor.sigstore.dev"}, Issuer: "bla", Subject: "bla"},
 					}}},
 				},
 			},
