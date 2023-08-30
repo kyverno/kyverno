@@ -13,12 +13,20 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	controllerUtil "github.com/kyverno/kyverno/pkg/utils/controller"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+)
+
+const (
+	// Workers is the number of workers for this controller
+	maxRetries     = 10
+	mergeLimit     = 1000
+	enqueueDelay   = 30 * time.Second
 )
 
 type controller struct {
@@ -36,6 +44,10 @@ type controller struct {
 type ttlMetrics struct {
 	deletedObjectsTotal metric.Int64Counter
 	ttlFailureTotal     metric.Int64Counter
+}
+
+func keyFunc(obj metav1.Object) cache.ExplicitKey {
+	return cache.ExplicitKey(obj.GetNamespace())
 }
 
 func newController(client metadata.Getter, metainformer informers.GenericInformer, logger logr.Logger, gvr schema.GroupVersionResource) (*controller, error) {
@@ -56,6 +68,20 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 		logger.Error(err, "failed to register event handler")
 		return nil, err
 	}
+
+	controllerUtil.AddDelayedExplicitEventHandlers(logger, c.informer, c.queue, enqueueDelay, keyFunc)
+	enqueueFromTTL := func(obj metav1.Object) {
+		// no need to consider non aggregated reports
+		if controllerUtil.HasLabel(obj, kyverno.LabelCleanupTtl) {
+			c.queue.Add(keyFunc(obj))
+		}
+	}
+	controllerUtil.AddEventHandlersT(
+		c.informer,
+		func(obj metav1.Object) { enqueueFromTTL(obj) },
+		func(_, obj metav1.Object) { enqueueFromTTL(obj) },
+		func(obj metav1.Object) { enqueueFromTTL(obj) },
+	)
 	c.registration = registration
 	return c, nil
 }
@@ -95,13 +121,17 @@ func (c *controller) handleUpdate(oldObj, newObj interface{}) {
 }
 
 func (c *controller) Start(ctx context.Context, workers int) {
-	for i := 0; i < workers; i++ {
-		c.wg.StartWithContext(ctx, func(ctx context.Context) {
-			defer c.logger.V(3).Info("worker stopped")
-			c.logger.V(3).Info("worker starting ....")
-			wait.UntilWithContext(ctx, c.worker, 1*time.Second)
-		})
-	}
+	// for i := 0; i < workers; i++ {
+	// 	c.wg.StartWithContext(ctx, func(ctx context.Context) {
+	// 		defer c.logger.V(3).Info("worker stopped")
+	// 		c.logger.V(3).Info("worker starting ....")
+	// 		wait.UntilWithContext(ctx, c.worker, 1*time.Second)
+	// 	})
+	// }
+
+	controllerName := c.gvr.Group + c.gvr.Version + c.gvr.Resource
+
+	controllerUtil.Run(ctx, c.logger, controllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *controller) Stop() {
@@ -132,36 +162,36 @@ func (c *controller) deregisterEventHandlers() {
 	c.logger.V(3).Info("deregistered event handlers")
 }
 
-func (c *controller) worker(ctx context.Context) {
-	for {
-		if !c.processItem() {
-			// No more items in the queue, exit the loop
-			break
-		}
-	}
-}
+// func (c *controller) worker(ctx context.Context) {
+// 	for {
+// 		if !c.processItem() {
+// 			// No more items in the queue, exit the loop
+// 			break
+// 		}
+// 	}
+// }
 
-func (c *controller) processItem() bool {
-	item, shutdown := c.queue.Get()
-	if shutdown {
-		return false
-	}
-	// In any case we need to call Done
-	defer c.queue.Done(item)
-	err := c.reconcile(item.(string))
-	if err != nil {
-		c.logger.Error(err, "reconciliation failed")
-		c.queue.AddRateLimited(item)
-		return true
-	} else {
-		// If no error, we call Forget to reset the rate limiter
-		c.queue.Forget(item)
-	}
-	return true
-}
+// func (c *controller) processItem() bool {
+// 	item, shutdown := c.queue.Get()
+// 	if shutdown {
+// 		return false
+// 	}
+// 	// In any case we need to call Done
+// 	defer c.queue.Done(item)
+// 	logger := c.logger.WithValues("key", item.(string))
+// 	err := c.reconcile(context.Background(), logger, item.(string),)
+// 	if err != nil {
+// 		c.logger.Error(err, "reconciliation failed")
+// 		c.queue.AddRateLimited(item)
+// 		return true
+// 	} else {
+// 		// If no error, we call Forget to reset the rate limiter
+// 		c.queue.Forget(item)
+// 	}
+// 	return true
+// }
 
-func (c *controller) reconcile(itemKey string) error {
-	logger := c.logger.WithValues("key", itemKey)
+func (c *controller) reconcile(ctx context.Context, logger logr.Logger,  itemKey string, _, _ string ) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(itemKey)
 	if err != nil {
 		return err
