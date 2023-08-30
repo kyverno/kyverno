@@ -284,10 +284,6 @@ type Rekor struct {
 	// IgnoreTlog skip tlog verification
 	// +kubebuilder:validation:Optional
 	IgnoreTlog bool `json:"ignoreTlog,omitempty" yaml:"ignoreTlog,omitempty"`
-
-	// IgnoreSCT requires that a certificate contain an embedded SCT during verification.
-	// +kubebuilder:validation:Optional
-	IgnoreSCT bool `json:"ignoreSCT,omitempty" yaml:"ignoreSCT,omitempty"`
 }
 
 type CTLog struct {
@@ -308,16 +304,6 @@ type TUF struct {
 	// Mirror, is the url of the mirror repository from which files can be downloaded by cosign.
 	// +kubebuilder:validation:Required
 	Mirror string `json:"mirror,omitempty" yaml:"mirror,omitempty"`
-}
-
-type CTLog struct {
-	// IgnoreSCT requires that a certificate contain an embedded SCT during verification.
-	// +kubebuilder:validation:Optional
-	IgnoreSCT bool `json:"ignoreSCT,omitempty" yaml:"ignoreSCT,omitempty"`
-
-	// CTLogPubKey, if set, is used to validate SCTs against those keys.
-	// +kubebuilder:validation:Optional
-	CTLogPubKey string `json:"pubkey,omitempty" yaml:"pubkey,omitempty"`
 }
 
 // Attestation are checks for signed in-toto Statements that are used to verify the image.
