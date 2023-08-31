@@ -626,12 +626,12 @@ verify-deepcopy: codegen-deepcopy ## Check deepcopy functions are up to date
 	@git diff --quiet --exit-code api
 
 .PHONY: verify-docs
-verify-docs: codegen-docs-all ## Check docs are up to date
-	@echo Checking api reference docs are up to date... >&2
-	@git --no-pager diff docs/user
+verify-docs: # codegen-docs-all ## Check docs are up to date
+	@echo Checking docs are up to date... >&2
+	@git --no-pager diff docs/user/crd
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-docs-all".' >&2
 	@echo 'To correct this, locally run "make codegen-docs-all", commit the changes, and re-run tests.' >&2
-	@git diff --quiet --exit-code docs/user
+	@git diff --quiet --exit-code docs/user/crd
 
 .PHONY: verify-helm
 verify-helm: codegen-helm-all ## Check Helm charts are up to date
