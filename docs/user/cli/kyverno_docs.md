@@ -9,10 +9,10 @@ kyverno docs [flags]
 ### Options
 
 ```
-      --autogenTag true   Determines if the generated docs should contain a timestamp (defaults to true) (default true)
-  -h, --help              help for docs
-  -o, --output string     Output path (default ".")
-      --website           Website version
+      --autogenTag      Determines if the generated docs should contain a timestamp (default true)
+  -h, --help            help for docs
+  -o, --output string   Output path (default ".")
+      --website         Website version
 ```
 
 ### Options inherited from parent commands
