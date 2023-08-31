@@ -1,0 +1,12 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-label-app
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready
+  validatingadmissionpolicy:
+    generated: false
+  

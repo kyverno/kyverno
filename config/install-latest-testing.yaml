@@ -12878,6 +12878,23 @@ spec:
                 - validate
                 - verifyimages
                 type: object
+              validatingadmissionpolicy:
+                description: ValidatingAdmissionPolicy contains status information
+                properties:
+                  generated:
+                    description: Generated indicates whether a validating admission
+                      policy is generated from the policy or not
+                    type: boolean
+                  message:
+                    description: Message is a human readable message indicating details
+                      about the generation of validating admission policy It is an
+                      empty string when validating admission policy is successfully
+                      generated.
+                    type: string
+                required:
+                - generated
+                - message
+                type: object
             required:
             - ready
             type: object
@@ -21453,6 +21470,23 @@ spec:
                 - mutate
                 - validate
                 - verifyimages
+                type: object
+              validatingadmissionpolicy:
+                description: ValidatingAdmissionPolicy contains status information
+                properties:
+                  generated:
+                    description: Generated indicates whether a validating admission
+                      policy is generated from the policy or not
+                    type: boolean
+                  message:
+                    description: Message is a human readable message indicating details
+                      about the generation of validating admission policy It is an
+                      empty string when validating admission policy is successfully
+                      generated.
+                    type: string
+                required:
+                - generated
+                - message
                 type: object
             required:
             - ready
@@ -30331,6 +30365,23 @@ spec:
                 - validate
                 - verifyimages
                 type: object
+              validatingadmissionpolicy:
+                description: ValidatingAdmissionPolicy contains status information
+                properties:
+                  generated:
+                    description: Generated indicates whether a validating admission
+                      policy is generated from the policy or not
+                    type: boolean
+                  message:
+                    description: Message is a human readable message indicating details
+                      about the generation of validating admission policy It is an
+                      empty string when validating admission policy is successfully
+                      generated.
+                    type: string
+                required:
+                - generated
+                - message
+                type: object
             required:
             - ready
             type: object
@@ -38908,6 +38959,23 @@ spec:
                 - validate
                 - verifyimages
                 type: object
+              validatingadmissionpolicy:
+                description: ValidatingAdmissionPolicy contains status information
+                properties:
+                  generated:
+                    description: Generated indicates whether a validating admission
+                      policy is generated from the policy or not
+                    type: boolean
+                  message:
+                    description: Message is a human readable message indicating details
+                      about the generation of validating admission policy It is an
+                      empty string when validating admission policy is successfully
+                      generated.
+                    type: string
+                required:
+                - generated
+                - message
+                type: object
             required:
             - ready
             type: object
@@ -41763,6 +41831,7 @@ spec:
             - --enableDeferredLoading=true
             - --dumpPayload=false
             - --forceFailurePolicyIgnore=false
+            - --generateValidatingAdmissionPolicy=false
             - --loggingFormat=text
             - --v=2
             - --enablePolicyException=false

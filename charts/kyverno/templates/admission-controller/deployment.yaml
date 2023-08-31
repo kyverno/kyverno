@@ -160,6 +160,7 @@ spec:
               "deferredLoading"
               "dumpPayload"
               "forceFailurePolicyIgnore"
+              "generateValidatingAdmissionPolicy"
               "logging"
               "omitEvents"
               "policyExceptions"
