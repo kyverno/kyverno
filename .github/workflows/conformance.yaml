@@ -24,7 +24,10 @@ jobs:
         with:
           build-cache-key: build-images
       - name: ko build
-        run: VERSION=${{ github.ref_name }} make docker-save-image-all
+        shell: bash
+        run: |
+          set -e
+          VERSION=${{ github.ref_name }} make docker-save-image-all
       - name: upload images archive
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
@@ -85,7 +88,9 @@ jobs:
         with:
           build-cache-key: run-conformance
       - name: Create kind cluster
+        shell: bash
         run: |
+          set -e
           export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
           make kind-create-cluster
       - name: Download kyverno images archive
@@ -93,23 +98,28 @@ jobs:
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
-        run: make kind-load-image-archive
-      - name: Install kyverno
+        shell: bash
         run: |
+          set -e
+          make kind-load-image-archive
+      - name: Install kyverno
+        shell: bash
+        run: |
+          set -e
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Test with kuttl
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ./.tools/kubectl-kuttl test ./test/conformance/kuttl/${{ matrix.tests }} \
-            --config ./test/conformance/kuttl/_config/common.yaml
+          set -e
+          ./.tools/kubectl-kuttl test ./test/conformance/kuttl/${{ matrix.tests }} --config ./test/conformance/kuttl/_config/common.yaml
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
-
 
   # runs conformance test suites with configuration:
   ttl:
@@ -146,7 +156,9 @@ jobs:
         with:
           build-cache-key: run-conformance
       - name: Create kind cluster
+        shell: bash
         run: |
+          set -e
           export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
           make kind-create-cluster
       - name: Download kyverno images archive
@@ -154,19 +166,25 @@ jobs:
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
-        run: make kind-load-image-archive
-      - name: Install kyverno
+        shell: bash
         run: |
+          set -e
+          make kind-load-image-archive
+      - name: Install kyverno
+        shell: bash
+        run: |
+          set -e
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Test with kuttl
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ./.tools/kubectl-kuttl test ./test/conformance/kuttl/${{ matrix.tests }} \
-            --config ./test/conformance/kuttl/_config/common.yaml
+          set -e
+          ./.tools/kubectl-kuttl test ./test/conformance/kuttl/${{ matrix.tests }} --config ./test/conformance/kuttl/_config/common.yaml
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
@@ -207,7 +225,9 @@ jobs:
         with:
           build-cache-key: run-conformance
       - name: Create kind cluster
+        shell: bash
         run: |
+          set -e
           export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
           make kind-create-cluster
       - name: Download kyverno images archive
@@ -215,19 +235,25 @@ jobs:
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
-        run: make kind-load-image-archive
-      - name: Install kyverno
+        shell: bash
         run: |
+          set -e
+          make kind-load-image-archive
+      - name: Install kyverno
+        shell: bash
+        run: |
+          set -e
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Test with kuttl
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ./.tools/kubectl-kuttl test ./test/conformance/kuttl/${{ matrix.tests }} \
-            --config ./test/conformance/kuttl/_config/common.yaml
+          set -e
+          ./.tools/kubectl-kuttl test ./test/conformance/kuttl/${{ matrix.tests }} --config ./test/conformance/kuttl/_config/common.yaml
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
@@ -266,7 +292,9 @@ jobs:
         with:
           build-cache-key: run-conformance
       - name: Create kind cluster
+        shell: bash
         run: |
+          set -e
           export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
           make kind-create-cluster
       - name: Download kyverno images archive
@@ -274,19 +302,25 @@ jobs:
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
-        run: make kind-load-image-archive
-      - name: Install kyverno
+        shell: bash
         run: |
+          set -e
+          make kind-load-image-archive
+      - name: Install kyverno
+        shell: bash
+        run: |
+          set -e
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Test with kuttl
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ./.tools/kubectl-kuttl test ./test/conformance/kuttl/${{ matrix.tests }} \
-            --config ./test/conformance/kuttl/_config/common.yaml
+          set -e
+          ./.tools/kubectl-kuttl test ./test/conformance/kuttl/${{ matrix.tests }}  --config ./test/conformance/kuttl/_config/common.yaml
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
@@ -358,7 +392,9 @@ jobs:
         with:
           build-cache-key: run-conformance
       - name: Create kind cluster
+        shell: bash
         run: |
+          set -e
           export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
           make kind-create-cluster
       - name: Download kyverno images archive
@@ -366,23 +402,75 @@ jobs:
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
-        run: make kind-load-image-archive
-      - name: Install kyverno
+        shell: bash
         run: |
+          set -e
+          make kind-load-image-archive
+      - name: Install kyverno
+        shell: bash
+        run: |
+          set -e
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Build Kyverno CLI
+        shell: bash
         run: |
           set -e
           make build-cli
           ln -s $PWD/cmd/cli/kubectl-kyverno/kubectl-kyverno ./cmd/cli/kubectl-kyverno/kyverno
           echo "$PWD/cmd/cli/kubectl-kyverno" >> $GITHUB_PATH
       - name: Test policy library with kuttl
+        shell: bash
         run: |
+          set -e
           cd policies
           ../.tools/kubectl-kuttl test ./${{ matrix.tests }} --config ./kuttl-test.yaml
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
+
+  monitor-helm-secret-size:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    needs: prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        timeout-minutes: 10
+        with:
+          build-cache-key: run-conformance
+      - name: Create kind cluster
+        shell: bash
+        run: |
+          set -e
+          make kind-create-cluster
+      - name: Download kyverno images archive
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: kyverno.tar
+      - name: Load kyverno images archive in kind cluster
+        shell: bash
+        run: |
+          set -e
+          make kind-load-image-archive
+      - name: Install kyverno
+        shell: bash
+        run: |
+          make kind-install-kyverno
+      - name: Wait for kyverno ready
+        uses: ./.github/actions/kyverno-wait-ready
+      - name: Check secret size
+        shell: bash
+        run: |
+          set -e
+          SIZE=$(kubectl get secrets -n kyverno sh.helm.release.v1.kyverno.v1 -o jsonpath='{.data.release}' | base64 -D | wc -c | awk '{print $1}')
+          MAX_ALLOWED=102000
+          if [ "$SIZE" -gt "$MAX_ALLOWEDb" ]; then
+            echo "Helm secret size ($SIZE bytes) is greater than the max allowed ($MAX_ALLOWED bytes)"
+            exit 1
+          fi
