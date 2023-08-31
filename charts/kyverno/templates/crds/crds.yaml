@@ -7305,16 +7305,12 @@ spec:
                           additionalExtensions:
                             additionalProperties:
                               type: string
-                            description: AdditionalExtensions are certificate-extensions
-                              used for keyless signing. Deprecated.
+                            description: Deprecated.
                             type: object
                           annotations:
                             additionalProperties:
                               type: string
-                            description: Annotations are used for image verification.
-                              Every specified key-value pair must exist and match
-                              in the verified payload. The payload may contain other
-                              key-value pairs. Deprecated. Use annotations per Attestor
+                            description: Deprecated. Use annotations per Attestor
                               instead.
                             type: object
                           attestations:
@@ -7737,9 +7733,8 @@ spec:
                                     type: object
                                   type: array
                                 predicateType:
-                                  description: PredicateType defines the type of Predicate
-                                    contained within the Statement. Deprecated in
-                                    favour of 'Type', to be removed soon
+                                  description: Deprecated in favour of 'Type', to
+                                    be removed soon
                                   type: string
                                 type:
                                   description: Type defines the type of attestation
@@ -8016,10 +8011,7 @@ spec:
                               type: object
                             type: array
                           image:
-                            description: 'Image is the image name consisting of the
-                              registry address, repository, image, and tag. Wildcards
-                              (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
-                              Deprecated. Use ImageReferences instead.'
+                            description: Deprecated. Use ImageReferences instead.
                             type: string
                           imageReferences:
                             description: 'ImageReferences is a list of matching image
@@ -8065,13 +8057,10 @@ spec:
                                 type: array
                             type: object
                           issuer:
-                            description: Issuer is the certificate issuer used for
-                              keyless signing. Deprecated. Use KeylessAttestor instead.
+                            description: Deprecated. Use KeylessAttestor instead.
                             type: string
                           key:
-                            description: Key is the PEM encoded public key that the
-                              image or attestation is signed with. Deprecated. Use
-                              StaticKeyAttestor instead.
+                            description: Deprecated. Use StaticKeyAttestor instead.
                             type: string
                           mutateDigest:
                             default: true
@@ -8093,14 +8082,10 @@ spec:
                               check.
                             type: boolean
                           roots:
-                            description: Roots is the PEM encoded Root certificate
-                              chain used for keyless signing Deprecated. Use KeylessAttestor
-                              instead.
+                            description: Deprecated. Use KeylessAttestor instead.
                             type: string
                           subject:
-                            description: Subject is the identity used for keyless
-                              signing, for example an email address Deprecated. Use
-                              KeylessAttestor instead.
+                            description: Deprecated. Use KeylessAttestor instead.
                             type: string
                           type:
                             description: Type specifies the method of signature validation.
@@ -8232,7 +8217,7 @@ spec:
             description: Status contains policy runtime data.
             properties:
               autogen:
-                description: Autogen contains autogen status information
+                description: AutogenStatus contains autogen status information.
                 properties:
                   rules:
                     description: Rules is a list of Rule instances. It contains auto
@@ -11752,17 +11737,13 @@ spec:
                               additionalExtensions:
                                 additionalProperties:
                                   type: string
-                                description: AdditionalExtensions are certificate-extensions
-                                  used for keyless signing. Deprecated.
+                                description: Deprecated.
                                 type: object
                               annotations:
                                 additionalProperties:
                                   type: string
-                                description: Annotations are used for image verification.
-                                  Every specified key-value pair must exist and match
-                                  in the verified payload. The payload may contain
-                                  other key-value pairs. Deprecated. Use annotations
-                                  per Attestor instead.
+                                description: Deprecated. Use annotations per Attestor
+                                  instead.
                                 type: object
                               attestations:
                                 description: Attestations are optional checks for
@@ -12211,10 +12192,8 @@ spec:
                                         type: object
                                       type: array
                                     predicateType:
-                                      description: PredicateType defines the type
-                                        of Predicate contained within the Statement.
-                                        Deprecated in favour of 'Type', to be removed
-                                        soon
+                                      description: Deprecated in favour of 'Type',
+                                        to be removed soon
                                       type: string
                                     type:
                                       description: Type defines the type of attestation
@@ -12501,10 +12480,7 @@ spec:
                                   type: object
                                 type: array
                               image:
-                                description: 'Image is the image name consisting of
-                                  the registry address, repository, image, and tag.
-                                  Wildcards (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
-                                  Deprecated. Use ImageReferences instead.'
+                                description: Deprecated. Use ImageReferences instead.
                                 type: string
                               imageReferences:
                                 description: 'ImageReferences is a list of matching
@@ -12551,14 +12527,10 @@ spec:
                                     type: array
                                 type: object
                               issuer:
-                                description: Issuer is the certificate issuer used
-                                  for keyless signing. Deprecated. Use KeylessAttestor
-                                  instead.
+                                description: Deprecated. Use KeylessAttestor instead.
                                 type: string
                               key:
-                                description: Key is the PEM encoded public key that
-                                  the image or attestation is signed with. Deprecated.
-                                  Use StaticKeyAttestor instead.
+                                description: Deprecated. Use StaticKeyAttestor instead.
                                 type: string
                               mutateDigest:
                                 default: true
@@ -12580,14 +12552,10 @@ spec:
                                   check.
                                 type: boolean
                               roots:
-                                description: Roots is the PEM encoded Root certificate
-                                  chain used for keyless signing Deprecated. Use KeylessAttestor
-                                  instead.
+                                description: Deprecated. Use KeylessAttestor instead.
                                 type: string
                               subject:
-                                description: Subject is the identity used for keyless
-                                  signing, for example an email address Deprecated.
-                                  Use KeylessAttestor instead.
+                                description: Deprecated. Use KeylessAttestor instead.
                                 type: string
                               type:
                                 description: Type specifies the method of signature
@@ -12615,8 +12583,6 @@ spec:
                     type: array
                 type: object
               conditions:
-                description: Conditions is a list of conditions that apply to the
-                  policy
                 items:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
@@ -12685,11 +12651,11 @@ spec:
                   type: object
                 type: array
               ready:
-                description: Ready indicates if the policy is ready to serve the admission
-                  request. Deprecated in favor of Conditions
+                description: Deprecated in favor of Conditions
                 type: boolean
               rulecount:
-                description: RuleCount describes total number of rules in a policy
+                description: RuleCountStatus contains four variables which describes
+                  counts for validate, generate, mutate and verify images rules
                 properties:
                   generate:
                     description: Count for generate rules in policy
@@ -16375,9 +16341,8 @@ spec:
                                     type: object
                                   type: array
                                 predicateType:
-                                  description: PredicateType defines the type of Predicate
-                                    contained within the Statement. Deprecated in
-                                    favour of 'Type', to be removed soon
+                                  description: Deprecated in favour of 'Type', to
+                                    be removed soon
                                   type: string
                                 type:
                                   description: Type defines the type of attestation
@@ -16845,7 +16810,7 @@ spec:
             description: Status contains policy runtime data.
             properties:
               autogen:
-                description: Autogen contains autogen status information
+                description: AutogenStatus contains autogen status information.
                 properties:
                   rules:
                     description: Rules is a list of Rule instances. It contains auto
@@ -20365,17 +20330,13 @@ spec:
                               additionalExtensions:
                                 additionalProperties:
                                   type: string
-                                description: AdditionalExtensions are certificate-extensions
-                                  used for keyless signing. Deprecated.
+                                description: Deprecated.
                                 type: object
                               annotations:
                                 additionalProperties:
                                   type: string
-                                description: Annotations are used for image verification.
-                                  Every specified key-value pair must exist and match
-                                  in the verified payload. The payload may contain
-                                  other key-value pairs. Deprecated. Use annotations
-                                  per Attestor instead.
+                                description: Deprecated. Use annotations per Attestor
+                                  instead.
                                 type: object
                               attestations:
                                 description: Attestations are optional checks for
@@ -20824,10 +20785,8 @@ spec:
                                         type: object
                                       type: array
                                     predicateType:
-                                      description: PredicateType defines the type
-                                        of Predicate contained within the Statement.
-                                        Deprecated in favour of 'Type', to be removed
-                                        soon
+                                      description: Deprecated in favour of 'Type',
+                                        to be removed soon
                                       type: string
                                     type:
                                       description: Type defines the type of attestation
@@ -21114,10 +21073,7 @@ spec:
                                   type: object
                                 type: array
                               image:
-                                description: 'Image is the image name consisting of
-                                  the registry address, repository, image, and tag.
-                                  Wildcards (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
-                                  Deprecated. Use ImageReferences instead.'
+                                description: Deprecated. Use ImageReferences instead.
                                 type: string
                               imageReferences:
                                 description: 'ImageReferences is a list of matching
@@ -21164,14 +21120,10 @@ spec:
                                     type: array
                                 type: object
                               issuer:
-                                description: Issuer is the certificate issuer used
-                                  for keyless signing. Deprecated. Use KeylessAttestor
-                                  instead.
+                                description: Deprecated. Use KeylessAttestor instead.
                                 type: string
                               key:
-                                description: Key is the PEM encoded public key that
-                                  the image or attestation is signed with. Deprecated.
-                                  Use StaticKeyAttestor instead.
+                                description: Deprecated. Use StaticKeyAttestor instead.
                                 type: string
                               mutateDigest:
                                 default: true
@@ -21193,14 +21145,10 @@ spec:
                                   check.
                                 type: boolean
                               roots:
-                                description: Roots is the PEM encoded Root certificate
-                                  chain used for keyless signing Deprecated. Use KeylessAttestor
-                                  instead.
+                                description: Deprecated. Use KeylessAttestor instead.
                                 type: string
                               subject:
-                                description: Subject is the identity used for keyless
-                                  signing, for example an email address Deprecated.
-                                  Use KeylessAttestor instead.
+                                description: Deprecated. Use KeylessAttestor instead.
                                 type: string
                               type:
                                 description: Type specifies the method of signature
@@ -21228,8 +21176,6 @@ spec:
                     type: array
                 type: object
               conditions:
-                description: Conditions is a list of conditions that apply to the
-                  policy
                 items:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
@@ -21298,11 +21244,11 @@ spec:
                   type: object
                 type: array
               ready:
-                description: Ready indicates if the policy is ready to serve the admission
-                  request. Deprecated in favor of Conditions
+                description: Deprecated in favor of Conditions
                 type: boolean
               rulecount:
-                description: RuleCount describes total number of rules in a policy
+                description: RuleCountStatus contains four variables which describes
+                  counts for validate, generate, mutate and verify images rules
                 properties:
                   generate:
                     description: Count for generate rules in policy
@@ -24845,16 +24791,12 @@ spec:
                           additionalExtensions:
                             additionalProperties:
                               type: string
-                            description: AdditionalExtensions are certificate-extensions
-                              used for keyless signing. Deprecated.
+                            description: Deprecated.
                             type: object
                           annotations:
                             additionalProperties:
                               type: string
-                            description: Annotations are used for image verification.
-                              Every specified key-value pair must exist and match
-                              in the verified payload. The payload may contain other
-                              key-value pairs. Deprecated. Use annotations per Attestor
+                            description: Deprecated. Use annotations per Attestor
                               instead.
                             type: object
                           attestations:
@@ -25277,9 +25219,8 @@ spec:
                                     type: object
                                   type: array
                                 predicateType:
-                                  description: PredicateType defines the type of Predicate
-                                    contained within the Statement. Deprecated in
-                                    favour of 'Type', to be removed soon
+                                  description: Deprecated in favour of 'Type', to
+                                    be removed soon
                                   type: string
                                 type:
                                   description: Type defines the type of attestation
@@ -25556,10 +25497,7 @@ spec:
                               type: object
                             type: array
                           image:
-                            description: 'Image is the image name consisting of the
-                              registry address, repository, image, and tag. Wildcards
-                              (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
-                              Deprecated. Use ImageReferences instead.'
+                            description: Deprecated. Use ImageReferences instead.
                             type: string
                           imageReferences:
                             description: 'ImageReferences is a list of matching image
@@ -25605,13 +25543,10 @@ spec:
                                 type: array
                             type: object
                           issuer:
-                            description: Issuer is the certificate issuer used for
-                              keyless signing. Deprecated. Use KeylessAttestor instead.
+                            description: Deprecated. Use KeylessAttestor instead.
                             type: string
                           key:
-                            description: Key is the PEM encoded public key that the
-                              image or attestation is signed with. Deprecated. Use
-                              StaticKeyAttestor instead.
+                            description: Deprecated. Use StaticKeyAttestor instead.
                             type: string
                           mutateDigest:
                             default: true
@@ -25633,14 +25568,10 @@ spec:
                               check.
                             type: boolean
                           roots:
-                            description: Roots is the PEM encoded Root certificate
-                              chain used for keyless signing Deprecated. Use KeylessAttestor
-                              instead.
+                            description: Deprecated. Use KeylessAttestor instead.
                             type: string
                           subject:
-                            description: Subject is the identity used for keyless
-                              signing, for example an email address Deprecated. Use
-                              KeylessAttestor instead.
+                            description: Deprecated. Use KeylessAttestor instead.
                             type: string
                           type:
                             description: Type specifies the method of signature validation.
@@ -25769,11 +25700,11 @@ spec:
                 type: integer
             type: object
           status:
-            description: Status contains policy runtime information. Deprecated. Policy
-              metrics are available via the metrics endpoint
+            description: Deprecated. Policy metrics are available via the metrics
+              endpoint
             properties:
               autogen:
-                description: Autogen contains autogen status information
+                description: AutogenStatus contains autogen status information.
                 properties:
                   rules:
                     description: Rules is a list of Rule instances. It contains auto
@@ -29293,17 +29224,13 @@ spec:
                               additionalExtensions:
                                 additionalProperties:
                                   type: string
-                                description: AdditionalExtensions are certificate-extensions
-                                  used for keyless signing. Deprecated.
+                                description: Deprecated.
                                 type: object
                               annotations:
                                 additionalProperties:
                                   type: string
-                                description: Annotations are used for image verification.
-                                  Every specified key-value pair must exist and match
-                                  in the verified payload. The payload may contain
-                                  other key-value pairs. Deprecated. Use annotations
-                                  per Attestor instead.
+                                description: Deprecated. Use annotations per Attestor
+                                  instead.
                                 type: object
                               attestations:
                                 description: Attestations are optional checks for
@@ -29752,10 +29679,8 @@ spec:
                                         type: object
                                       type: array
                                     predicateType:
-                                      description: PredicateType defines the type
-                                        of Predicate contained within the Statement.
-                                        Deprecated in favour of 'Type', to be removed
-                                        soon
+                                      description: Deprecated in favour of 'Type',
+                                        to be removed soon
                                       type: string
                                     type:
                                       description: Type defines the type of attestation
@@ -30042,10 +29967,7 @@ spec:
                                   type: object
                                 type: array
                               image:
-                                description: 'Image is the image name consisting of
-                                  the registry address, repository, image, and tag.
-                                  Wildcards (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
-                                  Deprecated. Use ImageReferences instead.'
+                                description: Deprecated. Use ImageReferences instead.
                                 type: string
                               imageReferences:
                                 description: 'ImageReferences is a list of matching
@@ -30092,14 +30014,10 @@ spec:
                                     type: array
                                 type: object
                               issuer:
-                                description: Issuer is the certificate issuer used
-                                  for keyless signing. Deprecated. Use KeylessAttestor
-                                  instead.
+                                description: Deprecated. Use KeylessAttestor instead.
                                 type: string
                               key:
-                                description: Key is the PEM encoded public key that
-                                  the image or attestation is signed with. Deprecated.
-                                  Use StaticKeyAttestor instead.
+                                description: Deprecated. Use StaticKeyAttestor instead.
                                 type: string
                               mutateDigest:
                                 default: true
@@ -30121,14 +30039,10 @@ spec:
                                   check.
                                 type: boolean
                               roots:
-                                description: Roots is the PEM encoded Root certificate
-                                  chain used for keyless signing Deprecated. Use KeylessAttestor
-                                  instead.
+                                description: Deprecated. Use KeylessAttestor instead.
                                 type: string
                               subject:
-                                description: Subject is the identity used for keyless
-                                  signing, for example an email address Deprecated.
-                                  Use KeylessAttestor instead.
+                                description: Deprecated. Use KeylessAttestor instead.
                                 type: string
                               type:
                                 description: Type specifies the method of signature
@@ -30156,8 +30070,6 @@ spec:
                     type: array
                 type: object
               conditions:
-                description: Conditions is a list of conditions that apply to the
-                  policy
                 items:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
@@ -30226,11 +30138,11 @@ spec:
                   type: object
                 type: array
               ready:
-                description: Ready indicates if the policy is ready to serve the admission
-                  request. Deprecated in favor of Conditions
+                description: Deprecated in favor of Conditions
                 type: boolean
               rulecount:
-                description: RuleCount describes total number of rules in a policy
+                description: RuleCountStatus contains four variables which describes
+                  counts for validate, generate, mutate and verify images rules
                 properties:
                   generate:
                     description: Count for generate rules in policy
@@ -33917,9 +33829,8 @@ spec:
                                     type: object
                                   type: array
                                 predicateType:
-                                  description: PredicateType defines the type of Predicate
-                                    contained within the Statement. Deprecated in
-                                    favour of 'Type', to be removed soon
+                                  description: Deprecated in favour of 'Type', to
+                                    be removed soon
                                   type: string
                                 type:
                                   description: Type defines the type of attestation
@@ -34387,7 +34298,7 @@ spec:
             description: Status contains policy runtime data.
             properties:
               autogen:
-                description: Autogen contains autogen status information
+                description: AutogenStatus contains autogen status information.
                 properties:
                   rules:
                     description: Rules is a list of Rule instances. It contains auto
@@ -37907,17 +37818,13 @@ spec:
                               additionalExtensions:
                                 additionalProperties:
                                   type: string
-                                description: AdditionalExtensions are certificate-extensions
-                                  used for keyless signing. Deprecated.
+                                description: Deprecated.
                                 type: object
                               annotations:
                                 additionalProperties:
                                   type: string
-                                description: Annotations are used for image verification.
-                                  Every specified key-value pair must exist and match
-                                  in the verified payload. The payload may contain
-                                  other key-value pairs. Deprecated. Use annotations
-                                  per Attestor instead.
+                                description: Deprecated. Use annotations per Attestor
+                                  instead.
                                 type: object
                               attestations:
                                 description: Attestations are optional checks for
@@ -38366,10 +38273,8 @@ spec:
                                         type: object
                                       type: array
                                     predicateType:
-                                      description: PredicateType defines the type
-                                        of Predicate contained within the Statement.
-                                        Deprecated in favour of 'Type', to be removed
-                                        soon
+                                      description: Deprecated in favour of 'Type',
+                                        to be removed soon
                                       type: string
                                     type:
                                       description: Type defines the type of attestation
@@ -38656,10 +38561,7 @@ spec:
                                   type: object
                                 type: array
                               image:
-                                description: 'Image is the image name consisting of
-                                  the registry address, repository, image, and tag.
-                                  Wildcards (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
-                                  Deprecated. Use ImageReferences instead.'
+                                description: Deprecated. Use ImageReferences instead.
                                 type: string
                               imageReferences:
                                 description: 'ImageReferences is a list of matching
@@ -38706,14 +38608,10 @@ spec:
                                     type: array
                                 type: object
                               issuer:
-                                description: Issuer is the certificate issuer used
-                                  for keyless signing. Deprecated. Use KeylessAttestor
-                                  instead.
+                                description: Deprecated. Use KeylessAttestor instead.
                                 type: string
                               key:
-                                description: Key is the PEM encoded public key that
-                                  the image or attestation is signed with. Deprecated.
-                                  Use StaticKeyAttestor instead.
+                                description: Deprecated. Use StaticKeyAttestor instead.
                                 type: string
                               mutateDigest:
                                 default: true
@@ -38735,14 +38633,10 @@ spec:
                                   check.
                                 type: boolean
                               roots:
-                                description: Roots is the PEM encoded Root certificate
-                                  chain used for keyless signing Deprecated. Use KeylessAttestor
-                                  instead.
+                                description: Deprecated. Use KeylessAttestor instead.
                                 type: string
                               subject:
-                                description: Subject is the identity used for keyless
-                                  signing, for example an email address Deprecated.
-                                  Use KeylessAttestor instead.
+                                description: Deprecated. Use KeylessAttestor instead.
                                 type: string
                               type:
                                 description: Type specifies the method of signature
@@ -38770,8 +38664,6 @@ spec:
                     type: array
                 type: object
               conditions:
-                description: Conditions is a list of conditions that apply to the
-                  policy
                 items:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
@@ -38840,11 +38732,11 @@ spec:
                   type: object
                 type: array
               ready:
-                description: Ready indicates if the policy is ready to serve the admission
-                  request. Deprecated in favor of Conditions
+                description: Deprecated in favor of Conditions
                 type: boolean
               rulecount:
-                description: RuleCount describes total number of rules in a policy
+                description: RuleCountStatus contains four variables which describes
+                  counts for validate, generate, mutate and verify images rules
                 properties:
                   generate:
                     description: Count for generate rules in policy
@@ -39803,8 +39695,7 @@ spec:
                   type: object
                 type: array
               handler:
-                description: Handler represents the instance ID that handles the UR
-                  Deprecated
+                description: Deprecated
                 type: string
               message:
                 description: Specifies request status message.

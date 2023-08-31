@@ -4,6 +4,7 @@
 
 ### Note
 
+- Remove description from deprecated fields in CRDs
 - Remove CLI `kyverno test manifest ...` commands (replaced by `kyverno create ...`).
 - Added `--caSecretName` and `--tlsSecretName` flags to control names of certificate related secrets.
 - Added match conditions support in kyverno config map.
