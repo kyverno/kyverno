@@ -516,7 +516,7 @@ codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API 
 codegen-cli-docs: $(CLI_BIN) ## Generate CLI docs
 	@echo Generate cli docs... >&2
 	@rm -rf docs/user/cli && mkdir -p docs/user/cli
-	@$(CLI_BIN) docs -o docs/user/cli
+	@$(CLI_BIN) docs -o docs/user/cli --autogenTag=false
 
 .PHONY: codegen-docs-all
 codegen-docs-all: codegen-helm-docs codegen-cli-docs codegen-api-docs  ## Generate all docs
@@ -626,12 +626,12 @@ verify-deepcopy: codegen-deepcopy ## Check deepcopy functions are up to date
 	@git diff --quiet --exit-code api
 
 .PHONY: verify-docs
-verify-docs: # codegen-docs-all ## Check docs are up to date
+verify-docs: codegen-docs-all ## Check docs are up to date
 	@echo Checking docs are up to date... >&2
-	@git --no-pager diff docs/user/crd
+	@git --no-pager diff docs/user
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-docs-all".' >&2
 	@echo 'To correct this, locally run "make codegen-docs-all", commit the changes, and re-run tests.' >&2
-	@git diff --quiet --exit-code docs/user/crd
+	@git diff --quiet --exit-code docs/user
 
 .PHONY: verify-helm
 verify-helm: codegen-helm-all ## Check Helm charts are up to date
