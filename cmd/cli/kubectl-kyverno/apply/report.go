@@ -7,6 +7,7 @@ import (
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	annotationsutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/annotations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	corev1 "k8s.io/api/core/v1"
@@ -61,7 +62,9 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 		policy := engineResponse.Policy()
 		policyName := policy.GetName()
 		policyNamespace := policy.GetNamespace()
-		ann := policy.GetAnnotations()
+		scored := annotationsutils.Scored(policy.GetAnnotations())
+		category := annotationsutils.Category(policy.GetAnnotations())
+		severity := annotationsutils.Severity(policy.GetAnnotations())
 
 		var appname string
 		if policyNamespace != "" {
@@ -87,8 +90,8 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 					},
 				},
 				Scored:   true,
-				Category: ann[kyverno.AnnotationPolicyCategory],
-				Severity: reportutils.SeverityFromString(ann[kyverno.AnnotationPolicySeverity]),
+				Category: category,
+				Severity: severity,
 			}
 
 			if ruleResponse.Status() == engineapi.RuleStatusSkip {
@@ -98,7 +101,7 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 			} else if ruleResponse.Status() == engineapi.RuleStatusPass {
 				result.Result = policyreportv1alpha2.StatusPass
 			} else if ruleResponse.Status() == engineapi.RuleStatusFail {
-				if scored, ok := ann[kyverno.AnnotationPolicyScored]; ok && scored == "false" {
+				if !scored {
 					result.Result = policyreportv1alpha2.StatusWarn
 				} else if auditWarn && engineResponse.GetValidationFailureAction().Audit() {
 					result.Result = policyreportv1alpha2.StatusWarn
@@ -108,7 +111,6 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 			} else {
 				fmt.Println(ruleResponse)
 			}
-
 			if policy.GetType() == engineapi.KyvernoPolicyType {
 				result.Rule = ruleResponse.Name()
 			}
