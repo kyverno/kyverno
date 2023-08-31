@@ -728,7 +728,6 @@ test-cli-registry: $(CLI_BIN)
 test-cli-scenarios-to-cli: $(CLI_BIN)
 	@$(CLI_BIN) test ./test/cli/scenarios_to_cli --registry
 
-
 #############
 # HELM TEST #
 #############
