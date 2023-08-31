@@ -2,4 +2,4 @@ apiVersion: rules.example.com/v1
 kind: NamespaceConstraint
 metadata:
   name: "namespace-constraint-test.example.com"
-name: "production-ns"
+name: "production-ns-01"
