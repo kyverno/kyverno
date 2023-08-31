@@ -45,13 +45,18 @@ func (h validateCELHandler) Process(
 		logger.V(3).Info("skipping CEL validation on deleted resource")
 		return resource, nil
 	}
+	// check if a corresponding validating admission policy is generated
+	vapStatus := policyContext.Policy().GetStatus().ValidatingAdmissionPolicy
+	if vapStatus.Generated {
+		logger.V(3).Info("skipping CEL validation due to the generation of its corresponding validating admission policy")
+		return resource, nil
+	}
 
 	// get resource's name, namespace, GroupVersionResource, and GroupVersionKind
 	gvr := schema.GroupVersionResource(policyContext.RequestResource())
 	gvk := resource.GroupVersionKind()
 	namespaceName := resource.GetNamespace()
 	resourceName := resource.GetName()
-
 	object := resource.DeepCopyObject()
 	// in case of update request, set the oldObject to the current resource before it gets updated
 	var oldObject runtime.Object
