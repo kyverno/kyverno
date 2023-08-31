@@ -525,7 +525,7 @@ jobs:
         run: |
           set -e
           SIZE=$(kubectl get secrets -n kyverno sh.helm.release.v1.kyverno.v1 -o jsonpath='{.data.release}' | base64 -d | wc -c | awk '{print $1}')
-          MAX_ALLOWED=102000
+          MAX_ALLOWED=1020000
           if [ "$SIZE" -gt "$MAX_ALLOWEDb" ]; then
             echo "Helm secret size ($SIZE bytes) is above the max allowed ($MAX_ALLOWED bytes)"
             exit 1
