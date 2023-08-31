@@ -433,39 +433,38 @@ func buildPolicyResults(
 					if _, ok := results[resultsKey]; !ok {
 						results[resultsKey] = result
 					}
-				}
-			}
+					for _, rule := range resp.PolicyResponse.Rules {
+						if rule.RuleType() != engineapi.Generation || test.Rule != rule.Name() {
+							continue
+						}
 
-			for _, rule := range resp.PolicyResponse.Rules {
-				if rule.RuleType() != engineapi.Generation || test.Rule != rule.Name() {
-					continue
-				}
+						var resultsKey []string
+						var resultKey string
+						var result policyreportv1alpha2.PolicyReportResult
+						resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.Name(), resourceNamespace, resourceKind, resourceName, test.IsValidatingAdmissionPolicy)
+						for _, key := range resultsKey {
+							if val, ok := results[key]; ok {
+								result = val
+								resultKey = key
+							} else {
+								continue
+							}
 
-				var resultsKey []string
-				var resultKey string
-				var result policyreportv1alpha2.PolicyReportResult
-				resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.Name(), resourceNamespace, resourceKind, resourceName, test.IsValidatingAdmissionPolicy)
-				for _, key := range resultsKey {
-					if val, ok := results[key]; ok {
-						result = val
-						resultKey = key
-					} else {
-						continue
-					}
-
-					if rule.Status() == engineapi.RuleStatusSkip {
-						result.Result = policyreportv1alpha2.StatusSkip
-					} else if rule.Status() == engineapi.RuleStatusError {
-						result.Result = policyreportv1alpha2.StatusError
-					} else {
-						var x string
-						result.Result = policyreportv1alpha2.StatusFail
-						x = getAndCompareResource(test.GeneratedResource, rule.GeneratedResource(), isGit, policyResourcePath, fs, true)
-						if x == "pass" {
-							result.Result = policyreportv1alpha2.StatusPass
+							if rule.Status() == engineapi.RuleStatusSkip {
+								result.Result = policyreportv1alpha2.StatusSkip
+							} else if rule.Status() == engineapi.RuleStatusError {
+								result.Result = policyreportv1alpha2.StatusError
+							} else {
+								var x string
+								result.Result = policyreportv1alpha2.StatusFail
+								x = getAndCompareResource(test.GeneratedResource, rule.GeneratedResource(), isGit, policyResourcePath, fs, true)
+								if x == "pass" {
+									result.Result = policyreportv1alpha2.StatusPass
+								}
+							}
+							results[resultKey] = result
 						}
 					}
-					results[resultKey] = result
 				}
 			}
 
