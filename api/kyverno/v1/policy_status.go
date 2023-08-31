@@ -17,20 +17,15 @@ const (
 	PolicyReasonFailed = "Failed"
 )
 
-// PolicyStatus mostly contains runtime information related to policy execution.
 // Deprecated. Policy metrics are now available via the "/metrics" endpoint.
 // See: https://kyverno.io/docs/monitoring-kyverno-with-prometheus-metrics/
 type PolicyStatus struct {
-	// Ready indicates if the policy is ready to serve the admission request.
 	// Deprecated in favor of Conditions
 	Ready bool `json:"ready" yaml:"ready"`
-	// Conditions is a list of conditions that apply to the policy
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
-	// Autogen contains autogen status information
 	// +optional
 	Autogen AutogenStatus `json:"autogen" yaml:"autogen"`
-	// RuleCount describes total number of rules in a policy
 	// +optional
 	RuleCount RuleCountStatus `json:"rulecount" yaml:"rulecount"`
 	// ValidatingAdmissionPolicy contains status information

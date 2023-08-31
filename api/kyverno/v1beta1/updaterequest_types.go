@@ -25,7 +25,6 @@ import (
 
 // UpdateRequestStatus defines the observed state of UpdateRequest
 type UpdateRequestStatus struct {
-	// Handler represents the instance ID that handles the UR
 	// Deprecated
 	Handler string `json:"handler,omitempty" yaml:"handler,omitempty"`
 
