@@ -66,7 +66,7 @@ func Command(root *cobra.Command) *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&path, "output", "o", ".", "Output path")
 	cmd.Flags().BoolVar(&website, "website", false, "Website version")
-	cmd.Flags().BoolVar(&autogenTag, "autogenTag", true, "Determines if the generated docs should contain a timestamp (defaults to `true`)")
+	cmd.Flags().BoolVar(&autogenTag, "autogenTag", true, "Determines if the generated docs should contain a timestamp")
 	if err := cmd.MarkFlagDirname("output"); err != nil {
 		log.Println("WARNING", err)
 	}
