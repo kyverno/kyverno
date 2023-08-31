@@ -3,7 +3,6 @@ package apply
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
@@ -51,17 +50,23 @@ func buildPolicyReports(auditWarn bool, engineResponses ...engineapi.EngineRespo
 	return clustered, namespaced
 }
 
+func isScored(ann map[string]string) bool {
+	if scored, ok := ann[kyverno.AnnotationPolicyScored]; ok && scored == "false" {
+		return false
+	}
+	return true
+}
+
 // buildPolicyResults returns a string-PolicyReportResult map
 // the key of the map is one of "clusterpolicyreport", "policyreport-ns-<namespace>"
 func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineResponse) map[string][]policyreportv1alpha2.PolicyReportResult {
 	results := make(map[string][]policyreportv1alpha2.PolicyReportResult)
-	now := metav1.Timestamp{Seconds: time.Now().Unix()}
-
 	for _, engineResponse := range engineResponses {
 		policy := engineResponse.Policy()
 		policyName := policy.GetName()
 		policyNamespace := policy.GetNamespace()
 		ann := policy.GetAnnotations()
+		scored := isScored(ann)
 
 		var appname string
 		if policyNamespace != "" {
@@ -69,12 +74,10 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 		} else {
 			appname = clusterpolicyreport
 		}
-
 		for _, ruleResponse := range engineResponse.PolicyResponse.Rules {
 			if ruleResponse.RuleType() != engineapi.Validation {
 				continue
 			}
-
 			result := policyreportv1alpha2.PolicyReportResult{
 				Policy: policyName,
 				Resources: []corev1.ObjectReference{
@@ -86,11 +89,10 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 						UID:        engineResponse.Resource.GetUID(),
 					},
 				},
-				Scored:   true,
+				Scored:   scored,
 				Category: ann[kyverno.AnnotationPolicyCategory],
 				Severity: reportutils.SeverityFromString(ann[kyverno.AnnotationPolicySeverity]),
 			}
-
 			if ruleResponse.Status() == engineapi.RuleStatusSkip {
 				result.Result = policyreportv1alpha2.StatusSkip
 			} else if ruleResponse.Status() == engineapi.RuleStatusError {
@@ -98,7 +100,7 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 			} else if ruleResponse.Status() == engineapi.RuleStatusPass {
 				result.Result = policyreportv1alpha2.StatusPass
 			} else if ruleResponse.Status() == engineapi.RuleStatusFail {
-				if scored, ok := ann[kyverno.AnnotationPolicyScored]; ok && scored == "false" {
+				if !scored {
 					result.Result = policyreportv1alpha2.StatusWarn
 				} else if auditWarn && engineResponse.GetValidationFailureAction().Audit() {
 					result.Result = policyreportv1alpha2.StatusWarn
@@ -114,10 +116,9 @@ func buildPolicyResults(auditWarn bool, engineResponses ...engineapi.EngineRespo
 			}
 			result.Message = ruleResponse.Message()
 			result.Source = kyverno.ValueKyvernoApp
-			result.Timestamp = now
+			result.Timestamp = metav1.Timestamp{Seconds: ruleResponse.Stats().Timestamp()}
 			results[appname] = append(results[appname], result)
 		}
 	}
-
 	return results
 }
