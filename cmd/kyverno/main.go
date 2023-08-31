@@ -22,6 +22,7 @@ import (
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
+	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/validatingadmissionpolicy-generate"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -52,6 +53,11 @@ import (
 const (
 	resyncPeriod                   = 15 * time.Minute
 	exceptionWebhookControllerName = "exception-webhook-controller"
+)
+
+var (
+	caSecretName  string
+	tlsSecretName string
 )
 
 func showWarnings(ctx context.Context, logger logr.Logger) {
@@ -100,6 +106,7 @@ func createNonLeaderControllers(
 }
 
 func createrLeaderControllers(
+	generateVAPs bool,
 	admissionReports bool,
 	serverIP string,
 	webhookTimeout int,
@@ -117,10 +124,15 @@ func createrLeaderControllers(
 	servicePort int32,
 	configuration config.Configuration,
 ) ([]internal.Controller, func(context.Context) error, error) {
+	var leaderControllers []internal.Controller
+
 	certManager := certmanager.NewController(
 		caInformer,
 		tlsInformer,
 		certRenewer,
+		caSecretName,
+		tlsSecretName,
+		config.KyvernoNamespace(),
 	)
 	webhookController := webhookcontroller.NewController(
 		dynamicClient.Discovery(),
@@ -142,6 +154,7 @@ func createrLeaderControllers(
 		admissionReports,
 		runtime,
 		configuration,
+		caSecretName,
 	)
 	exceptionWebhookController := genericwebhookcontroller.NewController(
 		exceptionWebhookControllerName,
@@ -167,30 +180,42 @@ func createrLeaderControllers(
 		genericwebhookcontroller.Fail,
 		genericwebhookcontroller.None,
 		configuration,
+		caSecretName,
 	)
-	return []internal.Controller{
-			internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers),
-			internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers),
-			internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1),
-		},
-		nil,
-		nil
+	leaderControllers = append(leaderControllers, internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers))
+	leaderControllers = append(leaderControllers, internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers))
+	leaderControllers = append(leaderControllers, internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1))
+
+	if generateVAPs {
+		vapController := vapcontroller.NewController(
+			kubeClient,
+			kyvernoClient,
+			dynamicClient.Discovery(),
+			kyvernoInformer.Kyverno().V1().Policies(),
+			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
+			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings(),
+		)
+		leaderControllers = append(leaderControllers, internal.NewController(vapcontroller.ControllerName, vapController, vapcontroller.Workers))
+	}
+	return leaderControllers, nil, nil
 }
 
 func main() {
 	var (
 		// TODO: this has been added to backward support command line arguments
 		// will be removed in future and the configuration will be set only via configmaps
-		serverIP                     string
-		webhookTimeout               int
-		maxQueuedEvents              int
-		omitEvents                   string
-		autoUpdateWebhooks           bool
-		webhookRegistrationTimeout   time.Duration
-		admissionReports             bool
-		dumpPayload                  bool
-		servicePort                  int
-		backgroundServiceAccountName string
+		serverIP                          string
+		webhookTimeout                    int
+		maxQueuedEvents                   int
+		omitEvents                        string
+		autoUpdateWebhooks                bool
+		webhookRegistrationTimeout        time.Duration
+		admissionReports                  bool
+		dumpPayload                       bool
+		servicePort                       int
+		backgroundServiceAccountName      string
+		generateValidatingAdmissionPolicy bool
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -203,8 +228,11 @@ func main() {
 	flagset.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	flagset.Func(toggle.ForceFailurePolicyIgnoreFlagName, toggle.ForceFailurePolicyIgnoreDescription, toggle.ForceFailurePolicyIgnore.Parse)
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
+	flagset.BoolVar(&generateValidatingAdmissionPolicy, "generateValidatingAdmissionPolicy", false, "Set this flag 'true' to generate validating admission policies.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
 	flagset.StringVar(&backgroundServiceAccountName, "backgroundServiceAccountName", "", "Background service account name.")
+	flagset.StringVar(&caSecretName, "caSecretName", "", "Name of the secret containing CA.")
+	flagset.StringVar(&tlsSecretName, "tlsSecretName", "", "Name of the secret containing TLS pair.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -229,8 +257,23 @@ func main() {
 	// setup
 	signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-admission-controller", false)
 	defer sdown()
-	caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), config.GenerateRootCASecretName(), resyncPeriod)
-	tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), config.GenerateTLSPairSecretName(), resyncPeriod)
+	if caSecretName == "" {
+		setup.Logger.Error(errors.New("exiting... caSecretName is a required flag"), "exiting... caSecretName is a required flag")
+		os.Exit(1)
+	}
+	if tlsSecretName == "" {
+		setup.Logger.Error(errors.New("exiting... tlsSecretName is a required flag"), "exiting... tlsSecretName is a required flag")
+		os.Exit(1)
+	}
+	// check if server version is supported for validating admission policy generation
+	if generateValidatingAdmissionPolicy {
+		if !kubeutils.HigherThanKubernetesVersion(setup.KubeClient.Discovery(), setup.Logger, 1, 26, 0) {
+			setup.Logger.Error(errors.New("validating admission policy aren't supported"), "validating admission policy aren't supported")
+			os.Exit(1)
+		}
+	}
+	caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), caSecretName, resyncPeriod)
+	tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tlsSecretName, resyncPeriod)
 	if !informers.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, caSecret, tlsSecret) {
 		setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		os.Exit(1)
@@ -262,10 +305,10 @@ func main() {
 		tls.TLSValidityDuration,
 		serverIP,
 		config.KyvernoServiceName(),
-		config.DnsNames(),
+		config.DnsNames(config.KyvernoServiceName(), config.KyvernoNamespace()),
 		config.KyvernoNamespace(),
-		config.GenerateRootCASecretName(),
-		config.GenerateTLSPairSecretName(),
+		caSecretName,
+		tlsSecretName,
 	)
 	policyCache := policycache.NewCache()
 	omitEventsValues := strings.Split(omitEvents, ",")
@@ -361,6 +404,7 @@ func main() {
 			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 			// create leader controllers
 			leaderControllers, warmup, err := createrLeaderControllers(
+				generateValidatingAdmissionPolicy,
 				admissionReports,
 				serverIP,
 				webhookTimeout,
@@ -463,7 +507,7 @@ func main() {
 			DumpPayload: dumpPayload,
 		},
 		func() ([]byte, []byte, error) {
-			secret, err := tlsSecret.Lister().Secrets(config.KyvernoNamespace()).Get(config.GenerateTLSPairSecretName())
+			secret, err := tlsSecret.Lister().Secrets(config.KyvernoNamespace()).Get(tlsSecretName)
 			if err != nil {
 				return nil, nil, err
 			}

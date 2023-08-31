@@ -25,10 +25,11 @@ import (
 // PolicyStatusApplyConfiguration represents an declarative configuration of the PolicyStatus type for use
 // with apply.
 type PolicyStatusApplyConfiguration struct {
-	Ready      *bool                              `json:"ready,omitempty"`
-	Conditions []v1.Condition                     `json:"conditions,omitempty"`
-	Autogen    *AutogenStatusApplyConfiguration   `json:"autogen,omitempty"`
-	RuleCount  *RuleCountStatusApplyConfiguration `json:"rulecount,omitempty"`
+	Ready                     *bool                                              `json:"ready,omitempty"`
+	Conditions                []v1.Condition                                     `json:"conditions,omitempty"`
+	Autogen                   *AutogenStatusApplyConfiguration                   `json:"autogen,omitempty"`
+	RuleCount                 *RuleCountStatusApplyConfiguration                 `json:"rulecount,omitempty"`
+	ValidatingAdmissionPolicy *ValidatingAdmissionPolicyStatusApplyConfiguration `json:"validatingadmissionpolicy,omitempty"`
 }
 
 // PolicyStatusApplyConfiguration constructs an declarative configuration of the PolicyStatus type for use with
@@ -68,5 +69,13 @@ func (b *PolicyStatusApplyConfiguration) WithAutogen(value *AutogenStatusApplyCo
 // If called multiple times, the RuleCount field is set to the value of the last call.
 func (b *PolicyStatusApplyConfiguration) WithRuleCount(value *RuleCountStatusApplyConfiguration) *PolicyStatusApplyConfiguration {
 	b.RuleCount = value
+	return b
+}
+
+// WithValidatingAdmissionPolicy sets the ValidatingAdmissionPolicy field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ValidatingAdmissionPolicy field is set to the value of the last call.
+func (b *PolicyStatusApplyConfiguration) WithValidatingAdmissionPolicy(value *ValidatingAdmissionPolicyStatusApplyConfiguration) *PolicyStatusApplyConfiguration {
+	b.ValidatingAdmissionPolicy = value
 	return b
 }

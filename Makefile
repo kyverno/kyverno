@@ -59,7 +59,7 @@ HELM_DOCS_VERSION                  := v1.11.0
 KO                                 := $(TOOLS_DIR)/ko
 KO_VERSION                         := v0.14.1
 KUTTL                              := $(TOOLS_DIR)/kubectl-kuttl
-KUTTL_VERSION                      := v0.0.0-20230126200340-834a4dac1ec7
+KUTTL_VERSION                      := v0.0.0-20230829104447-1e404d2e3902
 TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(APPLYCONFIGURATION_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(KUTTL)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
@@ -497,6 +497,11 @@ codegen-crds-report: $(CONTROLLER_GEN) ## Generate policy reports CRDs
 .PHONY: codegen-crds-all
 codegen-crds-all: codegen-crds-kyverno codegen-crds-report ## Generate all CRDs
 
+.PHONY: codegen-helm-docs
+codegen-helm-docs: ## Generate helm docs
+	@echo Generate helm docs... >&2
+	@docker run -v ${PWD}/charts:/work -w /work jnorwood/helm-docs:v1.11.0 -s file
+
 .PHONY: codegen-api-docs
 codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API docs
 	@echo Generate api docs... >&2
@@ -507,10 +512,14 @@ codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API 
 		-template-dir docs/user/template \
 		-out-file docs/user/crd/index.html
 
-.PHONY: codegen-helm-docs
-codegen-helm-docs: ## Generate helm docs
-	@echo Generate helm docs... >&2
-	@docker run -v ${PWD}/charts:/work -w /work jnorwood/helm-docs:v1.11.0 -s file
+.PHONY: codegen-cli-docs
+codegen-cli-docs: $(CLI_BIN) ## Generate CLI docs
+	@echo Generate cli docs... >&2
+	@rm -rf docs/user/cli && mkdir -p docs/user/cli
+	@$(CLI_BIN) docs -o docs/user/cli --autogenTag=false
+
+.PHONY: codegen-docs-all
+codegen-docs-all: codegen-helm-docs codegen-cli-docs codegen-api-docs  ## Generate all docs
 
 .PHONY: codegen-helm-crds
 codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
@@ -576,7 +585,7 @@ codegen-manifest-release: $(HELM) ## Create release manifest
 codegen-manifest-all: codegen-manifest-install-latest codegen-manifest-debug ## Create all manifests
 
 .PHONY: codegen-quick
-codegen-quick: codegen-deepcopy codegen-crds-all codegen-api-docs codegen-helm-all codegen-manifest-all ## Generate all generated code except client
+codegen-quick: codegen-deepcopy codegen-crds-all codegen-docs-all codegen-helm-all codegen-manifest-all ## Generate all generated code except client
 
 .PHONY: codegen-slow
 codegen-slow: codegen-client-all ## Generate client code
@@ -616,12 +625,12 @@ verify-deepcopy: codegen-deepcopy ## Check deepcopy functions are up to date
 	@echo 'To correct this, locally run "make codegen-deepcopy", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code api
 
-.PHONY: verify-api-docs
-verify-api-docs: codegen-api-docs ## Check api reference docs are up to date
-	@echo Checking api reference docs are up to date... >&2
+.PHONY: verify-docs
+verify-docs: codegen-docs-all ## Check docs are up to date
+	@echo Checking docs are up to date... >&2
 	@git --no-pager diff docs/user
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-api-docs".' >&2
-	@echo 'To correct this, locally run "make codegen-api-docs", commit the changes, and re-run tests.' >&2
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-docs-all".' >&2
+	@echo 'To correct this, locally run "make codegen-docs-all", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code docs/user
 
 .PHONY: verify-helm
@@ -642,7 +651,7 @@ verify-manifests: codegen-manifest-all ## Check manifests are up to date
 
 
 .PHONY: verify-codegen
-verify-codegen: verify-crds verify-client verify-deepcopy verify-api-docs verify-helm verify-manifests ## Verify all generated code and docs are up to date
+verify-codegen: verify-crds verify-client verify-deepcopy verify-docs verify-helm verify-manifests ## Verify all generated code and docs are up to date
 
 ##############
 # UNIT TESTS #
@@ -718,7 +727,6 @@ test-cli-registry: $(CLI_BIN)
 .PHONY: test-cli-scenarios-to-cli
 test-cli-scenarios-to-cli: $(CLI_BIN)
 	@$(CLI_BIN) test ./test/cli/scenarios_to_cli --registry
-
 
 #############
 # HELM TEST #

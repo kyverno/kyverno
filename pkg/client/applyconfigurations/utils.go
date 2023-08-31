@@ -105,6 +105,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov1.PolicyApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("PolicyStatus"):
 		return &kyvernov1.PolicyStatusApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("Rekor"):
+		return &kyvernov1.RekorApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("RequestData"):
 		return &kyvernov1.RequestDataApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ResourceDescription"):
@@ -129,6 +131,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov1.TargetResourceSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("UserInfo"):
 		return &kyvernov1.UserInfoApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyStatus"):
+		return &kyvernov1.ValidatingAdmissionPolicyStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("Validation"):
 		return &kyvernov1.ValidationApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ValidationFailureActionOverride"):

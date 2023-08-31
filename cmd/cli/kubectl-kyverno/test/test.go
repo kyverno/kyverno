@@ -1,10 +1,8 @@
 package test
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -15,8 +13,11 @@ import (
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
+	filterutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/filter"
+	pathutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/path"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
+	unstructuredutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/unstructured"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -33,41 +34,37 @@ import (
 
 func applyPoliciesFromPath(
 	fs billy.Filesystem,
-	policyBytes []byte,
+	apiTest *api.Test,
 	isGit bool,
 	policyResourcePath string,
 	rc *resultCounts,
 	openApiManager openapi.Manager,
-	filter filter,
+	filter filterutils.Filter,
 	auditWarn bool,
 ) (map[string]policyreportv1alpha2.PolicyReportResult, []api.TestResults, error) {
 	engineResponses := make([]engineapi.EngineResponse, 0)
 	var dClient dclient.Interface
-	values := &api.Test{}
 	var resultCounts common.ResultCounts
 
 	store.SetLocal(true)
-	if err := json.Unmarshal(policyBytes, values); err != nil {
-		return nil, nil, sanitizederror.NewWithError("failed to decode yaml", err)
-	}
 
 	var filteredResults []api.TestResults
-	for _, res := range values.Results {
-		if filter(res) {
+	for _, res := range apiTest.Results {
+		if filter.Apply(res) {
 			filteredResults = append(filteredResults, res)
 		}
 	}
-	values.Results = filteredResults
+	apiTest.Results = filteredResults
 
-	if len(values.Results) == 0 {
+	if len(apiTest.Results) == 0 {
 		return nil, nil, nil
 	}
 
-	fmt.Printf("\nExecuting %s...\n", values.Name)
-	valuesFile := values.Variables
-	userInfoFile := values.UserInfo
+	fmt.Printf("\nExecuting %s...\n", apiTest.Name)
+	valuesFile := apiTest.Variables
+	userInfoFile := apiTest.UserInfo
 
-	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(nil, values.Variables, fs, isGit, policyResourcePath)
+	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(nil, apiTest.Values, apiTest.Variables, fs, isGit, policyResourcePath)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return nil, nil, sanitizederror.NewWithError("failed to decode yaml", err)
@@ -86,21 +83,21 @@ func applyPoliciesFromPath(
 		}
 	}
 
-	policyFullPath := getFullPath(values.Policies, policyResourcePath, isGit)
-	resourceFullPath := getFullPath(values.Resources, policyResourcePath, isGit)
+	policyFullPath := pathutils.GetFullPaths(apiTest.Policies, policyResourcePath, isGit)
+	resourceFullPath := pathutils.GetFullPaths(apiTest.Resources, policyResourcePath, isGit)
 
-	for i, result := range values.Results {
+	for i, result := range apiTest.Results {
 		arrPatchedResource := []string{result.PatchedResource}
 		arrGeneratedResource := []string{result.GeneratedResource}
 		arrCloneSourceResource := []string{result.CloneSourceResource}
 
-		patchedResourceFullPath := getFullPath(arrPatchedResource, policyResourcePath, isGit)
-		generatedResourceFullPath := getFullPath(arrGeneratedResource, policyResourcePath, isGit)
-		CloneSourceResourceFullPath := getFullPath(arrCloneSourceResource, policyResourcePath, isGit)
+		patchedResourceFullPath := pathutils.GetFullPaths(arrPatchedResource, policyResourcePath, isGit)
+		generatedResourceFullPath := pathutils.GetFullPaths(arrGeneratedResource, policyResourcePath, isGit)
+		CloneSourceResourceFullPath := pathutils.GetFullPaths(arrCloneSourceResource, policyResourcePath, isGit)
 
-		values.Results[i].PatchedResource = patchedResourceFullPath[0]
-		values.Results[i].GeneratedResource = generatedResourceFullPath[0]
-		values.Results[i].CloneSourceResource = CloneSourceResourceFullPath[0]
+		apiTest.Results[i].PatchedResource = patchedResourceFullPath[0]
+		apiTest.Results[i].GeneratedResource = generatedResourceFullPath[0]
+		apiTest.Results[i].CloneSourceResource = CloneSourceResourceFullPath[0]
 	}
 
 	policies, validatingAdmissionPolicies, err := common.GetPoliciesFromPaths(fs, policyFullPath, isGit, policyResourcePath)
@@ -111,7 +108,7 @@ func applyPoliciesFromPath(
 
 	var filteredPolicies []kyvernov1.PolicyInterface
 	for _, p := range policies {
-		for _, res := range values.Results {
+		for _, res := range apiTest.Results {
 			if p.GetName() == res.Policy {
 				filteredPolicies = append(filteredPolicies, p)
 				break
@@ -121,7 +118,7 @@ func applyPoliciesFromPath(
 
 	var filteredVAPs []v1alpha1.ValidatingAdmissionPolicy
 	for _, p := range validatingAdmissionPolicies {
-		for _, res := range values.Results {
+		for _, res := range apiTest.Results {
 			if p.GetName() == res.Policy {
 				filteredVAPs = append(filteredVAPs, p)
 				break
@@ -135,7 +132,7 @@ func applyPoliciesFromPath(
 		var filteredRules []kyvernov1.Rule
 
 		for _, rule := range autogen.ComputeRules(p) {
-			for _, res := range values.Results {
+			for _, res := range apiTest.Results {
 				if res.IsValidatingAdmissionPolicy {
 					continue
 				}
@@ -173,7 +170,7 @@ func applyPoliciesFromPath(
 		os.Exit(1)
 	}
 
-	checkableResources := selectResourcesForCheck(resources, values)
+	checkableResources := selectResourcesForCheck(resources, apiTest)
 
 	msgPolicies := "1 policy"
 	if len(policies)+len(validatingAdmissionPolicies) > 1 {
@@ -254,21 +251,8 @@ func applyPoliciesFromPath(
 			engineResponses = append(engineResponses, ers...)
 		}
 	}
-	resultsMap, testResults := buildPolicyResults(engineResponses, values.Results, policyResourcePath, fs, isGit, auditWarn)
+	resultsMap, testResults := buildPolicyResults(engineResponses, apiTest.Results, policyResourcePath, fs, isGit, auditWarn)
 	return resultsMap, testResults, nil
-}
-
-func getFullPath(paths []string, policyResourcePath string, isGit bool) []string {
-	var pols []string
-	var pol string
-	if !isGit {
-		for _, path := range paths {
-			pol = filepath.Join(policyResourcePath, path)
-			pols = append(pols, pol)
-		}
-		return pols
-	}
-	return paths
 }
 
 func selectResourcesForCheck(resources []*unstructured.Unstructured, values *api.Test) []*unstructured.Unstructured {
@@ -618,24 +602,28 @@ func isNamespacedPolicy(policyNames string) (bool, error) {
 
 // getAndCompareResource --> Get the patchedResource or generatedResource from the path provided by user
 // And compare this resource with engine generated resource.
-func getAndCompareResource(path string, engineResource unstructured.Unstructured, isGit bool, policyResourcePath string, fs billy.Filesystem, isGenerate bool) string {
+func getAndCompareResource(path string, actualResource unstructured.Unstructured, isGit bool, policyResourcePath string, fs billy.Filesystem, isGenerate bool) string {
 	var status string
 	resourceType := "patchedResource"
 	if isGenerate {
 		resourceType = "generatedResource"
 	}
-
-	userResource, err := common.GetResourceFromPath(fs, path, isGit, policyResourcePath, resourceType)
+	expectedResource, err := common.GetResourceFromPath(fs, path, isGit, policyResourcePath, resourceType)
 	if err != nil {
-		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
+		fmt.Printf("Error: failed to load resources (%s)", err)
 		return ""
 	}
-	matched, err := generate.ValidateResourceWithPattern(log.Log, engineResource.UnstructuredContent(), userResource.UnstructuredContent())
-	if err != nil {
-		log.Log.V(3).Info(resourceType+" mismatch", "error", err.Error())
-		status = "fail"
-	} else if matched == "" {
-		status = "pass"
+	if isGenerate {
+		unstructuredutils.FixupGenerateLabels(actualResource)
+		unstructuredutils.FixupGenerateLabels(expectedResource)
+	}
+	equals, err := unstructuredutils.Compare(actualResource, expectedResource, true)
+	if err == nil {
+		if !equals {
+			status = "fail"
+		} else {
+			status = "pass"
+		}
 	}
 	return status
 }
