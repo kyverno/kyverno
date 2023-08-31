@@ -36,7 +36,6 @@ type Policy struct {
 	// Spec defines policy behaviors and contains one or more rules.
 	Spec Spec `json:"spec" yaml:"spec"`
 
-	// Status contains policy runtime information.
 	// +optional
 	// Deprecated. Policy metrics are available via the metrics endpoint
 	Status PolicyStatus `json:"status,omitempty" yaml:"status,omitempty"`
