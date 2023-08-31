@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: check-namespace-name
+  name: check-namespace-name-01
 status:
   conditions:
   - reason: Succeeded
