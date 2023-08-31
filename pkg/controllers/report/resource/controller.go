@@ -97,8 +97,12 @@ func NewController(
 		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
 	}
-	controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue)
-	controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue)
+	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
+	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
 	return &c
 }
 
