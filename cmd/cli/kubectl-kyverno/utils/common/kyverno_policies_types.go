@@ -23,7 +23,7 @@ import (
 )
 
 // ApplyPolicyOnResource - function to apply policy on resource
-func ApplyPolicyOnResource(c ApplyPolicyConfig) ([]engineapi.EngineResponse, error) {
+func ApplyPoliciesOnResource(c ApplyPolicyConfig) ([]engineapi.EngineResponse, error) {
 	jp := jmespath.New(config.NewDefaultConfiguration(false))
 
 	var engineResponses []engineapi.EngineResponse
@@ -144,15 +144,16 @@ func combineRuleResponses(imageResponse engineapi.EngineResponse) engineapi.Engi
 func ApplyMutatePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstructured.Unstructured, jp jmespath.Interface, resPath string) ([]engineapi.EngineResponse, error) {
 	var engineResponses []engineapi.EngineResponse
 	namespaceLabels := make(map[string]string)
-	operation := kyvernov1.Create
-
-	if c.Variables["request.operation"] == "DELETE" {
-		operation = kyvernov1.Delete
-	}
-
-	policyWithNamespaceSelector := false
 
 	for _, policy := range c.Policies {
+		operation := kyvernov1.Create
+
+		policyWithNamespaceSelector := false
+		variables := c.Variables[policy.GetName()]
+		variablesMap, _ := variables.(map[string]interface{})
+		if variablesMap["request.operation"] == "DELETE" {
+			operation = kyvernov1.Delete
+		}
 		var mutateResponse engineapi.EngineResponse
 	OuterLoop:
 		for _, p := range autogen.ComputeRules(policy) {
@@ -247,8 +248,8 @@ func ApplyMutatePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstruc
 			WithPolicy(policy).
 			WithNamespaceLabels(namespaceLabels).
 			WithResourceKind(gvk, subresource)
-
-		for key, value := range c.Variables {
+			// incorrect
+		for key, value := range variablesMap {
 			err = policyContext.JSONContext().AddVariable(key, value)
 			if err != nil {
 				log.Error(err, "failed to add variable to context")
@@ -276,14 +277,16 @@ func ApplyMutatePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstruc
 func ApplyValidatePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstructured.Unstructured, jp jmespath.Interface) ([]engineapi.EngineResponse, error) {
 	var engineResponses []engineapi.EngineResponse
 	namespaceLabels := make(map[string]string)
-	operation := kyvernov1.Create
 
-	if c.Variables["request.operation"] == "DELETE" {
-		operation = kyvernov1.Delete
-	}
-
-	policyWithNamespaceSelector := false
 	for _, policy := range c.Policies {
+		operation := kyvernov1.Create
+
+		policyWithNamespaceSelector := false
+		variables := c.Variables[policy.GetName()]
+		variablesMap, _ := variables.(map[string]interface{})
+		if variablesMap["request.operation"] == "DELETE" {
+			operation = kyvernov1.Delete
+		}
 		var validateResponse engineapi.EngineResponse
 	OuterLoop:
 		for _, p := range autogen.ComputeRules(policy) {
@@ -379,7 +382,7 @@ func ApplyValidatePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstr
 			WithNamespaceLabels(namespaceLabels).
 			WithResourceKind(gvk, subresource)
 
-		for key, value := range c.Variables {
+		for key, value := range variablesMap {
 			err = policyContext.JSONContext().AddVariable(key, value)
 			if err != nil {
 				log.Error(err, "failed to add variable to context")
@@ -413,14 +416,16 @@ func ApplyValidatePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstr
 func ApplyVerifyPoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstructured.Unstructured, jp jmespath.Interface) ([]engineapi.EngineResponse, error) {
 	var engineResponses []engineapi.EngineResponse
 	namespaceLabels := make(map[string]string)
-	operation := kyvernov1.Create
 
-	if c.Variables["request.operation"] == "DELETE" {
-		operation = kyvernov1.Delete
-	}
-
-	policyWithNamespaceSelector := false
 	for _, policy := range c.Policies {
+		operation := kyvernov1.Create
+
+		policyWithNamespaceSelector := false
+		variables := c.Variables[policy.GetName()]
+		variablesMap, _ := variables.(map[string]interface{})
+		if variablesMap["request.operation"] == "DELETE" {
+			operation = kyvernov1.Delete
+		}
 		var verifyImageResponse engineapi.EngineResponse
 	OuterLoop:
 		for _, p := range autogen.ComputeRules(policy) {
@@ -516,7 +521,7 @@ func ApplyVerifyPoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstruc
 			WithNamespaceLabels(namespaceLabels).
 			WithResourceKind(gvk, subresource)
 
-		for key, value := range c.Variables {
+		for key, value := range variablesMap {
 			err = policyContext.JSONContext().AddVariable(key, value)
 			if err != nil {
 				log.Error(err, "failed to add variable to context")
@@ -538,14 +543,15 @@ func ApplyVerifyPoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstruc
 func ApplyGeneratePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstructured.Unstructured, jp jmespath.Interface, resPath string) ([]engineapi.EngineResponse, error) {
 	var engineResponses []engineapi.EngineResponse
 	namespaceLabels := make(map[string]string)
-	operation := kyvernov1.Create
 
-	if c.Variables["request.operation"] == "DELETE" {
-		operation = kyvernov1.Delete
-	}
-
-	policyWithNamespaceSelector := false
 	for _, policy := range c.Policies {
+		policyWithNamespaceSelector := false
+		operation := kyvernov1.Create
+		variables := c.Variables[policy.GetName()]
+		variablesMap, _ := variables.(map[string]interface{})
+		if variablesMap["request.operation"] == "DELETE" {
+			operation = kyvernov1.Delete
+		}
 		var generateResponse engineapi.EngineResponse
 	OuterLoop:
 		for _, p := range autogen.ComputeRules(policy) {
@@ -641,7 +647,7 @@ func ApplyGeneratePoliciesOnResource(c ApplyPolicyConfig, updatedResource *unstr
 			WithNamespaceLabels(namespaceLabels).
 			WithResourceKind(gvk, subresource)
 
-		for key, value := range c.Variables {
+		for key, value := range variablesMap {
 			err = policyContext.JSONContext().AddVariable(key, value)
 			if err != nil {
 				log.Error(err, "failed to add variable to context")

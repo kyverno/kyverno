@@ -301,11 +301,10 @@ func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, 
 		policyRulesCount += len(validatingAdmissionPolicies)
 		fmt.Printf("\nApplying %d policy rule(s) to %d resource(s)...\n", policyRulesCount, len(resources))
 	}
-	// loop policy - add polices - []policies
 	var rc common.ResultCounts
 	var responses []engineapi.EngineResponse
 	for _, resource := range resources {
-		var applyPolicies []kyvernov1.PolicyInterface
+		var applyValidPolicies []kyvernov1.PolicyInterface
 		policyResourceValues := make(map[string]interface{})
 		for _, policy := range policies {
 			_, err := policyvalidation.Validate(policy, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
@@ -330,19 +329,17 @@ func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, 
 					}
 				}
 			}
-			applyPolicies = append(applyPolicies, policy)
+			applyValidPolicies = append(applyValidPolicies, policy)
 			kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy, subresources, dClient)
 			thisPolicyResourceValues, err := common.CheckVariableForPolicy(valuesMap, globalValMap, policy.GetName(), resource.GetName(), resource.GetKind(), variables, kindOnwhichPolicyIsApplied, variable)
 			if err != nil {
 				return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.GetName(), resource.GetName()), err)
 			}
-			for key, value := range thisPolicyResourceValues {
-				policyResourceValues[key] = value
-			}
+			policyResourceValues[policy.GetName()] = thisPolicyResourceValues
 		}
-		if len(applyPolicies) != 0 {
+		if len(applyValidPolicies) != 0 {
 			applyPolicyConfig := common.ApplyPolicyConfig{
-				Policies:             applyPolicies,
+				Policies:             applyValidPolicies,
 				Resource:             resource,
 				MutateLogPath:        c.MutateLogPath,
 				MutateLogPathIsDir:   mutateLogPathIsDir,
@@ -357,7 +354,8 @@ func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, 
 				AuditWarn:            c.AuditWarn,
 				Subresources:         subresources,
 			}
-			ers, err := common.ApplyPolicyOnResource(applyPolicyConfig) // ApplyPoliciesOnResource
+			// applyPolicies
+			ers, err := common.ApplyPoliciesOnResource(applyPolicyConfig) // ApplyPoliciesOnResource
 			if err != nil {
 				return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policies on resource %v", resource.GetName()).Error(), err)
 			}

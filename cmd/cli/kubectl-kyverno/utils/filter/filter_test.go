@@ -164,47 +164,48 @@ func Test_composite_Apply(t *testing.T) {
 		filters []Filter
 		result  api.TestResults
 		want    bool
-	}{{
-		name:    "nil",
-		filters: nil,
-		result:  api.TestResults{},
-		want:    true,
-	}, {
-		name:    "empty",
-		filters: []Filter{},
-		result:  api.TestResults{},
-		want:    true,
-	}, {
-		name:    "policy match",
-		filters: []Filter{policy{"test"}},
-		result: api.TestResults{
-			Policy: "test",
+	}{
+		{
+			name:    "nil",
+			filters: nil,
+			result:  api.TestResults{},
+			want:    true,
+		}, {
+			name:    "empty",
+			filters: []Filter{},
+			result:  api.TestResults{},
+			want:    true,
+		}, {
+			name:    "policy match",
+			filters: []Filter{policy{"test"}},
+			result: api.TestResults{
+				Policy: "test",
+			},
+			want: true,
+		}, {
+			name:    "policy no match",
+			filters: []Filter{policy{"test"}},
+			result: api.TestResults{
+				Policy: "not-test",
+			},
+			want: false,
+		}, {
+			name:    "policy and resource match",
+			filters: []Filter{policy{"test"}, resource{"resource"}},
+			result: api.TestResults{
+				Policy:   "test",
+				Resource: "resource",
+			},
+			want: true,
+		}, {
+			name:    "policy match and resource no match",
+			filters: []Filter{policy{"test"}, resource{"resource"}},
+			result: api.TestResults{
+				Policy:   "test",
+				Resource: "not-resource",
+			},
+			want: false,
 		},
-		want: true,
-	}, {
-		name:    "policy no match",
-		filters: []Filter{policy{"test"}},
-		result: api.TestResults{
-			Policy: "not-test",
-		},
-		want: false,
-	}, {
-		name:    "policy and resource match",
-		filters: []Filter{policy{"test"}, resource{"resource"}},
-		result: api.TestResults{
-			Policy:   "test",
-			Resource: "resource",
-		},
-		want: true,
-	}, {
-		name:    "policy match and resource no match",
-		filters: []Filter{policy{"test"}, resource{"resource"}},
-		result: api.TestResults{
-			Policy:   "test",
-			Resource: "not-resource",
-		},
-		want: false,
-	},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -224,55 +225,56 @@ func TestParseFilter(t *testing.T) {
 		in     string
 		filter Filter
 		errors []error
-	}{{
-		name:   "empty",
-		in:     "",
-		filter: composite{},
-		errors: nil,
-	}, {
-		name:   "invalid key",
-		in:     "foo=bar",
-		filter: composite{},
-		errors: []error{
-			errors.New("Invalid test-case-selector (foo=bar). Parameter can only be policy, rule or resource."),
+	}{
+		{
+			name:   "empty",
+			in:     "",
+			filter: composite{},
+			errors: nil,
+		}, {
+			name:   "invalid key",
+			in:     "foo=bar",
+			filter: composite{},
+			errors: []error{
+				errors.New("Invalid test-case-selector (foo=bar). Parameter can only be policy, rule or resource."),
+			},
+		}, {
+			name:   "invalid arg",
+			in:     "policy",
+			filter: composite{},
+			errors: []error{
+				errors.New("Invalid test-case-selector argument (policy). Parameter must be in the form `<key>=<value>`."),
+			},
+		}, {
+			name:   "policy",
+			in:     "policy=test",
+			filter: composite{[]Filter{policy{"test"}}},
+			errors: nil,
+		}, {
+			name:   "rule",
+			in:     "rule=test",
+			filter: composite{[]Filter{rule{"test"}}},
+			errors: nil,
+		}, {
+			name:   "resource",
+			in:     "resource=test",
+			filter: composite{[]Filter{resource{"test"}}},
+			errors: nil,
+		}, {
+			name:   "policy, rule and resource",
+			in:     "policy=test,rule=test,resource=test",
+			filter: composite{[]Filter{policy{"test"}, rule{"test"}, resource{"test"}}},
+			errors: nil,
+		}, {
+			name:   "policy, rule, resource and errors",
+			in:     "policy=test,rule=test,foo=bar,resource=test,policy",
+			filter: composite{[]Filter{policy{"test"}, rule{"test"}, resource{"test"}}},
+			errors: []error{
+				errors.New("Invalid test-case-selector (foo=bar). Parameter can only be policy, rule or resource."),
+				errors.New("Invalid test-case-selector argument (policy). Parameter must be in the form `<key>=<value>`."),
+			},
 		},
-	}, {
-		name:   "invalid arg",
-		in:     "policy",
-		filter: composite{},
-		errors: []error{
-			errors.New("Invalid test-case-selector argument (policy). Parameter must be in the form `<key>=<value>`."),
-		},
-	}, {
-		name:   "policy",
-		in:     "policy=test",
-		filter: composite{[]Filter{policy{"test"}}},
-		errors: nil,
-	}, {
-		name:   "rule",
-		in:     "rule=test",
-		filter: composite{[]Filter{rule{"test"}}},
-		errors: nil,
-	}, {
-		name:   "resource",
-		in:     "resource=test",
-		filter: composite{[]Filter{resource{"test"}}},
-		errors: nil,
-	}, {
-		name:   "policy, rule and resource",
-		in:     "policy=test,rule=test,resource=test",
-		filter: composite{[]Filter{policy{"test"}, rule{"test"}, resource{"test"}}},
-		errors: nil,
-	}, {
-		name:   "policy, rule, resource and errors",
-		in:     "policy=test,rule=test,foo=bar,resource=test,policy",
-		filter: composite{[]Filter{policy{"test"}, rule{"test"}, resource{"test"}}},
-		errors: []error{
-			errors.New("Invalid test-case-selector (foo=bar). Parameter can only be policy, rule or resource."),
-			errors.New("Invalid test-case-selector argument (policy). Parameter must be in the form `<key>=<value>`."),
-		},
-	},
-	// TODO: Add test cases.
+		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

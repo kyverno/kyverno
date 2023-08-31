@@ -224,7 +224,7 @@ func applyPoliciesFromPath(
 				Client:                    dClient,
 				Subresources:              subresources,
 			}
-			ers, err := common.ApplyPolicyOnResource(applyPolicyConfig)
+			ers, err := common.ApplyPoliciesOnResource(applyPolicyConfig)
 			if err != nil {
 				return nil, nil, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}
