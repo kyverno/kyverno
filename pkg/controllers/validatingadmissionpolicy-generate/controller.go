@@ -68,13 +68,19 @@ func NewController(
 	}
 
 	// Set up an event handler for when Kyverno policies change
-	controllerutils.AddEventHandlersT(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
+	if _, err := controllerutils.AddEventHandlersT(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
 
 	// Set up an event handler for when validating admission policies change
-	controllerutils.AddEventHandlersT(vapInformer.Informer(), c.addVAP, c.updateVAP, c.deleteVAP)
+	if _, err := controllerutils.AddEventHandlersT(vapInformer.Informer(), c.addVAP, c.updateVAP, c.deleteVAP); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
 
 	// Set up an event handler for when validating admission policy bindings change
-	controllerutils.AddEventHandlersT(vapbindingInformer.Informer(), c.addVAPbinding, c.updateVAPbinding, c.deleteVAPbinding)
+	if _, err := controllerutils.AddEventHandlersT(vapbindingInformer.Informer(), c.addVAPbinding, c.updateVAPbinding, c.deleteVAPbinding); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
 
 	return c
 }
