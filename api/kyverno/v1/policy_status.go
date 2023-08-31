@@ -33,6 +33,9 @@ type PolicyStatus struct {
 	// RuleCount describes total number of rules in a policy
 	// +optional
 	RuleCount RuleCountStatus `json:"rulecount" yaml:"rulecount"`
+	// ValidatingAdmissionPolicy contains status information
+	// +optional
+	ValidatingAdmissionPolicy ValidatingAdmissionPolicyStatus `json:"validatingadmissionpolicy" yaml:"validatingadmissionpolicy"`
 }
 
 // RuleCountStatus contains four variables which describes counts for
@@ -74,4 +77,13 @@ func (status *PolicyStatus) IsReady() bool {
 type AutogenStatus struct {
 	// Rules is a list of Rule instances. It contains auto generated rules added for pod controllers
 	Rules []Rule `json:"rules,omitempty" yaml:"rules,omitempty"`
+}
+
+// ValidatingAdmissionPolicy contains status information
+type ValidatingAdmissionPolicyStatus struct {
+	// Generated indicates whether a validating admission policy is generated from the policy or not
+	Generated bool `json:"generated" yaml:"generated"`
+	// Message is a human readable message indicating details about the generation of validating admission policy
+	// It is an empty string when validating admission policy is successfully generated.
+	Message string `json:"message" yaml:"message"`
 }
