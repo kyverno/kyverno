@@ -1,6 +1,8 @@
 package unstructured
 
 import (
+	"strings"
+
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -45,16 +47,30 @@ func Tidy(obj unstructured.Unstructured) unstructured.Unstructured {
 	}
 }
 
-func Compare(a, b unstructured.Unstructured, tidy bool) (bool, error) {
+func FixupGenerateLabels(obj unstructured.Unstructured) {
+	tidy := map[string]string{
+		"app.kubernetes.io/managed-by": "kyverno",
+	}
+	if labels := obj.GetLabels(); labels != nil {
+		for k, v := range labels {
+			if !strings.HasPrefix(k, "generate.kyverno.io/") {
+				tidy[k] = v
+			}
+		}
+	}
+	obj.SetLabels(tidy)
+}
+
+func Compare(a, e unstructured.Unstructured, tidy bool) (bool, error) {
 	if tidy {
 		a = Tidy(a)
-		b = Tidy(b)
+		e = Tidy(e)
 	}
-	expected, err := a.MarshalJSON()
+	actual, err := a.MarshalJSON()
 	if err != nil {
 		return false, err
 	}
-	actual, err := b.MarshalJSON()
+	expected, err := e.MarshalJSON()
 	if err != nil {
 		return false, err
 	}
