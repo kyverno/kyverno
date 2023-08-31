@@ -50,13 +50,15 @@ func NewController(
 	namespace string,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
+	caEnqueue, _, _ := controllerutils.AddDefaultEventHandlers(logger, caInformer.Informer(), queue)
+	tlsEnqueue, _, _ := controllerutils.AddDefaultEventHandlers(logger, tlsInformer.Informer(), queue)
 	c := controller{
 		renewer:       certRenewer,
 		caLister:      caInformer.Lister(),
 		tlsLister:     tlsInformer.Lister(),
 		queue:         queue,
-		caEnqueue:     controllerutils.AddDefaultEventHandlers(logger, caInformer.Informer(), queue),
-		tlsEnqueue:    controllerutils.AddDefaultEventHandlers(logger, tlsInformer.Informer(), queue),
+		caEnqueue:     caEnqueue,
+		tlsEnqueue:    tlsEnqueue,
 		caSecretName:  caSecretName,
 		tlsSecretName: tlsSecretName,
 		namespace:     namespace,
