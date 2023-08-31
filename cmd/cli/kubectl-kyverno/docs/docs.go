@@ -28,6 +28,10 @@ func websitePrepender(filename string) string {
 	return fmt.Sprintf(fmTemplate, now, strings.Replace(base, "_", " ", -1))
 }
 
+func websiteLinkHandler(filename string) string {
+	return "../" + strings.TrimSuffix(filename, filepath.Ext(filename))
+}
+
 func identity(s string) string {
 	return s
 }
@@ -48,6 +52,7 @@ func Command(root *cobra.Command) *cobra.Command {
 			linkHandler := identity
 			if website {
 				prepender = websitePrepender
+				linkHandler = websiteLinkHandler
 			}
 			if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 				if err := os.MkdirAll(path, os.ModeDir|os.ModePerm); err != nil {

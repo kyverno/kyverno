@@ -6,7 +6,7 @@ import (
 	"text/template"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/create/templates"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/values"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
 	"github.com/spf13/cobra"
 )
 
@@ -31,7 +31,7 @@ func Command() *cobra.Command {
 				defer file.Close()
 				output = file
 			}
-			values := values.Values{
+			values := api.Values{
 				GlobalValues: map[string]string{},
 			}
 			for _, result := range namespaceSelector {
@@ -69,12 +69,12 @@ func Command() *cobra.Command {
 	return cmd
 }
 
-func parseNamespaceSelector(in string) *values.NamespaceSelector {
+func parseNamespaceSelector(in string) *api.NamespaceSelector {
 	parts := strings.Split(in, ",")
 	if len(parts) < 2 {
 		return nil
 	}
-	nsSelector := values.NamespaceSelector{
+	nsSelector := api.NamespaceSelector{
 		Name:   parts[0],
 		Labels: map[string]string{},
 	}
@@ -95,12 +95,12 @@ func parseKeyValue(in string) (string, string) {
 	return "", ""
 }
 
-func parseRule(in string) *values.Policy {
+func parseRule(in string) *api.Policy {
 	parts := strings.Split(in, ",")
 	if len(parts) < 2 {
 		return nil
 	}
-	rule := values.Rule{
+	rule := api.Rule{
 		Name:   parts[1],
 		Values: map[string]interface{}{},
 	}
@@ -110,18 +110,18 @@ func parseRule(in string) *values.Policy {
 			rule.Values[k] = v
 		}
 	}
-	return &values.Policy{
+	return &api.Policy{
 		Name:  parts[0],
-		Rules: []values.Rule{rule},
+		Rules: []api.Rule{rule},
 	}
 }
 
-func parseResource(in string) *values.Policy {
+func parseResource(in string) *api.Policy {
 	parts := strings.Split(in, ",")
 	if len(parts) < 2 {
 		return nil
 	}
-	resource := values.Resource{
+	resource := api.Resource{
 		Name:   parts[1],
 		Values: map[string]interface{}{},
 	}
@@ -131,8 +131,8 @@ func parseResource(in string) *values.Policy {
 			resource.Values[k] = v
 		}
 	}
-	return &values.Policy{
+	return &api.Policy{
 		Name:      parts[0],
-		Resources: []values.Resource{resource},
+		Resources: []api.Resource{resource},
 	}
 }
