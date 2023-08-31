@@ -17,6 +17,7 @@ import (
 	pathutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/path"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
+	unstructuredutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/unstructured"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -601,24 +602,28 @@ func isNamespacedPolicy(policyNames string) (bool, error) {
 
 // getAndCompareResource --> Get the patchedResource or generatedResource from the path provided by user
 // And compare this resource with engine generated resource.
-func getAndCompareResource(path string, engineResource unstructured.Unstructured, isGit bool, policyResourcePath string, fs billy.Filesystem, isGenerate bool) string {
+func getAndCompareResource(path string, actualResource unstructured.Unstructured, isGit bool, policyResourcePath string, fs billy.Filesystem, isGenerate bool) string {
 	var status string
 	resourceType := "patchedResource"
 	if isGenerate {
 		resourceType = "generatedResource"
 	}
-
-	userResource, err := common.GetResourceFromPath(fs, path, isGit, policyResourcePath, resourceType)
+	expectedResource, err := common.GetResourceFromPath(fs, path, isGit, policyResourcePath, resourceType)
 	if err != nil {
-		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
+		fmt.Printf("Error: failed to load resources (%s)", err)
 		return ""
 	}
-	matched, err := generate.ValidateResourceWithPattern(log.Log, engineResource.UnstructuredContent(), userResource.UnstructuredContent())
-	if err != nil {
-		log.Log.V(3).Info(resourceType+" mismatch", "error", err.Error())
-		status = "fail"
-	} else if matched == "" {
-		status = "pass"
+	if isGenerate {
+		unstructuredutils.FixupGenerateLabels(actualResource)
+		unstructuredutils.FixupGenerateLabels(expectedResource)
+	}
+	equals, err := unstructuredutils.Compare(actualResource, expectedResource, true)
+	if err == nil {
+		if !equals {
+			status = "fail"
+		} else {
+			status = "pass"
+		}
 	}
 	return status
 }
