@@ -405,6 +405,9 @@ features:
   forceFailurePolicyIgnore:
     # -- Enables the feature
     enabled: false
+  generateValidatingAdmissionPolicy:
+    # -- Enables the feature
+    enabled: false
   logging:
     # -- Logging format
     format: text
