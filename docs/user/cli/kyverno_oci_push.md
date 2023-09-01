@@ -1,17 +1,38 @@
-## kyverno
+## kyverno oci push
 
-Kubernetes Native Policy Management
+push policie(s) that are included in an OCI image to OCI registry
 
 ### Synopsis
 
-To enable experimental commands, KYVERNO_EXPERIMENTAL should be configured with true or 1.
+This command is one of the supported experimental commands in Kyverno CLI, and its behaviour might be changed any time.
+
+```
+kyverno oci push [flags]
+```
+
+### Examples
+
+```
+# push policy to an OCI image from a given policy file
+kyverno oci push -p policy.yaml -i <imgref>
+
+# push multiple policies to an OCI image from a given directory that includes policies
+kyverno oci push -p policies. -i <imgref>
+```
 
 ### Options
 
 ```
+  -h, --help            help for push
+  -p, --policy string   path to policie(s)
+```
+
+### Options inherited from parent commands
+
+```
       --add_dir_header                   If true, adds the file directory to the header of the log messages
       --alsologtostderr                  log to standard error as well as files (no effect when -logtostderr=true)
-  -h, --help                             help for kyverno
+  -i, --image string                     image reference to push to or pull from
       --log_backtrace_at traceLocation   when logging hits line file:N, emit a stack trace (default :0)
       --log_dir string                   If non-empty, write log files in this directory (no effect when -logtostderr=true)
       --log_file string                  If non-empty, use this log file (no effect when -logtostderr=true)
@@ -27,13 +48,5 @@ To enable experimental commands, KYVERNO_EXPERIMENTAL should be configured with 
 
 ### SEE ALSO
 
-* [kyverno apply](kyverno_apply.md)	 - Applies policies on resources.
-* [kyverno completion](kyverno_completion.md)	 - Generate the autocompletion script for the specified shell
-* [kyverno create](kyverno_create.md)	 - Provides a command-line interface to help with the creation of various Kyverno resources.
-* [kyverno docs](kyverno_docs.md)	 - Generates documentation.
-* [kyverno fix](kyverno_fix.md)	 - Provides a command-line interface to fix inconsistencies and deprecated usage of Kyverno resources.
-* [kyverno jp](kyverno_jp.md)	 - Provides a command-line interface to JMESPath, enhanced with Kyverno specific custom functions.
 * [kyverno oci](kyverno_oci.md)	 - Pulls/pushes images that include policie(s) from/to OCI registries.
-* [kyverno test](kyverno_test.md)	 - Run tests from directory.
-* [kyverno version](kyverno_version.md)	 - Shows current version of kyverno.
 
