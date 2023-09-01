@@ -1,20 +1,25 @@
 name: add-default-resources-test
 policies:
-  - policy.yaml
+- policy.yaml
 resources:
-  - resource.yaml
-variables: variables.yaml
+- resource.yaml
 results:
-  - policy: add-default-resources
-    rule: add-default-requests
-    resource: nginx-demo
-    patchedResource: patched-resource.yaml
-    kind: Pod
-    result: pass
+- kind: Pod
+  patchedResource: patched-resource.yaml
+  policy: add-default-resources
+  resources:
+  - nginx-demo
+  result: pass
+  rule: add-default-requests
 values:
+  globalValues: null
+  namespaceSelector: null
   policies:
   - name: add-default-resources
     resources:
     - name: nginx-demo
       values:
         request.operation: CREATE
+    rules: null
+  subresources: null
+variables: variables.yaml

@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apply"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/create"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/docs"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/fix"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/jp"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/oci"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
@@ -58,6 +59,9 @@ func registerCommands(cli *cobra.Command) {
 		version.Command(),
 	)
 	if enableExperimental() {
-		cli.AddCommand(oci.Command())
+		cli.AddCommand(
+			fix.Command(),
+			oci.Command(),
+		)
 	}
 }
