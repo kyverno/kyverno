@@ -148,7 +148,7 @@ For more information visit https://kyverno.io/docs/kyverno-cli/#test
   -h, --help                        help for test
       --registry                    If set to true, access the image registry using local docker credentials to populate external data
       --remove-color                Remove any color from output
-  -t, --test-case-selector string   run some specific test cases by passing a string argument in double quotes to this flag like - "policy=<policy_name>, rule=<rule_name>, resource=<resource_name". The argument could be any combination of policy, rule and resource.
+  -t, --test-case-selector string   run some specific test cases by passing a string argument in double quotes to this flag like - "policy=<policy_name>, rule=<rule_name>, resource=<resource_name". The argument could be any combination of policy, rule and resource. Wildcard is supported for values of policy, rule and resource
 ```
 
 ### Options inherited from parent commands
