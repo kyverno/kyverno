@@ -490,7 +490,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          mv kubectl-kyverno ./cmd/cli/kubectl-kyverno/kyverno
+          chmod +x kubectl-kyverno && mv kubectl-kyverno ./cmd/cli/kubectl-kyverno/kyverno
           echo "$PWD/cmd/cli/kubectl-kyverno" >> $GITHUB_PATH
       - name: Load kyverno images archive in kind cluster
         shell: bash
