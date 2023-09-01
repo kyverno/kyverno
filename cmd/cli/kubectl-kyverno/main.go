@@ -54,12 +54,14 @@ func registerCommands(cli *cobra.Command) {
 		apply.Command(),
 		create.Command(),
 		docs.Command(cli),
-		fix.Command(),
 		jp.Command(),
 		test.Command(),
 		version.Command(),
 	)
 	if enableExperimental() {
-		cli.AddCommand(oci.Command())
+		cli.AddCommand(
+			fix.Command(),
+			oci.Command(),
+		)
 	}
 }
