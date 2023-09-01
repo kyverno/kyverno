@@ -36,6 +36,29 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
+  prepare-cli:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        timeout-minutes: 10
+        with:
+          build-cache-key: build-cli
+      - name: Build CLI
+        shell: bash
+        run: |
+          set -e
+          VERSION=${{ github.ref_name }} make build-cli
+      - name: upload images archive
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        with:
+          name: kubectl-kyverno
+          path: cmd/cli/kubectl-kyverno/kubectl-kyverno
+          retention-days: 1
+          if-no-files-found: error
+
   # runs conformance test suites with configuration:
   standard:
     runs-on: ubuntu-latest
@@ -432,7 +455,9 @@ jobs:
           # - tekton
           # - traefik
           # - velero
-    needs: prepare-images
+    needs:
+      - prepare-images
+      - prepare-cli
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout kyverno/kyverno
@@ -457,6 +482,16 @@ jobs:
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: kyverno.tar
+      - name: Download kyverno CLI archive
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: kubectl-kyverno
+      - name: Install Kyverno CLI
+        shell: bash
+        run: |
+          set -e
+          mv kubectl-kyverno ./cmd/cli/kubectl-kyverno/kyverno
+          echo "$PWD/cmd/cli/kubectl-kyverno" >> $GITHUB_PATH
       - name: Load kyverno images archive in kind cluster
         shell: bash
         run: |
@@ -470,13 +505,6 @@ jobs:
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
-      - name: Build Kyverno CLI
-        shell: bash
-        run: |
-          set -e
-          make build-cli
-          ln -s $PWD/cmd/cli/kubectl-kyverno/kubectl-kyverno ./cmd/cli/kubectl-kyverno/kyverno
-          echo "$PWD/cmd/cli/kubectl-kyverno" >> $GITHUB_PATH
       - name: Test policy library with kuttl
         shell: bash
         run: |
