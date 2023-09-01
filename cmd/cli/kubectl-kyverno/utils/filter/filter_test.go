@@ -45,6 +45,20 @@ func Test_policy_Apply(t *testing.T) {
 			Policy: "not-test",
 		},
 		want: false,
+	}, {
+		name:  "wildcard match",
+		value: "disallow-*",
+		result: api.TestResults{
+			Policy: "disallow-latest-tag",
+		},
+		want: true,
+	}, {
+		name:  "wildcard does not match",
+		value: "allow-*",
+		result: api.TestResults{
+			Policy: "disallow-latest-tag",
+		},
+		want: false,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -95,6 +109,20 @@ func Test_rule_Apply(t *testing.T) {
 			Rule: "not-test",
 		},
 		want: false,
+	}, {
+		name:  "wildcard match",
+		value: "*-image-tag",
+		result: api.TestResults{
+			Rule: "validate-image-tag",
+		},
+		want: true,
+	}, {
+		name:  "wildcard does not match",
+		value: "require-*",
+		result: api.TestResults{
+			Rule: "validate-image-tag",
+		},
+		want: false,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -143,6 +171,20 @@ func Test_resource_Apply(t *testing.T) {
 		value: "test",
 		result: api.TestResults{
 			Resource: "not-test",
+		},
+		want: false,
+	}, {
+		name:  "wildcard match",
+		value: "good*01",
+		result: api.TestResults{
+			Resource: "good-deployment-01",
+		},
+		want: true,
+	}, {
+		name:  "wildcard does not match",
+		value: "good*01",
+		result: api.TestResults{
+			Resource: "bad-deployment-01",
 		},
 		want: false,
 	}}
