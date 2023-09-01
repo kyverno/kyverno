@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	wildcard "github.com/IGLOU-EU/go-wildcard"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 )
 
 type Filter interface {
@@ -20,11 +20,8 @@ func (f policy) Apply(result api.TestResults) bool {
 	if result.Policy == "" {
 		return true
 	}
-	if result.Policy == f.value {
+	if wildcard.Match(f.value, result.Policy) {
 		return true
-	}
-	if strings.Contains(f.value, "*") {
-		return wildcard.MatchSimple(f.value, result.Policy)
 	}
 	return false
 }
@@ -37,11 +34,8 @@ func (f rule) Apply(result api.TestResults) bool {
 	if result.Rule == "" {
 		return true
 	}
-	if result.Rule == f.value {
+	if wildcard.Match(f.value, result.Rule) {
 		return true
-	}
-	if strings.Contains(f.value, "*") {
-		return wildcard.MatchSimple(f.value, result.Rule)
 	}
 	return false
 }
@@ -54,11 +48,8 @@ func (f resource) Apply(result api.TestResults) bool {
 	if result.Resource == "" {
 		return true
 	}
-	if result.Resource == f.value {
+	if wildcard.Match(f.value, result.Resource) {
 		return true
-	}
-	if strings.Contains(f.value, "*") {
-		return wildcard.MatchSimple(f.value, result.Resource)
 	}
 	return false
 }
