@@ -95,28 +95,40 @@ func NewController(
 		metadataCache:  metadataCache,
 		chunkSize:      chunkSize,
 	}
-	controllerutils.AddDelayedExplicitEventHandlers(logger, polrInformer.Informer(), c.queue, enqueueDelay, keyFunc)
-	controllerutils.AddDelayedExplicitEventHandlers(logger, cpolrInformer.Informer(), c.queue, enqueueDelay, keyFunc)
-	controllerutils.AddDelayedExplicitEventHandlers(logger, bgscanrInformer.Informer(), c.queue, enqueueDelay, keyFunc)
-	controllerutils.AddDelayedExplicitEventHandlers(logger, cbgscanrInformer.Informer(), c.queue, enqueueDelay, keyFunc)
+	if _, _, err := controllerutils.AddDelayedExplicitEventHandlers(logger, polrInformer.Informer(), c.queue, enqueueDelay, keyFunc); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
+	if _, _, err := controllerutils.AddDelayedExplicitEventHandlers(logger, cpolrInformer.Informer(), c.queue, enqueueDelay, keyFunc); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
+	if _, _, err := controllerutils.AddDelayedExplicitEventHandlers(logger, bgscanrInformer.Informer(), c.queue, enqueueDelay, keyFunc); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
+	if _, _, err := controllerutils.AddDelayedExplicitEventHandlers(logger, cbgscanrInformer.Informer(), c.queue, enqueueDelay, keyFunc); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
 	enqueueFromAdmr := func(obj metav1.Object) {
 		// no need to consider non aggregated reports
 		if controllerutils.HasLabel(obj, reportutils.LabelAggregatedReport) {
 			c.queue.AddAfter(keyFunc(obj), enqueueDelay)
 		}
 	}
-	controllerutils.AddEventHandlersT(
+	if _, err := controllerutils.AddEventHandlersT(
 		admrInformer.Informer(),
 		func(obj metav1.Object) { enqueueFromAdmr(obj) },
 		func(_, obj metav1.Object) { enqueueFromAdmr(obj) },
 		func(obj metav1.Object) { enqueueFromAdmr(obj) },
-	)
-	controllerutils.AddEventHandlersT(
+	); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
+	if _, err := controllerutils.AddEventHandlersT(
 		cadmrInformer.Informer(),
 		func(obj metav1.Object) { enqueueFromAdmr(obj) },
 		func(_, obj metav1.Object) { enqueueFromAdmr(obj) },
 		func(obj metav1.Object) { enqueueFromAdmr(obj) },
-	)
+	); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
 	return &c
 }
 

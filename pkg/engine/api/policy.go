@@ -34,28 +34,28 @@ type KyvernoPolicy struct {
 	policy kyvernov1.PolicyInterface
 }
 
-func (p KyvernoPolicy) GetPolicy() interface{} {
+func (p *KyvernoPolicy) GetPolicy() interface{} {
 	return p.policy
 }
 
-func (p KyvernoPolicy) GetType() PolicyType {
+func (p *KyvernoPolicy) GetType() PolicyType {
 	return KyvernoPolicyType
 }
 
-func (p KyvernoPolicy) GetName() string {
+func (p *KyvernoPolicy) GetName() string {
 	return p.policy.GetName()
 }
 
-func (p KyvernoPolicy) GetNamespace() string {
+func (p *KyvernoPolicy) GetNamespace() string {
 	return p.policy.GetNamespace()
 }
 
-func (p KyvernoPolicy) GetAnnotations() map[string]string {
+func (p *KyvernoPolicy) GetAnnotations() map[string]string {
 	return p.policy.GetAnnotations()
 }
 
-func NewKyvernoPolicy(pol kyvernov1.PolicyInterface) KyvernoPolicy {
-	return KyvernoPolicy{
+func NewKyvernoPolicy(pol kyvernov1.PolicyInterface) GenericPolicy {
+	return &KyvernoPolicy{
 		policy: pol,
 	}
 }
@@ -64,28 +64,28 @@ type ValidatingAdmissionPolicy struct {
 	policy v1alpha1.ValidatingAdmissionPolicy
 }
 
-func (p ValidatingAdmissionPolicy) GetPolicy() interface{} {
+func (p *ValidatingAdmissionPolicy) GetPolicy() interface{} {
 	return p.policy
 }
 
-func (p ValidatingAdmissionPolicy) GetType() PolicyType {
+func (p *ValidatingAdmissionPolicy) GetType() PolicyType {
 	return ValidatingAdmissionPolicyType
 }
 
-func (p ValidatingAdmissionPolicy) GetName() string {
+func (p *ValidatingAdmissionPolicy) GetName() string {
 	return p.policy.GetName()
 }
 
-func (p ValidatingAdmissionPolicy) GetNamespace() string {
+func (p *ValidatingAdmissionPolicy) GetNamespace() string {
 	return p.policy.GetNamespace()
 }
 
-func (p ValidatingAdmissionPolicy) GetAnnotations() map[string]string {
+func (p *ValidatingAdmissionPolicy) GetAnnotations() map[string]string {
 	return p.policy.GetAnnotations()
 }
 
-func NewValidatingAdmissionPolicy(pol v1alpha1.ValidatingAdmissionPolicy) ValidatingAdmissionPolicy {
-	return ValidatingAdmissionPolicy{
+func NewValidatingAdmissionPolicy(pol v1alpha1.ValidatingAdmissionPolicy) GenericPolicy {
+	return &ValidatingAdmissionPolicy{
 		policy: pol,
 	}
 }

@@ -1,11 +1,12 @@
 name: test-simple
 policies:
-  - policy.yaml
+- policy.yaml
 resources:
-  - resources.yaml
+- resources.yaml
 results:
-  - policy: disallow-latest-tag
-    rule: validate-image-tag
-    resource: missing
-    kind: Pod
-    result: pass
+- kind: Pod
+  policy: disallow-latest-tag
+  resources:
+  - missing
+  result: pass
+  rule: validate-image-tag
