@@ -25,51 +25,51 @@ func Test_Apply(t *testing.T) {
 	defer func() { _ = os.Remove(localFileName) }()
 
 	testcases := []*TestCase{{
-		// 	config: ApplyCommandConfig{
-		// 		PolicyPaths:   []string{"../../../../test/best_practices/disallow_latest_tag.yaml"},
-		// 		ResourcePaths: []string{"../../../../test/resources/pod_with_version_tag.yaml"},
-		// 		PolicyReport:  true,
-		// 	},
-		// 	expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-		// 		Summary: policyreportv1alpha2.PolicyReportSummary{
-		// 			Pass:  2,
-		// 			Fail:  0,
-		// 			Skip:  0,
-		// 			Error: 0,
-		// 			Warn:  0,
-		// 		},
-		// 	}},
-		// }, {
-		// 	config: ApplyCommandConfig{
-		// 		PolicyPaths:   []string{localFileName},
-		// 		ResourcePaths: []string{"../../../../test/resources/pod_with_version_tag.yaml"},
-		// 		PolicyReport:  true,
-		// 	},
-		// 	expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-		// 		Summary: policyreportv1alpha2.PolicyReportSummary{
-		// 			Pass:  2,
-		// 			Fail:  0,
-		// 			Skip:  0,
-		// 			Error: 0,
-		// 			Warn:  0,
-		// 		},
-		// 	}},
-		// }, {
-		// 	config: ApplyCommandConfig{
-		// 		PolicyPaths:   []string{"../../../../test/best_practices/disallow_latest_tag.yaml"},
-		// 		ResourcePaths: []string{"../../../../test/resources/pod_with_latest_tag.yaml"},
-		// 		PolicyReport:  true,
-		// 	},
-		// 	expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-		// 		Summary: policyreportv1alpha2.PolicyReportSummary{
-		// 			Pass:  1,
-		// 			Fail:  1,
-		// 			Skip:  0,
-		// 			Error: 0,
-		// 			Warn:  0,
-		// 		},
-		// 	}},
-		// }, {
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../test/best_practices/disallow_latest_tag.yaml"},
+			ResourcePaths: []string{"../../../../test/resources/pod_with_version_tag.yaml"},
+			PolicyReport:  true,
+		},
+		expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+			Summary: policyreportv1alpha2.PolicyReportSummary{
+				Pass:  2,
+				Fail:  0,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
+			},
+		}},
+	}, {
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{localFileName},
+			ResourcePaths: []string{"../../../../test/resources/pod_with_version_tag.yaml"},
+			PolicyReport:  true,
+		},
+		expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+			Summary: policyreportv1alpha2.PolicyReportSummary{
+				Pass:  2,
+				Fail:  0,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
+			},
+		}},
+	}, {
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../test/best_practices/disallow_latest_tag.yaml"},
+			ResourcePaths: []string{"../../../../test/resources/pod_with_latest_tag.yaml"},
+			PolicyReport:  true,
+		},
+		expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+			Summary: policyreportv1alpha2.PolicyReportSummary{
+				Pass:  1,
+				Fail:  1,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
+			},
+		}},
+	}, {
 		config: ApplyCommandConfig{
 			PolicyPaths:   []string{"../../../../test/cli/apply/policies"},
 			ResourcePaths: []string{"../../../../test/cli/apply/resource"},
@@ -78,34 +78,10 @@ func Test_Apply(t *testing.T) {
 		expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
 			Summary: policyreportv1alpha2.PolicyReportSummary{
 				Pass:  1,
-				Fail:  0,
-				Skip:  2,
-				Error: 0,
-				Warn:  0,
-			},
-		}, {
-			Summary: policyreportv1alpha2.PolicyReportSummary{
-				Pass:  0,
-				Fail:  0,
-				Skip:  2,
-				Error: 0,
-				Warn:  1,
-			},
-		}, {
-			Summary: policyreportv1alpha2.PolicyReportSummary{
-				Pass:  0,
 				Fail:  1,
-				Skip:  2,
+				Skip:  8,
 				Error: 0,
-				Warn:  0,
-			},
-		}, {
-			Summary: policyreportv1alpha2.PolicyReportSummary{
-				Pass:  0,
-				Fail:  1,
-				Skip:  2,
-				Error: 0,
-				Warn:  0,
+				Warn:  2,
 			},
 		}},
 	}, {
@@ -289,17 +265,9 @@ func Test_Apply(t *testing.T) {
 		},
 		expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
 			Summary: policyreportv1alpha2.PolicyReportSummary{
-				Pass:  0,
+				Pass:  2,
 				Fail:  1,
 				Skip:  2,
-				Error: 0,
-				Warn:  0,
-			},
-		}, {
-			Summary: policyreportv1alpha2.PolicyReportSummary{
-				Pass:  2,
-				Fail:  0,
-				Skip:  0,
 				Error: 0,
 				Warn:  0,
 			},
@@ -315,14 +283,6 @@ func Test_Apply(t *testing.T) {
 		expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
 			Summary: policyreportv1alpha2.PolicyReportSummary{
 				Pass:  2,
-				Fail:  0,
-				Skip:  0,
-				Error: 0,
-				Warn:  0,
-			},
-		}, {
-			Summary: policyreportv1alpha2.PolicyReportSummary{
-				Pass:  0,
 				Fail:  1,
 				Skip:  2,
 				Error: 0,
@@ -332,11 +292,11 @@ func Test_Apply(t *testing.T) {
 	}}
 
 	compareSummary := func(expected policyreportv1alpha2.PolicyReportSummary, actual policyreportv1alpha2.PolicyReportSummary, desc string) {
-		assert.Equal(t, int64(actual.Pass), int64(expected.Pass), desc)
-		assert.Equal(t, int64(actual.Fail), int64(expected.Fail), desc)
-		assert.Equal(t, int64(actual.Skip), int64(expected.Skip), desc)
-		assert.Equal(t, int64(actual.Warn), int64(expected.Warn), desc)
-		assert.Equal(t, int64(actual.Error), int64(expected.Error), desc)
+		assert.Equal(t, actual.Pass, expected.Pass, desc)
+		assert.Equal(t, actual.Fail, expected.Fail, desc)
+		assert.Equal(t, actual.Skip, expected.Skip, desc)
+		assert.Equal(t, actual.Warn, expected.Warn, desc)
+		assert.Equal(t, actual.Error, expected.Error, desc)
 	}
 
 	verifyTestcase := func(t *testing.T, tc *TestCase, compareSummary func(policyreportv1alpha2.PolicyReportSummary, policyreportv1alpha2.PolicyReportSummary, string)) {
@@ -363,8 +323,11 @@ func Test_Apply(t *testing.T) {
 
 		clustered, _ := reportutils.ComputePolicyReports(tc.config.AuditWarn, responses...)
 		assert.Assert(t, len(clustered) > 0, "policy reports should not be empty: %s", desc)
-		assert.Equal(t, len(clustered), len(tc.expectedPolicyReports))
-		for i, resp := range clustered {
+		combined := []policyreportv1alpha2.ClusterPolicyReport{
+			reportutils.MergeClusterReports(clustered, nil),
+		}
+		assert.Equal(t, len(combined), len(tc.expectedPolicyReports))
+		for i, resp := range combined {
 			compareSummary(tc.expectedPolicyReports[i].Summary, resp.Summary, desc)
 		}
 	}
