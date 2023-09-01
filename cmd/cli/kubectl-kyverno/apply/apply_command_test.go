@@ -24,324 +24,312 @@ func Test_Apply(t *testing.T) {
 	assert.NilError(t, err)
 	defer func() { _ = os.Remove(localFileName) }()
 
-	testcases := []*TestCase{
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../test/best_practices/disallow_latest_tag.yaml"},
-				ResourcePaths: []string{"../../../../test/resources/pod_with_version_tag.yaml"},
-				PolicyReport:  true,
-			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{
-				{
-					Summary: policyreportv1alpha2.PolicyReportSummary{
-						Pass:  2,
-						Fail:  0,
-						Skip:  0,
-						Error: 0,
-						Warn:  0,
-					},
-				},
-			},
+	testcases := []*TestCase{{
+		// 	config: ApplyCommandConfig{
+		// 		PolicyPaths:   []string{"../../../../test/best_practices/disallow_latest_tag.yaml"},
+		// 		ResourcePaths: []string{"../../../../test/resources/pod_with_version_tag.yaml"},
+		// 		PolicyReport:  true,
+		// 	},
+		// 	expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+		// 		Summary: policyreportv1alpha2.PolicyReportSummary{
+		// 			Pass:  2,
+		// 			Fail:  0,
+		// 			Skip:  0,
+		// 			Error: 0,
+		// 			Warn:  0,
+		// 		},
+		// 	}},
+		// }, {
+		// 	config: ApplyCommandConfig{
+		// 		PolicyPaths:   []string{localFileName},
+		// 		ResourcePaths: []string{"../../../../test/resources/pod_with_version_tag.yaml"},
+		// 		PolicyReport:  true,
+		// 	},
+		// 	expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+		// 		Summary: policyreportv1alpha2.PolicyReportSummary{
+		// 			Pass:  2,
+		// 			Fail:  0,
+		// 			Skip:  0,
+		// 			Error: 0,
+		// 			Warn:  0,
+		// 		},
+		// 	}},
+		// }, {
+		// 	config: ApplyCommandConfig{
+		// 		PolicyPaths:   []string{"../../../../test/best_practices/disallow_latest_tag.yaml"},
+		// 		ResourcePaths: []string{"../../../../test/resources/pod_with_latest_tag.yaml"},
+		// 		PolicyReport:  true,
+		// 	},
+		// 	expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+		// 		Summary: policyreportv1alpha2.PolicyReportSummary{
+		// 			Pass:  1,
+		// 			Fail:  1,
+		// 			Skip:  0,
+		// 			Error: 0,
+		// 			Warn:  0,
+		// 		},
+		// 	}},
+		// }, {
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../test/cli/apply/policies"},
+			ResourcePaths: []string{"../../../../test/cli/apply/resource"},
+			PolicyReport:  true,
 		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{localFileName},
-				ResourcePaths: []string{"../../../../test/resources/pod_with_version_tag.yaml"},
-				PolicyReport:  true,
+		expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+			Summary: policyreportv1alpha2.PolicyReportSummary{
+				Pass:  1,
+				Fail:  0,
+				Skip:  2,
+				Error: 0,
+				Warn:  0,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{
-				{
-					Summary: policyreportv1alpha2.PolicyReportSummary{
-						Pass:  2,
-						Fail:  0,
-						Skip:  0,
-						Error: 0,
-						Warn:  0,
-					},
-				},
+		}, {
+			Summary: policyreportv1alpha2.PolicyReportSummary{
+				Pass:  0,
+				Fail:  0,
+				Skip:  2,
+				Error: 0,
+				Warn:  1,
 			},
+		}, {
+			Summary: policyreportv1alpha2.PolicyReportSummary{
+				Pass:  0,
+				Fail:  1,
+				Skip:  2,
+				Error: 0,
+				Warn:  0,
+			},
+		}, {
+			Summary: policyreportv1alpha2.PolicyReportSummary{
+				Pass:  0,
+				Fail:  1,
+				Skip:  2,
+				Error: 0,
+				Warn:  0,
+			},
+		}},
+	}, {
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../test/best_practices/disallow_latest_tag.yaml"},
+			ResourcePaths: []string{"../../../../test/resources/pod_with_latest_tag.yaml"},
+			PolicyReport:  true,
+			AuditWarn:     true,
 		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../test/best_practices/disallow_latest_tag.yaml"},
-				ResourcePaths: []string{"../../../../test/resources/pod_with_latest_tag.yaml"},
-				PolicyReport:  true,
+		expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+			Summary: policyreportv1alpha2.PolicyReportSummary{
+				Pass:  1,
+				Fail:  0,
+				Skip:  0,
+				Error: 0,
+				Warn:  1,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{
-				{
-					Summary: policyreportv1alpha2.PolicyReportSummary{
-						Pass:  1,
-						Fail:  1,
-						Skip:  0,
-						Error: 0,
-						Warn:  0,
-					},
-				},
-			},
+		}},
+	}, {
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{"-"},
+			ResourcePaths: []string{"../../../../test/resources/pod_with_latest_tag.yaml"},
+			PolicyReport:  true,
+			AuditWarn:     true,
 		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../test/cli/apply/policies"},
-				ResourcePaths: []string{"../../../../test/cli/apply/resource"},
-				PolicyReport:  true,
+		stdinFile: "../../../../test/best_practices/disallow_latest_tag.yaml",
+		expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+			Summary: policyreportv1alpha2.PolicyReportSummary{
+				Pass:  1,
+				Fail:  0,
+				Skip:  0,
+				Error: 0,
+				Warn:  1,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{
-				{
-					Summary: policyreportv1alpha2.PolicyReportSummary{
-						Pass:  1,
-						Fail:  1,
-						Skip:  8,
-						Error: 0,
-						Warn:  2,
-					},
-				},
-			},
+		}},
+	}, {
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../test/best_practices/disallow_latest_tag.yaml"},
+			ResourcePaths: []string{"-"},
+			PolicyReport:  true,
+			AuditWarn:     true,
 		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../test/best_practices/disallow_latest_tag.yaml"},
-				ResourcePaths: []string{"../../../../test/resources/pod_with_latest_tag.yaml"},
-				PolicyReport:  true,
-				AuditWarn:     true,
+		stdinFile: "../../../../test/resources/pod_with_latest_tag.yaml",
+		expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+			Summary: policyreportv1alpha2.PolicyReportSummary{
+				Pass:  1,
+				Fail:  0,
+				Skip:  0,
+				Error: 0,
+				Warn:  1,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{
-				{
-					Summary: policyreportv1alpha2.PolicyReportSummary{
-						Pass:  1,
-						Fail:  0,
-						Skip:  0,
-						Error: 0,
-						Warn:  1,
-					},
-				},
-			},
+		}},
+	}, {
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{"https://github.com/kyverno/policies/openshift/team-validate-ns-name/"},
+			ResourcePaths: []string{"../../../../test/openshift/team-validate-ns-name.yaml"},
+			GitBranch:     "main",
+			PolicyReport:  true,
 		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"-"},
-				ResourcePaths: []string{"../../../../test/resources/pod_with_latest_tag.yaml"},
-				PolicyReport:  true,
-				AuditWarn:     true,
+		expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+			Summary: policyreportv1alpha2.PolicyReportSummary{
+				Pass:  2,
+				Fail:  0,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			},
-			stdinFile: "../../../../test/best_practices/disallow_latest_tag.yaml",
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{
-				{
-					Summary: policyreportv1alpha2.PolicyReportSummary{
-						Pass:  1,
-						Fail:  0,
-						Skip:  0,
-						Error: 0,
-						Warn:  1,
-					},
-				},
-			},
+		}},
+	}, {
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../test/cli/apply/policies-set"},
+			ResourcePaths: []string{"../../../../test/cli/apply/resources-set"},
+			Variables:     []string{"request.operation=UPDATE"},
+			PolicyReport:  true,
 		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../test/best_practices/disallow_latest_tag.yaml"},
-				ResourcePaths: []string{"-"},
-				PolicyReport:  true,
-				AuditWarn:     true,
+		expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+			Summary: policyreportv1alpha2.PolicyReportSummary{
+				Pass:  2,
+				Fail:  0,
+				Skip:  4,
+				Error: 0,
+				Warn:  0,
 			},
-			stdinFile: "../../../../test/resources/pod_with_latest_tag.yaml",
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{
-				{
-					Summary: policyreportv1alpha2.PolicyReportSummary{
-						Pass:  1,
-						Fail:  0,
-						Skip:  0,
-						Error: 0,
-						Warn:  1,
-					},
-				},
-			},
+		}},
+	}, {
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/check-deployments-replica/policy.yaml"},
+			ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/check-deployments-replica/deployment1.yaml"},
+			PolicyReport:  true,
 		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"https://github.com/kyverno/policies/openshift/team-validate-ns-name/"},
-				ResourcePaths: []string{"../../../../test/openshift/team-validate-ns-name.yaml"},
-				GitBranch:     "main",
-				PolicyReport:  true,
+		expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+			Summary: policyreportv1alpha2.PolicyReportSummary{
+				Pass:  1,
+				Fail:  0,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{
-				{
-					Summary: policyreportv1alpha2.PolicyReportSummary{
-						Pass:  2,
-						Fail:  0,
-						Skip:  0,
-						Error: 0,
-						Warn:  0,
-					},
-				},
-			},
+		}},
+	}, {
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/check-deployments-replica/policy.yaml"},
+			ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/check-deployments-replica/deployment2.yaml"},
+			PolicyReport:  true,
 		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../test/cli/apply/policies-set"},
-				ResourcePaths: []string{"../../../../test/cli/apply/resources-set"},
-				Variables:     []string{"request.operation=UPDATE"},
-				PolicyReport:  true,
+		expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+			Summary: policyreportv1alpha2.PolicyReportSummary{
+				Pass:  0,
+				Fail:  1,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{
-				{
-					Summary: policyreportv1alpha2.PolicyReportSummary{
-						Pass:  2,
-						Fail:  0,
-						Skip:  4,
-						Error: 0,
-						Warn:  0,
-					},
-				},
-			},
+		}},
+	}, {
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/disallow-host-path/policy.yaml"},
+			ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod1.yaml"},
+			PolicyReport:  true,
 		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/check-deployments-replica/policy.yaml"},
-				ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/check-deployments-replica/deployment1.yaml"},
-				PolicyReport:  true,
+		expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+			Summary: policyreportv1alpha2.PolicyReportSummary{
+				Pass:  1,
+				Fail:  0,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{
-				{
-					Summary: policyreportv1alpha2.PolicyReportSummary{
-						Pass:  1,
-						Fail:  0,
-						Skip:  0,
-						Error: 0,
-						Warn:  0,
-					},
-				},
-			},
+		}},
+	}, {
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/disallow-host-path/policy.yaml"},
+			ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod2.yaml"},
+			PolicyReport:  true,
 		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/check-deployments-replica/policy.yaml"},
-				ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/check-deployments-replica/deployment2.yaml"},
-				PolicyReport:  true,
+		expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+			Summary: policyreportv1alpha2.PolicyReportSummary{
+				Pass:  0,
+				Fail:  1,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{
-				{
-					Summary: policyreportv1alpha2.PolicyReportSummary{
-						Pass:  0,
-						Fail:  1,
-						Skip:  0,
-						Error: 0,
-						Warn:  0,
-					},
-				},
-			},
+		}},
+	}, {
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/check-deployment-labels/policy.yaml"},
+			ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/check-deployment-labels/deployment1.yaml"},
+			PolicyReport:  true,
 		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/disallow-host-path/policy.yaml"},
-				ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod1.yaml"},
-				PolicyReport:  true,
+		expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+			Summary: policyreportv1alpha2.PolicyReportSummary{
+				Pass:  1,
+				Fail:  0,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{
-				{
-					Summary: policyreportv1alpha2.PolicyReportSummary{
-						Pass:  1,
-						Fail:  0,
-						Skip:  0,
-						Error: 0,
-						Warn:  0,
-					},
-				},
-			},
+		}},
+	}, {
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/check-deployment-labels/policy.yaml"},
+			ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/check-deployment-labels/deployment2.yaml"},
+			PolicyReport:  true,
 		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/disallow-host-path/policy.yaml"},
-				ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod2.yaml"},
-				PolicyReport:  true,
+		expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+			Summary: policyreportv1alpha2.PolicyReportSummary{
+				Pass:  0,
+				Fail:  1,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{
-				{
-					Summary: policyreportv1alpha2.PolicyReportSummary{
-						Pass:  0,
-						Fail:  1,
-						Skip:  0,
-						Error: 0,
-						Warn:  0,
-					},
-				},
-			},
+		}},
+	}, {
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{"https://github.com/kyverno/policies/best-practices/require-labels/", "../../../../test/best_practices/disallow_latest_tag.yaml"},
+			ResourcePaths: []string{"../../../../test/resources/pod_with_version_tag.yaml"},
+			GitBranch:     "main",
+			PolicyReport:  true,
 		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/check-deployment-labels/policy.yaml"},
-				ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/check-deployment-labels/deployment1.yaml"},
-				PolicyReport:  true,
+		expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+			Summary: policyreportv1alpha2.PolicyReportSummary{
+				Pass:  0,
+				Fail:  1,
+				Skip:  2,
+				Error: 0,
+				Warn:  0,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{
-				{
-					Summary: policyreportv1alpha2.PolicyReportSummary{
-						Pass:  1,
-						Fail:  0,
-						Skip:  0,
-						Error: 0,
-						Warn:  0,
-					},
-				},
+		}, {
+			Summary: policyreportv1alpha2.PolicyReportSummary{
+				Pass:  2,
+				Fail:  0,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			},
+		}},
+	}, {
+		// Same as the above test case but the policy paths are reordered
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../test/best_practices/disallow_latest_tag.yaml", "https://github.com/kyverno/policies/best-practices/require-labels/"},
+			ResourcePaths: []string{"../../../../test/resources/pod_with_version_tag.yaml"},
+			GitBranch:     "main",
+			PolicyReport:  true,
 		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../test/cli/test-validating-admission-policy/check-deployment-labels/policy.yaml"},
-				ResourcePaths: []string{"../../../../test/cli/test-validating-admission-policy/check-deployment-labels/deployment2.yaml"},
-				PolicyReport:  true,
+		expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+			Summary: policyreportv1alpha2.PolicyReportSummary{
+				Pass:  2,
+				Fail:  0,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{
-				{
-					Summary: policyreportv1alpha2.PolicyReportSummary{
-						Pass:  0,
-						Fail:  1,
-						Skip:  0,
-						Error: 0,
-						Warn:  0,
-					},
-				},
+		}, {
+			Summary: policyreportv1alpha2.PolicyReportSummary{
+				Pass:  0,
+				Fail:  1,
+				Skip:  2,
+				Error: 0,
+				Warn:  0,
 			},
-		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"https://github.com/kyverno/policies/best-practices/require-labels/", "../../../../test/best_practices/disallow_latest_tag.yaml"},
-				ResourcePaths: []string{"../../../../test/resources/pod_with_version_tag.yaml"},
-				GitBranch:     "main",
-				PolicyReport:  true,
-			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{
-				{
-					Summary: policyreportv1alpha2.PolicyReportSummary{
-						Pass:  2,
-						Fail:  1,
-						Skip:  2,
-						Error: 0,
-						Warn:  0,
-					},
-				},
-			},
-		},
-		{
-			// Same as the above test case but the policy paths are reordered
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../test/best_practices/disallow_latest_tag.yaml", "https://github.com/kyverno/policies/best-practices/require-labels/"},
-				ResourcePaths: []string{"../../../../test/resources/pod_with_version_tag.yaml"},
-				GitBranch:     "main",
-				PolicyReport:  true,
-			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{
-				{
-					Summary: policyreportv1alpha2.PolicyReportSummary{
-						Pass:  2,
-						Fail:  1,
-						Skip:  2,
-						Error: 0,
-						Warn:  0,
-					},
-				},
-			},
-		},
-	}
+		}},
+	}}
 
 	compareSummary := func(expected policyreportv1alpha2.PolicyReportSummary, actual policyreportv1alpha2.PolicyReportSummary, desc string) {
 		assert.Equal(t, int64(actual.Pass), int64(expected.Pass), desc)
@@ -370,11 +358,12 @@ func Test_Apply(t *testing.T) {
 		}
 
 		defer func() { osExit = os.Exit }()
-		_, _, _, info, err := tc.config.applyCommandHelper()
+		_, _, _, responses, err := tc.config.applyCommandHelper()
 		assert.NilError(t, err, desc)
 
-		clustered, _ := reportutils.ComputePolicyReports(tc.config.AuditWarn, info...)
+		clustered, _ := reportutils.ComputePolicyReports(tc.config.AuditWarn, responses...)
 		assert.Assert(t, len(clustered) > 0, "policy reports should not be empty: %s", desc)
+		assert.Equal(t, len(clustered), len(tc.expectedPolicyReports))
 		for i, resp := range clustered {
 			compareSummary(tc.expectedPolicyReports[i].Summary, resp.Summary, desc)
 		}

@@ -11,8 +11,11 @@ import (
 )
 
 func ComputePolicyReportResultsPerPolicy(auditWarn bool, engineResponses ...engineapi.EngineResponse) map[engineapi.GenericPolicy][]policyreportv1alpha2.PolicyReportResult {
-	results := map[engineapi.GenericPolicy][]policyreportv1alpha2.PolicyReportResult{}
+	results := make(map[engineapi.GenericPolicy][]policyreportv1alpha2.PolicyReportResult)
 	for _, engineResponse := range engineResponses {
+		if len(engineResponse.PolicyResponse.Rules) == 0 {
+			continue
+		}
 		policy := engineResponse.Policy()
 		policyName := policy.GetName()
 		audit := engineResponse.GetValidationFailureAction().Audit()
@@ -70,7 +73,7 @@ func ComputePolicyReportResultsPerPolicy(auditWarn bool, engineResponses ...engi
 func ComputePolicyReports(auditWarn bool, engineResponses ...engineapi.EngineResponse) ([]policyreportv1alpha2.ClusterPolicyReport, []policyreportv1alpha2.PolicyReport) {
 	var clustered []policyreportv1alpha2.ClusterPolicyReport
 	var namespaced []policyreportv1alpha2.PolicyReport
-	perPolicyResults := (ComputePolicyReportResultsPerPolicy(auditWarn, engineResponses...))
+	perPolicyResults := ComputePolicyReportResultsPerPolicy(auditWarn, engineResponses...)
 	for policy, results := range perPolicyResults {
 		if policy.GetNamespace() == "" {
 			report := policyreportv1alpha2.ClusterPolicyReport{
