@@ -77,31 +77,31 @@ func TestSeverity(t *testing.T) {
 	}, {
 		name: "critical",
 		annotations: map[string]string{
-			kyverno.AnnotationPolicySeverity: policyreportv1alpha2.SeverityCritical,
+			kyverno.AnnotationPolicySeverity: "critical",
 		},
 		want: policyreportv1alpha2.SeverityCritical,
 	}, {
 		name: "high",
 		annotations: map[string]string{
-			kyverno.AnnotationPolicySeverity: policyreportv1alpha2.SeverityHigh,
+			kyverno.AnnotationPolicySeverity: "high",
 		},
 		want: policyreportv1alpha2.SeverityHigh,
 	}, {
 		name: "medium",
 		annotations: map[string]string{
-			kyverno.AnnotationPolicySeverity: policyreportv1alpha2.SeverityMedium,
+			kyverno.AnnotationPolicySeverity: "medium",
 		},
 		want: policyreportv1alpha2.SeverityMedium,
 	}, {
 		name: "low",
 		annotations: map[string]string{
-			kyverno.AnnotationPolicySeverity: policyreportv1alpha2.SeverityLow,
+			kyverno.AnnotationPolicySeverity: "low",
 		},
 		want: policyreportv1alpha2.SeverityLow,
 	}, {
 		name: "info",
 		annotations: map[string]string{
-			kyverno.AnnotationPolicySeverity: policyreportv1alpha2.SeverityInfo,
+			kyverno.AnnotationPolicySeverity: "info",
 		},
 		want: policyreportv1alpha2.SeverityInfo,
 	}, {
