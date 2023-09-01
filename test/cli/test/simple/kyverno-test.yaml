@@ -7,103 +7,88 @@ results:
 - kind: Pod
   namespace: test
   policy: disallow-latest-tag
-  resources:
-  - test-require-image-tag-pass
+  resource: test-require-image-tag-pass
   result: pass
   rule: require-image-tag
 - kind: Pod
   namespace: test
   policy: disallow-latest-tag
-  resources:
-  - test-require-image-tag-fail
+  resource: test-require-image-tag-fail
   result: fail
   rule: require-image-tag
 - kind: Pod
   policy: disallow-latest-tag
-  resources:
-  - test-validate-image-tag-ignore
+  resource: test-validate-image-tag-ignore
   result: skip
   rule: validate-image-tag
 - kind: Pod
   namespace: test
   policy: disallow-latest-tag
-  resources:
-  - test-validate-image-tag-fail
+  resource: test-validate-image-tag-fail
   result: fail
   rule: validate-image-tag
 - kind: Pod
   namespace: test
   policy: disallow-latest-tag
-  resources:
-  - test-validate-image-tag-pass
+  resource: test-validate-image-tag-pass
   result: pass
   rule: validate-image-tag
 - kind: Pod
   namespace: test
   policy: duration-test
-  resources:
-  - test-lifetime-fail
+  resource: test-lifetime-fail
   result: fail
   rule: greater-than
 - kind: Pod
   namespace: test
   policy: duration-test
-  resources:
-  - test-lifetime-fail
+  resource: test-lifetime-fail
   result: pass
   rule: less-than
 - kind: Pod
   namespace: test
   policy: duration-test
-  resources:
-  - test-lifetime-fail
+  resource: test-lifetime-fail
   result: fail
   rule: greater-equal-than
 - kind: Pod
   namespace: test
   policy: duration-test
-  resources:
-  - test-lifetime-fail
+  resource: test-lifetime-fail
   result: pass
   rule: less-equal-than
 - kind: Pod
   policy: restrict-pod-counts
-  resources:
-  - myapp-pod
+  resource: myapp-pod
   result: fail
   rule: restrict-pod-count
 - kind: Pod
   namespace: test
   policy: restrict-pod-counts
-  resources:
-  - test-require-image-tag-pass
+  resource: test-require-image-tag-pass
   result: fail
   rule: restrict-pod-count
 - kind: Pod
   namespace: test
   policy: restrict-pod-counts
-  resources:
-  - test-require-image-tag-fail
+  resource: test-require-image-tag-fail
   result: fail
   rule: restrict-pod-count
 - kind: Pod
   policy: restrict-pod-counts
-  resources:
-  - test-validate-image-tag-ignore
-  result: fail
-  rule: restrict-pod-count
-- kind: Pod
-  namespace: test
-  policy: restrict-pod-counts
-  resources:
-  - test-validate-image-tag-fail
+  resource: test-validate-image-tag-ignore
   result: fail
   rule: restrict-pod-count
 - kind: Pod
   namespace: test
   policy: restrict-pod-counts
-  resources:
-  - test-validate-image-tag-pass
+  resource: test-validate-image-tag-fail
+  result: fail
+  rule: restrict-pod-count
+- kind: Pod
+  namespace: test
+  policy: restrict-pod-counts
+  resource: test-validate-image-tag-pass
   result: fail
   rule: restrict-pod-count
 variables: values.yaml
