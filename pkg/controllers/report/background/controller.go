@@ -104,10 +104,18 @@ func NewController(
 		eventGen:       eventGen,
 		policyReports:  policyReports,
 	}
-	controllerutils.AddDefaultEventHandlers(logger, bgscanr.Informer(), queue)
-	controllerutils.AddDefaultEventHandlers(logger, cbgscanr.Informer(), queue)
-	controllerutils.AddEventHandlersT(polInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
-	controllerutils.AddEventHandlersT(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
+	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, bgscanr.Informer(), queue); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
+	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, cbgscanr.Informer(), queue); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
+	if _, err := controllerutils.AddEventHandlersT(polInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
+	if _, err := controllerutils.AddEventHandlersT(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
 	c.metadataCache.AddEventHandler(func(eventType resource.EventType, uid types.UID, _ schema.GroupVersionKind, res resource.Resource) {
 		// if it's a deletion, nothing to do
 		if eventType == resource.Deleted {

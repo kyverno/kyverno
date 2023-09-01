@@ -7,11 +7,11 @@ import (
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
-	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
+	annotationsutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/annotations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	filterutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/filter"
 	pathutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/path"
@@ -321,8 +321,7 @@ func buildPolicyResults(
 		policy := resp.Policy()
 		policyName := policy.GetName()
 		policyNamespace := policy.GetNamespace()
-		ann := policy.GetAnnotations()
-
+		scored := annotationsutils.Scored(policy.GetAnnotations())
 		resourceName := resp.Resource.GetName()
 		resourceKind := resp.Resource.GetKind()
 		resourceNamespace := resp.Resource.GetNamespace()
@@ -397,6 +396,8 @@ func buildPolicyResults(
 							if _, ok := results[resultsKey]; !ok {
 								results[resultsKey] = result
 							}
+
+							buildPolicyResultsForGenerate(resp, test, policyNamespace, policyName, resourceNamespace, resourceKind, resourceName, results, isGit, policyResourcePath, fs)
 						}
 					}
 				}
@@ -433,39 +434,7 @@ func buildPolicyResults(
 					if _, ok := results[resultsKey]; !ok {
 						results[resultsKey] = result
 					}
-				}
-			}
-
-			for _, rule := range resp.PolicyResponse.Rules {
-				if rule.RuleType() != engineapi.Generation || test.Rule != rule.Name() {
-					continue
-				}
-
-				var resultsKey []string
-				var resultKey string
-				var result policyreportv1alpha2.PolicyReportResult
-				resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.Name(), resourceNamespace, resourceKind, resourceName, test.IsValidatingAdmissionPolicy)
-				for _, key := range resultsKey {
-					if val, ok := results[key]; ok {
-						result = val
-						resultKey = key
-					} else {
-						continue
-					}
-
-					if rule.Status() == engineapi.RuleStatusSkip {
-						result.Result = policyreportv1alpha2.StatusSkip
-					} else if rule.Status() == engineapi.RuleStatusError {
-						result.Result = policyreportv1alpha2.StatusError
-					} else {
-						var x string
-						result.Result = policyreportv1alpha2.StatusFail
-						x = getAndCompareResource(test.GeneratedResource, rule.GeneratedResource(), isGit, policyResourcePath, fs, true)
-						if x == "pass" {
-							result.Result = policyreportv1alpha2.StatusPass
-						}
-					}
-					results[resultKey] = result
+					buildPolicyResultsForGenerate(resp, test, policyNamespace, policyName, resourceNamespace, resourceKind, resourceName, results, isGit, policyResourcePath, fs)
 				}
 			}
 
@@ -530,7 +499,7 @@ func buildPolicyResults(
 					} else if rule.Status() == engineapi.RuleStatusPass {
 						result.Result = policyreportv1alpha2.StatusPass
 					} else if rule.Status() == engineapi.RuleStatusFail {
-						if scored, ok := ann[kyverno.AnnotationPolicyScored]; ok && scored == "false" {
+						if !scored {
 							result.Result = policyreportv1alpha2.StatusWarn
 						} else if auditWarn && resp.GetValidationFailureAction().Audit() {
 							result.Result = policyreportv1alpha2.StatusWarn
@@ -547,6 +516,41 @@ func buildPolicyResults(
 		}
 	}
 	return results, testResults
+}
+
+func buildPolicyResultsForGenerate(resp engineapi.EngineResponse, test api.TestResults, policyNamespace string, policyName string, resourceNamespace string, resourceKind string, resourceName string, results map[string]policyreportv1alpha2.PolicyReportResult, isGit bool, policyResourcePath string, fs billy.Filesystem) {
+	for _, rule := range resp.PolicyResponse.Rules {
+		if rule.RuleType() != engineapi.Generation || test.Rule != rule.Name() {
+			continue
+		}
+
+		var resultsKey []string
+		var resultKey string
+		var result policyreportv1alpha2.PolicyReportResult
+		resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.Name(), resourceNamespace, resourceKind, resourceName, test.IsValidatingAdmissionPolicy)
+		for _, key := range resultsKey {
+			if val, ok := results[key]; ok {
+				result = val
+				resultKey = key
+			} else {
+				continue
+			}
+
+			if rule.Status() == engineapi.RuleStatusSkip {
+				result.Result = policyreportv1alpha2.StatusSkip
+			} else if rule.Status() == engineapi.RuleStatusError {
+				result.Result = policyreportv1alpha2.StatusError
+			} else {
+				var x string
+				result.Result = policyreportv1alpha2.StatusFail
+				x = getAndCompareResource(test.GeneratedResource, rule.GeneratedResource(), isGit, policyResourcePath, fs, true)
+				if x == "pass" {
+					result.Result = policyreportv1alpha2.StatusPass
+				}
+			}
+			results[resultKey] = result
+		}
+	}
 }
 
 func GetAllPossibleResultsKey(policyNamespace, policy, rule, resourceNamespace, kind, resource string, isVAP bool) []string {

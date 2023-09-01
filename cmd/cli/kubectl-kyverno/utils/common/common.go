@@ -12,10 +12,10 @@ import (
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
-	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
+	annotationsutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/annotations"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
@@ -696,6 +696,7 @@ func processEngineResponses(responses []engineapi.EngineResponse, c ApplyPolicyC
 			if polType := pol.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
 				return
 			}
+			scored := annotationsutils.Scored(c.Policy.GetAnnotations())
 			for _, rule := range autogen.ComputeRules(pol.GetPolicy().(kyvernov1.PolicyInterface)) {
 				if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
 					ruleFoundInEngineResponse := false
@@ -706,8 +707,7 @@ func processEngineResponses(responses []engineapi.EngineResponse, c ApplyPolicyC
 							case engineapi.RuleStatusPass:
 								c.Rc.Pass++
 							case engineapi.RuleStatusFail:
-								ann := c.Policy.GetAnnotations()
-								if scored, ok := ann[kyverno.AnnotationPolicyScored]; ok && scored == "false" {
+								if !scored {
 									c.Rc.Warn++
 									break
 								} else if c.AuditWarn && response.GetValidationFailureAction().Audit() {
