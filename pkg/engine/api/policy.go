@@ -97,6 +97,7 @@ func (p *ValidatingAdmissionPolicy) GetName() string {
 func (p *ValidatingAdmissionPolicy) GetNamespace() string {
 	return p.policy.GetNamespace()
 }
+
 func (p *ValidatingAdmissionPolicy) GetKind() string {
 	return p.policy.Kind
 }
