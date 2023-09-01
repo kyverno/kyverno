@@ -38,7 +38,7 @@ func SortReportResults(results []policyreportv1alpha2.PolicyReportResult) {
 
 func CalculateSummary(results []policyreportv1alpha2.PolicyReportResult) (summary policyreportv1alpha2.PolicyReportSummary) {
 	for _, res := range results {
-		switch string(res.Result) {
+		switch res.Result {
 		case policyreportv1alpha2.StatusPass:
 			summary.Pass++
 		case policyreportv1alpha2.StatusFail:
@@ -72,15 +72,15 @@ func toPolicyResult(status engineapi.RuleStatus) policyreportv1alpha2.PolicyResu
 
 func SeverityFromString(severity string) policyreportv1alpha2.PolicySeverity {
 	switch severity {
-	case policyreportv1alpha2.SeverityCritical:
+	case "critical":
 		return policyreportv1alpha2.SeverityCritical
-	case policyreportv1alpha2.SeverityHigh:
+	case "high":
 		return policyreportv1alpha2.SeverityHigh
-	case policyreportv1alpha2.SeverityMedium:
+	case "medium":
 		return policyreportv1alpha2.SeverityMedium
-	case policyreportv1alpha2.SeverityLow:
+	case "low":
 		return policyreportv1alpha2.SeverityLow
-	case policyreportv1alpha2.SeverityInfo:
+	case "info":
 		return policyreportv1alpha2.SeverityInfo
 	}
 	return ""
