@@ -25,7 +25,6 @@ import (
 const (
 	// Workers is the number of workers for this controller
 	maxRetries   = 10
-	enqueueDelay = 30 * time.Second
 )
 
 type controller struct {
