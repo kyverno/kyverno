@@ -25,7 +25,6 @@ import (
 const (
 	// Workers is the number of workers for this controller
 	maxRetries   = 10
-	mergeLimit   = 1000
 	enqueueDelay = 30 * time.Second
 )
 
@@ -61,27 +60,31 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 		logger:   logger,
 		metrics:  newTTLMetrics(logger),
 	}
-	registration, err := c.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.handleAdd,
-		UpdateFunc: c.handleUpdate,
-	})
-	if err != nil {
-		logger.Error(err, "failed to register event handler")
-		return nil, err
-	}
+	// registration, err := c.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	// 	AddFunc:    c.handleAdd,
+	// 	UpdateFunc: c.handleUpdate,
+	// })
+	// if err != nil {
+	// 	logger.Error(err, "failed to register event handler")
+	// 	return nil, err
+	// }
 
-	controllerUtil.AddDelayedExplicitEventHandlers(logger, c.informer, c.queue, enqueueDelay, keyFunc)
+	// controllerUtil.AddDelayedExplicitEventHandlers(logger, c.informer, c.queue, enqueueDelay, keyFunc)
 	// enqueueFromTTL := func(obj metav1.Object) {
 	// 	if controllerUtil.HasLabel(obj, kyverno.LabelCleanupTtl) {
 	// 		c.queue.Add(keyFunc(obj))
 	// 	}
 	// }
-	controllerUtil.AddEventHandlers(
+	registration, err := controllerUtil.AddEventHandlers(
 		c.informer,
 		c.handleAdd,
 		c.handleUpdate,
 		func(obj interface{}) {},
 	)
+	if err != nil {
+		logger.Error(err, "failed to register even handlers")
+		return nil, err
+	}
 	c.registration = registration
 	c.queueFunc = controllerUtil.Queue(c.queue)
 	return c, nil
