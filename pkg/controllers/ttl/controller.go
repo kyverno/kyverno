@@ -74,10 +74,12 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 	// 		c.queue.Add(keyFunc(obj))
 	// 	}
 	// }
+	addFunc := controllerUtil.AddFunc(c.logger, c.queueFunc)
+	updateFunc := controllerUtil.UpdateFunc(c.logger, c.queueFunc)
 	registration, err := controllerUtil.AddEventHandlers(
 		c.informer,
-		c.handleAdd,
-		c.handleUpdate,
+		addFunc,
+		updateFunc,
 		func(obj interface{}) {},
 	)
 	if err != nil {
@@ -111,13 +113,13 @@ func newTTLMetrics(logger logr.Logger) ttlMetrics {
 	}
 }
 
-func (c *controller) handleAdd(obj interface{}) {
-	controllerUtil.AddFunc(c.logger, c.queueFunc)
-}
+// func (c *controller) handleAdd(obj interface{}) {
+// 	controllerUtil.AddFunc(c.logger, c.queueFunc)
+// }
 
-func (c *controller) handleUpdate(oldObj, newObj interface{}) {
-	controllerUtil.UpdateFunc(c.logger, c.queueFunc)
-}
+// func (c *controller) handleUpdate(oldObj, newObj interface{}) {
+// 	controllerUtil.UpdateFunc(c.logger, c.queueFunc)
+// }
 
 func (c *controller) Start(ctx context.Context, workers int) {
 	// for i := 0; i < workers; i++ {
