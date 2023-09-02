@@ -14,7 +14,6 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/controllers"
 	admissionreportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/admission"
 	aggregatereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
 	backgroundscancontroller "github.com/kyverno/kyverno/pkg/controllers/report/background"
@@ -24,7 +23,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubeinformers "k8s.io/client-go/informers"
+	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
@@ -54,24 +55,20 @@ func createReportControllers(
 ) ([]internal.Controller, func(context.Context) error) {
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
+	var vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer
+	// check if validating admission policies are registered in the API server
+	if validatingAdmissionPolicyReports {
+		vapInformer = kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies()
+	}
+
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	if backgroundScan || admissionReports {
-		var resourceReportController resourcereportcontroller.Controller
-		if validatingAdmissionPolicyReports {
-			resourceReportController = resourcereportcontroller.NewController(
-				client,
-				kyvernoV1.Policies(),
-				kyvernoV1.ClusterPolicies(),
-				kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
-			)
-		} else {
-			resourceReportController = resourcereportcontroller.NewController(
-				client,
-				kyvernoV1.Policies(),
-				kyvernoV1.ClusterPolicies(),
-				nil,
-			)
-		}
+		resourceReportController := resourcereportcontroller.NewController(
+			client,
+			kyvernoV1.Policies(),
+			kyvernoV1.ClusterPolicies(),
+			vapInformer,
+		)
 		warmups = append(warmups, func(ctx context.Context) error {
 			return resourceReportController.Warmup(ctx)
 		})
@@ -106,42 +103,22 @@ func createReportControllers(
 			))
 		}
 		if backgroundScan {
-			var backgroundScanController controllers.Controller
-			if validatingAdmissionPolicyReports {
-				backgroundScanController = backgroundscancontroller.NewController(
-					client,
-					kyvernoClient,
-					eng,
-					metadataFactory,
-					kyvernoV1.Policies(),
-					kyvernoV1.ClusterPolicies(),
-					kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
-					kubeInformer.Core().V1().Namespaces(),
-					resourceReportController,
-					backgroundScanInterval,
-					configuration,
-					jp,
-					eventGenerator,
-					policyReports,
-				)
-			} else {
-				backgroundScanController = backgroundscancontroller.NewController(
-					client,
-					kyvernoClient,
-					eng,
-					metadataFactory,
-					kyvernoV1.Policies(),
-					kyvernoV1.ClusterPolicies(),
-					nil,
-					kubeInformer.Core().V1().Namespaces(),
-					resourceReportController,
-					backgroundScanInterval,
-					configuration,
-					jp,
-					eventGenerator,
-					policyReports,
-				)
-			}
+			backgroundScanController := backgroundscancontroller.NewController(
+				client,
+				kyvernoClient,
+				eng,
+				metadataFactory,
+				kyvernoV1.Policies(),
+				kyvernoV1.ClusterPolicies(),
+				vapInformer,
+				kubeInformer.Core().V1().Namespaces(),
+				resourceReportController,
+				backgroundScanInterval,
+				configuration,
+				jp,
+				eventGenerator,
+				policyReports,
+			)
 			ctrls = append(ctrls, internal.NewController(
 				backgroundscancontroller.ControllerName,
 				backgroundScanController,
@@ -258,6 +235,14 @@ func main() {
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
 	setup.Logger.Info("background scan interval", "duration", backgroundScanInterval.String())
+	// check if validating admission policies are registered in the API server
+	if validatingAdmissionPolicyReports {
+		groupVersion := schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"}
+		if _, err := setup.KyvernoDynamicClient.GetKubeClient().Discovery().ServerResourcesForGroupVersion(groupVersion.String()); err != nil {
+			setup.Logger.Error(err, "validating admission policies aren't supported.")
+			os.Exit(1)
+		}
+	}
 	// informer factories
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 	omitEventsValues := strings.Split(omitEvents, ",")
