@@ -695,15 +695,14 @@ test-kuttl: $(KUTTL) ## Run kuttl tests
 #############
 
 TEST_GIT_BRANCH ?= main
-TEST_GIT_REPO   ?= https://github.com/kyverno/policies
 
 .PHONY: test-cli
 test-cli: test-cli-policies test-cli-local ## Run all CLI tests
 
 .PHONY: test-cli-policies
 test-cli-policies: $(CLI_BIN) ## Run CLI tests against the policies repository
-	@echo Running cli tests against $(TEST_GIT_REPO)/$(TEST_GIT_BRANCH)... >&2
-	@$(CLI_BIN) test $(TEST_GIT_REPO)/$(TEST_GIT_BRANCH)
+	@echo Running cli tests against https://github.com/kyverno/policies/$(TEST_GIT_BRANCH)... >&2
+	@$(CLI_BIN) test https://github.com/kyverno/policies/$(TEST_GIT_BRANCH)
 
 .PHONY: test-cli-local
 test-cli-local: test-cli-local-validate test-cli-local-mutate test-cli-local-generate test-cli-local-registry test-cli-local-scenarios test-cli-local-selector ## Run local CLI tests
