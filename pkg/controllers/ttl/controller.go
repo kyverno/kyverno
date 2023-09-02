@@ -32,7 +32,6 @@ type controller struct {
 	queue        workqueue.RateLimitingInterface
 	lister       cache.GenericLister
 	wg           wait.Group
-	queueFunc    controllerUtil.EnqueueFunc
 	informer     cache.SharedIndexInformer
 	registration cache.ResourceEventHandlerRegistration
 	logger       logr.Logger
@@ -74,20 +73,19 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 	// 		c.queue.Add(keyFunc(obj))
 	// 	}
 	// }
-	addFunc := controllerUtil.AddFunc(c.logger, c.queueFunc)
-	updateFunc := controllerUtil.UpdateFunc(c.logger, c.queueFunc)
-	registration, err := controllerUtil.AddEventHandlers(
+	registration, err := controllerUtil.AddEventHandlersT(
 		c.informer,
-		addFunc,
-		updateFunc,
+		c.handleAdd,
+		c.handleUpdate,
 		func(obj interface{}) {},
 	)
+
 	if err != nil {
-		logger.Error(err, "failed to register even handlers")
+		logger.Error(err, "failed to register event handlers")
 		return nil, err
 	}
+
 	c.registration = registration
-	c.queueFunc = controllerUtil.Queue(c.queue)
 	return c, nil
 }
 
@@ -113,13 +111,17 @@ func newTTLMetrics(logger logr.Logger) ttlMetrics {
 	}
 }
 
-// func (c *controller) handleAdd(obj interface{}) {
-// 	controllerUtil.AddFunc(c.logger, c.queueFunc)
-// }
+func (c *controller) handleAdd(obj interface{}) {
+	c.enqueue(obj)
+}
 
-// func (c *controller) handleUpdate(oldObj, newObj interface{}) {
-// 	controllerUtil.UpdateFunc(c.logger, c.queueFunc)
-// }
+func (c *controller) handleUpdate(oldObj, newObj interface{}) {
+	old := oldObj.(metav1.Object)
+	new := newObj.(metav1.Object)
+	if old.GetResourceVersion() != new.GetResourceVersion() {
+		c.enqueue(newObj)
+	}
+}
 
 func (c *controller) Start(ctx context.Context, workers int) {
 	// for i := 0; i < workers; i++ {
