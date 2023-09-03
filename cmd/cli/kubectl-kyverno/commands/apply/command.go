@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	reportutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/report"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -381,7 +382,7 @@ func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPoli
 
 	for _, policy := range c.PolicyPaths {
 		policyPaths := []string{policy}
-		isGit := common.IsGitSourcePath(policyPaths)
+		isGit := source.IsGit(policy)
 
 		if isGit {
 			gitSourceURL, err := url.Parse(policyPaths[0])

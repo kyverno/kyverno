@@ -118,38 +118,6 @@ func Test_NamespaceSelector(t *testing.T) {
 	}
 }
 
-func Test_IsGitSourcePath(t *testing.T) {
-	type TestCase struct {
-		path    []string
-		actual  bool
-		desired bool
-	}
-	testcases := []TestCase{
-		{
-			path:    []string{"https://github.com/kyverno/policies/openshift/team-validate-ns-name/"},
-			desired: true,
-		},
-		{
-			path:    []string{"/kyverno/policies/openshift/team-validate-ns-name/"},
-			desired: false,
-		},
-		{
-			path:    []string{"https://bitbucket.org/kyverno/policies/openshift/team-validate-ns-name"},
-			desired: true,
-		},
-		{
-			path:    []string{"https://anydomain.com/kyverno/policies/openshift/team-validate-ns-name"},
-			desired: true,
-		},
-	}
-	for _, tc := range testcases {
-		tc.actual = IsGitSourcePath(tc.path)
-		if tc.actual != tc.desired {
-			t.Errorf("%s is not a git URL", tc.path)
-		}
-	}
-}
-
 func Test_GetGitBranchOrPolicyPaths(t *testing.T) {
 	type TestCase struct {
 		gitBranch                             string
