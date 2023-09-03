@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strconv"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apply"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/create"
@@ -13,12 +12,11 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/jp"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/oci"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/experimental"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/version"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/spf13/cobra"
 )
-
-const enableExperimentalEnv = "KYVERNO_EXPERIMENTAL"
 
 func main() {
 	cli := &cobra.Command{
@@ -42,13 +40,6 @@ func configureLogs(cli *cobra.Command) {
 	cli.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 }
 
-func enableExperimental() bool {
-	if b, err := strconv.ParseBool(os.Getenv(enableExperimentalEnv)); err == nil {
-		return b
-	}
-	return false
-}
-
 func registerCommands(cli *cobra.Command) {
 	cli.AddCommand(
 		apply.Command(),
@@ -58,7 +49,7 @@ func registerCommands(cli *cobra.Command) {
 		test.Command(),
 		version.Command(),
 	)
-	if enableExperimental() {
+	if experimental.IsExperimentalEnabled() {
 		cli.AddCommand(
 			fix.Command(),
 			oci.Command(),

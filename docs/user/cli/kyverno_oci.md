@@ -13,8 +13,7 @@ kyverno oci [flags]
 ### Options
 
 ```
-  -h, --help           help for oci
-  -i, --image string   image reference to push to or pull from
+  -h, --help   help for oci
 ```
 
 ### Options inherited from parent commands
