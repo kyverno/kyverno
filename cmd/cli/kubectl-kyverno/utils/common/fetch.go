@@ -13,6 +13,7 @@ import (
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/source"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -246,7 +247,7 @@ func getFileBytes(path string) ([]byte, error) {
 		err  error
 	)
 
-	if IsHTTPRegex.MatchString(path) {
+	if source.IsHttp(path) {
 		// We accept here that a random URL might be called based on user provided input.
 		req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, path, nil)
 		if err != nil {

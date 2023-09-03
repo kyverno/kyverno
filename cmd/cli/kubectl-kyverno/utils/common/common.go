@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
 	annotationsutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/annotations"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
@@ -78,7 +79,7 @@ func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, validati
 			err      error
 		)
 
-		isHTTPPath := IsHTTPRegex.MatchString(path)
+		isHTTPPath := source.IsHttp(path)
 
 		// path clean and retrieving file info can be possible if it's not an HTTP URL
 		if !isHTTPPath {
@@ -169,12 +170,6 @@ func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, validati
 	return policies, validatingAdmissionPolicies, errors
 }
 
-// IsInputFromPipe - check if input is passed using pipe
-func IsInputFromPipe() bool {
-	fileInfo, _ := os.Stdin.Stat()
-	return fileInfo.Mode()&os.ModeCharDevice == 0
-}
-
 // RemoveDuplicateAndObjectVariables - remove duplicate variables
 func RemoveDuplicateAndObjectVariables(matches [][]string) string {
 	var variableStr string
@@ -251,7 +246,7 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 		}
 	} else {
 		if len(dirPath) > 0 && dirPath[0] == "-" {
-			if IsInputFromPipe() {
+			if source.IsStdin() {
 				policyStr := ""
 				scanner := bufio.NewScanner(os.Stdin)
 				for scanner.Scan() {
@@ -294,7 +289,7 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 		}
 	} else {
 		if len(resourcePaths) > 0 && resourcePaths[0] == "-" {
-			if IsInputFromPipe() {
+			if source.IsStdin() {
 				resourceStr := ""
 				scanner := bufio.NewScanner(os.Stdin)
 				for scanner.Scan() {
@@ -659,10 +654,6 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 		}
 	}
 	return *userInfo, nil
-}
-
-func IsGitSourcePath(policyPaths []string) bool {
-	return strings.Contains(policyPaths[0], "https://")
 }
 
 func GetGitBranchOrPolicyPaths(gitBranch, repoURL string, policyPaths []string) (string, string) {
