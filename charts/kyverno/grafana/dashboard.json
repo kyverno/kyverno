@@ -370,7 +370,7 @@
             "targets": [
                 {
                     "exemplar": true,
-                    "expr": "count(kyverno_policy_rule_info_total{rule_type=\"validate\", cluster=~\"$cluster\"}==1)",
+                    "expr": "count(count(kyverno_policy_rule_info_total{policy_type=\"cluster\", rule_type=\"validate\", rule_name!~\"autogen-.+\"} ==1) by (rule_name)))",
                     "interval": "",
                     "legendFormat": "",
                     "refId": "A"
@@ -428,7 +428,7 @@
             "targets": [
                 {
                     "exemplar": true,
-                    "expr": "count(kyverno_policy_rule_info_total{rule_type=\"mutate\", cluster=~\"$cluster\"}==1)",
+                    "expr": "count(count(kyverno_policy_rule_info_total{policy_type=\"cluster\", rule_type=\"mutate\", rule_name!~\"autogen-.+\"} ==1) by (rule_name))",
                     "interval": "",
                     "legendFormat": "",
                     "refId": "A"
@@ -486,7 +486,7 @@
             "targets": [
                 {
                     "exemplar": true,
-                    "expr": "count(kyverno_policy_rule_info_total{rule_type=\"generate\", cluster=~\"$cluster\"}==1)",
+                    "expr": "count(count(kyverno_policy_rule_info_total{policy_type=\"cluster\", rule_type=\"generate\", rule_name!~\"autogen-.+\"} ==1) by (rule_name))",
                     "interval": "",
                     "legendFormat": "",
                     "refId": "A"
