@@ -13,19 +13,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	amazonKeychain = authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard)))
-	azureKeychain  = authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper())
-	keychain       = authn.NewMultiKeychain(
+func Command() *cobra.Command {
+	amazonKeychain := authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard)))
+	azureKeychain := authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper())
+	keychain := authn.NewMultiKeychain(
 		authn.DefaultKeychain,
 		google.Keychain,
 		github.Keychain,
 		amazonKeychain,
 		azureKeychain,
 	)
-)
-
-func Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "oci",
 		Long:    `This command is one of the supported experimental commands, and its behaviour might be changed any time.`,
