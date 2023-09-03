@@ -6,6 +6,10 @@ import (
 
 var defaultStater = (*os.File).Stat
 
+func IsStdin() bool {
+	return isStdin(defaultStater)
+}
+
 func isStdin(stater func(*os.File) (os.FileInfo, error)) bool {
 	if stater == nil {
 		stater = defaultStater
@@ -15,8 +19,4 @@ func isStdin(stater func(*os.File) (os.FileInfo, error)) bool {
 		return false
 	}
 	return fileInfo.Mode()&os.ModeCharDevice == 0
-}
-
-func IsStdin() bool {
-	return isStdin(defaultStater)
 }
