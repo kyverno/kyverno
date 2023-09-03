@@ -14,7 +14,7 @@ The CLI can be used as a standalone tool or as a kubectl plugin.
 
 👉 **[Reference docs](../../../docs/user/cli/kyverno.md)**
 
-## :atom: GitHub Action
+## 🔧 GitHub Action
 
 You can install the Kyverno CLI in your GitHub workflows easily using the [kyverno-cli-installer](https://github.com/kyverno/action-install-cli) GitHub action.
 
