@@ -11,7 +11,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/oci/internal"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
 	policyutils "github.com/kyverno/kyverno/pkg/utils/policy"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"github.com/spf13/cobra"
