@@ -6,6 +6,10 @@ Kubernetes Native Policy Management
 
 To enable experimental commands, KYVERNO_EXPERIMENTAL should be configured with true or 1.
 
+```
+kyverno [flags]
+```
+
 ### Options
 
 ```
