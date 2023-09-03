@@ -1,4 +1,4 @@
-package oci
+package pull
 
 import (
 	"errors"
@@ -8,16 +8,18 @@ import (
 	"path/filepath"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/oci/internal"
 	policyutils "github.com/kyverno/kyverno/pkg/utils/policy"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"github.com/spf13/cobra"
 )
 
-var dir string
-
-func ociPullCommand() *cobra.Command {
+func Command(keychain authn.Keychain) *cobra.Command {
+	var dir string
+	var imageRef string
 	cmd := &cobra.Command{
 		Use:   "pull",
 		Long:  "This command is one of the supported experimental commands, and its behaviour might be changed any time",
@@ -81,7 +83,7 @@ kyverno oci pull -i <imgref> -d policies`,
 					return fmt.Errorf("getting layer media type: %v", err)
 				}
 
-				if lmt == policyLayerMediaType {
+				if lmt == internal.PolicyLayerMediaType {
 					blob, err := layer.Compressed()
 					if err != nil {
 						return fmt.Errorf("getting layer blob: %v", err)
@@ -114,5 +116,6 @@ kyverno oci pull -i <imgref> -d policies`,
 		},
 	}
 	cmd.Flags().StringVarP(&dir, "directory", "d", ".", "path to a directory")
+	cmd.Flags().StringVarP(&imageRef, "image", "i", "", "image reference to push to or pull from")
 	return cmd
 }

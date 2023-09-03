@@ -1,16 +1,18 @@
-package oci
+package push
 
 import (
 	"errors"
 	"fmt"
 	"os"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/static"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/oci/internal"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/openapi"
@@ -21,9 +23,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var policyRef string
-
-func ociPushCommand() *cobra.Command {
+func Command(keychain authn.Keychain) *cobra.Command {
+	var policyRef string
+	var imageRef string
 	cmd := &cobra.Command{
 		Use:   "push",
 		Long:  "This command is one of the supported experimental commands in Kyverno CLI, and its behaviour might be changed any time.",
@@ -54,7 +56,7 @@ kyverno oci push -p policies. -i <imgref>`,
 			}
 
 			img := mutate.MediaType(empty.Image, types.OCIManifestSchema1)
-			img = mutate.ConfigMediaType(img, policyConfigMediaType)
+			img = mutate.ConfigMediaType(img, internal.PolicyConfigMediaType)
 			ref, err := name.ParseReference(imageRef)
 			if err != nil {
 				return fmt.Errorf("parsing image reference: %v", err)
@@ -70,10 +72,10 @@ kyverno oci push -p policies. -i <imgref>`,
 				if err != nil {
 					return fmt.Errorf("converting policy to yaml: %v", err)
 				}
-				policyLayer := static.NewLayer(policyBytes, policyLayerMediaType)
+				policyLayer := static.NewLayer(policyBytes, internal.PolicyLayerMediaType)
 				img, err = mutate.Append(img, mutate.Addendum{
 					Layer:       policyLayer,
-					Annotations: annotations(policy),
+					Annotations: internal.Annotations(policy),
 				})
 				if err != nil {
 					return fmt.Errorf("mutating image: %v", err)
@@ -88,5 +90,6 @@ kyverno oci push -p policies. -i <imgref>`,
 		},
 	}
 	cmd.Flags().StringVarP(&policyRef, "policy", "p", "", "path to policie(s)")
+	cmd.Flags().StringVarP(&imageRef, "image", "i", "", "image reference to push to or pull from")
 	return cmd
 }
