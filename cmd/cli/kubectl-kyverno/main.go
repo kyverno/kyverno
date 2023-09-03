@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	cmd := commands.Command()
+	cmd := commands.RootCommand()
 	configureLogs(cmd)
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)

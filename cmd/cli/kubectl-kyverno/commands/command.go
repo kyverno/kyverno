@@ -13,11 +13,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func Command() *cobra.Command {
+func RootCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "kyverno",
 		Long:  "To enable experimental commands, KYVERNO_EXPERIMENTAL should be configured with true or 1.",
 		Short: "Kubernetes Native Policy Management",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cmd.Help()
+		},
 	}
 	cmd.AddCommand(
 		apply.Command(),
