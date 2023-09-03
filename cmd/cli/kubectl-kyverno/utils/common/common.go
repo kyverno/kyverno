@@ -223,8 +223,8 @@ func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml stri
 }
 
 // GetPoliciesFromPaths - get policies according to the resource path
-func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, policyResourcePath string) (policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, err error) {
-	if isGit {
+func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, policyResourcePath string) (policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, err error) {
+	if fs != nil {
 		for _, pp := range dirPath {
 			filep, err := fs.Open(filepath.Join(policyResourcePath, pp))
 			if err != nil {
@@ -285,10 +285,10 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 
 // GetResourceAccordingToResourcePath - get resources according to the resource path
 func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []string,
-	cluster bool, policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, dClient dclient.Interface, namespace string, policyReport bool, isGit bool, policyResourcePath string,
+	cluster bool, policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, dClient dclient.Interface, namespace string, policyReport bool, policyResourcePath string,
 ) (resources []*unstructured.Unstructured, err error) {
-	if isGit {
-		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, isGit, policyResourcePath)
+	if fs != nil {
+		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, policyResourcePath)
 		if err != nil {
 			return nil, sanitizederror.NewWithError("failed to extract the resources", err)
 		}
@@ -503,11 +503,11 @@ func getSubresourceKind(groupVersion, parentKind, subresourceName string, subres
 }
 
 // GetResourceFromPath - get patchedResource and generatedResource from given path
-func GetResourceFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string, resourceType string) (unstructured.Unstructured, error) {
+func GetResourceFromPath(fs billy.Filesystem, path string, policyResourcePath string, resourceType string) (unstructured.Unstructured, error) {
 	var resourceBytes []byte
 	var resource unstructured.Unstructured
 	var err error
-	if isGit {
+	if fs != nil {
 		if len(path) > 0 {
 			filep, fileErr := fs.Open(filepath.Join(policyResourcePath, path))
 			if fileErr != nil {
@@ -618,9 +618,9 @@ func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyCont
 }
 
 // GetUserInfoFromPath - get the request info as user info from a given path
-func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (kyvernov1beta1.RequestInfo, error) {
+func GetUserInfoFromPath(fs billy.Filesystem, path string, policyResourcePath string) (kyvernov1beta1.RequestInfo, error) {
 	userInfo := &kyvernov1beta1.RequestInfo{}
-	if isGit {
+	if fs != nil {
 		filep, err := fs.Open(filepath.Join(policyResourcePath, path))
 		if err != nil {
 			fmt.Printf("Unable to open userInfo file: %s. \nerror: %s", path, err)

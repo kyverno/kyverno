@@ -222,13 +222,13 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 	}
 	var userInfo v1beta1.RequestInfo
 	if c.UserInfoPath != "" {
-		userInfo, err = common.GetUserInfoFromPath(nil, c.UserInfoPath, false, "")
+		userInfo, err = common.GetUserInfoFromPath(nil, c.UserInfoPath, "")
 		if err != nil {
 			fmt.Printf("Error: failed to load request info\nCause: %s\n", err)
 			osExit(1)
 		}
 	}
-	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(c.Variables, nil, c.ValuesFile, nil, false, "")
+	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(c.Variables, nil, c.ValuesFile, nil, "")
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("failed to decode yaml", err)
@@ -365,7 +365,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, 
 }
 
 func (c *ApplyCommandConfig) loadResources(policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, dClient dclient.Interface) []*unstructured.Unstructured {
-	resources, err := common.GetResourceAccordingToResourcePath(nil, c.ResourcePaths, c.Cluster, policies, validatingAdmissionPolicies, dClient, c.Namespace, c.PolicyReport, false, "")
+	resources, err := common.GetResourceAccordingToResourcePath(nil, c.ResourcePaths, c.Cluster, policies, validatingAdmissionPolicies, dClient, c.Namespace, c.PolicyReport, "")
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
 		osExit(1)
@@ -381,9 +381,8 @@ func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPoli
 
 	for _, policy := range c.PolicyPaths {
 		policyPaths := []string{policy}
-		isGit := common.IsGitSourcePath(policyPaths)
 
-		if isGit {
+		if common.IsGitSourcePath(policyPaths) {
 			gitSourceURL, err := url.Parse(policyPaths[0])
 			if err != nil {
 				fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
@@ -414,7 +413,7 @@ func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPoli
 			policyPaths = policyYamls
 		}
 
-		policiesFromFile, admissionPoliciesFromFile, err := common.GetPoliciesFromPaths(fs, policyPaths, isGit, "")
+		policiesFromFile, admissionPoliciesFromFile, err := common.GetPoliciesFromPaths(fs, policyPaths, "")
 		if err != nil {
 			fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
 			osExit(1)

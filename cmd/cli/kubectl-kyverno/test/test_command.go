@@ -116,7 +116,6 @@ func testCommandExecute(
 		if reports, tests, err := applyPoliciesFromPath(
 			fs,
 			p.test,
-			fs != nil,
 			p.resourcePath,
 			rc,
 			openApiManager,

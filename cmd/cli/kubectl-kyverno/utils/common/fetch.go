@@ -124,7 +124,7 @@ func whenClusterIsFalse(resourcePaths []string, policyReport bool) ([]*unstructu
 }
 
 // GetResourcesWithTest with gets matched resources by the given policies
-func GetResourcesWithTest(fs billy.Filesystem, policies []kyvernov1.PolicyInterface, resourcePaths []string, isGit bool, policyResourcePath string) ([]*unstructured.Unstructured, error) {
+func GetResourcesWithTest(fs billy.Filesystem, policies []kyvernov1.PolicyInterface, resourcePaths []string, policyResourcePath string) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	resourceTypesMap := make(map[string]bool)
 	for _, policy := range policies {
@@ -138,7 +138,7 @@ func GetResourcesWithTest(fs billy.Filesystem, policies []kyvernov1.PolicyInterf
 		for _, resourcePath := range resourcePaths {
 			var resourceBytes []byte
 			var err error
-			if isGit {
+			if fs != nil {
 				filep, err := fs.Open(filepath.Join(policyResourcePath, resourcePath))
 				if err != nil {
 					fmt.Printf("Unable to open resource file: %s. error: %s", resourcePath, err)

@@ -29,7 +29,6 @@ func GetVariable(
 	vals *api.Values,
 	valuesFile string,
 	fs billy.Filesystem,
-	isGit bool,
 	policyResourcePath string,
 ) (map[string]string, map[string]string, map[string]map[string]api.Resource, map[string]map[string]string, []api.Subresource, error) {
 	if vals == nil && valuesFile != "" {

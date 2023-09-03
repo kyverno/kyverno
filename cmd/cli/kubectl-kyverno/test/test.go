@@ -35,7 +35,6 @@ import (
 func applyPoliciesFromPath(
 	fs billy.Filesystem,
 	apiTest *api.Test,
-	isGit bool,
 	policyResourcePath string,
 	rc *resultCounts,
 	openApiManager openapi.Manager,
@@ -64,7 +63,7 @@ func applyPoliciesFromPath(
 	valuesFile := apiTest.Variables
 	userInfoFile := apiTest.UserInfo
 
-	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(nil, apiTest.Values, apiTest.Variables, fs, isGit, policyResourcePath)
+	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(nil, apiTest.Values, apiTest.Variables, fs, policyResourcePath)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return nil, nil, sanitizederror.NewWithError("failed to decode yaml", err)
@@ -76,31 +75,31 @@ func applyPoliciesFromPath(
 	var userInfo v1beta1.RequestInfo
 
 	if userInfoFile != "" {
-		userInfo, err = common.GetUserInfoFromPath(fs, userInfoFile, isGit, policyResourcePath)
+		userInfo, err = common.GetUserInfoFromPath(fs, userInfoFile, policyResourcePath)
 		if err != nil {
 			fmt.Printf("Error: failed to load request info\nCause: %s\n", err)
 			os.Exit(1)
 		}
 	}
 
-	policyFullPath := pathutils.GetFullPaths(apiTest.Policies, policyResourcePath, isGit)
-	resourceFullPath := pathutils.GetFullPaths(apiTest.Resources, policyResourcePath, isGit)
+	policyFullPath := pathutils.GetFullPaths(apiTest.Policies, policyResourcePath, fs != nil)
+	resourceFullPath := pathutils.GetFullPaths(apiTest.Resources, policyResourcePath, fs != nil)
 
 	for i, result := range apiTest.Results {
 		arrPatchedResource := []string{result.PatchedResource}
 		arrGeneratedResource := []string{result.GeneratedResource}
 		arrCloneSourceResource := []string{result.CloneSourceResource}
 
-		patchedResourceFullPath := pathutils.GetFullPaths(arrPatchedResource, policyResourcePath, isGit)
-		generatedResourceFullPath := pathutils.GetFullPaths(arrGeneratedResource, policyResourcePath, isGit)
-		CloneSourceResourceFullPath := pathutils.GetFullPaths(arrCloneSourceResource, policyResourcePath, isGit)
+		patchedResourceFullPath := pathutils.GetFullPaths(arrPatchedResource, policyResourcePath, fs != nil)
+		generatedResourceFullPath := pathutils.GetFullPaths(arrGeneratedResource, policyResourcePath, fs != nil)
+		CloneSourceResourceFullPath := pathutils.GetFullPaths(arrCloneSourceResource, policyResourcePath, fs != nil)
 
 		apiTest.Results[i].PatchedResource = patchedResourceFullPath[0]
 		apiTest.Results[i].GeneratedResource = generatedResourceFullPath[0]
 		apiTest.Results[i].CloneSourceResource = CloneSourceResourceFullPath[0]
 	}
 
-	policies, validatingAdmissionPolicies, err := common.GetPoliciesFromPaths(fs, policyFullPath, isGit, policyResourcePath)
+	policies, validatingAdmissionPolicies, err := common.GetPoliciesFromPaths(fs, policyFullPath, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
 		os.Exit(1)
@@ -164,7 +163,7 @@ func applyPoliciesFromPath(
 	}
 	policies = filteredPolicies
 
-	resources, err := common.GetResourceAccordingToResourcePath(fs, resourceFullPath, false, policies, validatingAdmissionPolicies, dClient, "", false, isGit, policyResourcePath)
+	resources, err := common.GetResourceAccordingToResourcePath(fs, resourceFullPath, false, policies, validatingAdmissionPolicies, dClient, "", false, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
 		os.Exit(1)
@@ -251,7 +250,7 @@ func applyPoliciesFromPath(
 			engineResponses = append(engineResponses, ers...)
 		}
 	}
-	resultsMap, testResults := buildPolicyResults(engineResponses, apiTest.Results, policyResourcePath, fs, isGit, auditWarn)
+	resultsMap, testResults := buildPolicyResults(engineResponses, apiTest.Results, policyResourcePath, fs, auditWarn)
 	return resultsMap, testResults, nil
 }
 
@@ -312,7 +311,6 @@ func buildPolicyResults(
 	testResults []api.TestResults,
 	policyResourcePath string,
 	fs billy.Filesystem,
-	isGit bool,
 	auditWarn bool,
 ) (map[string]policyreportv1alpha2.PolicyReportResult, []api.TestResults) {
 	results := map[string]policyreportv1alpha2.PolicyReportResult{}
@@ -397,7 +395,7 @@ func buildPolicyResults(
 								results[resultsKey] = result
 							}
 
-							buildPolicyResultsForGenerate(resp, test, policyNamespace, policyName, resourceNamespace, resourceKind, resourceName, results, isGit, policyResourcePath, fs)
+							buildPolicyResultsForGenerate(resp, test, policyNamespace, policyName, resourceNamespace, resourceKind, resourceName, results, policyResourcePath, fs)
 						}
 					}
 				}
@@ -434,7 +432,7 @@ func buildPolicyResults(
 					if _, ok := results[resultsKey]; !ok {
 						results[resultsKey] = result
 					}
-					buildPolicyResultsForGenerate(resp, test, policyNamespace, policyName, resourceNamespace, resourceKind, resourceName, results, isGit, policyResourcePath, fs)
+					buildPolicyResultsForGenerate(resp, test, policyNamespace, policyName, resourceNamespace, resourceKind, resourceName, results, policyResourcePath, fs)
 				}
 			}
 
@@ -463,7 +461,7 @@ func buildPolicyResults(
 						var x string
 						for _, path := range patchedResourcePath {
 							result.Result = policyreportv1alpha2.StatusFail
-							x = getAndCompareResource(path, resp.PatchedResource, isGit, policyResourcePath, fs, false)
+							x = getAndCompareResource(path, resp.PatchedResource, policyResourcePath, fs, false)
 							if x == "pass" {
 								result.Result = policyreportv1alpha2.StatusPass
 								break
@@ -518,7 +516,7 @@ func buildPolicyResults(
 	return results, testResults
 }
 
-func buildPolicyResultsForGenerate(resp engineapi.EngineResponse, test api.TestResults, policyNamespace string, policyName string, resourceNamespace string, resourceKind string, resourceName string, results map[string]policyreportv1alpha2.PolicyReportResult, isGit bool, policyResourcePath string, fs billy.Filesystem) {
+func buildPolicyResultsForGenerate(resp engineapi.EngineResponse, test api.TestResults, policyNamespace string, policyName string, resourceNamespace string, resourceKind string, resourceName string, results map[string]policyreportv1alpha2.PolicyReportResult, policyResourcePath string, fs billy.Filesystem) {
 	for _, rule := range resp.PolicyResponse.Rules {
 		if rule.RuleType() != engineapi.Generation || test.Rule != rule.Name() {
 			continue
@@ -543,7 +541,7 @@ func buildPolicyResultsForGenerate(resp engineapi.EngineResponse, test api.TestR
 			} else {
 				var x string
 				result.Result = policyreportv1alpha2.StatusFail
-				x = getAndCompareResource(test.GeneratedResource, rule.GeneratedResource(), isGit, policyResourcePath, fs, true)
+				x = getAndCompareResource(test.GeneratedResource, rule.GeneratedResource(), policyResourcePath, fs, true)
 				if x == "pass" {
 					result.Result = policyreportv1alpha2.StatusPass
 				}
@@ -606,13 +604,13 @@ func isNamespacedPolicy(policyNames string) (bool, error) {
 
 // getAndCompareResource --> Get the patchedResource or generatedResource from the path provided by user
 // And compare this resource with engine generated resource.
-func getAndCompareResource(path string, actualResource unstructured.Unstructured, isGit bool, policyResourcePath string, fs billy.Filesystem, isGenerate bool) string {
+func getAndCompareResource(path string, actualResource unstructured.Unstructured, policyResourcePath string, fs billy.Filesystem, isGenerate bool) string {
 	var status string
 	resourceType := "patchedResource"
 	if isGenerate {
 		resourceType = "generatedResource"
 	}
-	expectedResource, err := common.GetResourceFromPath(fs, path, isGit, policyResourcePath, resourceType)
+	expectedResource, err := common.GetResourceFromPath(fs, path, policyResourcePath, resourceType)
 	if err != nil {
 		fmt.Printf("Error: failed to load resources (%s)", err)
 		return ""
