@@ -1,10 +1,14 @@
 ## kyverno oci push
 
-push policie(s) that are included in an OCI image to OCI registry
+Push policie(s) that are included in an OCI image to OCI registry.
 
 ### Synopsis
 
-This command is one of the supported experimental commands in Kyverno CLI, and its behaviour might be changed any time.
+Push policie(s) that are included in an OCI image to OCI registry.
+
+  NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
+
+  For more information visit https://kyverno.io/docs/kyverno-cli/#pushing
 
 ```
 kyverno oci push [flags]
@@ -13,11 +17,11 @@ kyverno oci push [flags]
 ### Examples
 
 ```
-# push policy to an OCI image from a given policy file
-kyverno oci push -p policy.yaml -i <imgref>
+  # push policy to an OCI image from a given policy file
+  kyverno oci push -p policy.yaml -i <imgref>
 
-# push multiple policies to an OCI image from a given directory that includes policies
-kyverno oci push -p policies. -i <imgref>
+  # push multiple policies to an OCI image from a given directory that includes policies
+  kyverno oci push -p policies. -i <imgref>
 ```
 
 ### Options

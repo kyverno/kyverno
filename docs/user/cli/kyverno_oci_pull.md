@@ -1,10 +1,14 @@
 ## kyverno oci pull
 
-pulls policie(s) that are included in an OCI image from OCI registry and saves them to a local directory
+Pulls policie(s) that are included in an OCI image from OCI registry and saves them to a local directory.
 
 ### Synopsis
 
-This command is one of the supported experimental commands, and its behaviour might be changed any time
+Pulls policie(s) that are included in an OCI image from OCI registry and saves them to a local directory.
+
+  NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
+
+  For more information visit https://kyverno.io/docs/kyverno-cli/#pulling
 
 ```
 kyverno oci pull [flags]
@@ -13,8 +17,8 @@ kyverno oci pull [flags]
 ### Examples
 
 ```
-# pull policy from an OCI image and save it to the specific directory
-kyverno oci pull -i <imgref> -d policies
+  # pull policy from an OCI image and save it to the specific directory
+  kyverno oci pull -i <imgref> -d policies
 ```
 
 ### Options
