@@ -7,6 +7,16 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+type (
+	marshaler = func(*unstructured.Unstructured) ([]byte, error)
+	patcher   = func(originalJSON, modifiedJSON []byte) ([]byte, error)
+)
+
+var (
+	defaultMarshaler = (*unstructured.Unstructured).MarshalJSON
+	defaultPatcher   = jsonpatch.CreateMergePatch
+)
+
 func TidyObject(obj interface{}) interface{} {
 	switch typedPatternElement := obj.(type) {
 	case map[string]interface{}:
@@ -66,15 +76,25 @@ func Compare(a, e unstructured.Unstructured, tidy bool) (bool, error) {
 		a = Tidy(a)
 		e = Tidy(e)
 	}
-	actual, err := a.MarshalJSON()
+	return compare(a, e, defaultMarshaler, defaultPatcher)
+}
+
+func compare(a, e unstructured.Unstructured, marshaler marshaler, patcher patcher) (bool, error) {
+	if marshaler == nil {
+		marshaler = defaultMarshaler
+	}
+	actual, err := marshaler(&a)
 	if err != nil {
 		return false, err
 	}
-	expected, err := e.MarshalJSON()
+	expected, err := marshaler(&e)
 	if err != nil {
 		return false, err
 	}
-	patch, err := jsonpatch.CreateMergePatch(actual, expected)
+	if patcher == nil {
+		patcher = defaultPatcher
+	}
+	patch, err := patcher(actual, expected)
 	if err != nil {
 		return false, err
 	}
