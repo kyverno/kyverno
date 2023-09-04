@@ -5,8 +5,6 @@ var websiteUrl = ``
 
 var description = []string{
 	`Fix inconsistencies and deprecated usage in Kyverno test files.`,
-	``,
-	`NOTE: This is an experimental command, use "KYVERNO_EXPERIMENTAL=true" to enable it.`,
 }
 
 var examples = [][]string{

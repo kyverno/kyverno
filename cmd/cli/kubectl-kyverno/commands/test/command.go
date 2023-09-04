@@ -29,8 +29,8 @@ func Command() *cobra.Command {
 	cmd = &cobra.Command{
 		Use:     "test [local folder or git repository]...",
 		Args:    cobra.MinimumNArgs(1),
-		Short:   cobrautils.FormatDescription(true, websiteUrl, description...),
-		Long:    cobrautils.FormatDescription(false, websiteUrl, description...),
+		Short:   cobrautils.FormatDescription(true, websiteUrl, false, description...),
+		Long:    cobrautils.FormatDescription(false, websiteUrl, false, description...),
 		Example: cobrautils.FormatExamples(examples...),
 		RunE: func(cmd *cobra.Command, dirPath []string) (err error) {
 			color.InitColors(removeColor)

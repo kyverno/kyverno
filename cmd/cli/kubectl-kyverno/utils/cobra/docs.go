@@ -2,7 +2,7 @@ package cobra
 
 import "strings"
 
-func FormatDescription(short bool, url string, lines ...string) string {
+func FormatDescription(short bool, url string, experimental bool, lines ...string) string {
 	if len(lines) == 0 {
 		return ""
 	}
@@ -15,6 +15,11 @@ func FormatDescription(short bool, url string, lines ...string) string {
 		description += "  "
 		description += line
 		description += "\n"
+	}
+	if experimental {
+		description += "\n"
+		description += "  "
+		description += "NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it."
 	}
 	if url != "" {
 		description += "\n"

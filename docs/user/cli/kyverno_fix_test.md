@@ -5,8 +5,8 @@ Fix inconsistencies and deprecated usage in Kyverno test files.
 ### Synopsis
 
 Fix inconsistencies and deprecated usage in Kyverno test files.
-  
-  NOTE: This is an experimental command, use "KYVERNO_EXPERIMENTAL=true" to enable it.
+
+  NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
 
 ```
 kyverno fix test [folder]... [flags]

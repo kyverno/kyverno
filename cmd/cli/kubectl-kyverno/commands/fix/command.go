@@ -9,8 +9,8 @@ import (
 func Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "fix",
-		Short:   cobrautils.FormatDescription(true, websiteUrl, description...),
-		Long:    cobrautils.FormatDescription(false, websiteUrl, description...),
+		Short:   cobrautils.FormatDescription(true, websiteUrl, true, description...),
+		Long:    cobrautils.FormatDescription(false, websiteUrl, true, description...),
 		Example: cobrautils.FormatExamples(examples...),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()

@@ -17,8 +17,8 @@ import (
 func RootCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "kyverno",
-		Short: cobrautils.FormatDescription(true, websiteUrl, description...),
-		Long:  cobrautils.FormatDescription(false, websiteUrl, description...),
+		Short: cobrautils.FormatDescription(true, websiteUrl, false, description...),
+		Long:  cobrautils.FormatDescription(false, websiteUrl, false, description...),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},
