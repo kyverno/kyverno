@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/go-git/go-billy/v5"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test/api"
 )
 
 func Test_readFile(t *testing.T) {

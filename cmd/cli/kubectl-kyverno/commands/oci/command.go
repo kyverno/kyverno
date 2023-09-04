@@ -8,8 +8,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/authn/github"
 	"github.com/google/go-containerregistry/pkg/v1/google"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/oci/pull"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/oci/push"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/pull"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/push"
 	"github.com/spf13/cobra"
 )
 
