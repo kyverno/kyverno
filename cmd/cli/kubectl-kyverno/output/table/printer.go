@@ -3,7 +3,7 @@ package table
 import (
 	"os"
 
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/color"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/lensesio/tableprinter"
 )
 

@@ -7,10 +7,10 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test/api"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/color"
-	filterutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/filter"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/output/table"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/filter"
 	reportutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/report"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
@@ -79,7 +79,7 @@ func testCommandExecute(
 		return rc, sanitizederror.NewWithError("a directory is required", err)
 	}
 	// parse filter
-	filter, errors := filterutils.ParseFilter(testCase)
+	filter, errors := filter.ParseFilter(testCase)
 	if len(errors) > 0 {
 		fmt.Println()
 		fmt.Println("Filter errors:")

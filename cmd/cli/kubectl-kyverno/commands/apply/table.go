@@ -1,9 +1,9 @@
 package apply
 
 import (
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy/annotations"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/color"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/output/table"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 )
 
