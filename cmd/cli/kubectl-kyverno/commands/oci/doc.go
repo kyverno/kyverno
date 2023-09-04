@@ -8,11 +8,11 @@ var description = []string{
 
 var examples = [][]string{
 	{
-		`# push policy to an OCI image from a given policy file`,
+		`# Push policy to an OCI image from a given policy file`,
 		`kyverno oci push -p policy.yaml -i <imgref>`,
 	},
 	{
-		`# pull policy from an OCI image and save it to the specific directory`,
+		`# Pull policy from an OCI image and save it to the specific directory`,
 		`kyverno oci pull -i <imgref> -d policies`,
 	},
 }

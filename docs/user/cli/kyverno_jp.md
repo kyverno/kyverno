@@ -5,10 +5,24 @@ Provides a command-line interface to JMESPath, enhanced with Kyverno specific cu
 ### Synopsis
 
 Provides a command-line interface to JMESPath, enhanced with Kyverno specific custom functions.
-For more information visit: https://kyverno.io/docs/writing-policies/jmespath/.
+
+  For more information visit https://kyverno.io/docs/kyverno-cli/#jp
 
 ```
 kyverno jp [flags]
+```
+
+### Examples
+
+```
+  # List functions
+  kyverno jp function
+
+  # Evaluate query
+  kyverno jp query -i object.yaml 'request.object.metadata.name | truncate(@, `9`)'
+
+  # Parse expression
+  kyverno jp parse 'request.object.metadata.name | truncate(@, `9`)'
 ```
 
 ### Options
@@ -38,7 +52,7 @@ kyverno jp [flags]
 ### SEE ALSO
 
 * [kyverno](kyverno.md)	 - Kubernetes Native Policy Management.
-* [kyverno jp function](kyverno_jp_function.md)	 - Provides function informations
-* [kyverno jp parse](kyverno_jp_parse.md)	 - Parses jmespath expression and shows corresponding AST
-* [kyverno jp query](kyverno_jp_query.md)	 - Provides a command-line interface to JMESPath, enhanced with Kyverno specific custom functions
+* [kyverno jp function](kyverno_jp_function.md)	 - Provides function informations.
+* [kyverno jp parse](kyverno_jp_parse.md)	 - Parses jmespath expression and shows corresponding AST.
+* [kyverno jp query](kyverno_jp_query.md)	 - Provides a command-line interface to JMESPath, enhanced with Kyverno specific custom functions.
 
