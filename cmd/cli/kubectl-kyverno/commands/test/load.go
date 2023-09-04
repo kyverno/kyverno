@@ -9,14 +9,14 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/source"
-	testutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/test"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 )
 
-func loadTests(dirPath []string, fileName string, gitBranch string) (billy.Filesystem, testutils.TestCases, error) {
-	var tests []testutils.TestCase
+func loadTests(dirPath []string, fileName string, gitBranch string) (billy.Filesystem, test.TestCases, error) {
+	var tests []test.TestCase
 	// TODO support multiple paths
 	path := dirPath[0]
 	if source.IsGit(path) {
@@ -62,13 +62,13 @@ func loadTests(dirPath []string, fileName string, gitBranch string) (billy.Files
 			for _, yamlFilePath := range yamlFiles {
 				if filepath.Base(yamlFilePath) == fileName {
 					// resoucePath := strings.Trim(yamlFilePath, fileName)
-					tests = append(tests, testutils.LoadTest(fs, yamlFilePath))
+					tests = append(tests, test.LoadTest(fs, yamlFilePath))
 				}
 			}
 		}
 		return fs, tests, nil
 	} else {
-		tests, err := testutils.LoadTests(path, fileName)
+		tests, err := test.LoadTests(path, fileName)
 		return nil, tests, err
 	}
 }
