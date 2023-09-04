@@ -5,7 +5,7 @@ import (
 	"text/template"
 
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/create/templates"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/templates"
 	"github.com/spf13/cobra"
 	authenticationv1 "k8s.io/api/authentication/v1"
 )

@@ -1,10 +1,10 @@
 package create
 
 import (
-	metricsconfig "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/create/metrics-config"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/create/test"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/create/userinfo"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/create/values"
+	metricsconfig "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/metrics-config"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/test"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/userinfo"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/values"
 	"github.com/spf13/cobra"
 )
 

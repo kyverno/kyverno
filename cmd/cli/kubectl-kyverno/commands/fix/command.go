@@ -1,7 +1,7 @@
 package fix
 
 import (
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/fix/test"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/fix/test"
 	"github.com/spf13/cobra"
 )
 

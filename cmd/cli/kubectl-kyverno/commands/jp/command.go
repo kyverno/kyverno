@@ -3,9 +3,9 @@ package jp
 import (
 	"strings"
 
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/jp/function"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/jp/parse"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/jp/query"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/jp/function"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/jp/parse"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/jp/query"
 	"github.com/spf13/cobra"
 )
 
