@@ -34,6 +34,7 @@ type CompactRow struct {
 	Rule      string `header:"rule"`
 	Resource  string `header:"resource"`
 	Result    string `header:"result"`
+	Reason    string `header:"reason"`
 }
 
 type Row struct {
