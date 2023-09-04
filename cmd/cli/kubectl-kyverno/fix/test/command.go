@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	testutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/test"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 )
@@ -17,27 +18,27 @@ func Command() *cobra.Command {
 		Short:   "Fix inconsistencies and deprecated usage in Kyverno test files.",
 		Example: "",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var testCases []testCase
+			var testCases []testutils.TestCase
 			for _, arg := range args {
-				tests, err := loadTests(arg, fileName)
+				tests, err := testutils.LoadTests(arg, fileName)
 				if err != nil {
 					return err
 				}
 				testCases = append(testCases, tests...)
 			}
 			for _, testCase := range testCases {
-				fmt.Printf("Processing test file (%s)...", testCase.path)
+				fmt.Printf("Processing test file (%s)...", testCase.Path)
 				fmt.Println()
-				if testCase.err != nil {
-					fmt.Printf("  ERROR: loading test file (%s): %s", testCase.path, testCase.err)
+				if testCase.Err != nil {
+					fmt.Printf("  ERROR: loading test file (%s): %s", testCase.Path, testCase.Err)
 					fmt.Println()
 					continue
 				}
-				test := testCase.test
+				test := testCase.Test
 				needsSave := false
 				if test.Name == "" {
 					fmt.Println("  WARNING: name is not set")
-					test.Name = filepath.Base(testCase.path)
+					test.Name = filepath.Base(testCase.Path)
 					needsSave = true
 				}
 				if len(test.Policies) == 0 {
@@ -68,7 +69,7 @@ func Command() *cobra.Command {
 					}
 				}
 				if save && needsSave {
-					fmt.Printf("  Saving test file (%s)...", testCase.path)
+					fmt.Printf("  Saving test file (%s)...", testCase.Path)
 					fmt.Println()
 					yamlBytes, err := yaml.Marshal(test)
 					if err != nil {
@@ -76,8 +77,8 @@ func Command() *cobra.Command {
 						fmt.Println()
 						continue
 					}
-					if err := os.WriteFile(testCase.path, yamlBytes, os.ModePerm); err != nil {
-						fmt.Printf("    ERROR: saving test file (%s): %s", testCase.path, err)
+					if err := os.WriteFile(testCase.Path, yamlBytes, os.ModePerm); err != nil {
+						fmt.Printf("    ERROR: saving test file (%s): %s", testCase.Path, err)
 						fmt.Println()
 						continue
 					}
