@@ -36,7 +36,7 @@ kyverno oci [flags]
 
 ### SEE ALSO
 
-* [kyverno](kyverno.md)	 - Kubernetes Native Policy Management
+* [kyverno](kyverno.md)	 - Kubernetes Native Policy Management.
 * [kyverno oci pull](kyverno_oci_pull.md)	 - pulls policie(s) that are included in an OCI image from OCI registry and saves them to a local directory
 * [kyverno oci push](kyverno_oci_push.md)	 - push policie(s) that are included in an OCI image to OCI registry
 

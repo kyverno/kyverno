@@ -2,7 +2,6 @@
 
 Run tests from a local filesystem or a remote git repository.
 
-
 ### Synopsis
 
 Run tests from a local filesystem or a remote git repository.
@@ -67,5 +66,5 @@ kyverno test [local folder or git repository]... [flags]
 
 ### SEE ALSO
 
-* [kyverno](kyverno.md)	 - Kubernetes Native Policy Management
+* [kyverno](kyverno.md)	 - Kubernetes Native Policy Management.
 

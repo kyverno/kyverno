@@ -134,5 +134,5 @@ More info: https://kyverno.io/docs/kyverno-cli/
 
 ### SEE ALSO
 
-* [kyverno](kyverno.md)	 - Kubernetes Native Policy Management
+* [kyverno](kyverno.md)	 - Kubernetes Native Policy Management.
 

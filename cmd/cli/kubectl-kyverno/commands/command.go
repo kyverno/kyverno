@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/version"
+	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/experimental"
 	"github.com/spf13/cobra"
 )
@@ -16,8 +17,8 @@ import (
 func RootCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "kyverno",
-		Long:  "To enable experimental commands, KYVERNO_EXPERIMENTAL should be configured with true or 1.",
-		Short: "Kubernetes Native Policy Management",
+		Short: cobrautils.FormatDescription(true, websiteUrl, description...),
+		Long:  cobrautils.FormatDescription(false, websiteUrl, description...),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},

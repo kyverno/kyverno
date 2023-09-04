@@ -1,10 +1,19 @@
 ## kyverno
 
-Kubernetes Native Policy Management
+Kubernetes Native Policy Management.
 
 ### Synopsis
 
-To enable experimental commands, KYVERNO_EXPERIMENTAL should be configured with true or 1.
+Kubernetes Native Policy Management.
+  
+  The Kyverno CLI provides a command-line interface to work with Kyverno resources.
+  It can be used to validate and test policy behavior to resources prior to adding them to a cluster.
+  
+  The Kyverno CLI comes with additional commands to help creating and manipulating various Kyverno resources.
+  
+  NOTE: To enable experimental commands, environment variable "KYVERNO_EXPERIMENTAL" should be set true or 1.
+
+  For more information visit https://kyverno.io/docs/kyverno-cli
 
 ```
 kyverno [flags]
@@ -39,6 +48,5 @@ kyverno [flags]
 * [kyverno jp](kyverno_jp.md)	 - Provides a command-line interface to JMESPath, enhanced with Kyverno specific custom functions.
 * [kyverno oci](kyverno_oci.md)	 - Pulls/pushes images that include policie(s) from/to OCI registries.
 * [kyverno test](kyverno_test.md)	 - Run tests from a local filesystem or a remote git repository.
-
 * [kyverno version](kyverno_version.md)	 - Shows current version of kyverno.
 

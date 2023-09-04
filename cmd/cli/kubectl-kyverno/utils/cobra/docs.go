@@ -5,10 +5,10 @@ func FormatDescription(short bool, url string, lines ...string) string {
 		return ""
 	}
 	description := lines[0]
-	description += "\n"
 	if short {
 		return description
 	}
+	description += "\n"
 	for _, line := range lines[1:] {
 		description += "  "
 		description += line
