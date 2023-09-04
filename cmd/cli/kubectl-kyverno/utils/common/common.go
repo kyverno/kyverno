@@ -14,8 +14,8 @@ import (
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
-	annotationsutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/annotations"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test/api"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy/annotations"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
@@ -687,7 +687,7 @@ func processEngineResponses(responses []engineapi.EngineResponse, c ApplyPolicyC
 			if polType := pol.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
 				return
 			}
-			scored := annotationsutils.Scored(c.Policy.GetAnnotations())
+			scored := annotations.Scored(c.Policy.GetAnnotations())
 			for _, rule := range autogen.ComputeRules(pol.GetPolicy().(kyvernov1.PolicyInterface)) {
 				if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
 					ruleFoundInEngineResponse := false

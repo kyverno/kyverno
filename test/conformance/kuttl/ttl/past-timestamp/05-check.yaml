@@ -1,4 +1,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
-apply:
-- pod.yaml
+error:
+- pod-assert-2.yaml
