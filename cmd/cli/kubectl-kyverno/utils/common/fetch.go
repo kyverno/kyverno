@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test/api"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
 	"github.com/kyverno/kyverno/pkg/autogen"
