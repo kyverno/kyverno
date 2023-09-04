@@ -7,7 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	controllerUtil "github.com/kyverno/kyverno/pkg/utils/controller"
+	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -54,11 +54,11 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 		logger:   logger,
 		metrics:  newTTLMetrics(logger),
 	}
-	registration, err := controllerUtil.AddEventHandlersT(
+	registration, err := controllerutils.AddEventHandlersT(
 		c.informer,
 		c.handleAdd,
 		c.handleUpdate,
-		func(obj interface{}) {},
+		nil,
 	)
 	if err != nil {
 		logger.Error(err, "failed to register event handlers")
@@ -105,7 +105,7 @@ func (c *controller) handleUpdate(oldObj, newObj interface{}) {
 
 func (c *controller) Start(ctx context.Context, workers int) {
 	controllerName := c.gvr.Group + c.gvr.Version + c.gvr.Resource
-	controllerUtil.Run(ctx, c.logger, controllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
+	controllerutils.Run(ctx, c.logger, controllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *controller) Stop() {
