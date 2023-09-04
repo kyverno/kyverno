@@ -8,14 +8,14 @@ import (
 	"strings"
 
 	"github.com/go-git/go-billy/v5/memfs"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/source"
-	testutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/test"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 )
 
-func loadTests(paths []string, fileName string, gitBranch string) (testutils.TestCases, error) {
-	var tests []testutils.TestCase
+func loadTests(paths []string, fileName string, gitBranch string) (test.TestCases, error) {
+	var tests []test.TestCase
 	for _, path := range paths {
 		t, err := loadTest(path, fileName, gitBranch)
 		if err != nil {
@@ -26,8 +26,8 @@ func loadTests(paths []string, fileName string, gitBranch string) (testutils.Tes
 	return tests, nil
 }
 
-func loadTest(path string, fileName string, gitBranch string) (testutils.TestCases, error) {
-	var tests []testutils.TestCase
+func loadTest(path string, fileName string, gitBranch string) (test.TestCases, error) {
+	var tests []test.TestCase
 	if source.IsGit(path) {
 		fs := memfs.New()
 		gitURL, err := url.Parse(path)
@@ -71,13 +71,13 @@ func loadTest(path string, fileName string, gitBranch string) (testutils.TestCas
 			for _, yamlFilePath := range yamlFiles {
 				if filepath.Base(yamlFilePath) == fileName {
 					// resoucePath := strings.Trim(yamlFilePath, fileName)
-					tests = append(tests, testutils.LoadTest(fs, yamlFilePath))
+					tests = append(tests, test.LoadTest(fs, yamlFilePath))
 				}
 			}
 		}
 		return tests, nil
 	} else {
-		tests, err := testutils.LoadTests(path, fileName)
+		tests, err := test.LoadTests(path, fileName)
 		return tests, err
 	}
 }
