@@ -6,12 +6,14 @@ resources:
 results:
 - kind: Pod
   policy: exclude-namespaces-example
-  resource: bad-pod01
+  resources:
+  - bad-pod01
   result: pass
   rule: exclude-namespaces-dynamically
 - kind: Pod
   policy: exclude-namespaces-example
-  resource: bad-pod02
+  resources:
+  - bad-pod02
   result: error
   rule: exclude-namespaces-dynamically
 variables: values.yaml
