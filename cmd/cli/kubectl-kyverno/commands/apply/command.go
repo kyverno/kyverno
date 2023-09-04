@@ -63,10 +63,8 @@ type ApplyCommandConfig struct {
 	warnNoPassed   bool
 }
 
-var (
-	// allow os.exit to be overwritten during unit tests
-	osExit = os.Exit
-)
+// allow os.exit to be overwritten during unit tests
+var osExit = os.Exit
 
 func Command() *cobra.Command {
 	var cmd *cobra.Command
