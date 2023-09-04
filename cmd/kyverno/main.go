@@ -44,6 +44,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubeinformers "k8s.io/client-go/informers"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -265,10 +266,11 @@ func main() {
 		setup.Logger.Error(errors.New("exiting... tlsSecretName is a required flag"), "exiting... tlsSecretName is a required flag")
 		os.Exit(1)
 	}
-	// check if server version is supported for validating admission policy generation
+	// check if validating admission policies are registered in the API server
 	if generateValidatingAdmissionPolicy {
-		if !kubeutils.HigherThanKubernetesVersion(setup.KubeClient.Discovery(), setup.Logger, 1, 26, 0) {
-			setup.Logger.Error(errors.New("validating admission policy aren't supported"), "validating admission policy aren't supported")
+		groupVersion := schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"}
+		if _, err := setup.KyvernoDynamicClient.GetKubeClient().Discovery().ServerResourcesForGroupVersion(groupVersion.String()); err != nil {
+			setup.Logger.Error(err, "validating admission policies aren't supported.")
 			os.Exit(1)
 		}
 	}
