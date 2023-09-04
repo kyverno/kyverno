@@ -20,7 +20,7 @@ func Test_selectResourcesForCheck(t *testing.T) {
 		expectedDuplicates int
 		expectedUnused     int
 	}
-	baseTestDir := "../../../../test/cli/test-unit/selectResourcesForCheck/"
+	baseTestDir := "../../../../../test/cli/test-unit/selectResourcesForCheck/"
 	testcases := []*TestCase{
 		{
 
