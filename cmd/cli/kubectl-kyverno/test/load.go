@@ -7,7 +7,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/source"
@@ -15,19 +14,29 @@ import (
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 )
 
-func loadTests(dirPath []string, fileName string, gitBranch string) (billy.Filesystem, testutils.TestCases, error) {
+func loadTests(paths []string, fileName string, gitBranch string) (testutils.TestCases, error) {
 	var tests []testutils.TestCase
-	// TODO support multiple paths
-	path := dirPath[0]
+	for _, path := range paths {
+		t, err := loadTest(path, fileName, gitBranch)
+		if err != nil {
+			return nil, err
+		}
+		tests = append(tests, t...)
+	}
+	return tests, nil
+}
+
+func loadTest(path string, fileName string, gitBranch string) (testutils.TestCases, error) {
+	var tests []testutils.TestCase
 	if source.IsGit(path) {
 		fs := memfs.New()
 		gitURL, err := url.Parse(path)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		} else {
 			pathElems := strings.Split(gitURL.Path[1:], "/")
 			if len(pathElems) <= 1 {
-				return nil, nil, fmt.Errorf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch (without --git-branch flag) OR https://github.com/:owner/:repository/:directory (with --git-branch flag)", gitURL.Path)
+				return nil, fmt.Errorf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch (without --git-branch flag) OR https://github.com/:owner/:repository/:directory (with --git-branch flag)", gitURL.Path)
 			}
 			gitURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
 			repoURL := gitURL.String()
@@ -52,11 +61,11 @@ func loadTests(dirPath []string, fileName string, gitBranch string) (billy.Files
 				}
 			}
 			if _, err := gitutils.Clone(repoURL, fs, gitBranch); err != nil {
-				return nil, nil, fmt.Errorf("Error: failed to clone repository \nCause: %s\n", err)
+				return nil, fmt.Errorf("Error: failed to clone repository \nCause: %s\n", err)
 			}
 			yamlFiles, err := gitutils.ListYamls(fs, gitPathToYamls)
 			if err != nil {
-				return nil, nil, sanitizederror.NewWithError("failed to list YAMLs in repository", err)
+				return nil, sanitizederror.NewWithError("failed to list YAMLs in repository", err)
 			}
 			sort.Strings(yamlFiles)
 			for _, yamlFilePath := range yamlFiles {
@@ -66,9 +75,9 @@ func loadTests(dirPath []string, fileName string, gitBranch string) (billy.Files
 				}
 			}
 		}
-		return fs, tests, nil
+		return tests, nil
 	} else {
 		tests, err := testutils.LoadTests(path, fileName)
-		return nil, tests, err
+		return tests, err
 	}
 }
