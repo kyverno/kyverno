@@ -18,7 +18,7 @@ kyverno fix [flags]
 ### Examples
 
 ```
-# Fix Kyverno test files
+  # Fix Kyverno test files
   KYVERNO_EXPERIMENTAL=true kyverno fix test . --save
 ```
 

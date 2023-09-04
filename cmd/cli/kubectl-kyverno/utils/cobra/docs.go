@@ -20,11 +20,13 @@ func FormatDescription(short bool, url string, experimental bool, lines ...strin
 		description += "\n"
 		description += "  "
 		description += "NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it."
+		description += "\n"
 	}
 	if url != "" {
 		description += "\n"
 		description += "  "
 		description += "For more information visit " + url
+		description += "\n"
 	}
 	return strings.TrimSpace(description)
 }
@@ -39,5 +41,5 @@ func FormatExamples(in ...[]string) string {
 		}
 		examples += "\n"
 	}
-	return strings.TrimSpace(examples)
+	return strings.TrimRight(examples, " \n")
 }

@@ -21,7 +21,7 @@ kyverno test [local folder or git repository]... [flags]
 ### Examples
 
 ```
-# Test a git repository containing Kyverno test cases
+  # Test a git repository containing Kyverno test cases
   kyverno test https://github.com/kyverno/policies/pod-security --git-branch main
 
   # Test a local folder containing test cases

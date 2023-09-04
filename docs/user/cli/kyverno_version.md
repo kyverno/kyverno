@@ -15,7 +15,7 @@ kyverno version [flags]
 ### Examples
 
 ```
-# Print Kyverno CLI version
+  # Print Kyverno CLI version
   kyverno version
 ```
 

@@ -15,7 +15,7 @@ kyverno fix test [folder]... [flags]
 ### Examples
 
 ```
-# Fix Kyverno test files
+  # Fix Kyverno test files
   KYVERNO_EXPERIMENTAL=true kyverno fix test .
 
   # Fix Kyverno test files and save them back

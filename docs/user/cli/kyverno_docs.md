@@ -17,7 +17,7 @@ kyverno docs [flags]
 ### Examples
 
 ```
-# Generate simple markdown documentation
+  # Generate simple markdown documentation
   KYVERNO_EXPERIMENTAL=true kyverno docs -o . --autogenTag=false
 
   # Generate website documentation
