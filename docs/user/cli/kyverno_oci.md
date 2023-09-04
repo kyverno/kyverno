@@ -4,10 +4,22 @@ Pulls/pushes images that include policie(s) from/to OCI registries.
 
 ### Synopsis
 
-This command is one of the supported experimental commands, and its behaviour might be changed any time.
+Pulls/pushes images that include policie(s) from/to OCI registries.
+
+  For more information visit https://kyverno.io/docs/kyverno-cli/#oci
 
 ```
 kyverno oci [flags]
+```
+
+### Examples
+
+```
+  # push policy to an OCI image from a given policy file
+  kyverno oci push -p policy.yaml -i <imgref>
+
+  # pull policy from an OCI image and save it to the specific directory
+  kyverno oci pull -i <imgref> -d policies
 ```
 
 ### Options

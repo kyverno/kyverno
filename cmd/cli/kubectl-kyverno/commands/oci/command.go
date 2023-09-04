@@ -10,6 +10,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/google"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/pull"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/push"
+	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	"github.com/spf13/cobra"
 )
 
@@ -25,9 +26,9 @@ func Command() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:     "oci",
-		Long:    `This command is one of the supported experimental commands, and its behaviour might be changed any time.`,
-		Short:   "Pulls/pushes images that include policie(s) from/to OCI registries.",
-		Example: "",
+		Short:   cobrautils.FormatDescription(true, websiteUrl, false, description...),
+		Long:    cobrautils.FormatDescription(false, websiteUrl, false, description...),
+		Example: cobrautils.FormatExamples(examples...),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},
