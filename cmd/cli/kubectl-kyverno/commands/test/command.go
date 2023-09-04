@@ -212,12 +212,17 @@ func lookupEngineResponses(test api.TestResults, resourceName string, responses 
 
 func lookupRuleResponses(test api.TestResults, responses ...engineapi.RuleResponse) []engineapi.RuleResponse {
 	var matches []engineapi.RuleResponse
-	for _, response := range responses {
-		rule := response.Name()
-		if rule != test.Rule && rule != "autogen-"+test.Rule && rule != "autogen-cronjob-"+test.Rule {
-			continue
+	// Since there are no rules in case of validating admission policies, responses are returned without checking rule names.
+	if test.IsValidatingAdmissionPolicy {
+		matches = responses
+	} else {
+		for _, response := range responses {
+			rule := response.Name()
+			if rule != test.Rule && rule != "autogen-"+test.Rule && rule != "autogen-cronjob-"+test.Rule {
+				continue
+			}
+			matches = append(matches, response)
 		}
-		matches = append(matches, response)
 	}
 	return matches
 }
