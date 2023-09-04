@@ -81,25 +81,25 @@ func TestLoadTests(t *testing.T) {
 		wantErr:  false,
 	}, {
 		name:     "invalid dir",
-		dirPath:  "../../testdata/tests/invalid",
+		dirPath:  "../testdata/tests/invalid",
 		fileName: "kyverno-test.yaml",
 		want:     nil,
 		wantErr:  true,
 	}, {
 		name:     "invalid dir",
-		dirPath:  "../../testdata/tests",
+		dirPath:  "../testdata/tests",
 		fileName: "kyverno-test-invalid.yaml",
 		want: []TestCase{{
-			Path: "../../testdata/tests/test-invalid/kyverno-test-invalid.yaml",
+			Path: "../testdata/tests/test-invalid/kyverno-test-invalid.yaml",
 			Err:  errors.New("error unmarshaling JSON: while decoding JSON: json: unknown field \"foo\""),
 		}},
 		wantErr: false,
 	}, {
 		name:     "ok",
-		dirPath:  "../../testdata/tests/test-1",
+		dirPath:  "../testdata/tests/test-1",
 		fileName: "kyverno-test.yaml",
 		want: []TestCase{{
-			Path: "../../testdata/tests/test-1/kyverno-test.yaml",
+			Path: "../testdata/tests/test-1/kyverno-test.yaml",
 			Test: &api.Test{
 				Name:      "test-registry",
 				Policies:  []string{"image-example.yaml"},
@@ -122,10 +122,10 @@ func TestLoadTests(t *testing.T) {
 		wantErr: false,
 	}, {
 		name:     "ok",
-		dirPath:  "../../testdata/tests/test-2",
+		dirPath:  "../testdata/tests/test-2",
 		fileName: "kyverno-test.yaml",
 		want: []TestCase{{
-			Path: "../../testdata/tests/test-2/kyverno-test.yaml",
+			Path: "../testdata/tests/test-2/kyverno-test.yaml",
 			Test: &api.Test{
 				Name:      "add-quota",
 				Policies:  []string{"policy.yaml"},
@@ -150,10 +150,10 @@ func TestLoadTests(t *testing.T) {
 		wantErr: false,
 	}, {
 		name:     "ok",
-		dirPath:  "../../testdata/tests",
+		dirPath:  "../testdata/tests",
 		fileName: "kyverno-test.yaml",
 		want: []TestCase{{
-			Path: "../../testdata/tests/test-1/kyverno-test.yaml",
+			Path: "../testdata/tests/test-1/kyverno-test.yaml",
 			Test: &api.Test{
 				Name:      "test-registry",
 				Policies:  []string{"image-example.yaml"},
@@ -173,7 +173,7 @@ func TestLoadTests(t *testing.T) {
 				}},
 			},
 		}, {
-			Path: "../../testdata/tests/test-2/kyverno-test.yaml",
+			Path: "../testdata/tests/test-2/kyverno-test.yaml",
 			Test: &api.Test{
 				Name:      "add-quota",
 				Policies:  []string{"policy.yaml"},
