@@ -5,7 +5,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/create/templates"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/templates"
 	"github.com/spf13/cobra"
 )
 

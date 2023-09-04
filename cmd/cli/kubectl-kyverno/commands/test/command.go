@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test/api"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/color"
 	filterutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/filter"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/output/table"
