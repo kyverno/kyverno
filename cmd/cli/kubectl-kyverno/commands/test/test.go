@@ -3,15 +3,12 @@ package test
 import (
 	"fmt"
 	"os"
-	"regexp"
-	"strings"
+	"path/filepath"
 
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test/api"
-	annotationsutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/annotations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	filterutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/filter"
 	pathutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/path"
@@ -25,9 +22,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
-	"golang.org/x/exp/slices"
 	"k8s.io/api/admissionregistration/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -41,7 +36,7 @@ func applyPoliciesFromPath(
 	openApiManager openapi.Manager,
 	filter filterutils.Filter,
 	auditWarn bool,
-) (map[string]policyreportv1alpha2.PolicyReportResult, []api.TestResults, error) {
+) ([]api.TestResults, []engineapi.EngineResponse, error) {
 	engineResponses := make([]engineapi.EngineResponse, 0)
 	var dClient dclient.Interface
 	var resultCounts common.ResultCounts
@@ -85,20 +80,6 @@ func applyPoliciesFromPath(
 
 	policyFullPath := pathutils.GetFullPaths(apiTest.Policies, policyResourcePath, isGit)
 	resourceFullPath := pathutils.GetFullPaths(apiTest.Resources, policyResourcePath, isGit)
-
-	for i, result := range apiTest.Results {
-		arrPatchedResource := []string{result.PatchedResource}
-		arrGeneratedResource := []string{result.GeneratedResource}
-		arrCloneSourceResource := []string{result.CloneSourceResource}
-
-		patchedResourceFullPath := pathutils.GetFullPaths(arrPatchedResource, policyResourcePath, isGit)
-		generatedResourceFullPath := pathutils.GetFullPaths(arrGeneratedResource, policyResourcePath, isGit)
-		CloneSourceResourceFullPath := pathutils.GetFullPaths(arrCloneSourceResource, policyResourcePath, isGit)
-
-		apiTest.Results[i].PatchedResource = patchedResourceFullPath[0]
-		apiTest.Results[i].GeneratedResource = generatedResourceFullPath[0]
-		apiTest.Results[i].CloneSourceResource = CloneSourceResourceFullPath[0]
-	}
 
 	policies, validatingAdmissionPolicies, err := common.GetPoliciesFromPaths(fs, policyFullPath, isGit, policyResourcePath)
 	if err != nil {
@@ -153,7 +134,11 @@ func applyPoliciesFromPath(
 						}
 
 						if len(genClone) != 0 {
-							ruleToCloneSourceResource[rule.Name] = res.CloneSourceResource
+							if isGit {
+								ruleToCloneSourceResource[rule.Name] = res.CloneSourceResource
+							} else {
+								ruleToCloneSourceResource[rule.Name] = pathutils.GetFullPath(res.CloneSourceResource, policyResourcePath)
+							}
 						}
 					}
 					break
@@ -251,8 +236,7 @@ func applyPoliciesFromPath(
 			engineResponses = append(engineResponses, ers...)
 		}
 	}
-	resultsMap, testResults := buildPolicyResults(engineResponses, apiTest.Results, policyResourcePath, fs, isGit, auditWarn)
-	return resultsMap, testResults, nil
+	return apiTest.Results, engineResponses, nil
 }
 
 func selectResourcesForCheck(resources []*unstructured.Unstructured, values *api.Test) []*unstructured.Unstructured {
@@ -307,348 +291,34 @@ func selectResourcesForCheckInternal(resources []*unstructured.Unstructured, val
 	return checkableResources, duplicates, unused
 }
 
-func buildPolicyResults(
-	engineResponses []engineapi.EngineResponse,
-	testResults []api.TestResults,
-	policyResourcePath string,
-	fs billy.Filesystem,
-	isGit bool,
-	auditWarn bool,
-) (map[string]policyreportv1alpha2.PolicyReportResult, []api.TestResults) {
-	results := map[string]policyreportv1alpha2.PolicyReportResult{}
-
-	for _, resp := range engineResponses {
-		policy := resp.Policy()
-		policyName := policy.GetName()
-		policyNamespace := policy.GetNamespace()
-		scored := annotationsutils.Scored(policy.GetAnnotations())
-		resourceName := resp.Resource.GetName()
-		resourceKind := resp.Resource.GetKind()
-		resourceNamespace := resp.Resource.GetNamespace()
-
-		var rules []string
-		for _, rule := range resp.PolicyResponse.Rules {
-			rules = append(rules, rule.Name())
-		}
-
-		result := policyreportv1alpha2.PolicyReportResult{
-			Policy: policyName,
-			Resources: []corev1.ObjectReference{
-				{
-					Name: resourceName,
-				},
-			},
-			Message: buildMessage(resp),
-		}
-
-		var patchedResourcePath []string
-		for i, test := range testResults {
-			var userDefinedPolicyNamespace string
-			var userDefinedPolicyName string
-			found, err := isNamespacedPolicy(test.Policy)
-			if err != nil {
-				log.Log.V(3).Info("error while checking the policy is namespaced or not", "policy: ", test.Policy, "error: ", err)
-				continue
-			}
-
-			if found {
-				userDefinedPolicyNamespace, userDefinedPolicyName = getUserDefinedPolicyNameAndNamespace(test.Policy)
-				test.Policy = userDefinedPolicyName
-			}
-
-			if test.Resources != nil {
-				if test.Policy == policyName {
-					// results[].namespace value implicit set same as metadata.namespace until and unless
-					// user provides explicit values for results[].namespace in test yaml file.
-					if test.Namespace == "" {
-						test.Namespace = resourceNamespace
-						testResults[i].Namespace = resourceNamespace
-					}
-					for _, resource := range test.Resources {
-						if resource == resourceName {
-							var resultsKey string
-							resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, resource, test.IsValidatingAdmissionPolicy)
-							if !test.IsValidatingAdmissionPolicy {
-								if !slices.Contains(rules, test.Rule) {
-									if !slices.Contains(rules, "autogen-"+test.Rule) {
-										if !slices.Contains(rules, "autogen-cronjob-"+test.Rule) {
-											result.Result = policyreportv1alpha2.StatusSkip
-										} else {
-											testResults[i].AutoGeneratedRule = "autogen-cronjob"
-											test.Rule = "autogen-cronjob-" + test.Rule
-											resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, resource, test.IsValidatingAdmissionPolicy)
-										}
-									} else {
-										testResults[i].AutoGeneratedRule = "autogen"
-										test.Rule = "autogen-" + test.Rule
-										resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, resource, test.IsValidatingAdmissionPolicy)
-									}
-
-									if results[resultsKey].Result == "" {
-										result.Result = policyreportv1alpha2.StatusSkip
-										results[resultsKey] = result
-									}
-								}
-
-								patchedResourcePath = append(patchedResourcePath, test.PatchedResource)
-							}
-
-							if _, ok := results[resultsKey]; !ok {
-								results[resultsKey] = result
-							}
-
-							buildPolicyResultsForGenerate(resp, test, policyNamespace, policyName, resourceNamespace, resourceKind, resourceName, results, isGit, policyResourcePath, fs)
-						}
-					}
-				}
-			}
-			if test.Resource != "" {
-				if test.Policy == policyName && test.Resource == resourceName {
-					var resultsKey string
-					resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, test.Resource, test.IsValidatingAdmissionPolicy)
-					if !test.IsValidatingAdmissionPolicy {
-						if !slices.Contains(rules, test.Rule) {
-							if !slices.Contains(rules, "autogen-"+test.Rule) {
-								if !slices.Contains(rules, "autogen-cronjob-"+test.Rule) {
-									result.Result = policyreportv1alpha2.StatusSkip
-								} else {
-									testResults[i].AutoGeneratedRule = "autogen-cronjob"
-									test.Rule = "autogen-cronjob-" + test.Rule
-									resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, test.Resource, test.IsValidatingAdmissionPolicy)
-								}
-							} else {
-								testResults[i].AutoGeneratedRule = "autogen"
-								test.Rule = "autogen-" + test.Rule
-								resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, test.Resource, test.IsValidatingAdmissionPolicy)
-							}
-
-							if results[resultsKey].Result == "" {
-								result.Result = policyreportv1alpha2.StatusSkip
-								results[resultsKey] = result
-							}
-						}
-
-						patchedResourcePath = append(patchedResourcePath, test.PatchedResource)
-					}
-
-					if _, ok := results[resultsKey]; !ok {
-						results[resultsKey] = result
-					}
-					buildPolicyResultsForGenerate(resp, test, policyNamespace, policyName, resourceNamespace, resourceKind, resourceName, results, isGit, policyResourcePath, fs)
-				}
-			}
-
-			for _, rule := range resp.PolicyResponse.Rules {
-				if rule.RuleType() != engineapi.Mutation || test.Rule != rule.Name() {
-					continue
-				}
-
-				var resultsKey []string
-				var resultKey string
-				var result policyreportv1alpha2.PolicyReportResult
-				resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.Name(), resourceNamespace, resourceKind, resourceName, test.IsValidatingAdmissionPolicy)
-				for _, key := range resultsKey {
-					if val, ok := results[key]; ok {
-						result = val
-						resultKey = key
-					} else {
-						continue
-					}
-
-					if rule.Status() == engineapi.RuleStatusSkip {
-						result.Result = policyreportv1alpha2.StatusSkip
-					} else if rule.Status() == engineapi.RuleStatusError {
-						result.Result = policyreportv1alpha2.StatusError
-					} else {
-						var x string
-						for _, path := range patchedResourcePath {
-							result.Result = policyreportv1alpha2.StatusFail
-							x = getAndCompareResource(path, resp.PatchedResource, isGit, policyResourcePath, fs, false)
-							if x == "pass" {
-								result.Result = policyreportv1alpha2.StatusPass
-								break
-							}
-						}
-					}
-
-					results[resultKey] = result
-				}
-			}
-
-			for _, rule := range resp.PolicyResponse.Rules {
-				if rule.RuleType() != engineapi.Validation && rule.RuleType() != engineapi.ImageVerify || test.Rule != rule.Name() && !test.IsValidatingAdmissionPolicy {
-					continue
-				}
-
-				var resultsKey []string
-				var resultKey string
-				var result policyreportv1alpha2.PolicyReportResult
-				resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.Name(), resourceNamespace, resourceKind, resourceName, test.IsValidatingAdmissionPolicy)
-				for _, key := range resultsKey {
-					if val, ok := results[key]; ok {
-						result = val
-						resultKey = key
-					} else {
-						continue
-					}
-
-					if rule.Status() == engineapi.RuleStatusSkip {
-						result.Result = policyreportv1alpha2.StatusSkip
-					} else if rule.Status() == engineapi.RuleStatusError {
-						result.Result = policyreportv1alpha2.StatusError
-					} else if rule.Status() == engineapi.RuleStatusPass {
-						result.Result = policyreportv1alpha2.StatusPass
-					} else if rule.Status() == engineapi.RuleStatusFail {
-						if !scored {
-							result.Result = policyreportv1alpha2.StatusWarn
-						} else if auditWarn && resp.GetValidationFailureAction().Audit() {
-							result.Result = policyreportv1alpha2.StatusWarn
-						} else {
-							result.Result = policyreportv1alpha2.StatusFail
-						}
-					} else {
-						fmt.Println(rule)
-					}
-
-					results[resultKey] = result
-				}
-			}
-		}
-	}
-	return results, testResults
-}
-
-func buildPolicyResultsForGenerate(resp engineapi.EngineResponse, test api.TestResults, policyNamespace string, policyName string, resourceNamespace string, resourceKind string, resourceName string, results map[string]policyreportv1alpha2.PolicyReportResult, isGit bool, policyResourcePath string, fs billy.Filesystem) {
-	for _, rule := range resp.PolicyResponse.Rules {
-		if rule.RuleType() != engineapi.Generation || test.Rule != rule.Name() {
-			continue
-		}
-
-		var resultsKey []string
-		var resultKey string
-		var result policyreportv1alpha2.PolicyReportResult
-		resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.Name(), resourceNamespace, resourceKind, resourceName, test.IsValidatingAdmissionPolicy)
-		for _, key := range resultsKey {
-			if val, ok := results[key]; ok {
-				result = val
-				resultKey = key
-			} else {
-				continue
-			}
-
-			if rule.Status() == engineapi.RuleStatusSkip {
-				result.Result = policyreportv1alpha2.StatusSkip
-			} else if rule.Status() == engineapi.RuleStatusError {
-				result.Result = policyreportv1alpha2.StatusError
-			} else {
-				var x string
-				result.Result = policyreportv1alpha2.StatusFail
-				x = getAndCompareResource(test.GeneratedResource, rule.GeneratedResource(), isGit, policyResourcePath, fs, true)
-				if x == "pass" {
-					result.Result = policyreportv1alpha2.StatusPass
-				}
-			}
-			results[resultKey] = result
-		}
-	}
-}
-
-func GetAllPossibleResultsKey(policyNamespace, policy, rule, resourceNamespace, kind, resource string, isVAP bool) []string {
-	var resultsKey []string
-	var resultKey1, resultKey2, resultKey3, resultKey4 string
-
-	if isVAP {
-		resultKey1 = fmt.Sprintf("%s-%s-%s", policy, kind, resource)
-		resultKey2 = fmt.Sprintf("%s-%s-%s-%s", policy, resourceNamespace, kind, resource)
-		resultKey3 = fmt.Sprintf("%s-%s-%s-%s", policyNamespace, policy, kind, resource)
-		resultKey4 = fmt.Sprintf("%s-%s-%s-%s-%s", policyNamespace, policy, resourceNamespace, kind, resource)
-	} else {
-		resultKey1 = fmt.Sprintf("%s-%s-%s-%s", policy, rule, kind, resource)
-		resultKey2 = fmt.Sprintf("%s-%s-%s-%s-%s", policy, rule, resourceNamespace, kind, resource)
-		resultKey3 = fmt.Sprintf("%s-%s-%s-%s-%s", policyNamespace, policy, rule, kind, resource)
-		resultKey4 = fmt.Sprintf("%s-%s-%s-%s-%s-%s", policyNamespace, policy, rule, resourceNamespace, kind, resource)
-	}
-
-	resultsKey = append(resultsKey, resultKey1, resultKey2, resultKey3, resultKey4)
-	return resultsKey
-}
-
-func GetResultKeyAccordingToTestResults(policyNs, policy, rule, resourceNs, kind, resource string, isVAP bool) string {
-	var resultKey string
-	if isVAP {
-		resultKey = fmt.Sprintf("%s-%s-%s", policy, kind, resource)
-
-		if policyNs != "" && resourceNs != "" {
-			resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", policyNs, policy, resourceNs, kind, resource)
-		} else if policyNs != "" {
-			resultKey = fmt.Sprintf("%s-%s-%s-%s", policyNs, policy, kind, resource)
-		} else if resourceNs != "" {
-			resultKey = fmt.Sprintf("%s-%s-%s-%s", policy, resourceNs, kind, resource)
-		}
-	} else {
-		resultKey = fmt.Sprintf("%s-%s-%s-%s", policy, rule, kind, resource)
-
-		if policyNs != "" && resourceNs != "" {
-			resultKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", policyNs, policy, rule, resourceNs, kind, resource)
-		} else if policyNs != "" {
-			resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", policyNs, policy, rule, kind, resource)
-		} else if resourceNs != "" {
-			resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", policy, rule, resourceNs, kind, resource)
-		}
-	}
-
-	return resultKey
-}
-
-func isNamespacedPolicy(policyNames string) (bool, error) {
-	return regexp.MatchString("^[a-z]*/[a-z]*", policyNames)
-}
-
 // getAndCompareResource --> Get the patchedResource or generatedResource from the path provided by user
 // And compare this resource with engine generated resource.
-func getAndCompareResource(path string, actualResource unstructured.Unstructured, isGit bool, policyResourcePath string, fs billy.Filesystem, isGenerate bool) string {
-	var status string
+func getAndCompareResource(
+	path string,
+	actualResource unstructured.Unstructured,
+	fs billy.Filesystem,
+	policyResourcePath string,
+	isGenerate bool,
+) (bool, error) {
 	resourceType := "patchedResource"
 	if isGenerate {
 		resourceType = "generatedResource"
 	}
-	expectedResource, err := common.GetResourceFromPath(fs, path, isGit, policyResourcePath, resourceType)
+	// TODO fix the way we handle git vs non-git paths (probably at the loading phase)
+	if fs == nil {
+		path = filepath.Join(policyResourcePath, path)
+	}
+	expectedResource, err := common.GetResourceFromPath(fs, path, fs != nil, policyResourcePath, resourceType)
 	if err != nil {
-		fmt.Printf("Error: failed to load resources (%s)", err)
-		return ""
+		return false, fmt.Errorf("Error: failed to load resources (%s)", err)
 	}
 	if isGenerate {
 		unstructuredutils.FixupGenerateLabels(actualResource)
 		unstructuredutils.FixupGenerateLabels(expectedResource)
 	}
 	equals, err := unstructuredutils.Compare(actualResource, expectedResource, true)
-	if err == nil {
-		if !equals {
-			status = "fail"
-		} else {
-			status = "pass"
-		}
+	if err != nil {
+		return false, fmt.Errorf("Error: failed to compare resources (%s)", err)
 	}
-	return status
-}
-
-func buildMessage(resp engineapi.EngineResponse) string {
-	var messages []string
-	for _, ruleResp := range resp.PolicyResponse.Rules {
-		message := strings.TrimSpace(ruleResp.Message())
-		if message != "" {
-			messages = append(messages, message)
-		}
-	}
-	return strings.Join(messages, ",")
-}
-
-func getUserDefinedPolicyNameAndNamespace(policyName string) (string, string) {
-	if strings.Contains(policyName, "/") {
-		parts := strings.Split(policyName, "/")
-		namespace := parts[0]
-		policy := parts[1]
-		return namespace, policy
-	}
-	return "", policyName
+	return equals, nil
 }
