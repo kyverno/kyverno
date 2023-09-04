@@ -24,6 +24,7 @@ import (
 	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -35,9 +36,9 @@ type FakePolicyExceptions struct {
 	ns   string
 }
 
-var policyexceptionsResource = v2alpha1.SchemeGroupVersion.WithResource("policyexceptions")
+var policyexceptionsResource = schema.GroupVersionResource{Group: "kyverno.io", Version: "v2alpha1", Resource: "policyexceptions"}
 
-var policyexceptionsKind = v2alpha1.SchemeGroupVersion.WithKind("PolicyException")
+var policyexceptionsKind = schema.GroupVersionKind{Group: "kyverno.io", Version: "v2alpha1", Kind: "PolicyException"}
 
 // Get takes name of the policyException, and returns the corresponding policyException object, and an error if there is any.
 func (c *FakePolicyExceptions) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.PolicyException, err error) {

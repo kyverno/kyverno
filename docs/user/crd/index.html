@@ -5806,6 +5806,18 @@ MatchResources
 <p>Exceptions is a list policy/rules to be excluded</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>images</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>Images is a list of images to check if a resource applies to the exception.
+Applicable only to rule types that apply to images: verifyImages, validate.podSecurity.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -6041,6 +6053,18 @@ MatchResources
 </td>
 <td>
 <p>Exceptions is a list policy/rules to be excluded</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>images</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>Images is a list of images to check if a resource applies to the exception.
+Applicable only to rule types that apply to images: verifyImages, validate.podSecurity.</p>
 </td>
 </tr>
 </tbody>

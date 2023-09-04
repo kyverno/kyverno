@@ -304,6 +304,15 @@ func (in *PolicyExceptionSpec) DeepCopyInto(out *PolicyExceptionSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.Images != nil {
+		in, out := &in.Images, &out.Images
+		*out = new([]string)
+		if **in != nil {
+			in, out := *in, *out
+			*out = make([]string, len(*in))
+			copy(*out, *in)
+		}
+	}
 	return
 }
 

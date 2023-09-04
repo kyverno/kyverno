@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -8,6 +9,7 @@ import (
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	matched "github.com/kyverno/kyverno/pkg/utils/match"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 )
@@ -53,6 +55,18 @@ func matchesException(
 		resource = policyContext.OldResource()
 	}
 	for _, candidate := range candidates {
+		if rule.HasVerifyImages() && candidate.Spec.HasImages() {
+			for _, iv := range rule.VerifyImages {
+				for _, iref := range iv.ImageReferences {
+					for _, i := range *candidate.Spec.Images {
+						if wildcard.Match(iref, i) {
+							return candidate, nil
+						}
+					}
+				}
+			}
+			return nil, errors.New("no image is matched")
+		}
 		err := matched.CheckMatchesResources(
 			resource,
 			candidate.Spec.Match,

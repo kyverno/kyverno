@@ -28,6 +28,7 @@ type PolicyExceptionSpecApplyConfiguration struct {
 	Background *bool                                     `json:"background,omitempty"`
 	Match      *v2beta1.MatchResourcesApplyConfiguration `json:"match,omitempty"`
 	Exceptions []ExceptionApplyConfiguration             `json:"exceptions,omitempty"`
+	Images     *[]string                                 `json:"images,omitempty"`
 }
 
 // PolicyExceptionSpecApplyConfiguration constructs an declarative configuration of the PolicyExceptionSpec type for use with
@@ -62,5 +63,13 @@ func (b *PolicyExceptionSpecApplyConfiguration) WithExceptions(values ...*Except
 		}
 		b.Exceptions = append(b.Exceptions, *values[i])
 	}
+	return b
+}
+
+// WithImages sets the Images field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Images field is set to the value of the last call.
+func (b *PolicyExceptionSpecApplyConfiguration) WithImages(value []string) *PolicyExceptionSpecApplyConfiguration {
+	b.Images = &value
 	return b
 }
