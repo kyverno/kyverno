@@ -15,6 +15,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy/annotations"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/source"
@@ -297,7 +298,7 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 				}
 
 				yamlBytes := []byte(resourceStr)
-				resources, err = GetResource(yamlBytes)
+				resources, err = resource.GetUnstructuredResources(yamlBytes)
 				if err != nil {
 					return nil, sanitizederror.NewWithError("failed to extract the resources", err)
 				}
@@ -497,36 +498,6 @@ func getSubresourceKind(groupVersion, parentKind, subresourceName string, subres
 	return "", sanitizederror.NewWithError(fmt.Sprintf("subresource %s not found for parent resource %s", subresourceName, parentKind), nil)
 }
 
-// GetResourceFromPath - get patchedResource and generatedResource from given path
-func GetResourceFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string, resourceType string) (unstructured.Unstructured, error) {
-	var resourceBytes []byte
-	var resource unstructured.Unstructured
-	var err error
-	if isGit {
-		if len(path) > 0 {
-			filep, fileErr := fs.Open(filepath.Join(policyResourcePath, path))
-			if fileErr != nil {
-				fmt.Printf("Unable to open %s file: %s. \nerror: %s", resourceType, path, err)
-			}
-			resourceBytes, err = io.ReadAll(filep)
-		}
-	} else {
-		resourceBytes, err = getFileBytes(path)
-	}
-
-	if err != nil {
-		fmt.Printf("\n----------------------------------------------------------------------\nfailed to load %s: %s. \nerror: %s\n----------------------------------------------------------------------\n", resourceType, path, err)
-		return resource, err
-	}
-
-	resource, err = GetPatchedAndGeneratedResource(resourceBytes)
-	if err != nil {
-		return resource, err
-	}
-
-	return resource, nil
-}
-
 // initializeMockController initializes a basic Generate Controller with a fake dynamic client.
 func initializeMockController(objects []runtime.Object) (*generate.GenerateController, error) {
 	client, err := dclient.NewFakeClient(runtime.NewScheme(), nil, objects...)
@@ -552,16 +523,16 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 
 // handleGeneratePolicy returns a new RuleResponse with the Kyverno generated resource configuration by applying the generate rule.
 func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]string) ([]engineapi.RuleResponse, error) {
-	resource := policyContext.NewResource()
-	objects := []runtime.Object{&resource}
+	newResource := policyContext.NewResource()
+	objects := []runtime.Object{&newResource}
 	resources := []*unstructured.Unstructured{}
 	for _, rule := range generateResponse.PolicyResponse.Rules {
 		if path, ok := ruleToCloneSourceResource[rule.Name()]; ok {
-			resourceBytes, err := getFileBytes(path)
+			resourceBytes, err := resource.GetFileBytes(path)
 			if err != nil {
 				fmt.Printf("failed to get resource bytes\n")
 			} else {
-				resources, err = GetResource(resourceBytes)
+				resources, err = resource.GetUnstructuredResources(resourceBytes)
 				if err != nil {
 					fmt.Printf("failed to convert resource bytes to unstructured format\n")
 				}
