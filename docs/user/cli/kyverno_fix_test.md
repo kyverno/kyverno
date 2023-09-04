@@ -3,7 +3,7 @@
 Fix inconsistencies and deprecated usage in Kyverno test files.
 
 ```
-kyverno fix test [flags]
+kyverno fix test [folder]... [flags]
 ```
 
 ### Options
@@ -34,5 +34,5 @@ kyverno fix test [flags]
 
 ### SEE ALSO
 
-* [kyverno fix](kyverno_fix.md)	 - Provides a command-line interface to fix inconsistencies and deprecated usage of Kyverno resources.
+* [kyverno fix](kyverno_fix.md)	 - Fix inconsistencies and deprecated usage of Kyverno resources.
 

@@ -44,7 +44,7 @@ kyverno [flags]
 * [kyverno completion](kyverno_completion.md)	 - Generate the autocompletion script for the specified shell
 * [kyverno create](kyverno_create.md)	 - Provides a command-line interface to help with the creation of various Kyverno resources.
 * [kyverno docs](kyverno_docs.md)	 - Generates reference documentation.
-* [kyverno fix](kyverno_fix.md)	 - Provides a command-line interface to fix inconsistencies and deprecated usage of Kyverno resources.
+* [kyverno fix](kyverno_fix.md)	 - Fix inconsistencies and deprecated usage of Kyverno resources.
 * [kyverno jp](kyverno_jp.md)	 - Provides a command-line interface to JMESPath, enhanced with Kyverno specific custom functions.
 * [kyverno oci](kyverno_oci.md)	 - Pulls/pushes images that include policie(s) from/to OCI registries.
 * [kyverno test](kyverno_test.md)	 - Run tests from a local filesystem or a remote git repository.

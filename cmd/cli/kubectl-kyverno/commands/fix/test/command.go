@@ -14,7 +14,7 @@ func Command() *cobra.Command {
 	var fileName string
 	var save bool
 	cmd := &cobra.Command{
-		Use:     "test",
+		Use:     "test [folder]...",
 		Short:   "Fix inconsistencies and deprecated usage in Kyverno test files.",
 		Example: "",
 		RunE: func(cmd *cobra.Command, args []string) error {
