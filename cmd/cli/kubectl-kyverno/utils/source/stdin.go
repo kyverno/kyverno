@@ -4,8 +4,17 @@ import (
 	"os"
 )
 
+var defaultStater = (*os.File).Stat
+
 func IsStdin() bool {
-	fileInfo, err := os.Stdin.Stat()
+	return isStdin(defaultStater)
+}
+
+func isStdin(stater func(*os.File) (os.FileInfo, error)) bool {
+	if stater == nil {
+		stater = defaultStater
+	}
+	fileInfo, err := stater(os.Stdin)
 	if err != nil {
 		return false
 	}

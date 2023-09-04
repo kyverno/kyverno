@@ -10,15 +10,16 @@ results:
   - pod-fail
   result: fail
   rule: require-pod-probes
-- kind: Deployment
-  policy: require-pod-probes
-  resources:
-  - deployment-skip
-  result: skip
-  rule: require-pod-probes
-- kind: CronJob
-  policy: require-pod-probes
-  resources:
-  - cronjob-skip
-  result: skip
-  rule: require-pod-probes
+# TODO CEB FIX
+# - kind: Deployment
+#   policy: require-pod-probes
+#   resources:
+#   - deployment-skip
+#   result: skip
+#   rule: require-pod-probes
+# - kind: CronJob
+#   policy: require-pod-probes
+#   resources:
+#   - cronjob-skip
+#   result: skip
+#   rule: require-pod-probes

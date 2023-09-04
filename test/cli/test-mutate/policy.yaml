@@ -16,7 +16,6 @@ metadata:
       `color=orange` to Pods, Services, ConfigMaps, and Secrets.
 spec:
   background: false
-  validationFailureAction:
   rules:
   - name: add-label
     match:
