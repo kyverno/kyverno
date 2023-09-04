@@ -3,6 +3,7 @@ package test
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
@@ -91,19 +92,25 @@ func testCommandExecute(
 		return rc, fmt.Errorf("unable to create open api controller, %w", err)
 	}
 	// load tests
-	fs, policies, errors := loadTests(dirPath, fileName, gitBranch)
-	if len(policies) == 0 {
+	fs, tests, err := loadTests(dirPath, fileName, gitBranch)
+	if err != nil {
+		fmt.Println()
+		fmt.Println("Error loading tests:")
+		fmt.Printf("    %s\n", err)
+		return rc, err
+	}
+	if len(tests) == 0 {
 		fmt.Println()
 		fmt.Println("No test yamls available")
 	}
-	if len(errors) > 0 {
+	if errs := tests.Errors(); len(errs) > 0 {
 		fmt.Println()
 		fmt.Println("Test errors:")
-		for _, e := range errors {
+		for _, e := range errs {
 			fmt.Printf("    %v \n", e.Error())
 		}
 	}
-	if len(policies) == 0 {
+	if len(tests) == 0 {
 		if len(errors) == 0 {
 			os.Exit(0)
 		} else {
@@ -112,12 +119,12 @@ func testCommandExecute(
 	}
 	rc = &resultCounts{}
 	var table table.Table
-	for _, p := range policies {
+	for _, p := range tests {
 		if reports, tests, err := applyPoliciesFromPath(
 			fs,
-			p.test,
+			p.Test,
 			fs != nil,
-			p.resourcePath,
+			filepath.Dir(p.Path),
 			rc,
 			openApiManager,
 			filter,
