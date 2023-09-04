@@ -3,7 +3,7 @@ package report
 import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	annotationsutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/annotations"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy/annotations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	corev1 "k8s.io/api/core/v1"
@@ -14,9 +14,9 @@ func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineRe
 	policy := engineResponse.Policy()
 	policyName := policy.GetName()
 	audit := engineResponse.GetValidationFailureAction().Audit()
-	scored := annotationsutils.Scored(policy.GetAnnotations())
-	category := annotationsutils.Category(policy.GetAnnotations())
-	severity := annotationsutils.Severity(policy.GetAnnotations())
+	scored := annotations.Scored(policy.GetAnnotations())
+	category := annotations.Category(policy.GetAnnotations())
+	severity := annotations.Severity(policy.GetAnnotations())
 	result := policyreportv1alpha2.PolicyReportResult{
 		// TODO policy name looks wrong, it should consider the namespace too
 		Policy: policyName,
