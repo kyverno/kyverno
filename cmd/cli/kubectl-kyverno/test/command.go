@@ -3,20 +3,23 @@ package test
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
+	"github.com/go-git/go-billy/v5"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/color"
 	filterutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/filter"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/output/table"
+	reportutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/report"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// Command returns version command
 func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var testCase string
@@ -39,7 +42,7 @@ func Command() *cobra.Command {
 				}
 			}()
 			store.SetRegistryAccess(registryAccess)
-			_, err = testCommandExecute(dirPath, fileName, gitBranch, testCase, failOnly, false, detailedResults)
+			_, err = testCommandExecute(dirPath, fileName, gitBranch, testCase, failOnly, detailedResults)
 			if err != nil {
 				log.Log.V(3).Info("a directory is required")
 				return err
@@ -69,7 +72,6 @@ func testCommandExecute(
 	gitBranch string,
 	testCase string,
 	failOnly bool,
-	auditWarn bool,
 	detailedResults bool,
 ) (rc *resultCounts, err error) {
 	// check input dir
@@ -91,19 +93,25 @@ func testCommandExecute(
 		return rc, fmt.Errorf("unable to create open api controller, %w", err)
 	}
 	// load tests
-	fs, policies, errors := loadTests(dirPath, fileName, gitBranch)
-	if len(policies) == 0 {
+	fs, tests, err := loadTests(dirPath, fileName, gitBranch)
+	if err != nil {
+		fmt.Println()
+		fmt.Println("Error loading tests:")
+		fmt.Printf("    %s\n", err)
+		return rc, err
+	}
+	if len(tests) == 0 {
 		fmt.Println()
 		fmt.Println("No test yamls available")
 	}
-	if len(errors) > 0 {
+	if errs := tests.Errors(); len(errs) > 0 {
 		fmt.Println()
 		fmt.Println("Test errors:")
-		for _, e := range errors {
+		for _, e := range errs {
 			fmt.Printf("    %v \n", e.Error())
 		}
 	}
-	if len(policies) == 0 {
+	if len(tests) == 0 {
 		if len(errors) == 0 {
 			os.Exit(0)
 		} else {
@@ -112,19 +120,20 @@ func testCommandExecute(
 	}
 	rc = &resultCounts{}
 	var table table.Table
-	for _, p := range policies {
-		if reports, tests, err := applyPoliciesFromPath(
+	for _, p := range tests {
+		resourcePath := filepath.Dir(p.Path)
+		if tests, responses, err := applyPoliciesFromPath(
 			fs,
-			p.test,
+			p.Test,
 			fs != nil,
-			p.resourcePath,
+			resourcePath,
 			rc,
 			openApiManager,
 			filter,
-			auditWarn,
+			false,
 		); err != nil {
 			return rc, sanitizederror.NewWithError("failed to apply test command", err)
-		} else if t, err := printTestResult(reports, tests, rc, failOnly, detailedResults); err != nil {
+		} else if t, err := printTestResult(tests, responses, rc, failOnly, detailedResults, fs, resourcePath); err != nil {
 			return rc, sanitizederror.NewWithError("failed to print test result:", err)
 		} else {
 			table.AddFailed(t.RawRows...)
@@ -146,191 +155,153 @@ func testCommandExecute(
 	return rc, nil
 }
 
-func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, testResults []api.TestResults, rc *resultCounts, failOnly bool, detailedResults bool) (table.Table, error) {
+func checkResult(test api.TestResults, fs billy.Filesystem, resoucePath string, response engineapi.EngineResponse, rule engineapi.RuleResponse) (bool, string, string) {
+	expected := test.Result
+	// fallback to the deprecated field
+	if expected == "" {
+		expected = test.Status
+	}
+	// fallback on deprecated field
+	if test.PatchedResource != "" {
+		equals, err := getAndCompareResource(test.PatchedResource, response.PatchedResource, fs, resoucePath, false)
+		if err != nil {
+			return false, err.Error(), "Resource error"
+		}
+		if !equals {
+			return false, "Patched resource didn't match the patched resource in the test result", "Resource diff"
+		}
+	}
+	if test.GeneratedResource != "" {
+		equals, err := getAndCompareResource(test.GeneratedResource, rule.GeneratedResource(), fs, resoucePath, true)
+		if err != nil {
+			return false, err.Error(), "Resource error"
+		}
+		if !equals {
+			return false, "Generated resource didn't match the generated resource in the test result", "Resource diff"
+		}
+	}
+	result := reportutils.ComputePolicyReportResult(false, response, rule)
+	if result.Result != expected {
+		return false, result.Message, fmt.Sprintf("Want %s, got %s", expected, result.Result)
+	}
+	return true, result.Message, "Ok"
+}
+
+func lookupEngineResponses(test api.TestResults, resourceName string, responses ...engineapi.EngineResponse) []engineapi.EngineResponse {
+	var matches []engineapi.EngineResponse
+	for _, response := range responses {
+		policy := response.Policy()
+		resource := response.Resource
+		if policy.GetName() != test.Policy {
+			continue
+		}
+		if test.Kind != resource.GetKind() {
+			continue
+		}
+		if resourceName != "" && resourceName != resource.GetName() {
+			continue
+		}
+		if test.Namespace != "" && test.Namespace != resource.GetNamespace() {
+			continue
+		}
+		matches = append(matches, response)
+	}
+	return matches
+}
+
+func lookupRuleResponses(test api.TestResults, responses ...engineapi.RuleResponse) []engineapi.RuleResponse {
+	var matches []engineapi.RuleResponse
+	for _, response := range responses {
+		rule := response.Name()
+		if rule != test.Rule && rule != "autogen-"+test.Rule && rule != "autogen-cronjob-"+test.Rule {
+			continue
+		}
+		matches = append(matches, response)
+	}
+	return matches
+}
+
+func printTestResult(
+	tests []api.TestResults,
+	responses []engineapi.EngineResponse,
+	rc *resultCounts,
+	failOnly bool,
+	detailedResults bool,
+	fs billy.Filesystem,
+	resoucePath string,
+) (table.Table, error) {
 	printer := table.NewTablePrinter()
 	var resultsTable table.Table
 	var countDeprecatedResource int
 	testCount := 1
-	for _, v := range testResults {
-		var row table.Row
-		row.ID = testCount
-		if v.Resources == nil {
-			testCount++
-		}
-		row.Policy = color.Policy("", v.Policy)
-		row.Rule = color.Rule(v.Rule)
-
-		if v.Resources != nil {
-			for _, resource := range v.Resources {
-				row.ID = testCount
-				testCount++
-				row.Resource = color.Resource(v.Kind, v.Namespace, resource)
-				var ruleNameInResultKey string
-				if !v.IsValidatingAdmissionPolicy {
-					if v.AutoGeneratedRule != "" {
-						ruleNameInResultKey = fmt.Sprintf("%s-%s", v.AutoGeneratedRule, v.Rule)
-					} else {
-						ruleNameInResultKey = v.Rule
-					}
-				}
-
-				var resultKey string
-				if !v.IsValidatingAdmissionPolicy {
-					resultKey = fmt.Sprintf("%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Kind, resource)
-				} else {
-					resultKey = fmt.Sprintf("%s-%s-%s", v.Policy, v.Kind, resource)
-				}
-
-				found, _ := isNamespacedPolicy(v.Policy)
-				var ns string
-				ns, v.Policy = getUserDefinedPolicyNameAndNamespace(v.Policy)
-				if found && v.Namespace != "" {
-					if !v.IsValidatingAdmissionPolicy {
-						resultKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, resource)
-					} else {
-						resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", ns, v.Policy, v.Namespace, v.Kind, resource)
-					}
-				} else if found {
-					if !v.IsValidatingAdmissionPolicy {
-						resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Kind, resource)
-					} else {
-						resultKey = fmt.Sprintf("%s-%s-%s-%s", ns, v.Policy, v.Kind, resource)
-					}
-					row.Policy = color.Policy(ns, v.Policy)
-					row.Resource = color.Resource(v.Kind, v.Namespace, resource)
-				} else if v.Namespace != "" {
-					row.Resource = color.Resource(v.Kind, v.Namespace, resource)
-
-					if !v.IsValidatingAdmissionPolicy {
-						resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, resource)
-					} else {
-						resultKey = fmt.Sprintf("%s-%s-%s-%s", v.Policy, v.Namespace, v.Kind, resource)
-					}
-				}
-
-				var testRes policyreportv1alpha2.PolicyReportResult
-				if val, ok := resps[resultKey]; ok {
-					testRes = val
-				} else {
-					log.Log.V(2).Info("result not found", "key", resultKey)
-					row.Result = color.NotFound()
-					rc.Fail++
-					row.IsFailure = true
-					resultsTable.Add(row)
-					continue
-				}
-				row.Message = testRes.Message
-				if v.Result == "" && v.Status != "" {
-					v.Result = v.Status
-				}
-
-				if testRes.Result == v.Result {
-					row.Result = color.ResultPass()
-					if testRes.Result == policyreportv1alpha2.StatusSkip {
-						rc.Skip++
-					} else {
-						rc.Pass++
-					}
-				} else {
-					log.Log.V(2).Info("result mismatch", "expected", v.Result, "received", testRes.Result, "key", resultKey)
-					row.Result = color.ResultFail()
-					rc.Fail++
-					row.IsFailure = true
-				}
-
-				if failOnly {
-					if row.Result == color.ResultFail() || row.Result == "Fail" {
-						resultsTable.Add(row)
-					}
-				} else {
-					resultsTable.Add(row)
-				}
-			}
-		} else if v.Resource != "" {
+	for _, test := range tests {
+		// lookup matching engine responses (without the resource name)
+		// to reduce the search scope
+		responses := lookupEngineResponses(test, "", responses...)
+		// TODO fix deprecated fields
+		// identify the resources to be looked up
+		var resources []string
+		if test.Resources != nil {
+			resources = append(resources, test.Resources...)
+		} else if test.Resource != "" {
 			countDeprecatedResource++
-			row.Resource = color.Resource(v.Kind, v.Namespace, v.Resource)
-			var ruleNameInResultKey string
-			if !v.IsValidatingAdmissionPolicy {
-				if v.AutoGeneratedRule != "" {
-					ruleNameInResultKey = fmt.Sprintf("%s-%s", v.AutoGeneratedRule, v.Rule)
-				} else {
-					ruleNameInResultKey = v.Rule
+			resources = append(resources, test.Resource)
+		}
+		for _, resource := range resources {
+			var rows []table.Row
+			// lookup matching engine responses (with the resource name this time)
+			for _, response := range lookupEngineResponses(test, resource, responses...) {
+				// lookup matching rule responses
+				for _, rule := range lookupRuleResponses(test, response.PolicyResponse.Rules...) {
+					// perform test checks
+					ok, message, reason := checkResult(test, fs, resoucePath, response, rule)
+					// if checks failed but we were expecting a fail it's considered a success
+					success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
+					row := table.Row{
+						CompactRow: table.CompactRow{
+							ID:        testCount,
+							Policy:    color.Policy("", test.Policy),
+							Rule:      color.Rule(test.Rule),
+							Resource:  color.Resource(test.Kind, test.Namespace, resource),
+							Reason:    reason,
+							IsFailure: !success,
+						},
+						Message: message,
+					}
+					if success {
+						row.Result = color.ResultPass()
+						if test.Result == policyreportv1alpha2.StatusSkip {
+							rc.Skip++
+						} else {
+							rc.Pass++
+						}
+					} else {
+						row.Result = color.ResultFail()
+						rc.Fail++
+					}
+					testCount++
+					rows = append(rows, row)
 				}
 			}
-
-			var resultKey string
-			if !v.IsValidatingAdmissionPolicy {
-				resultKey = fmt.Sprintf("%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Kind, v.Resource)
-			} else {
-				resultKey = fmt.Sprintf("%s-%s-%s", v.Policy, v.Kind, v.Resource)
-			}
-
-			found, _ := isNamespacedPolicy(v.Policy)
-			var ns string
-			ns, v.Policy = getUserDefinedPolicyNameAndNamespace(v.Policy)
-			if found && v.Namespace != "" {
-				if !v.IsValidatingAdmissionPolicy {
-					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, v.Resource)
-				} else {
-					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", ns, v.Policy, v.Namespace, v.Kind, v.Resource)
+			// if not found
+			if len(rows) == 0 {
+				row := table.Row{
+					CompactRow: table.CompactRow{
+						ID:        testCount,
+						Policy:    color.Policy("", test.Policy),
+						Rule:      color.Rule(test.Rule),
+						Resource:  color.Resource(test.Kind, test.Namespace, resource),
+						IsFailure: true,
+						Result:    color.ResultFail(),
+						Reason:    color.NotFound(),
+					},
+					Message: color.NotFound(),
 				}
-			} else if found {
-				if !v.IsValidatingAdmissionPolicy {
-					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Kind, v.Resource)
-				} else {
-					resultKey = fmt.Sprintf("%s-%s-%s-%s", ns, v.Policy, v.Kind, v.Resource)
-				}
-
-				row.Policy = color.Policy(ns, v.Policy)
-				row.Resource = color.Resource(v.Kind, v.Namespace, v.Resource)
-			} else if v.Namespace != "" {
-				row.Resource = color.Resource(v.Kind, v.Namespace, v.Resource)
-
-				if !v.IsValidatingAdmissionPolicy {
-					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, v.Resource)
-				} else {
-					resultKey = fmt.Sprintf("%s-%s-%s-%s", v.Policy, v.Namespace, v.Kind, v.Resource)
-				}
-			}
-
-			var testRes policyreportv1alpha2.PolicyReportResult
-			if val, ok := resps[resultKey]; ok {
-				testRes = val
-			} else {
-				log.Log.V(2).Info("result not found", "key", resultKey)
-				row.Result = color.NotFound()
-				rc.Fail++
-				row.IsFailure = true
+				testCount++
 				resultsTable.Add(row)
-				continue
-			}
-
-			row.Message = testRes.Message
-
-			if v.Result == "" && v.Status != "" {
-				v.Result = v.Status
-			}
-
-			if testRes.Result == v.Result {
-				row.Result = color.ResultPass()
-				if testRes.Result == policyreportv1alpha2.StatusSkip {
-					rc.Skip++
-				} else {
-					rc.Pass++
-				}
-			} else {
-				log.Log.V(2).Info("result mismatch", "expected", v.Result, "received", testRes.Result, "key", resultKey)
-				row.Result = color.ResultFail()
 				rc.Fail++
-				row.IsFailure = true
-			}
-
-			if failOnly {
-				if row.Result == color.ResultFail() || row.Result == "Fail" {
-					resultsTable.Add(row)
-				}
 			} else {
-				resultsTable.Add(row)
+				resultsTable.Add(rows...)
 			}
 		}
 	}
