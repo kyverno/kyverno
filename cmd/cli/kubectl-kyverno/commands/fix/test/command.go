@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	testutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/test"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 )
@@ -18,9 +18,9 @@ func Command() *cobra.Command {
 		Short:   "Fix inconsistencies and deprecated usage in Kyverno test files.",
 		Example: "",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var testCases []testutils.TestCase
+			var testCases []test.TestCase
 			for _, arg := range args {
-				tests, err := testutils.LoadTests(arg, fileName)
+				tests, err := test.LoadTests(arg, fileName)
 				if err != nil {
 					return err
 				}
