@@ -1,0 +1,20 @@
+name: add-quota
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- generatedResource: generatedResourceQuota.yaml
+  kind: Namespace
+  policy: add-ns-quota
+  resources:
+  - hello-world-namespace
+  result: pass
+  rule: generate-resourcequota
+- generatedResource: generatedLimitRange.yaml
+  kind: Namespace
+  policy: add-ns-quota
+  resources:
+  - hello-world-namespace
+  result: pass
+  rule: generate-limitrange
