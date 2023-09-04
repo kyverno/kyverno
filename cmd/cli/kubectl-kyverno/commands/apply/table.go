@@ -1,7 +1,7 @@
 package apply
 
 import (
-	annotationsutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/annotations"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy/annotations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/output/table"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -14,7 +14,7 @@ func printTable(compact, auditWarn bool, engineResponses ...engineapi.EngineResp
 		policy := engineResponse.Policy()
 		policyName := policy.GetName()
 		policyNamespace := policy.GetNamespace()
-		scored := annotationsutils.Scored(policy.GetAnnotations())
+		scored := annotations.Scored(policy.GetAnnotations())
 		resourceKind := engineResponse.Resource.GetKind()
 		resourceNamespace := engineResponse.Resource.GetNamespace()
 		resourceName := engineResponse.Resource.GetName()
