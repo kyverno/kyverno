@@ -10,4 +10,4 @@ The pod `test-pod-2` is cleaned up instantaneously when the label is updated to 
 
 ## Reference Issue(s)
 
-- [issue-8242](https://github.com/kyverno/kyverno/issues/8242): `test-pod` might never be created, so the assert could fail.
+- [8242](https://github.com/kyverno/kyverno/issues/8242): `test-pod` might never be created, so the assert could fail.
