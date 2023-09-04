@@ -12,6 +12,7 @@ import (
 
 type TestCase struct {
 	Path string
+	Fs   billy.Filesystem
 	Test *api.Test
 	Err  error
 }
@@ -59,6 +60,7 @@ func LoadTest(fs billy.Filesystem, path string) TestCase {
 		if err != nil {
 			return TestCase{
 				Path: path,
+				Fs:   fs,
 				Err:  err,
 			}
 		}
@@ -66,6 +68,7 @@ func LoadTest(fs billy.Filesystem, path string) TestCase {
 		if err != nil {
 			return TestCase{
 				Path: path,
+				Fs:   fs,
 				Err:  err,
 			}
 		}
@@ -75,6 +78,7 @@ func LoadTest(fs billy.Filesystem, path string) TestCase {
 		if err != nil {
 			return TestCase{
 				Path: path,
+				Fs:   fs,
 				Err:  err,
 			}
 		}
@@ -84,11 +88,13 @@ func LoadTest(fs billy.Filesystem, path string) TestCase {
 	if err := yaml.UnmarshalStrict(yamlBytes, &test); err != nil {
 		return TestCase{
 			Path: path,
+			Fs:   fs,
 			Err:  err,
 		}
 	}
 	return TestCase{
 		Path: path,
+		Fs:   fs,
 		Test: &test,
 	}
 }

@@ -9,6 +9,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test/api"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	filterutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/filter"
 	pathutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/path"
@@ -28,38 +29,39 @@ import (
 )
 
 func applyPoliciesFromPath(
-	fs billy.Filesystem,
-	apiTest *api.Test,
-	isGit bool,
+	testCase test.TestCase,
 	policyResourcePath string,
 	rc *resultCounts,
 	openApiManager openapi.Manager,
 	filter filterutils.Filter,
 	auditWarn bool,
 ) ([]api.TestResults, []engineapi.EngineResponse, error) {
-	engineResponses := make([]engineapi.EngineResponse, 0)
+	var engineResponses []engineapi.EngineResponse
+	test := testCase.Test
+	fs := testCase.Fs
+	isGit := fs != nil
 	var dClient dclient.Interface
 	var resultCounts common.ResultCounts
 
 	store.SetLocal(true)
 
 	var filteredResults []api.TestResults
-	for _, res := range apiTest.Results {
+	for _, res := range test.Results {
 		if filter.Apply(res) {
 			filteredResults = append(filteredResults, res)
 		}
 	}
-	apiTest.Results = filteredResults
+	test.Results = filteredResults
 
-	if len(apiTest.Results) == 0 {
+	if len(test.Results) == 0 {
 		return nil, nil, nil
 	}
 
-	fmt.Printf("\nExecuting %s...\n", apiTest.Name)
-	valuesFile := apiTest.Variables
-	userInfoFile := apiTest.UserInfo
+	fmt.Printf("\nExecuting %s...\n", test.Name)
+	valuesFile := test.Variables
+	userInfoFile := test.UserInfo
 
-	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(nil, apiTest.Values, apiTest.Variables, fs, isGit, policyResourcePath)
+	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(nil, test.Values, test.Variables, fs, isGit, policyResourcePath)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return nil, nil, sanitizederror.NewWithError("failed to decode yaml", err)
@@ -78,8 +80,8 @@ func applyPoliciesFromPath(
 		}
 	}
 
-	policyFullPath := pathutils.GetFullPaths(apiTest.Policies, policyResourcePath, isGit)
-	resourceFullPath := pathutils.GetFullPaths(apiTest.Resources, policyResourcePath, isGit)
+	policyFullPath := pathutils.GetFullPaths(test.Policies, policyResourcePath, isGit)
+	resourceFullPath := pathutils.GetFullPaths(test.Resources, policyResourcePath, isGit)
 
 	policies, validatingAdmissionPolicies, err := common.GetPoliciesFromPaths(fs, policyFullPath, isGit, policyResourcePath)
 	if err != nil {
@@ -89,7 +91,7 @@ func applyPoliciesFromPath(
 
 	var filteredPolicies []kyvernov1.PolicyInterface
 	for _, p := range policies {
-		for _, res := range apiTest.Results {
+		for _, res := range test.Results {
 			if p.GetName() == res.Policy {
 				filteredPolicies = append(filteredPolicies, p)
 				break
@@ -99,7 +101,7 @@ func applyPoliciesFromPath(
 
 	var filteredVAPs []v1alpha1.ValidatingAdmissionPolicy
 	for _, p := range validatingAdmissionPolicies {
-		for _, res := range apiTest.Results {
+		for _, res := range test.Results {
 			if p.GetName() == res.Policy {
 				filteredVAPs = append(filteredVAPs, p)
 				break
@@ -113,7 +115,7 @@ func applyPoliciesFromPath(
 		var filteredRules []kyvernov1.Rule
 
 		for _, rule := range autogen.ComputeRules(p) {
-			for _, res := range apiTest.Results {
+			for _, res := range test.Results {
 				if res.IsValidatingAdmissionPolicy {
 					continue
 				}
@@ -155,7 +157,7 @@ func applyPoliciesFromPath(
 		os.Exit(1)
 	}
 
-	checkableResources := selectResourcesForCheck(resources, apiTest)
+	checkableResources := selectResourcesForCheck(resources, test)
 
 	msgPolicies := "1 policy"
 	if len(policies)+len(validatingAdmissionPolicies) > 1 {
@@ -236,7 +238,7 @@ func applyPoliciesFromPath(
 			engineResponses = append(engineResponses, ers...)
 		}
 	}
-	return apiTest.Results, engineResponses, nil
+	return test.Results, engineResponses, nil
 }
 
 func selectResourcesForCheck(resources []*unstructured.Unstructured, values *api.Test) []*unstructured.Unstructured {

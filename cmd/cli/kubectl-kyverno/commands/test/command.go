@@ -89,7 +89,7 @@ func testCommandExecute(
 		return fmt.Errorf("unable to create open api controller, %w", err)
 	}
 	// load tests
-	fs, tests, err := loadTests(dirPath, fileName, gitBranch)
+	tests, err := loadTests(dirPath, fileName, gitBranch)
 	if err != nil {
 		fmt.Println()
 		fmt.Println("Error loading tests:", err)
@@ -120,9 +120,7 @@ func testCommandExecute(
 		if test.Err == nil {
 			resourcePath := filepath.Dir(test.Path)
 			if tests, responses, err := applyPoliciesFromPath(
-				fs,
-				test.Test,
-				fs != nil,
+				test,
 				resourcePath,
 				rc,
 				openApiManager,
@@ -130,7 +128,7 @@ func testCommandExecute(
 				false,
 			); err != nil {
 				return sanitizederror.NewWithError("failed to apply test command", err)
-			} else if t, err := printTestResult(tests, responses, rc, failOnly, detailedResults, fs, resourcePath); err != nil {
+			} else if t, err := printTestResult(tests, responses, rc, failOnly, detailedResults, test.Fs, resourcePath); err != nil {
 				return sanitizederror.NewWithError("failed to print test result:", err)
 			} else {
 				table.AddFailed(t.RawRows...)
