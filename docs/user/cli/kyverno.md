@@ -38,6 +38,7 @@ kyverno [flags]
 * [kyverno fix](kyverno_fix.md)	 - Provides a command-line interface to fix inconsistencies and deprecated usage of Kyverno resources.
 * [kyverno jp](kyverno_jp.md)	 - Provides a command-line interface to JMESPath, enhanced with Kyverno specific custom functions.
 * [kyverno oci](kyverno_oci.md)	 - Pulls/pushes images that include policie(s) from/to OCI registries.
-* [kyverno test](kyverno_test.md)	 - Run tests from directory.
+* [kyverno test](kyverno_test.md)	 - Run tests from a local filesystem or a remote git repository.
+
 * [kyverno version](kyverno_version.md)	 - Shows current version of kyverno.
 
