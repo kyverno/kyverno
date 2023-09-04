@@ -8,6 +8,7 @@ import (
 	"github.com/go-git/go-billy/v5"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test/api"
+	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/color"
 	filterutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/filter"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/output/table"
@@ -26,11 +27,11 @@ func Command() *cobra.Command {
 	var fileName, gitBranch string
 	var registryAccess, failOnly, removeColor, detailedResults bool
 	cmd = &cobra.Command{
-		Use: "test <path_to_folder_Containing_test.yamls> [flags]\n  kyverno test <path_to_gitRepository_with_dir> --git-branch <branchName>\n  kyverno test --manifest-mutate > kyverno-test.yaml\n  kyverno test --manifest-validate > kyverno-test.yaml",
-		// Args:    cobra.ExactArgs(1),
-		Short:   "Run tests from directory.",
-		Long:    longHelp,
-		Example: exampleHelp,
+		Use:     "test [local folder or git repository]...",
+		Args:    cobra.MinimumNArgs(1),
+		Short:   cobrautils.FormatDescription(true, websiteUrl, description...),
+		Long:    cobrautils.FormatDescription(false, websiteUrl, description...),
+		Example: cobrautils.FormatExamples(examples...),
 		RunE: func(cmd *cobra.Command, dirPath []string) (err error) {
 			color.InitColors(removeColor)
 			defer func() {
@@ -50,9 +51,9 @@ func Command() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "test filename")
-	cmd.Flags().StringVarP(&gitBranch, "git-branch", "b", "", "test github repository branch")
-	cmd.Flags().StringVarP(&testCase, "test-case-selector", "t", "", `run some specific test cases by passing a string argument in double quotes to this flag like - "policy=<policy_name>, rule=<rule_name>, resource=<resource_name". The argument could be any combination of policy, rule and resource. Wildcard is supported for values of policy, rule and resource`)
+	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "Test filename")
+	cmd.Flags().StringVarP(&gitBranch, "git-branch", "b", "", "Test github repository branch")
+	cmd.Flags().StringVarP(&testCase, "test-case-selector", "t", "policy=*,rule=*,resource=*", "Filter test cases to run")
 	cmd.Flags().BoolVar(&registryAccess, "registry", false, "If set to true, access the image registry using local docker credentials to populate external data")
 	cmd.Flags().BoolVar(&failOnly, "fail-only", false, "If set to true, display all the failing test only as output for the test command")
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
