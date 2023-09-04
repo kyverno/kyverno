@@ -589,7 +589,7 @@ github.com/go-playground/validator/v10 v10.15.2 h1:Ra5cll2/eF8X0Ff2+8SMD7euo2nen
 github.com/go-playground/validator/v10 v10.15.2/go.mod h1:9iXMNT7sEkjXb0I+enO7QXmzG6QCsPWY4zveKFVRSyU=
 github.com/go-quicktest/qt v1.100.0 h1:I7iSLgIwNp0E0UnSvKJzs7ig0jg/Iq83zsZjtQNW7jY=
 github.com/go-redis/redis v6.15.8+incompatible/go.mod h1:NAIEuMOZ/fxfXJIrKDQDz8wamY7mA7PouImQ2Jvg6kA=
-github.com/go-rod/rod v0.114.2 h1:Qwt+vZHHnb117zc0q+XjhAJCkB01hchWSxH/raCyLb4=
+github.com/go-rod/rod v0.114.3 h1:gAUT2Bc2wy0tQL5KEet05HNDvmndaHAGCjQ01TB2efA=
 github.com/go-sql-driver/mysql v1.4.0/go.mod h1:zAC/RDZ24gD3HViQzih4MyKcchzm+sOG5ZlKdlhCg5w=
 github.com/go-sql-driver/mysql v1.5.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LBy8hT2VhHyBg=
 github.com/go-stack/stack v1.8.0/go.mod h1:v0f6uXyyMGvRgIKkXu+yp6POWl0qKG85gN/melR3HDY=
@@ -1361,8 +1361,8 @@ github.com/sigstore/k8s-manifest-sigstore v0.5.1 h1:jGYuk6LXJm/GzZB/RR2RZ23T84BC
 github.com/sigstore/k8s-manifest-sigstore v0.5.1/go.mod h1:YL1Yf0ta9jDxYimhZP/DGGaiwMG1CrKupOqfOdMk5d8=
 github.com/sigstore/rekor v1.2.2 h1:5JK/zKZvcQpL/jBmHvmFj3YbpDMBQnJQ6ygp8xdF3bY=
 github.com/sigstore/rekor v1.2.2/go.mod h1:FGnWBGWzeNceJnp0x9eDFd41mI8aQqCjj+Zp0IEs0Qg=
-github.com/sigstore/sigstore v1.7.2 h1:MY0wSOhKWa8SIWSCO9SzFnUl+b7jbthgXHJpuUg31Qs=
-github.com/sigstore/sigstore v1.7.2/go.mod h1:2IPD5YXrXoznfnIoVsDF7ARC1Nha8xIdLpsC4kEQh5w=
+github.com/sigstore/sigstore v1.7.3 h1:HVVTfrMezJeLyl2xhJ8edzkrEGBa4KxjQZB4FlQ4JLU=
+github.com/sigstore/sigstore v1.7.3/go.mod h1:cl0c7Dtg3MM3c13L8pqqrfrmBa0eM3POcdtBepjylmw=
 github.com/sigstore/sigstore/pkg/signature/kms/aws v1.7.2 h1:JtdEI/81xugNfHqHyK1icPtnjgrLHJmWm3fgUBhyFPw=
 github.com/sigstore/sigstore/pkg/signature/kms/aws v1.7.2/go.mod h1:GBGQtFm6XmC00DeGc1GI/PdETg7vrhzaHBgj5YCS9lY=
 github.com/sigstore/sigstore/pkg/signature/kms/azure v1.7.2 h1:WtTn0OYxbSPY/xEy13iSPjJnSHXhILmzbfleg9x8CuQ=
