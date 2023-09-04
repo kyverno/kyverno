@@ -1,5 +1,7 @@
 package cobra
 
+import "strings"
+
 func FormatDescription(short bool, url string, lines ...string) string {
 	if len(lines) == 0 {
 		return ""
@@ -19,7 +21,7 @@ func FormatDescription(short bool, url string, lines ...string) string {
 		description += "  "
 		description += "For more information visit " + url
 	}
-	return description
+	return strings.TrimSpace(description)
 }
 
 func FormatExamples(in ...[]string) string {
@@ -32,5 +34,5 @@ func FormatExamples(in ...[]string) string {
 		}
 		examples += "\n"
 	}
-	return examples
+	return strings.TrimSpace(examples)
 }

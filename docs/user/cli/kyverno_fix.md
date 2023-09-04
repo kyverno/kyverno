@@ -11,7 +11,6 @@ Fix inconsistencies and deprecated usage of Kyverno resources.
   
   NOTE: This is an experimental command, use "KYVERNO_EXPERIMENTAL=true" to enable it.
 
-
 ```
 kyverno fix [flags]
 ```
@@ -19,10 +18,8 @@ kyverno fix [flags]
 ### Examples
 
 ```
-  # Fix Kyverno test files
+# Fix Kyverno test files
   KYVERNO_EXPERIMENTAL=true kyverno fix test . --save
-
-
 ```
 
 ### Options

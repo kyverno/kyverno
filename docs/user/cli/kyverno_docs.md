@@ -12,7 +12,6 @@ Generates reference documentation.
   
   NOTE: This is an experimental command, use "KYVERNO_EXPERIMENTAL=true" to enable it.
 
-
 ```
 kyverno docs [flags]
 ```
@@ -20,13 +19,11 @@ kyverno docs [flags]
 ### Examples
 
 ```
-  # Generate simple markdown documentation
+# Generate simple markdown documentation
   KYVERNO_EXPERIMENTAL=true kyverno docs -o . --autogenTag=false
 
   # Generate website documentation
   KYVERNO_EXPERIMENTAL=true kyverno docs -o . --website
-
-
 ```
 
 ### Options

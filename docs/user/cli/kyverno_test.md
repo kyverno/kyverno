@@ -21,7 +21,7 @@ kyverno test [local folder or git repository]... [flags]
 ### Examples
 
 ```
-  # Test a git repository containing Kyverno test cases
+# Test a git repository containing Kyverno test cases
   kyverno test https://github.com/kyverno/policies/pod-security --git-branch main
 
   # Test a local folder containing test cases
@@ -29,8 +29,6 @@ kyverno test [local folder or git repository]... [flags]
 
   # Test some specific test cases out of many test cases in a local folder
   kyverno test . --test-case-selector "policy=disallow-latest-tag, rule=require-image-tag, resource=test-require-image-tag-pass"
-
-
 ```
 
 ### Options
