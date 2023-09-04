@@ -163,7 +163,7 @@ func checkResult(test api.TestResults, fs billy.Filesystem, resoucePath string, 
 	}
 	// fallback on deprecated field
 	if test.PatchedResource != "" {
-		equals, err := getAndCompareResource(test.PatchedResource, response.PatchedResource, fs, resoucePath, false)
+		equals, err := getAndCompareResource(response.PatchedResource, test.PatchedResource, fs, resoucePath)
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
@@ -172,7 +172,7 @@ func checkResult(test api.TestResults, fs billy.Filesystem, resoucePath string, 
 		}
 	}
 	if test.GeneratedResource != "" {
-		equals, err := getAndCompareResource(test.GeneratedResource, rule.GeneratedResource(), fs, resoucePath, true)
+		equals, err := getAndCompareResource(rule.GeneratedResource(), test.GeneratedResource, fs, resoucePath)
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}

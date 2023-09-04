@@ -3,7 +3,6 @@ package test
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -14,7 +13,6 @@ import (
 	pathutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/path"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
-	unstructuredutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/unstructured"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -289,36 +287,4 @@ func selectResourcesForCheckInternal(resources []*unstructured.Unstructured, val
 		unused++
 	}
 	return checkableResources, duplicates, unused
-}
-
-// getAndCompareResource --> Get the patchedResource or generatedResource from the path provided by user
-// And compare this resource with engine generated resource.
-func getAndCompareResource(
-	path string,
-	actualResource unstructured.Unstructured,
-	fs billy.Filesystem,
-	policyResourcePath string,
-	isGenerate bool,
-) (bool, error) {
-	resourceType := "patchedResource"
-	if isGenerate {
-		resourceType = "generatedResource"
-	}
-	// TODO fix the way we handle git vs non-git paths (probably at the loading phase)
-	if fs == nil {
-		path = filepath.Join(policyResourcePath, path)
-	}
-	expectedResource, err := common.GetResourceFromPath(fs, path, fs != nil, policyResourcePath, resourceType)
-	if err != nil {
-		return false, fmt.Errorf("Error: failed to load resources (%s)", err)
-	}
-	if isGenerate {
-		unstructuredutils.FixupGenerateLabels(actualResource)
-		unstructuredutils.FixupGenerateLabels(expectedResource)
-	}
-	equals, err := unstructuredutils.Compare(actualResource, expectedResource, true)
-	if err != nil {
-		return false, fmt.Errorf("Error: failed to compare resources (%s)", err)
-	}
-	return equals, nil
 }
