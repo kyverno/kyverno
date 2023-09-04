@@ -6,7 +6,7 @@ This test cleans up pods instanteaously without any delay as the value of the la
 
 The pod `test-pod` is cleaned up instantaneously.
 
-The pod `test-pod-2` is cleaned up instantaneously when the label is updated to `cleanup.kyverno.io/ttl: 2023-07-19T120000Z`  the timestamp is mentioned in past.
+The pod `test-pod-2` is cleaned up instantaneously when the label is updated to `cleanup.kyverno.io/ttl: 2023-07-19T120000Z` the timestamp is mentioned in past.
 
 ## Reference Issue(s)
 
