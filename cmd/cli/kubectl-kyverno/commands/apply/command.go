@@ -140,13 +140,13 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 	}
 	var userInfo v1beta1.RequestInfo
 	if c.UserInfoPath != "" {
-		userInfo, err = common.GetUserInfoFromPath(nil, c.UserInfoPath, false, "")
+		userInfo, err = common.GetUserInfoFromPath(nil, c.UserInfoPath, "")
 		if err != nil {
 			fmt.Printf("Error: failed to load request info\nCause: %s\n", err)
 			osExit(1)
 		}
 	}
-	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(c.Variables, nil, c.ValuesFile, nil, false, "")
+	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(c.Variables, nil, c.ValuesFile, nil, "")
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("failed to decode yaml", err)

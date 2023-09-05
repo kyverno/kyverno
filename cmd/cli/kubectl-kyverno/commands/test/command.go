@@ -119,20 +119,22 @@ func testCommandExecute(
 	for _, test := range tests {
 		if test.Err == nil {
 			resourcePath := filepath.Dir(test.Path)
-			if tests, responses, err := applyPoliciesFromPath(
-				test,
-				resourcePath,
-				rc,
-				openApiManager,
-				filter,
-				false,
-			); err != nil {
-				return sanitizederror.NewWithError("failed to apply test command", err)
-			} else if t, err := printTestResult(tests, responses, rc, failOnly, detailedResults, test.Fs, resourcePath); err != nil {
-				return sanitizederror.NewWithError("failed to print test result:", err)
-			} else {
-				table.AddFailed(t.RawRows...)
+			responses, err := runTest(openApiManager, test, false)
+			if err != nil {
+				return sanitizederror.NewWithError("failed to run test", err)
 			}
+			// filter results
+			var filteredResults []api.TestResults
+			for _, res := range test.Test.Results {
+				if filter.Apply(res) {
+					filteredResults = append(filteredResults, res)
+				}
+			}
+			t, err := printTestResult(filteredResults, responses, rc, failOnly, detailedResults, test.Fs, resourcePath)
+			if err != nil {
+				return sanitizederror.NewWithError("failed to print test result:", err)
+			}
+			table.AddFailed(t.RawRows...)
 		}
 	}
 	if !failOnly {
