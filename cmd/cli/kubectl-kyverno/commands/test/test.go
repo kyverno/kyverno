@@ -3,6 +3,7 @@ package test
 import (
 	"fmt"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/pluralize"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
@@ -11,9 +12,15 @@ import (
 	pathutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/path"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
+	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openapi"
+	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn bool) ([]engineapi.EngineResponse, error) {
@@ -57,26 +64,6 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 	if err != nil {
 		return nil, fmt.Errorf("Error: failed to load policies (%s)", err)
 	}
-	// var filteredPolicies []kyvernov1.PolicyInterface
-	// for _, p := range policies {
-	// 	for _, res := range test.Results {
-	// 		if p.GetName() == res.Policy {
-	// 			filteredPolicies = append(filteredPolicies, p)
-	// 			break
-	// 		}
-	// 	}
-	// }
-
-	// var filteredVAPs []v1alpha1.ValidatingAdmissionPolicy
-	// for _, p := range validatingAdmissionPolicies {
-	// 	for _, res := range test.Results {
-	// 		if p.GetName() == res.Policy {
-	// 			filteredVAPs = append(filteredVAPs, p)
-	// 			break
-	// 		}
-	// 	}
-	// }
-	// validatingAdmissionPolicies = filteredVAPs
 	// resources
 	fmt.Println("  Loading resources", "...")
 	resourceFullPath := pathutils.GetFullPaths(testCase.Test.Resources, testDir, isGit)
@@ -90,57 +77,44 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 			fmt.Println("  Warning: found duplicated resource", dup.Kind, dup.Name, dup.Namespace)
 		}
 	}
-	// var engineResponses []engineapi.EngineResponse
-	// test := testCase.Test
-	// fs := testCase.Fs
-	// isGit := fs != nil
-	// var dClient dclient.Interface
+	ruleToCloneSourceResource := map[string]string{}
+	for _, p := range policies {
+		var filteredRules []kyvernov1.Rule
 
-	// test.Results = filteredResults
+		for _, rule := range autogen.ComputeRules(p) {
+			for _, res := range testCase.Test.Results {
+				if res.IsValidatingAdmissionPolicy {
+					continue
+				}
 
-	// fmt.Printf("\nExecuting %s...\n", test.Name)
-	// // get the user info as request info from a different file
+				if rule.Name == res.Rule {
+					filteredRules = append(filteredRules, rule)
+					if rule.HasGenerate() {
+						ruleUnstr, err := generate.GetUnstrRule(rule.Generation.DeepCopy())
+						if err != nil {
+							fmt.Printf("Error: failed to get unstructured rule\nCause: %s\n", err)
+							break
+						}
 
-	// ruleToCloneSourceResource := map[string]string{}
-	// for _, p := range filteredPolicies {
-	// 	var filteredRules []kyvernov1.Rule
+						genClone, _, err := unstructured.NestedMap(ruleUnstr.Object, "clone")
+						if err != nil {
+							fmt.Printf("Error: failed to read data\nCause: %s\n", err)
+							break
+						}
 
-	// 	for _, rule := range autogen.ComputeRules(p) {
-	// 		for _, res := range test.Results {
-	// 			if res.IsValidatingAdmissionPolicy {
-	// 				continue
-	// 			}
-
-	// 			if rule.Name == res.Rule {
-	// 				filteredRules = append(filteredRules, rule)
-	// 				if rule.HasGenerate() {
-	// 					ruleUnstr, err := generate.GetUnstrRule(rule.Generation.DeepCopy())
-	// 					if err != nil {
-	// 						fmt.Printf("Error: failed to get unstructured rule\nCause: %s\n", err)
-	// 						break
-	// 					}
-
-	// 					genClone, _, err := unstructured.NestedMap(ruleUnstr.Object, "clone")
-	// 					if err != nil {
-	// 						fmt.Printf("Error: failed to read data\nCause: %s\n", err)
-	// 						break
-	// 					}
-
-	// 					if len(genClone) != 0 {
-	// 						if isGit {
-	// 							ruleToCloneSourceResource[rule.Name] = res.CloneSourceResource
-	// 						} else {
-	// 							ruleToCloneSourceResource[rule.Name] = pathutils.GetFullPath(res.CloneSourceResource, policyResourcePath)
-	// 						}
-	// 					}
-	// 				}
-	// 				break
-	// 			}
-	// 		}
-	// 	}
-	// 	p.GetSpec().SetRules(filteredRules)
-	// }
-	// policies = filteredPolicies
+						if len(genClone) != 0 {
+							if isGit {
+								ruleToCloneSourceResource[rule.Name] = res.CloneSourceResource
+							} else {
+								ruleToCloneSourceResource[rule.Name] = pathutils.GetFullPath(res.CloneSourceResource, testDir)
+							}
+						}
+					}
+					break
+				}
+			}
+		}
+	}
 
 	// execute engine
 	fmt.Println("  Applying", len(policies), pluralize.Pluralize(len(policies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
@@ -148,11 +122,12 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 	var resultCounts common.ResultCounts
 	// TODO loop through resources first, then through policies second
 	for _, policy := range policies {
-		// 	_, err := policyvalidation.Validate(policy, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
-		// 	if err != nil {
-		// 		log.Log.Error(err, "skipping invalid policy", "name", policy.GetName())
-		// 		continue
-		// 	}
+		// TODO we should return this info to the caller
+		_, err := policyvalidation.Validate(policy, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
+		if err != nil {
+			log.Log.Error(err, "skipping invalid policy", "name", policy.GetName())
+			continue
+		}
 
 		matches := common.HasVariables(policy)
 		variable := common.RemoveDuplicateAndObjectVariables(matches)
@@ -179,17 +154,17 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 				return nil, sanitizederror.NewWithError(message, err)
 			}
 			applyPolicyConfig := common.ApplyPolicyConfig{
-				Policy:               policy,
-				Resource:             resource,
-				MutateLogPath:        "",
-				Variables:            thisPolicyResourceValues,
-				UserInfo:             userInfo,
-				PolicyReport:         true,
-				NamespaceSelectorMap: namespaceSelectorMap,
-				Rc:                   &resultCounts,
-				// RuleToCloneSourceResource: ruleToCloneSourceResource,
-				Client:       dClient,
-				Subresources: subresources,
+				Policy:                    policy,
+				Resource:                  resource,
+				MutateLogPath:             "",
+				Variables:                 thisPolicyResourceValues,
+				UserInfo:                  userInfo,
+				PolicyReport:              true,
+				NamespaceSelectorMap:      namespaceSelectorMap,
+				Rc:                        &resultCounts,
+				RuleToCloneSourceResource: ruleToCloneSourceResource,
+				Client:                    dClient,
+				Subresources:              subresources,
 			}
 			ers, err := common.ApplyPolicyOnResource(applyPolicyConfig)
 			if err != nil {
@@ -199,7 +174,6 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 			engineResponses = append(engineResponses, ers...)
 		}
 	}
-
 	validatingAdmissionPolicy := common.ValidatingAdmissionPolicies{}
 	for _, policy := range validatingAdmissionPolicies {
 		for _, resource := range uniques {
