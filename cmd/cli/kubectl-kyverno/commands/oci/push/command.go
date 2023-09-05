@@ -13,6 +13,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/static"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
+	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/openapi"
@@ -27,14 +28,10 @@ func Command(keychain authn.Keychain) *cobra.Command {
 	var policyRef string
 	var imageRef string
 	cmd := &cobra.Command{
-		Use:   "push",
-		Long:  "This command is one of the supported experimental commands in Kyverno CLI, and its behaviour might be changed any time.",
-		Short: "push policie(s) that are included in an OCI image to OCI registry",
-		Example: `# push policy to an OCI image from a given policy file
-kyverno oci push -p policy.yaml -i <imgref>
-
-# push multiple policies to an OCI image from a given directory that includes policies
-kyverno oci push -p policies. -i <imgref>`,
+		Use:     "push",
+		Short:   cobrautils.FormatDescription(true, websiteUrl, true, description...),
+		Long:    cobrautils.FormatDescription(false, websiteUrl, true, description...),
+		Example: cobrautils.FormatExamples(examples...),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if imageRef == "" {
 				return errors.New("image reference is required")

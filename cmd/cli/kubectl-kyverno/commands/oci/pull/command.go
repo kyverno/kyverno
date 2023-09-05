@@ -12,6 +12,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
+	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	policyutils "github.com/kyverno/kyverno/pkg/utils/policy"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"github.com/spf13/cobra"
@@ -21,11 +22,10 @@ func Command(keychain authn.Keychain) *cobra.Command {
 	var dir string
 	var imageRef string
 	cmd := &cobra.Command{
-		Use:   "pull",
-		Long:  "This command is one of the supported experimental commands, and its behaviour might be changed any time",
-		Short: "pulls policie(s) that are included in an OCI image from OCI registry and saves them to a local directory",
-		Example: `# pull policy from an OCI image and save it to the specific directory
-kyverno oci pull -i <imgref> -d policies`,
+		Use:     "pull",
+		Short:   cobrautils.FormatDescription(true, websiteUrl, true, description...),
+		Long:    cobrautils.FormatDescription(false, websiteUrl, true, description...),
+		Example: cobrautils.FormatExamples(examples...),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if imageRef == "" {
 				return errors.New("image reference is required")

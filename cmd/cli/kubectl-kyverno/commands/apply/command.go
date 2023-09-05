@@ -13,6 +13,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test/api"
+	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	reportutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/report"
@@ -35,10 +36,6 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-// load res
-// load pol
-// apply
-// show res
 const divider = "----------------------------------------------------------------------"
 
 type SkippedInvalidPolicies struct {
@@ -66,89 +63,8 @@ type ApplyCommandConfig struct {
 	warnNoPassed   bool
 }
 
-var (
-	applyHelp = `
-To apply on a resource:
-        kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2
-
-To apply on a folder of resources:
-        kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resources/
-
-To apply on a cluster:
-        kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster
-
-To apply policies from a gitSourceURL on a cluster:
-    Example: Taking github.com as a gitSourceURL here. Some other standards  gitSourceURL are: gitlab.com , bitbucket.org , etc.
-        kyverno apply https://github.com/kyverno/policies/openshift/ --git-branch main --cluster
-
-To apply policy with variables:
-
-    1. To apply single policy with variable on single resource use flag "set".
-        Example:
-        kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml --set <variable1>=<value1>,<variable2>=<value2>
-
-    2. To apply multiple policy with variable on multiple resource use flag "values_file".
-        Example:
-        kyverno apply /path/to/policy1.yaml /path/to/policy2.yaml --resource /path/to/resource1.yaml --resource /path/to/resource2.yaml -f /path/to/value.yaml
-
-        Format of value.yaml:
-
-        policies:
-          - name: <policy1 name>
-            rules:
-              - name: <rule1 name>
-                values:
-                  <context variable1 in policy1 rule1>: <value>
-                  <context variable2 in policy1 rule1>: <value>
-          - name: <rule2 name>
-            values:
-              <context variable1 in policy1 rule2>: <value>
-              <context variable2 in policy1 rule2>: <value>
-            resources:
-              - name: <resource1 name>
-                values:
-                  <variable1 in policy1>: <value>
-                  <variable2 in policy1>: <value>
-              - name: <resource2 name>
-                values:
-                  <variable1 in policy1>: <value>
-                  <variable2 in policy1>: <value>
-          - name: <policy2 name>
-            resources:
-              - name: <resource1 name>
-                values:
-                  <variable1 in policy2>: <value>
-                  <variable2 in policy2>: <value>
-              - name: <resource2 name>
-                values:
-                  <variable1 in policy2>: <value>
-                  <variable2 in policy2>: <value>
-        namespaceSelector:
-          - name: <namespace1 name>
-            labels:
-              <label key>: <label value>
-          - name: <namespace2 name>
-            labels:
-              <label key>: <label value>
-        # If policy is matching on Kind/Subresource, then this is required
-        subresources:
-          - subresource:
-              name: <name of subresource>
-              kind: <kind of subresource>
-              group: <group of subresource>
-              version: <version of subresource>
-            parentResource:
-              name: <name of parent resource>
-              kind: <kind of parent resource>
-              group: <group of parent resource>
-              version: <version of parent resource>
-
-More info: https://kyverno.io/docs/kyverno-cli/
-`
-
-	// allow os.exit to be overwritten during unit tests
-	osExit = os.Exit
-)
+// allow os.exit to be overwritten during unit tests
+var osExit = os.Exit
 
 func Command() *cobra.Command {
 	var cmd *cobra.Command
@@ -156,8 +72,9 @@ func Command() *cobra.Command {
 	applyCommandConfig := &ApplyCommandConfig{}
 	cmd = &cobra.Command{
 		Use:     "apply",
-		Short:   "Applies policies on resources.",
-		Example: applyHelp,
+		Short:   cobrautils.FormatDescription(true, websiteUrl, false, description...),
+		Long:    cobrautils.FormatDescription(false, websiteUrl, false, description...),
+		Example: cobrautils.FormatExamples(examples...),
 		RunE: func(cmd *cobra.Command, policyPaths []string) (err error) {
 			color.InitColors(removeColor)
 			defer func() {

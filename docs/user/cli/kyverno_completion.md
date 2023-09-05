@@ -34,7 +34,7 @@ See each sub-command's help for details on how to use the generated script.
 
 ### SEE ALSO
 
-* [kyverno](kyverno.md)	 - Kubernetes Native Policy Management
+* [kyverno](kyverno.md)	 - Kubernetes Native Policy Management.
 * [kyverno completion bash](kyverno_completion_bash.md)	 - Generate the autocompletion script for bash
 * [kyverno completion fish](kyverno_completion_fish.md)	 - Generate the autocompletion script for fish
 * [kyverno completion powershell](kyverno_completion_powershell.md)	 - Generate the autocompletion script for powershell
