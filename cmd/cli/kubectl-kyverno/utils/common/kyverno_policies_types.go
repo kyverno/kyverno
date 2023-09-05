@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
@@ -76,20 +77,20 @@ OuterLoop:
 	}
 
 	resPath := fmt.Sprintf("%s/%s/%s", c.Resource.GetNamespace(), c.Resource.GetKind(), c.Resource.GetName())
-	log.V(3).Info("applying policy on resource", "policy", c.Policy.GetName(), "resource", resPath)
+	log.Log.V(3).Info("applying policy on resource", "policy", c.Policy.GetName(), "resource", resPath)
 
 	resourceRaw, err := c.Resource.MarshalJSON()
 	if err != nil {
-		log.Error(err, "failed to marshal resource")
+		log.Log.Error(err, "failed to marshal resource")
 	}
 
 	updatedResource, err := kubeutils.BytesToUnstructured(resourceRaw)
 	if err != nil {
-		log.Error(err, "unable to convert raw resource to unstructured")
+		log.Log.Error(err, "unable to convert raw resource to unstructured")
 	}
 
 	if err != nil {
-		log.Error(err, "failed to load resource in context")
+		log.Log.Error(err, "failed to load resource in context")
 	}
 
 	cfg := config.NewDefaultConfiguration(false)
@@ -137,7 +138,7 @@ OuterLoop:
 		cfg,
 	)
 	if err != nil {
-		log.Error(err, "failed to create policy context")
+		log.Log.Error(err, "failed to create policy context")
 	}
 
 	policyContext = policyContext.
@@ -148,7 +149,7 @@ OuterLoop:
 	for key, value := range c.Variables {
 		err = policyContext.JSONContext().AddVariable(key, value)
 		if err != nil {
-			log.Error(err, "failed to add variable to context")
+			log.Log.Error(err, "failed to add variable to context")
 		}
 	}
 
@@ -200,7 +201,7 @@ OuterLoop:
 		if !generateResponse.IsEmpty() {
 			newRuleResponse, err := handleGeneratePolicy(&generateResponse, *policyContext, c.RuleToCloneSourceResource)
 			if err != nil {
-				log.Error(err, "failed to apply generate policy")
+				log.Log.Error(err, "failed to apply generate policy")
 			} else {
 				generateResponse.PolicyResponse.Rules = newRuleResponse
 			}

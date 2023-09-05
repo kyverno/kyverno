@@ -14,6 +14,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy/annotations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
@@ -28,7 +29,6 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
-	"github.com/kyverno/kyverno/pkg/logging"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	yamlv2 "gopkg.in/yaml.v2"
@@ -39,8 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
-
-var log = logging.WithName("kubectl-kyverno")
 
 type ResultCounts struct {
 	Pass  int
@@ -72,7 +70,7 @@ type ApplyPolicyConfig struct {
 // GetPolicies - Extracting the policies from multiple YAML
 func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, errors []error) {
 	for _, path := range paths {
-		log.V(5).Info("reading policies", "path", path)
+		log.Log.V(5).Info("reading policies", "path", path)
 
 		var (
 			fileDesc os.FileInfo
@@ -166,7 +164,7 @@ func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, validati
 		}
 	}
 
-	log.V(3).Info("read policies", "policies", len(policies), "errors", len(errors))
+	log.Log.V(3).Info("read policies", "policies", len(policies), "errors", len(errors))
 	return policies, validatingAdmissionPolicies, errors
 }
 
@@ -206,7 +204,7 @@ func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml stri
 	if _, err := f.Write([]byte(yaml)); err != nil {
 		closeErr := f.Close()
 		if closeErr != nil {
-			log.Error(closeErr, "failed to close file")
+			log.Log.Error(closeErr, "failed to close file")
 		}
 		return err
 	}
@@ -267,7 +265,7 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 				}
 				return nil, nil, sanitizederror.New(fmt.Sprintf("no file found in paths %v", dirPath))
 			}
-			if len(errors) > 0 && log.V(1).Enabled() {
+			if len(errors) > 0 && log.Log.V(1).Enabled() {
 				fmt.Printf("ignoring errors: \n")
 				for _, e := range errors {
 					fmt.Printf("    %v \n", e.Error())
@@ -565,7 +563,7 @@ func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyCont
 	var newRuleResponse []engineapi.RuleResponse
 
 	for _, rule := range generateResponse.PolicyResponse.Rules {
-		genResource, err := c.ApplyGeneratePolicy(log.V(2), &policyContext, gr, []string{rule.Name()})
+		genResource, err := c.ApplyGeneratePolicy(log.Log.V(2), &policyContext, gr, []string{rule.Name()})
 		if err != nil {
 			return nil, err
 		}
