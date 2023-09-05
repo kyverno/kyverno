@@ -2,7 +2,7 @@ package common
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
+	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -19,7 +19,7 @@ func (r *KyvernoResources) FetchResourcesFromPolicy(resourcePaths []string, dCli
 
 	resourceTypesMap := make(map[schema.GroupVersionKind]bool)
 	var resourceTypes []schema.GroupVersionKind
-	var subresourceMap map[schema.GroupVersionKind]api.Subresource
+	var subresourceMap map[schema.GroupVersionKind]valuesapi.Subresource
 
 	for _, policy := range r.policies {
 		for _, rule := range autogen.ComputeRules(policy) {

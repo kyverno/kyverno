@@ -13,7 +13,7 @@ func TestRemoveDuplicates(t *testing.T) {
 		expectedResources  int
 		expectedDuplicates int
 	}
-	baseTestDir := "../testdata/resources"
+	baseTestDir := "../_testdata/resources"
 	tests := []*TestCase{
 		{
 

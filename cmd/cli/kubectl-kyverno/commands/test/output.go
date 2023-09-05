@@ -5,14 +5,14 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 )
 
 func printTestResult(
-	tests []api.TestResults,
+	tests []testapi.TestResults,
 	responses []engineapi.EngineResponse,
 	rc *resultCounts,
 	failOnly bool,
