@@ -1,11 +1,12 @@
 ## kyverno jp parse
 
-Parses jmespath expression and shows corresponding AST
+Parses jmespath expression and shows corresponding AST.
 
 ### Synopsis
 
-Parses jmespath expression and shows corresponding AST
-For more information visit: https://kyverno.io/docs/writing-policies/jmespath/ 
+Parses jmespath expression and shows corresponding AST.
+
+  For more information visit https://kyverno.io/docs/kyverno-cli/#jp
 
 ```
 kyverno jp parse [-f file|expression]... [flags]
@@ -14,19 +15,19 @@ kyverno jp parse [-f file|expression]... [flags]
 ### Examples
 
 ```
-  # Parse expression            
+  # Parse expression
   kyverno jp parse 'request.object.metadata.name | truncate(@, `9`)'
 
   # Parse expression from a file
   kyverno jp parse -f my-file
 
-  # Parse expression from stdin 
+  # Parse expression from stdin
   kyverno jp parse
 
-  # Parse multiple expressionxs 
+  # Parse multiple expressionxs
   kyverno jp parse -f my-file1 -f my-file-2 'request.object.metadata.name | truncate(@, `9`)'
 
-  # Cat into                    
+  # Cat into
   cat my-file | kyverno jp parse
 ```
 

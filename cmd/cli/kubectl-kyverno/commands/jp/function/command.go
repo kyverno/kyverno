@@ -2,8 +2,8 @@ package function
 
 import (
 	"fmt"
-	"strings"
 
+	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/spf13/cobra"
@@ -11,22 +11,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-var description = []string{
-	"Provides function informations",
-	"For more information visit: https://kyverno.io/docs/writing-policies/jmespath/ ",
-}
-
-var examples = []string{
-	"  # List functions    \n  kyverno jp function",
-	"  # Get function infos\n  kyverno jp function <function name>",
-}
-
 func Command() *cobra.Command {
 	return &cobra.Command{
 		Use:          "function [function_name]...",
-		Short:        description[0],
-		Long:         strings.Join(description, "\n"),
-		Example:      strings.Join(examples, "\n\n"),
+		Short:        cobrautils.FormatDescription(true, websiteUrl, false, description...),
+		Long:         cobrautils.FormatDescription(false, websiteUrl, false, description...),
+		Example:      cobrautils.FormatExamples(examples...),
 		SilenceUsage: true,
 		Run: func(cmd *cobra.Command, args []string) {
 			printFunctions(args...)

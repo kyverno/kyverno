@@ -2,8 +2,27 @@
 
 Fix inconsistencies and deprecated usage in Kyverno test files.
 
+### Synopsis
+
+Fix inconsistencies and deprecated usage in Kyverno test files.
+
+  NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
+
 ```
-kyverno fix test [flags]
+kyverno fix test [folder]... [flags]
+```
+
+### Examples
+
+```
+  # Fix Kyverno test files
+  KYVERNO_EXPERIMENTAL=true kyverno fix test .
+
+  # Fix Kyverno test files and save them back
+  KYVERNO_EXPERIMENTAL=true kyverno fix test . --save
+
+  # Fix Kyverno test files with a specific file name
+  KYVERNO_EXPERIMENTAL=true kyverno fix test . --file-name test.yaml --save
 ```
 
 ### Options
@@ -34,5 +53,5 @@ kyverno fix test [flags]
 
 ### SEE ALSO
 
-* [kyverno fix](kyverno_fix.md)	 - Provides a command-line interface to fix inconsistencies and deprecated usage of Kyverno resources.
+* [kyverno fix](kyverno_fix.md)	 - Fix inconsistencies and deprecated usage of Kyverno resources.
 

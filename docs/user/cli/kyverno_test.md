@@ -2,7 +2,6 @@
 
 Run tests from a local filesystem or a remote git repository.
 
-
 ### Synopsis
 
 Run tests from a local filesystem or a remote git repository.
@@ -30,8 +29,6 @@ kyverno test [local folder or git repository]... [flags]
 
   # Test some specific test cases out of many test cases in a local folder
   kyverno test . --test-case-selector "policy=disallow-latest-tag, rule=require-image-tag, resource=test-require-image-tag-pass"
-
-
 ```
 
 ### Options
@@ -67,5 +64,5 @@ kyverno test [local folder or git repository]... [flags]
 
 ### SEE ALSO
 
-* [kyverno](kyverno.md)	 - Kubernetes Native Policy Management
+* [kyverno](kyverno.md)	 - Kubernetes Native Policy Management.
 

@@ -1,24 +1,19 @@
 package jp
 
 import (
-	"strings"
-
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/jp/function"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/jp/parse"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/jp/query"
+	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	"github.com/spf13/cobra"
 )
 
-var description = []string{
-	"Provides a command-line interface to JMESPath, enhanced with Kyverno specific custom functions.",
-	"For more information visit: https://kyverno.io/docs/writing-policies/jmespath/.",
-}
-
 func Command() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "jp",
-		Short: description[0],
-		Long:  strings.Join(description, "\n"),
+		Use:     "jp",
+		Short:   cobrautils.FormatDescription(true, websiteUrl, false, description...),
+		Long:    cobrautils.FormatDescription(false, websiteUrl, false, description...),
+		Example: cobrautils.FormatExamples(examples...),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},

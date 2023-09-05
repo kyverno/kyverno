@@ -1,9 +1,22 @@
 ## kyverno version
 
-Shows current version of kyverno.
+Prints the version of Kyverno CLI.
+
+### Synopsis
+
+Prints the version of Kyverno CLI.
+
+  For more information visit https://kyverno.io/docs/kyverno-cli/#version
 
 ```
 kyverno version [flags]
+```
+
+### Examples
+
+```
+  # Print Kyverno CLI version
+  kyverno version
 ```
 
 ### Options
@@ -32,5 +45,5 @@ kyverno version [flags]
 
 ### SEE ALSO
 
-* [kyverno](kyverno.md)	 - Kubernetes Native Policy Management
+* [kyverno](kyverno.md)	 - Kubernetes Native Policy Management.
 

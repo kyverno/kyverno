@@ -12,7 +12,7 @@ import (
 func getAndCompareResource(actualResource unstructured.Unstructured, fs billy.Filesystem, path string) (bool, error) {
 	expectedResource, err := resource.GetResourceFromPath(fs, path)
 	if err != nil {
-		return false, fmt.Errorf("Error: failed to load resources (%s)", err)
+		return false, fmt.Errorf("Error: failed to load resource (%s)", err)
 	}
 	unstructuredutils.FixupGenerateLabels(actualResource)
 	unstructuredutils.FixupGenerateLabels(*expectedResource)

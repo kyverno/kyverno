@@ -10,14 +10,15 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/version"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/experimental"
+	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	"github.com/spf13/cobra"
 )
 
 func RootCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "kyverno",
-		Long:  "To enable experimental commands, KYVERNO_EXPERIMENTAL should be configured with true or 1.",
-		Short: "Kubernetes Native Policy Management",
+		Short: cobrautils.FormatDescription(true, websiteUrl, false, description...),
+		Long:  cobrautils.FormatDescription(false, websiteUrl, false, description...),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},

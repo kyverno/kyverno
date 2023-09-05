@@ -5,32 +5,19 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 
 	gojmespath "github.com/kyverno/go-jmespath"
+	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	"github.com/spf13/cobra"
 )
-
-var description = []string{
-	"Parses jmespath expression and shows corresponding AST",
-	"For more information visit: https://kyverno.io/docs/writing-policies/jmespath/ ",
-}
-
-var examples = []string{
-	"  # Parse expression            \n  kyverno jp parse 'request.object.metadata.name | truncate(@, `9`)'",
-	"  # Parse expression from a file\n  kyverno jp parse -f my-file",
-	"  # Parse expression from stdin \n  kyverno jp parse",
-	"  # Parse multiple expressionxs \n  kyverno jp parse -f my-file1 -f my-file-2 'request.object.metadata.name | truncate(@, `9`)'",
-	"  # Cat into                    \n  cat my-file | kyverno jp parse",
-}
 
 func Command() *cobra.Command {
 	var files []string
 	cmd := &cobra.Command{
 		Use:          "parse [-f file|expression]...",
-		Short:        description[0],
-		Long:         strings.Join(description, "\n"),
-		Example:      strings.Join(examples, "\n\n"),
+		Short:        cobrautils.FormatDescription(true, websiteUrl, false, description...),
+		Long:         cobrautils.FormatDescription(false, websiteUrl, false, description...),
+		Example:      cobrautils.FormatExamples(examples...),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			expressions, err := loadExpressions(cmd, args, files)
