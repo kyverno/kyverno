@@ -13,7 +13,7 @@ func TestTestCases_Errors(t *testing.T) {
 	tests := []struct {
 		name string
 		tc   TestCases
-		want []error
+		want []TestCase
 	}{{
 		name: "nil",
 		tc:   nil,
@@ -31,9 +31,9 @@ func TestTestCases_Errors(t *testing.T) {
 		tc: []TestCase{{
 			Err: errors.New("error 1"),
 		}},
-		want: []error{
-			errors.New("error 1"),
-		},
+		want: []TestCase{{
+			Err: errors.New("error 1"),
+		}},
 	}, {
 		name: "two errors",
 		tc: []TestCase{{
@@ -41,10 +41,11 @@ func TestTestCases_Errors(t *testing.T) {
 		}, {
 			Err: errors.New("error 2"),
 		}},
-		want: []error{
-			errors.New("error 1"),
-			errors.New("error 2"),
-		},
+		want: []TestCase{{
+			Err: errors.New("error 1"),
+		}, {
+			Err: errors.New("error 2"),
+		}},
 	}, {
 		name: "mixed",
 		tc: []TestCase{{
@@ -52,10 +53,11 @@ func TestTestCases_Errors(t *testing.T) {
 		}, {}, {
 			Err: errors.New("error 2"),
 		}, {}},
-		want: []error{
-			errors.New("error 1"),
-			errors.New("error 2"),
-		},
+		want: []TestCase{{
+			Err: errors.New("error 1"),
+		}, {
+			Err: errors.New("error 2"),
+		}},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
