@@ -5,6 +5,7 @@ import (
 
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/pluralize"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
@@ -60,7 +61,7 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 	// policies
 	fmt.Println("  Loading policies", "...")
 	policyFullPath := pathutils.GetFullPaths(testCase.Test.Policies, testDir, isGit)
-	policies, validatingAdmissionPolicies, err := common.GetPoliciesFromPaths(testCase.Fs, policyFullPath, isGit, testDir)
+	policies, validatingAdmissionPolicies, err := policy.Load(testCase.Fs, testDir, policyFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("Error: failed to load policies (%s)", err)
 	}

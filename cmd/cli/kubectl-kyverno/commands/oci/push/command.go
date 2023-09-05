@@ -13,14 +13,13 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/static"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policyutils "github.com/kyverno/kyverno/pkg/utils/policy"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/spf13/cobra"
-	"go.uber.org/multierr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -37,9 +36,9 @@ func Command(keychain authn.Keychain) *cobra.Command {
 				return errors.New("image reference is required")
 			}
 
-			policies, _, errs := common.GetPolicies([]string{policyRef})
-			if len(errs) != 0 {
-				return fmt.Errorf("unable to read policy file or directory %s: %w", policyRef, multierr.Combine(errs...))
+			policies, _, err := policy.Load(nil, "", policyRef)
+			if err != nil {
+				return fmt.Errorf("unable to read policy file or directory %s: %w", policyRef, err)
 			}
 
 			openApiManager, err := openapi.NewManager(log.Log)
