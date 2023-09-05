@@ -150,7 +150,7 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 				)
 				return nil, sanitizederror.NewWithError(message, err)
 			}
-			processor := processor.Processor{
+			processor := processor.PolicyProcessor{
 				Policy:                    policy,
 				Resource:                  resource,
 				MutateLogPath:             "",
@@ -171,10 +171,9 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 			engineResponses = append(engineResponses, ers...)
 		}
 	}
-	validatingAdmissionPolicy := processor.ValidatingAdmissionPolicies{}
 	for _, policy := range validatingAdmissionPolicies {
 		for _, resource := range uniques {
-			applyPolicyConfig := processor.Processor{
+			processor := processor.ValidatingAdmissionPolicyProcessor{
 				ValidatingAdmissionPolicy: policy,
 				Resource:                  resource,
 				PolicyReport:              true,
@@ -182,7 +181,7 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 				Client:                    dClient,
 				Subresources:              subresources,
 			}
-			ers, err := validatingAdmissionPolicy.ApplyPolicyOnResource(applyPolicyConfig)
+			ers, err := processor.ApplyPolicyOnResource()
 			if err != nil {
 				message := fmt.Sprintf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName())
 				return nil, sanitizederror.NewWithError(message, err)

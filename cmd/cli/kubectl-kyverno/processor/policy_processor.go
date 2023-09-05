@@ -20,20 +20,15 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
-	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	yamlv2 "gopkg.in/yaml.v2"
-	"k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-var log = logging.WithName("kubectl-kyverno")
-
-type Processor struct {
+type PolicyProcessor struct {
 	Policy                    kyvernov1.PolicyInterface
-	ValidatingAdmissionPolicy v1alpha1.ValidatingAdmissionPolicy
 	Resource                  *unstructured.Unstructured
 	MutateLogPath             string
 	MutateLogPathIsDir        bool
@@ -50,7 +45,7 @@ type Processor struct {
 	Subresources              []valuesapi.Subresource
 }
 
-func (c *Processor) ApplyPolicyOnResource() ([]engineapi.EngineResponse, error) {
+func (c *PolicyProcessor) ApplyPolicyOnResource() ([]engineapi.EngineResponse, error) {
 	jp := jmespath.New(config.NewDefaultConfiguration(false))
 
 	var engineResponses []engineapi.EngineResponse
@@ -243,7 +238,7 @@ OuterLoop:
 	return engineResponses, nil
 }
 
-func (c *Processor) processEngineResponses(responses ...engineapi.EngineResponse) {
+func (c *PolicyProcessor) processEngineResponses(responses ...engineapi.EngineResponse) {
 	for _, response := range responses {
 		if !response.IsEmpty() {
 			pol := response.Policy()
@@ -288,7 +283,7 @@ func (c *Processor) processEngineResponses(responses ...engineapi.EngineResponse
 	}
 }
 
-func (c *Processor) processMutateEngineResponse(mutateResponse engineapi.EngineResponse, resourcePath string) error {
+func (c *PolicyProcessor) processMutateEngineResponse(mutateResponse engineapi.EngineResponse, resourcePath string) error {
 	var policyHasMutate bool
 	for _, rule := range autogen.ComputeRules(c.Policy) {
 		if rule.HasMutate() {

@@ -4,7 +4,11 @@ package processor
 import (
 	"os"
 	"path/filepath"
+
+	"github.com/kyverno/kyverno/pkg/logging"
 )
+
+var log = logging.WithName("kubectl-kyverno")
 
 func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml string, fileName string) error {
 	var f *os.File

@@ -191,10 +191,9 @@ func (c *ApplyCommandConfig) getMutateLogPathIsDir(skipInvalidPolicies SkippedIn
 }
 
 func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, resources []*unstructured.Unstructured, rc *processor.ResultCounts, dClient dclient.Interface, subresources []valuesapi.Subresource, skipInvalidPolicies SkippedInvalidPolicies, responses []engineapi.EngineResponse) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
-	validatingAdmissionPolicy := processor.ValidatingAdmissionPolicies{}
 	for _, resource := range resources {
 		for _, policy := range validatingAdmissionPolicies {
-			applyPolicyConfig := processor.Processor{
+			processor := processor.ValidatingAdmissionPolicyProcessor{
 				ValidatingAdmissionPolicy: policy,
 				Resource:                  resource,
 				PolicyReport:              c.PolicyReport,
@@ -203,7 +202,7 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(validating
 				AuditWarn:                 c.AuditWarn,
 				Subresources:              subresources,
 			}
-			ers, err := validatingAdmissionPolicy.ApplyPolicyOnResource(applyPolicyConfig)
+			ers, err := processor.ApplyPolicyOnResource()
 			if err != nil {
 				return rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}
@@ -258,7 +257,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, 
 			if err != nil {
 				return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.GetName(), resource.GetName()), err)
 			}
-			processor := processor.Processor{
+			processor := processor.PolicyProcessor{
 				Policy:               policy,
 				Resource:             resource,
 				MutateLogPath:        c.MutateLogPath,
