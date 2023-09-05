@@ -2,10 +2,7 @@ package common
 
 import (
 	"bufio"
-	"context"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,8 +14,8 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy/annotations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
@@ -30,14 +27,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 type ResultCounts struct {
@@ -65,107 +60,6 @@ type ApplyPolicyConfig struct {
 	Client                    dclient.Interface
 	AuditWarn                 bool
 	Subresources              []valuesapi.Subresource
-}
-
-// GetPolicies - Extracting the policies from multiple YAML
-func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, errors []error) {
-	for _, path := range paths {
-		log.Log.V(5).Info("reading policies", "path", path)
-
-		var (
-			fileDesc os.FileInfo
-			err      error
-		)
-
-		isHTTPPath := source.IsHttp(path)
-
-		// path clean and retrieving file info can be possible if it's not an HTTP URL
-		if !isHTTPPath {
-			path = filepath.Clean(path)
-			fileDesc, err = os.Stat(path)
-			if err != nil {
-				err := fmt.Errorf("failed to process %v: %v", path, err.Error())
-				errors = append(errors, err)
-				continue
-			}
-		}
-
-		// apply file from a directory is possible only if the path is not HTTP URL
-		if !isHTTPPath && fileDesc.IsDir() {
-			files, err := os.ReadDir(path)
-			if err != nil {
-				err := fmt.Errorf("failed to process %v: %v", path, err.Error())
-				errors = append(errors, err)
-				continue
-			}
-
-			listOfFiles := make([]string, 0)
-			for _, file := range files {
-				ext := filepath.Ext(file.Name())
-				if ext == "" || ext == ".yaml" || ext == ".yml" {
-					listOfFiles = append(listOfFiles, filepath.Join(path, file.Name()))
-				}
-			}
-
-			policiesFromDir, admissionPoliciesFromDir, errorsFromDir := GetPolicies(listOfFiles)
-			errors = append(errors, errorsFromDir...)
-			policies = append(policies, policiesFromDir...)
-			validatingAdmissionPolicies = append(validatingAdmissionPolicies, admissionPoliciesFromDir...)
-		} else {
-			var fileBytes []byte
-			if isHTTPPath {
-				// We accept here that a random URL might be called based on user provided input.
-				req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, path, nil)
-				if err != nil {
-					err := fmt.Errorf("failed to process %v: %v", path, err.Error())
-					errors = append(errors, err)
-					continue
-				}
-				resp, err := http.DefaultClient.Do(req)
-				if err != nil {
-					err := fmt.Errorf("failed to process %v: %v", path, err.Error())
-					errors = append(errors, err)
-					continue
-				}
-				defer resp.Body.Close()
-
-				if resp.StatusCode != http.StatusOK {
-					err := fmt.Errorf("failed to process %v: %v", path, err.Error())
-					errors = append(errors, err)
-					continue
-				}
-
-				fileBytes, err = io.ReadAll(resp.Body)
-				if err != nil {
-					err := fmt.Errorf("failed to process %v: %v", path, err.Error())
-					errors = append(errors, err)
-					continue
-				}
-			} else {
-				path = filepath.Clean(path)
-				// We accept the risk of including a user provided file here.
-				fileBytes, err = os.ReadFile(path) // #nosec G304
-				if err != nil {
-					err := fmt.Errorf("failed to process %v: %v", path, err.Error())
-					errors = append(errors, err)
-					continue
-				}
-			}
-
-			policiesFromFile, admissionPoliciesFromFile, errFromFile := yamlutils.GetPolicy(fileBytes)
-			if errFromFile != nil {
-				err := fmt.Errorf("failed to process %s: %v", path, errFromFile.Error())
-				errors = append(errors, err)
-				continue
-			}
-
-			policies = append(policies, policiesFromFile...)
-			validatingAdmissionPolicies = append(validatingAdmissionPolicies, admissionPoliciesFromFile...)
-		}
-	}
-
-	log.Log.V(3).Info("read policies", "policies", len(policies), "errors", len(errors))
-	return policies, validatingAdmissionPolicies, errors
 }
 
 // RemoveDuplicateAndObjectVariables - remove duplicate variables
@@ -215,67 +109,6 @@ func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml stri
 	return nil
 }
 
-// GetPoliciesFromPaths - get policies according to the resource path
-func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, policyResourcePath string) (policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, err error) {
-	if isGit {
-		for _, pp := range dirPath {
-			filep, err := fs.Open(filepath.Join(policyResourcePath, pp))
-			if err != nil {
-				fmt.Printf("Error: file not available with path %s: %v", filep.Name(), err.Error())
-				continue
-			}
-			bytes, err := io.ReadAll(filep)
-			if err != nil {
-				fmt.Printf("Error: failed to read file %s: %v", filep.Name(), err.Error())
-				continue
-			}
-			policyBytes, err := yaml.ToJSON(bytes)
-			if err != nil {
-				fmt.Printf("failed to convert to JSON: %v", err)
-				continue
-			}
-			policiesFromFile, admissionPoliciesFromFile, errFromFile := yamlutils.GetPolicy(policyBytes)
-			if errFromFile != nil {
-				fmt.Printf("failed to process : %v", errFromFile.Error())
-				continue
-			}
-			policies = append(policies, policiesFromFile...)
-			validatingAdmissionPolicies = append(validatingAdmissionPolicies, admissionPoliciesFromFile...)
-		}
-	} else {
-		if len(dirPath) > 0 && dirPath[0] == "-" {
-			if source.IsStdin() {
-				policyStr := ""
-				scanner := bufio.NewScanner(os.Stdin)
-				for scanner.Scan() {
-					policyStr = policyStr + scanner.Text() + "\n"
-				}
-				yamlBytes := []byte(policyStr)
-				policies, validatingAdmissionPolicies, err = yamlutils.GetPolicy(yamlBytes)
-				if err != nil {
-					return nil, nil, sanitizederror.NewWithError("failed to extract the resources", err)
-				}
-			}
-		} else {
-			var errors []error
-			policies, validatingAdmissionPolicies, errors = GetPolicies(dirPath)
-			if len(policies) == 0 && len(validatingAdmissionPolicies) == 0 {
-				if len(errors) > 0 {
-					return nil, nil, sanitizederror.NewWithErrors("failed to read file", errors)
-				}
-				return nil, nil, sanitizederror.New(fmt.Sprintf("no file found in paths %v", dirPath))
-			}
-			if len(errors) > 0 && log.Log.V(1).Enabled() {
-				fmt.Printf("ignoring errors: \n")
-				for _, e := range errors {
-					fmt.Printf("    %v \n", e.Error())
-				}
-			}
-		}
-	}
-	return
-}
-
 // GetResourceAccordingToResourcePath - get resources according to the resource path
 func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []string,
 	cluster bool, policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, dClient dclient.Interface, namespace string, policyReport bool, isGit bool, policyResourcePath string,
@@ -287,7 +120,7 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 		}
 	} else {
 		if len(resourcePaths) > 0 && resourcePaths[0] == "-" {
-			if source.IsStdin() {
+			if source.IsStdin(resourcePaths[0]) {
 				resourceStr := ""
 				scanner := bufio.NewScanner(os.Stdin)
 				for scanner.Scan() {
@@ -580,7 +413,7 @@ func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyCont
 	return newRuleResponse, nil
 }
 
-func GetGitBranchOrPolicyPaths(gitBranch, repoURL string, policyPaths []string) (string, string) {
+func GetGitBranchOrPolicyPaths(gitBranch, repoURL string, policyPaths ...string) (string, string) {
 	var gitPathToYamls string
 	if gitBranch == "" {
 		gitPathToYamls = "/"

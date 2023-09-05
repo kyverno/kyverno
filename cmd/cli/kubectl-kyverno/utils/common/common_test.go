@@ -122,7 +122,7 @@ func Test_GetGitBranchOrPolicyPaths(t *testing.T) {
 	type TestCase struct {
 		gitBranch                             string
 		repoURL                               string
-		policyPath                            []string
+		policyPath                            string
 		desiredBranch, actualBranch           string
 		desiredPathToYAMLs, actualPathToYAMLs string
 	}
@@ -130,21 +130,21 @@ func Test_GetGitBranchOrPolicyPaths(t *testing.T) {
 		{
 			gitBranch:          "main",
 			repoURL:            "https://github.com/kyverno/policies",
-			policyPath:         []string{"https://github.com/kyverno/policies/openshift/team-validate-ns-name/"},
+			policyPath:         "https://github.com/kyverno/policies/openshift/team-validate-ns-name/",
 			desiredBranch:      "main",
 			desiredPathToYAMLs: "/openshift/team-validate-ns-name/",
 		},
 		{
 			gitBranch:          "",
 			repoURL:            "https://github.com/kyverno/policies",
-			policyPath:         []string{"https://github.com/kyverno/policies/"},
+			policyPath:         "https://github.com/kyverno/policies/",
 			desiredBranch:      "main",
 			desiredPathToYAMLs: "/",
 		},
 		{
 			gitBranch:          "",
 			repoURL:            "https://github.com/kyverno/policies",
-			policyPath:         []string{"https://github.com/kyverno/policies"},
+			policyPath:         "https://github.com/kyverno/policies",
 			desiredBranch:      "main",
 			desiredPathToYAMLs: "/",
 		},
