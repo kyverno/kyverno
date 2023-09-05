@@ -110,6 +110,8 @@ func getSpec(resource unstructured.Unstructured) (podSpec *corev1.PodSpec, metad
 		podSpec = &pod.Spec
 		metadata = &pod.ObjectMeta
 		return podSpec, metadata, nil
+	} else {
+		return nil, nil, fmt.Errorf("Could not find correct resource type")
 	}
 	if err != nil {
 		return nil, nil, err
