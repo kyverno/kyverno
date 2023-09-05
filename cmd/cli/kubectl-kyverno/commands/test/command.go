@@ -118,17 +118,20 @@ func testCommandExecute(
 	var table table.Table
 	for _, test := range tests {
 		if test.Err == nil {
-			resourcePath := filepath.Dir(test.Path)
-			responses, err := runTest(openApiManager, test, false)
-			if err != nil {
-				return sanitizederror.NewWithError("failed to run test", err)
-			}
 			// filter results
 			var filteredResults []api.TestResults
 			for _, res := range test.Test.Results {
 				if filter.Apply(res) {
 					filteredResults = append(filteredResults, res)
 				}
+			}
+			if len(filteredResults) == 0 {
+				continue
+			}
+			resourcePath := filepath.Dir(test.Path)
+			responses, err := runTest(openApiManager, test, false)
+			if err != nil {
+				return sanitizederror.NewWithError("failed to run test", err)
 			}
 			t, err := printTestResult(filteredResults, responses, rc, failOnly, detailedResults, test.Fs, resourcePath)
 			if err != nil {

@@ -3,7 +3,6 @@ package test
 import (
 	"fmt"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/pluralize"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
@@ -77,31 +76,26 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 			fmt.Println("  Warning: found duplicated resource", dup.Kind, dup.Name, dup.Namespace)
 		}
 	}
+	// TODO document the code below
 	ruleToCloneSourceResource := map[string]string{}
-	for _, p := range policies {
-		var filteredRules []kyvernov1.Rule
-
-		for _, rule := range autogen.ComputeRules(p) {
+	for _, policy := range policies {
+		for _, rule := range autogen.ComputeRules(policy) {
 			for _, res := range testCase.Test.Results {
 				if res.IsValidatingAdmissionPolicy {
 					continue
 				}
-
 				if rule.Name == res.Rule {
-					filteredRules = append(filteredRules, rule)
 					if rule.HasGenerate() {
 						ruleUnstr, err := generate.GetUnstrRule(rule.Generation.DeepCopy())
 						if err != nil {
 							fmt.Printf("Error: failed to get unstructured rule\nCause: %s\n", err)
 							break
 						}
-
 						genClone, _, err := unstructured.NestedMap(ruleUnstr.Object, "clone")
 						if err != nil {
 							fmt.Printf("Error: failed to read data\nCause: %s\n", err)
 							break
 						}
-
 						if len(genClone) != 0 {
 							if isGit {
 								ruleToCloneSourceResource[rule.Name] = res.CloneSourceResource
@@ -115,7 +109,6 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 			}
 		}
 	}
-
 	// execute engine
 	fmt.Println("  Applying", len(policies), pluralize.Pluralize(len(policies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
 	var engineResponses []engineapi.EngineResponse
@@ -132,6 +125,7 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 		matches := common.HasVariables(policy)
 		variable := common.RemoveDuplicateAndObjectVariables(matches)
 
+		// TODO
 		// 	if len(variable) > 0 {
 		// 		if len(variables) == 0 {
 		// 			// check policy in variable file
