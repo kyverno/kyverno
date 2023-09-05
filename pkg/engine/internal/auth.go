@@ -10,13 +10,13 @@ import (
 
 // Authorizer implements authorizer.Authorizer interface. It is intended to be used in validate.cel subrules.
 type Authorizer struct {
-	Client       engineapi.Client
-	ResourceKind schema.GroupVersionKind
+	client       engineapi.Client
+	resourceKind schema.GroupVersionKind
 }
 
-func (a Authorizer) Authorize(ctx context.Context, attributes authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
-	ok, reason, err := a.Client.CanI(ctx,
-		a.ResourceKind.Kind,
+func (a *Authorizer) Authorize(ctx context.Context, attributes authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
+	ok, reason, err := a.client.CanI(ctx,
+		a.resourceKind.Kind,
 		attributes.GetNamespace(),
 		attributes.GetVerb(),
 		attributes.GetSubresource(),
@@ -33,26 +33,41 @@ func (a Authorizer) Authorize(ctx context.Context, attributes authorizer.Attribu
 	}
 }
 
+func NewAuthorizer(client engineapi.Client, resourceKind schema.GroupVersionKind) Authorizer {
+	return Authorizer{
+		client:       client,
+		resourceKind: resourceKind,
+	}
+}
+
 // User implements user.Info interface. It is intended to be used in validate.cel subrules.
 type User struct {
-	Name   string
-	UID    string
-	Groups []string
-	Extra  map[string][]string
+	name   string
+	uid    string
+	groups []string
+	extra  map[string][]string
 }
 
-func (u User) GetName() string {
-	return u.Name
+func (u *User) GetName() string {
+	return u.name
 }
 
-func (u User) GetUID() string {
-	return u.UID
+func (u *User) GetUID() string {
+	return u.uid
 }
 
-func (u User) GetGroups() []string {
-	return u.Groups
+func (u *User) GetGroups() []string {
+	return u.groups
 }
 
-func (u User) GetExtra() map[string][]string {
-	return u.Extra
+func (u *User) GetExtra() map[string][]string {
+	return u.extra
+}
+
+func NewUser(name, uid string, groups []string) User {
+	return User{
+		name:   name,
+		uid:    uid,
+		groups: groups,
+	}
 }

@@ -115,14 +115,10 @@ func (h validateCELHandler) Process(
 	}
 
 	requestInfo := policyContext.AdmissionInfo()
-	userInfo := internal.User{
-		Name:   requestInfo.AdmissionUserInfo.Username,
-		UID:    requestInfo.AdmissionUserInfo.UID,
-		Groups: requestInfo.AdmissionUserInfo.Groups,
-	}
-	admissionAttributes := admission.NewAttributesRecord(object, oldObject, gvk, namespaceName, resourceName, gvr, "", admission.Operation(policyContext.Operation()), nil, false, userInfo)
+	userInfo := internal.NewUser(requestInfo.AdmissionUserInfo.Username, requestInfo.AdmissionUserInfo.UID, requestInfo.AdmissionUserInfo.Groups)
+	admissionAttributes := admission.NewAttributesRecord(object, oldObject, gvk, namespaceName, resourceName, gvr, "", admission.Operation(policyContext.Operation()), nil, false, &userInfo)
 	versionedAttr, _ := admission.NewVersionedAttributes(admissionAttributes, admissionAttributes.GetKind(), nil)
-	authorizer := internal.Authorizer{Client: h.client, ResourceKind: resourceKind}
+	authorizer := internal.NewAuthorizer(h.client, resourceKind)
 	// validate the incoming object against the rule
 	var validationResults []validatingadmissionpolicy.ValidateResult
 	if hasParam {
@@ -137,10 +133,10 @@ func (h validateCELHandler) Process(
 		}
 
 		for _, param := range params {
-			validationResults = append(validationResults, validator.Validate(ctx, gvr, versionedAttr, param, namespace, celconfig.RuntimeCELCostBudget, authorizer))
+			validationResults = append(validationResults, validator.Validate(ctx, gvr, versionedAttr, param, namespace, celconfig.RuntimeCELCostBudget, &authorizer))
 		}
 	} else {
-		validationResults = append(validationResults, validator.Validate(ctx, gvr, versionedAttr, nil, namespace, celconfig.RuntimeCELCostBudget, authorizer))
+		validationResults = append(validationResults, validator.Validate(ctx, gvr, versionedAttr, nil, namespace, celconfig.RuntimeCELCostBudget, &authorizer))
 	}
 
 	for _, validationResult := range validationResults {
