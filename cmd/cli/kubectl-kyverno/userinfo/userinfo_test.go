@@ -27,14 +27,14 @@ func TestLoad(t *testing.T) {
 	}, {
 		name:         "invalid",
 		fs:           nil,
-		path:         "../testdata/user-infos/invalid.yaml",
+		path:         "../_testdata/user-infos/invalid.yaml",
 		resourcePath: "",
 		want:         nil,
 		wantErr:      true,
 	}, {
 		name:         "valid",
 		fs:           nil,
-		path:         "../testdata/user-infos/valid.yaml",
+		path:         "../_testdata/user-infos/valid.yaml",
 		resourcePath: "",
 		want: &kyvernov1beta1.RequestInfo{
 			ClusterRoles: []string{"cluster-admin"},
