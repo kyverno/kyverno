@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test/api"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
 )
 
 func TestTestCases_Errors(t *testing.T) {
@@ -196,9 +196,7 @@ func TestLoadTests(t *testing.T) {
 			},
 		}},
 		wantErr: false,
-	},
-	// TODO: Add test cases.
-	}
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := LoadTests(tt.dirPath, tt.fileName)

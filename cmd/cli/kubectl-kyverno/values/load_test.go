@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/go-git/go-billy/v5"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test/api"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
 )
 
 func Test_readFile(t *testing.T) {
@@ -31,18 +31,18 @@ func Test_readFile(t *testing.T) {
 		wantErr:  true,
 	}, {
 		name:     "does not exist",
-		filepath: "../../testdata/values/doesnotexist",
+		filepath: "../testdata/values/doesnotexist",
 		want:     nil,
 		wantErr:  true,
 	}, {
 		name:     "bad format",
-		filepath: "../../testdata/values/bad-format.yaml",
-		want:     mustReadFile("../../testdata/values/bad-format.yaml"),
+		filepath: "../testdata/values/bad-format.yaml",
+		want:     mustReadFile("../testdata/values/bad-format.yaml"),
 		wantErr:  false,
 	}, {
 		name:     "valid",
-		filepath: "../../testdata/values/valid.yaml",
-		want:     mustReadFile("../../testdata/values/valid.yaml"),
+		filepath: "../testdata/values/valid.yaml",
+		want:     mustReadFile("../testdata/values/valid.yaml"),
 		wantErr:  false,
 	}}
 	for _, tt := range tests {
@@ -73,17 +73,17 @@ func TestLoad(t *testing.T) {
 		wantErr:  true,
 	}, {
 		name:     "does not exist",
-		filepath: "../../testdata/values/doesnotexist",
+		filepath: "../testdata/values/doesnotexist",
 		want:     nil,
 		wantErr:  true,
 	}, {
 		name:     "bad format",
-		filepath: "../../testdata/values/bad-format.yaml",
+		filepath: "../testdata/values/bad-format.yaml",
 		want:     nil,
 		wantErr:  true,
 	}, {
 		name:     "valid",
-		filepath: "../../testdata/values/valid.yaml",
+		filepath: "../testdata/values/valid.yaml",
 		want: &api.Values{
 			NamespaceSelectors: []api.NamespaceSelector{{
 				Name: "test1",
