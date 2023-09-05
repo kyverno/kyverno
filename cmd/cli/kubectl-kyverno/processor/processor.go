@@ -1,4 +1,4 @@
-package common
+package processor
 
 import (
 	"context"
@@ -6,9 +6,13 @@ import (
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy/annotations"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
@@ -16,13 +20,37 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	yamlv2 "gopkg.in/yaml.v2"
+	"k8s.io/api/admissionregistration/v1alpha1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// ApplyPolicyOnResource - function to apply policy on resource
-func ApplyPolicyOnResource(c ApplyPolicyConfig) ([]engineapi.EngineResponse, error) {
+var log = logging.WithName("kubectl-kyverno")
+
+type Processor struct {
+	Policy                    kyvernov1.PolicyInterface
+	ValidatingAdmissionPolicy v1alpha1.ValidatingAdmissionPolicy
+	Resource                  *unstructured.Unstructured
+	MutateLogPath             string
+	MutateLogPathIsDir        bool
+	Variables                 map[string]interface{}
+	UserInfo                  *kyvernov1beta1.RequestInfo
+	PolicyReport              bool
+	NamespaceSelectorMap      map[string]map[string]string
+	Stdin                     bool
+	Rc                        *ResultCounts
+	PrintPatchResource        bool
+	RuleToCloneSourceResource map[string]string
+	Client                    dclient.Interface
+	AuditWarn                 bool
+	Subresources              []valuesapi.Subresource
+}
+
+func (c *Processor) ApplyPolicyOnResource() ([]engineapi.EngineResponse, error) {
 	jp := jmespath.New(config.NewDefaultConfiguration(false))
 
 	var engineResponses []engineapi.EngineResponse
@@ -156,7 +184,7 @@ OuterLoop:
 	combineRuleResponses(mutateResponse)
 	engineResponses = append(engineResponses, mutateResponse)
 
-	err = processMutateEngineResponse(c, &mutateResponse, resPath)
+	err = c.processMutateEngineResponse(mutateResponse, resPath)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return engineResponses, sanitizederror.NewWithError("failed to print mutated result", err)
@@ -210,79 +238,120 @@ OuterLoop:
 		updateResultCounts(c.Policy, &generateResponse, resPath, c.Rc, c.AuditWarn)
 	}
 
-	processEngineResponses(engineResponses, c)
+	c.processEngineResponses(engineResponses...)
 
 	return engineResponses, nil
 }
 
-func combineRuleResponses(imageResponse engineapi.EngineResponse) engineapi.EngineResponse {
-	if imageResponse.PolicyResponse.RulesAppliedCount() == 0 {
-		return imageResponse
+func (c *Processor) processEngineResponses(responses ...engineapi.EngineResponse) {
+	for _, response := range responses {
+		if !response.IsEmpty() {
+			pol := response.Policy()
+			if polType := pol.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
+				return
+			}
+			scored := annotations.Scored(c.Policy.GetAnnotations())
+			for _, rule := range autogen.ComputeRules(pol.GetPolicy().(kyvernov1.PolicyInterface)) {
+				if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
+					ruleFoundInEngineResponse := false
+					for _, valResponseRule := range response.PolicyResponse.Rules {
+						if rule.Name == valResponseRule.Name() {
+							ruleFoundInEngineResponse = true
+							switch valResponseRule.Status() {
+							case engineapi.RuleStatusPass:
+								c.Rc.Pass++
+							case engineapi.RuleStatusFail:
+								if !scored {
+									c.Rc.Warn++
+									break
+								} else if c.AuditWarn && response.GetValidationFailureAction().Audit() {
+									c.Rc.Warn++
+								} else {
+									c.Rc.Fail++
+								}
+							case engineapi.RuleStatusError:
+								c.Rc.Error++
+							case engineapi.RuleStatusWarn:
+								c.Rc.Warn++
+							case engineapi.RuleStatusSkip:
+								c.Rc.Skip++
+							}
+							continue
+						}
+					}
+					if !ruleFoundInEngineResponse {
+						c.Rc.Skip++
+					}
+				}
+			}
+		}
+	}
+}
+
+func (c *Processor) processMutateEngineResponse(mutateResponse engineapi.EngineResponse, resourcePath string) error {
+	var policyHasMutate bool
+	for _, rule := range autogen.ComputeRules(c.Policy) {
+		if rule.HasMutate() {
+			policyHasMutate = true
+		}
+	}
+	if !policyHasMutate {
+		return nil
 	}
 
-	completeRuleResponses := imageResponse.PolicyResponse.Rules
-	var combineRuleResponses []engineapi.RuleResponse
-
-	ruleNameType := make(map[string][]engineapi.RuleResponse)
-	for _, rsp := range completeRuleResponses {
-		key := rsp.Name() + ";" + string(rsp.RuleType())
-		ruleNameType[key] = append(ruleNameType[key], rsp)
+	printCount := 0
+	printMutatedRes := false
+	for _, policyRule := range autogen.ComputeRules(c.Policy) {
+		ruleFoundInEngineResponse := false
+		for i, mutateResponseRule := range mutateResponse.PolicyResponse.Rules {
+			if policyRule.Name == mutateResponseRule.Name() {
+				ruleFoundInEngineResponse = true
+				if mutateResponseRule.Status() == engineapi.RuleStatusPass {
+					c.Rc.Pass++
+					printMutatedRes = true
+				} else if mutateResponseRule.Status() == engineapi.RuleStatusSkip {
+					fmt.Printf("\nskipped mutate policy %s -> resource %s", c.Policy.GetName(), resourcePath)
+					c.Rc.Skip++
+				} else if mutateResponseRule.Status() == engineapi.RuleStatusError {
+					fmt.Printf("\nerror while applying mutate policy %s -> resource %s\nerror: %s", c.Policy.GetName(), resourcePath, mutateResponseRule.Message())
+					c.Rc.Error++
+				} else {
+					if printCount < 1 {
+						fmt.Printf("\nfailed to apply mutate policy %s -> resource %s", c.Policy.GetName(), resourcePath)
+						printCount++
+					}
+					fmt.Printf("%d. %s - %s \n", i+1, mutateResponseRule.Name(), mutateResponseRule.Message())
+					c.Rc.Fail++
+				}
+				continue
+			}
+		}
+		if !ruleFoundInEngineResponse {
+			c.Rc.Skip++
+		}
 	}
 
-	for key, ruleResponses := range ruleNameType {
-		tokens := strings.Split(key, ";")
-		ruleName := tokens[0]
-		ruleType := tokens[1]
-		var failRuleResponses []engineapi.RuleResponse
-		var errorRuleResponses []engineapi.RuleResponse
-		var passRuleResponses []engineapi.RuleResponse
-		var skipRuleResponses []engineapi.RuleResponse
-
-		ruleMesssage := ""
-		for _, rsp := range ruleResponses {
-			if rsp.Status() == engineapi.RuleStatusFail {
-				failRuleResponses = append(failRuleResponses, rsp)
-			} else if rsp.Status() == engineapi.RuleStatusError {
-				errorRuleResponses = append(errorRuleResponses, rsp)
-			} else if rsp.Status() == engineapi.RuleStatusPass {
-				passRuleResponses = append(passRuleResponses, rsp)
-			} else if rsp.Status() == engineapi.RuleStatusSkip {
-				skipRuleResponses = append(skipRuleResponses, rsp)
-			}
-		}
-		if len(errorRuleResponses) > 0 {
-			for _, errRsp := range errorRuleResponses {
-				ruleMesssage += errRsp.Message() + ";"
-			}
-			errorResponse := engineapi.NewRuleResponse(ruleName, engineapi.RuleType(ruleType), ruleMesssage, engineapi.RuleStatusError)
-			combineRuleResponses = append(combineRuleResponses, *errorResponse)
-			continue
+	if printMutatedRes && c.PrintPatchResource {
+		yamlEncodedResource, err := yamlv2.Marshal(mutateResponse.PatchedResource.Object)
+		if err != nil {
+			return sanitizederror.NewWithError("failed to marshal", err)
 		}
 
-		if len(failRuleResponses) > 0 {
-			for _, failRsp := range failRuleResponses {
-				ruleMesssage += failRsp.Message() + ";"
+		if c.MutateLogPath == "" {
+			mutatedResource := string(yamlEncodedResource) + string("\n---")
+			if len(strings.TrimSpace(mutatedResource)) > 0 {
+				if !c.Stdin {
+					fmt.Printf("\nmutate policy %s applied to %s:", c.Policy.GetName(), resourcePath)
+				}
+				fmt.Printf("\n" + mutatedResource + "\n")
 			}
-			failResponse := engineapi.NewRuleResponse(ruleName, engineapi.RuleType(ruleType), ruleMesssage, engineapi.RuleStatusFail)
-			combineRuleResponses = append(combineRuleResponses, *failResponse)
-			continue
-		}
-
-		if len(passRuleResponses) > 0 {
-			for _, passRsp := range passRuleResponses {
-				ruleMesssage += passRsp.Message() + ";"
+		} else {
+			err := PrintMutatedOutput(c.MutateLogPath, c.MutateLogPathIsDir, string(yamlEncodedResource), c.Resource.GetName()+"-mutated")
+			if err != nil {
+				return sanitizederror.NewWithError("failed to print mutated result", err)
 			}
-			passResponse := engineapi.NewRuleResponse(ruleName, engineapi.RuleType(ruleType), ruleMesssage, engineapi.RuleStatusPass)
-			combineRuleResponses = append(combineRuleResponses, *passResponse)
-			continue
+			fmt.Printf("\n\nMutation:\nMutation has been applied successfully. Check the files.")
 		}
-
-		for _, skipRsp := range skipRuleResponses {
-			ruleMesssage += skipRsp.Message() + ";"
-		}
-		skipResponse := engineapi.NewRuleResponse(ruleName, engineapi.RuleType(ruleType), ruleMesssage, engineapi.RuleStatusSkip)
-		combineRuleResponses = append(combineRuleResponses, *skipResponse)
 	}
-	imageResponse.PolicyResponse.Rules = combineRuleResponses
-	return imageResponse
+	return nil
 }
