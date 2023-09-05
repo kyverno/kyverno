@@ -584,9 +584,9 @@ func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyCont
 }
 
 // GetUserInfoFromPath - get the request info as user info from a given path
-func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (kyvernov1beta1.RequestInfo, error) {
+func GetUserInfoFromPath(fs billy.Filesystem, path string, policyResourcePath string) (kyvernov1beta1.RequestInfo, error) {
 	userInfo := &kyvernov1beta1.RequestInfo{}
-	if isGit {
+	if fs != nil {
 		filep, err := fs.Open(filepath.Join(policyResourcePath, path))
 		if err != nil {
 			fmt.Printf("Unable to open userInfo file: %s. \nerror: %s", path, err)

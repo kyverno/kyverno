@@ -10,25 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
-type TestCase struct {
-	Path string
-	Fs   billy.Filesystem
-	Test *api.Test
-	Err  error
-}
-
-type TestCases []TestCase
-
-func (tc TestCases) Errors() []TestCase {
-	var errors []TestCase
-	for _, test := range tc {
-		if test.Err != nil {
-			errors = append(errors, test)
-		}
-	}
-	return errors
-}
-
 func LoadTests(dirPath string, fileName string) (TestCases, error) {
 	return loadLocalTest(filepath.Clean(dirPath), fileName)
 }

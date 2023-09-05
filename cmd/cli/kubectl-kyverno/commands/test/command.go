@@ -2,11 +2,9 @@ package test
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/go-git/go-billy/v5"
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
@@ -109,30 +107,36 @@ func testCommandExecute(
 	}
 	if len(tests) == 0 {
 		if len(errors) == 0 {
-			os.Exit(0)
+			return nil
 		} else {
-			os.Exit(1)
+			// TODO aggregate errors
+			return errors[0]
 		}
 	}
 	rc := &resultCounts{}
 	var table table.Table
 	for _, test := range tests {
 		if test.Err == nil {
-			resourcePath := filepath.Dir(test.Path)
-			if tests, responses, err := applyPoliciesFromPath(
-				test,
-				resourcePath,
-				rc,
-				openApiManager,
-				filter,
-				false,
-			); err != nil {
-				return sanitizederror.NewWithError("failed to apply test command", err)
-			} else if t, err := printTestResult(tests, responses, rc, failOnly, detailedResults, test.Fs, resourcePath); err != nil {
-				return sanitizederror.NewWithError("failed to print test result:", err)
-			} else {
-				table.AddFailed(t.RawRows...)
+			// filter results
+			var filteredResults []api.TestResults
+			for _, res := range test.Test.Results {
+				if filter.Apply(res) {
+					filteredResults = append(filteredResults, res)
+				}
 			}
+			if len(filteredResults) == 0 {
+				continue
+			}
+			resourcePath := filepath.Dir(test.Path)
+			responses, err := runTest(openApiManager, test, false)
+			if err != nil {
+				return sanitizederror.NewWithError("failed to run test", err)
+			}
+			t, err := printTestResult(filteredResults, responses, rc, failOnly, detailedResults, test.Fs, resourcePath)
+			if err != nil {
+				return sanitizederror.NewWithError("failed to print test result:", err)
+			}
+			table.AddFailed(t.RawRows...)
 		}
 	}
 	if !failOnly {
@@ -145,7 +149,7 @@ func testCommandExecute(
 		if !failOnly {
 			printFailedTestResult(table, detailedResults)
 		}
-		os.Exit(1)
+		return fmt.Errorf("%d tests failed", rc.Fail)
 	}
 	return nil
 }
@@ -219,103 +223,4 @@ func lookupRuleResponses(test api.TestResults, responses ...engineapi.RuleRespon
 		}
 	}
 	return matches
-}
-
-func printTestResult(
-	tests []api.TestResults,
-	responses []engineapi.EngineResponse,
-	rc *resultCounts,
-	failOnly bool,
-	detailedResults bool,
-	fs billy.Filesystem,
-	resoucePath string,
-) (table.Table, error) {
-	printer := table.NewTablePrinter()
-	var resultsTable table.Table
-	var countDeprecatedResource int
-	testCount := 1
-	for _, test := range tests {
-		// lookup matching engine responses (without the resource name)
-		// to reduce the search scope
-		responses := lookupEngineResponses(test, "", responses...)
-		// TODO fix deprecated fields
-		// identify the resources to be looked up
-		var resources []string
-		if test.Resources != nil {
-			resources = append(resources, test.Resources...)
-		} else if test.Resource != "" {
-			countDeprecatedResource++
-			resources = append(resources, test.Resource)
-		}
-		for _, resource := range resources {
-			var rows []table.Row
-			// lookup matching engine responses (with the resource name this time)
-			for _, response := range lookupEngineResponses(test, resource, responses...) {
-				// lookup matching rule responses
-				for _, rule := range lookupRuleResponses(test, response.PolicyResponse.Rules...) {
-					// perform test checks
-					ok, message, reason := checkResult(test, fs, resoucePath, response, rule)
-					// if checks failed but we were expecting a fail it's considered a success
-					success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
-					row := table.Row{
-						CompactRow: table.CompactRow{
-							ID:        testCount,
-							Policy:    color.Policy("", test.Policy),
-							Rule:      color.Rule(test.Rule),
-							Resource:  color.Resource(test.Kind, test.Namespace, resource),
-							Reason:    reason,
-							IsFailure: !success,
-						},
-						Message: message,
-					}
-					if success {
-						row.Result = color.ResultPass()
-						if test.Result == policyreportv1alpha2.StatusSkip {
-							rc.Skip++
-						} else {
-							rc.Pass++
-						}
-					} else {
-						row.Result = color.ResultFail()
-						rc.Fail++
-					}
-					testCount++
-					rows = append(rows, row)
-				}
-			}
-			// if not found
-			if len(rows) == 0 {
-				row := table.Row{
-					CompactRow: table.CompactRow{
-						ID:        testCount,
-						Policy:    color.Policy("", test.Policy),
-						Rule:      color.Rule(test.Rule),
-						Resource:  color.Resource(test.Kind, test.Namespace, resource),
-						IsFailure: true,
-						Result:    color.ResultFail(),
-						Reason:    color.NotFound(),
-					},
-					Message: color.NotFound(),
-				}
-				testCount++
-				resultsTable.Add(row)
-				rc.Fail++
-			} else {
-				resultsTable.Add(rows...)
-			}
-		}
-	}
-	fmt.Printf("\n")
-	printer.Print(resultsTable.Rows(detailedResults))
-	return resultsTable, nil
-}
-
-func printFailedTestResult(resultsTable table.Table, detailedResults bool) {
-	printer := table.NewTablePrinter()
-	for i := range resultsTable.RawRows {
-		resultsTable.RawRows[i].ID = i + 1
-	}
-	fmt.Printf("Aggregated Failed Test Cases : ")
-	fmt.Println()
-	printer.Print(resultsTable.Rows(detailedResults))
 }
