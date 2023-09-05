@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/document"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
@@ -90,7 +90,7 @@ func GetResourceFromPath(fs billy.Filesystem, path string) (*unstructured.Unstru
 }
 
 func GetFileBytes(path string) ([]byte, error) {
-	if source.IsHttp(path) {
+	if document.IsHttp(path) {
 		// We accept here that a random URL might be called based on user provided input.
 		req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, path, nil)
 		if err != nil {

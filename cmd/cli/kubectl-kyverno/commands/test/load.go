@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/go-git/go-billy/v5/memfs"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/document"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
@@ -28,7 +28,7 @@ func loadTests(paths []string, fileName string, gitBranch string) (test.TestCase
 
 func loadTest(path string, fileName string, gitBranch string) (test.TestCases, error) {
 	var tests []test.TestCase
-	if source.IsGit(path) {
+	if document.IsGit(path) {
 		fs := memfs.New()
 		gitURL, err := url.Parse(path)
 		if err != nil {
