@@ -1,19 +1,8 @@
-package api
+package test
 
 import (
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-type Test struct {
-	Name      string        `json:"name"`
-	Policies  []string      `json:"policies"`
-	Resources []string      `json:"resources"`
-	Variables string        `json:"variables,omitempty"`
-	UserInfo  string        `json:"userinfo,omitempty"`
-	Results   []TestResults `json:"results"`
-	Values    *Values       `json:"values,omitempty"`
-}
 
 type TestResults struct {
 	// Policy mentions the name of the policy.
@@ -49,38 +38,4 @@ type TestResults struct {
 	// CloneSourceResource takes the resource configuration file in yaml format
 	// from the user which is meant to be cloned by the generate rule.
 	CloneSourceResource string `json:"cloneSourceResource,omitempty"`
-}
-
-type Policy struct {
-	Name      string     `json:"name"`
-	Resources []Resource `json:"resources"`
-	Rules     []Rule     `json:"rules"`
-}
-
-type Rule struct {
-	Name          string                   `json:"name"`
-	Values        map[string]interface{}   `json:"values"`
-	ForeachValues map[string][]interface{} `json:"foreachValues"`
-}
-
-type Values struct {
-	Policies           []Policy            `json:"policies"`
-	GlobalValues       map[string]string   `json:"globalValues"`
-	NamespaceSelectors []NamespaceSelector `json:"namespaceSelector"`
-	Subresources       []Subresource       `json:"subresources"`
-}
-
-type Resource struct {
-	Name   string                 `json:"name"`
-	Values map[string]interface{} `json:"values"`
-}
-
-type Subresource struct {
-	APIResource    metav1.APIResource `json:"subresource"`
-	ParentResource metav1.APIResource `json:"parentResource"`
-}
-
-type NamespaceSelector struct {
-	Name   string            `json:"name"`
-	Labels map[string]string `json:"labels"`
 }

@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/go-git/go-billy/v5"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
+	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
@@ -20,12 +20,12 @@ func readFile(f billy.Filesystem, filepath string) ([]byte, error) {
 	return os.ReadFile(filepath)
 }
 
-func Load(f billy.Filesystem, filepath string) (*api.Values, error) {
+func Load(f billy.Filesystem, filepath string) (*valuesapi.Values, error) {
 	yamlBytes, err := readFile(f, filepath)
 	if err != nil {
 		return nil, err
 	}
-	vals := &api.Values{}
+	vals := &valuesapi.Values{}
 	if err := yaml.UnmarshalStrict(yamlBytes, vals); err != nil {
 		return nil, err
 	}

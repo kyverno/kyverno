@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/go-git/go-billy/v5"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
+	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
 )
 
 func Test_readFile(t *testing.T) {
@@ -31,18 +31,18 @@ func Test_readFile(t *testing.T) {
 		wantErr:  true,
 	}, {
 		name:     "does not exist",
-		filepath: "../testdata/values/doesnotexist",
+		filepath: "../_testdata/values/doesnotexist",
 		want:     nil,
 		wantErr:  true,
 	}, {
 		name:     "bad format",
-		filepath: "../testdata/values/bad-format.yaml",
-		want:     mustReadFile("../testdata/values/bad-format.yaml"),
+		filepath: "../_testdata/values/bad-format.yaml",
+		want:     mustReadFile("../_testdata/values/bad-format.yaml"),
 		wantErr:  false,
 	}, {
 		name:     "valid",
-		filepath: "../testdata/values/valid.yaml",
-		want:     mustReadFile("../testdata/values/valid.yaml"),
+		filepath: "../_testdata/values/valid.yaml",
+		want:     mustReadFile("../_testdata/values/valid.yaml"),
 		wantErr:  false,
 	}}
 	for _, tt := range tests {
@@ -64,7 +64,7 @@ func TestLoad(t *testing.T) {
 		name     string
 		f        billy.Filesystem
 		filepath string
-		want     *api.Values
+		want     *valuesapi.Values
 		wantErr  bool
 	}{{
 		name:     "empty",
@@ -73,27 +73,27 @@ func TestLoad(t *testing.T) {
 		wantErr:  true,
 	}, {
 		name:     "does not exist",
-		filepath: "../testdata/values/doesnotexist",
+		filepath: "../_testdata/values/doesnotexist",
 		want:     nil,
 		wantErr:  true,
 	}, {
 		name:     "bad format",
-		filepath: "../testdata/values/bad-format.yaml",
+		filepath: "../_testdata/values/bad-format.yaml",
 		want:     nil,
 		wantErr:  true,
 	}, {
 		name:     "valid",
-		filepath: "../testdata/values/valid.yaml",
-		want: &api.Values{
-			NamespaceSelectors: []api.NamespaceSelector{{
+		filepath: "../_testdata/values/valid.yaml",
+		want: &valuesapi.Values{
+			NamespaceSelectors: []valuesapi.NamespaceSelector{{
 				Name: "test1",
 				Labels: map[string]string{
 					"foo.com/managed-state": "managed",
 				},
 			}},
-			Policies: []api.Policy{{
+			Policies: []valuesapi.Policy{{
 				Name: "limit-configmap-for-sa",
-				Resources: []api.Resource{{
+				Resources: []valuesapi.Resource{{
 					Name: "any-configmap-name-good",
 					Values: map[string]interface{}{
 						"request.operation": "UPDATE",

@@ -13,9 +13,9 @@ import (
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy/annotations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
@@ -66,7 +66,7 @@ type ApplyPolicyConfig struct {
 	RuleToCloneSourceResource map[string]string
 	Client                    dclient.Interface
 	AuditWarn                 bool
-	Subresources              []api.Subresource
+	Subresources              []valuesapi.Subresource
 }
 
 // GetPolicies - Extracting the policies from multiple YAML
@@ -435,7 +435,7 @@ func processMutateEngineResponse(c ApplyPolicyConfig, mutateResponse *engineapi.
 	return nil
 }
 
-func GetKindsFromPolicy(policy kyvernov1.PolicyInterface, subresources []api.Subresource, dClient dclient.Interface) map[string]struct{} {
+func GetKindsFromPolicy(policy kyvernov1.PolicyInterface, subresources []valuesapi.Subresource, dClient dclient.Interface) map[string]struct{} {
 	kindOnwhichPolicyIsApplied := make(map[string]struct{})
 	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
@@ -458,7 +458,7 @@ func GetKindsFromPolicy(policy kyvernov1.PolicyInterface, subresources []api.Sub
 	return kindOnwhichPolicyIsApplied
 }
 
-func getKind(kind string, subresources []api.Subresource, dClient dclient.Interface) (string, error) {
+func getKind(kind string, subresources []valuesapi.Subresource, dClient dclient.Interface) (string, error) {
 	group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 	if subresource == "" {
 		return kind, nil
@@ -480,7 +480,7 @@ func getKind(kind string, subresources []api.Subresource, dClient dclient.Interf
 	return kind, nil
 }
 
-func getSubresourceKind(groupVersion, parentKind, subresourceName string, subresources []api.Subresource) (string, error) {
+func getSubresourceKind(groupVersion, parentKind, subresourceName string, subresources []valuesapi.Subresource) (string, error) {
 	for _, subresource := range subresources {
 		parentResourceGroupVersion := metav1.GroupVersion{
 			Group:   subresource.ParentResource.Group,

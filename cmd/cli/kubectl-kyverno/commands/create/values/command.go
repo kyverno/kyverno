@@ -5,8 +5,8 @@ import (
 	"strings"
 	"text/template"
 
+	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/templates"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
 	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	"github.com/spf13/cobra"
 )
@@ -33,7 +33,7 @@ func Command() *cobra.Command {
 				defer file.Close()
 				output = file
 			}
-			values := api.Values{
+			values := valuesapi.Values{
 				GlobalValues: map[string]string{},
 			}
 			for _, result := range namespaceSelector {
@@ -71,12 +71,12 @@ func Command() *cobra.Command {
 	return cmd
 }
 
-func parseNamespaceSelector(in string) *api.NamespaceSelector {
+func parseNamespaceSelector(in string) *valuesapi.NamespaceSelector {
 	parts := strings.Split(in, ",")
 	if len(parts) < 2 {
 		return nil
 	}
-	nsSelector := api.NamespaceSelector{
+	nsSelector := valuesapi.NamespaceSelector{
 		Name:   parts[0],
 		Labels: map[string]string{},
 	}
@@ -97,12 +97,12 @@ func parseKeyValue(in string) (string, string) {
 	return "", ""
 }
 
-func parseRule(in string) *api.Policy {
+func parseRule(in string) *valuesapi.Policy {
 	parts := strings.Split(in, ",")
 	if len(parts) < 2 {
 		return nil
 	}
-	rule := api.Rule{
+	rule := valuesapi.Rule{
 		Name:   parts[1],
 		Values: map[string]interface{}{},
 	}
@@ -112,18 +112,18 @@ func parseRule(in string) *api.Policy {
 			rule.Values[k] = v
 		}
 	}
-	return &api.Policy{
+	return &valuesapi.Policy{
 		Name:  parts[0],
-		Rules: []api.Rule{rule},
+		Rules: []valuesapi.Rule{rule},
 	}
 }
 
-func parseResource(in string) *api.Policy {
+func parseResource(in string) *valuesapi.Policy {
 	parts := strings.Split(in, ",")
 	if len(parts) < 2 {
 		return nil
 	}
-	resource := api.Resource{
+	resource := valuesapi.Resource{
 		Name:   parts[1],
 		Values: map[string]interface{}{},
 	}
@@ -133,8 +133,8 @@ func parseResource(in string) *api.Policy {
 			resource.Values[k] = v
 		}
 	}
-	return &api.Policy{
+	return &valuesapi.Policy{
 		Name:      parts[0],
-		Resources: []api.Resource{resource},
+		Resources: []valuesapi.Resource{resource},
 	}
 }

@@ -4,19 +4,19 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
+	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/test"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 )
 
 type Filter interface {
-	Apply(api.TestResults) bool
+	Apply(testapi.TestResults) bool
 }
 
 type policy struct {
 	value string
 }
 
-func (f policy) Apply(result api.TestResults) bool {
+func (f policy) Apply(result testapi.TestResults) bool {
 	if result.Policy == "" {
 		return true
 	}
@@ -30,7 +30,7 @@ type rule struct {
 	value string
 }
 
-func (f rule) Apply(result api.TestResults) bool {
+func (f rule) Apply(result testapi.TestResults) bool {
 	if result.Rule == "" {
 		return true
 	}
@@ -44,7 +44,7 @@ type resource struct {
 	value string
 }
 
-func (f resource) Apply(result api.TestResults) bool {
+func (f resource) Apply(result testapi.TestResults) bool {
 	if result.Resource == "" {
 		return true
 	}
@@ -58,7 +58,7 @@ type composite struct {
 	filters []Filter
 }
 
-func (f composite) Apply(result api.TestResults) bool {
+func (f composite) Apply(result testapi.TestResults) bool {
 	for _, f := range f.filters {
 		if !f.Apply(result) {
 			return false

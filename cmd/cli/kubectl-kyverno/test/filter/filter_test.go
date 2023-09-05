@@ -5,57 +5,57 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
+	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/test"
 )
 
 func Test_policy_Apply(t *testing.T) {
 	tests := []struct {
 		name   string
 		value  string
-		result api.TestResults
+		result testapi.TestResults
 		want   bool
 	}{{
 		name:   "empty result",
 		value:  "test",
-		result: api.TestResults{},
+		result: testapi.TestResults{},
 		want:   true,
 	}, {
 		name:  "empty value",
 		value: "",
-		result: api.TestResults{
+		result: testapi.TestResults{
 			Policy: "test",
 		},
 		want: false,
 	}, {
 		name:   "empty value and result",
 		value:  "",
-		result: api.TestResults{},
+		result: testapi.TestResults{},
 		want:   true,
 	}, {
 		name:  "match",
 		value: "test",
-		result: api.TestResults{
+		result: testapi.TestResults{
 			Policy: "test",
 		},
 		want: true,
 	}, {
 		name:  "no match",
 		value: "test",
-		result: api.TestResults{
+		result: testapi.TestResults{
 			Policy: "not-test",
 		},
 		want: false,
 	}, {
 		name:  "wildcard match",
 		value: "disallow-*",
-		result: api.TestResults{
+		result: testapi.TestResults{
 			Policy: "disallow-latest-tag",
 		},
 		want: true,
 	}, {
 		name:  "wildcard does not match",
 		value: "allow-*",
-		result: api.TestResults{
+		result: testapi.TestResults{
 			Policy: "disallow-latest-tag",
 		},
 		want: false,
@@ -76,50 +76,50 @@ func Test_rule_Apply(t *testing.T) {
 	tests := []struct {
 		name   string
 		value  string
-		result api.TestResults
+		result testapi.TestResults
 		want   bool
 	}{{
 		name:   "empty result",
 		value:  "test",
-		result: api.TestResults{},
+		result: testapi.TestResults{},
 		want:   true,
 	}, {
 		name:  "empty value",
 		value: "",
-		result: api.TestResults{
+		result: testapi.TestResults{
 			Rule: "test",
 		},
 		want: false,
 	}, {
 		name:   "empty value and result",
 		value:  "",
-		result: api.TestResults{},
+		result: testapi.TestResults{},
 		want:   true,
 	}, {
 		name:  "match",
 		value: "test",
-		result: api.TestResults{
+		result: testapi.TestResults{
 			Rule: "test",
 		},
 		want: true,
 	}, {
 		name:  "no match",
 		value: "test",
-		result: api.TestResults{
+		result: testapi.TestResults{
 			Rule: "not-test",
 		},
 		want: false,
 	}, {
 		name:  "wildcard match",
 		value: "*-image-tag",
-		result: api.TestResults{
+		result: testapi.TestResults{
 			Rule: "validate-image-tag",
 		},
 		want: true,
 	}, {
 		name:  "wildcard does not match",
 		value: "require-*",
-		result: api.TestResults{
+		result: testapi.TestResults{
 			Rule: "validate-image-tag",
 		},
 		want: false,
@@ -140,50 +140,50 @@ func Test_resource_Apply(t *testing.T) {
 	tests := []struct {
 		name   string
 		value  string
-		result api.TestResults
+		result testapi.TestResults
 		want   bool
 	}{{
 		name:   "empty result",
 		value:  "test",
-		result: api.TestResults{},
+		result: testapi.TestResults{},
 		want:   true,
 	}, {
 		name:  "empty value",
 		value: "",
-		result: api.TestResults{
+		result: testapi.TestResults{
 			Resource: "test",
 		},
 		want: false,
 	}, {
 		name:   "empty value and result",
 		value:  "",
-		result: api.TestResults{},
+		result: testapi.TestResults{},
 		want:   true,
 	}, {
 		name:  "match",
 		value: "test",
-		result: api.TestResults{
+		result: testapi.TestResults{
 			Resource: "test",
 		},
 		want: true,
 	}, {
 		name:  "no match",
 		value: "test",
-		result: api.TestResults{
+		result: testapi.TestResults{
 			Resource: "not-test",
 		},
 		want: false,
 	}, {
 		name:  "wildcard match",
 		value: "good*01",
-		result: api.TestResults{
+		result: testapi.TestResults{
 			Resource: "good-deployment-01",
 		},
 		want: true,
 	}, {
 		name:  "wildcard does not match",
 		value: "good*01",
-		result: api.TestResults{
+		result: testapi.TestResults{
 			Resource: "bad-deployment-01",
 		},
 		want: false,
@@ -204,36 +204,36 @@ func Test_composite_Apply(t *testing.T) {
 	tests := []struct {
 		name    string
 		filters []Filter
-		result  api.TestResults
+		result  testapi.TestResults
 		want    bool
 	}{{
 		name:    "nil",
 		filters: nil,
-		result:  api.TestResults{},
+		result:  testapi.TestResults{},
 		want:    true,
 	}, {
 		name:    "empty",
 		filters: []Filter{},
-		result:  api.TestResults{},
+		result:  testapi.TestResults{},
 		want:    true,
 	}, {
 		name:    "policy match",
 		filters: []Filter{policy{"test"}},
-		result: api.TestResults{
+		result: testapi.TestResults{
 			Policy: "test",
 		},
 		want: true,
 	}, {
 		name:    "policy no match",
 		filters: []Filter{policy{"test"}},
-		result: api.TestResults{
+		result: testapi.TestResults{
 			Policy: "not-test",
 		},
 		want: false,
 	}, {
 		name:    "policy and resource match",
 		filters: []Filter{policy{"test"}, resource{"resource"}},
-		result: api.TestResults{
+		result: testapi.TestResults{
 			Policy:   "test",
 			Resource: "resource",
 		},
@@ -241,7 +241,7 @@ func Test_composite_Apply(t *testing.T) {
 	}, {
 		name:    "policy match and resource no match",
 		filters: []Filter{policy{"test"}, resource{"resource"}},
-		result: api.TestResults{
+		result: testapi.TestResults{
 			Policy:   "test",
 			Resource: "not-resource",
 		},
