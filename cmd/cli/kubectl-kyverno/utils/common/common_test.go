@@ -3,7 +3,6 @@ package common
 import (
 	"testing"
 
-	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
@@ -105,7 +104,7 @@ func Test_NamespaceSelector(t *testing.T) {
 			Policy:               policyArray[0],
 			Resource:             resourceArray[0],
 			MutateLogPath:        "",
-			UserInfo:             v1beta1.RequestInfo{},
+			UserInfo:             nil,
 			NamespaceSelectorMap: tc.namespaceSelectorMap,
 			Rc:                   rc,
 		}

@@ -133,7 +133,7 @@ OuterLoop:
 		jp,
 		*updatedResource,
 		operation,
-		&c.UserInfo,
+		c.UserInfo,
 		cfg,
 	)
 	if err != nil {
