@@ -1,4 +1,0 @@
-subject:
-  kind: ServiceAccount
-  name: another-developer
-  namespace: another-namespace
