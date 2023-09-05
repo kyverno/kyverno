@@ -11,18 +11,28 @@ import (
 )
 
 func main() {
-	cmd := commands.RootCommand()
-	configureLogs(cmd)
-	if err := cmd.Execute(); err != nil {
+	if err := run(); err != nil {
+		fmt.Println("Error:", err)
 		os.Exit(1)
 	}
 }
 
-func configureLogs(cli *cobra.Command) {
+func run() error {
+	cmd := commands.RootCommand()
+	if err := configureLogs(cmd); err != nil {
+		return fmt.Errorf("Failed to setup logging (%w)", err)
+	}
+	if err := cmd.Execute(); err != nil {
+		return fmt.Errorf("Failed to execute command (%w)", err)
+	}
+	return nil
+}
+
+func configureLogs(cli *cobra.Command) error {
 	logging.InitFlags(nil)
 	if err := logging.Setup(logging.TextFormat, 0); err != nil {
-		fmt.Println("failed to setup logging", err)
-		os.Exit(1)
+		return err
 	}
 	cli.PersistentFlags().AddGoFlagSet(flag.CommandLine)
+	return nil
 }
