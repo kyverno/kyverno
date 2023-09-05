@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 
 	"github.com/go-git/go-billy/v5"
+	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/filter"
 	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	reportutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/report"
@@ -118,7 +118,7 @@ func testCommandExecute(
 	for _, test := range tests {
 		if test.Err == nil {
 			// filter results
-			var filteredResults []api.TestResults
+			var filteredResults []testapi.TestResults
 			for _, res := range test.Test.Results {
 				if filter.Apply(res) {
 					filteredResults = append(filteredResults, res)
@@ -154,7 +154,7 @@ func testCommandExecute(
 	return nil
 }
 
-func checkResult(test api.TestResults, fs billy.Filesystem, resoucePath string, response engineapi.EngineResponse, rule engineapi.RuleResponse) (bool, string, string) {
+func checkResult(test testapi.TestResults, fs billy.Filesystem, resoucePath string, response engineapi.EngineResponse, rule engineapi.RuleResponse) (bool, string, string) {
 	expected := test.Result
 	// fallback to the deprecated field
 	if expected == "" {
@@ -186,7 +186,7 @@ func checkResult(test api.TestResults, fs billy.Filesystem, resoucePath string, 
 	return true, result.Message, "Ok"
 }
 
-func lookupEngineResponses(test api.TestResults, resourceName string, responses ...engineapi.EngineResponse) []engineapi.EngineResponse {
+func lookupEngineResponses(test testapi.TestResults, resourceName string, responses ...engineapi.EngineResponse) []engineapi.EngineResponse {
 	var matches []engineapi.EngineResponse
 	for _, response := range responses {
 		policy := response.Policy()
@@ -208,7 +208,7 @@ func lookupEngineResponses(test api.TestResults, resourceName string, responses 
 	return matches
 }
 
-func lookupRuleResponses(test api.TestResults, responses ...engineapi.RuleResponse) []engineapi.RuleResponse {
+func lookupRuleResponses(test testapi.TestResults, responses ...engineapi.RuleResponse) []engineapi.RuleResponse {
 	var matches []engineapi.RuleResponse
 	// Since there are no rules in case of validating admission policies, responses are returned without checking rule names.
 	if test.IsValidatingAdmissionPolicy {
