@@ -7,6 +7,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/pluralize"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	pathutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/path"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
@@ -48,10 +49,10 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 		return nil, err
 	}
 	// user info
-	var userInfo v1beta1.RequestInfo
+	var userInfo *v1beta1.RequestInfo
 	if testCase.Test.UserInfo != "" {
 		fmt.Println("  Loading user infos", "...")
-		userInfo, err = common.GetUserInfoFromPath(testCase.Fs, testCase.Test.UserInfo, testDir)
+		userInfo, err = userinfo.Load(testCase.Fs, testCase.Test.UserInfo, testDir)
 		if err != nil {
 			return nil, fmt.Errorf("Error: failed to load request info (%s)", err)
 		}

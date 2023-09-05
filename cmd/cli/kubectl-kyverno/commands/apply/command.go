@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
 	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	reportutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/report"
@@ -138,9 +139,9 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 	if err != nil {
 		return rc, uu, skipInvalidPolicies, er, err
 	}
-	var userInfo v1beta1.RequestInfo
+	var userInfo *v1beta1.RequestInfo
 	if c.UserInfoPath != "" {
-		userInfo, err = common.GetUserInfoFromPath(nil, c.UserInfoPath, "")
+		userInfo, err = userinfo.Load(nil, c.UserInfoPath, "")
 		if err != nil {
 			fmt.Printf("Error: failed to load request info\nCause: %s\n", err)
 			osExit(1)
@@ -211,7 +212,7 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(validating
 	return rc, resources, skipInvalidPolicies, responses, nil
 }
 
-func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, resources []*unstructured.Unstructured, openApiManager openapi.Manager, skipInvalidPolicies SkippedInvalidPolicies, valuesMap map[string]map[string]api.Resource, dClient dclient.Interface, subresources []api.Subresource, globalValMap map[string]string, userInfo v1beta1.RequestInfo, mutateLogPathIsDir bool, namespaceSelectorMap map[string]map[string]string) (*common.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
+func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, resources []*unstructured.Unstructured, openApiManager openapi.Manager, skipInvalidPolicies SkippedInvalidPolicies, valuesMap map[string]map[string]api.Resource, dClient dclient.Interface, subresources []api.Subresource, globalValMap map[string]string, userInfo *v1beta1.RequestInfo, mutateLogPathIsDir bool, namespaceSelectorMap map[string]map[string]string) (*common.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	if len(variables) != 0 {
 		variables = common.SetInStoreContext(policies, variables)
 	}

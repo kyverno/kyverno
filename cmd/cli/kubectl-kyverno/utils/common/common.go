@@ -3,7 +3,6 @@ package common
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -58,7 +57,7 @@ type ApplyPolicyConfig struct {
 	MutateLogPath             string
 	MutateLogPathIsDir        bool
 	Variables                 map[string]interface{}
-	UserInfo                  kyvernov1beta1.RequestInfo
+	UserInfo                  *kyvernov1beta1.RequestInfo
 	PolicyReport              bool
 	NamespaceSelectorMap      map[string]map[string]string
 	Stdin                     bool
@@ -581,50 +580,6 @@ func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyCont
 	}
 
 	return newRuleResponse, nil
-}
-
-// GetUserInfoFromPath - get the request info as user info from a given path
-func GetUserInfoFromPath(fs billy.Filesystem, path string, policyResourcePath string) (kyvernov1beta1.RequestInfo, error) {
-	userInfo := &kyvernov1beta1.RequestInfo{}
-	if fs != nil {
-		filep, err := fs.Open(filepath.Join(policyResourcePath, path))
-		if err != nil {
-			fmt.Printf("Unable to open userInfo file: %s. \nerror: %s", path, err)
-		}
-		bytes, err := io.ReadAll(filep)
-		if err != nil {
-			fmt.Printf("Error: failed to read file %s: %v", filep.Name(), err.Error())
-		}
-		userInfoBytes, err := yaml.ToJSON(bytes)
-		if err != nil {
-			fmt.Printf("failed to convert to JSON: %v", err)
-		}
-
-		if err := json.Unmarshal(userInfoBytes, userInfo); err != nil {
-			fmt.Printf("failed to decode yaml: %v", err)
-		}
-	} else {
-		var errors []error
-		pathname := filepath.Clean(filepath.Join(policyResourcePath, path))
-		bytes, err := os.ReadFile(pathname)
-		if err != nil {
-			errors = append(errors, sanitizederror.NewWithError("unable to read yaml", err))
-		}
-		userInfoBytes, err := yaml.ToJSON(bytes)
-		if err != nil {
-			errors = append(errors, sanitizederror.NewWithError("failed to convert json", err))
-		}
-		if err := json.Unmarshal(userInfoBytes, userInfo); err != nil {
-			errors = append(errors, sanitizederror.NewWithError("failed to decode yaml", err))
-		}
-		if len(errors) > 0 && log.V(1).Enabled() {
-			fmt.Printf("ignoring errors: \n")
-			for _, e := range errors {
-				fmt.Printf("    %v \n", e.Error())
-			}
-		}
-	}
-	return *userInfo, nil
 }
 
 func GetGitBranchOrPolicyPaths(gitBranch, repoURL string, policyPaths []string) (string, string) {
