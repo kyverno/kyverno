@@ -6,7 +6,7 @@ import (
 	"text/template"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/templates"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test/api"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
 	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	"github.com/spf13/cobra"
 )

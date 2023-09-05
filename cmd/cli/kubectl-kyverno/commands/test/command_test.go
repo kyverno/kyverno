@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/go-git/go-billy/v5/memfs"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test/api"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"gotest.tools/assert"
 	"sigs.k8s.io/yaml"

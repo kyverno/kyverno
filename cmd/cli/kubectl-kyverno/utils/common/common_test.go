@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test/api"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
