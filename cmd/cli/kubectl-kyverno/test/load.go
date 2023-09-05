@@ -19,11 +19,11 @@ type TestCase struct {
 
 type TestCases []TestCase
 
-func (tc TestCases) Errors() []error {
-	var errors []error
+func (tc TestCases) Errors() []TestCase {
+	var errors []TestCase
 	for _, test := range tc {
 		if test.Err != nil {
-			errors = append(errors, test.Err)
+			errors = append(errors, test)
 		}
 	}
 	return errors

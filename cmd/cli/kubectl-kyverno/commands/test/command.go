@@ -43,12 +43,7 @@ func Command() *cobra.Command {
 				}
 			}()
 			store.SetRegistryAccess(registryAccess)
-			_, err = testCommandExecute(dirPath, fileName, gitBranch, testCase, failOnly, detailedResults)
-			if err != nil {
-				log.Log.V(3).Info("a directory is required")
-				return err
-			}
-			return nil
+			return testCommandExecute(dirPath, fileName, gitBranch, testCase, failOnly, detailedResults)
 		},
 	}
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "Test filename")
@@ -74,10 +69,10 @@ func testCommandExecute(
 	testCase string,
 	failOnly bool,
 	detailedResults bool,
-) (rc *resultCounts, err error) {
+) (err error) {
 	// check input dir
 	if len(dirPath) == 0 {
-		return rc, sanitizederror.NewWithError("a directory is required", err)
+		return sanitizederror.NewWithError("a directory is required", err)
 	}
 	// parse filter
 	filter, errors := filter.ParseFilter(testCase)
@@ -85,21 +80,20 @@ func testCommandExecute(
 		fmt.Println()
 		fmt.Println("Filter errors:")
 		for _, e := range errors {
-			fmt.Printf("    %v \n", e.Error())
+			fmt.Println("  Error:", e)
 		}
 	}
 	// init openapi manager
 	openApiManager, err := openapi.NewManager(log.Log)
 	if err != nil {
-		return rc, fmt.Errorf("unable to create open api controller, %w", err)
+		return fmt.Errorf("unable to create open api controller, %w", err)
 	}
 	// load tests
 	tests, err := loadTests(dirPath, fileName, gitBranch)
 	if err != nil {
 		fmt.Println()
-		fmt.Println("Error loading tests:")
-		fmt.Printf("    %s\n", err)
-		return rc, err
+		fmt.Println("Error loading tests:", err)
+		return err
 	}
 	if len(tests) == 0 {
 		fmt.Println()
@@ -109,7 +103,8 @@ func testCommandExecute(
 		fmt.Println()
 		fmt.Println("Test errors:")
 		for _, e := range errs {
-			fmt.Printf("    %v \n", e.Error())
+			fmt.Println("  Path:", e.Path)
+			fmt.Println("    Error:", e.Err)
 		}
 	}
 	if len(tests) == 0 {
@@ -119,25 +114,25 @@ func testCommandExecute(
 			os.Exit(1)
 		}
 	}
-	rc = &resultCounts{}
+	rc := &resultCounts{}
 	var table table.Table
-	for _, p := range tests {
-		resourcePath := filepath.Dir(p.Path)
-		if tests, responses, err := applyPoliciesFromPath(
-			p.Fs,
-			p.Test,
-			p.Fs != nil,
-			resourcePath,
-			rc,
-			openApiManager,
-			filter,
-			false,
-		); err != nil {
-			return rc, sanitizederror.NewWithError("failed to apply test command", err)
-		} else if t, err := printTestResult(tests, responses, rc, failOnly, detailedResults, p.Fs, resourcePath); err != nil {
-			return rc, sanitizederror.NewWithError("failed to print test result:", err)
-		} else {
-			table.AddFailed(t.RawRows...)
+	for _, test := range tests {
+		if test.Err == nil {
+			resourcePath := filepath.Dir(test.Path)
+			if tests, responses, err := applyPoliciesFromPath(
+				test,
+				resourcePath,
+				rc,
+				openApiManager,
+				filter,
+				false,
+			); err != nil {
+				return sanitizederror.NewWithError("failed to apply test command", err)
+			} else if t, err := printTestResult(tests, responses, rc, failOnly, detailedResults, test.Fs, resourcePath); err != nil {
+				return sanitizederror.NewWithError("failed to print test result:", err)
+			} else {
+				table.AddFailed(t.RawRows...)
+			}
 		}
 	}
 	if !failOnly {
@@ -152,8 +147,7 @@ func testCommandExecute(
 		}
 		os.Exit(1)
 	}
-	os.Exit(0)
-	return rc, nil
+	return nil
 }
 
 func checkResult(test api.TestResults, fs billy.Filesystem, resoucePath string, response engineapi.EngineResponse, rule engineapi.RuleResponse) (bool, string, string) {
