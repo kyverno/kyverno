@@ -12,8 +12,7 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-func Load(fs billy.Filesystem, path string, resourcePath string) (*kyvernov1beta1.RequestInfo, error) {
-	var userInfo kyvernov1beta1.RequestInfo
+func load(fs billy.Filesystem, path string, resourcePath string) ([]byte, error) {
 	if fs != nil {
 		filep, err := fs.Open(filepath.Join(resourcePath, path))
 		if err != nil {
@@ -23,17 +22,24 @@ func Load(fs billy.Filesystem, path string, resourcePath string) (*kyvernov1beta
 		if err != nil {
 			return nil, fmt.Errorf("Error: failed to read file %s: %w", filep.Name(), err)
 		}
-		if err := yaml.UnmarshalStrict(bytes, &userInfo); err != nil {
-			return nil, sanitizederror.NewWithError("failed to decode yaml", err)
-		}
+		return bytes, err
 	} else {
 		bytes, err := os.ReadFile(filepath.Clean(filepath.Join(resourcePath, path)))
 		if err != nil {
 			return nil, sanitizederror.NewWithError("unable to read yaml", err)
 		}
-		if err := yaml.UnmarshalStrict(bytes, &userInfo); err != nil {
-			return nil, sanitizederror.NewWithError("failed to decode yaml", err)
-		}
+		return bytes, err
+	}
+}
+
+func Load(fs billy.Filesystem, path string, resourcePath string) (*kyvernov1beta1.RequestInfo, error) {
+	bytes, err := load(fs, path, resourcePath)
+	if err != nil {
+		return nil, sanitizederror.NewWithError("unable to read yaml", err)
+	}
+	var userInfo kyvernov1beta1.RequestInfo
+	if err := yaml.UnmarshalStrict(bytes, &userInfo); err != nil {
+		return nil, sanitizederror.NewWithError("failed to decode yaml", err)
 	}
 	return &userInfo, nil
 }
