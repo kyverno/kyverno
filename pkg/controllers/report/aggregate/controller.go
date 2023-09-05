@@ -15,6 +15,7 @@ import (
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -226,7 +227,7 @@ func (c *controller) reconcileReport(ctx context.Context, policyMap map[string]p
 		for _, result := range results {
 			policy := policyMap[result.Policy]
 			if policy.policy != nil {
-				reportutils.SetPolicyLabel(report, policy.policy)
+				reportutils.SetPolicyLabel(report, engineapi.NewKyvernoPolicy(policy.policy))
 			}
 		}
 		return reportutils.CreateReport(ctx, report, c.client)
@@ -238,7 +239,7 @@ func (c *controller) reconcileReport(ctx context.Context, policyMap map[string]p
 	for _, result := range results {
 		policy := policyMap[result.Policy]
 		if policy.policy != nil {
-			reportutils.SetPolicyLabel(after, policy.policy)
+			reportutils.SetPolicyLabel(after, engineapi.NewKyvernoPolicy(policy.policy))
 		}
 	}
 	reportutils.SetResults(after, results...)
