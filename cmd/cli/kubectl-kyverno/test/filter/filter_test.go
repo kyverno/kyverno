@@ -313,9 +313,7 @@ func TestParseFilter(t *testing.T) {
 			errors.New("Invalid test-case-selector (foo=bar). Parameter can only be policy, rule or resource."),
 			errors.New("Invalid test-case-selector argument (policy). Parameter must be in the form `<key>=<value>`."),
 		},
-	},
-	// TODO: Add test cases.
-	}
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, got1 := ParseFilter(tt.in)
