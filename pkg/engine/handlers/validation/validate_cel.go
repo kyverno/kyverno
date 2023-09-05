@@ -3,6 +3,7 @@ package validation
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/cel"
 	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy"
@@ -26,6 +28,12 @@ import (
 type validateCELHandler struct {
 	client engineapi.Client
 }
+
+const (
+	// define retry interval and timeout
+	retryInterval = 2 * time.Second
+	retryTimeout  = 10 * time.Second
+)
 
 func NewValidateCELHandler(client engineapi.Client) (handlers.Handler, error) {
 	return validateCELHandler{
@@ -189,19 +197,35 @@ func collectParams(ctx context.Context, client engineapi.Client, paramKind *admi
 	}
 
 	if paramRef.Name != "" {
-		param, err := client.GetResource(ctx, apiVersion, kind, paramsNamespace, paramRef.Name, "")
+		var param runtime.Object
+		err := wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
+			var err error
+			param, err = client.GetResource(ctx, apiVersion, kind, paramsNamespace, paramRef.Name, "")
+			if err != nil {
+				return false, nil
+			}
+			return true, nil
+		})
 		if err != nil {
 			return nil, err
 		}
 		return []runtime.Object{param}, nil
 	} else if paramRef.Selector != nil {
-		paramList, err := client.ListResource(ctx, apiVersion, kind, paramsNamespace, paramRef.Selector)
+		var params []runtime.Object
+		err := wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
+			paramList, err := client.ListResource(ctx, apiVersion, kind, paramsNamespace, paramRef.Selector)
+			if err != nil {
+				return false, nil
+			}
+			for i := range paramList.Items {
+				params = append(params, &paramList.Items[i])
+			}
+			return true, nil
+		})
 		if err != nil {
 			return nil, err
 		}
-		for i := range paramList.Items {
-			params = append(params, &paramList.Items[i])
-		}
+		return params, nil
 	}
 
 	if len(params) == 0 && paramRef.ParameterNotFoundAction != nil && *paramRef.ParameterNotFoundAction == admissionregistrationv1alpha1.DenyAction {
