@@ -64,7 +64,7 @@ type ApplyCommandConfig struct {
 }
 
 // allow os.exit to be overwritten during unit tests
-var osExit = os.Exit
+//var osExit = os.Exit
 
 func Command() *cobra.Command {
 	var cmd *cobra.Command
@@ -98,7 +98,10 @@ func Command() *cobra.Command {
 			} else {
 				printViolations(rc)
 			}
-			exit(rc, applyCommandConfig.warnExitCode, applyCommandConfig.warnNoPassed)
+			err = exit(rc, applyCommandConfig.warnExitCode, applyCommandConfig.warnNoPassed)
+			if err != nil {
+				return err
+			}
 			return nil
 		},
 	}
@@ -142,8 +145,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 	if c.UserInfoPath != "" {
 		userInfo, err = common.GetUserInfoFromPath(nil, c.UserInfoPath, false, "")
 		if err != nil {
-			fmt.Printf("Error: failed to load request info\nCause: %s\n", err)
-			osExit(1)
+			return rc, uu, skipInvalidPolicies, er, fmt.Errorf("Error: failed to load request info\nCause: %s\n", err)
 		}
 	}
 	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(c.Variables, nil, c.ValuesFile, nil, false, "")
@@ -165,7 +167,10 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 	if err != nil {
 		return rc, uu, skipInvalidPolicies, er, err
 	}
-	resources := c.loadResources(policies, validatingAdmissionPolicies, dClient)
+	resources, err := c.loadResources(policies, validatingAdmissionPolicies, dClient)
+	if err != nil {
+		return rc, uu, skipInvalidPolicies, er, err
+	}
 	rc, uu, skipInvalidPolicies, er, err = c.applyPolicytoResource(variables, policies, validatingAdmissionPolicies, resources, openApiManager, skipInvalidPolicies, valuesMap, dClient, subresources, globalValMap, userInfo, mutateLogPathIsDir, namespaceSelectorMap)
 	if err != nil {
 		return rc, uu, skipInvalidPolicies, er, err
@@ -282,13 +287,12 @@ func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, 
 	return &rc, resources, skipInvalidPolicies, responses, nil
 }
 
-func (c *ApplyCommandConfig) loadResources(policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, dClient dclient.Interface) []*unstructured.Unstructured {
+func (c *ApplyCommandConfig) loadResources(policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, error) {
 	resources, err := common.GetResourceAccordingToResourcePath(nil, c.ResourcePaths, c.Cluster, policies, validatingAdmissionPolicies, dClient, c.Namespace, c.PolicyReport, false, "")
 	if err != nil {
-		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
-		osExit(1)
+		return resources, fmt.Errorf("Error: failed to load resources\nCause: %s\n", err)
 	}
-	return resources
+	return resources, nil
 }
 
 func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPolicies) (*common.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error, []kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy) {
@@ -304,15 +308,13 @@ func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPoli
 		if isGit {
 			gitSourceURL, err := url.Parse(policyPaths[0])
 			if err != nil {
-				fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
-				osExit(1)
+				return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("Error: failed to load policies\nCause: %s\n", err), policies, validatingAdmissionPolicies
 			}
 
 			pathElems := strings.Split(gitSourceURL.Path[1:], "/")
 			if len(pathElems) <= 1 {
 				err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
-				fmt.Printf("Error: failed to parse URL \nCause: %s\n", err)
-				osExit(1)
+				return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("Error: failed to parse URL \nCause: %s\n", err), policies, validatingAdmissionPolicies
 			}
 			gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
 			repoURL := gitSourceURL.String()
@@ -320,9 +322,8 @@ func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPoli
 			c.GitBranch, gitPathToYamls = common.GetGitBranchOrPolicyPaths(c.GitBranch, repoURL, policyPaths)
 			_, cloneErr := gitutils.Clone(repoURL, fs, c.GitBranch)
 			if cloneErr != nil {
-				fmt.Printf("Error: failed to clone repository \nCause: %s\n", cloneErr)
 				log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", cloneErr)
-				osExit(1)
+				return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("Error: failed to clone repository \nCause: %s\n", cloneErr), policies, validatingAdmissionPolicies
 			}
 			policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
 			if err != nil {
@@ -334,8 +335,7 @@ func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPoli
 
 		policiesFromFile, admissionPoliciesFromFile, err := common.GetPoliciesFromPaths(fs, policyPaths, isGit, "")
 		if err != nil {
-			fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
-			osExit(1)
+			return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("Error: failed to load policies\nCause: %s\n", err), policies, validatingAdmissionPolicies
 		}
 
 		policies = append(policies, policiesFromFile...)
@@ -446,14 +446,15 @@ func printViolations(rc *common.ResultCounts) {
 	fmt.Printf("\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n", rc.Pass, rc.Fail, rc.Warn, rc.Error, rc.Skip)
 }
 
-func exit(rc *common.ResultCounts, warnExitCode int, warnNoPassed bool) {
+func exit(rc *common.ResultCounts, warnExitCode int, warnNoPassed bool) error {
 	if rc.Fail > 0 || rc.Error > 0 {
-		osExit(1)
+		return fmt.Errorf("exit as fail or error count > 0")
 	} else if rc.Warn > 0 && warnExitCode != 0 {
-		osExit(warnExitCode)
+		return fmt.Errorf("exit as warnExitCode is %d", warnExitCode)
 	} else if rc.Pass == 0 && warnNoPassed {
-		osExit(warnExitCode)
+		return fmt.Errorf("exit as warnExitCode is %d", warnExitCode)
 	}
+	return nil
 }
 
 func processSkipEngineResponses(responses []engineapi.EngineResponse, c common.ApplyPolicyConfig) []engineapi.EngineResponse {

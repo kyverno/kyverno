@@ -19,6 +19,9 @@ func main() {
 
 func run() error {
 	cmd := commands.RootCommand()
+	if err := cmd.Execute(); err != nil {
+		return fmt.Errorf("Error: %v\n", err)
+	}
 	if err := configureLogs(cmd); err != nil {
 		return fmt.Errorf("Failed to setup logging (%w)", err)
 	}
