@@ -2,6 +2,10 @@
 
 Create a Kyverno user-info file.
 
+### Synopsis
+
+Create a Kyverno user-info file.
+
 ```
 kyverno create user-info [flags]
 ```
@@ -9,7 +13,8 @@ kyverno create user-info [flags]
 ### Examples
 
 ```
-kyverno create user-info -u molybdenum@somecorp.com -g basic-user -c admin
+  # Create user info file
+  kyverno create user-info -u molybdenum@somecorp.com -g basic-user -c admin
 ```
 
 ### Options
@@ -43,5 +48,5 @@ kyverno create user-info -u molybdenum@somecorp.com -g basic-user -c admin
 
 ### SEE ALSO
 
-* [kyverno create](kyverno_create.md)	 - Provides a command-line interface to help with the creation of various Kyverno resources.
+* [kyverno create](kyverno_create.md)	 - Helps with the creation of various Kyverno resources.
 

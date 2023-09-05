@@ -7,6 +7,7 @@ import (
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/templates"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test/api"
+	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	"github.com/spf13/cobra"
 )
 
@@ -15,8 +16,9 @@ func Command() *cobra.Command {
 	var globalValues, namespaceSelector, rules, resources []string
 	cmd := &cobra.Command{
 		Use:     "values",
-		Short:   "Create a Kyverno values file.",
-		Example: "kyverno create values -g request.mode=dev -n prod,env=prod --rule policy,rule,env=demo --resource policy,resource,env=demo",
+		Short:   cobrautils.FormatDescription(true, websiteUrl, false, description...),
+		Long:    cobrautils.FormatDescription(false, websiteUrl, false, description...),
+		Example: cobrautils.FormatExamples(examples...),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			tmpl, err := template.New("values").Parse(templates.ValuesTemplate)
 			if err != nil {

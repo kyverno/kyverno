@@ -6,6 +6,7 @@ import (
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/templates"
+	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	"github.com/spf13/cobra"
 )
 
@@ -25,8 +26,9 @@ func Command() *cobra.Command {
 	var options options
 	cmd := &cobra.Command{
 		Use:     "metrics-config",
-		Short:   "Create a Kyverno metrics-config file.",
-		Example: "kyverno create metrics-config -i ns-included-1 -i ns-included-2 -e ns-excluded",
+		Short:   cobrautils.FormatDescription(true, websiteUrl, false, description...),
+		Long:    cobrautils.FormatDescription(false, websiteUrl, false, description...),
+		Example: cobrautils.FormatExamples(examples...),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			tmpl, err := template.New("metricsconfig").Funcs(sprig.HermeticTxtFuncMap()).Parse(templates.MetricsConfigTemplate)
 			if err != nil {

@@ -7,39 +7,25 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 
 	gojmespath "github.com/kyverno/go-jmespath"
+	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 )
 
-var description = []string{
-	"Provides a command-line interface to JMESPath, enhanced with Kyverno specific custom functions",
-	"For more information visit: https://kyverno.io/docs/writing-policies/jmespath/ ",
-}
-
-var examples = []string{
-	"  # Evaluate query             \n  kyverno jp query -i object.yaml 'request.object.metadata.name | truncate(@, `9`)'",
-	"  # Evaluate query             \n  kyverno jp query -i object.yaml -q query-file",
-	"  # Evaluate multiple queries  \n  kyverno jp query -i object.yaml -q query-file-1 -q query-file-2 'request.object.metadata.name | truncate(@, `9`)'",
-	"  # Cat query into             \n  cat query-file | kyverno jp query -i object.yaml",
-	"  # Cat object into            \n  cat object.yaml | kyverno jp query -q query-file",
-}
-
-// Command returns jp command
 func Command() *cobra.Command {
 	var compact, unquoted bool
 	var input string
 	var queries []string
 	cmd := &cobra.Command{
 		Use:          "query [-i input] [-q query|query]...",
-		Short:        description[0],
-		Long:         strings.Join(description, "\n"),
+		Short:        cobrautils.FormatDescription(true, websiteUrl, false, description...),
+		Long:         cobrautils.FormatDescription(false, websiteUrl, false, description...),
+		Example:      cobrautils.FormatExamples(examples...),
 		SilenceUsage: true,
-		Example:      strings.Join(examples, "\n\n"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			queries, err := loadQueries(args, queries)
 			if err != nil {
