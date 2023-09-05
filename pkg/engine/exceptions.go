@@ -55,20 +55,32 @@ func matchesException(
 		resource = policyContext.OldResource()
 	}
 	for _, candidate := range candidates {
-		if rule.HasVerifyImages() || rule.HasValidatePodSecurity() {
-			if candidate.Spec.HasImages() {
+		if candidate.Spec.HasImages() {
+			if rule.HasVerifyImages() {
 				for _, iv := range rule.VerifyImages {
 					for _, iref := range iv.ImageReferences {
-						for _, i := range *candidate.Spec.Images {
+						for _, i := range candidate.Spec.Images {
 							if wildcard.Match(iref, i) {
 								return candidate, nil
 							}
 						}
 					}
 				}
-				return nil, errors.New("no image is matched")
 			}
+			if rule.HasValidatePodSecurity() {
+				for _, pss := range rule.Validation.PodSecurity.Exclude {
+					for _, iref := range pss.Images {
+						for _, i := range candidate.Spec.Images {
+							if wildcard.Match(iref, i) {
+								return candidate, nil
+							}
+						}
+					}
+				}
+			}
+			return nil, errors.New("no image is matched")
 		}
+
 		err := matched.CheckMatchesResources(
 			resource,
 			candidate.Spec.Match,

@@ -74,11 +74,11 @@ type PolicyExceptionSpec struct {
 
 	// Images is a list of images to check if a resource applies to the exception.
 	// Applicable only to rule types that apply to images: verifyImages, validate.podSecurity.
-	Images *[]string `json:"images,omitempty"`
+	Images []string `json:"images,omitempty"`
 }
 
 func (p *PolicyExceptionSpec) HasImages() bool {
-	return len(*p.Images) > 0
+	return len(p.Images) > 0
 }
 
 func (p *PolicyExceptionSpec) BackgroundProcessingEnabled() bool {
