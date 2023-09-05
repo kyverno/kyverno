@@ -2,6 +2,10 @@
 
 Create a Kyverno metrics-config file.
 
+### Synopsis
+
+Create a Kyverno metrics-config file.
+
 ```
 kyverno create metrics-config [flags]
 ```
@@ -9,7 +13,8 @@ kyverno create metrics-config [flags]
 ### Examples
 
 ```
-kyverno create metrics-config -i ns-included-1 -i ns-included-2 -e ns-excluded
+  # Create metrics config file
+  kyverno create metrics-config -i ns-included-1 -i ns-included-2 -e ns-excluded
 ```
 
 ### Options
@@ -43,5 +48,5 @@ kyverno create metrics-config -i ns-included-1 -i ns-included-2 -e ns-excluded
 
 ### SEE ALSO
 
-* [kyverno create](kyverno_create.md)	 - Provides a command-line interface to help with the creation of various Kyverno resources.
+* [kyverno create](kyverno_create.md)	 - Helps with the creation of various Kyverno resources.
 

@@ -2,28 +2,23 @@ package common
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
-	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test/api"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	"k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/yaml"
 )
 
 // GetResources gets matched resources by the given policies
@@ -103,7 +98,7 @@ func whenClusterIsTrue(resourceTypes []schema.GroupVersionKind, subresourceMap m
 func whenClusterIsFalse(resourcePaths []string, policyReport bool) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	for _, resourcePath := range resourcePaths {
-		resourceBytes, err := getFileBytes(resourcePath)
+		resourceBytes, err := resource.GetFileBytes(resourcePath)
 		if err != nil {
 			if policyReport {
 				log.V(3).Info(fmt.Sprintf("failed to load resources: %s.", resourcePath), "error", err)
@@ -113,7 +108,7 @@ func whenClusterIsFalse(resourcePaths []string, policyReport bool) ([]*unstructu
 			continue
 		}
 
-		getResources, err := GetResource(resourceBytes)
+		getResources, err := resource.GetUnstructuredResources(resourceBytes)
 		if err != nil {
 			return nil, err
 		}
@@ -146,14 +141,14 @@ func GetResourcesWithTest(fs billy.Filesystem, policies []kyvernov1.PolicyInterf
 				}
 				resourceBytes, _ = io.ReadAll(filep)
 			} else {
-				resourceBytes, err = getFileBytes(resourcePath)
+				resourceBytes, err = resource.GetFileBytes(resourcePath)
 			}
 			if err != nil {
 				fmt.Printf("\n----------------------------------------------------------------------\nfailed to load resources: %s. \nerror: %s\n----------------------------------------------------------------------\n", resourcePath, err)
 				continue
 			}
 
-			getResources, err := GetResource(resourceBytes)
+			getResources, err := resource.GetUnstructuredResources(resourceBytes)
 			if err != nil {
 				return nil, err
 			}
@@ -161,35 +156,6 @@ func GetResourcesWithTest(fs billy.Filesystem, policies []kyvernov1.PolicyInterf
 			resources = append(resources, getResources...)
 		}
 	}
-	return resources, nil
-}
-
-// GetResource converts raw bytes to unstructured object
-func GetResource(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
-	resources := make([]*unstructured.Unstructured, 0)
-	var getErrString string
-
-	files, splitDocError := yamlutils.SplitDocuments(resourceBytes)
-	if splitDocError != nil {
-		return nil, splitDocError
-	}
-
-	for _, resourceYaml := range files {
-		resource, err := convertResourceToUnstructured(resourceYaml)
-		if err != nil {
-			if strings.Contains(err.Error(), "Object 'Kind' is missing") {
-				log.V(3).Info("skipping resource as kind not found")
-				continue
-			}
-			getErrString = getErrString + err.Error() + "\n"
-		}
-		resources = append(resources, resource)
-	}
-
-	if getErrString != "" {
-		return nil, errors.New(getErrString)
-	}
-
 	return resources, nil
 }
 
@@ -240,77 +206,9 @@ func getResourcesOfTypeFromCluster(resourceTypes []schema.GroupVersionKind, subr
 	return r, nil
 }
 
-func getFileBytes(path string) ([]byte, error) {
-	var (
-		file []byte
-		err  error
-	)
-
-	if IsHTTPRegex.MatchString(path) {
-		// We accept here that a random URL might be called based on user provided input.
-		req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, path, nil)
-		if err != nil {
-			return nil, err
-		}
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return nil, err
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			return nil, err
-		}
-
-		file, err = io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		path = filepath.Clean(path)
-		// We accept the risk of including a user provided file here.
-		file, err = os.ReadFile(path) // #nosec G304
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return file, err
-}
-
-func convertResourceToUnstructured(resourceYaml []byte) (*unstructured.Unstructured, error) {
-	decode := scheme.Codecs.UniversalDeserializer().Decode
-	_, metaData, decodeErr := decode(resourceYaml, nil, nil)
-
-	if decodeErr != nil {
-		if !strings.Contains(decodeErr.Error(), "no kind") {
-			return nil, decodeErr
-		}
-	}
-
-	resourceJSON, err := yaml.YAMLToJSON(resourceYaml)
-	if err != nil {
-		return nil, err
-	}
-
-	resource, err := kubeutils.BytesToUnstructured(resourceJSON)
-	if err != nil {
-		return nil, err
-	}
-
-	if decodeErr == nil {
-		resource.SetGroupVersionKind(*metaData)
-	}
-
-	if resource.GetNamespace() == "" {
-		resource.SetNamespace("default")
-	}
-	return resource, nil
-}
-
 // GetPatchedAndGeneratedResource converts raw bytes to unstructured object
 func GetPatchedAndGeneratedResource(resourceBytes []byte) (unstructured.Unstructured, error) {
-	getResource, err := GetResource(resourceBytes)
+	getResource, err := resource.GetUnstructuredResources(resourceBytes)
 	if err != nil {
 		return unstructured.Unstructured{}, err
 	}

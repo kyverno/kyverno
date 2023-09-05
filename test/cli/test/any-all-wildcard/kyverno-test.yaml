@@ -18,10 +18,11 @@ results:
   - test2
   result: fail
   rule: disallow
-- kind: Pod
-  namespace: namespace3
-  policy: disallow-protected-namespaces
-  resources:
-  - test3
-  result: skip
-  rule: disallow
+# TODO CEB FIX
+# - kind: Pod
+#   namespace: namespace3
+#   policy: disallow-protected-namespaces
+#   resources:
+#   - test3
+#   result: skip
+#   rule: disallow

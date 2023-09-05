@@ -43,7 +43,7 @@ require (
 	github.com/robfig/cron v1.2.0
 	github.com/sigstore/cosign/v2 v2.2.0
 	github.com/sigstore/k8s-manifest-sigstore v0.5.1
-	github.com/sigstore/rekor v1.3.0
+	github.com/sigstore/rekor v1.2.2
 	github.com/sigstore/sigstore v1.7.2
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.7.2
 	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.7.2
@@ -67,7 +67,7 @@ require (
 	go.uber.org/zap v1.25.0
 	golang.org/x/crypto v0.12.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
-	golang.org/x/text v0.12.0
+	golang.org/x/text v0.13.0
 	gomodules.xyz/jsonpatch/v2 v2.4.0
 	google.golang.org/grpc v1.57.0
 	gopkg.in/inf.v0 v0.9.1

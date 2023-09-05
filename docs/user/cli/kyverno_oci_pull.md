@@ -1,10 +1,14 @@
 ## kyverno oci pull
 
-pulls policie(s) that are included in an OCI image from OCI registry and saves them to a local directory
+Pulls policie(s) that are included in an OCI image from OCI registry and saves them to a local directory.
 
 ### Synopsis
 
-This command is one of the supported experimental commands, and its behaviour might be changed any time
+Pulls policie(s) that are included in an OCI image from OCI registry and saves them to a local directory.
+
+  NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
+
+  For more information visit https://kyverno.io/docs/kyverno-cli/#pulling
 
 ```
 kyverno oci pull [flags]
@@ -13,8 +17,8 @@ kyverno oci pull [flags]
 ### Examples
 
 ```
-# pull policy from an OCI image and save it to the specific directory
-kyverno oci pull -i <imgref> -d policies
+  # Pull policy from an OCI image and save it to the specific directory
+  kyverno oci pull -i <imgref> -d policies
 ```
 
 ### Options
@@ -22,6 +26,7 @@ kyverno oci pull -i <imgref> -d policies
 ```
   -d, --directory string   path to a directory (default ".")
   -h, --help               help for pull
+  -i, --image string       image reference to push to or pull from
 ```
 
 ### Options inherited from parent commands
@@ -29,7 +34,6 @@ kyverno oci pull -i <imgref> -d policies
 ```
       --add_dir_header                   If true, adds the file directory to the header of the log messages
       --alsologtostderr                  log to standard error as well as files (no effect when -logtostderr=true)
-  -i, --image string                     image reference to push to or pull from
       --log_backtrace_at traceLocation   when logging hits line file:N, emit a stack trace (default :0)
       --log_dir string                   If non-empty, write log files in this directory (no effect when -logtostderr=true)
       --log_file string                  If non-empty, use this log file (no effect when -logtostderr=true)
