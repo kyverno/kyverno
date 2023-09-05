@@ -1,0 +1,26 @@
+name: CIFuzz
+on: [pull_request]
+jobs:
+  Fuzzing:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Build Fuzzers
+      id: build
+      uses: google/oss-fuzz/infra/cifuzz/actions/build_fuzzers@431182e97348a158979ab8af46f6a73c374664ba
+      with:
+        oss-fuzz-project-name: 'kyverno'
+        dry-run: false
+        language: go
+    - name: Run Fuzzers
+      uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@431182e97348a158979ab8af46f6a73c374664ba
+      with:
+        oss-fuzz-project-name: 'kyverno'
+        fuzz-seconds: 300
+        dry-run: false
+        language: go
+    - name: Upload Crash
+      uses: actions/upload-artifact@v3
+      if: failure() && steps.build.outcome == 'success'
+      with:
+        name: artifacts
+        path: ./out/artifacts
