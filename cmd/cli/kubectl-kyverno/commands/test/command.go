@@ -2,7 +2,6 @@ package test
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/go-git/go-billy/v5"
@@ -109,9 +108,10 @@ func testCommandExecute(
 	}
 	if len(tests) == 0 {
 		if len(errors) == 0 {
-			os.Exit(0)
+			return nil
 		} else {
-			os.Exit(1)
+			// TODO aggregate errors
+			return errors[0]
 		}
 	}
 	rc := &resultCounts{}
@@ -147,7 +147,7 @@ func testCommandExecute(
 		if !failOnly {
 			printFailedTestResult(table, detailedResults)
 		}
-		os.Exit(1)
+		return fmt.Errorf("%d tests failed", rc.Fail)
 	}
 	return nil
 }
