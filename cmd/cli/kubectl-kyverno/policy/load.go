@@ -11,7 +11,7 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/document"
 	"github.com/kyverno/kyverno/pkg/utils/git"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"k8s.io/api/admissionregistration/v1alpha1"
@@ -21,7 +21,7 @@ func Load(fs billy.Filesystem, resourcePath string, paths ...string) ([]kyvernov
 	var pols []kyvernov1.PolicyInterface
 	var vaps []v1alpha1.ValidatingAdmissionPolicy
 	for _, path := range paths {
-		if source.IsStdin(path) {
+		if document.IsStdin(path) {
 			p, v, err := stdinLoad()
 			if err != nil {
 				return nil, nil, err
@@ -35,7 +35,7 @@ func Load(fs billy.Filesystem, resourcePath string, paths ...string) ([]kyvernov
 			}
 			pols = append(pols, p...)
 			vaps = append(vaps, v...)
-		} else if source.IsHttp(path) {
+		} else if document.IsHttp(path) {
 			p, v, err := httpLoad(path)
 			if err != nil {
 				return nil, nil, err

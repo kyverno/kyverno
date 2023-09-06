@@ -9,14 +9,16 @@ import (
 func TestIsStdin(t *testing.T) {
 	tests := []struct {
 		name string
+		path string
 		want bool
 	}{{
 		name: "default",
+		path: "-",
 		want: false,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := IsStdin(); got != tt.want {
+			if got := IsStdin(tt.path); got != tt.want {
 				t.Errorf("IsInputFromPipe() = %v, want %v", got, tt.want)
 			}
 		})

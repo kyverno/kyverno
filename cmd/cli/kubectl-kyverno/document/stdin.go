@@ -6,8 +6,8 @@ import (
 
 var defaultStater = (*os.File).Stat
 
-func IsStdin() bool {
-	return isStdin(defaultStater)
+func IsStdin(path string) bool {
+	return path == "-" && isStdin(defaultStater)
 }
 
 func isStdin(stater func(*os.File) (os.FileInfo, error)) bool {

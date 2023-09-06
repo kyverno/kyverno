@@ -11,10 +11,10 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/document"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy/annotations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
@@ -120,7 +120,7 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 		}
 	} else {
 		if len(resourcePaths) > 0 && resourcePaths[0] == "-" {
-			if source.IsStdin(resourcePaths[0]) {
+			if document.IsStdin(resourcePaths[0]) {
 				resourceStr := ""
 				scanner := bufio.NewScanner(os.Stdin)
 				for scanner.Scan() {
