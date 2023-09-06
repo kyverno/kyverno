@@ -56,11 +56,18 @@ var policyNamespaceSelector = []byte(`{
 `)
 
 func Test_NamespaceSelector(t *testing.T) {
+	type ResultCounts struct {
+		pass int
+		fail int
+		warn int
+		err  int
+		skip int
+	}
 	type TestCase struct {
 		policy               []byte
 		resource             []byte
 		namespaceSelectorMap map[string]map[string]string
-		result               processor.ResultCounts
+		result               ResultCounts
 	}
 
 	testcases := []TestCase{
@@ -72,12 +79,12 @@ func Test_NamespaceSelector(t *testing.T) {
 					"foo.com/managed-state": "managed",
 				},
 			},
-			result: processor.ResultCounts{
-				Pass:  0,
-				Fail:  1,
-				Warn:  0,
-				Error: 0,
-				Skip:  2,
+			result: ResultCounts{
+				pass: 0,
+				fail: 1,
+				warn: 0,
+				err:  0,
+				skip: 2,
 			},
 		},
 		{
@@ -88,12 +95,12 @@ func Test_NamespaceSelector(t *testing.T) {
 					"foo.com/managed-state": "managed",
 				},
 			},
-			result: processor.ResultCounts{
-				Pass:  1,
-				Fail:  1,
-				Warn:  0,
-				Error: 0,
-				Skip:  4,
+			result: ResultCounts{
+				pass: 1,
+				fail: 1,
+				warn: 0,
+				err:  0,
+				skip: 4,
 			},
 		},
 	}
@@ -110,12 +117,12 @@ func Test_NamespaceSelector(t *testing.T) {
 			Rc:                   rc,
 		}
 		processor.ApplyPolicyOnResource()
-		assert.Equal(t, int64(rc.Pass), int64(tc.result.Pass))
-		assert.Equal(t, int64(rc.Fail), int64(tc.result.Fail))
+		assert.Equal(t, int64(rc.Pass()), int64(tc.result.pass))
+		assert.Equal(t, int64(rc.Fail()), int64(tc.result.fail))
 		// TODO: autogen rules seem to not be present when autogen internals is disabled
-		assert.Equal(t, int64(rc.Skip), int64(tc.result.Skip))
-		assert.Equal(t, int64(rc.Warn), int64(tc.result.Warn))
-		assert.Equal(t, int64(rc.Error), int64(tc.result.Error))
+		assert.Equal(t, int64(rc.Skip()), int64(tc.result.skip))
+		assert.Equal(t, int64(rc.Warn()), int64(tc.result.warn))
+		assert.Equal(t, int64(rc.Error()), int64(tc.result.err))
 	}
 }
 

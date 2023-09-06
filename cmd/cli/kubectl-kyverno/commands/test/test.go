@@ -178,8 +178,6 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 				Resource:                  resource,
 				PolicyReport:              true,
 				Rc:                        &resultCounts,
-				Client:                    dClient,
-				Subresources:              subresources,
 			}
 			ers, err := processor.ApplyPolicyOnResource()
 			if err != nil {

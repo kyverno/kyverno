@@ -198,9 +198,6 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(validating
 				Resource:                  resource,
 				PolicyReport:              c.PolicyReport,
 				Rc:                        rc,
-				Client:                    dClient,
-				AuditWarn:                 c.AuditWarn,
-				Subresources:              subresources,
 			}
 			ers, err := processor.ApplyPolicyOnResource()
 			if err != nil {
@@ -443,15 +440,15 @@ func printReport(engineResponses []engineapi.EngineResponse, auditWarn bool) {
 }
 
 func printViolations(rc *processor.ResultCounts) {
-	fmt.Printf("\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n", rc.Pass, rc.Fail, rc.Warn, rc.Error, rc.Skip)
+	fmt.Printf("\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n", rc.Pass(), rc.Fail(), rc.Warn(), rc.Error(), rc.Skip())
 }
 
 func exit(rc *processor.ResultCounts, warnExitCode int, warnNoPassed bool) {
-	if rc.Fail > 0 || rc.Error > 0 {
+	if rc.Fail() > 0 || rc.Error() > 0 {
 		osExit(1)
-	} else if rc.Warn > 0 && warnExitCode != 0 {
+	} else if rc.Warn() > 0 && warnExitCode != 0 {
 		osExit(warnExitCode)
-	} else if rc.Pass == 0 && warnNoPassed {
+	} else if rc.Pass() == 0 && warnNoPassed {
 		osExit(warnExitCode)
 	}
 }
