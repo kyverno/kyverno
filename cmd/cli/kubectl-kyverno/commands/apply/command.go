@@ -12,7 +12,6 @@ import (
 	"github.com/go-git/go-billy/v5/memfs"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
@@ -24,6 +23,7 @@ import (
 	reportutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/report"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/values"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -148,7 +148,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*processor.ResultCounts, []*u
 			return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("Error: failed to load request info", err)
 		}
 	}
-	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(c.Variables, nil, c.ValuesFile, nil, "")
+	variables, err := values.GetVariable(nil, "", c.ValuesFile, nil, c.Variables...)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("failed to decode yaml", err)
@@ -168,11 +168,11 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*processor.ResultCounts, []*u
 		return rc, uu, skipInvalidPolicies, er, err
 	}
 	resources := c.loadResources(policies, validatingAdmissionPolicies, dClient)
-	rc, uu, skipInvalidPolicies, er, err = c.applyPolicytoResource(variables, policies, validatingAdmissionPolicies, resources, openApiManager, skipInvalidPolicies, valuesMap, dClient, subresources, globalValMap, userInfo, mutateLogPathIsDir, namespaceSelectorMap)
+	rc, uu, skipInvalidPolicies, er, err = c.applyPolicytoResource(variables, policies, validatingAdmissionPolicies, resources, openApiManager, skipInvalidPolicies, dClient, userInfo, mutateLogPathIsDir)
 	if err != nil {
 		return rc, uu, skipInvalidPolicies, er, err
 	}
-	rc, uu, skipInvalidPolicies, er, err = c.applyValidatingAdmissionPolicytoResource(validatingAdmissionPolicies, resources, rc, dClient, subresources, skipInvalidPolicies, er)
+	rc, uu, skipInvalidPolicies, er, err = c.applyValidatingAdmissionPolicytoResource(variables, validatingAdmissionPolicies, resources, rc, dClient, skipInvalidPolicies, er)
 	if err != nil {
 		return rc, uu, skipInvalidPolicies, er, err
 	}
@@ -190,7 +190,15 @@ func (c *ApplyCommandConfig) getMutateLogPathIsDir(skipInvalidPolicies SkippedIn
 	return nil, nil, skipInvalidPolicies, nil, err, mutateLogPathIsDir
 }
 
-func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, resources []*unstructured.Unstructured, rc *processor.ResultCounts, dClient dclient.Interface, subresources []valuesapi.Subresource, skipInvalidPolicies SkippedInvalidPolicies, responses []engineapi.EngineResponse) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
+func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(
+	variables *values.Variables,
+	validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy,
+	resources []*unstructured.Unstructured,
+	rc *processor.ResultCounts,
+	dClient dclient.Interface,
+	skipInvalidPolicies SkippedInvalidPolicies,
+	responses []engineapi.EngineResponse,
+) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	for _, resource := range resources {
 		for _, policy := range validatingAdmissionPolicies {
 			processor := processor.ValidatingAdmissionPolicyProcessor{
@@ -209,10 +217,21 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(validating
 	return rc, resources, skipInvalidPolicies, responses, nil
 }
 
-func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, resources []*unstructured.Unstructured, openApiManager openapi.Manager, skipInvalidPolicies SkippedInvalidPolicies, valuesMap map[string]map[string]valuesapi.Resource, dClient dclient.Interface, subresources []valuesapi.Subresource, globalValMap map[string]string, userInfo *v1beta1.RequestInfo, mutateLogPathIsDir bool, namespaceSelectorMap map[string]map[string]string) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
-	if len(variables) != 0 {
-		variables = common.SetInStoreContext(policies, variables)
-	}
+func (c *ApplyCommandConfig) applyPolicytoResource(
+	variables *values.Variables,
+	policies []kyvernov1.PolicyInterface,
+	validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy,
+	resources []*unstructured.Unstructured,
+	openApiManager openapi.Manager,
+	skipInvalidPolicies SkippedInvalidPolicies,
+	dClient dclient.Interface,
+	userInfo *v1beta1.RequestInfo,
+	mutateLogPathIsDir bool,
+) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
+	// TODO
+	// if len(variables) != 0 {
+	// 	variables = common.SetInStoreContext(policies, variables)
+	// }
 
 	if !c.Stdin {
 		var policyRulesCount int
@@ -226,53 +245,54 @@ func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, 
 	var rc processor.ResultCounts
 	var responses []engineapi.EngineResponse
 	for _, resource := range resources {
-		for _, policy := range policies {
-			_, err := policyvalidation.Validate(policy, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
+		for _, pol := range policies {
+			_, err := policyvalidation.Validate(pol, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
 			if err != nil {
 				log.Log.Error(err, "policy validation error")
 				if strings.HasPrefix(err.Error(), "variable 'element.name'") {
-					skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, policy.GetName())
+					skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, pol.GetName())
 				} else {
-					skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, policy.GetName())
+					skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, pol.GetName())
 				}
 
 				continue
 			}
-			matches := common.HasVariables(policy)
-			variable := common.RemoveDuplicateAndObjectVariables(matches)
-			if len(variable) > 0 {
-				if len(variables) == 0 {
-					// check policy in variable file
-					if c.ValuesFile == "" || valuesMap[policy.GetName()] == nil {
-						skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, policy.GetName())
-						continue
-					}
+			matches, err := policy.ExtractVariables(pol)
+			if err != nil {
+				log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
+				continue
+			}
+			if !variables.HasVariables() && values.NeedsVariables(matches...) {
+				// check policy in variable file
+				if !variables.HasPolicyVariables(pol.GetName()) {
+					skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, pol.GetName())
+					continue
 				}
 			}
-			kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy, subresources, dClient)
-			thisPolicyResourceValues, err := common.CheckVariableForPolicy(valuesMap, globalValMap, policy.GetName(), resource.GetName(), resource.GetKind(), variables, kindOnwhichPolicyIsApplied, variable)
+			kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(pol, variables.Subresources(), dClient)
+			resourceValues, err := variables.CheckVariableForPolicy(pol.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied, matches...)
 			if err != nil {
-				return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.GetName(), resource.GetName()), err)
+				return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", pol.GetName(), resource.GetName()), err)
 			}
 			processor := processor.PolicyProcessor{
-				Policy:               policy,
+				Policy:               pol,
 				Resource:             resource,
 				MutateLogPath:        c.MutateLogPath,
 				MutateLogPathIsDir:   mutateLogPathIsDir,
-				Variables:            thisPolicyResourceValues,
+				Variables:            resourceValues,
 				UserInfo:             userInfo,
 				PolicyReport:         c.PolicyReport,
-				NamespaceSelectorMap: namespaceSelectorMap,
+				NamespaceSelectorMap: variables.NamespaceSelectors(),
 				Stdin:                c.Stdin,
 				Rc:                   &rc,
 				PrintPatchResource:   true,
 				Client:               dClient,
 				AuditWarn:            c.AuditWarn,
-				Subresources:         subresources,
+				Subresources:         variables.Subresources(),
 			}
 			ers, err := processor.ApplyPolicyOnResource()
 			if err != nil {
-				return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
+				return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", pol.GetName(), resource.GetName()).Error(), err)
 			}
 			responses = append(responses, processSkipEngineResponses(ers)...)
 		}

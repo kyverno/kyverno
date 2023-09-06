@@ -15,6 +15,7 @@ import (
 	pathutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/path"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/values"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -37,12 +38,11 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 	var dClient dclient.Interface
 	// values/variables
 	fmt.Println("  Loading values/variables", "...")
-	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(
-		nil,
-		testCase.Test.Values,
-		testCase.Test.Variables,
+	variables, err := values.GetVariable(
 		testCase.Fs,
 		testDir,
+		testCase.Test.Variables,
+		testCase.Test.Values,
 	)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
@@ -54,6 +54,7 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 	var userInfo *v1beta1.RequestInfo
 	if testCase.Test.UserInfo != "" {
 		fmt.Println("  Loading user infos", "...")
+		var err error
 		userInfo, err = userinfo.Load(testCase.Fs, testCase.Test.UserInfo, testDir)
 		if err != nil {
 			return nil, fmt.Errorf("Error: failed to load request info (%s)", err)
@@ -117,55 +118,54 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 	var engineResponses []engineapi.EngineResponse
 	var resultCounts processor.ResultCounts
 	// TODO loop through resources first, then through policies second
-	for _, policy := range policies {
+	for _, pol := range policies {
 		// TODO we should return this info to the caller
-		_, err := policyvalidation.Validate(policy, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
+		_, err := policyvalidation.Validate(pol, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
 		if err != nil {
-			log.Log.Error(err, "skipping invalid policy", "name", policy.GetName())
+			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
 			continue
 		}
+		matches, err := policy.ExtractVariables(pol)
+		if err != nil {
+			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
+			continue
+		}
+		if !variables.HasVariables() && values.NeedsVariables(matches...) {
+			// check policy in variable file
+			if !variables.HasPolicyVariables(pol.GetName()) {
+				fmt.Printf("test skipped for policy %v (as required variables are not provided by the users) \n \n", pol.GetName())
+				// TODO continue ? return error ?
+			}
+		}
 
-		matches := common.HasVariables(policy)
-		variable := common.RemoveDuplicateAndObjectVariables(matches)
-
-		// TODO
-		// 	if len(variable) > 0 {
-		// 		if len(variables) == 0 {
-		// 			// check policy in variable file
-		// 			if valuesFile == "" || valuesMap[policy.GetName()] == nil {
-		// 				fmt.Printf("test skipped for policy  %v  (as required variables are not provided by the users) \n \n", policy.GetName())
-		// 			}
-		// 		}
-		// 	}
-
-		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy, subresources, dClient)
+		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(pol, variables.Subresources(), dClient)
 
 		for _, resource := range uniques {
-			thisPolicyResourceValues, err := common.CheckVariableForPolicy(valuesMap, globalValMap, policy.GetName(), resource.GetName(), resource.GetKind(), variables, kindOnwhichPolicyIsApplied, variable)
+			resourceValues, err := variables.CheckVariableForPolicy(pol.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied, matches...)
 			if err != nil {
 				message := fmt.Sprintf(
 					"policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag",
-					policy.GetName(),
+					pol.GetName(),
 					resource.GetName(),
 				)
 				return nil, sanitizederror.NewWithError(message, err)
 			}
 			processor := processor.PolicyProcessor{
-				Policy:                    policy,
+				Policy:                    pol,
 				Resource:                  resource,
 				MutateLogPath:             "",
-				Variables:                 thisPolicyResourceValues,
+				Variables:                 resourceValues,
 				UserInfo:                  userInfo,
 				PolicyReport:              true,
-				NamespaceSelectorMap:      namespaceSelectorMap,
+				NamespaceSelectorMap:      variables.NamespaceSelectors(),
 				Rc:                        &resultCounts,
 				RuleToCloneSourceResource: ruleToCloneSourceResource,
 				Client:                    dClient,
-				Subresources:              subresources,
+				Subresources:              variables.Subresources(),
 			}
 			ers, err := processor.ApplyPolicyOnResource()
 			if err != nil {
-				message := fmt.Sprintf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName())
+				message := fmt.Sprintf("failed to apply policy %v on resource %v", pol.GetName(), resource.GetName())
 				return nil, sanitizederror.NewWithError(message, err)
 			}
 			engineResponses = append(engineResponses, ers...)

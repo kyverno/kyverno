@@ -22,22 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// RemoveDuplicateAndObjectVariables - remove duplicate variables
-func RemoveDuplicateAndObjectVariables(matches [][]string) string {
-	var variableStr string
-	for _, m := range matches {
-		for _, v := range m {
-			foundVariable := strings.Contains(variableStr, v)
-			if !foundVariable {
-				if !strings.Contains(v, "request.object") && !strings.Contains(v, "element") && v == "elementIndex" {
-					variableStr = variableStr + " " + v
-				}
-			}
-		}
-	}
-	return variableStr
-}
-
 // GetResourceAccordingToResourcePath - get resources according to the resource path
 func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []string,
 	cluster bool, policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, dClient dclient.Interface, namespace string, policyReport bool, isGit bool, policyResourcePath string,
