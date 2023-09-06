@@ -194,7 +194,7 @@ func parseVariables(vars ...string) map[string]string {
 			// TODO log
 			continue
 		}
-		if result[key] == "" {
+		if result[key] != "" {
 			// TODO log
 			continue
 		}
