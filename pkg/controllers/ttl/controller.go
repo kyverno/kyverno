@@ -58,7 +58,7 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 		c.informer,
 		c.handleAdd,
 		c.handleUpdate,
-		nil,
+		c.handleDelete,
 	)
 	if err != nil {
 		logger.Error(err, "failed to register event handlers")
@@ -101,6 +101,11 @@ func (c *controller) handleUpdate(oldObj, newObj interface{}) {
 	if old.GetResourceVersion() != new.GetResourceVersion() {
 		c.enqueue(newObj)
 	}
+}
+
+func (c *controller) handleDelete(obj interface{}) {
+	c.logger.Info("resource was deleted", "resource", obj)
+	c.enqueue(obj)
 }
 
 func (c *controller) Start(ctx context.Context, workers int) {

@@ -58,21 +58,27 @@ func Run(ctx context.Context, logger logr.Logger, controllerName string, period 
 	logger.Info("starting ...")
 	defer logger.Info("stopped")
 	var wg sync.WaitGroup
+	var workerwg wait.Group
 	defer wg.Wait()
 	defer runtime.HandleCrash()
 	metric := newControllerMetrics(logger, controllerName)
-	func() {
+	go func() {
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		defer queue.ShutDown()
 		for i := 0; i < n; i++ {
-			wg.Add(1)
-			go func(logger logr.Logger) {
+			// wg.Add(1)
+			// go func(logger logr.Logger) {
+			// 	logger.Info("starting worker")
+			// 	defer logger.Info("worker stopped")
+			// 	defer wg.Done()
+			// 	wait.UntilWithContext(ctx, func(ctx context.Context) { worker(ctx, logger, metric, queue, maxRetries, r) }, period)
+			// }(logger.WithName("worker").WithValues("id", i))
+			workerwg.StartWithContext(ctx, func(ctx context.Context) {
 				logger.Info("starting worker")
 				defer logger.Info("worker stopped")
-				defer wg.Done()
 				wait.UntilWithContext(ctx, func(ctx context.Context) { worker(ctx, logger, metric, queue, maxRetries, r) }, period)
-			}(logger.WithName("worker").WithValues("id", i))
+			})
 		}
 		for i, routine := range routines {
 			wg.Add(1)
