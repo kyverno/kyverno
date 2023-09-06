@@ -14,6 +14,7 @@ type Configuration interface {
 	UsesDeferredLoading() bool
 	UsesCosign() bool
 	UsesRegistryClient() bool
+	UsesImageVerifyCache() bool
 	UsesLeaderElection() bool
 	UsesKyvernoClient() bool
 	UsesDynamicClient() bool
@@ -87,6 +88,12 @@ func WithRegistryClient() ConfigurationOption {
 	}
 }
 
+func WithImageVerifyCache() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesImageVerifyCache = true
+	}
+}
+
 func WithLeaderElection() ConfigurationOption {
 	return func(c *configuration) {
 		c.usesLeaderElection = true
@@ -141,6 +148,7 @@ type configuration struct {
 	usesDeferredLoading      bool
 	usesCosign               bool
 	usesRegistryClient       bool
+	usesImageVerifyCache     bool
 	usesLeaderElection       bool
 	usesKyvernoClient        bool
 	usesDynamicClient        bool
@@ -184,6 +192,10 @@ func (c *configuration) UsesCosign() bool {
 
 func (c *configuration) UsesRegistryClient() bool {
 	return c.usesRegistryClient
+}
+
+func (c *configuration) UsesImageVerifyCache() bool {
+	return c.usesImageVerifyCache
 }
 
 func (c *configuration) UsesLeaderElection() bool {

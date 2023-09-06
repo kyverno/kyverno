@@ -85,24 +85,30 @@ func NewController(
 		cleanupService: cleanupService,
 		enqueue:        baseEnqueueFunc,
 	}
-	controllerutils.AddEventHandlersT(
+	if _, err := controllerutils.AddEventHandlersT(
 		cpolInformer.Informer(),
 		controllerutils.AddFuncT(logger, enqueueFunc(logger, "added", "ClusterCleanupPolicy")),
 		controllerutils.UpdateFuncT(logger, enqueueFunc(logger, "updated", "ClusterCleanupPolicy")),
 		controllerutils.DeleteFuncT(logger, enqueueFunc(logger, "deleted", "ClusterCleanupPolicy")),
-	)
-	controllerutils.AddEventHandlersT(
+	); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
+	if _, err := controllerutils.AddEventHandlersT(
 		polInformer.Informer(),
 		controllerutils.AddFuncT(logger, enqueueFunc(logger, "added", "CleanupPolicy")),
 		controllerutils.UpdateFuncT(logger, enqueueFunc(logger, "updated", "CleanupPolicy")),
 		controllerutils.DeleteFuncT(logger, enqueueFunc(logger, "deleted", "CleanupPolicy")),
-	)
-	controllerutils.AddEventHandlersT(
+	); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
+	if _, err := controllerutils.AddEventHandlersT(
 		cjInformer.Informer(),
 		func(n *batchv1.CronJob) { c.enqueueCronJob(n) },
 		func(o *batchv1.CronJob, n *batchv1.CronJob) { c.enqueueCronJob(o) },
 		func(n *batchv1.CronJob) { c.enqueueCronJob(n) },
-	)
+	); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
 	return c
 }
 

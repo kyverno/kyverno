@@ -35,6 +35,8 @@ The list of organizations that have publicly shared the usage of Kyverno:
 | [HCS Company](https://www.hcs-company.com/)                                                                   | Policy enforcement and enabling selfservice for DevOps teams.                                                                                                                                                                |
 | [Hexagon](https://hexagon.com/)                                                                               | We leverage Kyverno to robustly enforce security policies. Additionally, as a Kubernetes swiss-knife, Kyverno fills our gap in our GitOps workflow by allowing us to apply complex configurations and customizations which are beyond the native capabilities of Kubernetes operators. |
 | [Grover Group GmbH](https://www.grover.com)                                                                   | We have been using Kyverno to streamline our K8s security standards and also follow industry best practices for running workloads in K8s using policy enforcements.                                                          |
+| [IITS Consulting](https://iits-consulting.de/)                                                                | Security is a piece of cake with Kyverno. Kyverno helped us to implement proper security for different kind of clients (medical/telecommunication/trading...). It solves problems like security enforcement, container image verification, distribution of imagePullSecrets and many more. |
+
 <!-- append the line below to the table
 | [name](URL) | brief description of how you are using Kyverno | 
 -->

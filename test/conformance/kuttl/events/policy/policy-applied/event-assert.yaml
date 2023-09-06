@@ -7,5 +7,4 @@ involvedObject:
   name: require-labels
 type: Normal
 reason: PolicyApplied
-source:
-  component: kyverno-admission
+reportingComponent: kyverno-admission

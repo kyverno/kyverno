@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-foo
+  namespace: foo
+spec:
+  containers:
+  - name: nginx
+    image: foo.io/nginx:1.7.9
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-too
+  namespace: bar
+spec:
+  containers:
+  - name: nginx
+    image: foo.io/nginx:1.7.9

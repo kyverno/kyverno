@@ -8,6 +8,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -29,6 +30,7 @@ var ErrEmptyPatch error = fmt.Errorf("empty resource to patch")
 type mutateExistingController struct {
 	// clients
 	client        dclient.Interface
+	kyvernoClient versioned.Interface
 	statusControl common.StatusControlInterface
 	engine        engineapi.Engine
 
@@ -47,6 +49,7 @@ type mutateExistingController struct {
 // NewMutateExistingController returns an instance of the MutateExistingController
 func NewMutateExistingController(
 	client dclient.Interface,
+	kyvernoClient versioned.Interface,
 	statusControl common.StatusControlInterface,
 	engine engineapi.Engine,
 	policyLister kyvernov1listers.ClusterPolicyLister,
@@ -59,6 +62,7 @@ func NewMutateExistingController(
 ) *mutateExistingController {
 	c := mutateExistingController{
 		client:        client,
+		kyvernoClient: kyvernoClient,
 		statusControl: statusControl,
 		engine:        engine,
 		policyLister:  policyLister,
@@ -94,6 +98,9 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 			if err != nil || trigger == nil {
 				logger.WithName(rule.Name).Error(err, "failed to get trigger resource")
 				errs = append(errs, err)
+				if err := common.UpdateRetryAnnotation(c.kyvernoClient, ur); err != nil {
+					errs = append(errs, err)
+				}
 				continue
 			}
 		} else {
@@ -103,6 +110,9 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 					if admissionRequest.SubResource == "" {
 						logger.WithName(rule.Name).Error(err, "failed to get trigger resource")
 						errs = append(errs, err)
+						if err := common.UpdateRetryAnnotation(c.kyvernoClient, ur); err != nil {
+							errs = append(errs, err)
+						}
 						continue
 					} else {
 						logger.WithName(rule.Name).Info("trigger resource not found for subresource, reverting to resource in AdmissionReviewRequest", "subresource", admissionRequest.SubResource)
@@ -156,11 +166,11 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 				err := fmt.Errorf("failed to mutate existing resource, rule response%v: %s", r.Status(), r.Message())
 				logger.Error(err, "")
 				errs = append(errs, err)
-				c.report(err, ur.Spec.Policy, rule.Name, patched)
+				c.report(err, policy, rule.Name, patched)
 
 			case engineapi.RuleStatusSkip:
 				logger.Info("mutate existing rule skipped", "rule", r.Name(), "message", r.Message())
-				c.report(err, ur.Spec.Policy, rule.Name, patched)
+				c.report(err, policy, rule.Name, patched)
 
 			case engineapi.RuleStatusPass:
 				patchedNew := patched
@@ -195,7 +205,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 						logger.WithName(rule.Name).V(4).Info("successfully mutated existing resource", "namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())
 					}
 
-					c.report(updateErr, ur.Spec.Policy, rule.Name, patched)
+					c.report(updateErr, policy, rule.Name, patched)
 				}
 			}
 		}
@@ -218,17 +228,20 @@ func (c *mutateExistingController) getPolicy(ur *kyvernov1beta1.UpdateRequest) (
 	return c.policyLister.Get(pName)
 }
 
-func (c *mutateExistingController) report(err error, policy, rule string, target *unstructured.Unstructured) {
+func (c *mutateExistingController) report(err error, policy kyvernov1.PolicyInterface, rule string, target *unstructured.Unstructured) {
 	var events []event.Info
 
 	if target == nil {
-		c.log.WithName("mutateExisting").Info("cannot generate events for empty target resource", "policy", policy, "rule", rule)
+		c.log.WithName("mutateExisting").Info("cannot generate events for empty target resource", "policy", policy.GetName(), "rule", rule)
+		return
 	}
 
 	if err != nil {
-		events = event.NewBackgroundFailedEvent(err, policy, rule, event.MutateExistingController, target)
+		events = event.NewBackgroundFailedEvent(err, policy, rule, event.MutateExistingController,
+			kyvernov1.ResourceSpec{Kind: target.GetKind(), Namespace: target.GetNamespace(), Name: target.GetName()})
 	} else {
-		events = event.NewBackgroundSuccessEvent(policy, rule, event.MutateExistingController, target)
+		events = event.NewBackgroundSuccessEvent(event.MutateExistingController, policy,
+			[]kyvernov1.ResourceSpec{{Kind: target.GetKind(), Namespace: target.GetNamespace(), Name: target.GetName()}})
 	}
 
 	c.eventGen.Add(events...)

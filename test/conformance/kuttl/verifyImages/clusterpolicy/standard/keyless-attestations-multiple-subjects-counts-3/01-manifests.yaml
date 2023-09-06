@@ -27,11 +27,15 @@ spec:
                 issuer: "https://token.actions.githubusercontent.com"
                 rekor:
                   url: https://rekor.sigstore.dev
+                ctlog:
+                  ignoreSCT: true
             - keyless:
                 subject: "https://github.com/chipzoller/zulu/.github/workflows/vulnerability-scan.yaml@refs/heads/main"
                 issuer: "https://token.actions.githubusercontent.com"
                 rekor:
                   url: https://rekor.sigstore.dev
+                ctlog:
+                  ignoreSCT: true
           conditions:
           - all:
             - key: "{{ regex_match('^https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@refs/heads/main','{{ builder.id}}') }}"

@@ -1,0 +1,5 @@
+# A pre-test sleep is needed here due to https://github.com/kudobuilder/kuttl/pull/422
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: sleep 3
