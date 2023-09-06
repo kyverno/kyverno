@@ -7,6 +7,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/pluralize"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
@@ -114,7 +115,7 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 	// execute engine
 	fmt.Println("  Applying", len(policies), pluralize.Pluralize(len(policies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
 	var engineResponses []engineapi.EngineResponse
-	var resultCounts common.ResultCounts
+	var resultCounts processor.ResultCounts
 	// TODO loop through resources first, then through policies second
 	for _, policy := range policies {
 		// TODO we should return this info to the caller
@@ -149,7 +150,7 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 				)
 				return nil, sanitizederror.NewWithError(message, err)
 			}
-			applyPolicyConfig := common.ApplyPolicyConfig{
+			processor := processor.PolicyProcessor{
 				Policy:                    policy,
 				Resource:                  resource,
 				MutateLogPath:             "",
@@ -162,7 +163,7 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 				Client:                    dClient,
 				Subresources:              subresources,
 			}
-			ers, err := common.ApplyPolicyOnResource(applyPolicyConfig)
+			ers, err := processor.ApplyPolicyOnResource()
 			if err != nil {
 				message := fmt.Sprintf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName())
 				return nil, sanitizederror.NewWithError(message, err)
@@ -170,18 +171,15 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 			engineResponses = append(engineResponses, ers...)
 		}
 	}
-	validatingAdmissionPolicy := common.ValidatingAdmissionPolicies{}
 	for _, policy := range validatingAdmissionPolicies {
 		for _, resource := range uniques {
-			applyPolicyConfig := common.ApplyPolicyConfig{
+			processor := processor.ValidatingAdmissionPolicyProcessor{
 				ValidatingAdmissionPolicy: policy,
 				Resource:                  resource,
 				PolicyReport:              true,
 				Rc:                        &resultCounts,
-				Client:                    dClient,
-				Subresources:              subresources,
 			}
-			ers, err := validatingAdmissionPolicy.ApplyPolicyOnResource(applyPolicyConfig)
+			ers, err := processor.ApplyPolicyOnResource()
 			if err != nil {
 				message := fmt.Sprintf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName())
 				return nil, sanitizederror.NewWithError(message, err)

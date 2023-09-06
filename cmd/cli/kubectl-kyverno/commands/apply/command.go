@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
 	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
@@ -129,7 +130,7 @@ func Command() *cobra.Command {
 	return cmd
 }
 
-func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
+func (c *ApplyCommandConfig) applyCommandHelper() (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	rc, uu, skipInvalidPolicies, er, err := c.checkArguments()
 	if err != nil {
 		return rc, uu, skipInvalidPolicies, er, err
@@ -183,7 +184,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 	return rc, resources, skipInvalidPolicies, er, nil
 }
 
-func (c *ApplyCommandConfig) getMutateLogPathIsDir(skipInvalidPolicies SkippedInvalidPolicies) (*common.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error, bool) {
+func (c *ApplyCommandConfig) getMutateLogPathIsDir(skipInvalidPolicies SkippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error, bool) {
 	mutateLogPathIsDir, err := checkMutateLogPath(c.MutateLogPath)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
@@ -194,20 +195,16 @@ func (c *ApplyCommandConfig) getMutateLogPathIsDir(skipInvalidPolicies SkippedIn
 	return nil, nil, skipInvalidPolicies, nil, err, mutateLogPathIsDir
 }
 
-func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, resources []*unstructured.Unstructured, rc *common.ResultCounts, dClient dclient.Interface, subresources []valuesapi.Subresource, skipInvalidPolicies SkippedInvalidPolicies, responses []engineapi.EngineResponse) (*common.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
-	validatingAdmissionPolicy := common.ValidatingAdmissionPolicies{}
+func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, resources []*unstructured.Unstructured, rc *processor.ResultCounts, dClient dclient.Interface, subresources []valuesapi.Subresource, skipInvalidPolicies SkippedInvalidPolicies, responses []engineapi.EngineResponse) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	for _, resource := range resources {
 		for _, policy := range validatingAdmissionPolicies {
-			applyPolicyConfig := common.ApplyPolicyConfig{
+			processor := processor.ValidatingAdmissionPolicyProcessor{
 				ValidatingAdmissionPolicy: policy,
 				Resource:                  resource,
 				PolicyReport:              c.PolicyReport,
 				Rc:                        rc,
-				Client:                    dClient,
-				AuditWarn:                 c.AuditWarn,
-				Subresources:              subresources,
 			}
-			ers, err := validatingAdmissionPolicy.ApplyPolicyOnResource(applyPolicyConfig)
+			ers, err := processor.ApplyPolicyOnResource()
 			if err != nil {
 				return rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}
@@ -217,7 +214,7 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(validating
 	return rc, resources, skipInvalidPolicies, responses, nil
 }
 
-func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, resources []*unstructured.Unstructured, openApiManager openapi.Manager, skipInvalidPolicies SkippedInvalidPolicies, valuesMap map[string]map[string]valuesapi.Resource, dClient dclient.Interface, subresources []valuesapi.Subresource, globalValMap map[string]string, userInfo *v1beta1.RequestInfo, mutateLogPathIsDir bool, namespaceSelectorMap map[string]map[string]string) (*common.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
+func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, resources []*unstructured.Unstructured, openApiManager openapi.Manager, skipInvalidPolicies SkippedInvalidPolicies, valuesMap map[string]map[string]valuesapi.Resource, dClient dclient.Interface, subresources []valuesapi.Subresource, globalValMap map[string]string, userInfo *v1beta1.RequestInfo, mutateLogPathIsDir bool, namespaceSelectorMap map[string]map[string]string) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	if len(variables) != 0 {
 		variables = common.SetInStoreContext(policies, variables)
 	}
@@ -231,7 +228,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, 
 		fmt.Printf("\nApplying %d policy rule(s) to %d resource(s)...\n", policyRulesCount, len(resources))
 	}
 
-	var rc common.ResultCounts
+	var rc processor.ResultCounts
 	var responses []engineapi.EngineResponse
 	for _, resource := range resources {
 		for _, policy := range policies {
@@ -262,7 +259,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, 
 			if err != nil {
 				return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.GetName(), resource.GetName()), err)
 			}
-			applyPolicyConfig := common.ApplyPolicyConfig{
+			processor := processor.PolicyProcessor{
 				Policy:               policy,
 				Resource:             resource,
 				MutateLogPath:        c.MutateLogPath,
@@ -278,11 +275,11 @@ func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, 
 				AuditWarn:            c.AuditWarn,
 				Subresources:         subresources,
 			}
-			ers, err := common.ApplyPolicyOnResource(applyPolicyConfig)
+			ers, err := processor.ApplyPolicyOnResource()
 			if err != nil {
 				return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}
-			responses = append(responses, processSkipEngineResponses(ers, applyPolicyConfig)...)
+			responses = append(responses, processSkipEngineResponses(ers)...)
 		}
 	}
 	return &rc, resources, skipInvalidPolicies, responses, nil
@@ -296,7 +293,7 @@ func (c *ApplyCommandConfig) loadResources(policies []kyvernov1.PolicyInterface,
 	return resources, nil
 }
 
-func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPolicies) (*common.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error, []kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy) {
+func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error, []kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy) {
 	// load policies
 	var policies []kyvernov1.PolicyInterface
 	var validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy
@@ -349,7 +346,7 @@ func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPoli
 	return nil, nil, skipInvalidPolicies, nil, nil, policies, validatingAdmissionPolicies
 }
 
-func (c *ApplyCommandConfig) initStoreAndClusterClient(skipInvalidPolicies SkippedInvalidPolicies) (*common.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error, dclient.Interface) {
+func (c *ApplyCommandConfig) initStoreAndClusterClient(skipInvalidPolicies SkippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error, dclient.Interface) {
 	store.SetLocal(true)
 	store.SetRegistryAccess(c.RegistryAccess)
 	if c.Cluster {
@@ -378,7 +375,7 @@ func (c *ApplyCommandConfig) initStoreAndClusterClient(skipInvalidPolicies Skipp
 	return nil, nil, skipInvalidPolicies, nil, err, dClient
 }
 
-func (c *ApplyCommandConfig) cleanPreviousContent(mutateLogPathIsDir bool, skipInvalidPolicies SkippedInvalidPolicies) (*common.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
+func (c *ApplyCommandConfig) cleanPreviousContent(mutateLogPathIsDir bool, skipInvalidPolicies SkippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	// empty the previous contents of the file just in case if the file already existed before with some content(so as to perform overwrites)
 	// the truncation of files for the case when mutateLogPath is dir, is handled under pkg/kyverno/apply/common.go
 	if !mutateLogPathIsDir && c.MutateLogPath != "" {
@@ -395,7 +392,7 @@ func (c *ApplyCommandConfig) cleanPreviousContent(mutateLogPathIsDir bool, skipI
 	return nil, nil, skipInvalidPolicies, nil, nil
 }
 
-func (c *ApplyCommandConfig) checkArguments() (*common.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
+func (c *ApplyCommandConfig) checkArguments() (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	var skipInvalidPolicies SkippedInvalidPolicies
 	if c.ValuesFile != "" && c.Variables != nil {
 		return nil, nil, skipInvalidPolicies, nil, sanitizederror.New("pass the values either using set flag or values_file flag")
@@ -446,22 +443,22 @@ func printReport(engineResponses []engineapi.EngineResponse, auditWarn bool) {
 	}
 }
 
-func printViolations(rc *common.ResultCounts) {
-	fmt.Printf("\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n", rc.Pass, rc.Fail, rc.Warn, rc.Error, rc.Skip)
+func printViolations(rc *processor.ResultCounts) {
+	fmt.Printf("\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n", rc.Pass(), rc.Fail(), rc.Warn(), rc.Error(), rc.Skip())
 }
 
-func exit(rc *common.ResultCounts, warnExitCode int, warnNoPassed bool) error {
-	if rc.Fail > 0 || rc.Error > 0 {
+func exit(rc *processor.ResultCounts, warnExitCode int, warnNoPassed bool) error {
+	if rc.Fail() > 0 || rc.Error() > 0 {
 		return fmt.Errorf("exit as fail or error count > 0")
-	} else if rc.Warn > 0 && warnExitCode != 0 {
+	} else if rc.Warn() > 0 && warnExitCode != 0 {
 		return fmt.Errorf("exit as warnExitCode is %d", warnExitCode)
-	} else if rc.Pass == 0 && warnNoPassed {
+	} else if rc.Pass() == 0 && warnNoPassed {
 		return fmt.Errorf("exit as warnExitCode is %d", warnExitCode)
 	}
 	return nil
 }
 
-func processSkipEngineResponses(responses []engineapi.EngineResponse, c common.ApplyPolicyConfig) []engineapi.EngineResponse {
+func processSkipEngineResponses(responses []engineapi.EngineResponse) []engineapi.EngineResponse {
 	var processedEngineResponses []engineapi.EngineResponse
 	for _, response := range responses {
 		if !response.IsEmpty() {

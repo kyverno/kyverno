@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/assert"
@@ -55,6 +56,13 @@ var policyNamespaceSelector = []byte(`{
 `)
 
 func Test_NamespaceSelector(t *testing.T) {
+	type ResultCounts struct {
+		pass int
+		fail int
+		warn int
+		err  int
+		skip int
+	}
 	type TestCase struct {
 		policy               []byte
 		resource             []byte
@@ -72,11 +80,11 @@ func Test_NamespaceSelector(t *testing.T) {
 				},
 			},
 			result: ResultCounts{
-				Pass:  0,
-				Fail:  1,
-				Warn:  0,
-				Error: 0,
-				Skip:  2,
+				pass: 0,
+				fail: 1,
+				warn: 0,
+				err:  0,
+				skip: 2,
 			},
 		},
 		{
@@ -88,19 +96,19 @@ func Test_NamespaceSelector(t *testing.T) {
 				},
 			},
 			result: ResultCounts{
-				Pass:  1,
-				Fail:  1,
-				Warn:  0,
-				Error: 0,
-				Skip:  4,
+				pass: 1,
+				fail: 1,
+				warn: 0,
+				err:  0,
+				skip: 4,
 			},
 		},
 	}
-	rc := &ResultCounts{}
+	rc := &processor.ResultCounts{}
 	for _, tc := range testcases {
 		policyArray, _, _ := yamlutils.GetPolicy(tc.policy)
 		resourceArray, _ := resource.GetUnstructuredResources(tc.resource)
-		applyPolicyConfig := ApplyPolicyConfig{
+		processor := processor.PolicyProcessor{
 			Policy:               policyArray[0],
 			Resource:             resourceArray[0],
 			MutateLogPath:        "",
@@ -108,13 +116,13 @@ func Test_NamespaceSelector(t *testing.T) {
 			NamespaceSelectorMap: tc.namespaceSelectorMap,
 			Rc:                   rc,
 		}
-		ApplyPolicyOnResource(applyPolicyConfig)
-		assert.Equal(t, int64(rc.Pass), int64(tc.result.Pass))
-		assert.Equal(t, int64(rc.Fail), int64(tc.result.Fail))
+		processor.ApplyPolicyOnResource()
+		assert.Equal(t, int64(rc.Pass()), int64(tc.result.pass))
+		assert.Equal(t, int64(rc.Fail()), int64(tc.result.fail))
 		// TODO: autogen rules seem to not be present when autogen internals is disabled
-		assert.Equal(t, int64(rc.Skip), int64(tc.result.Skip))
-		assert.Equal(t, int64(rc.Warn), int64(tc.result.Warn))
-		assert.Equal(t, int64(rc.Error), int64(tc.result.Error))
+		assert.Equal(t, int64(rc.Skip()), int64(tc.result.skip))
+		assert.Equal(t, int64(rc.Warn()), int64(tc.result.warn))
+		assert.Equal(t, int64(rc.Error()), int64(tc.result.err))
 	}
 }
 
