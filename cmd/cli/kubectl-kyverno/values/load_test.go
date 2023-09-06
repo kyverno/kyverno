@@ -59,10 +59,10 @@ func Test_readFile(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			defer file.Close()
 			if _, err := file.Write([]byte("foo: bar")); err != nil {
 				t.Fatal(err)
 			}
-			defer file.Close()
 			return f
 		}(),
 		filepath: "valid.yaml",
