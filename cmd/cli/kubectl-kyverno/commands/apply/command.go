@@ -16,11 +16,11 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
 	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
-	reportutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/report"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
@@ -443,12 +443,12 @@ func printSkippedAndInvalidPolicies(skipInvalidPolicies SkippedInvalidPolicies) 
 }
 
 func printReport(engineResponses []engineapi.EngineResponse, auditWarn bool) {
-	clustered, namespaced := reportutils.ComputePolicyReports(auditWarn, engineResponses...)
+	clustered, namespaced := report.ComputePolicyReports(auditWarn, engineResponses...)
 	if len(clustered) > 0 || len(namespaced) > 0 {
 		fmt.Println(divider)
 		fmt.Println("POLICY REPORT:")
 		fmt.Println(divider)
-		report := reportutils.MergeClusterReports(clustered, namespaced)
+		report := report.MergeClusterReports(clustered, namespaced)
 		yamlReport, _ := yaml.Marshal(report)
 		fmt.Println(string(yamlReport))
 	} else {
