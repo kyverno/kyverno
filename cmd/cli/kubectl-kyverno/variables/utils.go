@@ -10,6 +10,7 @@ func NeedsVariable(variable string) bool {
 		!strings.Contains(variable, "element") &&
 		variable != "elementIndex"
 }
+
 func NeedsVariables(variables ...string) bool {
 	for _, variable := range variables {
 		if NeedsVariable(variable) {
