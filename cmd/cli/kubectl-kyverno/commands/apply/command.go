@@ -228,6 +228,9 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	userInfo *v1beta1.RequestInfo,
 	mutateLogPathIsDir bool,
 ) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
+	if vars != nil {
+		vars.SetInStore()
+	}
 	if !c.Stdin {
 		var policyRulesCount int
 		for _, policy := range policies {

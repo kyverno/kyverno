@@ -32,7 +32,6 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 		return nil, testCase.Err
 	}
 	fmt.Println("Loading test", testCase.Test.Name, "(", testCase.Path, ")", "...")
-	store.SetLocal(true)
 	isGit := testCase.Fs != nil
 	testDir := testCase.Dir()
 	var dClient dclient.Interface
@@ -74,6 +73,11 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 		for dup := range duplicates {
 			fmt.Println("  Warning: found duplicated resource", dup.Kind, dup.Name, dup.Namespace)
 		}
+	}
+	// init store
+	store.SetLocal(true)
+	if vars != nil {
+		vars.SetInStore()
 	}
 	// TODO document the code below
 	ruleToCloneSourceResource := map[string]string{}
