@@ -15,7 +15,7 @@ import (
 	pathutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/path"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/values"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -38,12 +38,7 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 	var dClient dclient.Interface
 	// values/variables
 	fmt.Println("  Loading values/variables", "...")
-	variables, err := values.GetVariable(
-		testCase.Fs,
-		testDir,
-		testCase.Test.Variables,
-		testCase.Test.Values,
-	)
+	vars, err := variables.New(testCase.Fs, testDir, testCase.Test.Variables, testCase.Test.Values)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			err = sanitizederror.NewWithError("failed to decode yaml", err)
@@ -130,18 +125,18 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
 			continue
 		}
-		if !variables.HasVariables() && values.NeedsVariables(matches...) {
+		if !vars.HasVariables() && variables.NeedsVariables(matches...) {
 			// check policy in variable file
-			if !variables.HasPolicyVariables(pol.GetName()) {
+			if !vars.HasPolicyVariables(pol.GetName()) {
 				fmt.Printf("test skipped for policy %v (as required variables are not provided by the users) \n \n", pol.GetName())
 				// TODO continue ? return error ?
 			}
 		}
 
-		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(pol, variables.Subresources(), dClient)
+		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(pol, vars.Subresources(), dClient)
 
 		for _, resource := range uniques {
-			resourceValues, err := variables.CheckVariableForPolicy(pol.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied, matches...)
+			resourceValues, err := vars.CheckVariableForPolicy(pol.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied, matches...)
 			if err != nil {
 				message := fmt.Sprintf(
 					"policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag",
@@ -157,11 +152,11 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 				Variables:                 resourceValues,
 				UserInfo:                  userInfo,
 				PolicyReport:              true,
-				NamespaceSelectorMap:      variables.NamespaceSelectors(),
+				NamespaceSelectorMap:      vars.NamespaceSelectors(),
 				Rc:                        &resultCounts,
 				RuleToCloneSourceResource: ruleToCloneSourceResource,
 				Client:                    dClient,
-				Subresources:              variables.Subresources(),
+				Subresources:              vars.Subresources(),
 			}
 			ers, err := processor.ApplyPolicyOnResource()
 			if err != nil {
