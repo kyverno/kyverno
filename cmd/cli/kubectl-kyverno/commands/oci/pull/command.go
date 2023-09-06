@@ -11,8 +11,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
-	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	policyutils "github.com/kyverno/kyverno/pkg/utils/policy"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"github.com/spf13/cobra"
@@ -23,9 +23,9 @@ func Command(keychain authn.Keychain) *cobra.Command {
 	var imageRef string
 	cmd := &cobra.Command{
 		Use:     "pull",
-		Short:   cobrautils.FormatDescription(true, websiteUrl, true, description...),
-		Long:    cobrautils.FormatDescription(false, websiteUrl, true, description...),
-		Example: cobrautils.FormatExamples(examples...),
+		Short:   command.FormatDescription(true, websiteUrl, true, description...),
+		Long:    command.FormatDescription(false, websiteUrl, true, description...),
+		Example: command.FormatExamples(examples...),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if imageRef == "" {
 				return errors.New("image reference is required")

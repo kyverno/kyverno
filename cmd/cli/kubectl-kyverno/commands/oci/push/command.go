@@ -12,10 +12,10 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/static"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
-	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policyutils "github.com/kyverno/kyverno/pkg/utils/policy"
@@ -28,9 +28,9 @@ func Command(keychain authn.Keychain) *cobra.Command {
 	var imageRef string
 	cmd := &cobra.Command{
 		Use:     "push",
-		Short:   cobrautils.FormatDescription(true, websiteUrl, true, description...),
-		Long:    cobrautils.FormatDescription(false, websiteUrl, true, description...),
-		Example: cobrautils.FormatExamples(examples...),
+		Short:   command.FormatDescription(true, websiteUrl, true, description...),
+		Long:    command.FormatDescription(false, websiteUrl, true, description...),
+		Example: command.FormatExamples(examples...),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if imageRef == "" {
 				return errors.New("image reference is required")
