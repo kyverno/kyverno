@@ -85,11 +85,15 @@ func (v Variables) CheckVariableForPolicy(policy, resource, kind string, kindMap
 	for k, v := range v.Variables {
 		resourceValues[k] = v
 	}
+	// make sure `request.operation` is set
+	if _, ok := resourceValues["request.operation"]; !ok {
+		resourceValues["request.operation"] = "CREATE"
+	}
 	// skipping the variable check for non matching kind
 	if _, ok := kindMap[kind]; ok {
 		// TODO remove dependency to store
 		if len(variables) > 0 && len(resourceValues) == 0 && store.HasPolicies() {
-			return resourceValues, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy, resource), nil)
+			return nil, fmt.Errorf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy, resource)
 		}
 	}
 	return resourceValues, nil

@@ -31,7 +31,7 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 	if testCase.Err != nil {
 		return nil, testCase.Err
 	}
-	fmt.Println("Loading test", testCase.Path, "...")
+	fmt.Println("Loading test", testCase.Test.Name, "(", testCase.Path, ")", "...")
 	store.SetLocal(true)
 	isGit := testCase.Fs != nil
 	testDir := testCase.Dir()
