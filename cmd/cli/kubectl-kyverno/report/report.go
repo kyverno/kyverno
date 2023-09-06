@@ -58,7 +58,7 @@ func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineRe
 }
 
 func ComputePolicyReportResultsPerPolicy(auditWarn bool, engineResponses ...engineapi.EngineResponse) map[engineapi.GenericPolicy][]policyreportv1alpha2.PolicyReportResult {
-	results := make(map[engineapi.GenericPolicy][]policyreportv1alpha2.PolicyReportResult)
+	results := map[engineapi.GenericPolicy][]policyreportv1alpha2.PolicyReportResult{}
 	for _, engineResponse := range engineResponses {
 		if len(engineResponse.PolicyResponse.Rules) == 0 {
 			continue
@@ -72,6 +72,9 @@ func ComputePolicyReportResultsPerPolicy(auditWarn bool, engineResponses ...engi
 			result := ComputePolicyReportResult(auditWarn, engineResponse, ruleResponse)
 			results[policy] = append(results[policy], result)
 		}
+	}
+	if len(results) == 0 {
+		return nil
 	}
 	return results
 }
