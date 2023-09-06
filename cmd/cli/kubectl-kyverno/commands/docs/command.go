@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 )
@@ -47,9 +47,9 @@ func Command(root *cobra.Command) *cobra.Command {
 	var autogenTag bool
 	cmd := &cobra.Command{
 		Use:     "docs",
-		Short:   cobrautils.FormatDescription(true, websiteUrl, false, description...),
-		Long:    cobrautils.FormatDescription(false, websiteUrl, false, description...),
-		Example: cobrautils.FormatExamples(examples...),
+		Short:   command.FormatDescription(true, websiteUrl, false, description...),
+		Long:    command.FormatDescription(false, websiteUrl, false, description...),
+		Example: command.FormatExamples(examples...),
 		RunE: func(_ *cobra.Command, args []string) error {
 			prepender := empty
 			linkHandler := identity
