@@ -9,6 +9,7 @@ import (
 	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type labels = map[string]string
@@ -57,7 +58,7 @@ func (v Variables) NamespaceSelectors() map[string]labels {
 	return out
 }
 
-func (v Variables) CheckVariableForPolicy(policy, resource, kind string, kindMap map[string]struct{}, variables ...string) (map[string]interface{}, error) {
+func (v Variables) CheckVariableForPolicy(policy, resource, kind string, kindMap sets.Set[string], variables ...string) (map[string]interface{}, error) {
 	resourceValues := map[string]interface{}{}
 	// first apply global values
 	if v.Values != nil {
@@ -90,11 +91,9 @@ func (v Variables) CheckVariableForPolicy(policy, resource, kind string, kindMap
 		resourceValues["request.operation"] = "CREATE"
 	}
 	// skipping the variable check for non matching kind
-	if _, ok := kindMap[kind]; ok {
-		// TODO remove dependency to store
-		if len(variables) > 0 && len(resourceValues) == 0 && store.HasPolicies() {
-			return nil, fmt.Errorf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy, resource)
-		}
+	// TODO remove dependency to store
+	if kindMap.Has(kind) && len(variables) > 0 && len(resourceValues) == 0 && store.HasPolicies() {
+		return nil, fmt.Errorf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy, resource)
 	}
 	return resourceValues, nil
 }

@@ -70,7 +70,7 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 	// resources
 	fmt.Println("  Loading resources", "...")
 	resourceFullPath := pathutils.GetFullPaths(testCase.Test.Resources, testDir, isGit)
-	resources, err := common.GetResourceAccordingToResourcePath(testCase.Fs, resourceFullPath, false, policies, validatingAdmissionPolicies, dClient, "", false, isGit, testDir)
+	resources, err := common.GetResourceAccordingToResourcePath(testCase.Fs, resourceFullPath, false, policies, validatingAdmissionPolicies, dClient, "", false, testDir)
 	if err != nil {
 		return nil, fmt.Errorf("Error: failed to load resources (%s)", err)
 	}
