@@ -78,12 +78,7 @@ func initMetricsFlags() {
 }
 
 func initKubeconfigFlags(qps float64, burst int) {
-	kubeconfigExists := flag.Lookup("kubeconfig")
-	if kubeconfigExists == nil {
-		flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-	} else {
-		kubeconfig = flag.Lookup("kubeconfig").Value.String()
-	}
+	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", qps, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", burst, "Configure the maximum burst for throttle. Uses the client default if zero.")
 }
