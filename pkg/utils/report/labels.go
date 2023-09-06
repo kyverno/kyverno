@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -26,10 +27,11 @@ const (
 	LabelResourceNamespace = "audit.kyverno.io/resource.namespace"
 	LabelResourceName      = "audit.kyverno.io/resource.name"
 	//	policy labels
-	LabelDomainClusterPolicy = "cpol.kyverno.io"
-	LabelDomainPolicy        = "pol.kyverno.io"
-	LabelPrefixClusterPolicy = LabelDomainClusterPolicy + "/"
-	LabelPrefixPolicy        = LabelDomainPolicy + "/"
+	LabelDomainClusterPolicy             = "cpol.kyverno.io"
+	LabelDomainPolicy                    = "pol.kyverno.io"
+	LabelPrefixClusterPolicy             = LabelDomainClusterPolicy + "/"
+	LabelPrefixPolicy                    = LabelDomainPolicy + "/"
+	LabelPrefixValidatingAdmissionPolicy = "validatingadmissionpolicy.apiserver.io/"
 	//	aggregated admission report label
 	LabelAggregatedReport = "audit.kyverno.io/report.aggregate"
 )
@@ -50,11 +52,14 @@ func PolicyNameFromLabel(namespace, label string) (string, error) {
 	return "", fmt.Errorf("cannot get policy name from label, incorrect format: %s", label)
 }
 
-func PolicyLabelPrefix(policy kyvernov1.PolicyInterface) string {
+func PolicyLabelPrefix(policy engineapi.GenericPolicy) string {
 	if policy.IsNamespaced() {
 		return LabelPrefixPolicy
 	}
-	return LabelPrefixClusterPolicy
+	if policy.GetType() == engineapi.KyvernoPolicyType {
+		return LabelPrefixClusterPolicy
+	}
+	return LabelPrefixValidatingAdmissionPolicy
 }
 
 func PolicyLabelDomain(policy kyvernov1.PolicyInterface) string {
@@ -64,7 +69,7 @@ func PolicyLabelDomain(policy kyvernov1.PolicyInterface) string {
 	return LabelDomainClusterPolicy
 }
 
-func PolicyLabel(policy kyvernov1.PolicyInterface) string {
+func PolicyLabel(policy engineapi.GenericPolicy) string {
 	return PolicyLabelPrefix(policy) + policy.GetName()
 }
 
@@ -125,7 +130,7 @@ func SetResourceVersionLabels(report kyvernov1alpha2.ReportInterface, resource *
 	}
 }
 
-func SetPolicyLabel(report kyvernov1alpha2.ReportInterface, policy kyvernov1.PolicyInterface) {
+func SetPolicyLabel(report kyvernov1alpha2.ReportInterface, policy engineapi.GenericPolicy) {
 	controllerutils.SetLabel(report, PolicyLabel(policy), policy.GetResourceVersion())
 }
 

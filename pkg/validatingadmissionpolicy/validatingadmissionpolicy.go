@@ -69,6 +69,7 @@ func Validate(policy v1alpha1.ValidatingAdmissionPolicy, resource unstructured.U
 	validations := policy.Spec.Validations
 	auditAnnotations := policy.Spec.AuditAnnotations
 	matchConditions := policy.Spec.MatchConditions
+	variables := policy.Spec.Variables
 
 	hasParam := policy.Spec.ParamKind != nil
 
@@ -93,13 +94,14 @@ func Validate(policy v1alpha1.ValidatingAdmissionPolicy, resource unstructured.U
 	optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}
 
 	// compile CEL expressions
-	compiler, err := celutils.NewCompiler(validations, auditAnnotations, matchConditions, nil)
+	compiler, err := celutils.NewCompiler(validations, auditAnnotations, matchConditions, variables)
 	if err != nil {
 		ruleResp = engineapi.RuleError(policy.GetName(), engineapi.Validation, "Error creating composited compiler", err)
 		policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
 		engineResponse = engineResponse.WithPolicyResponse(policyResp)
 		return engineResponse
 	}
+	compiler.CompileVariables(optionalVars)
 	filter := compiler.CompileValidateExpressions(optionalVars)
 	messageExpressionfilter := compiler.CompileMessageExpressions(optionalVars)
 	auditAnnotationFilter := compiler.CompileAuditAnnotationsExpressions(optionalVars)

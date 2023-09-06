@@ -37,8 +37,6 @@ type ImageVerification struct {
 	// +kubebuilder:validation:Optional
 	Type ImageVerificationType `json:"type,omitempty" yaml:"type,omitempty"`
 
-	// Image is the image name consisting of the registry address, repository, image, and tag.
-	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
 	// Deprecated. Use ImageReferences instead.
 	// +kubebuilder:validation:Optional
 	Image string `json:"image,omitempty" yaml:"image,omitempty"`
@@ -50,23 +48,18 @@ type ImageVerification struct {
 	// +kubebuilder:validation:Optional
 	ImageReferences []string `json:"imageReferences,omitempty" yaml:"imageReferences,omitempty"`
 
-	// Key is the PEM encoded public key that the image or attestation is signed with.
 	// Deprecated. Use StaticKeyAttestor instead.
 	Key string `json:"key,omitempty" yaml:"key,omitempty"`
 
-	// Roots is the PEM encoded Root certificate chain used for keyless signing
 	// Deprecated. Use KeylessAttestor instead.
 	Roots string `json:"roots,omitempty" yaml:"roots,omitempty"`
 
-	// Subject is the identity used for keyless signing, for example an email address
 	// Deprecated. Use KeylessAttestor instead.
 	Subject string `json:"subject,omitempty" yaml:"subject,omitempty"`
 
-	// Issuer is the certificate issuer used for keyless signing.
 	// Deprecated. Use KeylessAttestor instead.
 	Issuer string `json:"issuer,omitempty" yaml:"issuer,omitempty"`
 
-	// AdditionalExtensions are certificate-extensions used for keyless signing.
 	// Deprecated.
 	AdditionalExtensions map[string]string `json:"additionalExtensions,omitempty" yaml:"additionalExtensions,omitempty"`
 
@@ -79,9 +72,6 @@ type ImageVerification struct {
 	// OCI registry and decodes them into a list of Statement declarations.
 	Attestations []Attestation `json:"attestations,omitempty" yaml:"attestations,omitempty"`
 
-	// Annotations are used for image verification.
-	// Every specified key-value pair must exist and match in the verified payload.
-	// The payload may contain other key-value pairs.
 	// Deprecated. Use annotations per Attestor instead.
 	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 
@@ -187,11 +177,15 @@ type StaticKeyAttestor struct {
 	// Reference to a Secret resource that contains a public key
 	Secret *SecretReference `json:"secret,omitempty" yaml:"secret,omitempty"`
 
-	// Rekor provides configuration for the Rekor transparency log service. If the value is nil,
-	// or an empty object is provided, the public instance of
-	// Rekor (https://rekor.sigstore.dev) is used.
+	// Rekor provides configuration for the Rekor transparency log service. If an empty object
+	// is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
 	// +kubebuilder:validation:Optional
-	Rekor *CTLog `json:"rekor,omitempty" yaml:"rekor,omitempty"`
+	Rekor *Rekor `json:"rekor,omitempty" yaml:"rekor,omitempty"`
+
+	// CTLog provides configuration for validation of SCTs.
+	// If the value is nil, default ctlog public key is used
+	// +kubebuilder:validation:Optional
+	CTLog *CTLog `json:"ctlog,omitempty" yaml:"ctlog,omitempty"`
 }
 
 type SecretReference struct {
@@ -211,19 +205,27 @@ type CertificateAttestor struct {
 	// +kubebuilder:validation:Optional
 	CertificateChain string `json:"certChain,omitempty" yaml:"certChain,omitempty"`
 
-	// Rekor provides configuration for the Rekor transparency log service. If the value is nil,
-	// Rekor is not checked. If an empty object is provided the public instance of
-	// Rekor (https://rekor.sigstore.dev) is used.
+	// Rekor provides configuration for the Rekor transparency log service. If an empty object
+	// is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
 	// +kubebuilder:validation:Optional
-	Rekor *CTLog `json:"rekor,omitempty" yaml:"rekor,omitempty"`
+	Rekor *Rekor `json:"rekor,omitempty" yaml:"rekor,omitempty"`
+
+	// CTLog provides configuration for validation of SCTs.
+	// If the value is nil, default ctlog public key is used
+	// +kubebuilder:validation:Optional
+	CTLog *CTLog `json:"ctlog,omitempty" yaml:"ctlog,omitempty"`
 }
 
 type KeylessAttestor struct {
-	// Rekor provides configuration for the Rekor transparency log service. If the value is nil,
-	// Rekor is not checked and a root certificate chain is expected instead. If an empty object
+	// Rekor provides configuration for the Rekor transparency log service. If an empty object
 	// is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
 	// +kubebuilder:validation:Optional
-	Rekor *CTLog `json:"rekor,omitempty" yaml:"rekor,omitempty"`
+	Rekor *Rekor `json:"rekor,omitempty" yaml:"rekor,omitempty"`
+
+	// CTLog provides configuration for validation of SCTs.
+	// If the value is nil, default ctlog public key is used
+	// +kubebuilder:validation:Optional
+	CTLog *CTLog `json:"ctlog,omitempty" yaml:"ctlog,omitempty"`
 
 	// Issuer is the certificate issuer used for keyless signing.
 	// +kubebuilder:validation:Optional
@@ -243,7 +245,7 @@ type KeylessAttestor struct {
 	AdditionalExtensions map[string]string `json:"additionalExtensions,omitempty" yaml:"additionalExtensions,omitempty"`
 }
 
-type CTLog struct {
+type Rekor struct {
 	// URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:Default:=https://rekor.sigstore.dev
@@ -254,20 +256,25 @@ type CTLog struct {
 	// +kubebuilder:validation:Optional
 	RekorPubKey string `json:"pubkey,omitempty" yaml:"pubkey,omitempty"`
 
-	// IgnoreSCT requires that a certificate contain an embedded SCT during verification. An SCT is proof of inclusion in a certificate transparency log.
-	// +kubebuilder:validation:Optional
-	IgnoreSCT bool `json:"ignoreSCT,omitempty" yaml:"ignoreSCT,omitempty"`
-
 	// IgnoreTlog skip tlog verification
 	// +kubebuilder:validation:Optional
 	IgnoreTlog bool `json:"ignoreTlog,omitempty" yaml:"ignoreTlog,omitempty"`
+}
+
+type CTLog struct {
+	// IgnoreSCT requires that a certificate contain an embedded SCT during verification.
+	// +kubebuilder:validation:Optional
+	IgnoreSCT bool `json:"ignoreSCT,omitempty" yaml:"ignoreSCT,omitempty"`
+
+	// CTLogPubKey, if set, is used to validate SCTs against those keys.
+	// +kubebuilder:validation:Optional
+	CTLogPubKey string `json:"pubkey,omitempty" yaml:"pubkey,omitempty"`
 }
 
 // Attestation are checks for signed in-toto Statements that are used to verify the image.
 // See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the
 // OCI registry and decodes them into a list of Statements.
 type Attestation struct {
-	// PredicateType defines the type of Predicate contained within the Statement.
 	// Deprecated in favour of 'Type', to be removed soon
 	// +kubebuilder:validation:Optional
 	PredicateType string `json:"predicateType" yaml:"predicateType"`

@@ -19,6 +19,9 @@
 {{- with .policyReports -}}
   {{- $flags = append $flags (print "--policyReports=" .enabled) -}}
 {{- end -}}
+{{- with .validatingAdmissionPolicyReports -}}
+  {{- $flags = append $flags (print "--validatingAdmissionPolicyReports=" .enabled) -}}
+{{- end -}}
 {{- with .autoUpdateWebhooks -}}
   {{- $flags = append $flags (print "--autoUpdateWebhooks=" .enabled) -}}
 {{- end -}}
@@ -39,6 +42,9 @@
 {{- end -}}
 {{- with .forceFailurePolicyIgnore -}}
   {{- $flags = append $flags (print "--forceFailurePolicyIgnore=" .enabled) -}}
+{{- end -}}
+{{- with .generateValidatingAdmissionPolicy -}}
+  {{- $flags = append $flags (print "--generateValidatingAdmissionPolicy=" .enabled) -}}
 {{- end -}}
 {{- with .logging -}}
   {{- $flags = append $flags (print "--loggingFormat=" .format) -}}
