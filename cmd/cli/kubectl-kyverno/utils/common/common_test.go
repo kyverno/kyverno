@@ -3,8 +3,9 @@ package common
 import (
 	"testing"
 
-	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
+	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -55,6 +56,13 @@ var policyNamespaceSelector = []byte(`{
 `)
 
 func Test_NamespaceSelector(t *testing.T) {
+	type ResultCounts struct {
+		pass int
+		fail int
+		warn int
+		err  int
+		skip int
+	}
 	type TestCase struct {
 		policy               []byte
 		resource             []byte
@@ -72,11 +80,11 @@ func Test_NamespaceSelector(t *testing.T) {
 				},
 			},
 			result: ResultCounts{
-				Pass:  0,
-				Fail:  1,
-				Warn:  0,
-				Error: 0,
-				Skip:  2,
+				pass: 0,
+				fail: 1,
+				warn: 0,
+				err:  0,
+				skip: 2,
 			},
 		},
 		{
@@ -88,65 +96,33 @@ func Test_NamespaceSelector(t *testing.T) {
 				},
 			},
 			result: ResultCounts{
-				Pass:  1,
-				Fail:  1,
-				Warn:  0,
-				Error: 0,
-				Skip:  4,
+				pass: 1,
+				fail: 1,
+				warn: 0,
+				err:  0,
+				skip: 4,
 			},
 		},
 	}
-	rc := &ResultCounts{}
+	rc := &processor.ResultCounts{}
 	for _, tc := range testcases {
 		policyArray, _, _ := yamlutils.GetPolicy(tc.policy)
-		resourceArray, _ := GetResource(tc.resource)
-		applyPolicyConfig := ApplyPolicyConfig{
+		resourceArray, _ := resource.GetUnstructuredResources(tc.resource)
+		processor := processor.PolicyProcessor{
 			Policy:               policyArray[0],
 			Resource:             resourceArray[0],
 			MutateLogPath:        "",
-			UserInfo:             v1beta1.RequestInfo{},
+			UserInfo:             nil,
 			NamespaceSelectorMap: tc.namespaceSelectorMap,
 			Rc:                   rc,
 		}
-		ApplyPolicyOnResource(applyPolicyConfig)
-		assert.Equal(t, int64(rc.Pass), int64(tc.result.Pass))
-		assert.Equal(t, int64(rc.Fail), int64(tc.result.Fail))
+		processor.ApplyPolicyOnResource()
+		assert.Equal(t, int64(rc.Pass()), int64(tc.result.pass))
+		assert.Equal(t, int64(rc.Fail()), int64(tc.result.fail))
 		// TODO: autogen rules seem to not be present when autogen internals is disabled
-		assert.Equal(t, int64(rc.Skip), int64(tc.result.Skip))
-		assert.Equal(t, int64(rc.Warn), int64(tc.result.Warn))
-		assert.Equal(t, int64(rc.Error), int64(tc.result.Error))
-	}
-}
-
-func Test_IsGitSourcePath(t *testing.T) {
-	type TestCase struct {
-		path    []string
-		actual  bool
-		desired bool
-	}
-	testcases := []TestCase{
-		{
-			path:    []string{"https://github.com/kyverno/policies/openshift/team-validate-ns-name/"},
-			desired: true,
-		},
-		{
-			path:    []string{"/kyverno/policies/openshift/team-validate-ns-name/"},
-			desired: false,
-		},
-		{
-			path:    []string{"https://bitbucket.org/kyverno/policies/openshift/team-validate-ns-name"},
-			desired: true,
-		},
-		{
-			path:    []string{"https://anydomain.com/kyverno/policies/openshift/team-validate-ns-name"},
-			desired: true,
-		},
-	}
-	for _, tc := range testcases {
-		tc.actual = IsGitSourcePath(tc.path)
-		if tc.actual != tc.desired {
-			t.Errorf("%s is not a git URL", tc.path)
-		}
+		assert.Equal(t, int64(rc.Skip()), int64(tc.result.skip))
+		assert.Equal(t, int64(rc.Warn()), int64(tc.result.warn))
+		assert.Equal(t, int64(rc.Error()), int64(tc.result.err))
 	}
 }
 
@@ -154,7 +130,7 @@ func Test_GetGitBranchOrPolicyPaths(t *testing.T) {
 	type TestCase struct {
 		gitBranch                             string
 		repoURL                               string
-		policyPath                            []string
+		policyPath                            string
 		desiredBranch, actualBranch           string
 		desiredPathToYAMLs, actualPathToYAMLs string
 	}
@@ -162,21 +138,21 @@ func Test_GetGitBranchOrPolicyPaths(t *testing.T) {
 		{
 			gitBranch:          "main",
 			repoURL:            "https://github.com/kyverno/policies",
-			policyPath:         []string{"https://github.com/kyverno/policies/openshift/team-validate-ns-name/"},
+			policyPath:         "https://github.com/kyverno/policies/openshift/team-validate-ns-name/",
 			desiredBranch:      "main",
 			desiredPathToYAMLs: "/openshift/team-validate-ns-name/",
 		},
 		{
 			gitBranch:          "",
 			repoURL:            "https://github.com/kyverno/policies",
-			policyPath:         []string{"https://github.com/kyverno/policies/"},
+			policyPath:         "https://github.com/kyverno/policies/",
 			desiredBranch:      "main",
 			desiredPathToYAMLs: "/",
 		},
 		{
 			gitBranch:          "",
 			repoURL:            "https://github.com/kyverno/policies",
-			policyPath:         []string{"https://github.com/kyverno/policies"},
+			policyPath:         "https://github.com/kyverno/policies",
 			desiredBranch:      "main",
 			desiredPathToYAMLs: "/",
 		},
@@ -194,7 +170,7 @@ func Test_getSubresourceKind(t *testing.T) {
 	podAPIResource := metav1.APIResource{Name: "pods", SingularName: "", Namespaced: true, Kind: "Pod"}
 	podEvictionAPIResource := metav1.APIResource{Name: "pods/eviction", SingularName: "", Namespaced: true, Group: "policy", Version: "v1", Kind: "Eviction"}
 
-	subresources := []api.Subresource{
+	subresources := []valuesapi.Subresource{
 		{
 			APIResource:    podEvictionAPIResource,
 			ParentResource: podAPIResource,

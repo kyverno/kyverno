@@ -1,12 +1,12 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: check-namespace-name
+  name: check-namespace-name-02
 spec:
   validationFailureAction: Enforce
   background: false
   rules:
-    - name: namespace-name
+    - name: namespace-name-02
       match:
         any:
         - resources:

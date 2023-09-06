@@ -1,0 +1,20 @@
+name: multiple-resources
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- generatedResource: generated-resource-1.yaml
+  kind: Deployment
+  policy: test-policy
+  resources:
+  - resource-a
+  result: pass
+  rule: rule
+- generatedResource: generated-resource-2.yaml
+  kind: Deployment
+  policy: test-policy
+  resources:
+  - resource-b
+  result: pass
+  rule: rule

@@ -8,10 +8,11 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
+	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/values"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/values"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -26,12 +27,11 @@ func HasVariables(policy kyvernov1.PolicyInterface) [][]string {
 
 func GetVariable(
 	variablesString []string,
-	vals *api.Values,
+	vals *valuesapi.Values,
 	valuesFile string,
 	fs billy.Filesystem,
-	isGit bool,
 	policyResourcePath string,
-) (map[string]string, map[string]string, map[string]map[string]api.Resource, map[string]map[string]string, []api.Subresource, error) {
+) (map[string]string, map[string]string, map[string]map[string]valuesapi.Resource, map[string]map[string]string, []valuesapi.Subresource, error) {
 	if vals == nil && valuesFile != "" {
 		v, err := values.Load(fs, filepath.Join(policyResourcePath, valuesFile))
 		if err != nil {
@@ -46,7 +46,7 @@ func GetVariable(
 	if globalValMap != nil {
 		if _, ok := globalValMap["request.operation"]; !ok {
 			globalValMap["request.operation"] = "CREATE"
-			log.V(3).Info("Defaulting request.operation to CREATE")
+			log.Log.V(3).Info("Defaulting request.operation to CREATE")
 		}
 	}
 
@@ -73,13 +73,13 @@ func GetVariable(
 
 func getVariable(
 	variablesString []string,
-	vals *api.Values,
-) (map[string]string, map[string]string, map[string]map[string]api.Resource, map[string]map[string]api.Rule, map[string]map[string]string, []api.Subresource) {
-	valuesMapResource := make(map[string]map[string]api.Resource)
-	valuesMapRule := make(map[string]map[string]api.Rule)
+	vals *valuesapi.Values,
+) (map[string]string, map[string]string, map[string]map[string]valuesapi.Resource, map[string]map[string]valuesapi.Rule, map[string]map[string]string, []valuesapi.Subresource) {
+	valuesMapResource := make(map[string]map[string]valuesapi.Resource)
+	valuesMapRule := make(map[string]map[string]valuesapi.Rule)
 	namespaceSelectorMap := make(map[string]map[string]string)
 	variables := make(map[string]string)
-	subresources := make([]api.Subresource, 0)
+	subresources := make([]valuesapi.Subresource, 0)
 	globalValMap := make(map[string]string)
 	reqObjVars := ""
 	for _, kvpair := range variablesString {
@@ -97,12 +97,12 @@ func getVariable(
 		if vals.GlobalValues == nil {
 			vals.GlobalValues = make(map[string]string)
 			vals.GlobalValues["request.operation"] = "CREATE"
-			log.V(3).Info("Defaulting request.operation to CREATE")
+			log.Log.V(3).Info("Defaulting request.operation to CREATE")
 		} else {
 			if val, ok := vals.GlobalValues["request.operation"]; ok {
 				if val == "" {
 					vals.GlobalValues["request.operation"] = "CREATE"
-					log.V(3).Info("Globally request.operation value provided by the user is empty, defaulting it to CREATE", "request.opearation: ", vals.GlobalValues)
+					log.Log.V(3).Info("Globally request.operation value provided by the user is empty, defaulting it to CREATE", "request.opearation: ", vals.GlobalValues)
 				}
 			}
 		}
@@ -110,12 +110,12 @@ func getVariable(
 		globalValMap = vals.GlobalValues
 
 		for _, p := range vals.Policies {
-			resourceMap := make(map[string]api.Resource)
+			resourceMap := make(map[string]valuesapi.Resource)
 			for _, r := range p.Resources {
 				if val, ok := r.Values["request.operation"]; ok {
 					if val == "" {
 						r.Values["request.operation"] = "CREATE"
-						log.V(3).Info("No request.operation found, defaulting it to CREATE", "policy", p.Name)
+						log.Log.V(3).Info("No request.operation found, defaulting it to CREATE", "policy", p.Name)
 					}
 				}
 				for variableInFile := range r.Values {
@@ -132,7 +132,7 @@ func getVariable(
 			valuesMapResource[p.Name] = resourceMap
 
 			if p.Rules != nil {
-				ruleMap := make(map[string]api.Rule)
+				ruleMap := make(map[string]valuesapi.Rule)
 				for _, r := range p.Rules {
 					ruleMap[r.Name] = r
 				}
@@ -184,10 +184,10 @@ func SetInStoreContext(mutatedPolicies []kyvernov1.PolicyInterface, variables ma
 	return variables
 }
 
-func CheckVariableForPolicy(valuesMap map[string]map[string]api.Resource, globalValMap map[string]string, policyName string, resourceName string, resourceKind string, variables map[string]string, kindOnwhichPolicyIsApplied map[string]struct{}, variable string) (map[string]interface{}, error) {
+func CheckVariableForPolicy(valuesMap map[string]map[string]valuesapi.Resource, globalValMap map[string]string, policyName string, resourceName string, resourceKind string, variables map[string]string, kindOnwhichPolicyIsApplied map[string]struct{}, variable string) (map[string]interface{}, error) {
 	// get values from file for this policy resource combination
 	thisPolicyResourceValues := make(map[string]interface{})
-	if len(valuesMap[policyName]) != 0 && !datautils.DeepEqual(valuesMap[policyName][resourceName], api.Resource{}) {
+	if len(valuesMap[policyName]) != 0 && !datautils.DeepEqual(valuesMap[policyName][resourceName], valuesapi.Resource{}) {
 		thisPolicyResourceValues = valuesMap[policyName][resourceName].Values
 	}
 

@@ -73,7 +73,7 @@ func validateAuth(ctx context.Context, client dclient.Interface, policy kyvernov
 	kinds := sets.New(spec.MatchResources.GetKinds()...)
 	for kind := range kinds {
 		checker := auth.NewCanI(client.Discovery(), client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, "delete", "", config.KyvernoUserName(config.KyvernoServiceAccountName()))
-		allowedDeletion, err := checker.RunAccessCheck(ctx)
+		allowedDeletion, _, err := checker.RunAccessCheck(ctx)
 		if err != nil {
 			return err
 		}
@@ -82,7 +82,7 @@ func validateAuth(ctx context.Context, client dclient.Interface, policy kyvernov
 		}
 
 		checker = auth.NewCanI(client.Discovery(), client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, "list", "", config.KyvernoUserName(config.KyvernoServiceAccountName()))
-		allowedList, err := checker.RunAccessCheck(ctx)
+		allowedList, _, err := checker.RunAccessCheck(ctx)
 		if err != nil {
 			return err
 		}

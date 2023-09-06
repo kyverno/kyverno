@@ -37,8 +37,6 @@ type ImageVerification struct {
 	// +kubebuilder:validation:Optional
 	Type ImageVerificationType `json:"type,omitempty" yaml:"type,omitempty"`
 
-	// Image is the image name consisting of the registry address, repository, image, and tag.
-	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
 	// Deprecated. Use ImageReferences instead.
 	// +kubebuilder:validation:Optional
 	Image string `json:"image,omitempty" yaml:"image,omitempty"`
@@ -50,23 +48,18 @@ type ImageVerification struct {
 	// +kubebuilder:validation:Optional
 	ImageReferences []string `json:"imageReferences,omitempty" yaml:"imageReferences,omitempty"`
 
-	// Key is the PEM encoded public key that the image or attestation is signed with.
 	// Deprecated. Use StaticKeyAttestor instead.
 	Key string `json:"key,omitempty" yaml:"key,omitempty"`
 
-	// Roots is the PEM encoded Root certificate chain used for keyless signing
 	// Deprecated. Use KeylessAttestor instead.
 	Roots string `json:"roots,omitempty" yaml:"roots,omitempty"`
 
-	// Subject is the identity used for keyless signing, for example an email address
 	// Deprecated. Use KeylessAttestor instead.
 	Subject string `json:"subject,omitempty" yaml:"subject,omitempty"`
 
-	// Issuer is the certificate issuer used for keyless signing.
 	// Deprecated. Use KeylessAttestor instead.
 	Issuer string `json:"issuer,omitempty" yaml:"issuer,omitempty"`
 
-	// AdditionalExtensions are certificate-extensions used for keyless signing.
 	// Deprecated.
 	AdditionalExtensions map[string]string `json:"additionalExtensions,omitempty" yaml:"additionalExtensions,omitempty"`
 
@@ -79,9 +72,6 @@ type ImageVerification struct {
 	// OCI registry and decodes them into a list of Statement declarations.
 	Attestations []Attestation `json:"attestations,omitempty" yaml:"attestations,omitempty"`
 
-	// Annotations are used for image verification.
-	// Every specified key-value pair must exist and match in the verified payload.
-	// The payload may contain other key-value pairs.
 	// Deprecated. Use annotations per Attestor instead.
 	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 
@@ -310,7 +300,6 @@ type TUF struct {
 // See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the
 // OCI registry and decodes them into a list of Statements.
 type Attestation struct {
-	// PredicateType defines the type of Predicate contained within the Statement.
 	// Deprecated in favour of 'Type', to be removed soon
 	// +kubebuilder:validation:Optional
 	PredicateType string `json:"predicateType" yaml:"predicateType"`

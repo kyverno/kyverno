@@ -15,6 +15,7 @@ import (
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -95,28 +96,40 @@ func NewController(
 		metadataCache:  metadataCache,
 		chunkSize:      chunkSize,
 	}
-	controllerutils.AddDelayedExplicitEventHandlers(logger, polrInformer.Informer(), c.queue, enqueueDelay, keyFunc)
-	controllerutils.AddDelayedExplicitEventHandlers(logger, cpolrInformer.Informer(), c.queue, enqueueDelay, keyFunc)
-	controllerutils.AddDelayedExplicitEventHandlers(logger, bgscanrInformer.Informer(), c.queue, enqueueDelay, keyFunc)
-	controllerutils.AddDelayedExplicitEventHandlers(logger, cbgscanrInformer.Informer(), c.queue, enqueueDelay, keyFunc)
+	if _, _, err := controllerutils.AddDelayedExplicitEventHandlers(logger, polrInformer.Informer(), c.queue, enqueueDelay, keyFunc); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
+	if _, _, err := controllerutils.AddDelayedExplicitEventHandlers(logger, cpolrInformer.Informer(), c.queue, enqueueDelay, keyFunc); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
+	if _, _, err := controllerutils.AddDelayedExplicitEventHandlers(logger, bgscanrInformer.Informer(), c.queue, enqueueDelay, keyFunc); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
+	if _, _, err := controllerutils.AddDelayedExplicitEventHandlers(logger, cbgscanrInformer.Informer(), c.queue, enqueueDelay, keyFunc); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
 	enqueueFromAdmr := func(obj metav1.Object) {
 		// no need to consider non aggregated reports
 		if controllerutils.HasLabel(obj, reportutils.LabelAggregatedReport) {
 			c.queue.AddAfter(keyFunc(obj), enqueueDelay)
 		}
 	}
-	controllerutils.AddEventHandlersT(
+	if _, err := controllerutils.AddEventHandlersT(
 		admrInformer.Informer(),
 		func(obj metav1.Object) { enqueueFromAdmr(obj) },
 		func(_, obj metav1.Object) { enqueueFromAdmr(obj) },
 		func(obj metav1.Object) { enqueueFromAdmr(obj) },
-	)
-	controllerutils.AddEventHandlersT(
+	); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
+	if _, err := controllerutils.AddEventHandlersT(
 		cadmrInformer.Informer(),
 		func(obj metav1.Object) { enqueueFromAdmr(obj) },
 		func(_, obj metav1.Object) { enqueueFromAdmr(obj) },
 		func(obj metav1.Object) { enqueueFromAdmr(obj) },
-	)
+	); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
 	return &c
 }
 
@@ -214,7 +227,7 @@ func (c *controller) reconcileReport(ctx context.Context, policyMap map[string]p
 		for _, result := range results {
 			policy := policyMap[result.Policy]
 			if policy.policy != nil {
-				reportutils.SetPolicyLabel(report, policy.policy)
+				reportutils.SetPolicyLabel(report, engineapi.NewKyvernoPolicy(policy.policy))
 			}
 		}
 		return reportutils.CreateReport(ctx, report, c.client)
@@ -226,7 +239,7 @@ func (c *controller) reconcileReport(ctx context.Context, policyMap map[string]p
 	for _, result := range results {
 		policy := policyMap[result.Policy]
 		if policy.policy != nil {
-			reportutils.SetPolicyLabel(after, policy.policy)
+			reportutils.SetPolicyLabel(after, engineapi.NewKyvernoPolicy(policy.policy))
 		}
 	}
 	reportutils.SetResults(after, results...)

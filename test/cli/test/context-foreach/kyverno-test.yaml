@@ -1,17 +1,19 @@
 name: block-images
 policies:
-  -  policy.yaml
+- policy.yaml
 resources:
-  - resources.yaml
-variables: values.yaml
+- resources.yaml
 results:
-- policy: block-images
-  rule: block-images
-  resource: good-pod
-  kind: Pod
+- kind: Pod
+  policy: block-images
+  resources:
+  - good-pod
   result: pass
-- policy: block-images
   rule: block-images
-  resource: bad-pod
-  kind: Pod
+- kind: Pod
+  policy: block-images
+  resources:
+  - bad-pod
   result: fail
+  rule: block-images
+variables: values.yaml
