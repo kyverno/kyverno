@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
