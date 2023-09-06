@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
+	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/test"
 )
 
 func TestLoadTests(t *testing.T) {
@@ -24,30 +24,30 @@ func TestLoadTests(t *testing.T) {
 		wantErr:  false,
 	}, {
 		name:     "invalid dir",
-		dirPath:  "../testdata/tests/invalid",
+		dirPath:  "../_testdata/tests/invalid",
 		fileName: "kyverno-test.yaml",
 		want:     nil,
 		wantErr:  true,
 	}, {
 		name:     "invalid dir",
-		dirPath:  "../testdata/tests",
+		dirPath:  "../_testdata/tests",
 		fileName: "kyverno-test-invalid.yaml",
 		want: []TestCase{{
-			Path: "../testdata/tests/test-invalid/kyverno-test-invalid.yaml",
+			Path: "../_testdata/tests/test-invalid/kyverno-test-invalid.yaml",
 			Err:  errors.New("error unmarshaling JSON: while decoding JSON: json: unknown field \"foo\""),
 		}},
 		wantErr: false,
 	}, {
 		name:     "ok",
-		dirPath:  "../testdata/tests/test-1",
+		dirPath:  "../_testdata/tests/test-1",
 		fileName: "kyverno-test.yaml",
 		want: []TestCase{{
-			Path: "../testdata/tests/test-1/kyverno-test.yaml",
-			Test: &api.Test{
+			Path: "../_testdata/tests/test-1/kyverno-test.yaml",
+			Test: &testapi.Test{
 				Name:      "test-registry",
 				Policies:  []string{"image-example.yaml"},
 				Resources: []string{"resources.yaml"},
-				Results: []api.TestResults{{
+				Results: []testapi.TestResults{{
 					Kind:      "Pod",
 					Policy:    "images",
 					Resources: []string{"test-pod-with-non-root-user-image"},
@@ -65,15 +65,15 @@ func TestLoadTests(t *testing.T) {
 		wantErr: false,
 	}, {
 		name:     "ok",
-		dirPath:  "../testdata/tests/test-2",
+		dirPath:  "../_testdata/tests/test-2",
 		fileName: "kyverno-test.yaml",
 		want: []TestCase{{
-			Path: "../testdata/tests/test-2/kyverno-test.yaml",
-			Test: &api.Test{
+			Path: "../_testdata/tests/test-2/kyverno-test.yaml",
+			Test: &testapi.Test{
 				Name:      "add-quota",
 				Policies:  []string{"policy.yaml"},
 				Resources: []string{"resource.yaml"},
-				Results: []api.TestResults{{
+				Results: []testapi.TestResults{{
 					Kind:              "Namespace",
 					Policy:            "add-ns-quota",
 					Resources:         []string{"hello-world-namespace"},
@@ -93,15 +93,15 @@ func TestLoadTests(t *testing.T) {
 		wantErr: false,
 	}, {
 		name:     "ok",
-		dirPath:  "../testdata/tests",
+		dirPath:  "../_testdata/tests",
 		fileName: "kyverno-test.yaml",
 		want: []TestCase{{
-			Path: "../testdata/tests/test-1/kyverno-test.yaml",
-			Test: &api.Test{
+			Path: "../_testdata/tests/test-1/kyverno-test.yaml",
+			Test: &testapi.Test{
 				Name:      "test-registry",
 				Policies:  []string{"image-example.yaml"},
 				Resources: []string{"resources.yaml"},
-				Results: []api.TestResults{{
+				Results: []testapi.TestResults{{
 					Kind:      "Pod",
 					Policy:    "images",
 					Resources: []string{"test-pod-with-non-root-user-image"},
@@ -116,12 +116,12 @@ func TestLoadTests(t *testing.T) {
 				}},
 			},
 		}, {
-			Path: "../testdata/tests/test-2/kyverno-test.yaml",
-			Test: &api.Test{
+			Path: "../_testdata/tests/test-2/kyverno-test.yaml",
+			Test: &testapi.Test{
 				Name:      "add-quota",
 				Policies:  []string{"policy.yaml"},
 				Resources: []string{"resource.yaml"},
-				Results: []api.TestResults{{
+				Results: []testapi.TestResults{{
 					Kind:              "Namespace",
 					Policy:            "add-ns-quota",
 					Resources:         []string{"hello-world-namespace"},

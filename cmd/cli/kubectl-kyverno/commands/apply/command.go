@@ -12,13 +12,16 @@ import (
 	"github.com/go-git/go-billy/v5/memfs"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
 	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	reportutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/report"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -32,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/yaml"
 )
 
@@ -140,11 +142,11 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*common.ResultCounts, []*unst
 	if err != nil {
 		return rc, uu, skipInvalidPolicies, er, err
 	}
-	var userInfo v1beta1.RequestInfo
+	var userInfo *v1beta1.RequestInfo
 	if c.UserInfoPath != "" {
-		userInfo, err = common.GetUserInfoFromPath(nil, c.UserInfoPath, "")
+		userInfo, err = userinfo.Load(nil, c.UserInfoPath, "")
 		if err != nil {
-			return rc, uu, skipInvalidPolicies, er, fmt.Errorf("Error: failed to load request info\nCause: %s\n", err)
+			return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("Error: failed to load request info", err)
 		}
 	}
 	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(c.Variables, nil, c.ValuesFile, nil, "")
@@ -192,7 +194,7 @@ func (c *ApplyCommandConfig) getMutateLogPathIsDir(skipInvalidPolicies SkippedIn
 	return nil, nil, skipInvalidPolicies, nil, err, mutateLogPathIsDir
 }
 
-func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, resources []*unstructured.Unstructured, rc *common.ResultCounts, dClient dclient.Interface, subresources []api.Subresource, skipInvalidPolicies SkippedInvalidPolicies, responses []engineapi.EngineResponse) (*common.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
+func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, resources []*unstructured.Unstructured, rc *common.ResultCounts, dClient dclient.Interface, subresources []valuesapi.Subresource, skipInvalidPolicies SkippedInvalidPolicies, responses []engineapi.EngineResponse) (*common.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	validatingAdmissionPolicy := common.ValidatingAdmissionPolicies{}
 	for _, resource := range resources {
 		for _, policy := range validatingAdmissionPolicies {
@@ -215,7 +217,7 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(validating
 	return rc, resources, skipInvalidPolicies, responses, nil
 }
 
-func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, resources []*unstructured.Unstructured, openApiManager openapi.Manager, skipInvalidPolicies SkippedInvalidPolicies, valuesMap map[string]map[string]api.Resource, dClient dclient.Interface, subresources []api.Subresource, globalValMap map[string]string, userInfo v1beta1.RequestInfo, mutateLogPathIsDir bool, namespaceSelectorMap map[string]map[string]string) (*common.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
+func (c *ApplyCommandConfig) applyPolicytoResource(variables map[string]string, policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, resources []*unstructured.Unstructured, openApiManager openapi.Manager, skipInvalidPolicies SkippedInvalidPolicies, valuesMap map[string]map[string]valuesapi.Resource, dClient dclient.Interface, subresources []valuesapi.Subresource, globalValMap map[string]string, userInfo *v1beta1.RequestInfo, mutateLogPathIsDir bool, namespaceSelectorMap map[string]map[string]string) (*common.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	if len(variables) != 0 {
 		variables = common.SetInStoreContext(policies, variables)
 	}
@@ -296,49 +298,52 @@ func (c *ApplyCommandConfig) loadResources(policies []kyvernov1.PolicyInterface,
 
 func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPolicies) (*common.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error, []kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy) {
 	// load policies
-	fs := memfs.New()
 	var policies []kyvernov1.PolicyInterface
 	var validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy
 
-	for _, policy := range c.PolicyPaths {
-		policyPaths := []string{policy}
-		isGit := source.IsGit(policy)
+	for _, path := range c.PolicyPaths {
+		isGit := source.IsGit(path)
 
 		if isGit {
-			gitSourceURL, err := url.Parse(policyPaths[0])
+			gitSourceURL, err := url.Parse(path)
 			if err != nil {
-				return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("Error: failed to load policies\nCause: %s\n", err), policies, validatingAdmissionPolicies
+				return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("Error: failed to load policies", err), nil, nil
 			}
 
 			pathElems := strings.Split(gitSourceURL.Path[1:], "/")
 			if len(pathElems) <= 1 {
 				err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
-				return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("Error: failed to parse URL \nCause: %s\n", err), policies, validatingAdmissionPolicies
+				return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("Error: failed to parse URL", err), nil, nil
 			}
 			gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
 			repoURL := gitSourceURL.String()
 			var gitPathToYamls string
-			c.GitBranch, gitPathToYamls = common.GetGitBranchOrPolicyPaths(c.GitBranch, repoURL, policyPaths)
-			_, cloneErr := gitutils.Clone(repoURL, fs, c.GitBranch)
-			if cloneErr != nil {
-				log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", cloneErr)
-				return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("Error: failed to clone repository \nCause: %s\n", cloneErr), policies, validatingAdmissionPolicies
+			c.GitBranch, gitPathToYamls = common.GetGitBranchOrPolicyPaths(c.GitBranch, repoURL, path)
+			fs := memfs.New()
+			if _, err := gitutils.Clone(repoURL, fs, c.GitBranch); err != nil {
+				log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", err)
+				return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("Error: failed to clone repository", err), nil, nil
 			}
 			policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
 			if err != nil {
 				return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("failed to list YAMLs in repository", err), nil, nil
 			}
-
-			policyPaths = policyYamls
+			for _, policyYaml := range policyYamls {
+				policiesFromFile, admissionPoliciesFromFile, err := policy.Load(fs, "", policyYaml)
+				if err != nil {
+					continue
+				}
+				policies = append(policies, policiesFromFile...)
+				validatingAdmissionPolicies = append(validatingAdmissionPolicies, admissionPoliciesFromFile...)
+			}
+		} else {
+			policiesFromFile, admissionPoliciesFromFile, err := policy.Load(nil, "", path)
+			if err != nil {
+				return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("Error: failed to load policies", err), nil, nil
+			}
+			policies = append(policies, policiesFromFile...)
+			validatingAdmissionPolicies = append(validatingAdmissionPolicies, admissionPoliciesFromFile...)
 		}
-
-		policiesFromFile, admissionPoliciesFromFile, err := common.GetPoliciesFromPaths(fs, policyPaths, isGit, "")
-		if err != nil {
-			return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("Error: failed to load policies\nCause: %s\n", err), policies, validatingAdmissionPolicies
-		}
-
-		policies = append(policies, policiesFromFile...)
-		validatingAdmissionPolicies = append(validatingAdmissionPolicies, admissionPoliciesFromFile...)
 	}
 
 	return nil, nil, skipInvalidPolicies, nil, nil, policies, validatingAdmissionPolicies

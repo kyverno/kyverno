@@ -3,9 +3,8 @@ package common
 import (
 	"testing"
 
-	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -105,7 +104,7 @@ func Test_NamespaceSelector(t *testing.T) {
 			Policy:               policyArray[0],
 			Resource:             resourceArray[0],
 			MutateLogPath:        "",
-			UserInfo:             v1beta1.RequestInfo{},
+			UserInfo:             nil,
 			NamespaceSelectorMap: tc.namespaceSelectorMap,
 			Rc:                   rc,
 		}
@@ -123,7 +122,7 @@ func Test_GetGitBranchOrPolicyPaths(t *testing.T) {
 	type TestCase struct {
 		gitBranch                             string
 		repoURL                               string
-		policyPath                            []string
+		policyPath                            string
 		desiredBranch, actualBranch           string
 		desiredPathToYAMLs, actualPathToYAMLs string
 	}
@@ -131,21 +130,21 @@ func Test_GetGitBranchOrPolicyPaths(t *testing.T) {
 		{
 			gitBranch:          "main",
 			repoURL:            "https://github.com/kyverno/policies",
-			policyPath:         []string{"https://github.com/kyverno/policies/openshift/team-validate-ns-name/"},
+			policyPath:         "https://github.com/kyverno/policies/openshift/team-validate-ns-name/",
 			desiredBranch:      "main",
 			desiredPathToYAMLs: "/openshift/team-validate-ns-name/",
 		},
 		{
 			gitBranch:          "",
 			repoURL:            "https://github.com/kyverno/policies",
-			policyPath:         []string{"https://github.com/kyverno/policies/"},
+			policyPath:         "https://github.com/kyverno/policies/",
 			desiredBranch:      "main",
 			desiredPathToYAMLs: "/",
 		},
 		{
 			gitBranch:          "",
 			repoURL:            "https://github.com/kyverno/policies",
-			policyPath:         []string{"https://github.com/kyverno/policies"},
+			policyPath:         "https://github.com/kyverno/policies",
 			desiredBranch:      "main",
 			desiredPathToYAMLs: "/",
 		},
@@ -163,7 +162,7 @@ func Test_getSubresourceKind(t *testing.T) {
 	podAPIResource := metav1.APIResource{Name: "pods", SingularName: "", Namespaced: true, Kind: "Pod"}
 	podEvictionAPIResource := metav1.APIResource{Name: "pods/eviction", SingularName: "", Namespaced: true, Group: "policy", Version: "v1", Kind: "Eviction"}
 
-	subresources := []api.Subresource{
+	subresources := []valuesapi.Subresource{
 		{
 			APIResource:    podEvictionAPIResource,
 			ParentResource: podAPIResource,

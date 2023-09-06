@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/source"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"

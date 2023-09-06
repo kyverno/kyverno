@@ -4,14 +4,14 @@ import (
 	"testing"
 
 	"github.com/go-git/go-billy/v5"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
+	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/test"
 )
 
 func TestTestCase_Dir(t *testing.T) {
 	type fields struct {
 		Path string
 		Fs   billy.Filesystem
-		Test *api.Test
+		Test *testapi.Test
 		Err  error
 	}
 	tests := []struct {

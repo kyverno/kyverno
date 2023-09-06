@@ -17,5 +17,4 @@ results:
   - any-configmap-name-bad
   result: skip
   rule: limit-configmap-for-sa-developer
-userinfo: user_info.yaml
 variables: variables.yaml

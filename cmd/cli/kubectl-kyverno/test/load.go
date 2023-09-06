@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/go-git/go-billy/v5"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
+	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/test"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
@@ -65,7 +65,7 @@ func LoadTest(fs billy.Filesystem, path string) TestCase {
 		}
 		yamlBytes = data
 	}
-	var test api.Test
+	var test testapi.Test
 	if err := yaml.UnmarshalStrict(yamlBytes, &test); err != nil {
 		return TestCase{
 			Path: path,
