@@ -8,9 +8,9 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/authn/github"
 	"github.com/google/go-containerregistry/pkg/v1/google"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/pull"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/push"
-	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	"github.com/spf13/cobra"
 )
 
@@ -26,9 +26,9 @@ func Command() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:     "oci",
-		Short:   cobrautils.FormatDescription(true, websiteUrl, true, description...),
-		Long:    cobrautils.FormatDescription(false, websiteUrl, true, description...),
-		Example: cobrautils.FormatExamples(examples...),
+		Short:   command.FormatDescription(true, websiteUrl, true, description...),
+		Long:    command.FormatDescription(false, websiteUrl, true, description...),
+		Example: command.FormatExamples(examples...),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},

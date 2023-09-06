@@ -5,8 +5,8 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/templates"
-	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	"github.com/spf13/cobra"
 )
 
@@ -34,9 +34,9 @@ func Command() *cobra.Command {
 	var pass, fail, skip []string
 	cmd := &cobra.Command{
 		Use:     "test",
-		Short:   cobrautils.FormatDescription(true, websiteUrl, false, description...),
-		Long:    cobrautils.FormatDescription(false, websiteUrl, false, description...),
-		Example: cobrautils.FormatExamples(examples...),
+		Short:   command.FormatDescription(true, websiteUrl, false, description...),
+		Long:    command.FormatDescription(false, websiteUrl, false, description...),
+		Example: command.FormatExamples(examples...),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			tmpl, err := template.New("test").Parse(templates.TestTemplate)
 			if err != nil {
