@@ -64,8 +64,7 @@ type ApplyCommandConfig struct {
 }
 
 // allow os.exit to be overwritten during unit tests
-//var osExit = os.Exit
-
+// var osExit = os.Exit
 func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var removeColor, detailedResults, table bool
