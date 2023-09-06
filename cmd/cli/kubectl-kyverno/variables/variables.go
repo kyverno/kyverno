@@ -14,7 +14,7 @@ type Variables struct {
 }
 
 func (v Variables) HasVariables() bool {
-	return len(v.variables) == 0
+	return len(v.variables) != 0
 }
 
 func (v Variables) HasPolicyVariables(policy string) bool {

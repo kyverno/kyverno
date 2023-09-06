@@ -4,9 +4,15 @@ import (
 	"strings"
 )
 
-func NeedsVariables(vars ...string) bool {
-	for _, v := range vars {
-		if !strings.Contains(v, "request.object") && !strings.Contains(v, "element") && v != "elementIndex" {
+func NeedsVariable(variable string) bool {
+	return !strings.Contains(variable, "request.object") &&
+		!strings.Contains(variable, "request.operation") &&
+		!strings.Contains(variable, "element") &&
+		variable != "elementIndex"
+}
+func NeedsVariables(variables ...string) bool {
+	for _, variable := range variables {
+		if NeedsVariable(variable) {
 			return true
 		}
 	}
