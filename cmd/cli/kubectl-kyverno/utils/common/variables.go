@@ -9,6 +9,7 @@ import (
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/values"
@@ -45,7 +46,7 @@ func GetVariable(
 	if globalValMap != nil {
 		if _, ok := globalValMap["request.operation"]; !ok {
 			globalValMap["request.operation"] = "CREATE"
-			log.V(3).Info("Defaulting request.operation to CREATE")
+			log.Log.V(3).Info("Defaulting request.operation to CREATE")
 		}
 	}
 
@@ -96,12 +97,12 @@ func getVariable(
 		if vals.GlobalValues == nil {
 			vals.GlobalValues = make(map[string]string)
 			vals.GlobalValues["request.operation"] = "CREATE"
-			log.V(3).Info("Defaulting request.operation to CREATE")
+			log.Log.V(3).Info("Defaulting request.operation to CREATE")
 		} else {
 			if val, ok := vals.GlobalValues["request.operation"]; ok {
 				if val == "" {
 					vals.GlobalValues["request.operation"] = "CREATE"
-					log.V(3).Info("Globally request.operation value provided by the user is empty, defaulting it to CREATE", "request.opearation: ", vals.GlobalValues)
+					log.Log.V(3).Info("Globally request.operation value provided by the user is empty, defaulting it to CREATE", "request.opearation: ", vals.GlobalValues)
 				}
 			}
 		}
@@ -114,7 +115,7 @@ func getVariable(
 				if val, ok := r.Values["request.operation"]; ok {
 					if val == "" {
 						r.Values["request.operation"] = "CREATE"
-						log.V(3).Info("No request.operation found, defaulting it to CREATE", "policy", p.Name)
+						log.Log.V(3).Info("No request.operation found, defaulting it to CREATE", "policy", p.Name)
 					}
 				}
 				for variableInFile := range r.Values {

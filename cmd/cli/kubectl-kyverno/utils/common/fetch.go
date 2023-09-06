@@ -10,6 +10,7 @@ import (
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -84,7 +85,7 @@ func whenClusterIsTrue(resourceTypes []schema.GroupVersionKind, subresourceMap m
 			}
 			if lenOfResource >= len(resources) {
 				if policyReport {
-					log.V(3).Info(fmt.Sprintf("%s not found in cluster", resourcePath))
+					log.Log.V(3).Info(fmt.Sprintf("%s not found in cluster", resourcePath))
 				} else {
 					fmt.Printf("\n----------------------------------------------------------------------\nresource %s not found in cluster\n----------------------------------------------------------------------\n", resourcePath)
 				}
@@ -101,7 +102,7 @@ func whenClusterIsFalse(resourcePaths []string, policyReport bool) ([]*unstructu
 		resourceBytes, err := resource.GetFileBytes(resourcePath)
 		if err != nil {
 			if policyReport {
-				log.V(3).Info(fmt.Sprintf("failed to load resources: %s.", resourcePath), "error", err)
+				log.Log.V(3).Info(fmt.Sprintf("failed to load resources: %s.", resourcePath), "error", err)
 			} else {
 				fmt.Printf("\n----------------------------------------------------------------------\nfailed to load resources: %s. \nerror: %s\n----------------------------------------------------------------------\n", resourcePath, err)
 			}
@@ -259,7 +260,7 @@ func addGVKToResourceTypesMap(kind string, resourceTypesMap map[schema.GroupVers
 	group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 	gvrss, err := client.Discovery().FindResources(group, version, kind, subresource)
 	if err != nil {
-		log.Info("failed to find resource", "kind", kind, "error", err)
+		log.Log.Info("failed to find resource", "kind", kind, "error", err)
 		return
 	}
 	for parent, child := range gvrss {

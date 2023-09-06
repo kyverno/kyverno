@@ -3,11 +3,14 @@ package processor
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy/annotations"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
@@ -99,20 +102,20 @@ OuterLoop:
 	}
 
 	resPath := fmt.Sprintf("%s/%s/%s", c.Resource.GetNamespace(), c.Resource.GetKind(), c.Resource.GetName())
-	log.V(3).Info("applying policy on resource", "policy", c.Policy.GetName(), "resource", resPath)
+	log.Log.V(3).Info("applying policy on resource", "policy", c.Policy.GetName(), "resource", resPath)
 
 	resourceRaw, err := c.Resource.MarshalJSON()
 	if err != nil {
-		log.Error(err, "failed to marshal resource")
+		log.Log.Error(err, "failed to marshal resource")
 	}
 
 	updatedResource, err := kubeutils.BytesToUnstructured(resourceRaw)
 	if err != nil {
-		log.Error(err, "unable to convert raw resource to unstructured")
+		log.Log.Error(err, "unable to convert raw resource to unstructured")
 	}
 
 	if err != nil {
-		log.Error(err, "failed to load resource in context")
+		log.Log.Error(err, "failed to load resource in context")
 	}
 
 	cfg := config.NewDefaultConfiguration(false)
@@ -160,7 +163,7 @@ OuterLoop:
 		cfg,
 	)
 	if err != nil {
-		log.Error(err, "failed to create policy context")
+		log.Log.Error(err, "failed to create policy context")
 	}
 
 	policyContext = policyContext.
@@ -171,7 +174,7 @@ OuterLoop:
 	for key, value := range c.Variables {
 		err = policyContext.JSONContext().AddVariable(key, value)
 		if err != nil {
-			log.Error(err, "failed to add variable to context")
+			log.Log.Error(err, "failed to add variable to context")
 		}
 	}
 
@@ -223,7 +226,7 @@ OuterLoop:
 		if !generateResponse.IsEmpty() {
 			newRuleResponse, err := handleGeneratePolicy(&generateResponse, *policyContext, c.RuleToCloneSourceResource)
 			if err != nil {
-				log.Error(err, "failed to apply generate policy")
+				log.Log.Error(err, "failed to apply generate policy")
 			} else {
 				generateResponse.PolicyResponse.Rules = newRuleResponse
 			}
@@ -341,12 +344,42 @@ func (c *PolicyProcessor) processMutateEngineResponse(mutateResponse engineapi.E
 				fmt.Printf("\n" + mutatedResource + "\n")
 			}
 		} else {
-			err := PrintMutatedOutput(c.MutateLogPath, c.MutateLogPathIsDir, string(yamlEncodedResource), c.Resource.GetName()+"-mutated")
+			err := c.printMutatedOutput(string(yamlEncodedResource))
 			if err != nil {
 				return sanitizederror.NewWithError("failed to print mutated result", err)
 			}
 			fmt.Printf("\n\nMutation:\nMutation has been applied successfully. Check the files.")
 		}
+	}
+	return nil
+}
+
+func (c *PolicyProcessor) printMutatedOutput(yaml string) error {
+	var file *os.File
+	mutateLogPath := filepath.Clean(c.MutateLogPath)
+	filename := c.Resource.GetName() + "-mutated"
+	if !c.MutateLogPathIsDir {
+		// truncation for the case when mutateLogPath is a file (not a directory) is handled under pkg/kyverno/apply/test_command.go
+		f, err := os.OpenFile(mutateLogPath, os.O_APPEND|os.O_WRONLY, 0o600) // #nosec G304
+		if err != nil {
+			return err
+		}
+		file = f
+	} else {
+		f, err := os.OpenFile(filepath.Join(mutateLogPath, filename+".yaml"), os.O_CREATE|os.O_WRONLY, 0o600) // #nosec G304
+		if err != nil {
+			return err
+		}
+		file = f
+	}
+	if _, err := file.Write([]byte(yaml + "\n---\n\n")); err != nil {
+		if err := file.Close(); err != nil {
+			log.Log.Error(err, "failed to close file")
+		}
+		return err
+	}
+	if err := file.Close(); err != nil {
+		return err
 	}
 	return nil
 }
