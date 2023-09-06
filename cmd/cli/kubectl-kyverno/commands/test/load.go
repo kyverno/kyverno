@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/go-git/go-billy/v5/memfs"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/source"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 )
 

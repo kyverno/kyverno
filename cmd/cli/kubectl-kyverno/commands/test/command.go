@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/test"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/filter"
@@ -16,7 +17,6 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/spf13/cobra"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func Command() *cobra.Command {
