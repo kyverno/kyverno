@@ -9,8 +9,6 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	type args struct {
-	}
 	tests := []struct {
 		name         string
 		fs           billy.Filesystem
