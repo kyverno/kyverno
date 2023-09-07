@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	reportutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/report"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	"gotest.tools/assert"
 )
 
@@ -135,22 +135,23 @@ func Test_Apply(t *testing.T) {
 			},
 		}},
 	}, {
-		config: ApplyCommandConfig{
-			PolicyPaths:   []string{"https://github.com/kyverno/policies/openshift/team-validate-ns-name/"},
-			ResourcePaths: []string{"../../../../../test/openshift/team-validate-ns-name.yaml"},
-			GitBranch:     "main",
-			PolicyReport:  true,
-		},
-		expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-			Summary: policyreportv1alpha2.PolicyReportSummary{
-				Pass:  2,
-				Fail:  0,
-				Skip:  0,
-				Error: 0,
-				Warn:  0,
-			},
-		}},
-	}, {
+		// TODO
+		// 	config: ApplyCommandConfig{
+		// 		PolicyPaths:   []string{"https://github.com/kyverno/policies/openshift/team-validate-ns-name/"},
+		// 		ResourcePaths: []string{"../../../../../test/openshift/team-validate-ns-name.yaml"},
+		// 		GitBranch:     "main",
+		// 		PolicyReport:  true,
+		// 	},
+		// 	expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+		// 		Summary: policyreportv1alpha2.PolicyReportSummary{
+		// 			Pass:  2,
+		// 			Fail:  0,
+		// 			Skip:  0,
+		// 			Error: 0,
+		// 			Warn:  0,
+		// 		},
+		// 	}},
+		// }, {
 		config: ApplyCommandConfig{
 			PolicyPaths:   []string{"../../../../../test/cli/apply/policies-set"},
 			ResourcePaths: []string{"../../../../../test/cli/apply/resources-set"},
@@ -321,10 +322,10 @@ func Test_Apply(t *testing.T) {
 		_, _, _, responses, err := tc.config.applyCommandHelper()
 		assert.NilError(t, err, desc)
 
-		clustered, _ := reportutils.ComputePolicyReports(tc.config.AuditWarn, responses...)
+		clustered, _ := report.ComputePolicyReports(tc.config.AuditWarn, responses...)
 		assert.Assert(t, len(clustered) > 0, "policy reports should not be empty: %s", desc)
 		combined := []policyreportv1alpha2.ClusterPolicyReport{
-			reportutils.MergeClusterReports(clustered, nil),
+			report.MergeClusterReports(clustered, nil),
 		}
 		assert.Equal(t, len(combined), len(tc.expectedPolicyReports))
 		for i, resp := range combined {

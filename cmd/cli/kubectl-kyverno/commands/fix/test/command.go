@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
-	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 )
@@ -16,9 +16,9 @@ func Command() *cobra.Command {
 	var save bool
 	cmd := &cobra.Command{
 		Use:     "test [folder]...",
-		Short:   cobrautils.FormatDescription(true, websiteUrl, true, description...),
-		Long:    cobrautils.FormatDescription(false, websiteUrl, true, description...),
-		Example: cobrautils.FormatExamples(examples...),
+		Short:   command.FormatDescription(true, websiteUrl, true, description...),
+		Long:    command.FormatDescription(false, websiteUrl, true, description...),
+		Example: command.FormatExamples(examples...),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var testCases []test.TestCase
 			for _, arg := range args {

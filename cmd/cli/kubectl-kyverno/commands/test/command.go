@@ -6,14 +6,14 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/test"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/filter"
-	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
-	reportutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/report"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/spf13/cobra"
@@ -27,9 +27,9 @@ func Command() *cobra.Command {
 	cmd = &cobra.Command{
 		Use:     "test [local folder or git repository]...",
 		Args:    cobra.MinimumNArgs(1),
-		Short:   cobrautils.FormatDescription(true, websiteUrl, false, description...),
-		Long:    cobrautils.FormatDescription(false, websiteUrl, false, description...),
-		Example: cobrautils.FormatExamples(examples...),
+		Short:   command.FormatDescription(true, websiteUrl, false, description...),
+		Long:    command.FormatDescription(false, websiteUrl, false, description...),
+		Example: command.FormatExamples(examples...),
 		RunE: func(cmd *cobra.Command, dirPath []string) (err error) {
 			color.InitColors(removeColor)
 			defer func() {
@@ -179,7 +179,7 @@ func checkResult(test testapi.TestResults, fs billy.Filesystem, resoucePath stri
 			return false, "Generated resource didn't match the generated resource in the test result", "Resource diff"
 		}
 	}
-	result := reportutils.ComputePolicyReportResult(false, response, rule)
+	result := report.ComputePolicyReportResult(false, response, rule)
 	if result.Result != expected {
 		return false, result.Message, fmt.Sprintf("Want %s, got %s", expected, result.Result)
 	}

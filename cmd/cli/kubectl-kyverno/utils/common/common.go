@@ -20,30 +20,23 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-// RemoveDuplicateAndObjectVariables - remove duplicate variables
-func RemoveDuplicateAndObjectVariables(matches [][]string) string {
-	var variableStr string
-	for _, m := range matches {
-		for _, v := range m {
-			foundVariable := strings.Contains(variableStr, v)
-			if !foundVariable {
-				if !strings.Contains(v, "request.object") && !strings.Contains(v, "element") && v == "elementIndex" {
-					variableStr = variableStr + " " + v
-				}
-			}
-		}
-	}
-	return variableStr
-}
-
 // GetResourceAccordingToResourcePath - get resources according to the resource path
-func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []string,
-	cluster bool, policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, dClient dclient.Interface, namespace string, policyReport bool, isGit bool, policyResourcePath string,
+func GetResourceAccordingToResourcePath(
+	fs billy.Filesystem,
+	resourcePaths []string,
+	cluster bool,
+	policies []kyvernov1.PolicyInterface,
+	validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy,
+	dClient dclient.Interface,
+	namespace string,
+	policyReport bool,
+	policyResourcePath string,
 ) (resources []*unstructured.Unstructured, err error) {
-	if isGit {
-		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, isGit, policyResourcePath)
+	if fs != nil {
+		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, policyResourcePath)
 		if err != nil {
 			return nil, sanitizederror.NewWithError("failed to extract the resources", err)
 		}
@@ -93,8 +86,8 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 	return resources, err
 }
 
-func GetKindsFromPolicy(policy kyvernov1.PolicyInterface, subresources []valuesapi.Subresource, dClient dclient.Interface) map[string]struct{} {
-	kindOnwhichPolicyIsApplied := make(map[string]struct{})
+func GetKindsFromPolicy(policy kyvernov1.PolicyInterface, subresources []valuesapi.Subresource, dClient dclient.Interface) sets.Set[string] {
+	knownkinds := sets.New[string]()
 	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
 			k, err := getKind(kind, subresources, dClient)
@@ -102,7 +95,7 @@ func GetKindsFromPolicy(policy kyvernov1.PolicyInterface, subresources []valuesa
 				fmt.Printf("Error: %s", err.Error())
 				continue
 			}
-			kindOnwhichPolicyIsApplied[k] = struct{}{}
+			knownkinds.Insert(k)
 		}
 		for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
 			k, err := getKind(kind, subresources, dClient)
@@ -110,10 +103,10 @@ func GetKindsFromPolicy(policy kyvernov1.PolicyInterface, subresources []valuesa
 				fmt.Printf("Error: %s", err.Error())
 				continue
 			}
-			kindOnwhichPolicyIsApplied[k] = struct{}{}
+			knownkinds.Insert(k)
 		}
 	}
-	return kindOnwhichPolicyIsApplied
+	return knownkinds
 }
 
 func getKind(kind string, subresources []valuesapi.Subresource, dClient dclient.Interface) (string, error) {

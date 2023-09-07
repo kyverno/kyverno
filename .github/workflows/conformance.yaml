@@ -282,7 +282,7 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   # runs conformance test suites with configuration:
-  validating-admission-policies:
+  validating-admission-policies-v1alpha1:
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -314,6 +314,170 @@ jobs:
         run: |
           export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
           export KIND_CONFIG=vap-v1alpha1
+          make kind-create-cluster
+      - name: Download kyverno images archive
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: kyverno.tar
+      - name: Load kyverno images archive in kind cluster
+        run: make kind-load-image-archive
+      - name: Install kyverno
+        run: |
+          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+          make kind-install-kyverno
+      - name: Wait for kyverno ready
+        uses: ./.github/actions/kyverno-wait-ready
+      - name: Test with kuttl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ./.tools/kubectl-kuttl test ./test/conformance/kuttl/${{ matrix.tests }} \
+            --config ./test/conformance/kuttl/_config/common.yaml
+      - name: Debug failure
+        if: failure()
+        uses: ./.github/actions/kyverno-logs
+  
+  # runs conformance test suites with configuration:
+  validating-admission-policies-v1beta1:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - name: validating-admission-policies
+            values:
+              - standard
+              - generate-validating-admission-policy
+        k8s-version:
+          - name: v1.28
+            version: v1.28.0
+        tests:
+          - generate-validating-admission-policy
+    needs: prepare-images
+    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        with:
+          build-cache-key: run-conformance
+      - name: Create kind cluster
+        run: |
+          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
+          export KIND_CONFIG=vap-v1beta1
+          make kind-create-cluster
+      - name: Download kyverno images archive
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: kyverno.tar
+      - name: Load kyverno images archive in kind cluster
+        run: make kind-load-image-archive
+      - name: Install kyverno
+        run: |
+          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+          make kind-install-kyverno
+      - name: Wait for kyverno ready
+        uses: ./.github/actions/kyverno-wait-ready
+      - name: Test with kuttl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ./.tools/kubectl-kuttl test ./test/conformance/kuttl/${{ matrix.tests }} \
+            --config ./test/conformance/kuttl/_config/common.yaml
+      - name: Debug failure
+        if: failure()
+        uses: ./.github/actions/kyverno-logs
+  
+  # runs conformance test suites with configuration:
+  validating-admission-policy-reports-v1alpha1:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - name: validating-admission-policy-reports
+            values:
+              - standard
+              - validating-admission-policy-reports
+        k8s-version:
+          - name: v1.26
+            version: v1.26.6
+          - name: v1.27
+            version: v1.27.3
+        tests:
+          - validating-admission-policy-reports
+    needs: prepare-images
+    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        with:
+          build-cache-key: run-conformance
+      - name: Create kind cluster
+        run: |
+          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
+          export KIND_CONFIG=vap-v1alpha1
+          make kind-create-cluster
+      - name: Download kyverno images archive
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: kyverno.tar
+      - name: Load kyverno images archive in kind cluster
+        run: make kind-load-image-archive
+      - name: Install kyverno
+        run: |
+          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+          make kind-install-kyverno
+      - name: Wait for kyverno ready
+        uses: ./.github/actions/kyverno-wait-ready
+      - name: Test with kuttl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ./.tools/kubectl-kuttl test ./test/conformance/kuttl/${{ matrix.tests }} \
+            --config ./test/conformance/kuttl/_config/common.yaml
+      - name: Debug failure
+        if: failure()
+        uses: ./.github/actions/kyverno-logs
+  
+  # runs conformance test suites with configuration:
+  validating-admission-policy-reports-v1beta1:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - name: validating-admission-policy-reports
+            values:
+              - standard
+              - validating-admission-policy-reports
+        k8s-version:
+          - name: v1.28
+            version: v1.28.0
+        tests:
+          - validating-admission-policy-reports
+    needs: prepare-images
+    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        with:
+          build-cache-key: run-conformance
+      - name: Create kind cluster
+        run: |
+          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
+          export KIND_CONFIG=vap-v1beta1
           make kind-create-cluster
       - name: Download kyverno images archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
