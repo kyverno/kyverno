@@ -7,6 +7,7 @@ import (
 	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/values"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func TestVariables_HasVariables(t *testing.T) {
@@ -93,7 +94,7 @@ func TestVariables_Subresources(t *testing.T) {
 }
 
 func TestVariables_NamespaceSelectors(t *testing.T) {
-	vals, err := values.Load(nil, "../_testdata/values/valid.yaml")
+	vals, err := values.Load(nil, "../_testdata/values/limit-configmap-for-sa.yaml")
 	assert.NoError(t, err)
 	tests := []struct {
 		name      string
@@ -134,7 +135,7 @@ func TestVariables_NamespaceSelectors(t *testing.T) {
 }
 
 func TestVariables_SetInStore(t *testing.T) {
-	vals, err := values.Load(nil, "../_testdata/values/valid.yaml")
+	vals, err := values.Load(nil, "../_testdata/values/limit-configmap-for-sa.yaml")
 	assert.NoError(t, err)
 	vals.Policies = append(vals.Policies, valuesapi.Policy{
 		Name: "limit-configmap-for-sa",
@@ -177,7 +178,7 @@ func TestVariables_SetInStore(t *testing.T) {
 }
 
 func TestVariables_HasPolicyVariables(t *testing.T) {
-	vals, err := values.Load(nil, "../_testdata/values/valid.yaml")
+	vals, err := values.Load(nil, "../_testdata/values/limit-configmap-for-sa.yaml")
 	assert.NoError(t, err)
 	vals.Policies = append(vals.Policies, valuesapi.Policy{
 		Name: "limit-configmap-for-sa",
@@ -230,6 +231,119 @@ func TestVariables_HasPolicyVariables(t *testing.T) {
 			}
 			if got := v.HasPolicyVariables(tt.policy); got != tt.want {
 				t.Errorf("Variables.HasPolicyVariables() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestVariables_ComputeVariables(t *testing.T) {
+	loadValues := func(path string) *valuesapi.Values {
+		t.Helper()
+		vals, err := values.Load(nil, path)
+		assert.NoError(t, err)
+		return vals
+	}
+	type fields struct {
+		values    *valuesapi.Values
+		variables map[string]string
+	}
+	type args struct {
+		policy    string
+		resource  string
+		kind      string
+		kindMap   sets.Set[string]
+		variables []string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    map[string]interface{}
+		wantErr bool
+	}{
+		{
+			name: "nil",
+			args: args{
+				"limit-configmap-for-sa",
+				"any-configmap-name-good",
+				"ConfigMap",
+				nil,
+				nil,
+			},
+			want: map[string]interface{}{
+				"request.operation": "CREATE",
+			},
+			wantErr: false,
+		},
+		{
+			name: "values",
+			fields: fields{
+				loadValues("../_testdata/values/limit-configmap-for-sa.yaml"),
+				nil,
+			},
+			args: args{
+				"limit-configmap-for-sa",
+				"any-configmap-name-good",
+				"ConfigMap",
+				nil,
+				nil,
+			},
+			want: map[string]interface{}{
+				"request.operation": "UPDATE",
+			},
+			wantErr: false,
+		}, {
+			name: "values",
+			fields: fields{
+				loadValues("../_testdata/values/limit-configmap-for-sa.yaml"),
+				nil,
+			},
+			args: args{
+				"test",
+				"any-configmap-name-good",
+				"ConfigMap",
+				nil,
+				nil,
+			},
+			want: map[string]interface{}{
+				"request.operation": "CREATE",
+			},
+			wantErr: false,
+		}, {
+			name: "values",
+			fields: fields{
+				loadValues("../_testdata/values/global-values.yaml"),
+				nil,
+			},
+			args: args{
+				"test",
+				"any-configmap-name-good",
+				"ConfigMap",
+				nil,
+				nil,
+			},
+			want: map[string]interface{}{
+				"baz": "jee",
+				"foo": "bar",
+
+				"request.operation": "CREATE",
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v := Variables{
+				values:    tt.fields.values,
+				variables: tt.fields.variables,
+			}
+			got, err := v.ComputeVariables(tt.args.policy, tt.args.resource, tt.args.kind, tt.args.kindMap, tt.args.variables...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Variables.ComputeVariables() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Variables.ComputeVariables() = %v, want %v", got, tt.want)
 			}
 		})
 	}
