@@ -42,8 +42,8 @@ func Test_readFile(t *testing.T) {
 		wantErr:  false,
 	}, {
 		name:     "valid",
-		filepath: "../_testdata/values/valid.yaml",
-		want:     mustReadFile("../_testdata/values/valid.yaml"),
+		filepath: "../_testdata/values/limit-configmap-for-sa.yaml",
+		want:     mustReadFile("../_testdata/values/limit-configmap-for-sa.yaml"),
 		wantErr:  false,
 	}, {
 		name:     "empty (billy)",
@@ -107,7 +107,7 @@ func TestLoad(t *testing.T) {
 		wantErr:  true,
 	}, {
 		name:     "valid",
-		filepath: "../_testdata/values/valid.yaml",
+		filepath: "../_testdata/values/limit-configmap-for-sa.yaml",
 		want: &valuesapi.Values{
 			NamespaceSelectors: []valuesapi.NamespaceSelector{{
 				Name: "test1",

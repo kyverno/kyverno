@@ -268,7 +268,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 				}
 			}
 			kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(pol, vars.Subresources(), dClient)
-			resourceValues, err := vars.CheckVariableForPolicy(pol.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied, matches...)
+			resourceValues, err := vars.ComputeVariables(pol.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied, matches...)
 			if err != nil {
 				return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", pol.GetName(), resource.GetName()), err)
 			}
