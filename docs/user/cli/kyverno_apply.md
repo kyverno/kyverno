@@ -2,6 +2,12 @@
 
 Applies policies on resources.
 
+### Synopsis
+
+Applies policies on resources.
+
+  For more information visit https://kyverno.io/docs/kyverno-cli/#apply
+
 ```
 kyverno apply [flags]
 ```
@@ -9,84 +15,23 @@ kyverno apply [flags]
 ### Examples
 
 ```
+  # Apply on a resource
+  kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2
 
-To apply on a resource:
-        kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2
+  # Apply on a folder of resources
+  kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resources/
 
-To apply on a folder of resources:
-        kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resources/
+  # Apply on a cluster
+  kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster
 
-To apply on a cluster:
-        kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster
+  # Apply policies from a gitSourceURL on a cluster
+  kyverno apply https://github.com/kyverno/policies/openshift/ --git-branch main --cluster
 
-To apply policies from a gitSourceURL on a cluster:
-    Example: Taking github.com as a gitSourceURL here. Some other standards  gitSourceURL are: gitlab.com , bitbucket.org , etc.
-        kyverno apply https://github.com/kyverno/policies/openshift/ --git-branch main --cluster
+  # Apply single policy with variable on single resource
+  kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml --set <variable1>=<value1>,<variable2>=<value2>
 
-To apply policy with variables:
-
-    1. To apply single policy with variable on single resource use flag "set".
-        Example:
-        kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml --set <variable1>=<value1>,<variable2>=<value2>
-
-    2. To apply multiple policy with variable on multiple resource use flag "values_file".
-        Example:
-        kyverno apply /path/to/policy1.yaml /path/to/policy2.yaml --resource /path/to/resource1.yaml --resource /path/to/resource2.yaml -f /path/to/value.yaml
-
-        Format of value.yaml:
-
-        policies:
-          - name: <policy1 name>
-            rules:
-              - name: <rule1 name>
-                values:
-                  <context variable1 in policy1 rule1>: <value>
-                  <context variable2 in policy1 rule1>: <value>
-          - name: <rule2 name>
-            values:
-              <context variable1 in policy1 rule2>: <value>
-              <context variable2 in policy1 rule2>: <value>
-            resources:
-              - name: <resource1 name>
-                values:
-                  <variable1 in policy1>: <value>
-                  <variable2 in policy1>: <value>
-              - name: <resource2 name>
-                values:
-                  <variable1 in policy1>: <value>
-                  <variable2 in policy1>: <value>
-          - name: <policy2 name>
-            resources:
-              - name: <resource1 name>
-                values:
-                  <variable1 in policy2>: <value>
-                  <variable2 in policy2>: <value>
-              - name: <resource2 name>
-                values:
-                  <variable1 in policy2>: <value>
-                  <variable2 in policy2>: <value>
-        namespaceSelector:
-          - name: <namespace1 name>
-            labels:
-              <label key>: <label value>
-          - name: <namespace2 name>
-            labels:
-              <label key>: <label value>
-        # If policy is matching on Kind/Subresource, then this is required
-        subresources:
-          - subresource:
-              name: <name of subresource>
-              kind: <kind of subresource>
-              group: <group of subresource>
-              version: <version of subresource>
-            parentResource:
-              name: <name of parent resource>
-              kind: <kind of parent resource>
-              group: <group of parent resource>
-              version: <version of parent resource>
-
-More info: https://kyverno.io/docs/kyverno-cli/
-
+  # Apply multiple policy with variable on multiple resource
+  kyverno apply /path/to/policy1.yaml /path/to/policy2.yaml --resource /path/to/resource1.yaml --resource /path/to/resource2.yaml -f /path/to/value.yaml
 ```
 
 ### Options
@@ -134,5 +79,5 @@ More info: https://kyverno.io/docs/kyverno-cli/
 
 ### SEE ALSO
 
-* [kyverno](kyverno.md)	 - Kubernetes Native Policy Management
+* [kyverno](kyverno.md)	 - Kubernetes Native Policy Management.
 

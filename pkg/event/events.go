@@ -16,10 +16,10 @@ func NewPolicyFailEvent(source Source, reason Reason, engineResponse engineapi.E
 		action = ResourceBlocked
 	}
 
-	pol := engineResponse.Policy().GetPolicy().(kyvernov1.PolicyInterface)
+	pol := engineResponse.Policy()
 
 	return Info{
-		Kind:              getPolicyKind(pol),
+		Kind:              pol.GetKind(),
 		Name:              pol.GetName(),
 		Namespace:         pol.GetNamespace(),
 		RelatedAPIVersion: engineResponse.GetResourceSpec().APIVersion,
@@ -51,13 +51,6 @@ func buildPolicyEventMessage(resp engineapi.RuleResponse, resource engineapi.Res
 	}
 
 	return b.String()
-}
-
-func getPolicyKind(policy kyvernov1.PolicyInterface) string {
-	if policy.IsNamespaced() {
-		return "Policy"
-	}
-	return "ClusterPolicy"
 }
 
 func getCleanupPolicyKind(policy kyvernov2alpha1.CleanupPolicyInterface) string {
@@ -94,7 +87,7 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 	}
 
 	return Info{
-		Kind:              getPolicyKind(pol),
+		Kind:              pol.GetKind(),
 		Name:              pol.GetName(),
 		Namespace:         pol.GetNamespace(),
 		RelatedAPIVersion: resource.GetAPIVersion(),
@@ -112,7 +105,7 @@ func NewResourceViolationEvent(source Source, reason Reason, engineResponse engi
 	var bldr strings.Builder
 	defer bldr.Reset()
 
-	pol := engineResponse.Policy().GetPolicy().(kyvernov1.PolicyInterface)
+	pol := engineResponse.Policy()
 	fmt.Fprintf(&bldr, "policy %s/%s %s: %s", pol.GetName(),
 		ruleResp.Name(), ruleResp.Status(), ruleResp.Message())
 	resource := engineResponse.GetResourceSpec()
@@ -202,7 +195,7 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s/%s", resourceKey(engineResponse.PatchedResource), pol.GetNamespace(), pol.GetName(), ruleResp.Name())
 	}
 	policyEvent := Info{
-		Kind:              getPolicyKind(pol),
+		Kind:              pol.GetKind(),
 		Name:              pol.GetName(),
 		Namespace:         pol.GetNamespace(),
 		RelatedAPIVersion: engineResponse.PatchedResource.GetAPIVersion(),

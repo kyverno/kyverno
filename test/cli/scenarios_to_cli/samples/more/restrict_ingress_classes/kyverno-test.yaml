@@ -1,11 +1,12 @@
 name: restrict-ingress-classes
 policies:
-  - policy.yaml
+- policy.yaml
 resources:
-  - resource.yaml
+- resource.yaml
 results:
-  - policy: restrict-ingress-classes
-    rule: validate-ingress
-    resource: test-ingress
-    kind: Ingress
-    result: pass
+- kind: Ingress
+  policy: restrict-ingress-classes
+  resources:
+  - test-ingress
+  result: pass
+  rule: validate-ingress

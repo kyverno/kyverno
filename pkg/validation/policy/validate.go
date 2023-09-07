@@ -16,7 +16,6 @@ import (
 	"github.com/kyverno/go-jmespath"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
@@ -43,6 +42,7 @@ var (
 	allowedVariablesBackground         = regexp.MustCompile(`request\.|element|elementIndex|@|images|images\.|image\.|([a-z_0-9]+\()[^{}]`)
 	allowedVariablesInTarget           = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
 	allowedVariablesBackgroundInTarget = regexp.MustCompile(`request\.|element|elementIndex|@|images|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
+	regexVariables                     = regexp.MustCompile(`\{\{[^{}]*\}\}`)
 	// wildCardAllowedVariables represents regex for the allowed fields in wildcards
 	wildCardAllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace)[^{}]*\}\}`)
 	errOperationForbidden    = errors.New("variables are forbidden in the path of a JSONPatch")
@@ -542,7 +542,7 @@ func objectHasVariables(object interface{}) error {
 		return err
 	}
 
-	if len(common.RegexVariables.FindAllStringSubmatch(string(objectJSON), -1)) > 0 {
+	if len(regexVariables.FindAllStringSubmatch(string(objectJSON), -1)) > 0 {
 		return fmt.Errorf("invalid variables")
 	}
 

@@ -40,7 +40,7 @@ func NewAuth(client dclient.Interface, user string, log logr.Logger) *Auth {
 // CanICreate returns 'true' if self can 'create' resource
 func (a *Auth) CanICreate(ctx context.Context, gvk, namespace, subresource string) (bool, error) {
 	canI := auth.NewCanI(a.client.Discovery(), a.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), gvk, namespace, "create", "", a.user)
-	ok, err := canI.RunAccessCheck(ctx)
+	ok, _, err := canI.RunAccessCheck(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -50,7 +50,7 @@ func (a *Auth) CanICreate(ctx context.Context, gvk, namespace, subresource strin
 // CanIUpdate returns 'true' if self can 'update' resource
 func (a *Auth) CanIUpdate(ctx context.Context, gvk, namespace, subresource string) (bool, error) {
 	canI := auth.NewCanI(a.client.Discovery(), a.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), gvk, namespace, "update", "", a.user)
-	ok, err := canI.RunAccessCheck(ctx)
+	ok, _, err := canI.RunAccessCheck(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -60,7 +60,7 @@ func (a *Auth) CanIUpdate(ctx context.Context, gvk, namespace, subresource strin
 // CanIDelete returns 'true' if self can 'delete' resource
 func (a *Auth) CanIDelete(ctx context.Context, gvk, namespace, subresource string) (bool, error) {
 	canI := auth.NewCanI(a.client.Discovery(), a.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), gvk, namespace, "delete", "", a.user)
-	ok, err := canI.RunAccessCheck(ctx)
+	ok, _, err := canI.RunAccessCheck(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -70,7 +70,7 @@ func (a *Auth) CanIDelete(ctx context.Context, gvk, namespace, subresource strin
 // CanIGet returns 'true' if self can 'get' resource
 func (a *Auth) CanIGet(ctx context.Context, gvk, namespace, subresource string) (bool, error) {
 	canI := auth.NewCanI(a.client.Discovery(), a.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), gvk, namespace, "get", "", a.user)
-	ok, err := canI.RunAccessCheck(ctx)
+	ok, _, err := canI.RunAccessCheck(ctx)
 	if err != nil {
 		return false, err
 	}

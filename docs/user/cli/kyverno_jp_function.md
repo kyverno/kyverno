@@ -1,11 +1,12 @@
 ## kyverno jp function
 
-Provides function informations
+Provides function informations.
 
 ### Synopsis
 
-Provides function informations
-For more information visit: https://kyverno.io/docs/writing-policies/jmespath/ 
+Provides function informations.
+
+  For more information visit https://kyverno.io/docs/kyverno-cli/#jp
 
 ```
 kyverno jp function [function_name]... [flags]
@@ -14,11 +15,11 @@ kyverno jp function [function_name]... [flags]
 ### Examples
 
 ```
-  # List functions    
+  # List functions
   kyverno jp function
 
   # Get function infos
-  kyverno jp function <function name>
+  kyverno jp function truncate
 ```
 
 ### Options

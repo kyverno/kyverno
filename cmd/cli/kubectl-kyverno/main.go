@@ -4,60 +4,34 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strconv"
 
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apply"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/create"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/docs"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/jp"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/oci"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/version"
-	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/spf13/cobra"
 )
 
-const enableExperimentalEnv = "KYVERNO_EXPERIMENTAL"
-
 func main() {
-	cli := &cobra.Command{
-		Use:   "kyverno",
-		Long:  "To enable experimental commands, KYVERNO_EXPERIMENTAL should be configured with true or 1.",
-		Short: "Kubernetes Native Policy Management",
-	}
-	configureLogs(cli)
-	registerCommands(cli)
-	if err := cli.Execute(); err != nil {
+	if err := run(); err != nil {
+		fmt.Println("Error:", err)
 		os.Exit(1)
 	}
 }
 
-func configureLogs(cli *cobra.Command) {
-	logging.InitFlags(nil)
-	if err := logging.Setup(logging.TextFormat, 0); err != nil {
-		fmt.Println("failed to setup logging", err)
-		os.Exit(1)
+func run() error {
+	cmd := commands.RootCommand()
+	if err := configureLogs(cmd); err != nil {
+		return fmt.Errorf("Failed to setup logging (%w)", err)
+	}
+	if err := cmd.Execute(); err != nil {
+		return fmt.Errorf("Failed to execute command (%w)", err)
+	}
+	return nil
+}
+
+func configureLogs(cli *cobra.Command) error {
+	if err := log.Configure(); err != nil {
+		return err
 	}
 	cli.PersistentFlags().AddGoFlagSet(flag.CommandLine)
-}
-
-func enableExperimental() bool {
-	if b, err := strconv.ParseBool(os.Getenv(enableExperimentalEnv)); err == nil {
-		return b
-	}
-	return false
-}
-
-func registerCommands(cli *cobra.Command) {
-	cli.AddCommand(
-		apply.Command(),
-		create.Command(),
-		docs.Command(cli),
-		jp.Command(),
-		test.Command(),
-		version.Command(),
-	)
-	if enableExperimental() {
-		cli.AddCommand(oci.Command())
-	}
+	return nil
 }
