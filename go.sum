@@ -462,8 +462,8 @@ github.com/fatih/color v1.15.0/go.mod h1:0h5ZqXfHYED7Bhv2ZJamyIOUej9KtShiJESRwBD
 github.com/fatih/structtag v1.2.0/go.mod h1:mBJUNpUnHmRKrKlQQlmCrh5PuhftFbNv8Ys4/aAZl94=
 github.com/felixge/httpsnoop v1.0.3 h1:s/nj+GCswXYzN5v2DpNMuMQYe+0DDwt5WVCU6CWBdXk=
 github.com/felixge/httpsnoop v1.0.3/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
-github.com/fluxcd/pkg/oci v0.31.1-0.20230906141946-f01d88487562 h1:CN8Yl5m2cVyCAwvRcuPNELA0RhuN6cgeygp7Bt8ALWE=
-github.com/fluxcd/pkg/oci v0.31.1-0.20230906141946-f01d88487562/go.mod h1:UL7nzm7p3fk5X0ZTsHl3qBhRy/NtuGqFSangXvPKUNw=
+github.com/fluxcd/pkg/oci v0.31.1 h1:kaN9yEfetc/02gv3SroAa2OWqukTZNKN+/Y6tGWlKIA=
+github.com/fluxcd/pkg/oci v0.31.1/go.mod h1:UL7nzm7p3fk5X0ZTsHl3qBhRy/NtuGqFSangXvPKUNw=
 github.com/form3tech-oss/jwt-go v3.2.2+incompatible/go.mod h1:pbq4aXjuKjdthFRnoDwaVPLA+WlJuPGy+QneDUgJi2k=
 github.com/fortytw2/leaktest v1.3.0 h1:u8491cBMTQ8ft8aeV+adlcytMZylmA5nnwwkRZjI8vw=
 github.com/fortytw2/leaktest v1.3.0/go.mod h1:jDsjWgpAGjm2CA7WthBh/CdZYEPF31XHquHwclZch5g=
