@@ -323,10 +323,30 @@ func TestVariables_ComputeVariables(t *testing.T) {
 				nil,
 			},
 			want: map[string]interface{}{
-				"baz": "jee",
-				"foo": "bar",
-
+				"baz":               "jee",
+				"foo":               "bar",
 				"request.operation": "CREATE",
+			},
+			wantErr: false,
+		}, {
+			name: "values and variables",
+			fields: fields{
+				loadValues("../_testdata/values/global-values.yaml"),
+				map[string]string{
+					"request.operation": "DELETE",
+				},
+			},
+			args: args{
+				"test",
+				"any-configmap-name-good",
+				"ConfigMap",
+				nil,
+				nil,
+			},
+			want: map[string]interface{}{
+				"baz":               "jee",
+				"foo":               "bar",
+				"request.operation": "DELETE",
 			},
 			wantErr: false,
 		},
