@@ -313,12 +313,7 @@ func Test_Apply(t *testing.T) {
 			}()
 		}
 		desc := fmt.Sprintf("Policies: [%s], / Resources: [%s]", strings.Join(tc.config.PolicyPaths, ","), strings.Join(tc.config.ResourcePaths, ","))
-		// prevent os.Exit from being called
-		osExit = func(code int) {
-			assert.Check(t, false, "os.Exit(%d) should not be called: %s", code, desc)
-		}
 
-		defer func() { osExit = os.Exit }()
 		_, _, _, responses, err := tc.config.applyCommandHelper()
 		assert.NilError(t, err, desc)
 
