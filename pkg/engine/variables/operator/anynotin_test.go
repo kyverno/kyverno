@@ -104,12 +104,20 @@ func TestAnyNotInHandler_Evaluate(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "key is empty but is in value",
+			name: "key and value are arrays, key is an empty array but is in value",
 			args: args{
 				key:   []interface{}{},
 				value: []interface{}{"default", "kyverno"},
 			},
 			want: false,
+		},
+		{
+			name: "key is an empty string and value is an array, key is not in value",
+			args: args{
+				key:   "",
+				value: []interface{}{"default", "kyverno"},
+			},
+			want: true,
 		},
 	}
 	for _, tt := range tests {
