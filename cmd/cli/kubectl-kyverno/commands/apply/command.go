@@ -99,11 +99,7 @@ func Command() *cobra.Command {
 			} else {
 				printViolations(rc)
 			}
-			err = exit(rc, applyCommandConfig.warnExitCode, applyCommandConfig.warnNoPassed)
-			if err != nil {
-				return err
-			}
-			return nil
+			return exit(rc, applyCommandConfig.warnExitCode, applyCommandConfig.warnNoPassed)
 		},
 	}
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.ResourcePaths, "resource", "r", []string{}, "Path to resource files")
