@@ -33,6 +33,9 @@ func (v Variables) Subresources() []valuesapi.Subresource {
 	if v.values == nil {
 		return nil
 	}
+	if len(v.values.Subresources) == 0 {
+		return nil
+	}
 	return v.values.Subresources
 }
 

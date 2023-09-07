@@ -5,7 +5,8 @@ import (
 )
 
 func NeedsVariable(variable string) bool {
-	return !strings.Contains(variable, "request.object") &&
+	return variable != "" &&
+		!strings.Contains(variable, "request.object") &&
 		!strings.Contains(variable, "request.operation") &&
 		!strings.Contains(variable, "element") &&
 		variable != "elementIndex"

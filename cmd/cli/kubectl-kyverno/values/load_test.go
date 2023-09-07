@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/memfs"
 	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
 )
 
@@ -43,6 +44,29 @@ func Test_readFile(t *testing.T) {
 		name:     "valid",
 		filepath: "../_testdata/values/valid.yaml",
 		want:     mustReadFile("../_testdata/values/valid.yaml"),
+		wantErr:  false,
+	}, {
+		name:     "empty (billy)",
+		f:        memfs.New(),
+		filepath: "",
+		want:     nil,
+		wantErr:  true,
+	}, {
+		name: "valid (billy)",
+		f: func() billy.Filesystem {
+			f := memfs.New()
+			file, err := f.Create("valid.yaml")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer file.Close()
+			if _, err := file.Write([]byte("foo: bar")); err != nil {
+				t.Fatal(err)
+			}
+			return f
+		}(),
+		filepath: "valid.yaml",
+		want:     []byte("foo: bar"),
 		wantErr:  false,
 	}}
 	for _, tt := range tests {
