@@ -14,13 +14,13 @@ import (
 
 func load(fs billy.Filesystem, path string, resourcePath string) ([]byte, error) {
 	if fs != nil {
-		filep, err := fs.Open(filepath.Join(resourcePath, path))
+		file, err := fs.Open(filepath.Join(resourcePath, path))
 		if err != nil {
 			return nil, fmt.Errorf("Unable to open userInfo file: %s. \nerror: %s", path, err)
 		}
-		bytes, err := io.ReadAll(filep)
+		bytes, err := io.ReadAll(file)
 		if err != nil {
-			return nil, fmt.Errorf("Error: failed to read file %s: %w", filep.Name(), err)
+			return nil, fmt.Errorf("Error: failed to read file %s: %w", file.Name(), err)
 		}
 		return bytes, err
 	} else {
