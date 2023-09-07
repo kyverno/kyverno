@@ -38,7 +38,7 @@ The following components have been installed in your cluster:
 {{- end }}
 
 {{- with .Values.features.generateValidatingAdmissionPolicy.enabled }}
-⚠️  WARNING: Generating validating admission policy requires a Kubernetes 1.26+ cluster with `ValidatingAdmissionPolicy` feature gate and `admissionregistration.k8s.io` API group enabled.
+⚠️  WARNING: Generating validating admission policy requires a Kubernetes 1.27+ cluster with `ValidatingAdmissionPolicy` feature gate and `admissionregistration.k8s.io` API group enabled.
 {{- end }}
 
 {{- with .Values.features.validatingAdmissionPolicyReports.enabled }}
