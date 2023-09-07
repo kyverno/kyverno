@@ -140,7 +140,7 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(pol, vars.Subresources(), dClient)
 
 		for _, resource := range uniques {
-			resourceValues, err := vars.CheckVariableForPolicy(pol.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied, matches...)
+			resourceValues, err := vars.ComputeVariables(pol.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied, matches...)
 			if err != nil {
 				message := fmt.Sprintf(
 					"policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag",
