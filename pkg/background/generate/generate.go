@@ -99,7 +99,7 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 	trigger, err := c.getTrigger(ur.Spec)
 	if err != nil {
 		logger.V(3).Info("the trigger resource does not exist or is pending creation, re-queueing", "details", err.Error())
-		if err := updateRetryAnnotation(c.kyvernoClient, ur); err != nil {
+		if err := common.UpdateRetryAnnotation(c.kyvernoClient, ur); err != nil {
 			return err
 		}
 	}
@@ -117,7 +117,9 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 			return nil
 		}
 
-		events := event.NewBackgroundFailedEvent(err, ur.Spec.Policy, "", event.GeneratePolicyController, trigger)
+		policy, _ := c.getPolicySpec(*ur)
+		events := event.NewBackgroundFailedEvent(err, policy, ur.Spec.Rule, event.GeneratePolicyController,
+			kyvernov1.ResourceSpec{Kind: trigger.GetKind(), Namespace: trigger.GetNamespace(), Name: trigger.GetName()})
 		c.eventGen.Add(events...)
 	}
 
@@ -261,8 +263,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 			c.eventGen.Add(e)
 		}
 
-		unstructuredPol := kubeutils.NewUnstructured("kyverno.io/v1", policy.GetKind(), policy.GetNamespace(), policy.GetName())
-		e := event.NewBackgroundSuccessEvent(ur.Spec.Policy, ur.Spec.Rule, event.GeneratePolicyController, unstructuredPol)
+		e := event.NewBackgroundSuccessEvent(event.GeneratePolicyController, policy, genResources)
 		c.eventGen.Add(e...)
 	}
 
@@ -402,7 +403,11 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, t
 		common.ManageLabels(newResource, trigger, policy, rule.Name)
 		if response.GetAction() == Create {
 			newResource.SetResourceVersion("")
-			_, err = client.CreateResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), newResource, false)
+			if policy.GetSpec().UseServerSideApply {
+				_, err = client.ApplyResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), targetMeta.GetName(), newResource, false, "generate")
+			} else {
+				_, err = client.CreateResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), newResource, false)
+			}
 			if err != nil {
 				if !apierrors.IsAlreadyExists(err) {
 					return newGenResources, err
@@ -414,7 +419,11 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, t
 			generatedObj, err := client.GetResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), targetMeta.GetName())
 			if err != nil {
 				logger.V(2).Info("target resource not found, creating new target")
-				_, err = client.CreateResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), newResource, false)
+				if policy.GetSpec().UseServerSideApply {
+					_, err = client.ApplyResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), targetMeta.GetName(), newResource, false, "generate")
+				} else {
+					_, err = client.CreateResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), newResource, false)
+				}
 				if err != nil {
 					return newGenResources, err
 				}
@@ -432,7 +441,11 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, t
 					newResource.SetNamespace("default")
 				}
 
-				_, err = client.UpdateResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), newResource, false)
+				if policy.GetSpec().UseServerSideApply {
+					_, err = client.ApplyResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), targetMeta.GetName(), newResource, false, "generate")
+				} else {
+					_, err = client.UpdateResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), newResource, false)
+				}
 				if err != nil {
 					logger.Error(err, "failed to update resource")
 					return newGenResources, err

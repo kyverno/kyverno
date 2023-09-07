@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	openapiv2 "github.com/google/gnostic/openapiv2"
+	openapiv2 "github.com/google/gnostic-models/openapiv2"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

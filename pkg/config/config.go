@@ -9,6 +9,7 @@ import (
 	valid "github.com/asaskevich/govalidator"
 	osutils "github.com/kyverno/kyverno/pkg/utils/os"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -31,6 +32,8 @@ const (
 	MutatingWebhookConfigurationName = "kyverno-resource-mutating-webhook-cfg"
 	// VerifyMutatingWebhookConfigurationName default verify mutating webhook configuration name
 	VerifyMutatingWebhookConfigurationName = "kyverno-verify-mutating-webhook-cfg"
+	// TtlValidatingWebhookConfigurationName ttl label validating webhook configuration name
+	TtlValidatingWebhookConfigurationName = "kyverno-ttl-validating-webhook-cfg"
 )
 
 // webhook names
@@ -57,6 +60,8 @@ const (
 	ExceptionValidatingWebhookServicePath = "/exceptionvalidate"
 	// CleanupValidatingWebhookServicePath is the path for cleanup policy validation webhook(used to validate cleanup policy resource)
 	CleanupValidatingWebhookServicePath = "/validate"
+	// TtlValidatingWebhookServicePath is the path for validation of cleanup.kyverno.io/ttl label value
+	TtlValidatingWebhookServicePath = "/verifyttl"
 	// PolicyMutatingWebhookServicePath is the path for policy mutation webhook(used to default)
 	PolicyMutatingWebhookServicePath = "/policymutate"
 	// MutatingWebhookServicePath is the path for mutation webhook
@@ -83,6 +88,7 @@ const (
 	generateSuccessEvents         = "generateSuccessEvents"
 	webhooks                      = "webhooks"
 	webhookAnnotations            = "webhookAnnotations"
+	matchConditions               = "matchConditions"
 )
 
 var (
@@ -156,6 +162,8 @@ type Configuration interface {
 	GetWebhooks() []WebhookConfig
 	// GetWebhookAnnotations returns annotations to set on webhook configs
 	GetWebhookAnnotations() map[string]string
+	// GetMatchConditions returns match conditions to set on webhook configs
+	GetMatchConditions() []admissionregistrationv1.MatchCondition
 	// Load loads configuration from a configmap
 	Load(*corev1.ConfigMap)
 	// OnChanged adds a callback to be invoked when the configuration is reloaded
@@ -173,6 +181,7 @@ type configuration struct {
 	generateSuccessEvents         bool
 	webhooks                      []WebhookConfig
 	webhookAnnotations            map[string]string
+	matchConditions               []admissionregistrationv1.MatchCondition
 	mux                           sync.RWMutex
 	callbacks                     []func()
 }
@@ -291,6 +300,12 @@ func (cd *configuration) GetWebhookAnnotations() map[string]string {
 	return cd.webhookAnnotations
 }
 
+func (cd *configuration) GetMatchConditions() []admissionregistrationv1.MatchCondition {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.matchConditions
+}
+
 func (cd *configuration) Load(cm *corev1.ConfigMap) {
 	if cm != nil {
 		cd.load(cm)
@@ -317,6 +332,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	cd.generateSuccessEvents = false
 	cd.webhooks = nil
 	cd.webhookAnnotations = nil
+	cd.matchConditions = nil
 	// load filters
 	cd.filters = parseKinds(data[resourceFilters])
 	logger.Info("filters configured", "filters", cd.filters)
@@ -419,6 +435,20 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		} else {
 			cd.webhookAnnotations = webhookAnnotations
 			logger.Info("webhookAnnotations configured")
+		}
+	}
+	// load match conditions
+	matchConditions, ok := data[matchConditions]
+	if !ok {
+		logger.Info("matchConditions not set")
+	} else {
+		logger := logger.WithValues("matchConditions", matchConditions)
+		matchConditions, err := parseMatchConditions(matchConditions)
+		if err != nil {
+			logger.Error(err, "failed to parse match conditions")
+		} else {
+			cd.matchConditions = matchConditions
+			logger.Info("matchConditions configured")
 		}
 	}
 }

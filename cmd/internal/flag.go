@@ -44,6 +44,10 @@ var (
 	registryCredentialHelpers string
 	// leader election
 	leaderElectionRetryPeriod time.Duration
+	// image verify cache
+	imageVerifyCacheEnabled     bool
+	imageVerifyCacheTTLDuration time.Duration
+	imageVerifyCacheMaxSize     int64
 )
 
 func initLoggingFlags() {
@@ -99,7 +103,13 @@ func initCosignFlags() {
 func initRegistryClientFlags() {
 	flag.BoolVar(&allowInsecureRegistry, "allowInsecureRegistry", false, "Whether to allow insecure connections to registries. Don't use this for anything but testing.")
 	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
-	flag.StringVar(&registryCredentialHelpers, "registryCredentialHelpers", "", "Credential helpers to enable (default,google,amazon,azure,github), all will be enabled if empty.")
+	flag.StringVar(&registryCredentialHelpers, "registryCredentialHelpers", "", "Credential helpers to enable (default,google,amazon,azure,github). No helpers are added when this flag is empty.")
+}
+
+func initImageVerifyCacheFlags() {
+	flag.BoolVar(&imageVerifyCacheEnabled, "imageVerifyCacheEnabled", true, "Whether to use a TTL cache for storing verified images.")
+	flag.Int64Var(&imageVerifyCacheMaxSize, "imageVerifyCacheMaxSize", 1000, "Max size limit for the TTL cache, 0 means default 1000 size limit.")
+	flag.DurationVar(&imageVerifyCacheTTLDuration, "imageVerifyCacheTTLDuration", 60*time.Minute, "Max TTL value for a cache, 0 means default 1 hour TTL.")
 }
 
 func initLeaderElectionFlags() {
@@ -176,6 +186,10 @@ func initFlags(config Configuration, opts ...Option) {
 	// registry client
 	if config.UsesRegistryClient() {
 		initRegistryClientFlags()
+	}
+	// image verify cache
+	if config.UsesImageVerifyCache() {
+		initImageVerifyCacheFlags()
 	}
 	// leader election
 	if config.UsesLeaderElection() {

@@ -10,6 +10,7 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/loaders"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/toggle"
 )
@@ -46,6 +47,7 @@ func (l *contextLoader) Load(
 	jp jmespath.Interface,
 	client engineapi.RawClient,
 	rclientFactory engineapi.RegistryClientFactory,
+	ivCache imageverifycache.Client,
 	contextEntries []kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
 ) error {
@@ -87,7 +89,7 @@ func (l *contextLoader) newLoader(
 			ldr := loaders.NewConfigMapLoader(ctx, l.logger, entry, l.cmResolver, jsonContext)
 			return enginecontext.NewDeferredLoader(entry.Name, ldr, l.logger)
 		} else {
-			l.logger.Info("disabled loading of ConfigMap context entry %s", entry.Name)
+			l.logger.Info("disabled loading of ConfigMap context entry", "name", entry.Name)
 			return nil, nil
 		}
 	} else if entry.APICall != nil {
@@ -95,7 +97,7 @@ func (l *contextLoader) newLoader(
 			ldr := loaders.NewAPILoader(ctx, l.logger, entry, jsonContext, jp, client)
 			return enginecontext.NewDeferredLoader(entry.Name, ldr, l.logger)
 		} else {
-			l.logger.Info("disabled loading of APICall context entry %s", entry.Name)
+			l.logger.Info("disabled loading of APICall context entry", "name", entry.Name)
 			return nil, nil
 		}
 	} else if entry.ImageRegistry != nil {
@@ -103,7 +105,7 @@ func (l *contextLoader) newLoader(
 			ldr := loaders.NewImageDataLoader(ctx, l.logger, entry, jsonContext, jp, rclientFactory)
 			return enginecontext.NewDeferredLoader(entry.Name, ldr, l.logger)
 		} else {
-			l.logger.Info("disabled loading of ImageRegistry context entry %s", entry.Name)
+			l.logger.Info("disabled loading of ImageRegistry context entry", "name", entry.Name)
 			return nil, nil
 		}
 	} else if entry.Variable != nil {

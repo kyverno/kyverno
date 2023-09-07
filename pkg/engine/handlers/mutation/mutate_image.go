@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gomodules.xyz/jsonpatch/v2"
@@ -23,6 +24,7 @@ import (
 type mutateImageHandler struct {
 	configuration            config.Configuration
 	rclientFactory           engineapi.RegistryClientFactory
+	ivCache                  imageverifycache.Client
 	ivm                      *engineapi.ImageVerificationMetadata
 	images                   []apiutils.ImageInfo
 	imageSignatureRepository string
@@ -34,6 +36,7 @@ func NewMutateImageHandler(
 	rule kyvernov1.Rule,
 	configuration config.Configuration,
 	rclientFactory engineapi.RegistryClientFactory,
+	ivCache imageverifycache.Client,
 	ivm *engineapi.ImageVerificationMetadata,
 	imageSignatureRepository string,
 ) (handlers.Handler, error) {
@@ -51,6 +54,7 @@ func NewMutateImageHandler(
 		configuration:            configuration,
 		rclientFactory:           rclientFactory,
 		ivm:                      ivm,
+		ivCache:                  ivCache,
 		images:                   ruleImages,
 		imageSignatureRepository: imageSignatureRepository,
 	}, nil
@@ -80,7 +84,7 @@ func (h mutateImageHandler) Process(
 				engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to fetch secrets", err),
 			)
 		}
-		iv := internal.NewImageVerifier(logger, rclient, policyContext, *ruleCopy, h.ivm, h.imageSignatureRepository)
+		iv := internal.NewImageVerifier(logger, rclient, h.ivCache, policyContext, *ruleCopy, h.ivm, h.imageSignatureRepository)
 		patch, ruleResponse := iv.Verify(ctx, imageVerify, h.images, h.configuration)
 		patches = append(patches, patch...)
 		engineResponses = append(engineResponses, ruleResponse...)

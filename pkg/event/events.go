@@ -11,13 +11,25 @@ import (
 )
 
 func NewPolicyFailEvent(source Source, reason Reason, engineResponse engineapi.EngineResponse, ruleResp engineapi.RuleResponse, blocked bool) Info {
+	action := ResourcePassed
+	if blocked {
+		action = ResourceBlocked
+	}
+
+	pol := engineResponse.Policy()
+
 	return Info{
-		Kind:      getPolicyKind(engineResponse.Policy()),
-		Name:      engineResponse.Policy().GetName(),
-		Namespace: engineResponse.Policy().GetNamespace(),
-		Reason:    reason,
-		Source:    source,
-		Message:   buildPolicyEventMessage(ruleResp, engineResponse.GetResourceSpec(), blocked),
+		Kind:              pol.GetKind(),
+		Name:              pol.GetName(),
+		Namespace:         pol.GetNamespace(),
+		RelatedAPIVersion: engineResponse.GetResourceSpec().APIVersion,
+		RelatedKind:       engineResponse.GetResourceSpec().Kind,
+		RelatedName:       engineResponse.GetResourceSpec().Name,
+		RelatedNamespace:  engineResponse.GetResourceSpec().Namespace,
+		Reason:            reason,
+		Source:            source,
+		Message:           buildPolicyEventMessage(ruleResp, engineResponse.GetResourceSpec(), blocked),
+		Action:            action,
 	}
 }
 
@@ -41,13 +53,6 @@ func buildPolicyEventMessage(resp engineapi.RuleResponse, resource engineapi.Res
 	return b.String()
 }
 
-func getPolicyKind(policy kyvernov1.PolicyInterface) string {
-	if policy.IsNamespaced() {
-		return "Policy"
-	}
-	return "ClusterPolicy"
-}
-
 func getCleanupPolicyKind(policy kyvernov2alpha1.CleanupPolicyInterface) string {
 	if policy.IsNamespaced() {
 		return "CleanupPolicy"
@@ -67,23 +72,32 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 		res = fmt.Sprintf("%s %s", resource.GetKind(), resource.GetName())
 	}
 
-	hasValidate := engineResponse.Policy().GetSpec().HasValidate()
-	hasVerifyImages := engineResponse.Policy().GetSpec().HasVerifyImages()
-	hasMutate := engineResponse.Policy().GetSpec().HasMutate()
+	pol := engineResponse.Policy().GetPolicy().(kyvernov1.PolicyInterface)
+	hasValidate := pol.GetSpec().HasValidate()
+	hasVerifyImages := pol.GetSpec().HasVerifyImages()
+	hasMutate := pol.GetSpec().HasMutate()
 
+	var action Action
 	if hasValidate || hasVerifyImages {
 		fmt.Fprintf(&bldr, "%s: pass", res)
+		action = ResourcePassed
 	} else if hasMutate {
 		fmt.Fprintf(&bldr, "%s is successfully mutated", res)
+		action = ResourceMutated
 	}
 
 	return Info{
-		Kind:      getPolicyKind(engineResponse.Policy()),
-		Name:      engineResponse.Policy().GetName(),
-		Namespace: engineResponse.Policy().GetNamespace(),
-		Reason:    PolicyApplied,
-		Source:    source,
-		Message:   bldr.String(),
+		Kind:              pol.GetKind(),
+		Name:              pol.GetName(),
+		Namespace:         pol.GetNamespace(),
+		RelatedAPIVersion: resource.GetAPIVersion(),
+		RelatedKind:       resource.GetKind(),
+		RelatedName:       resource.GetName(),
+		RelatedNamespace:  resource.GetNamespace(),
+		Reason:            PolicyApplied,
+		Source:            source,
+		Message:           bldr.String(),
+		Action:            action,
 	}
 }
 
@@ -91,7 +105,8 @@ func NewResourceViolationEvent(source Source, reason Reason, engineResponse engi
 	var bldr strings.Builder
 	defer bldr.Reset()
 
-	fmt.Fprintf(&bldr, "policy %s/%s %s: %s", engineResponse.Policy().GetName(),
+	pol := engineResponse.Policy()
+	fmt.Fprintf(&bldr, "policy %s/%s %s: %s", pol.GetName(),
 		ruleResp.Name(), ruleResp.Status(), ruleResp.Message())
 	resource := engineResponse.GetResourceSpec()
 
@@ -102,6 +117,7 @@ func NewResourceViolationEvent(source Source, reason Reason, engineResponse engi
 		Reason:    reason,
 		Source:    source,
 		Message:   bldr.String(),
+		Action:    ResourcePassed,
 	}
 }
 
@@ -115,47 +131,54 @@ func NewResourceGenerationEvent(policy, rule string, source Source, resource kyv
 		Source:    source,
 		Reason:    PolicyApplied,
 		Message:   msg,
+		Action:    None,
 	}
 }
 
-func NewBackgroundFailedEvent(err error, policy, rule string, source Source, r *unstructured.Unstructured) []Info {
-	if r == nil {
-		return nil
-	}
-
+func NewBackgroundFailedEvent(err error, policy kyvernov1.PolicyInterface, rule string, source Source, resource kyvernov1.ResourceSpec) []Info {
 	var events []Info
 	events = append(events, Info{
-		Kind:      r.GetKind(),
-		Namespace: r.GetNamespace(),
-		Name:      r.GetName(),
-		Source:    source,
-		Reason:    PolicyError,
-		Message:   fmt.Sprintf("policy %s/%s error: %v", policy, rule, err),
+		Kind:              policy.GetKind(),
+		Namespace:         policy.GetNamespace(),
+		Name:              policy.GetName(),
+		RelatedAPIVersion: resource.GetAPIVersion(),
+		RelatedKind:       resource.GetKind(),
+		RelatedNamespace:  resource.GetNamespace(),
+		RelatedName:       resource.GetName(),
+		Source:            source,
+		Reason:            PolicyError,
+		Message:           fmt.Sprintf("policy %s/%s error: %v", policy.GetName(), rule, err),
+		Action:            None,
 	})
 
 	return events
 }
 
-func NewBackgroundSuccessEvent(policy, rule string, source Source, r *unstructured.Unstructured) []Info {
-	if r == nil {
-		return nil
-	}
-
+func NewBackgroundSuccessEvent(source Source, policy kyvernov1.PolicyInterface, resources []kyvernov1.ResourceSpec) []Info {
 	var events []Info
 	msg := "resource generated"
+	action := ResourceGenerated
 
 	if source == MutateExistingController {
 		msg = "resource mutated"
+		action = ResourceMutated
 	}
 
-	events = append(events, Info{
-		Kind:      r.GetKind(),
-		Namespace: r.GetNamespace(),
-		Name:      r.GetName(),
-		Source:    source,
-		Reason:    PolicyApplied,
-		Message:   msg,
-	})
+	for _, res := range resources {
+		events = append(events, Info{
+			Kind:              policy.GetKind(),
+			Namespace:         policy.GetNamespace(),
+			Name:              policy.GetName(),
+			RelatedAPIVersion: res.GetAPIVersion(),
+			RelatedKind:       res.GetKind(),
+			RelatedNamespace:  res.GetNamespace(),
+			RelatedName:       res.GetName(),
+			Source:            source,
+			Reason:            PolicyApplied,
+			Message:           msg,
+			Action:            action,
+		})
+	}
 
 	return events
 }
@@ -164,27 +187,38 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 	exception := ruleResp.Exception()
 	exceptionName, exceptionNamespace := exception.GetName(), exception.GetNamespace()
 	policyMessage := fmt.Sprintf("resource %s was skipped from rule %s due to policy exception %s/%s", resourceKey(engineResponse.PatchedResource), ruleResp.Name(), exceptionNamespace, exceptionName)
+	pol := engineResponse.Policy().GetPolicy().(kyvernov1.PolicyInterface)
 	var exceptionMessage string
-	if engineResponse.Policy().GetNamespace() == "" {
-		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s", resourceKey(engineResponse.PatchedResource), engineResponse.Policy().GetName(), ruleResp.Name())
+	if pol.GetNamespace() == "" {
+		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s", resourceKey(engineResponse.PatchedResource), pol.GetName(), ruleResp.Name())
 	} else {
-		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s/%s", resourceKey(engineResponse.PatchedResource), engineResponse.Policy().GetNamespace(), engineResponse.Policy().GetName(), ruleResp.Name())
+		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s/%s", resourceKey(engineResponse.PatchedResource), pol.GetNamespace(), pol.GetName(), ruleResp.Name())
 	}
 	policyEvent := Info{
-		Kind:      getPolicyKind(engineResponse.Policy()),
-		Name:      engineResponse.Policy().GetName(),
-		Namespace: engineResponse.Policy().GetNamespace(),
-		Reason:    PolicySkipped,
-		Message:   policyMessage,
-		Source:    source,
+		Kind:              pol.GetKind(),
+		Name:              pol.GetName(),
+		Namespace:         pol.GetNamespace(),
+		RelatedAPIVersion: engineResponse.PatchedResource.GetAPIVersion(),
+		RelatedKind:       engineResponse.PatchedResource.GetKind(),
+		RelatedName:       engineResponse.PatchedResource.GetName(),
+		RelatedNamespace:  engineResponse.PatchedResource.GetNamespace(),
+		Reason:            PolicySkipped,
+		Message:           policyMessage,
+		Source:            source,
+		Action:            ResourcePassed,
 	}
 	exceptionEvent := Info{
-		Kind:      "PolicyException",
-		Name:      exceptionName,
-		Namespace: exceptionNamespace,
-		Reason:    PolicySkipped,
-		Message:   exceptionMessage,
-		Source:    source,
+		Kind:              "PolicyException",
+		Name:              exceptionName,
+		Namespace:         exceptionNamespace,
+		RelatedAPIVersion: engineResponse.PatchedResource.GetAPIVersion(),
+		RelatedKind:       engineResponse.PatchedResource.GetKind(),
+		RelatedName:       engineResponse.PatchedResource.GetName(),
+		RelatedNamespace:  engineResponse.PatchedResource.GetNamespace(),
+		Reason:            PolicySkipped,
+		Message:           exceptionMessage,
+		Source:            source,
+		Action:            ResourcePassed,
 	}
 	return []Info{policyEvent, exceptionEvent}
 }
@@ -192,21 +226,31 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 func NewCleanupPolicyEvent(policy kyvernov2alpha1.CleanupPolicyInterface, resource unstructured.Unstructured, err error) Info {
 	if err == nil {
 		return Info{
-			Kind:      getCleanupPolicyKind(policy),
-			Namespace: policy.GetNamespace(),
-			Name:      policy.GetName(),
-			Source:    CleanupController,
-			Reason:    PolicyApplied,
-			Message:   fmt.Sprintf("successfully cleaned up the target resource %v/%v/%v", resource.GetKind(), resource.GetNamespace(), resource.GetName()),
+			Kind:              getCleanupPolicyKind(policy),
+			Namespace:         policy.GetNamespace(),
+			Name:              policy.GetName(),
+			RelatedAPIVersion: resource.GetAPIVersion(),
+			RelatedKind:       resource.GetKind(),
+			RelatedNamespace:  resource.GetNamespace(),
+			RelatedName:       resource.GetName(),
+			Source:            CleanupController,
+			Action:            ResourceCleanedUp,
+			Reason:            PolicyApplied,
+			Message:           fmt.Sprintf("successfully cleaned up the target resource %v/%v/%v", resource.GetKind(), resource.GetNamespace(), resource.GetName()),
 		}
 	} else {
 		return Info{
-			Kind:      getCleanupPolicyKind(policy),
-			Namespace: policy.GetNamespace(),
-			Name:      policy.GetName(),
-			Source:    CleanupController,
-			Reason:    PolicyError,
-			Message:   fmt.Sprintf("failed to clean up the target resource %v/%v/%v: %v", resource.GetKind(), resource.GetNamespace(), resource.GetName(), err.Error()),
+			Kind:              getCleanupPolicyKind(policy),
+			Namespace:         policy.GetNamespace(),
+			Name:              policy.GetName(),
+			RelatedAPIVersion: resource.GetAPIVersion(),
+			RelatedKind:       resource.GetKind(),
+			RelatedNamespace:  resource.GetNamespace(),
+			RelatedName:       resource.GetName(),
+			Source:            CleanupController,
+			Action:            None,
+			Reason:            PolicyError,
+			Message:           fmt.Sprintf("failed to clean up the target resource %v/%v/%v: %v", resource.GetKind(), resource.GetNamespace(), resource.GetName(), err.Error()),
 		}
 	}
 }
@@ -219,6 +263,7 @@ func NewFailedEvent(err error, policy, rule string, source Source, resource kyve
 		Source:    source,
 		Reason:    PolicyError,
 		Message:   fmt.Sprintf("policy %s/%s error: %v", policy, rule, err),
+		Action:    None,
 	}
 }
 

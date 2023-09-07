@@ -14,6 +14,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
+	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -38,6 +39,7 @@ func testValidate(
 		jp,
 		nil,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+		imageverifycache.DisabledImageVerifyCache(),
 		contextLoader,
 		nil,
 		"",

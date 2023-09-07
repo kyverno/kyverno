@@ -11,7 +11,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/tls"
-	"github.com/kyverno/kyverno/pkg/utils"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -29,10 +28,12 @@ const (
 )
 
 var (
-	none = admissionregistrationv1.SideEffectClassNone
-	fail = admissionregistrationv1.Fail
-	None = &none
-	Fail = &fail
+	none   = admissionregistrationv1.SideEffectClassNone
+	fail   = admissionregistrationv1.Fail
+	ignore = admissionregistrationv1.Ignore
+	None   = &none
+	Fail   = &fail
+	Ignore = &ignore
 )
 
 type controller struct {
@@ -57,6 +58,8 @@ type controller struct {
 	failurePolicy  *admissionregistrationv1.FailurePolicyType
 	sideEffects    *admissionregistrationv1.SideEffectClass
 	configuration  config.Configuration
+	labelSelector  *metav1.LabelSelector
+	caSecretName   string
 }
 
 func NewController(
@@ -68,10 +71,12 @@ func NewController(
 	path string,
 	server string,
 	servicePort int32,
+	labelSelector *metav1.LabelSelector,
 	rules []admissionregistrationv1.RuleWithOperations,
 	failurePolicy *admissionregistrationv1.FailurePolicyType,
 	sideEffects *admissionregistrationv1.SideEffectClass,
 	configuration config.Configuration,
+	caSecretName string,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 	c := controller{
@@ -89,26 +94,32 @@ func NewController(
 		failurePolicy:  failurePolicy,
 		sideEffects:    sideEffects,
 		configuration:  configuration,
+		labelSelector:  labelSelector,
+		caSecretName:   caSecretName,
 	}
-	controllerutils.AddDefaultEventHandlers(c.logger, vwcInformer.Informer(), queue)
-	controllerutils.AddEventHandlersT(
+	if _, _, err := controllerutils.AddDefaultEventHandlers(c.logger, vwcInformer.Informer(), queue); err != nil {
+		c.logger.Error(err, "failed to register even handlers")
+	}
+	if _, err := controllerutils.AddEventHandlersT(
 		secretInformer.Informer(),
 		func(obj *corev1.Secret) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == tls.GenerateRootCASecretName() {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == caSecretName {
 				c.enqueue()
 			}
 		},
 		func(_, obj *corev1.Secret) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == tls.GenerateRootCASecretName() {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == caSecretName {
 				c.enqueue()
 			}
 		},
 		func(obj *corev1.Secret) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == tls.GenerateRootCASecretName() {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == caSecretName {
 				c.enqueue()
 			}
 		},
-	)
+	); err != nil {
+		c.logger.Error(err, "failed to register even handlers")
+	}
 	configuration.OnChanged(c.enqueue)
 	return &c
 }
@@ -126,7 +137,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	if key != c.webhookName {
 		return nil
 	}
-	caData, err := tls.ReadRootCASecret(c.secretLister)
+	caData, err := tls.ReadRootCASecret(c.caSecretName, config.KyvernoNamespace(), c.secretLister)
 	if err != nil {
 		return err
 	}
@@ -156,7 +167,7 @@ func objectMeta(name string, annotations map[string]string, owner ...metav1.Owne
 	return metav1.ObjectMeta{
 		Name: name,
 		Labels: map[string]string{
-			utils.ManagedByLabel: kyverno.ValueKyvernoApp,
+			kyverno.LabelWebhookManagedBy: kyverno.ValueKyvernoApp,
 		},
 		Annotations:     annotations,
 		OwnerReferences: owner,
@@ -173,6 +184,8 @@ func (c *controller) build(cfg config.Configuration, caBundle []byte) (*admissio
 				FailurePolicy:           c.failurePolicy,
 				SideEffects:             c.sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
+				ObjectSelector:          c.labelSelector,
+				MatchConditions:         cfg.GetMatchConditions(),
 			}},
 		},
 		nil

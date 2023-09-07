@@ -1,0 +1,27 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-image
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  validationFailureAction: enforce
+  background: false
+  rules:
+    - name: verify-signature
+      match:
+        resources:
+          kinds:
+            - Pod
+      verifyImages:
+      - imageReferences:
+        - "*"
+        attestors:
+        - count: 1
+          entries:
+          - keys:
+              publicKeys: |-
+                -----BEGIN PUBLIC KEY-----
+                MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEFN8gGjQua2g8N+aLx3Eff+/j5HxL
+                bV+H2z50/0A4d8XyMUvizPQBtcgei43pqLj1850m3wSwI08z2+6zT1QaEg==
+                -----END PUBLIC KEY-----

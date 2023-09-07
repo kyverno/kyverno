@@ -1,0 +1,19 @@
+# Taken from https://github.com/kyverno/kyverno/issues/6463
+name: repro-dups-bug
+policies:
+  - policy.yaml
+resources:
+  - resources.yaml
+results:
+  - policy: restrict-something
+    rule: validate-some-foo
+    resources:
+    - nginx-foo
+    kind: Pod
+    result: pass
+  - policy: restrict-something
+    rule: validate-some-non-foo
+    resources:
+    - nginx-too
+    kind: Pod
+    result: fail

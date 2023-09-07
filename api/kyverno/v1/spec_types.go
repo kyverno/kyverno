@@ -117,6 +117,12 @@ type Spec struct {
 	// Defaults to "false" if not specified.
 	// +optional
 	GenerateExisting bool `json:"generateExisting,omitempty" yaml:"generateExisting,omitempty"`
+
+	// UseServerSideApply controls whether to use server-side apply for generate rules
+	// If is set to "true" create & update for generate rules will use apply instead of create/update.
+	// Defaults to "false" if not specified.
+	// +optional
+	UseServerSideApply bool `json:"useServerSideApply,omitempty" yaml:"useServerSideApply,omitempty"`
 }
 
 func (s *Spec) SetRules(rules []Rule) {

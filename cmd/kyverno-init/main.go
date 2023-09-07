@@ -14,10 +14,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/tls"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	coordinationv1 "k8s.io/api/coordination/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -63,25 +61,7 @@ func main() {
 	failure := false
 
 	run := func(context.Context) {
-		name := tls.GenerateRootCASecretName()
-		_, err := setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
-		if err != nil {
-			logging.V(2).Info("failed to fetch root CA secret", "name", name, "error", err.Error())
-			if !errors.IsNotFound(err) {
-				os.Exit(1)
-			}
-		}
-
-		name = tls.GenerateTLSPairSecretName()
-		_, err = setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
-		if err != nil {
-			logging.V(2).Info("failed to fetch TLS Pair secret", "name", name, "error", err.Error())
-			if !errors.IsNotFound(err) {
-				os.Exit(1)
-			}
-		}
-
-		if err = acquireLeader(ctx, setup.KubeClient); err != nil {
+		if err := acquireLeader(ctx, setup.KubeClient); err != nil {
 			logging.V(2).Info("Failed to create lease 'kyvernopre-lock'")
 			os.Exit(1)
 		}

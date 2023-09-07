@@ -6,10 +6,9 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"gomodules.xyz/jsonpatch/v2"
 )
-
-const ImageVerifyAnnotationKey = "kyverno.io/verify-images"
 
 type ImageVerificationMetadata struct {
 	Data map[string]bool `json:"data"`
@@ -79,5 +78,5 @@ func (ivm *ImageVerificationMetadata) IsEmpty() bool {
 }
 
 func makeAnnotationKeyForJSONPatch() string {
-	return "/metadata/annotations/" + strings.ReplaceAll(ImageVerifyAnnotationKey, "/", "~1")
+	return "/metadata/annotations/" + strings.ReplaceAll(kyverno.AnnotationImageVerify, "/", "~1")
 }

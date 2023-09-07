@@ -1,0 +1,11 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  namespace: verify-images
+spec:
+  template:
+    spec:
+      containers:
+      - image: ghcr.io/kyverno/test-verify-image-rollback:signed-2@sha256:0fc1f3b764be56f7c881a69cbd553ae25a2b5523c6901fbacb8270307c29d0c4
+        name: nginx
