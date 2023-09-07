@@ -55,13 +55,12 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 		c.informer,
 		c.handleAdd,
 		c.handleUpdate,
-		c.handleDelete,
+		nil,
 	)
 	if err != nil {
 		logger.Error(err, "failed to register event handlers")
 		return nil, err
 	}
-
 	c.registration = registration
 	return c, nil
 }
@@ -98,11 +97,6 @@ func (c *controller) handleUpdate(oldObj, newObj interface{}) {
 	if old.GetResourceVersion() != new.GetResourceVersion() {
 		c.enqueue(newObj)
 	}
-}
-
-func (c *controller) handleDelete(obj interface{}) {
-	c.logger.Info("resource was deleted", "resource", obj)
-	c.enqueue(obj)
 }
 
 func (c *controller) Start(ctx context.Context, workers int) {
@@ -151,43 +145,33 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 		// there was an error, return it to requeue the key
 		return err
 	}
-
 	metaObj, err := meta.Accessor(obj)
 	if err != nil {
 		logger.Info("object is not of type metav1.Object")
 		return err
 	}
-
 	commonLabels := []attribute.KeyValue{
 		attribute.String("resource_namespace", metaObj.GetNamespace()),
 		attribute.String("resource_group", c.gvr.Group),
 		attribute.String("resource_version", c.gvr.Version),
 		attribute.String("resource", c.gvr.Resource),
 	}
-
 	// if the object is being deleted, return early
 	if metaObj.GetDeletionTimestamp() != nil {
 		return nil
 	}
-
 	labels := metaObj.GetLabels()
 	ttlValue, ok := labels[kyverno.LabelCleanupTtl]
-
 	if !ok {
 		// No 'ttl' label present, no further action needed
 		return nil
 	}
-
 	var deletionTime time.Time
-
 	// Try parsing ttlValue as duration
-	err = parseDeletionTime(metaObj, &deletionTime, ttlValue)
-
-	if err != nil {
+	if err := parseDeletionTime(metaObj, &deletionTime, ttlValue); err != nil {
 		logger.Error(err, "failed to parse label", "value", ttlValue)
 		return nil
 	}
-
 	if time.Now().After(deletionTime) {
 		err = c.client.Namespace(namespace).Delete(context.Background(), metaObj.GetName(), metav1.DeleteOptions{})
 		if err != nil {
