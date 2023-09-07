@@ -112,6 +112,7 @@ spec:
               "admissionReports"
               "aggregateReports"
               "policyReports"
+              "validatingAdmissionPolicyReports"
               "backgroundScan"
               "configMapCaching"
               "deferredLoading"

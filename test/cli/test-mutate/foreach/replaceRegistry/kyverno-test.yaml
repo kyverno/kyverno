@@ -1,12 +1,13 @@
 name: foreach-mutate
 policies:
-  - policies.yaml
+- policies.yaml
 resources:
-  - resources.yaml
+- resources.yaml
 results:
-  - policy: replace-image-registry-containers
-    rule: set-default
-    resource: test-patched-image
-    patchedResource: pod-patched.yaml
-    kind: Pod
-    result: pass
+- kind: Pod
+  patchedResource: pod-patched.yaml
+  policy: replace-image-registry-containers
+  resources:
+  - test-patched-image
+  result: pass
+  rule: set-default

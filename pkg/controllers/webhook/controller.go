@@ -156,9 +156,13 @@ func NewController(
 			config.ValidatingWebhookConfigurationName: sets.New[string](),
 		},
 	}
-	controllerutils.AddDefaultEventHandlers(logger, mwcInformer.Informer(), queue)
-	controllerutils.AddDefaultEventHandlers(logger, vwcInformer.Informer(), queue)
-	controllerutils.AddEventHandlersT(
+	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, mwcInformer.Informer(), queue); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
+	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, vwcInformer.Informer(), queue); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
+	if _, err := controllerutils.AddEventHandlersT(
 		secretInformer.Informer(),
 		func(obj *corev1.Secret) {
 			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == caSecretName {
@@ -175,19 +179,25 @@ func NewController(
 				c.enqueueAll()
 			}
 		},
-	)
-	controllerutils.AddEventHandlers(
+	); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
+	if _, err := controllerutils.AddEventHandlers(
 		cpolInformer.Informer(),
 		func(interface{}) { c.enqueueResourceWebhooks(0) },
 		func(interface{}, interface{}) { c.enqueueResourceWebhooks(0) },
 		func(interface{}) { c.enqueueResourceWebhooks(0) },
-	)
-	controllerutils.AddEventHandlers(
+	); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
+	if _, err := controllerutils.AddEventHandlers(
 		polInformer.Informer(),
 		func(interface{}) { c.enqueueResourceWebhooks(0) },
 		func(interface{}, interface{}) { c.enqueueResourceWebhooks(0) },
 		func(interface{}) { c.enqueueResourceWebhooks(0) },
-	)
+	); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
 	configuration.OnChanged(c.enqueueAll)
 	return &c
 }

@@ -32,7 +32,7 @@
             "args": [
                 "--kubeconfig=${userHome}/.kube/config",
             ],
-            "env": {                 
+            "env": {
                 "KYVERNO_NAMESPACE": "kyverno",
                 "KYVERNO_SERVICEACCOUNT_NAME": "kyverno-reports-controller",
                 "KYVERNO_DEPLOYMENT": "dummy",
@@ -50,7 +50,7 @@
             "args": [
                 "--kubeconfig=${userHome}/.kube/config",
             ],
-            "env": {                 
+            "env": {
                 "KYVERNO_NAMESPACE": "kyverno",
                 "KYVERNO_SERVICEACCOUNT_NAME": "kyverno-background-controller",
                 "KYVERNO_DEPLOYMENT": "dummy",
@@ -71,10 +71,10 @@
                 "--caSecretName=kyverno-cleanup-controller.kyverno.svc.kyverno-tls-ca",
                 "--tlsSecretName=kyverno-cleanup-controller.kyverno.svc.kyverno-tls-pair",
             ],
-            "env": {                 
+            "env": {
                 "KYVERNO_NAMESPACE": "kyverno",
                 "KYVERNO_SERVICEACCOUNT_NAME": "kyverno-cleanup-controller",
-                "KYVERNO_SVC":  "kyverno-cleanup-controller",
+                "KYVERNO_SVC": "kyverno-cleanup-controller",
                 "KYVERNO_DEPLOYMENT": "dummy",
                 "KYVERNO_POD_NAME": "dummy",
                 "INIT_CONFIG": "kyverno",
@@ -87,9 +87,10 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/cli/kubectl-kyverno",
+            "cwd": "${workspaceFolder}",
             "args": [
                 "test",
-                "${workspaceFolder}/test/cli/",
+                "./test/cli/",
             ],
         }
     ]

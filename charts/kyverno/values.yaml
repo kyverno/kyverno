@@ -381,6 +381,9 @@ features:
   policyReports:
     # -- Enables the feature
     enabled: true
+  validatingAdmissionPolicyReports:
+    # -- Enables the feature
+    enabled: false
   autoUpdateWebhooks:
     # -- Enables the feature
     enabled: true
@@ -403,6 +406,9 @@ features:
     # -- Enables the feature
     enabled: false
   forceFailurePolicyIgnore:
+    # -- Enables the feature
+    enabled: false
+  generateValidatingAdmissionPolicy:
     # -- Enables the feature
     enabled: false
   logging:

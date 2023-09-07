@@ -516,7 +516,7 @@ codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API 
 codegen-cli-docs: $(CLI_BIN) ## Generate CLI docs
 	@echo Generate cli docs... >&2
 	@rm -rf docs/user/cli && mkdir -p docs/user/cli
-	@$(CLI_BIN) docs -o docs/user/cli
+	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) docs -o docs/user/cli --autogenTag=false
 
 .PHONY: codegen-docs-all
 codegen-docs-all: codegen-helm-docs codegen-cli-docs codegen-api-docs  ## Generate all docs
@@ -627,7 +627,7 @@ verify-deepcopy: codegen-deepcopy ## Check deepcopy functions are up to date
 
 .PHONY: verify-docs
 verify-docs: codegen-docs-all ## Check docs are up to date
-	@echo Checking api reference docs are up to date... >&2
+	@echo Checking docs are up to date... >&2
 	@git --no-pager diff docs/user
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-docs-all".' >&2
 	@echo 'To correct this, locally run "make codegen-docs-all", commit the changes, and re-run tests.' >&2
@@ -695,37 +695,47 @@ test-kuttl: $(KUTTL) ## Run kuttl tests
 #############
 
 TEST_GIT_BRANCH ?= main
+TEST_GIT_REPO   ?= https://github.com/kyverno/policies
 
 .PHONY: test-cli
-test-cli: test-cli-policies test-cli-local test-cli-local-mutate test-cli-local-generate test-cli-test-case-selector-flag test-cli-registry test-cli-scenarios-to-cli ## Run all CLI tests
+test-cli: test-cli-policies test-cli-local ## Run all CLI tests
 
 .PHONY: test-cli-policies
-test-cli-policies: $(CLI_BIN)
-	@echo Testing against branch $(TEST_GIT_BRANCH)...
-	@$(CLI_BIN) test https://github.com/kyverno/policies/$(TEST_GIT_BRANCH)
+test-cli-policies: $(CLI_BIN) ## Run CLI tests against the policies repository
+	@echo Running cli tests against $(TEST_GIT_REPO)/$(TEST_GIT_BRANCH)... >&2
+	@$(CLI_BIN) test https://github.com/eddycharly/policies/test-refactor
 
 .PHONY: test-cli-local
-test-cli-local: $(CLI_BIN)
+test-cli-local: test-cli-local-validate test-cli-local-mutate test-cli-local-generate test-cli-local-registry test-cli-local-scenarios test-cli-local-selector ## Run local CLI tests
+
+.PHONY: test-cli-local-validate
+test-cli-local-validate: $(CLI_BIN) ## Run local CLI validation tests
+	@echo Running local cli validation tests... >&2
 	@$(CLI_BIN) test ./test/cli/test
 
 .PHONY: test-cli-local-mutate
-test-cli-local-mutate: $(CLI_BIN)
+test-cli-local-mutate: $(CLI_BIN) ## Run local CLI mutation tests
+	@echo Running local cli mutation tests... >&2
 	@$(CLI_BIN) test ./test/cli/test-mutate
 
 .PHONY: test-cli-local-generate
-test-cli-local-generate: $(CLI_BIN)
+test-cli-local-generate: $(CLI_BIN) ## Run local CLI generation tests
+	@echo Running local cli generation tests... >&2
 	@$(CLI_BIN) test ./test/cli/test-generate
 
-.PHONY: test-cli-test-case-selector-flag
-test-cli-test-case-selector-flag: $(CLI_BIN)
+.PHONY: test-cli-local-selector
+test-cli-local-selector: $(CLI_BIN) ## Run local CLI tests (with test case selector)
+	@echo Running local cli selector tests... >&2
 	@$(CLI_BIN) test ./test/cli/test --test-case-selector "policy=disallow-latest-tag, rule=require-image-tag, resource=test-require-image-tag-pass"
 
-.PHONY: test-cli-registry
-test-cli-registry: $(CLI_BIN)
+.PHONY: test-cli-local-registry
+test-cli-local-registry: $(CLI_BIN) ## Run local CLI registry tests
+	@echo Running local cli registry tests... >&2
 	@$(CLI_BIN) test ./test/cli/registry --registry
 
-.PHONY: test-cli-scenarios-to-cli
-test-cli-scenarios-to-cli: $(CLI_BIN)
+.PHONY: test-cli-local-scenarios
+test-cli-local-scenarios: $(CLI_BIN) ## Run local CLI scenarios tests
+	@echo Running local cli scenarios tests... >&2
 	@$(CLI_BIN) test ./test/cli/scenarios_to_cli --registry
 
 #############
