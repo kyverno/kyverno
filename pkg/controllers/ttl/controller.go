@@ -27,6 +27,7 @@ const (
 )
 
 type controller struct {
+	name         string
 	client       metadata.Getter
 	queue        workqueue.RateLimitingInterface
 	lister       cache.GenericLister
@@ -43,18 +44,25 @@ type ttlMetrics struct {
 }
 
 func newController(client metadata.Getter, metainformer informers.GenericInformer, logger logr.Logger, gvr schema.GroupVersionResource) (*controller, error) {
+	name := gvr.Version + "/" + gvr.Resource
+	if gvr.Group != "" {
+		name = gvr.Group + "/" + name
+	}
+	queue := workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: name})
 	c := &controller{
+		name:     name,
 		client:   client,
-		queue:    workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		queue:    queue,
 		lister:   metainformer.Lister(),
 		informer: metainformer.Informer(),
 		logger:   logger,
 		metrics:  newTTLMetrics(logger),
 	}
-	registration, err := controllerutils.AddEventHandlersT(
+	enqueue := controllerutils.LogError(logger, controllerutils.Parse(controllerutils.MetaNamespaceKey, controllerutils.Queue(queue)))
+	registration, err := controllerutils.AddEventHandlers(
 		c.informer,
-		c.handleAdd,
-		c.handleUpdate,
+		controllerutils.AddFunc(logger, enqueue),
+		controllerutils.UpdateFunc(logger, enqueue),
 		nil,
 	)
 	if err != nil {
@@ -87,21 +95,8 @@ func newTTLMetrics(logger logr.Logger) ttlMetrics {
 	}
 }
 
-func (c *controller) handleAdd(obj interface{}) {
-	c.enqueue(obj)
-}
-
-func (c *controller) handleUpdate(oldObj, newObj interface{}) {
-	old := oldObj.(metav1.Object)
-	new := newObj.(metav1.Object)
-	if old.GetResourceVersion() != new.GetResourceVersion() {
-		c.enqueue(newObj)
-	}
-}
-
 func (c *controller) Start(ctx context.Context, workers int) {
-	controllerName := c.gvr.Group + c.gvr.Version + c.gvr.Resource
-	controllerutils.Run(ctx, c.logger, controllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
+	controllerutils.Run(ctx, c.logger, c.name, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *controller) Stop() {
@@ -110,15 +105,6 @@ func (c *controller) Stop() {
 	c.deregisterEventHandlers()
 	c.logger.V(3).Info("queue stopping ....")
 	c.queue.ShutDown()
-}
-
-func (c *controller) enqueue(obj interface{}) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
-	if err != nil {
-		c.logger.Error(err, "failed to extract name")
-		return
-	}
-	c.queue.Add(key)
 }
 
 // deregisterEventHandlers deregisters the event handlers from the informer.
