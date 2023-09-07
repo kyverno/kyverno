@@ -15,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/tools/cache"
@@ -31,7 +30,6 @@ type controller struct {
 	client       metadata.Getter
 	queue        workqueue.RateLimitingInterface
 	lister       cache.GenericLister
-	wg           wait.Group
 	informer     cache.SharedIndexInformer
 	registration cache.ResourceEventHandlerRegistration
 	logger       logr.Logger
@@ -49,7 +47,6 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 		client:   client,
 		queue:    workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		lister:   metainformer.Lister(),
-		wg:       wait.Group{},
 		informer: metainformer.Informer(),
 		logger:   logger,
 		metrics:  newTTLMetrics(logger),
@@ -115,7 +112,6 @@ func (c *controller) Start(ctx context.Context, workers int) {
 
 func (c *controller) Stop() {
 	defer c.logger.V(3).Info("queue stopped")
-	defer c.wg.Wait()
 	// Unregister the event handlers
 	c.deregisterEventHandlers()
 	c.logger.V(3).Info("queue stopping ....")

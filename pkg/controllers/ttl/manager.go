@@ -148,16 +148,17 @@ func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, wo
 		options,
 	)
 	cont, cancel := context.WithCancel(ctx)
-	var wg wait.Group
-	wg.StartWithContext(cont, func(ctx context.Context) {
+	var informerWaitGroup wait.Group
+	informerWaitGroup.StartWithContext(cont, func(ctx context.Context) {
 		logger.V(3).Info("informer starting...")
+		defer logger.V(3).Info("informer stopping...")
 		informer.Informer().Run(cont.Done())
 	})
 	stopInformer := func() {
 		// Send stop signal to informer's goroutine
 		cancel()
 		// Wait for the group to terminate
-		wg.Wait()
+		informerWaitGroup.Wait()
 	}
 	if !cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced) {
 		stopInformer()
@@ -168,11 +169,16 @@ func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, wo
 		stopInformer()
 		return err
 	}
-	logger.V(3).Info("controller starting...")
-	controller.Start(cont, workers)
+	var controllerWaitGroup wait.Group
+	controllerWaitGroup.StartWithContext(cont, func(ctx context.Context) {
+		logger.V(3).Info("controller starting...")
+		defer logger.V(3).Info("controller stopping...")
+		controller.Start(ctx, workers)
+	})
 	m.resController[gvr] = func() {
 		stopInformer()
 		controller.Stop()
+		controllerWaitGroup.Wait()
 	}
 	return nil
 }
