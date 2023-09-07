@@ -1,0 +1,16 @@
+features:
+  validatingAdmissionPolicyReports:
+    enabled: true
+
+reportsController:
+  rbac:
+    clusterRole:
+      extraResources:
+      - apiGroups:
+          - admissionregistration.k8s.io
+        resources:
+          - validatingadmissionpolicies
+          - validatingadmissionpolicybindings
+        verbs:
+          - get
+          - list
