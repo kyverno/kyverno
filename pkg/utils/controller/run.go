@@ -67,13 +67,6 @@ func Run(ctx context.Context, logger logr.Logger, controllerName string, period 
 		defer cancel()
 		defer queue.ShutDown()
 		for i := 0; i < n; i++ {
-			// wg.Add(1)
-			// go func(logger logr.Logger) {
-			// 	logger.Info("starting worker")
-			// 	defer logger.Info("worker stopped")
-			// 	defer wg.Done()
-			// 	wait.UntilWithContext(ctx, func(ctx context.Context) { worker(ctx, logger, metric, queue, maxRetries, r) }, period)
-			// }(logger.WithName("worker").WithValues("id", i))
 			workerwg.StartWithContext(ctx, func(ctx context.Context) {
 				logger.Info("starting worker")
 				defer logger.Info("worker stopped")
