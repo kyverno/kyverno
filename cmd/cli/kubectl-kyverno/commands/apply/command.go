@@ -67,8 +67,6 @@ type ApplyCommandConfig struct {
 }
 
 // allow os.exit to be overwritten during unit tests
-var osExit = os.Exit
-
 func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var removeColor, detailedResults, table bool
@@ -101,8 +99,7 @@ func Command() *cobra.Command {
 			} else {
 				printViolations(rc)
 			}
-			exit(rc, applyCommandConfig.warnExitCode, applyCommandConfig.warnNoPassed)
-			return nil
+			return exit(rc, applyCommandConfig.warnExitCode, applyCommandConfig.warnNoPassed)
 		},
 	}
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.ResourcePaths, "resource", "r", []string{}, "Path to resource files")
@@ -167,7 +164,10 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*processor.ResultCounts, []*u
 	if err != nil {
 		return rc, uu, skipInvalidPolicies, er, err
 	}
-	resources := c.loadResources(policies, validatingAdmissionPolicies, dClient)
+	resources, err := c.loadResources(policies, validatingAdmissionPolicies, dClient)
+	if err != nil {
+		return rc, uu, skipInvalidPolicies, er, err
+	}
 	rc, uu, skipInvalidPolicies, er, err = c.applyPolicytoResource(variables, policies, validatingAdmissionPolicies, resources, openApiManager, skipInvalidPolicies, dClient, userInfo, mutateLogPathIsDir)
 	if err != nil {
 		return rc, uu, skipInvalidPolicies, er, err
@@ -298,13 +298,12 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	return &rc, resources, skipInvalidPolicies, responses, nil
 }
 
-func (c *ApplyCommandConfig) loadResources(policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, dClient dclient.Interface) []*unstructured.Unstructured {
+func (c *ApplyCommandConfig) loadResources(policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, error) {
 	resources, err := common.GetResourceAccordingToResourcePath(nil, c.ResourcePaths, c.Cluster, policies, validatingAdmissionPolicies, dClient, c.Namespace, c.PolicyReport, "")
 	if err != nil {
-		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
-		osExit(1)
+		return resources, fmt.Errorf("Error: failed to load resources\nCause: %s\n", err)
 	}
-	return resources
+	return resources, nil
 }
 
 func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error, []kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy) {
@@ -461,14 +460,15 @@ func printViolations(rc *processor.ResultCounts) {
 	fmt.Printf("\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n", rc.Pass(), rc.Fail(), rc.Warn(), rc.Error(), rc.Skip())
 }
 
-func exit(rc *processor.ResultCounts, warnExitCode int, warnNoPassed bool) {
+func exit(rc *processor.ResultCounts, warnExitCode int, warnNoPassed bool) error {
 	if rc.Fail() > 0 || rc.Error() > 0 {
-		osExit(1)
+		return fmt.Errorf("exit as fail or error count > 0")
 	} else if rc.Warn() > 0 && warnExitCode != 0 {
-		osExit(warnExitCode)
+		return fmt.Errorf("exit as warnExitCode is %d", warnExitCode)
 	} else if rc.Pass() == 0 && warnNoPassed {
-		osExit(warnExitCode)
+		return fmt.Errorf("exit as warnExitCode is %d", warnExitCode)
 	}
+	return nil
 }
 
 func processSkipEngineResponses(responses []engineapi.EngineResponse) []engineapi.EngineResponse {
