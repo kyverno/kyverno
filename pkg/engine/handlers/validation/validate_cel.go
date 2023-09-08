@@ -178,7 +178,7 @@ func collectParams(ctx context.Context, client engineapi.Client, paramKind *admi
 	var paramsNamespace string
 	isNamespaced, err := client.IsNamespaced(gv.Group, gv.Version, kind)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to check if resource is namespaced or not (%w)", err)
 	}
 
 	// check if `paramKind` is namespace-scoped
