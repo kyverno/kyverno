@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/kyverno/kyverno/pkg/auth"
@@ -58,6 +59,9 @@ func (a *dclientAdapter) IsNamespaced(group, version, kind string) (bool, error)
 	gvrss, err := a.client.Discovery().FindResources(group, version, kind, "")
 	if err != nil {
 		return false, err
+	}
+	if len(gvrss) != 1 {
+		return false, fmt.Errorf("function IsNamespaced expects only one resource, got (%d)", len(gvrss))
 	}
 	for _, apiResource := range gvrss {
 		return apiResource.Namespaced, nil
