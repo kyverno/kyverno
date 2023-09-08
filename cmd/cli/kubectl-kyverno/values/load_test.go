@@ -42,8 +42,8 @@ func Test_readFile(t *testing.T) {
 		wantErr:  false,
 	}, {
 		name:     "valid",
-		filepath: "../_testdata/values/valid.yaml",
-		want:     mustReadFile("../_testdata/values/valid.yaml"),
+		filepath: "../_testdata/values/limit-configmap-for-sa.yaml",
+		want:     mustReadFile("../_testdata/values/limit-configmap-for-sa.yaml"),
 		wantErr:  false,
 	}, {
 		name:     "empty (billy)",
@@ -59,10 +59,10 @@ func Test_readFile(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			defer file.Close()
 			if _, err := file.Write([]byte("foo: bar")); err != nil {
 				t.Fatal(err)
 			}
-			defer file.Close()
 			return f
 		}(),
 		filepath: "valid.yaml",
@@ -107,7 +107,7 @@ func TestLoad(t *testing.T) {
 		wantErr:  true,
 	}, {
 		name:     "valid",
-		filepath: "../_testdata/values/valid.yaml",
+		filepath: "../_testdata/values/limit-configmap-for-sa.yaml",
 		want: &valuesapi.Values{
 			NamespaceSelectors: []valuesapi.NamespaceSelector{{
 				Name: "test1",

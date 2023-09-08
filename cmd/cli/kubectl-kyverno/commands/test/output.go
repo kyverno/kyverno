@@ -48,7 +48,7 @@ func printTestResult(
 					// if checks failed but we were expecting a fail it's considered a success
 					success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
 					row := table.Row{
-						CompactRow: table.CompactRow{
+						RowCompact: table.RowCompact{
 							ID:        testCount,
 							Policy:    color.Policy("", test.Policy),
 							Rule:      color.Rule(test.Rule),
@@ -76,7 +76,7 @@ func printTestResult(
 			// if not found
 			if len(rows) == 0 {
 				row := table.Row{
-					CompactRow: table.CompactRow{
+					RowCompact: table.RowCompact{
 						ID:        testCount,
 						Policy:    color.Policy("", test.Policy),
 						Rule:      color.Rule(test.Rule),
