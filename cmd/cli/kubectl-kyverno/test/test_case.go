@@ -15,5 +15,5 @@ type TestCase struct {
 }
 
 func (tc TestCase) Dir() string {
-	return filepath.Dir(tc.Path)
+	return filepath.Clean(filepath.Dir(tc.Path))
 }
