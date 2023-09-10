@@ -109,14 +109,14 @@ func Test_NamespaceSelector(t *testing.T) {
 		policyArray, _, _ := yamlutils.GetPolicy(tc.policy)
 		resourceArray, _ := resource.GetUnstructuredResources(tc.resource)
 		processor := processor.PolicyProcessor{
-			Policy:               policyArray[0],
+			Policies:             policyArray,
 			Resource:             resourceArray[0],
 			MutateLogPath:        "",
 			UserInfo:             nil,
 			NamespaceSelectorMap: tc.namespaceSelectorMap,
 			Rc:                   rc,
 		}
-		processor.ApplyPolicyOnResource()
+		processor.ApplyPoliciesOnResource()
 		assert.Equal(t, int64(rc.Pass()), int64(tc.result.pass))
 		assert.Equal(t, int64(rc.Fail()), int64(tc.result.fail))
 		assert.Equal(t, int64(rc.Skip()), int64(tc.result.skip))

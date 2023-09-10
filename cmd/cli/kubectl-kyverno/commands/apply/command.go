@@ -239,10 +239,10 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 		policyRulesCount += len(validatingAdmissionPolicies)
 		fmt.Printf("\nApplying %d policy rule(s) to %d resource(s)...\n", policyRulesCount, len(resources))
 	}
-
-	var rc processor.ResultCounts
-	var responses []engineapi.EngineResponse
-	for _, resource := range resources {
+	// validate policies
+	var validPolicies []kyvernov1.PolicyInterface
+	for _, pol := range policies {
+		// TODO we should return this info to the caller
 		_, err := policyvalidation.Validate(pol, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
 		if err != nil {
 			log.Log.Error(err, "policy validation error")
@@ -261,17 +261,22 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 		if !vars.HasVariables() && variables.NeedsVariables(matches...) {
 			// check policy in variable file
 			if !vars.HasPolicyVariables(pol.GetName()) {
-				skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, pol.GetName())
+				fmt.Printf("test skipped for policy %v (as required variables are not provided by the users) \n \n", pol.GetName())
 				continue
 			}
 		}
+		validPolicies = append(validPolicies, pol)
+	}
+	var rc processor.ResultCounts
+	var responses []engineapi.EngineResponse
+	for _, resource := range resources {
 		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(pol, vars.Subresources(), dClient)
 		resourceValues, err := vars.ComputeVariables(pol.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied, matches...)
 		if err != nil {
 			return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", pol.GetName(), resource.GetName()), err)
 		}
 		processor := processor.PolicyProcessor{
-			Policies:             pol,
+			Policies:             validPolicies,
 			Resource:             resource,
 			MutateLogPath:        c.MutateLogPath,
 			MutateLogPathIsDir:   mutateLogPathIsDir,
@@ -288,7 +293,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
-			return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", pol.GetName(), resource.GetName()).Error(), err)
+			return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policies on resource %v", resource.GetName()).Error(), err)
 		}
 		responses = append(responses, processSkipEngineResponses(ers)...)
 	}

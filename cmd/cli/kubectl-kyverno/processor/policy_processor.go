@@ -69,44 +69,11 @@ func (p *PolicyProcessor) applyPolicyOnResource(policy kyvernov1.PolicyInterface
 	if p.Variables["request.operation"] == "DELETE" {
 		operation = kyvernov1.Delete
 	}
+	rules := autogen.ComputeRules(policy)
 
-	policyWithNamespaceSelector := false
-OuterLoop:
-	for _, p := range autogen.ComputeRules(policy) {
-		if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
-			p.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
-			policyWithNamespaceSelector = true
-			break
-		}
-		for _, m := range p.MatchResources.Any {
-			if m.ResourceDescription.NamespaceSelector != nil {
-				policyWithNamespaceSelector = true
-				break OuterLoop
-			}
-		}
-		for _, m := range p.MatchResources.All {
-			if m.ResourceDescription.NamespaceSelector != nil {
-				policyWithNamespaceSelector = true
-				break OuterLoop
-			}
-		}
-		for _, e := range p.ExcludeResources.Any {
-			if e.ResourceDescription.NamespaceSelector != nil {
-				policyWithNamespaceSelector = true
-				break OuterLoop
-			}
-		}
-		for _, e := range p.ExcludeResources.All {
-			if e.ResourceDescription.NamespaceSelector != nil {
-				policyWithNamespaceSelector = true
-				break OuterLoop
-			}
-		}
-	}
-
-	if policyWithNamespaceSelector {
-		resourceNamespace := resource.GetNamespace()
-		namespaceLabels = p.NamespaceSelectorMap[resource.GetNamespace()]
+	if needsNamespaceLabels(rules...) {
+		resourceNamespace := p.Resource.GetNamespace()
+		namespaceLabels = p.NamespaceSelectorMap[p.Resource.GetNamespace()]
 		if resourceNamespace != "default" && len(namespaceLabels) < 1 {
 			return engineResponses, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", resource.GetName()), nil)
 		}
@@ -207,7 +174,7 @@ OuterLoop:
 	}
 
 	var policyHasValidate bool
-	for _, rule := range autogen.ComputeRules(policy) {
+	for _, rule := range rules {
 		if rule.HasValidate() || rule.HasVerifyImageChecks() {
 			policyHasValidate = true
 		}
@@ -226,7 +193,7 @@ OuterLoop:
 	}
 
 	var policyHasGenerate bool
-	for _, rule := range autogen.ComputeRules(policy) {
+	for _, rule := range rules {
 		if rule.HasGenerate() {
 			policyHasGenerate = true
 		}
@@ -264,7 +231,7 @@ func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineR
 			mutatedResource := string(yamlEncodedResource) + string("\n---")
 			if len(strings.TrimSpace(mutatedResource)) > 0 {
 				if !p.Stdin {
-					fmt.Printf("\nmutate policy %s applied to %s:", p.Policy.GetName(), resourcePath)
+					fmt.Printf("\nmutate policy %s applied to %s:", response.Policy().GetName(), resourcePath)
 				}
 				fmt.Printf("\n" + mutatedResource + "\n")
 			}
