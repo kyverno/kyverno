@@ -57,42 +57,9 @@ func (p *PolicyProcessor) ApplyPolicyOnResource() ([]engineapi.EngineResponse, e
 	if p.Variables["request.operation"] == "DELETE" {
 		operation = kyvernov1.Delete
 	}
+	rules := autogen.ComputeRules(p.Policy)
 
-	policyWithNamespaceSelector := false
-OuterLoop:
-	for _, p := range autogen.ComputeRules(p.Policy) {
-		if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
-			p.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
-			policyWithNamespaceSelector = true
-			break
-		}
-		for _, m := range p.MatchResources.Any {
-			if m.ResourceDescription.NamespaceSelector != nil {
-				policyWithNamespaceSelector = true
-				break OuterLoop
-			}
-		}
-		for _, m := range p.MatchResources.All {
-			if m.ResourceDescription.NamespaceSelector != nil {
-				policyWithNamespaceSelector = true
-				break OuterLoop
-			}
-		}
-		for _, e := range p.ExcludeResources.Any {
-			if e.ResourceDescription.NamespaceSelector != nil {
-				policyWithNamespaceSelector = true
-				break OuterLoop
-			}
-		}
-		for _, e := range p.ExcludeResources.All {
-			if e.ResourceDescription.NamespaceSelector != nil {
-				policyWithNamespaceSelector = true
-				break OuterLoop
-			}
-		}
-	}
-
-	if policyWithNamespaceSelector {
+	if needsNamespaceLabels(rules...) {
 		resourceNamespace := p.Resource.GetNamespace()
 		namespaceLabels = p.NamespaceSelectorMap[p.Resource.GetNamespace()]
 		if resourceNamespace != "default" && len(namespaceLabels) < 1 {
@@ -195,7 +162,7 @@ OuterLoop:
 	}
 
 	var policyHasValidate bool
-	for _, rule := range autogen.ComputeRules(p.Policy) {
+	for _, rule := range rules {
 		if rule.HasValidate() || rule.HasVerifyImageChecks() {
 			policyHasValidate = true
 		}
@@ -214,7 +181,7 @@ OuterLoop:
 	}
 
 	var policyHasGenerate bool
-	for _, rule := range autogen.ComputeRules(p.Policy) {
+	for _, rule := range rules {
 		if rule.HasGenerate() {
 			policyHasGenerate = true
 		}
