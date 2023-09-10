@@ -243,57 +243,54 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	var rc processor.ResultCounts
 	var responses []engineapi.EngineResponse
 	for _, resource := range resources {
-		for _, pol := range policies {
-			_, err := policyvalidation.Validate(pol, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
-			if err != nil {
-				log.Log.Error(err, "policy validation error")
-				if strings.HasPrefix(err.Error(), "variable 'element.name'") {
-					skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, pol.GetName())
-				} else {
-					skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, pol.GetName())
-				}
-
-				continue
+		_, err := policyvalidation.Validate(pol, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
+		if err != nil {
+			log.Log.Error(err, "policy validation error")
+			if strings.HasPrefix(err.Error(), "variable 'element.name'") {
+				skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, pol.GetName())
+			} else {
+				skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, pol.GetName())
 			}
-			matches, err := policy.ExtractVariables(pol)
-			if err != nil {
-				log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
-				continue
-			}
-			if !vars.HasVariables() && variables.NeedsVariables(matches...) {
-				// check policy in variable file
-				if !vars.HasPolicyVariables(pol.GetName()) {
-					skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, pol.GetName())
-					continue
-				}
-			}
-			kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(pol, vars.Subresources(), dClient)
-			resourceValues, err := vars.ComputeVariables(pol.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied, matches...)
-			if err != nil {
-				return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", pol.GetName(), resource.GetName()), err)
-			}
-			processor := processor.PolicyProcessor{
-				Policy:               pol,
-				Resource:             resource,
-				MutateLogPath:        c.MutateLogPath,
-				MutateLogPathIsDir:   mutateLogPathIsDir,
-				Variables:            resourceValues,
-				UserInfo:             userInfo,
-				PolicyReport:         c.PolicyReport,
-				NamespaceSelectorMap: vars.NamespaceSelectors(),
-				Stdin:                c.Stdin,
-				Rc:                   &rc,
-				PrintPatchResource:   true,
-				Client:               dClient,
-				AuditWarn:            c.AuditWarn,
-				Subresources:         vars.Subresources(),
-			}
-			ers, err := processor.ApplyPolicyOnResource()
-			if err != nil {
-				return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", pol.GetName(), resource.GetName()).Error(), err)
-			}
-			responses = append(responses, processSkipEngineResponses(ers)...)
+			continue
 		}
+		matches, err := policy.ExtractVariables(pol)
+		if err != nil {
+			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
+			continue
+		}
+		if !vars.HasVariables() && variables.NeedsVariables(matches...) {
+			// check policy in variable file
+			if !vars.HasPolicyVariables(pol.GetName()) {
+				skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, pol.GetName())
+				continue
+			}
+		}
+		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(pol, vars.Subresources(), dClient)
+		resourceValues, err := vars.ComputeVariables(pol.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied, matches...)
+		if err != nil {
+			return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", pol.GetName(), resource.GetName()), err)
+		}
+		processor := processor.PolicyProcessor{
+			Policies:             pol,
+			Resource:             resource,
+			MutateLogPath:        c.MutateLogPath,
+			MutateLogPathIsDir:   mutateLogPathIsDir,
+			Variables:            resourceValues,
+			UserInfo:             userInfo,
+			PolicyReport:         c.PolicyReport,
+			NamespaceSelectorMap: vars.NamespaceSelectors(),
+			Stdin:                c.Stdin,
+			Rc:                   &rc,
+			PrintPatchResource:   true,
+			Client:               dClient,
+			AuditWarn:            c.AuditWarn,
+			Subresources:         vars.Subresources(),
+		}
+		ers, err := processor.ApplyPoliciesOnResource()
+		if err != nil {
+			return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", pol.GetName(), resource.GetName()).Error(), err)
+		}
+		responses = append(responses, processSkipEngineResponses(ers)...)
 	}
 	return &rc, resources, skipInvalidPolicies, responses, nil
 }

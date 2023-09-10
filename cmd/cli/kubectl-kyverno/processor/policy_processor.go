@@ -30,7 +30,7 @@ import (
 )
 
 type PolicyProcessor struct {
-	Policy                    kyvernov1.PolicyInterface
+	Policies                  []kyvernov1.PolicyInterface
 	Resource                  *unstructured.Unstructured
 	MutateLogPath             string
 	MutateLogPathIsDir        bool
@@ -47,9 +47,21 @@ type PolicyProcessor struct {
 	Subresources              []valuesapi.Subresource
 }
 
-func (p *PolicyProcessor) ApplyPolicyOnResource() ([]engineapi.EngineResponse, error) {
-	jp := jmespath.New(config.NewDefaultConfiguration(false))
+func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
+	var responses []engineapi.EngineResponse
+	for _, policy := range p.Policies {
+		r, err := p.applyPolicyOnResource(policy)
+		if err != nil {
+			return nil, err
+		}
+		responses = append(responses, r...)
+	}
+	return responses, nil
+}
 
+func (p *PolicyProcessor) applyPolicyOnResource(policy kyvernov1.PolicyInterface) ([]engineapi.EngineResponse, error) {
+	jp := jmespath.New(config.NewDefaultConfiguration(false))
+	resource := p.Resource
 	var engineResponses []engineapi.EngineResponse
 	namespaceLabels := make(map[string]string)
 	operation := kyvernov1.Create
@@ -60,7 +72,7 @@ func (p *PolicyProcessor) ApplyPolicyOnResource() ([]engineapi.EngineResponse, e
 
 	policyWithNamespaceSelector := false
 OuterLoop:
-	for _, p := range autogen.ComputeRules(p.Policy) {
+	for _, p := range autogen.ComputeRules(policy) {
 		if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
 			p.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
 			policyWithNamespaceSelector = true
@@ -93,17 +105,17 @@ OuterLoop:
 	}
 
 	if policyWithNamespaceSelector {
-		resourceNamespace := p.Resource.GetNamespace()
-		namespaceLabels = p.NamespaceSelectorMap[p.Resource.GetNamespace()]
+		resourceNamespace := resource.GetNamespace()
+		namespaceLabels = p.NamespaceSelectorMap[resource.GetNamespace()]
 		if resourceNamespace != "default" && len(namespaceLabels) < 1 {
-			return engineResponses, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", p.Resource.GetName()), nil)
+			return engineResponses, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", resource.GetName()), nil)
 		}
 	}
 
-	resPath := fmt.Sprintf("%s/%s/%s", p.Resource.GetNamespace(), p.Resource.GetKind(), p.Resource.GetName())
-	log.Log.V(3).Info("applying policy on resource", "policy", p.Policy.GetName(), "resource", resPath)
+	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
+	log.Log.V(3).Info("applying policy on resource", "policy", policy.GetName(), "resource", resPath)
 
-	resourceRaw, err := p.Resource.MarshalJSON()
+	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
 		log.Log.Error(err, "failed to marshal resource")
 	}
@@ -166,7 +178,7 @@ OuterLoop:
 	}
 
 	policyContext = policyContext.
-		WithPolicy(p.Policy).
+		WithPolicy(policy).
 		WithNamespaceLabels(namespaceLabels).
 		WithResourceKind(gvk, subresource)
 
@@ -195,7 +207,7 @@ OuterLoop:
 	}
 
 	var policyHasValidate bool
-	for _, rule := range autogen.ComputeRules(p.Policy) {
+	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.HasValidate() || rule.HasVerifyImageChecks() {
 			policyHasValidate = true
 		}
@@ -214,7 +226,7 @@ OuterLoop:
 	}
 
 	var policyHasGenerate bool
-	for _, rule := range autogen.ComputeRules(p.Policy) {
+	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.HasGenerate() {
 			policyHasGenerate = true
 		}
