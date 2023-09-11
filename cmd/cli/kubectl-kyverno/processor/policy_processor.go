@@ -183,6 +183,49 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			resource = verifyImageResponse.PatchedResource
 		}
 	}
+	// validate
+	for _, policy := range p.Policies {
+		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy, p.Variables.Subresources(), p.Client)
+		resourceValues, err := p.Variables.ComputeVariables(policy.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied /*matches...*/)
+		if err != nil {
+			message := fmt.Sprintf(
+				"policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag",
+				policy.GetName(),
+				resource.GetName(),
+			)
+			return nil, sanitizederror.NewWithError(message, err)
+		}
+		operation := kyvernov1.Create
+		if resourceValues["request.operation"] == "DELETE" {
+			operation = kyvernov1.Delete
+		}
+		policyContext, err := engine.NewPolicyContext(
+			jp,
+			resource,
+			operation,
+			p.UserInfo,
+			cfg,
+		)
+		if err != nil {
+			log.Log.Error(err, "failed to create policy context")
+		}
+		policyContext = policyContext.
+			WithPolicy(policy).
+			WithNamespaceLabels(namespaceLabels).
+			WithResourceKind(gvk, subresource)
+		for key, value := range resourceValues {
+			err = policyContext.JSONContext().AddVariable(key, value)
+			if err != nil {
+				log.Log.Error(err, "failed to add variable to context")
+			}
+		}
+		validateResponse := eng.Validate(context.TODO(), policyContext)
+		if !validateResponse.IsEmpty() {
+			validateResponse = combineRuleResponses(validateResponse)
+			responses = append(responses, validateResponse)
+			resource = validateResponse.PatchedResource
+		}
+	}
 	return responses, nil
 }
 

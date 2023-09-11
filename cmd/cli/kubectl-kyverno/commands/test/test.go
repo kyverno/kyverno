@@ -131,7 +131,7 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 			// check policy in variable file
 			if !vars.HasPolicyVariables(pol.GetName()) {
 				fmt.Printf("test skipped for policy %v (as required variables are not provided by the users) \n \n", pol.GetName())
-				continue
+				// continue
 			}
 		}
 		validPolicies = append(validPolicies, pol)
