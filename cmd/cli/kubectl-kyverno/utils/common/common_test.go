@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
-	// "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

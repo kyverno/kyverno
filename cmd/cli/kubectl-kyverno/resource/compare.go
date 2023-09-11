@@ -42,8 +42,5 @@ func compare(a, e unstructured.Unstructured, marshaler marshaler, patcher patche
 	if err != nil {
 		return false, err
 	}
-	// fmt.Println("a", string(actual))
-	// fmt.Println("e", string(expected))
-	// fmt.Println("p", string(patch))
 	return len(patch) == 2, nil
 }
