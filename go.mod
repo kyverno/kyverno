@@ -8,15 +8,14 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/aquilax/truncate v1.0.0
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
-	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20230823232655-ce48fc331ac7
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
-	github.com/chrismellard/docker-credential-acr-env v0.0.0-20230304212654-82a0ddb27589
-	github.com/cyphar/filepath-securejoin v0.2.3
+	github.com/cyphar/filepath-securejoin v0.2.4
 	github.com/dgraph-io/ristretto v0.1.1
 	github.com/distribution/distribution v2.8.2+incompatible
 	github.com/evanphx/json-patch/v5 v5.6.0
 	github.com/fatih/color v1.15.0
+	github.com/fluxcd/pkg/oci v0.31.1
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-git/go-billy/v5 v5.4.1
 	github.com/go-git/go-git/v5 v5.8.1
@@ -41,7 +40,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.16.0
 	github.com/robfig/cron v1.2.0
-	github.com/sigstore/cosign/v2 v2.1.1
+	github.com/sigstore/cosign/v2 v2.2.0
 	github.com/sigstore/k8s-manifest-sigstore v0.5.1
 	github.com/sigstore/rekor v1.2.2
 	github.com/sigstore/sigstore v1.7.2
@@ -65,11 +64,11 @@ require (
 	go.uber.org/automaxprocs v1.5.3
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.25.0
-	golang.org/x/crypto v0.12.0
+	golang.org/x/crypto v0.13.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
-	golang.org/x/text v0.12.0
+	golang.org/x/text v0.13.0
 	gomodules.xyz/jsonpatch/v2 v2.4.0
-	google.golang.org/grpc v1.57.0
+	google.golang.org/grpc v1.58.0
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -160,6 +159,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.15.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.21.5 // indirect
 	github.com/aws/smithy-go v1.14.2 // indirect
+	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20230823232655-ce48fc331ac7 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/buildkite/agent/v3 v3.52.1 // indirect
@@ -167,6 +167,7 @@ require (
 	github.com/cenkalti/backoff/v3 v3.2.2 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/chrismellard/docker-credential-acr-env v0.0.0-20230304212654-82a0ddb27589 // indirect
 	github.com/clbanning/mxj/v2 v2.7.0 // indirect
 	github.com/cloudflare/circl v1.3.3 // indirect
 	github.com/cockroachdb/apd/v3 v3.2.0 // indirect
@@ -230,7 +231,7 @@ require (
 	github.com/google/cel-go v0.16.0 // indirect
 	github.com/google/certificate-transparency-go v1.1.6 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
-	github.com/google/go-github/v50 v50.2.0 // indirect
+	github.com/google/go-github/v53 v53.2.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/gxui v0.0.0-20151028112939-f85e0a97b3a4 // indirect
@@ -330,7 +331,6 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/skeema/knownhosts v1.2.0 // indirect
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 // indirect
-	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.9.5 // indirect
 	github.com/spf13/cast v1.5.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
@@ -371,8 +371,8 @@ require (
 	golang.org/x/net v0.14.0 // indirect
 	golang.org/x/oauth2 v0.11.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
-	golang.org/x/sys v0.11.0 // indirect
-	golang.org/x/term v0.11.0 // indirect
+	golang.org/x/sys v0.12.0 // indirect
+	golang.org/x/term v0.12.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.12.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect

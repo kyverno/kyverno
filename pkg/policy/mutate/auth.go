@@ -23,10 +23,12 @@ func newAuthChecker(client dclient.Interface, user string) AuthChecker {
 
 func (a *authChecker) CanIUpdate(ctx context.Context, gvk, namespace, subresource string) (bool, error) {
 	checker := auth.NewCanI(a.client.Discovery(), a.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), gvk, namespace, "update", subresource, a.user)
-	return checker.RunAccessCheck(ctx)
+	ok, _, err := checker.RunAccessCheck(ctx)
+	return ok, err
 }
 
 func (a *authChecker) CanIGet(ctx context.Context, gvk, namespace, subresource string) (bool, error) {
 	checker := auth.NewCanI(a.client.Discovery(), a.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), gvk, namespace, "get", subresource, a.user)
-	return checker.RunAccessCheck(ctx)
+	ok, _, err := checker.RunAccessCheck(ctx)
+	return ok, err
 }

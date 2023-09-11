@@ -1,0 +1,16 @@
+name: disallow-host-path-test
+policies:
+  - disallow-host-path.yaml
+resources:
+  - deployments.yaml
+results:
+  - policy: disallow-host-path
+    resource: deployment-pass
+    isValidatingAdmissionPolicy: true
+    kind: Deployment
+    result: pass
+  - policy: disallow-host-path
+    resource: deployment-fail
+    isValidatingAdmissionPolicy: true
+    kind: Deployment
+    result: fail

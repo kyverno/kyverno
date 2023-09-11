@@ -3,6 +3,7 @@ package api
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"k8s.io/api/admissionregistration/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // PolicyType represents the type of a policy
@@ -26,8 +27,16 @@ type GenericPolicy interface {
 	GetName() string
 	// GetNamespace returns policy namespace
 	GetNamespace() string
+	// GetKind returns policy kind
+	GetKind() string
+	// GetResourceVersion returns policy resource version
+	GetResourceVersion() string
 	// GetAnnotations returns policy annotations
 	GetAnnotations() map[string]string
+	// IsNamespaced indicates if the policy is namespace scoped
+	IsNamespaced() bool
+	// MetaObject provides an object compatible with metav1.Object
+	MetaObject() metav1.Object
 }
 
 type KyvernoPolicy struct {
@@ -50,8 +59,24 @@ func (p *KyvernoPolicy) GetNamespace() string {
 	return p.policy.GetNamespace()
 }
 
+func (p *KyvernoPolicy) GetKind() string {
+	return p.policy.GetKind()
+}
+
+func (p *KyvernoPolicy) GetResourceVersion() string {
+	return p.policy.GetResourceVersion()
+}
+
 func (p *KyvernoPolicy) GetAnnotations() map[string]string {
 	return p.policy.GetAnnotations()
+}
+
+func (p *KyvernoPolicy) IsNamespaced() bool {
+	return p.policy.IsNamespaced()
+}
+
+func (p *KyvernoPolicy) MetaObject() metav1.Object {
+	return p.policy
 }
 
 func NewKyvernoPolicy(pol kyvernov1.PolicyInterface) GenericPolicy {
@@ -80,8 +105,24 @@ func (p *ValidatingAdmissionPolicy) GetNamespace() string {
 	return p.policy.GetNamespace()
 }
 
+func (p *ValidatingAdmissionPolicy) GetKind() string {
+	return p.policy.Kind
+}
+
+func (p *ValidatingAdmissionPolicy) GetResourceVersion() string {
+	return p.policy.GetResourceVersion()
+}
+
 func (p *ValidatingAdmissionPolicy) GetAnnotations() map[string]string {
 	return p.policy.GetAnnotations()
+}
+
+func (p *ValidatingAdmissionPolicy) IsNamespaced() bool {
+	return false
+}
+
+func (p *ValidatingAdmissionPolicy) MetaObject() metav1.Object {
+	return &p.policy
 }
 
 func NewValidatingAdmissionPolicy(pol v1alpha1.ValidatingAdmissionPolicy) GenericPolicy {

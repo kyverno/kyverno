@@ -87,45 +87,60 @@ func SeverityFromString(severity string) policyreportv1alpha2.PolicySeverity {
 }
 
 func EngineResponseToReportResults(response engineapi.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
-	pol := response.Policy().GetPolicy().(kyvernov1.PolicyInterface)
-	key, _ := cache.MetaNamespaceKeyFunc(pol)
+	pol := response.Policy()
 	var results []policyreportv1alpha2.PolicyReportResult
-	for _, ruleResult := range response.PolicyResponse.Rules {
-		annotations := pol.GetAnnotations()
-		result := policyreportv1alpha2.PolicyReportResult{
-			Source:  kyverno.ValueKyvernoApp,
-			Policy:  key,
-			Rule:    ruleResult.Name(),
-			Message: ruleResult.Message(),
-			Result:  toPolicyResult(ruleResult.Status()),
-			Scored:  annotations[kyverno.AnnotationPolicyScored] != "false",
-			Timestamp: metav1.Timestamp{
-				Seconds: time.Now().Unix(),
-			},
-			Category: annotations[kyverno.AnnotationPolicyCategory],
-			Severity: SeverityFromString(annotations[kyverno.AnnotationPolicySeverity]),
-		}
-		pss := ruleResult.PodSecurityChecks()
-		if pss != nil {
-			var controls []string
-			for _, check := range pss.Checks {
-				if !check.CheckResult.Allowed {
-					controls = append(controls, check.ID)
+	if pol.GetType() == engineapi.KyvernoPolicyType {
+		key, _ := cache.MetaNamespaceKeyFunc(pol.GetPolicy().(kyvernov1.PolicyInterface))
+		for _, ruleResult := range response.PolicyResponse.Rules {
+			annotations := pol.GetAnnotations()
+			result := policyreportv1alpha2.PolicyReportResult{
+				Source:  kyverno.ValueKyvernoApp,
+				Policy:  key,
+				Rule:    ruleResult.Name(),
+				Message: ruleResult.Message(),
+				Result:  toPolicyResult(ruleResult.Status()),
+				Scored:  annotations[kyverno.AnnotationPolicyScored] != "false",
+				Timestamp: metav1.Timestamp{
+					Seconds: time.Now().Unix(),
+				},
+				Category: annotations[kyverno.AnnotationPolicyCategory],
+				Severity: SeverityFromString(annotations[kyverno.AnnotationPolicySeverity]),
+			}
+			pss := ruleResult.PodSecurityChecks()
+			if pss != nil {
+				var controls []string
+				for _, check := range pss.Checks {
+					if !check.CheckResult.Allowed {
+						controls = append(controls, check.ID)
+					}
+				}
+				if len(controls) > 0 {
+					sort.Strings(controls)
+					result.Properties = map[string]string{
+						"standard": string(pss.Level),
+						"version":  pss.Version,
+						"controls": strings.Join(controls, ","),
+					}
 				}
 			}
-			if len(controls) > 0 {
-				sort.Strings(controls)
-				result.Properties = map[string]string{
-					"standard": string(pss.Level),
-					"version":  pss.Version,
-					"controls": strings.Join(controls, ","),
-				}
+			if result.Result == "fail" && !result.Scored {
+				result.Result = "warn"
 			}
+			results = append(results, result)
 		}
-		if result.Result == "fail" && !result.Scored {
-			result.Result = "warn"
+	} else {
+		for _, ruleResult := range response.PolicyResponse.Rules {
+			result := policyreportv1alpha2.PolicyReportResult{
+				Source:  "ValidatingAdmissionPolicy",
+				Policy:  ruleResult.Name(),
+				Message: ruleResult.Message(),
+				Result:  toPolicyResult(ruleResult.Status()),
+				Timestamp: metav1.Timestamp{
+					Seconds: time.Now().Unix(),
+				},
+			}
+			results = append(results, result)
 		}
-		results = append(results, result)
 	}
 	return results
 }
@@ -163,7 +178,7 @@ func SetResults(report kyvernov1alpha2.ReportInterface, results ...policyreportv
 func SetResponses(report kyvernov1alpha2.ReportInterface, engineResponses ...engineapi.EngineResponse) {
 	var ruleResults []policyreportv1alpha2.PolicyReportResult
 	for _, result := range engineResponses {
-		pol := result.Policy().GetPolicy().(kyvernov1.PolicyInterface)
+		pol := result.Policy()
 		SetPolicyLabel(report, pol)
 		ruleResults = append(ruleResults, EngineResponseToReportResults(result)...)
 	}

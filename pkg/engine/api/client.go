@@ -25,7 +25,7 @@ type RawClient interface {
 }
 
 type AuthClient interface {
-	CanI(ctx context.Context, kind, namespace, verb, subresource, user string) (bool, error)
+	CanI(ctx context.Context, kind, namespace, verb, subresource, user string) (bool, string, error)
 }
 
 type ResourceClient interface {

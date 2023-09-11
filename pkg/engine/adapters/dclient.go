@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/kyverno/kyverno/pkg/auth"
@@ -59,17 +60,20 @@ func (a *dclientAdapter) IsNamespaced(group, version, kind string) (bool, error)
 	if err != nil {
 		return false, err
 	}
+	if len(gvrss) != 1 {
+		return false, fmt.Errorf("function IsNamespaced expects only one resource, got (%d)", len(gvrss))
+	}
 	for _, apiResource := range gvrss {
 		return apiResource.Namespaced, nil
 	}
 	return false, nil
 }
 
-func (a *dclientAdapter) CanI(ctx context.Context, kind, namespace, verb, subresource, user string) (bool, error) {
+func (a *dclientAdapter) CanI(ctx context.Context, kind, namespace, verb, subresource, user string) (bool, string, error) {
 	canI := auth.NewCanI(a.client.Discovery(), a.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, verb, subresource, user)
-	ok, err := canI.RunAccessCheck(ctx)
+	ok, reason, err := canI.RunAccessCheck(ctx)
 	if err != nil {
-		return false, err
+		return false, reason, err
 	}
-	return ok, nil
+	return ok, reason, nil
 }

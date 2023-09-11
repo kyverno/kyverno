@@ -8,6 +8,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
+	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	celutils "github.com/kyverno/kyverno/pkg/utils/cel"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
@@ -57,6 +58,10 @@ func (h validateCELHandler) Process(
 	gvk := resource.GroupVersionKind()
 	namespaceName := resource.GetNamespace()
 	resourceName := resource.GetName()
+	resourceKind, _ := policyContext.ResourceKind()
+	policyKind := policyContext.Policy().GetKind()
+	policyName := policyContext.Policy().GetName()
+
 	object := resource.DeepCopyObject()
 	// in case of update request, set the oldObject to the current resource before it gets updated
 	var oldObject runtime.Object
@@ -76,7 +81,8 @@ func (h validateCELHandler) Process(
 	validations := rule.Validation.CEL.Expressions
 	auditAnnotations := rule.Validation.CEL.AuditAnnotations
 
-	optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}
+	optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: true}
+	expressionOptionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}
 	// compile CEL expressions
 	compiler, err := celutils.NewCompiler(validations, auditAnnotations, matchConditions, variables)
 	if err != nil {
@@ -84,12 +90,12 @@ func (h validateCELHandler) Process(
 	}
 	compiler.CompileVariables(optionalVars)
 	filter := compiler.CompileValidateExpressions(optionalVars)
-	messageExpressionfilter := compiler.CompileMessageExpressions(optionalVars)
+	messageExpressionfilter := compiler.CompileMessageExpressions(expressionOptionalVars)
 	auditAnnotationFilter := compiler.CompileAuditAnnotationsExpressions(optionalVars)
 	matchConditionFilter := compiler.CompileMatchExpressions(optionalVars)
 
 	// newMatcher will be used to check if the incoming resource matches the CEL preconditions
-	newMatcher := matchconditions.NewMatcher(matchConditionFilter, nil, "", "", "")
+	newMatcher := matchconditions.NewMatcher(matchConditionFilter, nil, policyKind, "", policyName)
 	// newValidator will be used to validate CEL expressions against the incoming object
 	validator := validatingadmissionpolicy.NewValidator(filter, newMatcher, auditAnnotationFilter, messageExpressionfilter, nil)
 
@@ -108,8 +114,11 @@ func (h validateCELHandler) Process(
 		}
 	}
 
-	admissionAttributes := admission.NewAttributesRecord(object, oldObject, gvk, namespaceName, resourceName, gvr, "", admission.Operation(policyContext.Operation()), nil, false, nil)
+	requestInfo := policyContext.AdmissionInfo()
+	userInfo := internal.NewUser(requestInfo.AdmissionUserInfo.Username, requestInfo.AdmissionUserInfo.UID, requestInfo.AdmissionUserInfo.Groups)
+	admissionAttributes := admission.NewAttributesRecord(object, oldObject, gvk, namespaceName, resourceName, gvr, "", admission.Operation(policyContext.Operation()), nil, false, &userInfo)
 	versionedAttr, _ := admission.NewVersionedAttributes(admissionAttributes, admissionAttributes.GetKind(), nil)
+	authorizer := internal.NewAuthorizer(h.client, resourceKind)
 	// validate the incoming object against the rule
 	var validationResults []validatingadmissionpolicy.ValidateResult
 	if hasParam {
@@ -124,10 +133,10 @@ func (h validateCELHandler) Process(
 		}
 
 		for _, param := range params {
-			validationResults = append(validationResults, validator.Validate(ctx, gvr, versionedAttr, param, namespace, celconfig.RuntimeCELCostBudget, nil))
+			validationResults = append(validationResults, validator.Validate(ctx, gvr, versionedAttr, param, namespace, celconfig.RuntimeCELCostBudget, &authorizer))
 		}
 	} else {
-		validationResults = append(validationResults, validator.Validate(ctx, gvr, versionedAttr, nil, namespace, celconfig.RuntimeCELCostBudget, nil))
+		validationResults = append(validationResults, validator.Validate(ctx, gvr, versionedAttr, nil, namespace, celconfig.RuntimeCELCostBudget, &authorizer))
 	}
 
 	for _, validationResult := range validationResults {
@@ -169,7 +178,7 @@ func collectParams(ctx context.Context, client engineapi.Client, paramKind *admi
 	var paramsNamespace string
 	isNamespaced, err := client.IsNamespaced(gv.Group, gv.Version, kind)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to check if resource is namespaced or not (%w)", err)
 	}
 
 	// check if `paramKind` is namespace-scoped

@@ -2,6 +2,10 @@
 
 Create a Kyverno values file.
 
+### Synopsis
+
+Create a Kyverno values file.
+
 ```
 kyverno create values [flags]
 ```
@@ -9,7 +13,8 @@ kyverno create values [flags]
 ### Examples
 
 ```
-kyverno create values -g request.mode=dev -n prod,env=prod --rule policy,rule,env=demo --resource policy,resource,env=demo
+  # Create values file
+  kyverno create values -g request.mode=dev -n prod,env=prod --rule policy,rule,env=demo --resource policy,resource,env=demo
 ```
 
 ### Options
@@ -43,5 +48,5 @@ kyverno create values -g request.mode=dev -n prod,env=prod --rule policy,rule,en
 
 ### SEE ALSO
 
-* [kyverno create](kyverno_create.md)	 - Provides a command-line interface to help with the creation of various Kyverno resources.
+* [kyverno create](kyverno_create.md)	 - Helps with the creation of various Kyverno resources.
 

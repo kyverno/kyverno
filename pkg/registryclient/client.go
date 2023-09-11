@@ -4,18 +4,14 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"runtime"
 	"time"
 
-	"github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
-	"github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/authn/github"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/google"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/sigstore/cosign/v2/pkg/oci/remote"
@@ -129,13 +125,13 @@ func WithCredentialProviders(credentialProviders ...string) Option {
 			chains = append(chains, authn.DefaultKeychain)
 		}
 		if helpers.Has("google") {
-			chains = append(chains, google.Keychain)
+			chains = append(chains, GCPKeychain)
 		}
 		if helpers.Has("amazon") {
-			chains = append(chains, authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard))))
+			chains = append(chains, AWSKeychain)
 		}
 		if helpers.Has("azure") {
-			chains = append(chains, authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()))
+			chains = append(chains, AzureKeychain)
 		}
 		if helpers.Has("github") {
 			chains = append(chains, github.Keychain)

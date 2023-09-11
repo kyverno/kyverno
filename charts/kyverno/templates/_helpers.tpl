@@ -19,6 +19,9 @@
 {{- with .policyReports -}}
   {{- $flags = append $flags (print "--policyReports=" .enabled) -}}
 {{- end -}}
+{{- with .validatingAdmissionPolicyReports -}}
+  {{- $flags = append $flags (print "--validatingAdmissionPolicyReports=" .enabled) -}}
+{{- end -}}
 {{- with .autoUpdateWebhooks -}}
   {{- $flags = append $flags (print "--autoUpdateWebhooks=" .enabled) -}}
 {{- end -}}

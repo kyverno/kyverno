@@ -1,9 +1,27 @@
 ## kyverno docs
 
-Generates documentation.
+Generates reference documentation.
+
+### Synopsis
+
+Generates reference documentation.
+  
+  The docs command generates Kyverno CLI reference documentation.
+  
+  It can be used to generate simple markdown files or markdown to be used for the website.
 
 ```
 kyverno docs [flags]
+```
+
+### Examples
+
+```
+  # Generate simple markdown documentation
+  KYVERNO_EXPERIMENTAL=true kyverno docs -o . --autogenTag=false
+
+  # Generate website documentation
+  KYVERNO_EXPERIMENTAL=true kyverno docs -o . --website
 ```
 
 ### Options
@@ -35,5 +53,5 @@ kyverno docs [flags]
 
 ### SEE ALSO
 
-* [kyverno](kyverno.md)	 - Kubernetes Native Policy Management
+* [kyverno](kyverno.md)	 - Kubernetes Native Policy Management.
 
