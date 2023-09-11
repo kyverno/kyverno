@@ -32,7 +32,9 @@ func run() error {
 func configureLogs(cli *cobra.Command) error {
 	logging.InitFlags(nil)
 	cli.PersistentFlags().AddGoFlagSet(flag.CommandLine)
-	cli.ParseFlags(os.Args[1:])
+	if err := cli.ParseFlags(os.Args[1:]); err != nil {
+		return err
+	}
 	if err := log.Configure(); err != nil {
 		return err
 	}
