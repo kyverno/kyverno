@@ -1,0 +1,6 @@
+policies:
+  - name: test-policy
+    rules:
+      - name: test-rule
+        values:
+          excludedPolicies: []

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod
+spec: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment
+spec: {}
