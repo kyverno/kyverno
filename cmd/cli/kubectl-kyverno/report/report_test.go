@@ -34,7 +34,8 @@ func TestComputeClusterPolicyReports(t *testing.T) {
 			"validation rule 'pods-require-limits' passed.",
 		),
 	)
-	clustered, namespaced := ComputePolicyReports(false, er)
+	clustered, namespaced, err := ComputePolicyReports(false, er)
+	assert.NilError(t, err)
 	assert.Equal(t, len(clustered), 1)
 	assert.Equal(t, len(namespaced), 0)
 	{
@@ -68,7 +69,8 @@ func TestComputePolicyReports(t *testing.T) {
 			"validation rule 'pods-require-limits' passed.",
 		),
 	)
-	clustered, namespaced := ComputePolicyReports(false, er)
+	clustered, namespaced, err := ComputePolicyReports(false, er)
+	assert.NilError(t, err)
 	assert.Equal(t, len(clustered), 0)
 	assert.Equal(t, len(namespaced), 1)
 	{
@@ -102,7 +104,8 @@ func TestComputePolicyReportResultsPerPolicyOld(t *testing.T) {
 			"validation rule 'pods-require-limits' passed.",
 		),
 	)
-	results := ComputePolicyReportResultsPerPolicy(false, er)
+	results, err := ComputePolicyReportResultsPerPolicy(false, er)
+	assert.NilError(t, err)
 	for _, result := range results {
 		assert.Equal(t, len(result), 2)
 		for _, r := range result {
@@ -146,73 +149,18 @@ func TestMergeClusterReport(t *testing.T) {
 			},
 		},
 	}}
-	namespaced := []policyreportv1alpha2.PolicyReport{{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PolicyReport",
-			APIVersion: report.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ns-polr-1",
-			Namespace: "ns-polr",
-		},
-		Results: []policyreportv1alpha2.PolicyReportResult{
-			{
-				Policy:    "ns-polr-1",
-				Result:    report.StatusPass,
-				Resources: make([]corev1.ObjectReference, 10),
-			},
-		},
-	}, {
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PolicyReport",
-			APIVersion: report.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "ns-polr-2",
-		},
-		Results: []policyreportv1alpha2.PolicyReportResult{
-			{
-				Policy:    "ns-polr-2",
-				Result:    report.StatusPass,
-				Resources: make([]corev1.ObjectReference, 5),
-			},
-		},
-	}, {
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PolicyReport",
-			APIVersion: report.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "polr-3",
-		},
-		Results: []policyreportv1alpha2.PolicyReportResult{
-			{
-				Policy:    "polr-3",
-				Result:    report.StatusPass,
-				Resources: make([]corev1.ObjectReference, 1),
-			},
-		},
-	}}
 	expectedResults := []policyreportv1alpha2.PolicyReportResult{{
 		Policy: "cpolr-4",
 		Result: report.StatusFail,
 	}, {
 		Policy: "cpolr-5",
 		Result: report.StatusFail,
-	}, {
-		Policy:    "ns-polr-2",
-		Result:    report.StatusPass,
-		Resources: make([]corev1.ObjectReference, 5),
-	}, {
-		Policy:    "polr-3",
-		Result:    report.StatusPass,
-		Resources: make([]corev1.ObjectReference, 1),
 	}}
-	cpolr := MergeClusterReports(clustered, namespaced)
+	cpolr := MergeClusterReports(clustered)
 	assert.Equal(t, cpolr.APIVersion, report.SchemeGroupVersion.String())
 	assert.Equal(t, cpolr.Kind, "ClusterPolicyReport")
 	assert.DeepEqual(t, cpolr.Results, expectedResults)
-	assert.Equal(t, cpolr.Summary.Pass, 2)
+	assert.Equal(t, cpolr.Summary.Pass, 0)
 	assert.Equal(t, cpolr.Summary.Fail, 2)
 }
 
@@ -326,7 +274,8 @@ func TestComputePolicyReportResult(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ComputePolicyReportResult(tt.auditWarn, tt.engineResponse, tt.ruleResponse)
+			got, err := ComputePolicyReportResult(tt.auditWarn, tt.engineResponse, tt.ruleResponse)
+			assert.NilError(t, err)
 			got.Timestamp = metav1.Timestamp{}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ComputePolicyReportResult() = %v, want %v", got, tt.want)
@@ -351,7 +300,9 @@ func TestComputePolicyReportResultsPerPolicy(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ComputePolicyReportResultsPerPolicy(tt.auditWarn, tt.engineResponses...); !reflect.DeepEqual(got, tt.want) {
+			got, err := ComputePolicyReportResultsPerPolicy(tt.auditWarn, tt.engineResponses...)
+			assert.NilError(t, err)
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ComputePolicyReportResultsPerPolicy() = %v, want %v", got, tt.want)
 			}
 		})
