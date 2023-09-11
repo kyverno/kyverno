@@ -12,7 +12,9 @@ import (
 	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -21,20 +23,20 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 type PolicyProcessor struct {
-	Policy                    kyvernov1.PolicyInterface
-	Resource                  *unstructured.Unstructured
+	Policies                  []kyvernov1.PolicyInterface
+	Resource                  unstructured.Unstructured
 	MutateLogPath             string
 	MutateLogPathIsDir        bool
-	Variables                 map[string]interface{}
+	Variables                 *variables.Variables
 	UserInfo                  *kyvernov1beta1.RequestInfo
 	PolicyReport              bool
 	NamespaceSelectorMap      map[string]map[string]string
@@ -47,78 +49,28 @@ type PolicyProcessor struct {
 	Subresources              []valuesapi.Subresource
 }
 
-func (p *PolicyProcessor) ApplyPolicyOnResource() ([]engineapi.EngineResponse, error) {
-	jp := jmespath.New(config.NewDefaultConfiguration(false))
-
-	var engineResponses []engineapi.EngineResponse
-	namespaceLabels := make(map[string]string)
-	operation := kyvernov1.Create
-
-	if p.Variables["request.operation"] == "DELETE" {
-		operation = kyvernov1.Delete
-	}
-
-	policyWithNamespaceSelector := false
-OuterLoop:
-	for _, p := range autogen.ComputeRules(p.Policy) {
-		if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
-			p.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
-			policyWithNamespaceSelector = true
-			break
-		}
-		for _, m := range p.MatchResources.Any {
-			if m.ResourceDescription.NamespaceSelector != nil {
-				policyWithNamespaceSelector = true
-				break OuterLoop
-			}
-		}
-		for _, m := range p.MatchResources.All {
-			if m.ResourceDescription.NamespaceSelector != nil {
-				policyWithNamespaceSelector = true
-				break OuterLoop
-			}
-		}
-		for _, e := range p.ExcludeResources.Any {
-			if e.ResourceDescription.NamespaceSelector != nil {
-				policyWithNamespaceSelector = true
-				break OuterLoop
-			}
-		}
-		for _, e := range p.ExcludeResources.All {
-			if e.ResourceDescription.NamespaceSelector != nil {
-				policyWithNamespaceSelector = true
-				break OuterLoop
-			}
-		}
-	}
-
-	if policyWithNamespaceSelector {
-		resourceNamespace := p.Resource.GetNamespace()
-		namespaceLabels = p.NamespaceSelectorMap[p.Resource.GetNamespace()]
-		if resourceNamespace != "default" && len(namespaceLabels) < 1 {
-			return engineResponses, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", p.Resource.GetName()), nil)
-		}
-	}
-
-	resPath := fmt.Sprintf("%s/%s/%s", p.Resource.GetNamespace(), p.Resource.GetKind(), p.Resource.GetName())
-	log.Log.V(3).Info("applying policy on resource", "policy", p.Policy.GetName(), "resource", resPath)
-
-	resourceRaw, err := p.Resource.MarshalJSON()
-	if err != nil {
-		log.Log.Error(err, "failed to marshal resource")
-	}
-
-	updatedResource, err := kubeutils.BytesToUnstructured(resourceRaw)
-	if err != nil {
-		log.Log.Error(err, "unable to convert raw resource to unstructured")
-	}
-
-	if err != nil {
-		log.Log.Error(err, "failed to load resource in context")
-	}
-
+func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
 	cfg := config.NewDefaultConfiguration(false)
-	gvk, subresource := updatedResource.GroupVersionKind(), ""
+	jp := jmespath.New(cfg)
+	resource := p.Resource
+	namespaceLabels := p.NamespaceSelectorMap[p.Resource.GetNamespace()]
+	var client engineapi.Client
+	if p.Client != nil {
+		client = adapters.Client(p.Client)
+	}
+	rclient := registryclient.NewOrDie()
+	eng := engine.NewEngine(
+		cfg,
+		config.NewDefaultMetricsConfiguration(),
+		jmespath.New(cfg),
+		client,
+		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+		imageverifycache.DisabledImageVerifyCache(),
+		store.ContextLoaderFactory(nil),
+		nil,
+		"",
+	)
+	gvk, subresource := resource.GroupVersionKind(), ""
 	// If --cluster flag is not set, then we need to find the top level resource GVK and subresource
 	if p.Client == nil {
 		for _, s := range p.Subresources {
@@ -138,25 +90,114 @@ OuterLoop:
 			}
 		}
 	}
-	var client engineapi.Client
-	if p.Client != nil {
-		client = adapters.Client(p.Client)
+	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
+	var responses []engineapi.EngineResponse
+	// mutate
+	for _, policy := range p.Policies {
+		policyContext, err := p.makePolicyContext(jp, cfg, resource, policy, namespaceLabels, gvk, subresource)
+		if err != nil {
+			return responses, err
+		}
+		mutateResponse := eng.Mutate(context.Background(), policyContext)
+		combineRuleResponses(mutateResponse)
+		err = p.processMutateEngineResponse(mutateResponse, resPath)
+		if err != nil {
+			if !sanitizederror.IsErrorSanitized(err) {
+				return responses, sanitizederror.NewWithError("failed to print mutated result", err)
+			}
+		}
+		responses = append(responses, mutateResponse)
+		resource = mutateResponse.PatchedResource
 	}
-	rclient := registryclient.NewOrDie()
-	eng := engine.NewEngine(
-		cfg,
-		config.NewDefaultMetricsConfiguration(),
-		jmespath.New(cfg),
-		client,
-		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
-		imageverifycache.DisabledImageVerifyCache(),
-		store.ContextLoaderFactory(nil),
-		nil,
-		"",
-	)
+	// verify images
+	for _, policy := range p.Policies {
+		policyContext, err := p.makePolicyContext(jp, cfg, resource, policy, namespaceLabels, gvk, subresource)
+		if err != nil {
+			return responses, err
+		}
+		// TODO annotation
+		verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
+		if !verifyImageResponse.IsEmpty() {
+			verifyImageResponse = combineRuleResponses(verifyImageResponse)
+			responses = append(responses, verifyImageResponse)
+			resource = verifyImageResponse.PatchedResource
+		}
+	}
+	// validate
+	for _, policy := range p.Policies {
+		policyContext, err := p.makePolicyContext(jp, cfg, resource, policy, namespaceLabels, gvk, subresource)
+		if err != nil {
+			return responses, err
+		}
+		validateResponse := eng.Validate(context.TODO(), policyContext)
+		if !validateResponse.IsEmpty() {
+			validateResponse = combineRuleResponses(validateResponse)
+			responses = append(responses, validateResponse)
+			resource = validateResponse.PatchedResource
+		}
+	}
+	// generate
+	for _, policy := range p.Policies {
+		var policyHasGenerate bool
+		for _, rule := range autogen.ComputeRules(policy) {
+			if rule.HasGenerate() {
+				policyHasGenerate = true
+			}
+		}
+		if policyHasGenerate {
+			policyContext, err := p.makePolicyContext(jp, cfg, resource, policy, namespaceLabels, gvk, subresource)
+			if err != nil {
+				return responses, err
+			}
+
+			generateResponse := eng.ApplyBackgroundChecks(context.TODO(), policyContext)
+			if !generateResponse.IsEmpty() {
+				newRuleResponse, err := handleGeneratePolicy(&generateResponse, *policyContext, p.RuleToCloneSourceResource)
+				if err != nil {
+					log.Log.Error(err, "failed to apply generate policy")
+				} else {
+					generateResponse.PolicyResponse.Rules = newRuleResponse
+				}
+				combineRuleResponses(generateResponse)
+				responses = append(responses, generateResponse)
+			}
+			p.Rc.addGenerateResponse(p.AuditWarn, resPath, generateResponse)
+		}
+	}
+	p.Rc.addEngineResponses(p.AuditWarn, responses...)
+	return responses, nil
+}
+
+func (p *PolicyProcessor) makePolicyContext(
+	jp jmespath.Interface,
+	cfg config.Configuration,
+	resource unstructured.Unstructured,
+	policy kyvernov1.PolicyInterface,
+	namespaceLabels map[string]string,
+	gvk schema.GroupVersionKind,
+	subresource string,
+) (*policycontext.PolicyContext, error) {
+	operation := kyvernov1.Create
+	var resourceValues map[string]interface{}
+	if p.Variables != nil {
+		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy, p.Variables.Subresources(), p.Client)
+		vals, err := p.Variables.ComputeVariables(policy.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied /*matches...*/)
+		if err != nil {
+			message := fmt.Sprintf(
+				"policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag",
+				policy.GetName(),
+				resource.GetName(),
+			)
+			return nil, sanitizederror.NewWithError(message, err)
+		}
+		resourceValues = vals
+	}
+	if resourceValues["request.operation"] == "DELETE" {
+		operation = kyvernov1.Delete
+	}
 	policyContext, err := engine.NewPolicyContext(
 		jp,
-		*updatedResource,
+		resource,
 		operation,
 		p.UserInfo,
 		cfg,
@@ -164,80 +205,17 @@ OuterLoop:
 	if err != nil {
 		log.Log.Error(err, "failed to create policy context")
 	}
-
 	policyContext = policyContext.
-		WithPolicy(p.Policy).
+		WithPolicy(policy).
 		WithNamespaceLabels(namespaceLabels).
 		WithResourceKind(gvk, subresource)
-
-	for key, value := range p.Variables {
+	for key, value := range resourceValues {
 		err = policyContext.JSONContext().AddVariable(key, value)
 		if err != nil {
 			log.Log.Error(err, "failed to add variable to context")
 		}
 	}
-
-	mutateResponse := eng.Mutate(context.Background(), policyContext)
-	combineRuleResponses(mutateResponse)
-	engineResponses = append(engineResponses, mutateResponse)
-
-	err = p.processMutateEngineResponse(mutateResponse, resPath)
-	if err != nil {
-		if !sanitizederror.IsErrorSanitized(err) {
-			return engineResponses, sanitizederror.NewWithError("failed to print mutated result", err)
-		}
-	}
-
-	verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
-	if !verifyImageResponse.IsEmpty() {
-		verifyImageResponse = combineRuleResponses(verifyImageResponse)
-		engineResponses = append(engineResponses, verifyImageResponse)
-	}
-
-	var policyHasValidate bool
-	for _, rule := range autogen.ComputeRules(p.Policy) {
-		if rule.HasValidate() || rule.HasVerifyImageChecks() {
-			policyHasValidate = true
-		}
-	}
-
-	policyContext = policyContext.WithNewResource(mutateResponse.PatchedResource)
-
-	var validateResponse engineapi.EngineResponse
-	if policyHasValidate {
-		validateResponse = eng.Validate(context.Background(), policyContext)
-		validateResponse = combineRuleResponses(validateResponse)
-	}
-
-	if !validateResponse.IsEmpty() {
-		engineResponses = append(engineResponses, validateResponse)
-	}
-
-	var policyHasGenerate bool
-	for _, rule := range autogen.ComputeRules(p.Policy) {
-		if rule.HasGenerate() {
-			policyHasGenerate = true
-		}
-	}
-
-	if policyHasGenerate {
-		generateResponse := eng.ApplyBackgroundChecks(context.TODO(), policyContext)
-		if !generateResponse.IsEmpty() {
-			newRuleResponse, err := handleGeneratePolicy(&generateResponse, *policyContext, p.RuleToCloneSourceResource)
-			if err != nil {
-				log.Log.Error(err, "failed to apply generate policy")
-			} else {
-				generateResponse.PolicyResponse.Rules = newRuleResponse
-			}
-			combineRuleResponses(generateResponse)
-			engineResponses = append(engineResponses, generateResponse)
-		}
-		p.Rc.addGenerateResponse(p.AuditWarn, resPath, generateResponse)
-	}
-
-	p.Rc.addEngineResponses(p.AuditWarn, engineResponses...)
-
-	return engineResponses, nil
+	return policyContext, nil
 }
 
 func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineResponse, resourcePath string) error {
@@ -252,7 +230,7 @@ func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineR
 			mutatedResource := string(yamlEncodedResource) + string("\n---")
 			if len(strings.TrimSpace(mutatedResource)) > 0 {
 				if !p.Stdin {
-					fmt.Printf("\nmutate policy %s applied to %s:", p.Policy.GetName(), resourcePath)
+					fmt.Printf("\nmutate policy %s applied to %s:", response.Policy().GetName(), resourcePath)
 				}
 				fmt.Printf("\n" + mutatedResource + "\n")
 			}

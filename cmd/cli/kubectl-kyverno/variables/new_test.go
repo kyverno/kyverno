@@ -89,7 +89,7 @@ func TestNew(t *testing.T) {
 		name:         "values file",
 		fs:           nil,
 		resourcePath: "",
-		path:         "../_testdata/values/valid.yaml",
+		path:         "../_testdata/values/limit-configmap-for-sa.yaml",
 		vals:         nil,
 		vars:         nil,
 		want: &Variables{
@@ -121,7 +121,7 @@ func TestNew(t *testing.T) {
 		name:         "values file and vars",
 		fs:           nil,
 		resourcePath: "",
-		path:         "../_testdata/values/valid.yaml",
+		path:         "../_testdata/values/limit-configmap-for-sa.yaml",
 		vals:         nil,
 		vars: []string{
 			"foo=bar",
@@ -167,7 +167,7 @@ func TestNew(t *testing.T) {
 		name:         "values and values file",
 		fs:           nil,
 		resourcePath: "",
-		path:         "../_testdata/values/valid.yaml",
+		path:         "../_testdata/values/limit-configmap-for-sa.yaml",
 		vals: &valuesapi.Values{
 			GlobalValues: map[string]interface{}{
 				"bar": "baz",

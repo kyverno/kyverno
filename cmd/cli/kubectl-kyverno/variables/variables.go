@@ -55,7 +55,7 @@ func (v Variables) NamespaceSelectors() map[string]Labels {
 	return out
 }
 
-func (v Variables) CheckVariableForPolicy(policy, resource, kind string, kindMap sets.Set[string], variables ...string) (map[string]interface{}, error) {
+func (v Variables) ComputeVariables(policy, resource, kind string, kindMap sets.Set[string], variables ...string) (map[string]interface{}, error) {
 	resourceValues := map[string]interface{}{}
 	// first apply global values
 	if v.values != nil {

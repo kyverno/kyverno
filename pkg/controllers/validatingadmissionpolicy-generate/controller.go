@@ -240,10 +240,12 @@ func (c *controller) buildValidatingAdmissionPolicy(vap *v1alpha1.ValidatingAdmi
 
 	// set validating admission policy spec
 	vap.Spec = v1alpha1.ValidatingAdmissionPolicySpec{
-		ParamKind:        rule.Validation.CEL.ParamKind,
 		MatchConstraints: &matchResources,
+		ParamKind:        rule.Validation.CEL.ParamKind,
+		Variables:        rule.Validation.CEL.Variables,
 		Validations:      rule.Validation.CEL.Expressions,
 		AuditAnnotations: rule.Validation.CEL.AuditAnnotations,
+		MatchConditions:  rule.CELPreconditions,
 	}
 
 	// set labels
