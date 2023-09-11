@@ -7,6 +7,7 @@ import (
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/spf13/cobra"
 )
 
@@ -29,9 +30,11 @@ func run() error {
 }
 
 func configureLogs(cli *cobra.Command) error {
+	logging.InitFlags(nil)
+	cli.PersistentFlags().AddGoFlagSet(flag.CommandLine)
+	cli.ParseFlags(os.Args[1:])
 	if err := log.Configure(); err != nil {
 		return err
 	}
-	cli.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 	return nil
 }
