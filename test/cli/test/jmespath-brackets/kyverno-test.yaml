@@ -8,17 +8,7 @@ results:
   policy: test-jmespath
   resources:
   - test-valid1
-  result: pass
-  rule: test-jmespath
-- kind: Pod
-  policy: test-jmespath
-  resources:
   - test-valid2
-  result: pass
-  rule: test-jmespath
-- kind: Pod
-  policy: test-jmespath
-  resources:
   - test-valid3
   result: pass
   rule: test-jmespath
