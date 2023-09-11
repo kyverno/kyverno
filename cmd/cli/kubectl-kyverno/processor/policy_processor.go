@@ -25,7 +25,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -236,167 +235,65 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			resource = validateResponse.PatchedResource
 		}
 	}
-	return responses, nil
-}
-
-func (p *PolicyProcessor) applyPolicyOnResource(policy kyvernov1.PolicyInterface) ([]engineapi.EngineResponse, error) {
-	jp := jmespath.New(config.NewDefaultConfiguration(false))
-	resource := p.Resource
-	var engineResponses []engineapi.EngineResponse
-	namespaceLabels := make(map[string]string)
-	operation := kyvernov1.Create
-
-	// if p.Variables["request.operation"] == "DELETE" {
-	// 	operation = kyvernov1.Delete
-	// }
-	rules := autogen.ComputeRules(policy)
-
-	if needsNamespaceLabels(rules...) {
-		resourceNamespace := p.Resource.GetNamespace()
-		namespaceLabels = p.NamespaceSelectorMap[p.Resource.GetNamespace()]
-		if resourceNamespace != "default" && len(namespaceLabels) < 1 {
-			return engineResponses, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", resource.GetName()), nil)
-		}
-	}
-
-	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
-	log.Log.V(3).Info("applying policy on resource", "policy", policy.GetName(), "resource", resPath)
-
-	resourceRaw, err := resource.MarshalJSON()
-	if err != nil {
-		log.Log.Error(err, "failed to marshal resource")
-	}
-
-	updatedResource, err := kubeutils.BytesToUnstructured(resourceRaw)
-	if err != nil {
-		log.Log.Error(err, "unable to convert raw resource to unstructured")
-	}
-
-	if err != nil {
-		log.Log.Error(err, "failed to load resource in context")
-	}
-
-	cfg := config.NewDefaultConfiguration(false)
-	gvk, subresource := updatedResource.GroupVersionKind(), ""
-	// If --cluster flag is not set, then we need to find the top level resource GVK and subresource
-	if p.Client == nil {
-		for _, s := range p.Subresources {
-			subgvk := schema.GroupVersionKind{
-				Group:   s.APIResource.Group,
-				Version: s.APIResource.Version,
-				Kind:    s.APIResource.Kind,
-			}
-			if gvk == subgvk {
-				gvk = schema.GroupVersionKind{
-					Group:   s.ParentResource.Group,
-					Version: s.ParentResource.Version,
-					Kind:    s.ParentResource.Kind,
-				}
-				parts := strings.Split(s.APIResource.Name, "/")
-				subresource = parts[1]
+	// generate
+	for _, policy := range p.Policies {
+		var policyHasGenerate bool
+		for _, rule := range autogen.ComputeRules(policy) {
+			if rule.HasGenerate() {
+				policyHasGenerate = true
 			}
 		}
-	}
-	var client engineapi.Client
-	if p.Client != nil {
-		client = adapters.Client(p.Client)
-	}
-	rclient := registryclient.NewOrDie()
-	eng := engine.NewEngine(
-		cfg,
-		config.NewDefaultMetricsConfiguration(),
-		jmespath.New(cfg),
-		client,
-		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
-		imageverifycache.DisabledImageVerifyCache(),
-		store.ContextLoaderFactory(nil),
-		nil,
-		"",
-	)
-	policyContext, err := engine.NewPolicyContext(
-		jp,
-		*updatedResource,
-		operation,
-		p.UserInfo,
-		cfg,
-	)
-	if err != nil {
-		log.Log.Error(err, "failed to create policy context")
-	}
-
-	policyContext = policyContext.
-		WithPolicy(policy).
-		WithNamespaceLabels(namespaceLabels).
-		WithResourceKind(gvk, subresource)
-
-	// for key, value := range p.Variables {
-	// 	err = policyContext.JSONContext().AddVariable(key, value)
-	// 	if err != nil {
-	// 		log.Log.Error(err, "failed to add variable to context")
-	// 	}
-	// }
-
-	mutateResponse := eng.Mutate(context.Background(), policyContext)
-	combineRuleResponses(mutateResponse)
-	engineResponses = append(engineResponses, mutateResponse)
-
-	err = p.processMutateEngineResponse(mutateResponse, resPath)
-	if err != nil {
-		if !sanitizederror.IsErrorSanitized(err) {
-			return engineResponses, sanitizederror.NewWithError("failed to print mutated result", err)
-		}
-	}
-
-	verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
-	if !verifyImageResponse.IsEmpty() {
-		verifyImageResponse = combineRuleResponses(verifyImageResponse)
-		engineResponses = append(engineResponses, verifyImageResponse)
-	}
-
-	var policyHasValidate bool
-	for _, rule := range rules {
-		if rule.HasValidate() || rule.HasVerifyImageChecks() {
-			policyHasValidate = true
-		}
-	}
-
-	policyContext = policyContext.WithNewResource(mutateResponse.PatchedResource)
-
-	var validateResponse engineapi.EngineResponse
-	if policyHasValidate {
-		validateResponse = eng.Validate(context.Background(), policyContext)
-		validateResponse = combineRuleResponses(validateResponse)
-	}
-
-	if !validateResponse.IsEmpty() {
-		engineResponses = append(engineResponses, validateResponse)
-	}
-
-	var policyHasGenerate bool
-	for _, rule := range rules {
-		if rule.HasGenerate() {
-			policyHasGenerate = true
-		}
-	}
-
-	if policyHasGenerate {
-		generateResponse := eng.ApplyBackgroundChecks(context.TODO(), policyContext)
-		if !generateResponse.IsEmpty() {
-			newRuleResponse, err := handleGeneratePolicy(&generateResponse, *policyContext, p.RuleToCloneSourceResource)
+		if policyHasGenerate {
+			kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy, p.Variables.Subresources(), p.Client)
+			resourceValues, err := p.Variables.ComputeVariables(policy.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied /*matches...*/)
 			if err != nil {
-				log.Log.Error(err, "failed to apply generate policy")
-			} else {
-				generateResponse.PolicyResponse.Rules = newRuleResponse
+				message := fmt.Sprintf(
+					"policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag",
+					policy.GetName(),
+					resource.GetName(),
+				)
+				return nil, sanitizederror.NewWithError(message, err)
 			}
-			combineRuleResponses(generateResponse)
-			engineResponses = append(engineResponses, generateResponse)
+			operation := kyvernov1.Create
+			if resourceValues["request.operation"] == "DELETE" {
+				operation = kyvernov1.Delete
+			}
+			policyContext, err := engine.NewPolicyContext(
+				jp,
+				resource,
+				operation,
+				p.UserInfo,
+				cfg,
+			)
+			if err != nil {
+				log.Log.Error(err, "failed to create policy context")
+			}
+			policyContext = policyContext.
+				WithPolicy(policy).
+				WithNamespaceLabels(namespaceLabels).
+				WithResourceKind(gvk, subresource)
+			for key, value := range resourceValues {
+				err = policyContext.JSONContext().AddVariable(key, value)
+				if err != nil {
+					log.Log.Error(err, "failed to add variable to context")
+				}
+			}
+			generateResponse := eng.ApplyBackgroundChecks(context.TODO(), policyContext)
+			if !generateResponse.IsEmpty() {
+				newRuleResponse, err := handleGeneratePolicy(&generateResponse, *policyContext, p.RuleToCloneSourceResource)
+				if err != nil {
+					log.Log.Error(err, "failed to apply generate policy")
+				} else {
+					generateResponse.PolicyResponse.Rules = newRuleResponse
+				}
+				combineRuleResponses(generateResponse)
+				responses = append(responses, generateResponse)
+			}
+			p.Rc.addGenerateResponse(p.AuditWarn, resPath, generateResponse)
 		}
-		p.Rc.addGenerateResponse(p.AuditWarn, resPath, generateResponse)
 	}
-
-	p.Rc.addEngineResponses(p.AuditWarn, engineResponses...)
-
-	return engineResponses, nil
+	p.Rc.addEngineResponses(p.AuditWarn, responses...)
+	return responses, nil
 }
 
 func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineResponse, resourcePath string) error {
