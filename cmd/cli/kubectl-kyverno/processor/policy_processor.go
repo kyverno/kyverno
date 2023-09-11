@@ -139,6 +139,50 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		responses = append(responses, mutateResponse)
 		resource = mutateResponse.PatchedResource
 	}
+	// verify images
+	for _, policy := range p.Policies {
+		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy, p.Variables.Subresources(), p.Client)
+		resourceValues, err := p.Variables.ComputeVariables(policy.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied /*matches...*/)
+		if err != nil {
+			message := fmt.Sprintf(
+				"policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag",
+				policy.GetName(),
+				resource.GetName(),
+			)
+			return nil, sanitizederror.NewWithError(message, err)
+		}
+		operation := kyvernov1.Create
+		if resourceValues["request.operation"] == "DELETE" {
+			operation = kyvernov1.Delete
+		}
+		policyContext, err := engine.NewPolicyContext(
+			jp,
+			resource,
+			operation,
+			p.UserInfo,
+			cfg,
+		)
+		if err != nil {
+			log.Log.Error(err, "failed to create policy context")
+		}
+		policyContext = policyContext.
+			WithPolicy(policy).
+			WithNamespaceLabels(namespaceLabels).
+			WithResourceKind(gvk, subresource)
+		for key, value := range resourceValues {
+			err = policyContext.JSONContext().AddVariable(key, value)
+			if err != nil {
+				log.Log.Error(err, "failed to add variable to context")
+			}
+		}
+		// TODO annotation
+		verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
+		if !verifyImageResponse.IsEmpty() {
+			verifyImageResponse = combineRuleResponses(verifyImageResponse)
+			responses = append(responses, verifyImageResponse)
+			resource = verifyImageResponse.PatchedResource
+		}
+	}
 	return responses, nil
 }
 
