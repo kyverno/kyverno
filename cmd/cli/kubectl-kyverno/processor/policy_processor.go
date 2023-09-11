@@ -52,17 +52,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	cfg := config.NewDefaultConfiguration(false)
 	jp := jmespath.New(cfg)
 	resource := p.Resource
-	namespaceLabels := map[string]string{}
-	// rules := autogen.ComputeRules(policy)
-
-	// if needsNamespaceLabels(rules...) {
-	// resourceNamespace := p.Resource.GetNamespace()
-	namespaceLabels = p.NamespaceSelectorMap[p.Resource.GetNamespace()]
-	// if resourceNamespace != "default" && len(namespaceLabels) < 1 {
-	// 	return engineResponses, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", resource.GetName()), nil)
-	// }
-	// }
-
+	namespaceLabels := p.NamespaceSelectorMap[p.Resource.GetNamespace()]
 	var client engineapi.Client
 	if p.Client != nil {
 		client = adapters.Client(p.Client)
