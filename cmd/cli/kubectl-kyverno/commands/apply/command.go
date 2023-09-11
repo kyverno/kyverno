@@ -66,7 +66,6 @@ type ApplyCommandConfig struct {
 	warnNoPassed   bool
 }
 
-// allow os.exit to be overwritten during unit tests
 func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var removeColor, detailedResults, table bool
@@ -248,61 +247,58 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	if vars != nil {
 		vars.SetInStore()
 	}
-
+	// validate policies
+	var validPolicies []kyvernov1.PolicyInterface
+	for _, pol := range policies {
+		// TODO we should return this info to the caller
+		_, err := policyvalidation.Validate(pol, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
+		if err != nil {
+			log.Log.Error(err, "policy validation error")
+			if strings.HasPrefix(err.Error(), "variable 'element.name'") {
+				skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, pol.GetName())
+			} else {
+				skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, pol.GetName())
+			}
+			continue
+		}
+		matches, err := policy.ExtractVariables(pol)
+		if err != nil {
+			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
+			continue
+		}
+		if !vars.HasVariables() && variables.NeedsVariables(matches...) {
+			// check policy in variable file
+			if !vars.HasPolicyVariables(pol.GetName()) {
+				fmt.Printf("test skipped for policy %v (as required variables are not provided by the users) \n \n", pol.GetName())
+				continue
+			}
+		}
+		validPolicies = append(validPolicies, pol)
+	}
 	var rc processor.ResultCounts
 	var responses []engineapi.EngineResponse
 	for _, resource := range resources {
-		for _, pol := range policies {
-			_, err := policyvalidation.Validate(pol, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
-			if err != nil {
-				log.Log.Error(err, "policy validation error")
-				if strings.HasPrefix(err.Error(), "variable 'element.name'") {
-					skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, pol.GetName())
-				} else {
-					skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, pol.GetName())
-				}
-
-				continue
-			}
-			matches, err := policy.ExtractVariables(pol)
-			if err != nil {
-				log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
-				continue
-			}
-			if !vars.HasVariables() && variables.NeedsVariables(matches...) {
-				// check policy in variable file
-				if !vars.HasPolicyVariables(pol.GetName()) {
-					skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, pol.GetName())
-					continue
-				}
-			}
-			kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(pol, vars.Subresources(), dClient)
-			resourceValues, err := vars.ComputeVariables(pol.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied, matches...)
-			if err != nil {
-				return &rc, resources, responses, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", pol.GetName(), resource.GetName()), err)
-			}
-			processor := processor.PolicyProcessor{
-				Policy:               pol,
-				Resource:             resource,
-				MutateLogPath:        c.MutateLogPath,
-				MutateLogPathIsDir:   mutateLogPathIsDir,
-				Variables:            resourceValues,
-				UserInfo:             userInfo,
-				PolicyReport:         c.PolicyReport,
-				NamespaceSelectorMap: vars.NamespaceSelectors(),
-				Stdin:                c.Stdin,
-				Rc:                   &rc,
-				PrintPatchResource:   true,
-				Client:               dClient,
-				AuditWarn:            c.AuditWarn,
-				Subresources:         vars.Subresources(),
-			}
-			ers, err := processor.ApplyPolicyOnResource()
-			if err != nil {
-				return &rc, resources, responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", pol.GetName(), resource.GetName()).Error(), err)
-			}
-			responses = append(responses, processSkipEngineResponses(ers)...)
+		processor := processor.PolicyProcessor{
+			Policies:             validPolicies,
+			Resource:             *resource,
+			MutateLogPath:        c.MutateLogPath,
+			MutateLogPathIsDir:   mutateLogPathIsDir,
+			Variables:            vars,
+			UserInfo:             userInfo,
+			PolicyReport:         c.PolicyReport,
+			NamespaceSelectorMap: vars.NamespaceSelectors(),
+			Stdin:                c.Stdin,
+			Rc:                   &rc,
+			PrintPatchResource:   true,
+			Client:               dClient,
+			AuditWarn:            c.AuditWarn,
+			Subresources:         vars.Subresources(),
 		}
+		ers, err := processor.ApplyPoliciesOnResource()
+		if err != nil {
+			return &rc, resources, responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policies on resource %v", resource.GetName()).Error(), err)
+		}
+		responses = append(responses, processSkipEngineResponses(ers)...)
 	}
 	return &rc, resources, responses, nil
 }

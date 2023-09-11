@@ -329,7 +329,9 @@ func Test_Apply(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		verifyTestcase(t, tc, compareSummary)
+		t.Run("", func(t *testing.T) {
+			verifyTestcase(t, tc, compareSummary)
+		})
 	}
 }
 
