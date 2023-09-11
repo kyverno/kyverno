@@ -317,7 +317,7 @@ func Test_Apply(t *testing.T) {
 		_, _, _, responses, err := tc.config.applyCommandHelper()
 		assert.NilError(t, err, desc)
 
-		clustered, _ := report.ComputePolicyReports(tc.config.AuditWarn, responses...)
+		clustered, _, _ := report.ComputePolicyReports(tc.config.AuditWarn, responses...)
 		assert.Assert(t, len(clustered) > 0, "policy reports should not be empty: %s", desc)
 		combined := []policyreportv1alpha2.ClusterPolicyReport{
 			report.MergeClusterReports(clustered),
