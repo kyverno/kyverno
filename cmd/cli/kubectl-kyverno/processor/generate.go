@@ -16,30 +16,27 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]string) ([]engineapi.RuleResponse, error) {
 	newResource := policyContext.NewResource()
 	objects := []runtime.Object{&newResource}
-	resources := []*unstructured.Unstructured{}
 	for _, rule := range generateResponse.PolicyResponse.Rules {
 		if path, ok := ruleToCloneSourceResource[rule.Name()]; ok {
 			resourceBytes, err := resource.GetFileBytes(path)
 			if err != nil {
 				fmt.Printf("failed to get resource bytes\n")
 			} else {
-				resources, err = resource.GetUnstructuredResources(resourceBytes)
+				r, err := resource.GetUnstructuredResources(resourceBytes)
 				if err != nil {
 					fmt.Printf("failed to convert resource bytes to unstructured format\n")
 				}
+				for _, res := range r {
+					objects = append(objects, res)
+				}
 			}
 		}
-	}
-
-	for _, res := range resources {
-		objects = append(objects, res)
 	}
 
 	c, err := initializeMockController(objects)
