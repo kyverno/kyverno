@@ -13,17 +13,15 @@ import (
 
 func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineResponse, ruleResponse engineapi.RuleResponse) (policyreportv1alpha2.PolicyReportResult, error) {
 	policy := engineResponse.Policy()
-	policyName, err := cache.MetaNamespaceKeyFunc(policy)
+	policyName, err := cache.MetaNamespaceKeyFunc(policy.GetPolicy())
 	if err != nil {
 		return policyreportv1alpha2.PolicyReportResult{}, err
 	}
-	// policyName := policy.GetName()
 	audit := engineResponse.GetValidationFailureAction().Audit()
 	scored := annotations.Scored(policy.GetAnnotations())
 	category := annotations.Category(policy.GetAnnotations())
 	severity := annotations.Severity(policy.GetAnnotations())
 	result := policyreportv1alpha2.PolicyReportResult{
-		// TODO policy name looks wrong, it should consider the namespace too
 		Policy: policyName,
 		Resources: []corev1.ObjectReference{
 			{
