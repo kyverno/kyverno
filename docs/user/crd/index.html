@@ -5808,14 +5808,16 @@ MatchResources
 </tr>
 <tr>
 <td>
-<code>images</code><br/>
+<code>podSecurity</code><br/>
 <em>
-[]string
+<a href="#kyverno.io/v2alpha1.PodSecuritySpec">
+PodSecuritySpec
+</a>
 </em>
 </td>
 <td>
-<p>Images is a list of images to check if a resource applies to the exception.
-Applicable only to rule types that apply to images: verifyImages, validate.podSecurity.</p>
+<p>PodSecurity is used to check if resource applies to the exception
+Applicable only to validate.podSecurity.</p>
 </td>
 </tr>
 </table>
@@ -5999,6 +6001,48 @@ references a ClusterPolicy.</p>
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v2alpha1.PodSecuritySpec">PodSecuritySpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.PolicyExceptionSpec">PolicyExceptionSpec</a>)
+</p>
+<p>
+<p>PodSecuritySpec consists of a ControlName and a list of images to check if a resource applies to the exception</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>controlName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>ControlName specifies the name of the Pod Security Standard control to check if a resource applies to the exception</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>images</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>Images is a list of images to check if a resource applies to the exception.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v2alpha1.PolicyExceptionSpec">PolicyExceptionSpec
 </h3>
 <p>
@@ -6057,14 +6101,16 @@ MatchResources
 </tr>
 <tr>
 <td>
-<code>images</code><br/>
+<code>podSecurity</code><br/>
 <em>
-[]string
+<a href="#kyverno.io/v2alpha1.PodSecuritySpec">
+PodSecuritySpec
+</a>
 </em>
 </td>
 <td>
-<p>Images is a list of images to check if a resource applies to the exception.
-Applicable only to rule types that apply to images: verifyImages, validate.podSecurity.</p>
+<p>PodSecurity is used to check if resource applies to the exception
+Applicable only to validate.podSecurity.</p>
 </td>
 </tr>
 </tbody>

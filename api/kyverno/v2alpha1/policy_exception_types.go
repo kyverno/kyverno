@@ -72,13 +72,22 @@ type PolicyExceptionSpec struct {
 	// Exceptions is a list policy/rules to be excluded
 	Exceptions []Exception `json:"exceptions"`
 
-	// Images is a list of images to check if a resource applies to the exception.
-	// Applicable only to rule types that apply to images: verifyImages, validate.podSecurity.
-	Images []string `json:"images,omitempty"`
+	// PodSecurity is used to check if resource applies to the exception
+	// Applicable only to validate.podSecurity.
+	PodSecurity PodSecuritySpec `json:"podSecurity,omitempty"`
 }
 
-func (p *PolicyExceptionSpec) HasImages() bool {
-	return len(p.Images) > 0
+// PodSecuritySpec consists of a ControlName and a list of images to check if a resource applies to the exception
+type PodSecuritySpec struct {
+	// ControlName specifies the name of the Pod Security Standard control to check if a resource applies to the exception
+	ControlName string `json:"controlName"`
+
+	// Images is a list of images to check if a resource applies to the exception.
+	Images []string `json:"images"`
+}
+
+func (p *PolicyExceptionSpec) HasPodSecuruty() bool {
+	return len(p.PodSecurity.Images) > 0
 }
 
 func (p *PolicyExceptionSpec) BackgroundProcessingEnabled() bool {

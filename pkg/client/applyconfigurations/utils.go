@@ -179,6 +179,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2alpha1.ClusterCleanupPolicyApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("Exception"):
 		return &kyvernov2alpha1.ExceptionApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("PodSecuritySpec"):
+		return &kyvernov2alpha1.PodSecuritySpecApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("PolicyException"):
 		return &kyvernov2alpha1.PolicyExceptionApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("PolicyExceptionSpec"):

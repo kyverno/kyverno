@@ -25,10 +25,10 @@ import (
 // PolicyExceptionSpecApplyConfiguration represents an declarative configuration of the PolicyExceptionSpec type for use
 // with apply.
 type PolicyExceptionSpecApplyConfiguration struct {
-	Background *bool                                     `json:"background,omitempty"`
-	Match      *v2beta1.MatchResourcesApplyConfiguration `json:"match,omitempty"`
-	Exceptions []ExceptionApplyConfiguration             `json:"exceptions,omitempty"`
-	Images     []string                                  `json:"images,omitempty"`
+	Background  *bool                                     `json:"background,omitempty"`
+	Match       *v2beta1.MatchResourcesApplyConfiguration `json:"match,omitempty"`
+	Exceptions  []ExceptionApplyConfiguration             `json:"exceptions,omitempty"`
+	PodSecurity *PodSecuritySpecApplyConfiguration        `json:"podSecurity,omitempty"`
 }
 
 // PolicyExceptionSpecApplyConfiguration constructs an declarative configuration of the PolicyExceptionSpec type for use with
@@ -66,12 +66,10 @@ func (b *PolicyExceptionSpecApplyConfiguration) WithExceptions(values ...*Except
 	return b
 }
 
-// WithImages adds the given value to the Images field in the declarative configuration
-// and returns the receiver, so that objects can be build by chaining "With" function invocations.
-// If called multiple times, values provided by each call will be appended to the Images field.
-func (b *PolicyExceptionSpecApplyConfiguration) WithImages(values ...string) *PolicyExceptionSpecApplyConfiguration {
-	for i := range values {
-		b.Images = append(b.Images, values[i])
-	}
+// WithPodSecurity sets the PodSecurity field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the PodSecurity field is set to the value of the last call.
+func (b *PolicyExceptionSpecApplyConfiguration) WithPodSecurity(value *PodSecuritySpecApplyConfiguration) *PolicyExceptionSpecApplyConfiguration {
+	b.PodSecurity = value
 	return b
 }

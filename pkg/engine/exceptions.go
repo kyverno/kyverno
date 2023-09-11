@@ -55,24 +55,15 @@ func matchesException(
 		resource = policyContext.OldResource()
 	}
 	for _, candidate := range candidates {
-		if candidate.Spec.HasImages() {
-			if rule.HasVerifyImages() {
-				for _, iv := range rule.VerifyImages {
-					for _, iref := range iv.ImageReferences {
-						for _, i := range candidate.Spec.Images {
-							if wildcard.Match(iref, i) {
-								return candidate, nil
-							}
-						}
-					}
-				}
-			}
+		if candidate.Spec.HasPodSecuruty() {
 			if rule.HasValidatePodSecurity() {
 				for _, pss := range rule.Validation.PodSecurity.Exclude {
-					for _, iref := range pss.Images {
-						for _, i := range candidate.Spec.Images {
-							if wildcard.Match(iref, i) {
-								return candidate, nil
+					if wildcard.Match(pss.ControlName, candidate.Spec.PodSecurity.ControlName) {
+						for _, iref := range pss.Images {
+							for _, i := range candidate.Spec.PodSecurity.Images {
+								if wildcard.Match(iref, i) {
+									return candidate, nil
+								}
 							}
 						}
 					}
