@@ -112,16 +112,9 @@ func ComputePolicyReports(auditWarn bool, engineResponses ...engineapi.EngineRes
 	return clustered, namespaced
 }
 
-func MergeClusterReports(clustered []policyreportv1alpha2.ClusterPolicyReport, namespaced []policyreportv1alpha2.PolicyReport) policyreportv1alpha2.ClusterPolicyReport {
+func MergeClusterReports(clustered []policyreportv1alpha2.ClusterPolicyReport) policyreportv1alpha2.ClusterPolicyReport {
 	var results []policyreportv1alpha2.PolicyReportResult
 	for _, report := range clustered {
-		results = append(results, report.Results...)
-	}
-	// TODO why this ?
-	for _, report := range namespaced {
-		if report.GetNamespace() != "" {
-			continue
-		}
 		results = append(results, report.Results...)
 	}
 	return policyreportv1alpha2.ClusterPolicyReport{

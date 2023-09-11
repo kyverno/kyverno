@@ -320,7 +320,7 @@ func Test_Apply(t *testing.T) {
 		clustered, _ := report.ComputePolicyReports(tc.config.AuditWarn, responses...)
 		assert.Assert(t, len(clustered) > 0, "policy reports should not be empty: %s", desc)
 		combined := []policyreportv1alpha2.ClusterPolicyReport{
-			report.MergeClusterReports(clustered, nil),
+			report.MergeClusterReports(clustered),
 		}
 		assert.Equal(t, len(combined), len(tc.expectedPolicyReports))
 		for i, resp := range combined {
