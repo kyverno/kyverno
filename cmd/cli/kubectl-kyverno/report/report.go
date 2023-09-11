@@ -13,7 +13,7 @@ import (
 
 func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineResponse, ruleResponse engineapi.RuleResponse) (policyreportv1alpha2.PolicyReportResult, error) {
 	policy := engineResponse.Policy()
-	policyName, err := cache.MetaNamespaceKeyFunc(policy.GetPolicy())
+	policyName, err := cache.MetaNamespaceKeyFunc(policy.MetaObject())
 	if err != nil {
 		return policyreportv1alpha2.PolicyReportResult{}, err
 	}
