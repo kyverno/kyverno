@@ -3,7 +3,6 @@ package processor
 import (
 	"strings"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 )
 
@@ -77,34 +76,4 @@ func combineRuleResponses(imageResponse engineapi.EngineResponse) engineapi.Engi
 	}
 	imageResponse.PolicyResponse.Rules = combineRuleResponses
 	return imageResponse
-}
-
-func needsNamespaceLabels(rules ...kyvernov1.Rule) bool {
-	for _, p := range rules {
-		if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
-			p.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
-			return true
-		}
-		for _, m := range p.MatchResources.Any {
-			if m.ResourceDescription.NamespaceSelector != nil {
-				return true
-			}
-		}
-		for _, m := range p.MatchResources.All {
-			if m.ResourceDescription.NamespaceSelector != nil {
-				return true
-			}
-		}
-		for _, e := range p.ExcludeResources.Any {
-			if e.ResourceDescription.NamespaceSelector != nil {
-				return true
-			}
-		}
-		for _, e := range p.ExcludeResources.All {
-			if e.ResourceDescription.NamespaceSelector != nil {
-				return true
-			}
-		}
-	}
-	return false
 }

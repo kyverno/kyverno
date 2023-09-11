@@ -3,6 +3,7 @@ package test
 import (
 	"fmt"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/pluralize"
@@ -112,11 +113,8 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 			}
 		}
 	}
-	// execute engine
-	fmt.Println("  Applying", len(policies), pluralize.Pluralize(len(policies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
-	var engineResponses []engineapi.EngineResponse
-	var resultCounts processor.ResultCounts
-	// TODO loop through resources first, then through policies second
+	// validate policies
+	var validPolicies []kyvernov1.PolicyInterface
 	for _, pol := range policies {
 		// TODO we should return this info to the caller
 		_, err := policyvalidation.Validate(pol, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
@@ -133,58 +131,50 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 			// check policy in variable file
 			if !vars.HasPolicyVariables(pol.GetName()) {
 				fmt.Printf("test skipped for policy %v (as required variables are not provided by the users) \n \n", pol.GetName())
-				// TODO continue ? return error ?
+				// continue
 			}
 		}
-
-		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(pol, vars.Subresources(), dClient)
-
-		for _, resource := range uniques {
-			resourceValues, err := vars.ComputeVariables(pol.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied, matches...)
-			if err != nil {
-				message := fmt.Sprintf(
-					"policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag",
-					pol.GetName(),
-					resource.GetName(),
-				)
-				return nil, sanitizederror.NewWithError(message, err)
-			}
-			processor := processor.PolicyProcessor{
-				Policy:                    pol,
-				Resource:                  resource,
-				MutateLogPath:             "",
-				Variables:                 resourceValues,
-				UserInfo:                  userInfo,
-				PolicyReport:              true,
-				NamespaceSelectorMap:      vars.NamespaceSelectors(),
-				Rc:                        &resultCounts,
-				RuleToCloneSourceResource: ruleToCloneSourceResource,
-				Client:                    dClient,
-				Subresources:              vars.Subresources(),
-			}
-			ers, err := processor.ApplyPolicyOnResource()
-			if err != nil {
-				message := fmt.Sprintf("failed to apply policy %v on resource %v", pol.GetName(), resource.GetName())
-				return nil, sanitizederror.NewWithError(message, err)
-			}
-			engineResponses = append(engineResponses, ers...)
-		}
+		validPolicies = append(validPolicies, pol)
 	}
-	for _, policy := range validatingAdmissionPolicies {
-		for _, resource := range uniques {
-			processor := processor.ValidatingAdmissionPolicyProcessor{
-				ValidatingAdmissionPolicy: policy,
-				Resource:                  resource,
-				PolicyReport:              true,
-				Rc:                        &resultCounts,
-			}
-			ers, err := processor.ApplyPolicyOnResource()
-			if err != nil {
-				message := fmt.Sprintf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName())
-				return nil, sanitizederror.NewWithError(message, err)
-			}
-			engineResponses = append(engineResponses, ers...)
+	// execute engine
+	fmt.Println("  Applying", len(policies), pluralize.Pluralize(len(policies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
+	var engineResponses []engineapi.EngineResponse
+	var resultCounts processor.ResultCounts
+
+	for _, resource := range uniques {
+		processor := processor.PolicyProcessor{
+			Policies:                  validPolicies,
+			Resource:                  *resource,
+			MutateLogPath:             "",
+			Variables:                 vars,
+			UserInfo:                  userInfo,
+			PolicyReport:              true,
+			NamespaceSelectorMap:      vars.NamespaceSelectors(),
+			Rc:                        &resultCounts,
+			RuleToCloneSourceResource: ruleToCloneSourceResource,
+			Client:                    dClient,
+			Subresources:              vars.Subresources(),
 		}
+		ers, err := processor.ApplyPoliciesOnResource()
+		if err != nil {
+			message := fmt.Sprintf("failed to apply policies on resource %v", resource.GetName())
+			return nil, sanitizederror.NewWithError(message, err)
+		}
+		engineResponses = append(engineResponses, ers...)
+	}
+	for _, resource := range uniques {
+		processor := processor.ValidatingAdmissionPolicyProcessor{
+			Policies:     validatingAdmissionPolicies,
+			Resource:     resource,
+			PolicyReport: true,
+			Rc:           &resultCounts,
+		}
+		ers, err := processor.ApplyPolicyOnResource()
+		if err != nil {
+			message := fmt.Sprintf("failed to apply policies on resource %s", resource.GetName())
+			return nil, sanitizederror.NewWithError(message, err)
+		}
+		engineResponses = append(engineResponses, ers...)
 	}
 	return engineResponses, nil
 }
