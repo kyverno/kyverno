@@ -170,21 +170,19 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 			engineResponses = append(engineResponses, ers...)
 		}
 	}
-	for _, policy := range validatingAdmissionPolicies {
-		for _, resource := range uniques {
-			processor := processor.ValidatingAdmissionPolicyProcessor{
-				ValidatingAdmissionPolicy: policy,
-				Resource:                  resource,
-				PolicyReport:              true,
-				Rc:                        &resultCounts,
-			}
-			ers, err := processor.ApplyPolicyOnResource()
-			if err != nil {
-				message := fmt.Sprintf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName())
-				return nil, sanitizederror.NewWithError(message, err)
-			}
-			engineResponses = append(engineResponses, ers...)
+	for _, resource := range uniques {
+		processor := processor.ValidatingAdmissionPolicyProcessor{
+			Policies:     validatingAdmissionPolicies,
+			Resource:     resource,
+			PolicyReport: true,
+			Rc:           &resultCounts,
 		}
+		ers, err := processor.ApplyPolicyOnResource()
+		if err != nil {
+			message := fmt.Sprintf("failed to apply policies on resource %s", resource.GetName())
+			return nil, sanitizederror.NewWithError(message, err)
+		}
+		engineResponses = append(engineResponses, ers...)
 	}
 	return engineResponses, nil
 }
