@@ -140,23 +140,13 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 	fmt.Println("  Applying", len(policies), pluralize.Pluralize(len(policies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
 	var engineResponses []engineapi.EngineResponse
 	var resultCounts processor.ResultCounts
-	kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(pol, vars.Subresources(), dClient)
 
 	for _, resource := range uniques {
-		resourceValues, err := vars.ComputeVariables(pol.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied, matches...)
-		if err != nil {
-			message := fmt.Sprintf(
-				"policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag",
-				pol.GetName(),
-				resource.GetName(),
-			)
-			return nil, sanitizederror.NewWithError(message, err)
-		}
 		processor := processor.PolicyProcessor{
 			Policies:                  validPolicies,
-			Resource:                  resource,
+			Resource:                  *resource,
 			MutateLogPath:             "",
-			Variables:                 resourceValues,
+			Variables:                 vars,
 			UserInfo:                  userInfo,
 			PolicyReport:              true,
 			NamespaceSelectorMap:      vars.NamespaceSelectors(),
@@ -167,7 +157,7 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
-			message := fmt.Sprintf("failed to apply policy %v on resource %v", pol.GetName(), resource.GetName())
+			message := fmt.Sprintf("failed to apply policies on resource %v", resource.GetName())
 			return nil, sanitizederror.NewWithError(message, err)
 		}
 		engineResponses = append(engineResponses, ers...)

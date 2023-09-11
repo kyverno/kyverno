@@ -12,7 +12,9 @@ import (
 	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -31,10 +33,10 @@ import (
 
 type PolicyProcessor struct {
 	Policies                  []kyvernov1.PolicyInterface
-	Resource                  *unstructured.Unstructured
+	Resource                  unstructured.Unstructured
 	MutateLogPath             string
 	MutateLogPathIsDir        bool
-	Variables                 map[string]interface{}
+	Variables                 *variables.Variables
 	UserInfo                  *kyvernov1beta1.RequestInfo
 	PolicyReport              bool
 	NamespaceSelectorMap      map[string]map[string]string
@@ -48,13 +50,94 @@ type PolicyProcessor struct {
 }
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
-	var responses []engineapi.EngineResponse
-	for _, policy := range p.Policies {
-		r, err := p.applyPolicyOnResource(policy)
-		if err != nil {
-			return nil, err
+	cfg := config.NewDefaultConfiguration(false)
+	jp := jmespath.New(cfg)
+	resource := p.Resource
+	namespaceLabels := map[string]string{}
+	var client engineapi.Client
+	if p.Client != nil {
+		client = adapters.Client(p.Client)
+	}
+	rclient := registryclient.NewOrDie()
+	eng := engine.NewEngine(
+		cfg,
+		config.NewDefaultMetricsConfiguration(),
+		jmespath.New(cfg),
+		client,
+		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+		imageverifycache.DisabledImageVerifyCache(),
+		store.ContextLoaderFactory(nil),
+		nil,
+		"",
+	)
+	gvk, subresource := resource.GroupVersionKind(), ""
+	// If --cluster flag is not set, then we need to find the top level resource GVK and subresource
+	if p.Client == nil {
+		for _, s := range p.Subresources {
+			subgvk := schema.GroupVersionKind{
+				Group:   s.APIResource.Group,
+				Version: s.APIResource.Version,
+				Kind:    s.APIResource.Kind,
+			}
+			if gvk == subgvk {
+				gvk = schema.GroupVersionKind{
+					Group:   s.ParentResource.Group,
+					Version: s.ParentResource.Version,
+					Kind:    s.ParentResource.Kind,
+				}
+				parts := strings.Split(s.APIResource.Name, "/")
+				subresource = parts[1]
+			}
 		}
-		responses = append(responses, r...)
+	}
+	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
+	var responses []engineapi.EngineResponse
+	// mutate
+	for _, policy := range p.Policies {
+		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy, p.Variables.Subresources(), p.Client)
+		resourceValues, err := p.Variables.ComputeVariables(policy.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied /*matches...*/)
+		if err != nil {
+			message := fmt.Sprintf(
+				"policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag",
+				policy.GetName(),
+				resource.GetName(),
+			)
+			return nil, sanitizederror.NewWithError(message, err)
+		}
+		operation := kyvernov1.Create
+		if resourceValues["request.operation"] == "DELETE" {
+			operation = kyvernov1.Delete
+		}
+		policyContext, err := engine.NewPolicyContext(
+			jp,
+			resource,
+			operation,
+			p.UserInfo,
+			cfg,
+		)
+		if err != nil {
+			log.Log.Error(err, "failed to create policy context")
+		}
+		policyContext = policyContext.
+			WithPolicy(policy).
+			WithNamespaceLabels(namespaceLabels).
+			WithResourceKind(gvk, subresource)
+		for key, value := range resourceValues {
+			err = policyContext.JSONContext().AddVariable(key, value)
+			if err != nil {
+				log.Log.Error(err, "failed to add variable to context")
+			}
+		}
+		mutateResponse := eng.Mutate(context.Background(), policyContext)
+		combineRuleResponses(mutateResponse)
+		err = p.processMutateEngineResponse(mutateResponse, resPath)
+		if err != nil {
+			if !sanitizederror.IsErrorSanitized(err) {
+				return responses, sanitizederror.NewWithError("failed to print mutated result", err)
+			}
+		}
+		responses = append(responses, mutateResponse)
+		resource = mutateResponse.PatchedResource
 	}
 	return responses, nil
 }
@@ -66,9 +149,9 @@ func (p *PolicyProcessor) applyPolicyOnResource(policy kyvernov1.PolicyInterface
 	namespaceLabels := make(map[string]string)
 	operation := kyvernov1.Create
 
-	if p.Variables["request.operation"] == "DELETE" {
-		operation = kyvernov1.Delete
-	}
+	// if p.Variables["request.operation"] == "DELETE" {
+	// 	operation = kyvernov1.Delete
+	// }
 	rules := autogen.ComputeRules(policy)
 
 	if needsNamespaceLabels(rules...) {
@@ -149,12 +232,12 @@ func (p *PolicyProcessor) applyPolicyOnResource(policy kyvernov1.PolicyInterface
 		WithNamespaceLabels(namespaceLabels).
 		WithResourceKind(gvk, subresource)
 
-	for key, value := range p.Variables {
-		err = policyContext.JSONContext().AddVariable(key, value)
-		if err != nil {
-			log.Log.Error(err, "failed to add variable to context")
-		}
-	}
+	// for key, value := range p.Variables {
+	// 	err = policyContext.JSONContext().AddVariable(key, value)
+	// 	if err != nil {
+	// 		log.Log.Error(err, "failed to add variable to context")
+	// 	}
+	// }
 
 	mutateResponse := eng.Mutate(context.Background(), policyContext)
 	combineRuleResponses(mutateResponse)
