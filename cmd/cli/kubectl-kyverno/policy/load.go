@@ -28,7 +28,7 @@ func Load(fs billy.Filesystem, resourcePath string, paths ...string) ([]kyvernov
 			}
 			pols = append(pols, p...)
 			vaps = append(vaps, v...)
-		} else if fs != nil /* && source.IsGit(path) */ { // TODO source.IsGit(path)
+		} else if fs != nil {
 			p, v, err := gitLoad(fs, filepath.Join(resourcePath, path))
 			if err != nil {
 				return nil, nil, err

@@ -179,7 +179,10 @@ func checkResult(test testapi.TestResults, fs billy.Filesystem, resoucePath stri
 			return false, "Generated resource didn't match the generated resource in the test result", "Resource diff"
 		}
 	}
-	result := report.ComputePolicyReportResult(false, response, rule)
+	result, err := report.ComputePolicyReportResult(false, response, rule)
+	if err != nil {
+		return false, err.Error(), "Error"
+	}
 	if result.Result != expected {
 		return false, result.Message, fmt.Sprintf("Want %s, got %s", expected, result.Result)
 	}
