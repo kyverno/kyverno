@@ -126,17 +126,17 @@ func Command() *cobra.Command {
 }
 
 func (c *ApplyCommandConfig) applyCommandHelper() (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
-	rc, uu, skipInvalidPolicies, er, err := c.checkArguments()
+	rc, resources1, skipInvalidPolicies, responses1, err := c.checkArguments()
 	if err != nil {
-		return rc, uu, skipInvalidPolicies, er, err
+		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	rc, uu, skipInvalidPolicies, er, err, mutateLogPathIsDir := c.getMutateLogPathIsDir(skipInvalidPolicies)
+	rc, resources1, skipInvalidPolicies, responses1, err, mutateLogPathIsDir := c.getMutateLogPathIsDir(skipInvalidPolicies)
 	if err != nil {
-		return rc, uu, skipInvalidPolicies, er, err
+		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	rc, uu, skipInvalidPolicies, er, err = c.cleanPreviousContent(mutateLogPathIsDir, skipInvalidPolicies)
+	rc, resources1, skipInvalidPolicies, responses1, err = c.cleanPreviousContent(mutateLogPathIsDir, skipInvalidPolicies)
 	if err != nil {
-		return rc, uu, skipInvalidPolicies, er, err
+		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
 	var userInfo *v1beta1.RequestInfo
 	if c.UserInfoPath != "" {
@@ -156,27 +156,47 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*processor.ResultCounts, []*u
 	if err != nil {
 		return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("failed to initialize openAPIController", err)
 	}
-	rc, uu, skipInvalidPolicies, er, err, dClient := c.initStoreAndClusterClient(skipInvalidPolicies)
+	rc, resources1, skipInvalidPolicies, responses1, err, dClient := c.initStoreAndClusterClient(skipInvalidPolicies)
 	if err != nil {
-		return rc, uu, skipInvalidPolicies, er, err
+		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	rc, uu, skipInvalidPolicies, er, err, policies, validatingAdmissionPolicies := c.loadPolicies(skipInvalidPolicies)
+	rc, resources1, skipInvalidPolicies, responses1, err, policies, validatingAdmissionPolicies := c.loadPolicies(skipInvalidPolicies)
 	if err != nil {
-		return rc, uu, skipInvalidPolicies, er, err
+		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
 	resources, err := c.loadResources(policies, validatingAdmissionPolicies, dClient)
 	if err != nil {
-		return rc, uu, skipInvalidPolicies, er, err
+		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	rc, uu, skipInvalidPolicies, er, err = c.applyPolicytoResource(variables, policies, validatingAdmissionPolicies, resources, openApiManager, skipInvalidPolicies, dClient, userInfo, mutateLogPathIsDir)
+	if !c.Stdin {
+		var policyRulesCount int
+		for _, policy := range policies {
+			policyRulesCount += len(autogen.ComputeRules(policy))
+		}
+		policyRulesCount += len(validatingAdmissionPolicies)
+		fmt.Printf("\nApplying %d policy rule(s) to %d resource(s)...\n", policyRulesCount, len(resources))
+	}
+	rc, resources1, responses1, err = c.applyPolicytoResource(
+		variables,
+		policies,
+		resources,
+		openApiManager,
+		&skipInvalidPolicies,
+		dClient,
+		userInfo,
+		mutateLogPathIsDir,
+	)
 	if err != nil {
-		return rc, uu, skipInvalidPolicies, er, err
+		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	rc, uu, skipInvalidPolicies, er, err = c.applyValidatingAdmissionPolicytoResource(variables, validatingAdmissionPolicies, resources, rc, dClient, skipInvalidPolicies, er)
+	responses2, err := c.applyValidatingAdmissionPolicytoResource(variables, validatingAdmissionPolicies, resources1, rc, dClient, &skipInvalidPolicies)
 	if err != nil {
-		return rc, uu, skipInvalidPolicies, er, err
+		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	return rc, resources, skipInvalidPolicies, er, nil
+	var responses []engineapi.EngineResponse
+	responses = append(responses, responses1...)
+	responses = append(responses, responses2...)
+	return rc, resources1, skipInvalidPolicies, responses, nil
 }
 
 func (c *ApplyCommandConfig) getMutateLogPathIsDir(skipInvalidPolicies SkippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error, bool) {
@@ -196,48 +216,37 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(
 	resources []*unstructured.Unstructured,
 	rc *processor.ResultCounts,
 	dClient dclient.Interface,
-	skipInvalidPolicies SkippedInvalidPolicies,
-	responses []engineapi.EngineResponse,
-) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
+	skipInvalidPolicies *SkippedInvalidPolicies,
+) ([]engineapi.EngineResponse, error) {
+	var responses []engineapi.EngineResponse
 	for _, resource := range resources {
-		for _, policy := range validatingAdmissionPolicies {
-			processor := processor.ValidatingAdmissionPolicyProcessor{
-				ValidatingAdmissionPolicy: policy,
-				Resource:                  resource,
-				PolicyReport:              c.PolicyReport,
-				Rc:                        rc,
-			}
-			ers, err := processor.ApplyPolicyOnResource()
-			if err != nil {
-				return rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
-			}
-			responses = append(responses, ers...)
+		processor := processor.ValidatingAdmissionPolicyProcessor{
+			Policies:     validatingAdmissionPolicies,
+			Resource:     resource,
+			PolicyReport: c.PolicyReport,
+			Rc:           rc,
 		}
+		ers, err := processor.ApplyPolicyOnResource()
+		if err != nil {
+			return responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policies on resource %s", resource.GetName()).Error(), err)
+		}
+		responses = append(responses, ers...)
 	}
-	return rc, resources, skipInvalidPolicies, responses, nil
+	return responses, nil
 }
 
 func (c *ApplyCommandConfig) applyPolicytoResource(
 	vars *variables.Variables,
 	policies []kyvernov1.PolicyInterface,
-	validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy,
 	resources []*unstructured.Unstructured,
 	openApiManager openapi.Manager,
-	skipInvalidPolicies SkippedInvalidPolicies,
+	skipInvalidPolicies *SkippedInvalidPolicies,
 	dClient dclient.Interface,
 	userInfo *v1beta1.RequestInfo,
 	mutateLogPathIsDir bool,
-) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
+) (*processor.ResultCounts, []*unstructured.Unstructured, []engineapi.EngineResponse, error) {
 	if vars != nil {
 		vars.SetInStore()
-	}
-	if !c.Stdin {
-		var policyRulesCount int
-		for _, policy := range policies {
-			policyRulesCount += len(autogen.ComputeRules(policy))
-		}
-		policyRulesCount += len(validatingAdmissionPolicies)
-		fmt.Printf("\nApplying %d policy rule(s) to %d resource(s)...\n", policyRulesCount, len(resources))
 	}
 	// validate policies
 	var validPolicies []kyvernov1.PolicyInterface
@@ -293,11 +302,11 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
-			return &rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policies on resource %v", resource.GetName()).Error(), err)
+			return &rc, resources, responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policies on resource %v", resource.GetName()).Error(), err)
 		}
 		responses = append(responses, processSkipEngineResponses(ers)...)
 	}
-	return &rc, resources, skipInvalidPolicies, responses, nil
+	return &rc, resources, responses, nil
 }
 
 func (c *ApplyCommandConfig) loadResources(policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, error) {
