@@ -34,7 +34,7 @@ func Command() *cobra.Command {
 				output = file
 			}
 			values := valuesapi.Values{
-				GlobalValues: map[string]string{},
+				GlobalValues: map[string]interface{}{},
 			}
 			for _, result := range namespaceSelector {
 				result := parseNamespaceSelector(result)
