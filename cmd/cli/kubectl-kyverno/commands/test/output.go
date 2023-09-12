@@ -12,7 +12,7 @@ import (
 )
 
 func printTestResult(
-	tests []testapi.TestResults,
+	tests []testapi.TestResult,
 	responses []engineapi.EngineResponse,
 	rc *resultCounts,
 	failOnly bool,

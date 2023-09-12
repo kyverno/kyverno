@@ -5,10 +5,9 @@ resources:
 - resource.yaml
 results:
 - kind: PodExecOptions
-  namespace: default
   policy: deny-exec-by-pod-label
   resources:
-  - execpod
+  - default/execpod
   result: fail
   rule: deny-exec-by-label
 values:

@@ -5,7 +5,7 @@ resources:
 - resources.yaml
 results:
 - kind: Pod
-  policy: test-jmespath
+  policy: default/test-jmespath
   resources:
   - test-valid1
   - test-valid2
@@ -13,7 +13,7 @@ results:
   result: pass
   rule: test-jmespath
 - kind: Pod
-  policy: test-jmespath
+  policy: default/test-jmespath
   resources:
   - test-invalid
   result: fail

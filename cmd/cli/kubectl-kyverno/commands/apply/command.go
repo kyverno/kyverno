@@ -446,10 +446,7 @@ func printSkippedAndInvalidPolicies(skipInvalidPolicies SkippedInvalidPolicies) 
 }
 
 func printReport(engineResponses []engineapi.EngineResponse, auditWarn bool) {
-	clustered, namespaced, err := report.ComputePolicyReports(auditWarn, engineResponses...)
-	if err != nil {
-		fmt.Println("Error: failed to compute policy reports")
-	}
+	clustered, namespaced := report.ComputePolicyReports(auditWarn, engineResponses...)
 	if len(clustered) > 0 || len(namespaced) > 0 {
 		fmt.Println(divider)
 		fmt.Println("POLICY REPORT:")
