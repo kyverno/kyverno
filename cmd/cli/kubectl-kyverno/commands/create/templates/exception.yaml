@@ -1,0 +1,81 @@
+apiVersion: kyverno.io/v2alpha1
+kind: PolicyException
+metadata:
+  name: {{ .Name }}
+  namespace: {{ .Namespace }}
+spec:
+  background: {{ .Background }}
+  match:
+
+{{- with .Match.Any }}
+    any:
+{{- range . }}
+      -
+{{- with .Kinds }}
+        kinds:
+{{- range . }}
+          - {{ . }}
+{{- end }}
+{{- end }}
+{{- with .Names }}
+        names:
+{{- range . }}
+          - {{ . }}
+{{- end }}
+{{- end }}
+{{- with .Namespaces }}
+        namespaces:
+{{- range . }}
+          - {{ . }}
+{{- end }}
+{{- end }}
+{{- with .Operations }}
+        operations:
+{{- range . }}
+          - {{ . }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{- with .Match.All }}
+    all:
+{{- range . }}
+      -
+{{- with .Kinds }}
+        kinds:
+{{- range . }}
+          - {{ . }}
+{{- end }}
+{{- end }}
+{{- with .Names }}
+        names:
+{{- range . }}
+          - {{ . }}
+{{- end }}
+{{- end }}
+{{- with .Namespaces }}
+        namespaces:
+{{- range . }}
+          - {{ . }}
+{{- end }}
+{{- end }}
+{{- with .Operations }}
+        operations:
+{{- range . }}
+          - {{ . }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{- with .Exceptions }}
+  exceptions:
+{{- range . }}
+    - policyName: {{ .PolicyName }}
+      ruleNames:
+{{- range .RuleNames }}
+        - {{ . }}
+{{- end }}
+{{- end }}
+{{- end }}

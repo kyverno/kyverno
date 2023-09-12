@@ -16,9 +16,9 @@ func Command() *cobra.Command {
 		Example: command.FormatExamples(examples...),
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("Version: %s\n", version.Version())
-			fmt.Printf("Time: %s\n", version.Time())
-			fmt.Printf("Git commit ID: %s\n", version.Hash())
+			fmt.Fprintf(cmd.OutOrStdout(), "Version: %s\n", version.Version())
+			fmt.Fprintf(cmd.OutOrStdout(), "Time: %s\n", version.Time())
+			fmt.Fprintf(cmd.OutOrStdout(), "Git commit ID: %s\n", version.Hash())
 			return nil
 		},
 	}
