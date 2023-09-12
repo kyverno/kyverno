@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	json_patch "github.com/evanphx/json-patch/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
@@ -21,9 +22,12 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
+	"gomodules.xyz/jsonpatch/v2"
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -110,8 +114,36 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		if err != nil {
 			return responses, err
 		}
-		// TODO annotation
-		verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
+		verifyImageResponse, verifiedImageData := eng.VerifyAndPatchImages(context.TODO(), policyContext)
+		// update annotation to reflect verified images
+		var patches []jsonpatch.JsonPatchOperation
+		if !verifiedImageData.IsEmpty() {
+			annotationPatches, err := verifiedImageData.Patches(len(verifyImageResponse.PatchedResource.GetAnnotations()) != 0, log.Log)
+			if err != nil {
+				return responses, err
+			}
+			// add annotation patches first
+			patches = append(annotationPatches, patches...)
+		}
+		if len(patches) != 0 {
+			patch := jsonutils.JoinPatches(patch.ConvertPatches(patches...)...)
+			decoded, err := json_patch.DecodePatch(patch)
+			if err != nil {
+				return responses, err
+			}
+			options := &json_patch.ApplyOptions{SupportNegativeIndices: true, AllowMissingPathOnRemove: true, EnsurePathExistsOnAdd: true}
+			resourceBytes, err := verifyImageResponse.PatchedResource.MarshalJSON()
+			if err != nil {
+				return responses, err
+			}
+			patchedResourceBytes, err := decoded.ApplyWithOptions(resourceBytes, options)
+			if err != nil {
+				return responses, err
+			}
+			if err := verifyImageResponse.PatchedResource.UnmarshalJSON(patchedResourceBytes); err != nil {
+				return responses, err
+			}
+		}
 		responses = append(responses, verifyImageResponse)
 		resource = verifyImageResponse.PatchedResource
 	}

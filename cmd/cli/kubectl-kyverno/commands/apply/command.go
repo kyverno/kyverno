@@ -66,10 +66,9 @@ type ApplyCommandConfig struct {
 }
 
 func Command() *cobra.Command {
-	var cmd *cobra.Command
 	var removeColor, detailedResults, table bool
 	applyCommandConfig := &ApplyCommandConfig{}
-	cmd = &cobra.Command{
+	cmd := &cobra.Command{
 		Use:     "apply",
 		Short:   command.FormatDescription(true, websiteUrl, false, description...),
 		Long:    command.FormatDescription(false, websiteUrl, false, description...),
@@ -283,7 +282,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 		if err != nil {
 			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 		}
-		responses = append(responses, processSkipEngineResponses(ers)...)
+		responses = append(responses, ers...)
 	}
 	return &rc, resources, responses, nil
 }
@@ -456,38 +455,4 @@ func exit(rc *processor.ResultCounts, warnExitCode int, warnNoPassed bool) error
 		return fmt.Errorf("exit as warnExitCode is %d", warnExitCode)
 	}
 	return nil
-}
-
-func processSkipEngineResponses(responses []engineapi.EngineResponse) []engineapi.EngineResponse {
-	var processedEngineResponses []engineapi.EngineResponse
-	for _, response := range responses {
-		if !response.IsEmpty() {
-			pol := response.Policy()
-			if polType := pol.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
-				return processedEngineResponses
-			}
-
-			for _, rule := range autogen.ComputeRules(pol.GetPolicy().(kyvernov1.PolicyInterface)) {
-				if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
-					ruleFoundInEngineResponse := false
-					for _, valResponseRule := range response.PolicyResponse.Rules {
-						if rule.Name == valResponseRule.Name() {
-							ruleFoundInEngineResponse = true
-						}
-					}
-					if !ruleFoundInEngineResponse {
-						response.PolicyResponse.Rules = append(response.PolicyResponse.Rules,
-							*engineapi.RuleSkip(
-								rule.Name,
-								engineapi.Validation,
-								rule.Validation.Message,
-							),
-						)
-					}
-				}
-			}
-		}
-		processedEngineResponses = append(processedEngineResponses, response)
-	}
-	return processedEngineResponses
 }
