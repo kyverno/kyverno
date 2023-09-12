@@ -11,7 +11,7 @@ Pulls policie(s) that are included in an OCI image from OCI registry and saves t
   For more information visit https://kyverno.io/docs/kyverno-cli/#pulling
 
 ```
-kyverno oci pull [flags]
+kyverno oci pull [dir] [flags]
 ```
 
 ### Examples
@@ -24,9 +24,8 @@ kyverno oci pull [flags]
 ### Options
 
 ```
-  -d, --directory string   path to a directory (default ".")
-  -h, --help               help for pull
-  -i, --image string       image reference to push to or pull from
+  -h, --help           help for pull
+  -i, --image string   image reference to push to or pull from
 ```
 
 ### Options inherited from parent commands

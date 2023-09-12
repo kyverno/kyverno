@@ -27,9 +27,8 @@ kyverno oci push [flags]
 ### Options
 
 ```
-  -h, --help            help for push
-  -i, --image string    image reference to push to or pull from
-  -p, --policy string   path to policie(s)
+  -h, --help           help for push
+  -i, --image string   image reference to push to or pull from
 ```
 
 ### Options inherited from parent commands

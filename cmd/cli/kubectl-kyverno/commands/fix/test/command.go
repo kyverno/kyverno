@@ -8,7 +8,7 @@ import (
 func Command() *cobra.Command {
 	var options options
 	cmd := &cobra.Command{
-		Use:     "test [folder]...",
+		Use:     "test [dir]...",
 		Short:   command.FormatDescription(true, websiteUrl, true, description...),
 		Long:    command.FormatDescription(false, websiteUrl, true, description...),
 		Example: command.FormatExamples(examples...),
