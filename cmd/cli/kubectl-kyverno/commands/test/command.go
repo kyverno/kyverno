@@ -202,12 +202,6 @@ func lookupEngineResponses(test testapi.TestResult, resourceName string, respons
 		if resourceName != "" && rName != resourceName && resource.GetName() != resourceName {
 			continue
 		}
-		// if resourceName != "" && resourceName != resource.GetName() {
-		// 	continue
-		// }
-		// if test.Namespace != "" && test.Namespace != resource.GetNamespace() {
-		// 	continue
-		// }
 		matches = append(matches, response)
 	}
 	return matches
