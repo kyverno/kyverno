@@ -11,12 +11,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineResponse, ruleResponse engineapi.RuleResponse) (policyreportv1alpha2.PolicyReportResult, error) {
+func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineResponse, ruleResponse engineapi.RuleResponse) policyreportv1alpha2.PolicyReportResult {
 	policy := engineResponse.Policy()
-	policyName, err := cache.MetaNamespaceKeyFunc(policy.MetaObject())
-	if err != nil {
-		return policyreportv1alpha2.PolicyReportResult{}, err
-	}
+	policyName := cache.MetaObjectToName(policy.MetaObject()).String()
 	audit := engineResponse.GetValidationFailureAction().Audit()
 	scored := annotations.Scored(policy.GetAnnotations())
 	category := annotations.Category(policy.GetAnnotations())
@@ -57,10 +54,10 @@ func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineRe
 	result.Message = ruleResponse.Message()
 	result.Source = kyverno.ValueKyvernoApp
 	result.Timestamp = metav1.Timestamp{Seconds: ruleResponse.Stats().Timestamp()}
-	return result, nil
+	return result
 }
 
-func ComputePolicyReportResultsPerPolicy(auditWarn bool, engineResponses ...engineapi.EngineResponse) (map[engineapi.GenericPolicy][]policyreportv1alpha2.PolicyReportResult, error) {
+func ComputePolicyReportResultsPerPolicy(auditWarn bool, engineResponses ...engineapi.EngineResponse) map[engineapi.GenericPolicy][]policyreportv1alpha2.PolicyReportResult {
 	results := map[engineapi.GenericPolicy][]policyreportv1alpha2.PolicyReportResult{}
 	for _, engineResponse := range engineResponses {
 		if len(engineResponse.PolicyResponse.Rules) == 0 {
@@ -72,26 +69,19 @@ func ComputePolicyReportResultsPerPolicy(auditWarn bool, engineResponses ...engi
 			// if ruleResponse.RuleType() != engineapi.Validation && ruleResponse.RuleType() != engineapi.ImageVerify {
 			// 	continue
 			// }
-			result, err := ComputePolicyReportResult(auditWarn, engineResponse, ruleResponse)
-			if err != nil {
-				return nil, err
-			}
-			results[policy] = append(results[policy], result)
+			results[policy] = append(results[policy], ComputePolicyReportResult(auditWarn, engineResponse, ruleResponse))
 		}
 	}
 	if len(results) == 0 {
-		return nil, nil
+		return nil
 	}
-	return results, nil
+	return results
 }
 
-func ComputePolicyReports(auditWarn bool, engineResponses ...engineapi.EngineResponse) ([]policyreportv1alpha2.ClusterPolicyReport, []policyreportv1alpha2.PolicyReport, error) {
+func ComputePolicyReports(auditWarn bool, engineResponses ...engineapi.EngineResponse) ([]policyreportv1alpha2.ClusterPolicyReport, []policyreportv1alpha2.PolicyReport) {
 	var clustered []policyreportv1alpha2.ClusterPolicyReport
 	var namespaced []policyreportv1alpha2.PolicyReport
-	perPolicyResults, err := ComputePolicyReportResultsPerPolicy(auditWarn, engineResponses...)
-	if err != nil {
-		return nil, nil, err
-	}
+	perPolicyResults := ComputePolicyReportResultsPerPolicy(auditWarn, engineResponses...)
 	for policy, results := range perPolicyResults {
 		if policy.GetNamespace() == "" {
 			report := policyreportv1alpha2.ClusterPolicyReport{
@@ -118,7 +108,7 @@ func ComputePolicyReports(auditWarn bool, engineResponses ...engineapi.EngineRes
 			namespaced = append(namespaced, report)
 		}
 	}
-	return clustered, namespaced, nil
+	return clustered, namespaced
 }
 
 func MergeClusterReports(clustered []policyreportv1alpha2.ClusterPolicyReport) policyreportv1alpha2.ClusterPolicyReport {

@@ -2,6 +2,7 @@ apiVersion: kyverno.io/v1
 kind: Policy
 metadata:
   name: test-jmespath
+  namespace: default
   annotations:
     pod-policies.kyverno.io/autogen-controllers: none
 spec:
