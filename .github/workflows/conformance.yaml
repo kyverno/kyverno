@@ -746,5 +746,5 @@ jobs:
         shell: bash
         run: |
           set -e
-          KYVERNO_EXPERIMENTAL=true kyverno fix test ./test/cli --save
+          KYVERNO_EXPERIMENTAL=true kyverno fix test ./test/cli --save --compress
           make verify-cli-tests
