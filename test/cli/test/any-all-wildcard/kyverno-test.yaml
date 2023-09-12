@@ -8,11 +8,6 @@ results:
   policy: disallow-protected-namespaces
   resources:
   - namespace2/test2
-  result: fail
-  rule: disallow
-- kind: Pod
-  policy: disallow-protected-namespaces
-  resources:
   - namespace1/test1
   result: fail
   rule: disallow

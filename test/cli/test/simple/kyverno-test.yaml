@@ -5,30 +5,17 @@ resources:
 - resources.yaml
 results:
 - kind: Pod
-  policy: duration-test
-  resources:
-  - test/test-lifetime-fail
-  result: pass
-  rule: less-than
-- kind: Pod
-  policy: duration-test
-  resources:
-  - test/test-lifetime-fail
-  result: fail
-  rule: greater-equal-than
-- kind: Pod
   policy: disallow-latest-tag
   resources:
   - test/test-validate-image-tag-fail
   result: fail
   rule: validate-image-tag
 - kind: Pod
-  policy: restrict-pod-counts
+  policy: duration-test
   resources:
-  - myapp-pod
-  - test-validate-image-tag-ignore
+  - test/test-lifetime-fail
   result: fail
-  rule: restrict-pod-count
+  rule: greater-than
 - kind: Pod
   policy: disallow-latest-tag
   resources:
@@ -42,21 +29,6 @@ results:
   result: pass
   rule: less-equal-than
 - kind: Pod
-  policy: duration-test
-  resources:
-  - test/test-lifetime-fail
-  result: fail
-  rule: greater-than
-- kind: Pod
-  policy: restrict-pod-counts
-  resources:
-  - test/test-require-image-tag-pass
-  - test/test-require-image-tag-fail
-  - test/test-validate-image-tag-fail
-  - test/test-validate-image-tag-pass
-  result: fail
-  rule: restrict-pod-count
-- kind: Pod
   policy: disallow-latest-tag
   resources:
   - test/test-require-image-tag-pass
@@ -68,4 +40,27 @@ results:
   - test/test-require-image-tag-fail
   result: fail
   rule: require-image-tag
+- kind: Pod
+  policy: duration-test
+  resources:
+  - test/test-lifetime-fail
+  result: pass
+  rule: less-than
+- kind: Pod
+  policy: duration-test
+  resources:
+  - test/test-lifetime-fail
+  result: fail
+  rule: greater-equal-than
+- kind: Pod
+  policy: restrict-pod-counts
+  resources:
+  - myapp-pod
+  - test-validate-image-tag-ignore
+  - test/test-require-image-tag-pass
+  - test/test-require-image-tag-fail
+  - test/test-validate-image-tag-fail
+  - test/test-validate-image-tag-pass
+  result: fail
+  rule: restrict-pod-count
 variables: values.yaml
