@@ -8,7 +8,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/api/kyverno/v2beta1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/create/templates"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/templates"
 	"github.com/spf13/cobra"
 )
 
