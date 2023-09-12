@@ -18,9 +18,10 @@ func RootCommand(experimental bool) *cobra.Command {
 		Use:           "kyverno",
 		Short:         command.FormatDescription(true, websiteUrl, false, description...),
 		Long:          command.FormatDescription(false, websiteUrl, false, description...),
+		Args:          cobra.NoArgs,
 		SilenceErrors: true,
 		SilenceUsage:  true,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return cmd.Help()
 		},
 	}

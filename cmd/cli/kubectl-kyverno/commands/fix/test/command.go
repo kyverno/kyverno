@@ -8,17 +8,18 @@ import (
 func Command() *cobra.Command {
 	var options options
 	cmd := &cobra.Command{
-		Use:     "test [folder]...",
+		Use:     "test [dir]...",
 		Short:   command.FormatDescription(true, websiteUrl, true, description...),
 		Long:    command.FormatDescription(false, websiteUrl, true, description...),
 		Example: command.FormatExamples(examples...),
+		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := options.validate(); err != nil {
+			if err := options.validate(args...); err != nil {
 				return err
 			}
 			cmd.SilenceUsage = true
 			cmd.SilenceErrors = true
-			return options.execute(args...)
+			return options.execute(cmd.OutOrStdout(), args...)
 		},
 	}
 	cmd.Flags().StringVarP(&options.fileName, "file-name", "f", "kyverno-test.yaml", "Test filename")
