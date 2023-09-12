@@ -20,6 +20,7 @@ func Command() *cobra.Command {
 		},
 	}
 	cmd.AddCommand(
+		exception.Command(),
 		metricsconfig.Command(),
 		test.Command(),
 		userinfo.Command(),
