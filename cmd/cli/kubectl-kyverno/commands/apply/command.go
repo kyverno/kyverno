@@ -67,10 +67,9 @@ type ApplyCommandConfig struct {
 }
 
 func Command() *cobra.Command {
-	var cmd *cobra.Command
 	var removeColor, detailedResults, table bool
 	applyCommandConfig := &ApplyCommandConfig{}
-	cmd = &cobra.Command{
+	cmd := &cobra.Command{
 		Use:     "apply",
 		Short:   command.FormatDescription(true, websiteUrl, false, description...),
 		Long:    command.FormatDescription(false, websiteUrl, false, description...),
@@ -480,6 +479,7 @@ func exit(rc *processor.ResultCounts, warnExitCode int, warnNoPassed bool) error
 }
 
 func processSkipEngineResponses(responses []engineapi.EngineResponse) []engineapi.EngineResponse {
+	return responses
 	var processedEngineResponses []engineapi.EngineResponse
 	for _, response := range responses {
 		if !response.IsEmpty() {
