@@ -19,6 +19,9 @@ func CanBackgroundProcess(p kyvernov1.PolicyInterface) bool {
 	if !p.BackgroundProcessingEnabled() {
 		return false
 	}
+	if p.GetStatus().ValidatingAdmissionPolicy.Generated {
+		return false
+	}
 	if err := policyvalidation.ValidateVariables(p, true); err != nil {
 		return false
 	}
