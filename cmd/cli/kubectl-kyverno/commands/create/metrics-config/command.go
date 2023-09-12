@@ -37,7 +37,7 @@ func Command() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			output := os.Stdout
+			output := cmd.OutOrStdout()
 			if path != "" {
 				file, err := os.Create(path)
 				if err != nil {

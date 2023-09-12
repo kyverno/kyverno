@@ -63,7 +63,7 @@ func Command() *cobra.Command {
 					options.Results = append(options.Results, result)
 				}
 			}
-			output := os.Stdout
+			output := cmd.OutOrStdout()
 			if path != "" {
 				file, err := os.Create(path)
 				if err != nil {
