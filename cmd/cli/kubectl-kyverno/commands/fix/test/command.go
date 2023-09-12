@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
+	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
 	"github.com/spf13/cobra"
@@ -14,6 +16,7 @@ import (
 func Command() *cobra.Command {
 	var fileName string
 	var save bool
+	var compress bool
 	cmd := &cobra.Command{
 		Use:     "test [folder]...",
 		Short:   command.FormatDescription(true, websiteUrl, true, description...),
@@ -70,6 +73,41 @@ func Command() *cobra.Command {
 						needsSave = true
 					}
 				}
+				if compress {
+					compressed := map[key][]string{}
+					for _, result := range test.Results {
+						k := key{
+							Policy:                      result.Policy,
+							Rule:                        result.Rule,
+							IsValidatingAdmissionPolicy: result.IsValidatingAdmissionPolicy,
+							Result:                      result.Result,
+							Kind:                        result.Kind,
+							Namespace:                   result.Namespace,
+							PatchedResource:             result.PatchedResource,
+							GeneratedResource:           result.GeneratedResource,
+							CloneSourceResource:         result.CloneSourceResource,
+						}
+						compressed[k] = append(compressed[k], result.Resources...)
+					}
+					if len(compressed) != len(test.Results) {
+						needsSave = true
+					}
+					test.Results = nil
+					for k, v := range compressed {
+						test.Results = append(test.Results, testapi.TestResults{
+							Policy:                      k.Policy,
+							Rule:                        k.Rule,
+							IsValidatingAdmissionPolicy: k.IsValidatingAdmissionPolicy,
+							Result:                      k.Result,
+							Kind:                        k.Kind,
+							Namespace:                   k.Namespace,
+							PatchedResource:             k.PatchedResource,
+							GeneratedResource:           k.GeneratedResource,
+							CloneSourceResource:         k.CloneSourceResource,
+							Resources:                   v,
+						})
+					}
+				}
 				if save && needsSave {
 					fmt.Printf("  Saving test file (%s)...", testCase.Path)
 					fmt.Println()
@@ -94,5 +132,18 @@ func Command() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "Test filename")
 	cmd.Flags().BoolVar(&save, "save", false, "Save fixed file")
+	cmd.Flags().BoolVar(&compress, "compress", false, "Compress test results")
 	return cmd
+}
+
+type key struct {
+	Policy                      string
+	Rule                        string
+	IsValidatingAdmissionPolicy bool
+	Result                      policyreportv1alpha2.PolicyResult
+	Kind                        string
+	Namespace                   string
+	PatchedResource             string
+	GeneratedResource           string
+	CloneSourceResource         string
 }
