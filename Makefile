@@ -703,7 +703,7 @@ test-cli: test-cli-policies test-cli-local ## Run all CLI tests
 .PHONY: test-cli-policies
 test-cli-policies: $(CLI_BIN) ## Run CLI tests against the policies repository
 	@echo Running cli tests against $(TEST_GIT_REPO)/$(TEST_GIT_BRANCH)... >&2
-	@$(CLI_BIN) test https://github.com/eddycharly/policies/test-refactor
+	@$(CLI_BIN) test $(TEST_GIT_REPO)/$(TEST_GIT_BRANCH)
 
 .PHONY: test-cli-local
 test-cli-local: test-cli-local-validate test-cli-local-mutate test-cli-local-generate test-cli-local-registry test-cli-local-scenarios test-cli-local-selector ## Run local CLI tests
