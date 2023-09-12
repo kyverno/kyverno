@@ -1,0 +1,16 @@
+name: disallow-service
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: disallow-service
+    rule: disallow-service
+    resources: [svc1]
+    kind: Service
+    result: skip
+  - policy: disallow-service
+    rule: disallow-service
+    resources: [svc2]
+    kind: Service
+    result: fail
