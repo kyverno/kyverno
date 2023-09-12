@@ -17,16 +17,19 @@ type options struct {
 	compress bool
 }
 
-func (o options) validate() error {
+func (o options) validate(dirs ...string) error {
 	if o.fileName == "" {
 		return errors.New("file-name must not be set to an empty string")
+	}
+	if len(dirs) == 0 {
+		return errors.New("at least one test directory is required")
 	}
 	return nil
 }
 
-func (o options) execute(args ...string) error {
+func (o options) execute(dirs ...string) error {
 	var testCases []test.TestCase
-	for _, arg := range args {
+	for _, arg := range dirs {
 		tests, err := test.LoadTests(arg, o.fileName)
 		if err != nil {
 			return err
