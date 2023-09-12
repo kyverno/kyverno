@@ -1,0 +1,19 @@
+name: test
+policies:
+  - policy.yaml
+variables: values.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: test-policy
+    rule: test-rule
+    resources:
+    - pod
+    kind: Pod
+    result: pass
+  - policy: test-policy
+    rule: test-rule
+    resources:
+    - deployment
+    kind: Deployment
+    result: pass

@@ -80,7 +80,8 @@ func GetPolicyRule(policyName string, ruleName string) *Rule {
 	for _, policy := range policies {
 		if policy.Name == policyName {
 			for _, rule := range policy.Rules {
-				if rule.Name == ruleName {
+				switch ruleName {
+				case rule.Name, "autogen-" + rule.Name, "autogen-cronjob-" + rule.Name:
 					return &rule
 				}
 			}
