@@ -22,7 +22,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
-	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -76,14 +75,6 @@ func Command() *cobra.Command {
 		Example: command.FormatExamples(examples...),
 		RunE: func(cmd *cobra.Command, policyPaths []string) (err error) {
 			color.InitColors(removeColor)
-			defer func() {
-				if err != nil {
-					if !sanitizederror.IsErrorSanitized(err) {
-						log.Log.Error(err, "failed to sanitize")
-						err = fmt.Errorf("internal error")
-					}
-				}
-			}()
 			applyCommandConfig.PolicyPaths = policyPaths
 			rc, _, skipInvalidPolicies, responses, err := applyCommandConfig.applyCommandHelper()
 			if err != nil {
@@ -140,19 +131,16 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*processor.ResultCounts, []*u
 	if c.UserInfoPath != "" {
 		userInfo, err = userinfo.Load(nil, c.UserInfoPath, "")
 		if err != nil {
-			return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("Error: failed to load request info", err)
+			return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("failed to load request info (%w)", err)
 		}
 	}
 	variables, err := variables.New(nil, "", c.ValuesFile, nil, c.Variables...)
 	if err != nil {
-		if !sanitizederror.IsErrorSanitized(err) {
-			return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("failed to decode yaml", err)
-		}
-		return nil, nil, skipInvalidPolicies, nil, err
+		return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("failed to decode yaml (%w)", err)
 	}
 	openApiManager, err := openapi.NewManager(log.Log)
 	if err != nil {
-		return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("failed to initialize openAPIController", err)
+		return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("failed to initialize openAPIController (%w)", err)
 	}
 	rc, resources1, skipInvalidPolicies, responses1, err, dClient := c.initStoreAndClusterClient(skipInvalidPolicies)
 	if err != nil {
@@ -200,10 +188,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*processor.ResultCounts, []*u
 func (c *ApplyCommandConfig) getMutateLogPathIsDir(skipInvalidPolicies SkippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error, bool) {
 	mutateLogPathIsDir, err := checkMutateLogPath(c.MutateLogPath)
 	if err != nil {
-		if !sanitizederror.IsErrorSanitized(err) {
-			return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("failed to create file/folder", err), false
-		}
-		return nil, nil, skipInvalidPolicies, nil, err, false
+		return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("failed to create file/folder (%w)", err), false
 	}
 	return nil, nil, skipInvalidPolicies, nil, err, mutateLogPathIsDir
 }
@@ -226,7 +211,7 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(
 		}
 		ers, err := processor.ApplyPolicyOnResource()
 		if err != nil {
-			return responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policies on resource %s", resource.GetName()).Error(), err)
+			return responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
 		}
 		responses = append(responses, ers...)
 	}
@@ -295,7 +280,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
-			return &rc, resources, responses, sanitizederror.NewWithError(fmt.Errorf("failed to apply policies on resource %v", resource.GetName()).Error(), err)
+			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 		}
 		responses = append(responses, ers...)
 	}
@@ -305,7 +290,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 func (c *ApplyCommandConfig) loadResources(policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, error) {
 	resources, err := common.GetResourceAccordingToResourcePath(nil, c.ResourcePaths, c.Cluster, policies, validatingAdmissionPolicies, dClient, c.Namespace, c.PolicyReport, "")
 	if err != nil {
-		return resources, fmt.Errorf("Error: failed to load resources\nCause: %s\n", err)
+		return resources, fmt.Errorf("failed to load resources (%w)", err)
 	}
 	return resources, nil
 }
@@ -321,13 +306,13 @@ func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPoli
 		if isGit {
 			gitSourceURL, err := url.Parse(path)
 			if err != nil {
-				return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("Error: failed to load policies", err), nil, nil
+				return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("failed to load policies (%w)", err), nil, nil
 			}
 
 			pathElems := strings.Split(gitSourceURL.Path[1:], "/")
 			if len(pathElems) <= 1 {
 				err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
-				return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("Error: failed to parse URL", err), nil, nil
+				return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("failed to parse URL (%w)", err), nil, nil
 			}
 			gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
 			repoURL := gitSourceURL.String()
@@ -336,11 +321,11 @@ func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPoli
 			fs := memfs.New()
 			if _, err := gitutils.Clone(repoURL, fs, c.GitBranch); err != nil {
 				log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", err)
-				return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("Error: failed to clone repository", err), nil, nil
+				return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("failed to clone repository (%w)", err), nil, nil
 			}
 			policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
 			if err != nil {
-				return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("failed to list YAMLs in repository", err), nil, nil
+				return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err), nil, nil
 			}
 			for _, policyYaml := range policyYamls {
 				policiesFromFile, admissionPoliciesFromFile, err := policy.Load(fs, "", policyYaml)
@@ -353,7 +338,7 @@ func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPoli
 		} else {
 			policiesFromFile, admissionPoliciesFromFile, err := policy.Load(nil, "", path)
 			if err != nil {
-				return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("Error: failed to load policies", err), nil, nil
+				return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("failed to load policies (%w)", err), nil, nil
 			}
 			policies = append(policies, policiesFromFile...)
 			validatingAdmissionPolicies = append(validatingAdmissionPolicies, admissionPoliciesFromFile...)
@@ -400,10 +385,7 @@ func (c *ApplyCommandConfig) cleanPreviousContent(mutateLogPathIsDir bool, skipI
 		// Necessary for us to include the file via variable as it is part of the CLI.
 		_, err := os.OpenFile(c.MutateLogPath, os.O_TRUNC|os.O_WRONLY, 0o600) // #nosec G304
 		if err != nil {
-			if !sanitizederror.IsErrorSanitized(err) {
-				return nil, nil, skipInvalidPolicies, nil, sanitizederror.NewWithError("failed to truncate the existing file at "+c.MutateLogPath, err)
-			}
-			return nil, nil, skipInvalidPolicies, nil, err
+			return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("failed to truncate the existing file at %s (%w)", c.MutateLogPath, err)
 		}
 	}
 	return nil, nil, skipInvalidPolicies, nil, nil
@@ -412,16 +394,16 @@ func (c *ApplyCommandConfig) cleanPreviousContent(mutateLogPathIsDir bool, skipI
 func (c *ApplyCommandConfig) checkArguments() (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	var skipInvalidPolicies SkippedInvalidPolicies
 	if c.ValuesFile != "" && c.Variables != nil {
-		return nil, nil, skipInvalidPolicies, nil, sanitizederror.New("pass the values either using set flag or values_file flag")
+		return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("pass the values either using set flag or values_file flag")
 	}
 	if len(c.PolicyPaths) == 0 {
-		return nil, nil, skipInvalidPolicies, nil, sanitizederror.New("require policy")
+		return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("require policy")
 	}
 	if (len(c.PolicyPaths) > 0 && c.PolicyPaths[0] == "-") && len(c.ResourcePaths) > 0 && c.ResourcePaths[0] == "-" {
-		return nil, nil, skipInvalidPolicies, nil, sanitizederror.New("a stdin pipe can be used for either policies or resources, not both")
+		return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("a stdin pipe can be used for either policies or resources, not both")
 	}
 	if len(c.ResourcePaths) == 0 && !c.Cluster {
-		return nil, nil, skipInvalidPolicies, nil, sanitizederror.New("resource file(s) or cluster required")
+		return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("resource file(s) or cluster required")
 	}
 	return nil, nil, skipInvalidPolicies, nil, nil
 }
