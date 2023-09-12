@@ -8,6 +8,7 @@ results:
   policy: add-safe-to-evict
   resources:
   - pod-without-emptydir-hostpath
+  - pod-without-emptydir-hostpath-1
   result: skip
   rule: annotate-empty-dir
 - kind: Pod
@@ -23,10 +24,4 @@ results:
   resources:
   - pod-with-emptydir-hostpath-1
   result: pass
-  rule: annotate-empty-dir
-- kind: Pod
-  policy: add-safe-to-evict
-  resources:
-  - pod-without-emptydir-hostpath-1
-  result: skip
   rule: annotate-empty-dir
