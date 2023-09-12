@@ -12,7 +12,6 @@ import (
 	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
-	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -38,7 +37,7 @@ func GetResourceAccordingToResourcePath(
 	if fs != nil {
 		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, policyResourcePath)
 		if err != nil {
-			return nil, sanitizederror.NewWithError("failed to extract the resources", err)
+			return nil, fmt.Errorf("failed to extract the resources (%w)", err)
 		}
 	} else {
 		if len(resourcePaths) > 0 && resourcePaths[0] == "-" {
@@ -52,7 +51,7 @@ func GetResourceAccordingToResourcePath(
 				yamlBytes := []byte(resourceStr)
 				resources, err = resource.GetUnstructuredResources(yamlBytes)
 				if err != nil {
-					return nil, sanitizederror.NewWithError("failed to extract the resources", err)
+					return nil, fmt.Errorf("failed to extract the resources (%w)", err)
 				}
 			}
 		} else {
@@ -64,7 +63,7 @@ func GetResourceAccordingToResourcePath(
 				if fileDesc.IsDir() {
 					files, err := os.ReadDir(resourcePaths[0])
 					if err != nil {
-						return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to parse %v", resourcePaths[0]), err)
+						return nil, fmt.Errorf("failed to parse %v (%w)", resourcePaths[0], err)
 					}
 					listOfFiles := make([]string, 0)
 					for _, file := range files {
@@ -145,7 +144,7 @@ func getSubresourceKind(groupVersion, parentKind, subresourceName string, subres
 			}
 		}
 	}
-	return "", sanitizederror.NewWithError(fmt.Sprintf("subresource %s not found for parent resource %s", subresourceName, parentKind), nil)
+	return "", fmt.Errorf("subresource %s not found for parent resource %s", subresourceName, parentKind)
 }
 
 func GetGitBranchOrPolicyPaths(gitBranch, repoURL string, policyPaths ...string) (string, string) {
