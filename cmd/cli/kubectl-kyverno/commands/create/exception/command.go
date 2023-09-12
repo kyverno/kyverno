@@ -68,10 +68,10 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&path, "output", "o", "", "Output path (uses standard console output if not set)")
 	cmd.Flags().StringVarP(&options.Name, "name", "n", "", "Policy exception name")
 	cmd.Flags().StringVar(&options.Namespace, "namespace", "", "Policy exception namespace")
-	cmd.Flags().BoolVarP(&options.Background, "background", "b", true, "Set to false is policy should not be considered in background scans")
-	cmd.Flags().StringArrayVarP(&rules, "rule", "r", nil, "List of policy rules")
-	cmd.Flags().StringArrayVar(&any, "any", nil, "List of policy rules")
-	cmd.Flags().StringArrayVar(&all, "all", nil, "List of policy rules")
+	cmd.Flags().BoolVarP(&options.Background, "background", "b", true, "Set to false when policy shouldn't be considered in background scans")
+	cmd.Flags().StringArrayVar(&rules, "policy-rules", nil, "Policy name, followed by rule names (`--policy-rules=policy,rule-1,rule-2,...`)")
+	cmd.Flags().StringArrayVar(&any, "any", nil, "List of resource filters")
+	cmd.Flags().StringArrayVar(&all, "all", nil, "List of resource filters")
 	return cmd
 }
 

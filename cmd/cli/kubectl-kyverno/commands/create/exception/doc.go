@@ -10,6 +10,6 @@ var description = []string{
 var examples = [][]string{
 	{
 		"# Create a policy exception file",
-		`kyverno create exception -n my-exception --namespace my-ns --any "kind=Pod,kind=Deployment,name=test-*"`,
+		`kyverno create exception -n my-exception --namespace my-ns --policy-rules "policy,rule-1,rule-2" --any "kind=Pod,kind=Deployment,name=test-*"`,
 	},
 }
