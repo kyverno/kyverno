@@ -13,6 +13,7 @@ import (
 func TestCommand(t *testing.T) {
 	version.BuildVersion = "test"
 	cmd := Command()
+	assert.NotNil(t, cmd)
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 	err := cmd.Execute()
@@ -28,6 +29,7 @@ Git commit ID: ---`
 
 func TestCommandWithArgs(t *testing.T) {
 	cmd := Command()
+	assert.NotNil(t, cmd)
 	cmd.SetArgs([]string{"test"})
 	err := cmd.Execute()
 	assert.Error(t, err)

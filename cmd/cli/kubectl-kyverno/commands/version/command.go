@@ -14,10 +14,10 @@ func Command() *cobra.Command {
 		Short:         command.FormatDescription(true, websiteUrl, false, description...),
 		Long:          command.FormatDescription(false, websiteUrl, false, description...),
 		Example:       command.FormatExamples(examples...),
+		Args:          cobra.NoArgs,
 		SilenceErrors: true,
 		SilenceUsage:  true,
-		Args:          cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			fmt.Fprintf(cmd.OutOrStdout(), "Version: %s\n", version.Version())
 			fmt.Fprintf(cmd.OutOrStdout(), "Time: %s\n", version.Time())
 			fmt.Fprintf(cmd.OutOrStdout(), "Git commit ID: %s\n", version.Hash())

@@ -15,16 +15,19 @@ func Command() *cobra.Command {
 	var path string
 	var globalValues, namespaceSelector, rules, resources []string
 	cmd := &cobra.Command{
-		Use:     "values",
-		Short:   command.FormatDescription(true, websiteUrl, false, description...),
-		Long:    command.FormatDescription(false, websiteUrl, false, description...),
-		Example: command.FormatExamples(examples...),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Use:           "values",
+		Short:         command.FormatDescription(true, websiteUrl, false, description...),
+		Long:          command.FormatDescription(false, websiteUrl, false, description...),
+		Example:       command.FormatExamples(examples...),
+		Args:          cobra.NoArgs,
+		SilenceErrors: true,
+		SilenceUsage:  true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			tmpl, err := template.New("values").Parse(templates.ValuesTemplate)
 			if err != nil {
 				return err
 			}
-			output := os.Stdout
+			output := cmd.OutOrStdout()
 			if path != "" {
 				file, err := os.Create(path)
 				if err != nil {

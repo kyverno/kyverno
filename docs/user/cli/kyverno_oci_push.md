@@ -18,18 +18,17 @@ kyverno oci push [flags]
 
 ```
   # Push policy to an OCI image from a given policy file
-  kyverno oci push -p policy.yaml -i <imgref>
+  kyverno oci push ./policy.yaml -i <imgref>
 
   # Push multiple policies to an OCI image from a given directory that includes policies
-  kyverno oci push -p policies. -i <imgref>
+  kyverno oci push . -i <imgref>
 ```
 
 ### Options
 
 ```
-  -h, --help            help for push
-  -i, --image string    image reference to push to or pull from
-  -p, --policy string   path to policie(s)
+  -h, --help           help for push
+  -i, --image string   image reference to push to or pull from
 ```
 
 ### Options inherited from parent commands
