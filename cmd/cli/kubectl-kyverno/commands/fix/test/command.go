@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
@@ -50,7 +49,7 @@ func Command() *cobra.Command {
 					fmt.Println("  WARNING: test has no policies")
 				}
 				if len(test.Resources) == 0 {
-					fmt.Println("  WARNING: test has no policies")
+					fmt.Println("  WARNING: test has no resources")
 				}
 				for i := range test.Results {
 					result := &test.Results[i]
@@ -61,6 +60,12 @@ func Command() *cobra.Command {
 						fmt.Println("  WARNING: test result uses deprecated `resource` field, moving it into the `resources` field")
 						result.Resources = append(result.Resources, result.Resource)
 						result.Resource = ""
+						needsSave = true
+					}
+					if result.Namespace != "" {
+						fmt.Println("  WARNING: test result uses deprecated `namespace` field, replacing `policy` with a `<namespace>/<name>` pattern")
+						result.Policy = fmt.Sprintf("%s/%s", result.Namespace, result.Policy)
+						result.Namespace = ""
 						needsSave = true
 					}
 					if result.Status != "" && result.Result != "" {
@@ -74,37 +79,18 @@ func Command() *cobra.Command {
 					}
 				}
 				if compress {
-					compressed := map[key][]string{}
+					compressed := map[testapi.TestResultBase][]string{}
 					for _, result := range test.Results {
-						k := key{
-							Policy:                      result.Policy,
-							Rule:                        result.Rule,
-							IsValidatingAdmissionPolicy: result.IsValidatingAdmissionPolicy,
-							Result:                      result.Result,
-							Kind:                        result.Kind,
-							Namespace:                   result.Namespace,
-							PatchedResource:             result.PatchedResource,
-							GeneratedResource:           result.GeneratedResource,
-							CloneSourceResource:         result.CloneSourceResource,
-						}
-						compressed[k] = append(compressed[k], result.Resources...)
+						compressed[result.TestResultBase] = append(compressed[result.TestResultBase], result.Resources...)
 					}
 					if len(compressed) != len(test.Results) {
 						needsSave = true
 					}
 					test.Results = nil
 					for k, v := range compressed {
-						test.Results = append(test.Results, testapi.TestResults{
-							Policy:                      k.Policy,
-							Rule:                        k.Rule,
-							IsValidatingAdmissionPolicy: k.IsValidatingAdmissionPolicy,
-							Result:                      k.Result,
-							Kind:                        k.Kind,
-							Namespace:                   k.Namespace,
-							PatchedResource:             k.PatchedResource,
-							GeneratedResource:           k.GeneratedResource,
-							CloneSourceResource:         k.CloneSourceResource,
-							Resources:                   v,
+						test.Results = append(test.Results, testapi.TestResult{
+							TestResultBase: k,
+							Resources:      v,
 						})
 					}
 				}
@@ -134,16 +120,4 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVar(&save, "save", false, "Save fixed file")
 	cmd.Flags().BoolVar(&compress, "compress", false, "Compress test results")
 	return cmd
-}
-
-type key struct {
-	Policy                      string
-	Rule                        string
-	IsValidatingAdmissionPolicy bool
-	Result                      policyreportv1alpha2.PolicyResult
-	Kind                        string
-	Namespace                   string
-	PatchedResource             string
-	GeneratedResource           string
-	CloneSourceResource         string
 }
