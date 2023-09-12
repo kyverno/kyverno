@@ -1,0 +1,13 @@
+name: mutate-pods-spec
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- kind: Deployment
+  patchedResource: patchedresource.yaml
+  policy: mutate-pods-spec
+  resources:
+  - nginx-deployment
+  result: pass
+  rule: disable-servicelink-and-token

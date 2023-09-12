@@ -31,7 +31,7 @@ func (anyin AnyInHandler) Evaluate(key, value interface{}) bool {
 	switch typedKey := key.(type) {
 	case string:
 		return anyin.validateValueWithStringPattern(typedKey, value)
-	case int, int32, int64, float32, float64:
+	case int, int32, int64, float32, float64, bool:
 		return anyin.validateValueWithStringPattern(fmt.Sprint(typedKey), value)
 	case []interface{}:
 		var stringSlice []string
@@ -200,16 +200,21 @@ func isAnyIn(key []string, value []string) bool {
 
 // isAnyNotIn checks if any of the values in S1 are not in S2
 func isAnyNotIn(key []string, value []string) bool {
-	found := 0
 	for _, valKey := range key {
+		matchFound := false
+
 		for _, valValue := range value {
 			if wildcard.Match(valKey, valValue) || wildcard.Match(valValue, valKey) {
-				found++
+				matchFound = true
 				break
 			}
 		}
+
+		if !matchFound {
+			return true
+		}
 	}
-	return found < len(key)
+	return false
 }
 
 func (anyin AnyInHandler) validateValueWithBoolPattern(_ bool, _ interface{}) bool {

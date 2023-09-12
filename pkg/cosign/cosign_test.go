@@ -11,9 +11,9 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/kyverno/kyverno/pkg/images"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	"github.com/sigstore/cosign/pkg/cosign"
-	"github.com/sigstore/cosign/pkg/cosign/bundle"
-	"github.com/sigstore/cosign/pkg/oci"
+	"github.com/sigstore/cosign/v2/pkg/cosign"
+	"github.com/sigstore/cosign/v2/pkg/cosign/bundle"
+	"github.com/sigstore/cosign/v2/pkg/oci"
 	"gotest.tools/assert"
 )
 
@@ -33,26 +33,47 @@ const cosignPayload = `{
 	}
 }`
 
-const tektonPayload = `{
-  "Critical": {
-    "Identity": {
-      "docker-reference": "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/nop"
-    },
-    "Image": {
-      "Docker-manifest-digest": "sha256:6a037d5ba27d9c6be32a9038bfe676fb67d2e4145b4f53e9c61fb3e69f06e816"
-    },
-    "Type": "Tekton container signature"
-  },
-  "Optional": {
-	  "Issuer": "https://github.com/login/oauth",
-	  "Subject": "https://github.com/mycompany/demo/.github/workflows/ci.yml@refs/heads/main"
-  }
+const keylessPayload = `{
+	"critical": {
+		"identity": {
+			"docker-reference": "ghcr.io/kyverno/test-verify-image"
+		},
+		"image": {
+			"docker-manifest-digest": "sha256:ee53528c4e3c723945cf870d73702b76135955a218dd7497bf344aa73ebb4227"
+		},
+		"type": "cosign container image signature"
+	},
+	"optional": {
+		"Bundle": {
+			"SignedEntryTimestamp": "--TIME-STAMP--",
+			"Payload": {
+				"integratedTime": 1689234389,
+				"logIndex": 27432442,
+				"logID": "--LOG-ID--"
+			}
+		},
+		"Issuer": "https://accounts.google.com",
+		"Subject": "kyverno@nirmata.com"
+	}
 }`
+
+const globalRekorPubKey = `-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2G2Y+2tabdTV5BcGiBIx0a9fAFwr
+kBbmLSGtks4L3qX6yYY0zufBnhC8Ur/iy55GhWP/9A/bY2LhC30M9+RYtw==
+-----END PUBLIC KEY-----
+`
+
+const wrongRekorPubKey = `-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEoiR2ouEAp4JS/JIgkCVYCxpp/dMe
+4Mkc/92O8rbWs6xIAcIEju7+Z2yecpQH6RbztEVCZbBZhEVfMdRgWKOrrQ==
+-----END PUBLIC KEY-----`
 
 func TestCosignPayload(t *testing.T) {
 	image := "registry-v2.nirmata.io/pause"
 	signedPayloads := cosign.SignedPayload{Payload: []byte(cosignPayload)}
-	p, err := extractPayload([]oci.Signature{&sig{cosignPayload: signedPayloads}})
+	ociSig, err := getSignature(signedPayloads)
+	assert.NilError(t, err)
+	p, err := extractPayload([]oci.Signature{ociSig})
 	assert.NilError(t, err)
 	a := map[string]string{"foo": "bar"}
 	err = checkAnnotations(p, a)
@@ -61,22 +82,27 @@ func TestCosignPayload(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, d, "sha256:4a1c4b21597c1b4415bdbecb28a3296c6b5e23ca4f9feeb599860a1dac6a0108")
 
-	image2 := "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/nop"
-	signedPayloads2 := cosign.SignedPayload{Payload: []byte(tektonPayload)}
-	signatures2 := []oci.Signature{&sig{cosignPayload: signedPayloads2}}
+	image2 := "ghcr.io/kyverno/test-verify-image"
+	signedPayloads2 := cosign.SignedPayload{Payload: []byte(keylessPayload)}
+	ociSig, err = getSignature(signedPayloads2)
+	assert.NilError(t, err)
+	signatures2 := []oci.Signature{ociSig}
+
 	p2, err := extractPayload(signatures2)
 	assert.NilError(t, err)
 
 	d2, err := extractDigest(image2, p2)
 	assert.NilError(t, err)
-	assert.Equal(t, d2, "sha256:6a037d5ba27d9c6be32a9038bfe676fb67d2e4145b4f53e9c61fb3e69f06e816")
+	assert.Equal(t, d2, "sha256:ee53528c4e3c723945cf870d73702b76135955a218dd7497bf344aa73ebb4227")
 }
 
 func TestCosignKeyless(t *testing.T) {
 	opts := images.Options{
-		ImageRef: "ghcr.io/jimbugwadia/pause2",
-		Issuer:   "https://github.com/",
-		Subject:  "jim",
+		ImageRef:  "ghcr.io/jimbugwadia/pause2",
+		Issuer:    "https://github.com/",
+		Subject:   "jim",
+		RekorURL:  "https://rekor.sigstore.dev",
+		IgnoreSCT: true,
 	}
 
 	rc, err := registryclient.New()
@@ -92,6 +118,29 @@ func TestCosignKeyless(t *testing.T) {
 	assert.ErrorContains(t, err, "issuer mismatch: expected https://github.com/, received https://github.com/login/oauth")
 
 	opts.Issuer = "https://github.com/login/oauth"
+	_, err = verifier.VerifySignature(context.TODO(), opts)
+	assert.NilError(t, err)
+}
+
+func TestRekorPubkeys(t *testing.T) {
+	opts := images.Options{
+		ImageRef:    "ghcr.io/jimbugwadia/pause2",
+		Issuer:      "https://github.com/login/oauth",
+		Subject:     "jim@nirmata.com",
+		RekorURL:    "--INVALID--", // To avoid using the default rekor url as thats where signature is uploaded
+		RekorPubKey: wrongRekorPubKey,
+		IgnoreSCT:   true,
+	}
+
+	rc, err := registryclient.New()
+	assert.NilError(t, err)
+	opts.Client = rc
+
+	verifier := &cosignVerifier{}
+	_, err = verifier.VerifySignature(context.TODO(), opts)
+	assert.ErrorContains(t, err, "rekor log public key not found for payload")
+
+	opts.RekorPubKey = globalRekorPubKey
 	_, err = verifier.VerifySignature(context.TODO(), opts)
 	assert.NilError(t, err)
 }
@@ -163,6 +212,10 @@ func (ts testSignature) Payload() ([]byte, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
+func (ts testSignature) Signature() ([]byte, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 func (ts testSignature) Base64Signature() (string, error) {
 	return "", fmt.Errorf("not implemented")
 }
@@ -177,6 +230,10 @@ func (ts testSignature) Chain() ([]*x509.Certificate, error) {
 
 func (ts testSignature) Bundle() (*bundle.RekorBundle, error) {
 	return nil, fmt.Errorf("not implemented")
+}
+
+func (ts testSignature) RFC3161Timestamp() (*bundle.RFC3161Timestamp, error) {
+	return nil, nil
 }
 
 func TestCosignMatchSignatures(t *testing.T) {

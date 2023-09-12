@@ -8,8 +8,7 @@ kind: Event
 metadata:
   namespace: policy-exception-events-creation-polex-ns
 reason: PolicySkipped
-source:
-  component: kyverno-admission
+reportingComponent: kyverno-admission
 type: Normal
 ---
 apiVersion: v1
@@ -21,6 +20,5 @@ kind: Event
 metadata:
   namespace: default
 reason: PolicySkipped
-source:
-  component: kyverno-admission
+reportingComponent: kyverno-admission
 type: Normal

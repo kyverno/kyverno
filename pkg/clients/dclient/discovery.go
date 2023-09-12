@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	openapiv2 "github.com/google/gnostic/openapiv2"
+	openapiv2 "github.com/google/gnostic-models/openapiv2"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,8 +49,7 @@ type IDiscovery interface {
 	GetGVRFromGVK(schema.GroupVersionKind) (schema.GroupVersionResource, error)
 	GetGVKFromGVR(schema.GroupVersionResource) (schema.GroupVersionKind, error)
 	OpenAPISchema() (*openapiv2.Document, error)
-	DiscoveryCache() discovery.CachedDiscoveryInterface
-	DiscoveryInterface() discovery.DiscoveryInterface
+	CachedDiscoveryInterface() discovery.CachedDiscoveryInterface
 }
 
 // apiResourceWithListGV is a wrapper for metav1.APIResource with the group-version of its metav1.APIResourceList
@@ -64,13 +63,8 @@ type serverResources struct {
 	cachedClient discovery.CachedDiscoveryInterface
 }
 
-// DiscoveryCache gets the discovery client cache
-func (c serverResources) DiscoveryCache() discovery.CachedDiscoveryInterface {
-	return c.cachedClient
-}
-
-// DiscoveryInterface gets the discovery client
-func (c serverResources) DiscoveryInterface() discovery.DiscoveryInterface {
+// CachedDiscoveryInterface gets the discovery client cache
+func (c serverResources) CachedDiscoveryInterface() discovery.CachedDiscoveryInterface {
 	return c.cachedClient
 }
 
@@ -169,10 +163,17 @@ func (c serverResources) FindResource(groupVersion string, kind string) (apiReso
 
 func (c serverResources) FindResources(group, version, kind, subresource string) (map[TopLevelApiDescription]metav1.APIResource, error) {
 	resources, err := c.findResources(group, version, kind, subresource)
-	if err != nil {
-		if !c.cachedClient.Fresh() {
+	// if no resource was found, we have to force cache invalidation
+	if err != nil || len(resources) == 0 {
+		if !c.cachedClient.Fresh() || len(resources) == 0 {
 			c.cachedClient.Invalidate()
-			return c.findResources(group, version, kind, subresource)
+			resources, err := c.findResources(group, version, kind, subresource)
+			if err != nil {
+				return nil, err
+			} else if len(resources) == 0 {
+				return nil, fmt.Errorf("failed to find resource (%s/%s/%s/%s)", group, version, kind, subresource)
+			}
+			return resources, err
 		}
 	}
 	return resources, err

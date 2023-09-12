@@ -157,6 +157,7 @@ func main() {
 		setup.Jp,
 		setup.KyvernoDynamicClient,
 		setup.RegistryClient,
+		setup.ImageVerifyCacheClient,
 		setup.KubeClient,
 		setup.KyvernoClient,
 		setup.RegistrySecretLister,

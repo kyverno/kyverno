@@ -1,0 +1,12 @@
+name: validate-selinux-options
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- kind: Pod
+  policy: validate-selinux-options
+  resources:
+  - busybox-selinux
+  result: fail
+  rule: validate-selinux-options

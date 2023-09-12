@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	openapiv2 "github.com/google/gnostic/openapiv2"
+	openapiv2 "github.com/google/gnostic-models/openapiv2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -98,10 +98,6 @@ func (c *fakeDiscoveryClient) OpenAPISchema() (*openapiv2.Document, error) {
 	return nil, nil
 }
 
-func (c *fakeDiscoveryClient) DiscoveryCache() discovery.CachedDiscoveryInterface {
-	return nil
-}
-
-func (c *fakeDiscoveryClient) DiscoveryInterface() discovery.DiscoveryInterface {
+func (c *fakeDiscoveryClient) CachedDiscoveryInterface() discovery.CachedDiscoveryInterface {
 	return nil
 }

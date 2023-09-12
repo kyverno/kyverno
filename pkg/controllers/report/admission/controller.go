@@ -62,18 +62,22 @@ func NewController(
 		cadmrLister: cadmrInformer.Lister(),
 		queue:       queue,
 	}
-	controllerutils.AddEventHandlersT(
+	if _, err := controllerutils.AddEventHandlersT(
 		admrInformer.Informer(),
 		func(obj metav1.Object) { queue.Add(cache.ExplicitKey(reportutils.GetResourceUid(obj))) },
 		func(old, obj metav1.Object) { queue.Add(cache.ExplicitKey(reportutils.GetResourceUid(old))) },
 		func(obj metav1.Object) { queue.Add(cache.ExplicitKey(reportutils.GetResourceUid(obj))) },
-	)
-	controllerutils.AddEventHandlersT(
+	); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
+	if _, err := controllerutils.AddEventHandlersT(
 		cadmrInformer.Informer(),
 		func(obj metav1.Object) { queue.Add(cache.ExplicitKey(reportutils.GetResourceUid(obj))) },
 		func(old, obj metav1.Object) { queue.Add(cache.ExplicitKey(reportutils.GetResourceUid(old))) },
 		func(obj metav1.Object) { queue.Add(cache.ExplicitKey(reportutils.GetResourceUid(obj))) },
-	)
+	); err != nil {
+		logger.Error(err, "failed to register even handlers")
+	}
 	return &c
 }
 
@@ -249,7 +253,7 @@ func (c *controller) aggregateReports(ctx context.Context, uid types.UID) (kyver
 		if aggregated.GetResourceVersion() != "" {
 			after = reportutils.DeepCopy(aggregated)
 		}
-		reportutils.SetResults(aggregated, results...)
+		reportutils.SetResults(after, results...)
 		if after.GetResourceVersion() == "" {
 			if len(results) > 0 {
 				if _, err := reportutils.CreateReport(ctx, after, c.client); err != nil {

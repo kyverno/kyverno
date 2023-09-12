@@ -1,0 +1,18 @@
+mode: daemonset
+
+tolerations:
+- key: node-role.kubernetes.io/control-plane
+  operator: Exists
+
+config:
+  exporters:
+    otlp:
+      endpoint: tempo.monitoring:4317
+      tls:
+        insecure: true
+
+  service:
+    pipelines:
+      traces:
+        exporters:
+          - otlp

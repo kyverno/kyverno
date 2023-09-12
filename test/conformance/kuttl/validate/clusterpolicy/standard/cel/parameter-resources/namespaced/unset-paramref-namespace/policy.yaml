@@ -1,0 +1,25 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-statefulset-replicas
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: statefulset-replicas
+      match:
+        any:
+        - resources:
+            kinds:
+              - StatefulSet
+      validate:
+        cel:
+          paramKind: 
+            apiVersion: rules.example.com/v1
+            kind: StatefulSetReplicaLimit
+          paramRef:
+            name: "replica-limit-test.example.com"
+            parameterNotFoundAction: "Deny"
+          expressions:
+            - expression: "object.spec.replicas <= params.maxReplicas"
+              messageExpression:  "'StatefulSet spec.replicas must be less than ' + string(params.maxReplicas)"

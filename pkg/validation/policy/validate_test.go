@@ -632,6 +632,78 @@ func Test_BackGroundUserInfo_mutate_patchStrategicMerge1(t *testing.T) {
 	assert.Assert(t, err != nil)
 }
 
+func Test_Context_Variable_Substitution(t *testing.T) {
+	var err error
+	rawPolicy := []byte(`{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "check-images"
+  },
+  "spec": {
+    "validationFailureAction": "Enforce",
+    "webhookTimeoutSeconds": 30,
+    "rules": [
+      {
+        "name": "call-aws-signer-extension",
+        "match": {
+          "any": [
+            {
+              "resources": {
+                "namespaces": [
+                  "test-notation"
+                ],
+                "kinds": [
+                  "Pod"
+                ]
+              }
+            }
+          ]
+        },
+        "context": [
+          {
+            "name": "response",
+            "apiCall": {
+              "method": "POST",
+              "data": [
+                {
+                  "key": "imagesInfo",
+                  "value": "{{ images }}"
+                }
+              ],
+              "service": {
+                "url": "https://svc.kyverno-notation-aws/checkimages",
+                "caBundle": "-----BEGIN CERTIFICATE-----\nMIICizCCAjGgAwIBAgIRAIUEJcm7TtwJEtRtsI2yUcMwCgYIKoZIzj0EAwIwGzEZ\nMBcGA1UEAxMQbXktc2VsZnNpZ25lZC1jYTAeFw0yMzA1MTAwNTI5MzBaFw0yMzA4\nMDgwNTI5MzBaMDExEDAOBgNVBAoTB25pcm1hdGExHTAbBgNVBAMTFGt5dmVybm8t\nbm90YXRpb24tYXdzMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxrSr\nVXUbuQbF4rhh0/jqDE6agtXqS9jko6vHTEZUF2Y9f0LdSycEdCocIKZmPerWER7l\nVUmMFPQLSGOZrCIM22L9+EXDyL7q2PN3koDxKOyqVOod8j3hKdRL+KIiZuUeD4zD\ncos+AFxA1XAM/220JKfPSUpBL0DAP299Baqjs/Ae5wU5wT4qZVa1I3pcV2uicPvE\nRSZO3ZT+y1nYBWtTTzzXP3f9ou8IHweCl57Sk16mbFFZ+TrCSekewYchzn88z7lq\nL+56LtBUjcJozypLGEWM+kc4S5wBNYUaFPGiCHIrdQ5ScmfnY7mDvO8u47E+xw13\nbz7NUAlT73rBqBv6hQIDAQABo3UwczAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYB\nBQUHAwIwDAYDVR0TAQH/BAIwADAfBgNVHSMEGDAWgBRXZIp2KalD6pjRfPua2kFn\nMBuJJTAjBgNVHREEHDAaghhzdmMua3l2ZXJuby1ub3RhdGlvbi1hd3MwCgYIKoZI\nzj0EAwIDSAAwRQIhAKob5SV/N56VqP8VPdHqCAULRj92qhWwW3hb7fzaGxnHAiBP\n3c8K2Vrxx2KRsjnWwn1vUMz7UyM2Tmib1C4YM3f+xg==\n-----END CERTIFICATE-----\n-----BEGIN CERTIFICATE-----\nMIIBdjCCAR2gAwIBAgIRAP1VDXD3R744lE7t/I5MK44wCgYIKoZIzj0EAwIwGzEZ\nMBcGA1UEAxMQbXktc2VsZnNpZ25lZC1jYTAeFw0yMzA1MTAwNTI5MjVaFw0yMzA4\nMDgwNTI5MjVaMBsxGTAXBgNVBAMTEG15LXNlbGZzaWduZWQtY2EwWTATBgcqhkjO\nPQIBBggqhkjOPQMBBwNCAAQrFCRBF8PjKPcT/lrXmyP474fNuhlhGFAlLaoTSUuP\nS3VK2O7hWrlJ/AhCccY8EPBi/DdFEaCB2+hTo00clmvfo0IwQDAOBgNVHQ8BAf8E\nBAMCAqQwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUV2SKdimpQ+qY0Xz7mtpB\nZzAbiSUwCgYIKoZIzj0EAwIDRwAwRAIgU3O7Qnk9PGCV4aXgZAXp0h4Iz2O7XUnP\nUfv4SgD7neECIHLb+BDvRFPJ77FpfIYxBO70AHB7Kp0nWKCqyv3FK4aT\n-----END CERTIFICATE-----"
+              }
+            }
+          }
+        ],
+        "validate": {
+          "message": "not allowed",
+          "deny": {
+            "conditions": {
+              "all": [
+                {
+                  "key": "{{ response.verified }}",
+                  "operator": "EQUALS",
+                  "value": false
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}`)
+	var policy *kyverno.ClusterPolicy
+	err = json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	err = ValidateVariables(policy, true)
+	assert.NilError(t, err)
+}
+
 func Test_BackGroundUserInfo_mutate_patchStrategicMerge2(t *testing.T) {
 	var err error
 	rawPolicy := []byte(`
@@ -3221,5 +3293,62 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 
 		err = immutableGenerateFields(new, old)
 		assert.Assert(t, (err != nil) == test.expectedErr, test.name, err)
+	}
+}
+
+func Test_isMapStringString(t *testing.T) {
+	type args struct {
+		m map[string]interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{{
+		name: "nil",
+		args: args{
+			m: nil,
+		},
+		want: true,
+	}, {
+		name: "empty",
+		args: args{
+			m: map[string]interface{}{},
+		},
+		want: true,
+	}, {
+		name: "string values",
+		args: args{
+			m: map[string]interface{}{
+				"a": "b",
+				"c": "d",
+			},
+		},
+		want: true,
+	}, {
+		name: "int value",
+		args: args{
+			m: map[string]interface{}{
+				"a": "b",
+				"c": 123,
+			},
+		},
+		want: false,
+	}, {
+		name: "nil value",
+		args: args{
+			m: map[string]interface{}{
+				"a": "b",
+				"c": nil,
+			},
+		},
+		want: false,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isMapStringString(tt.args.m); got != tt.want {
+				t.Errorf("checkLabelAnnotation() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

@@ -79,11 +79,6 @@ func getAuthenticator(ctx context.Context, ref string, registryClient images.Cli
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse registry reference %s", ref)
 	}
-
-	if err := registryClient.RefreshKeychainPullSecrets(ctx); err != nil {
-		return nil, errors.Wrapf(err, "failed to refresh image pull secrets")
-	}
-
 	authn, err := registryClient.Keychain().Resolve(&imageResource{parsedRef})
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to resolve auth for %s", parsedRef.String())
@@ -121,7 +116,7 @@ func getRemoteOpts(authenticator authn.Authenticator) ([]gcrremote.Option, error
 }
 
 func resolveDigestCrane(repo notationregistry.Repository, remoteOpts []gcrremote.Option, ref name.Reference) error {
-	_, err := repo.Resolve(context.Background(), ref.Name())
+	_, err := repo.Resolve(context.Background(), ref.Identifier())
 	if err != nil {
 		return err
 	}

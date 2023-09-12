@@ -1,0 +1,26 @@
+kind: ClusterPolicy
+metadata:
+  name: disallow-service
+spec:
+  validationFailureAction: Validate
+  failurePolicy: Ignore
+  rules:
+    - name: disallow-service
+      match:
+        all:
+          - resources:
+              kinds:
+                - Service
+      preconditions:
+        any:
+          - key: "{{ request.object.metadata.namespace }}"
+            operator: NotEquals
+            value: "ns1"
+          - key: "{{ request.object.metadata.name }}"
+            operator: AnyNotIn
+            value: ["svc1", "svc2"]
+      validate:
+        message: >-
+          Can't create a service. Sorry...
+        anyPattern:
+          - kind: "!Service"

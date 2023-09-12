@@ -1,14 +1,14 @@
----
 name: enforce-pod-name
 policies:
-  - policy.yaml
+- policy.yaml
 resources:
-  - resource.yaml
-variables: value.yaml
+- resource.yaml
 results:
-  - policy: enforce-pod-name
-    rule: validate-name
-    resource: test-nginx
-    kind: Pod
-    namespace: test1
-    result: pass
+- kind: Pod
+  namespace: test1
+  policy: enforce-pod-name
+  resources:
+  - test-nginx
+  result: pass
+  rule: validate-name
+variables: value.yaml

@@ -1,0 +1,23 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-target-scope-validation-fail-3
+spec:
+  rules:
+  - name: clone-multiple-basic-create-policy-rule
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    generate:
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      cloneList:
+        # missing ns for namespaced resource
+        kinds:
+          - v1/Secret
+        selector:
+          matchLabels:
+            allowedToBeCloned: "true"

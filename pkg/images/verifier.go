@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/sigstore/cosign/pkg/oci/remote"
+	"github.com/sigstore/cosign/v2/pkg/oci/remote"
 )
 
 type ImageVerifier interface {
@@ -17,7 +17,6 @@ type ImageVerifier interface {
 
 type Client interface {
 	Keychain() authn.Keychain
-	RefreshKeychainPullSecrets(ctx context.Context) error
 	BuildRemoteOption(context.Context) remote.Option
 }
 
@@ -35,6 +34,9 @@ type Options struct {
 	Annotations          map[string]string
 	Repository           string
 	RekorURL             string
+	RekorPubKey          string
+	IgnoreSCT            bool
+	IgnoreTlog           bool
 	SignatureAlgorithm   string
 	PredicateType        string
 	Type                 string
