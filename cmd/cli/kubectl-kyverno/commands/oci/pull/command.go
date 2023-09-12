@@ -27,7 +27,7 @@ func Command(keychain authn.Keychain) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&options.imageRef, "image", "i", "", "image reference to push to or pull from")
-	if err := cmd.MarkFlagDirname("image"); err != nil {
+	if err := cmd.MarkFlagRequired("image"); err != nil {
 		log.Println("WARNING", err)
 	}
 	return cmd

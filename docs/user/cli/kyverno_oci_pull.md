@@ -18,7 +18,7 @@ kyverno oci pull [dir] [flags]
 
 ```
   # Pull policy from an OCI image and save it to the specific directory
-  kyverno oci pull -i <imgref> -d policies
+  kyverno oci pull . -i <imgref>
 ```
 
 ### Options
