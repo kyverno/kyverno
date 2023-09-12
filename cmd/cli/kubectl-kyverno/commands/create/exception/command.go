@@ -1,6 +1,7 @@
 package exception
 
 import (
+	"log"
 	"os"
 	"strings"
 	"text/template"
@@ -26,15 +27,17 @@ func Command() *cobra.Command {
 	var rules, any, all []string
 	var options options
 	cmd := &cobra.Command{
-		Use:     "exception",
+		Use:     "exception [name]",
 		Short:   command.FormatDescription(true, websiteUrl, false, description...),
 		Long:    command.FormatDescription(false, websiteUrl, false, description...),
 		Example: command.FormatExamples(examples...),
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			tmpl, err := template.New("exception").Parse(templates.ExceptionTemplate)
 			if err != nil {
 				return err
 			}
+			options.Name = args[0]
 			for _, result := range rules {
 				result := parseRule(result)
 				if result != nil {
@@ -53,7 +56,7 @@ func Command() *cobra.Command {
 					options.Match.All = append(options.Match.All, *result)
 				}
 			}
-			output := os.Stdout
+			output := cmd.OutOrStdout()
 			if path != "" {
 				file, err := os.Create(path)
 				if err != nil {
@@ -66,12 +69,14 @@ func Command() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&path, "output", "o", "", "Output path (uses standard console output if not set)")
-	cmd.Flags().StringVarP(&options.Name, "name", "n", "", "Policy exception name")
 	cmd.Flags().StringVar(&options.Namespace, "namespace", "", "Policy exception namespace")
 	cmd.Flags().BoolVarP(&options.Background, "background", "b", true, "Set to false when policy shouldn't be considered in background scans")
 	cmd.Flags().StringArrayVar(&rules, "policy-rules", nil, "Policy name, followed by rule names (`--policy-rules=policy,rule-1,rule-2,...`)")
 	cmd.Flags().StringArrayVar(&any, "any", nil, "List of resource filters")
 	cmd.Flags().StringArrayVar(&all, "all", nil, "List of resource filters")
+	if err := cmd.MarkFlagRequired("policy-rules"); err != nil {
+		log.Println("WARNING", err)
+	}
 	return cmd
 }
 

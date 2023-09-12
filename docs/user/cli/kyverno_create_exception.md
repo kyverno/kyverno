@@ -7,14 +7,14 @@ Create a Kyverno policy exception file.
 Create a Kyverno policy exception file.
 
 ```
-kyverno create exception [flags]
+kyverno create exception [name] [flags]
 ```
 
 ### Examples
 
 ```
   # Create a policy exception file
-  kyverno create exception -n my-exception --namespace my-ns --policy-rules "policy,rule-1,rule-2" --any "kind=Pod,kind=Deployment,name=test-*"
+  kyverno create exception my-exception --namespace my-ns --policy-rules "policy,rule-1,rule-2" --any "kind=Pod,kind=Deployment,name=test-*"
 ```
 
 ### Options
@@ -24,7 +24,6 @@ kyverno create exception [flags]
       --any stringArray                                        List of resource filters
   -b, --background                                             Set to false when policy shouldn't be considered in background scans (default true)
   -h, --help                                                   help for exception
-  -n, --name string                                            Policy exception name
       --namespace string                                       Policy exception namespace
   -o, --output string                                          Output path (uses standard console output if not set)
       --policy-rules --policy-rules=policy,rule-1,rule-2,...   Policy name, followed by rule names (--policy-rules=policy,rule-1,rule-2,...)
