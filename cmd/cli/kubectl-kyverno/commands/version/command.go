@@ -10,11 +10,13 @@ import (
 
 func Command() *cobra.Command {
 	return &cobra.Command{
-		Use:     "version",
-		Short:   command.FormatDescription(true, websiteUrl, false, description...),
-		Long:    command.FormatDescription(false, websiteUrl, false, description...),
-		Example: command.FormatExamples(examples...),
-		Args:    cobra.NoArgs,
+		Use:           "version",
+		Short:         command.FormatDescription(true, websiteUrl, false, description...),
+		Long:          command.FormatDescription(false, websiteUrl, false, description...),
+		Example:       command.FormatExamples(examples...),
+		SilenceErrors: true,
+		SilenceUsage:  true,
+		Args:          cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Fprintf(cmd.OutOrStdout(), "Version: %s\n", version.Version())
 			fmt.Fprintf(cmd.OutOrStdout(), "Time: %s\n", version.Time())
