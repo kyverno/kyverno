@@ -1,35 +1,33 @@
-## kyverno create
+## kyverno create exception
 
-Helps with the creation of various Kyverno resources.
+Create a Kyverno policy exception file.
 
 ### Synopsis
 
-Helps with the creation of various Kyverno resources.
+Create a Kyverno policy exception file.
 
 ```
-kyverno create [flags]
+kyverno create exception [flags]
 ```
 
 ### Examples
 
 ```
-  # Create metrics config file
-  kyverno create metrics-config -i ns-included-1 -i ns-included-2 -e ns-excluded
-
-  # Create test file
-  kyverno create test -p policy.yaml -r resource.yaml -f values.yaml --pass policy-name,rule-name,resource-name,resource-namespace,resource-kind
-
-  # Create user info file
-  kyverno create user-info -u molybdenum@somecorp.com -g basic-user -c admin
-
-  # Create values file
-  kyverno create values -g request.mode=dev -n prod,env=prod --rule policy,rule,env=demo --resource policy,resource,env=demo
+  # Create a policy exception file
+  kyverno create exception -n my-exception --namespace my-ns --any "kind=Pod,kind=Deployment,name=test-*"
 ```
 
 ### Options
 
 ```
-  -h, --help   help for create
+      --all stringArray    List of policy rules
+      --any stringArray    List of policy rules
+  -b, --background         Set to false is policy should not be considered in background scans (default true)
+  -h, --help               help for exception
+  -n, --name string        Policy exception name
+      --namespace string   Policy exception namespace
+  -o, --output string      Output path (uses standard console output if not set)
+  -r, --rule stringArray   List of policy rules
 ```
 
 ### Options inherited from parent commands
@@ -52,10 +50,5 @@ kyverno create [flags]
 
 ### SEE ALSO
 
-* [kyverno](kyverno.md)	 - Kubernetes Native Policy Management.
-* [kyverno create exception](kyverno_create_exception.md)	 - Create a Kyverno policy exception file.
-* [kyverno create metrics-config](kyverno_create_metrics-config.md)	 - Create a Kyverno metrics-config file.
-* [kyverno create test](kyverno_create_test.md)	 - Create a Kyverno test file.
-* [kyverno create user-info](kyverno_create_user-info.md)	 - Create a Kyverno user-info file.
-* [kyverno create values](kyverno_create_values.md)	 - Create a Kyverno values file.
+* [kyverno create](kyverno_create.md)	 - Helps with the creation of various Kyverno resources.
 

@@ -8,6 +8,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/templates"
 	"github.com/spf13/cobra"
 )
@@ -26,8 +27,9 @@ func Command() *cobra.Command {
 	var options options
 	cmd := &cobra.Command{
 		Use:     "exception",
-		Short:   "Create a Kyverno exception file.",
-		Example: `kyverno create exception -n my-exception --namespace my-ns --any "kind=Pod,kind=Deployment,name=test-*"`,
+		Short:   command.FormatDescription(true, websiteUrl, false, description...),
+		Long:    command.FormatDescription(false, websiteUrl, false, description...),
+		Example: command.FormatExamples(examples...),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			tmpl, err := template.New("exception").Parse(templates.ExceptionTemplate)
 			if err != nil {
