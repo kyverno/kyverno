@@ -10,15 +10,16 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/version"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/experimental"
 	"github.com/spf13/cobra"
 )
 
-func RootCommand() *cobra.Command {
+func RootCommand(experimental bool) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "kyverno",
-		Short: command.FormatDescription(true, websiteUrl, false, description...),
-		Long:  command.FormatDescription(false, websiteUrl, false, description...),
+		Use:           "kyverno",
+		Short:         command.FormatDescription(true, websiteUrl, false, description...),
+		Long:          command.FormatDescription(false, websiteUrl, false, description...),
+		SilenceErrors: true,
+		SilenceUsage:  true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},
@@ -31,7 +32,7 @@ func RootCommand() *cobra.Command {
 		test.Command(),
 		version.Command(),
 	)
-	if experimental.IsExperimentalEnabled() {
+	if experimental {
 		cmd.AddCommand(
 			fix.Command(),
 			oci.Command(),
