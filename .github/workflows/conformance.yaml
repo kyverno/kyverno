@@ -723,3 +723,28 @@ jobs:
           else
             echo "Helm secret size ($SIZE bytes) is below the max allowed ($MAX_ALLOWED bytes)"
           fi
+
+  check-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    needs: prepare-cli
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+      - name: Download kyverno CLI archive
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: kubectl-kyverno
+      - name: Install Kyverno CLI
+        shell: bash
+        run: |
+          set -e
+          chmod +x kubectl-kyverno && mv kubectl-kyverno ./cmd/cli/kubectl-kyverno/kyverno
+          echo "$PWD/cmd/cli/kubectl-kyverno" >> $GITHUB_PATH
+      - name: Fix test files
+        shell: bash
+        run: |
+          set -e
+          KYVERNO_EXPERIMENTAL=true kyverno fix test ./test/cli --save
+          make verify-cli-tests
