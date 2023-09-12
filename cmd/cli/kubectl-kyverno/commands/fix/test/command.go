@@ -19,7 +19,7 @@ func Command() *cobra.Command {
 			}
 			cmd.SilenceUsage = true
 			cmd.SilenceErrors = true
-			return options.execute(args...)
+			return options.execute(cmd.OutOrStdout(), args...)
 		},
 	}
 	cmd.Flags().StringVarP(&options.fileName, "file-name", "f", "kyverno-test.yaml", "Test filename")
