@@ -1,17 +1,19 @@
 name: connection-draining
 policies:
-  - policy.yaml
+- policy.yaml
 resources:
-  - resource.yaml
+- resource.yaml
 results:
-- policy: disable-connection-draining
-  rule: clb
-  resource: nlb-aws-controller-no-attributes
-  kind: Service
+- kind: Service
+  policy: disable-connection-draining
+  resources:
+  - nlb-aws-controller-no-attributes
   result: skip
-- policy: disable-connection-draining
-  rule: nlb-no-attributes
+  rule: clb
+- kind: Service
   patchedResource: patched.yaml
-  resource: nlb-aws-controller-no-attributes
-  kind: Service
+  policy: disable-connection-draining
+  resources:
+  - nlb-aws-controller-no-attributes
   result: pass
+  rule: nlb-no-attributes
