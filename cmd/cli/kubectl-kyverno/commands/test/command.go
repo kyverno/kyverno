@@ -13,7 +13,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/filter"
-	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/spf13/cobra"
@@ -32,14 +31,6 @@ func Command() *cobra.Command {
 		Example: command.FormatExamples(examples...),
 		RunE: func(cmd *cobra.Command, dirPath []string) (err error) {
 			color.InitColors(removeColor)
-			defer func() {
-				if err != nil {
-					if !sanitizederror.IsErrorSanitized(err) {
-						log.Log.Error(err, "failed to sanitize")
-						err = fmt.Errorf("internal error")
-					}
-				}
-			}()
 			store.SetRegistryAccess(registryAccess)
 			return testCommandExecute(dirPath, fileName, gitBranch, testCase, failOnly, detailedResults)
 		},
@@ -70,7 +61,7 @@ func testCommandExecute(
 ) (err error) {
 	// check input dir
 	if len(dirPath) == 0 {
-		return sanitizederror.NewWithError("a directory is required", err)
+		return fmt.Errorf("a directory is required")
 	}
 	// parse filter
 	filter, errors := filter.ParseFilter(testCase)
@@ -130,11 +121,11 @@ func testCommandExecute(
 			resourcePath := filepath.Dir(test.Path)
 			responses, err := runTest(openApiManager, test, false)
 			if err != nil {
-				return sanitizederror.NewWithError("failed to run test", err)
+				return fmt.Errorf("failed to run test (%w)", err)
 			}
 			t, err := printTestResult(filteredResults, responses, rc, failOnly, detailedResults, test.Fs, resourcePath)
 			if err != nil {
-				return sanitizederror.NewWithError("failed to print test result:", err)
+				return fmt.Errorf("failed to print test result (%w)", err)
 			}
 			table.AddFailed(t.RawRows...)
 		}

@@ -1,11 +1,10 @@
 package apply
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-
-	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 )
 
 // checkMutateLogPath - checking path for printing mutated resource (-o flag)
@@ -21,10 +20,7 @@ func checkMutateLogPath(mutateLogPath string) (mutateLogPathIsDir bool, err erro
 
 		err := createFileOrFolder(mutateLogPath, mutateLogPathIsDir)
 		if err != nil {
-			if !sanitizederror.IsErrorSanitized(err) {
-				return mutateLogPathIsDir, sanitizederror.NewWithError("failed to create file/folder.", err)
-			}
-			return mutateLogPathIsDir, err
+			return mutateLogPathIsDir, fmt.Errorf("failed to create file/folder (%w)", err)
 		}
 	}
 	return mutateLogPathIsDir, err
@@ -47,7 +43,7 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 					if os.IsNotExist(err) {
 						errDir := os.MkdirAll(folderPath, 0o750)
 						if errDir != nil {
-							return sanitizederror.NewWithError("failed to create directory", err)
+							return fmt.Errorf("failed to create directory (%w)", err)
 						}
 					}
 				}
@@ -56,21 +52,21 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 				// Necessary for us to create the file via variable as it is part of the CLI.
 				file, err := os.OpenFile(mutateLogPath, os.O_RDONLY|os.O_CREATE, 0o600) // #nosec G304
 				if err != nil {
-					return sanitizederror.NewWithError("failed to create file", err)
+					return fmt.Errorf("failed to create file (%w)", err)
 				}
 
 				err = file.Close()
 				if err != nil {
-					return sanitizederror.NewWithError("failed to close file", err)
+					return fmt.Errorf("failed to close file (%w)", err)
 				}
 			} else {
 				errDir := os.MkdirAll(mutateLogPath, 0o750)
 				if errDir != nil {
-					return sanitizederror.NewWithError("failed to create directory", err)
+					return fmt.Errorf("failed to create directory (%w)", err)
 				}
 			}
 		} else {
-			return sanitizederror.NewWithError("failed to describe file", err)
+			return fmt.Errorf("failed to describe file (%w)", err)
 		}
 	}
 
