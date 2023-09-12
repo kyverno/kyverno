@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
-	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -104,9 +103,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		mutateResponse := eng.Mutate(context.Background(), policyContext)
 		err = p.processMutateEngineResponse(mutateResponse, resPath)
 		if err != nil {
-			if !sanitizederror.IsErrorSanitized(err) {
-				return responses, sanitizederror.NewWithError("failed to print mutated result", err)
-			}
+			return responses, fmt.Errorf("failed to print mutated result (%w)", err)
 		}
 		responses = append(responses, mutateResponse)
 		resource = mutateResponse.PatchedResource
@@ -199,12 +196,11 @@ func (p *PolicyProcessor) makePolicyContext(
 		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy, p.Variables.Subresources(), p.Client)
 		vals, err := p.Variables.ComputeVariables(policy.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied /*matches...*/)
 		if err != nil {
-			message := fmt.Sprintf(
-				"policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag",
+			return nil, fmt.Errorf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag (%w)",
 				policy.GetName(),
 				resource.GetName(),
+				err,
 			)
-			return nil, sanitizederror.NewWithError(message, err)
 		}
 		resourceValues = vals
 	}
@@ -239,7 +235,7 @@ func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineR
 	if printMutatedRes && p.PrintPatchResource {
 		yamlEncodedResource, err := yamlv2.Marshal(response.PatchedResource.Object)
 		if err != nil {
-			return sanitizederror.NewWithError("failed to marshal", err)
+			return fmt.Errorf("failed to marshal (%w)", err)
 		}
 
 		if p.MutateLogPath == "" {
@@ -253,7 +249,7 @@ func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineR
 		} else {
 			err := p.printMutatedOutput(string(yamlEncodedResource))
 			if err != nil {
-				return sanitizederror.NewWithError("failed to print mutated result", err)
+				return fmt.Errorf("failed to print mutated result (%w)", err)
 			}
 			fmt.Printf("\n\nMutation:\nMutation has been applied successfully. Check the files.")
 		}
