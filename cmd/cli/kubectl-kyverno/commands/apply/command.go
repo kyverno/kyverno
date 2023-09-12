@@ -69,10 +69,11 @@ func Command() *cobra.Command {
 	var removeColor, detailedResults, table bool
 	applyCommandConfig := &ApplyCommandConfig{}
 	cmd := &cobra.Command{
-		Use:     "apply",
-		Short:   command.FormatDescription(true, websiteUrl, false, description...),
-		Long:    command.FormatDescription(false, websiteUrl, false, description...),
-		Example: command.FormatExamples(examples...),
+		Use:          "apply",
+		Short:        command.FormatDescription(true, websiteUrl, false, description...),
+		Long:         command.FormatDescription(false, websiteUrl, false, description...),
+		Example:      command.FormatExamples(examples...),
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, policyPaths []string) (err error) {
 			color.InitColors(removeColor)
 			applyCommandConfig.PolicyPaths = policyPaths

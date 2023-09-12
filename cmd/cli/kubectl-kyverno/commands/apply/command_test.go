@@ -9,7 +9,7 @@ import (
 
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
-	"gotest.tools/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_Apply(t *testing.T) {
@@ -21,7 +21,7 @@ func Test_Apply(t *testing.T) {
 	}
 	// copy disallow_latest_tag.yaml to local path
 	localFileName, err := copyFileToThisDir("../../../../../test/best_practices/disallow_latest_tag.yaml")
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	defer func() { _ = os.Remove(localFileName) }()
 
 	testcases := []*TestCase{
@@ -322,7 +322,7 @@ func Test_Apply(t *testing.T) {
 		if tc.stdinFile != "" {
 			oldStdin := os.Stdin
 			input, err := os.OpenFile(tc.stdinFile, os.O_RDONLY, 0)
-			assert.NilError(t, err)
+			assert.NoError(t, err)
 			os.Stdin = input
 			defer func() {
 				// Restore original Stdin
@@ -333,10 +333,10 @@ func Test_Apply(t *testing.T) {
 		desc := fmt.Sprintf("Policies: [%s], / Resources: [%s]", strings.Join(tc.config.PolicyPaths, ","), strings.Join(tc.config.ResourcePaths, ","))
 
 		_, _, _, responses, err := tc.config.applyCommandHelper()
-		assert.NilError(t, err, desc)
+		assert.NoError(t, err, desc)
 
 		clustered, _ := report.ComputePolicyReports(tc.config.AuditWarn, responses...)
-		assert.Assert(t, len(clustered) > 0, "policy reports should not be empty: %s", desc)
+		assert.Greater(t, len(clustered), 0, "policy reports should not be empty: %s", desc)
 		combined := []policyreportv1alpha2.ClusterPolicyReport{
 			report.MergeClusterReports(clustered),
 		}
@@ -360,4 +360,15 @@ func copyFileToThisDir(sourceFile string) (string, error) {
 	}
 
 	return filepath.Base(sourceFile), os.WriteFile(filepath.Base(sourceFile), input, 0o644)
+}
+
+func TestCommand(t *testing.T) {
+	cmd := Command()
+	cmd.SetArgs([]string{
+		"../../_testdata/apply/test-1/policy.yaml",
+		"--resource",
+		"../../_testdata/apply/test-1/resources.yaml",
+	})
+	err := cmd.Execute()
+	assert.NoError(t, err)
 }
