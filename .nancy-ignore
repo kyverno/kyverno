@@ -22,3 +22,5 @@ CVE-2023-32082 until=2023-09-30
 CVE-2022-34038 until=2023-09-30
 # golang/github.com/jinzhu/gorm@v1.9.1
 CVE-2019-15562 until=2023-09-30
+# golang/github.com/gofiber/fiber/v2@v2.43.0
+CVE-2023-41338 until=2023-09-30

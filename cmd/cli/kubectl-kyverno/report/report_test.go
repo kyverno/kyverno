@@ -34,8 +34,7 @@ func TestComputeClusterPolicyReports(t *testing.T) {
 			"validation rule 'pods-require-limits' passed.",
 		),
 	)
-	clustered, namespaced, err := ComputePolicyReports(false, er)
-	assert.NilError(t, err)
+	clustered, namespaced := ComputePolicyReports(false, er)
 	assert.Equal(t, len(clustered), 1)
 	assert.Equal(t, len(namespaced), 0)
 	{
@@ -69,8 +68,7 @@ func TestComputePolicyReports(t *testing.T) {
 			"validation rule 'pods-require-limits' passed.",
 		),
 	)
-	clustered, namespaced, err := ComputePolicyReports(false, er)
-	assert.NilError(t, err)
+	clustered, namespaced := ComputePolicyReports(false, er)
 	assert.Equal(t, len(clustered), 0)
 	assert.Equal(t, len(namespaced), 1)
 	{
@@ -104,8 +102,7 @@ func TestComputePolicyReportResultsPerPolicyOld(t *testing.T) {
 			"validation rule 'pods-require-limits' passed.",
 		),
 	)
-	results, err := ComputePolicyReportResultsPerPolicy(false, er)
-	assert.NilError(t, err)
+	results := ComputePolicyReportResultsPerPolicy(false, er)
 	for _, result := range results {
 		assert.Equal(t, len(result), 2)
 		for _, r := range result {
@@ -274,8 +271,7 @@ func TestComputePolicyReportResult(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ComputePolicyReportResult(tt.auditWarn, tt.engineResponse, tt.ruleResponse)
-			assert.NilError(t, err)
+			got := ComputePolicyReportResult(tt.auditWarn, tt.engineResponse, tt.ruleResponse)
 			got.Timestamp = metav1.Timestamp{}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ComputePolicyReportResult() = %v, want %v", got, tt.want)
@@ -300,8 +296,7 @@ func TestComputePolicyReportResultsPerPolicy(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ComputePolicyReportResultsPerPolicy(tt.auditWarn, tt.engineResponses...)
-			assert.NilError(t, err)
+			got := ComputePolicyReportResultsPerPolicy(tt.auditWarn, tt.engineResponses...)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ComputePolicyReportResultsPerPolicy() = %v, want %v", got, tt.want)
 			}

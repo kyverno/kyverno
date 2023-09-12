@@ -13,18 +13,17 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/filter"
-	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/tools/cache"
 )
 
 func Command() *cobra.Command {
-	var cmd *cobra.Command
 	var testCase string
 	var fileName, gitBranch string
 	var registryAccess, failOnly, removeColor, detailedResults bool
-	cmd = &cobra.Command{
+	cmd := &cobra.Command{
 		Use:     "test [local folder or git repository]...",
 		Args:    cobra.MinimumNArgs(1),
 		Short:   command.FormatDescription(true, websiteUrl, false, description...),
@@ -32,14 +31,6 @@ func Command() *cobra.Command {
 		Example: command.FormatExamples(examples...),
 		RunE: func(cmd *cobra.Command, dirPath []string) (err error) {
 			color.InitColors(removeColor)
-			defer func() {
-				if err != nil {
-					if !sanitizederror.IsErrorSanitized(err) {
-						log.Log.Error(err, "failed to sanitize")
-						err = fmt.Errorf("internal error")
-					}
-				}
-			}()
 			store.SetRegistryAccess(registryAccess)
 			return testCommandExecute(dirPath, fileName, gitBranch, testCase, failOnly, detailedResults)
 		},
@@ -70,7 +61,7 @@ func testCommandExecute(
 ) (err error) {
 	// check input dir
 	if len(dirPath) == 0 {
-		return sanitizederror.NewWithError("a directory is required", err)
+		return fmt.Errorf("a directory is required")
 	}
 	// parse filter
 	filter, errors := filter.ParseFilter(testCase)
@@ -118,7 +109,7 @@ func testCommandExecute(
 	for _, test := range tests {
 		if test.Err == nil {
 			// filter results
-			var filteredResults []testapi.TestResults
+			var filteredResults []testapi.TestResult
 			for _, res := range test.Test.Results {
 				if filter.Apply(res) {
 					filteredResults = append(filteredResults, res)
@@ -130,11 +121,11 @@ func testCommandExecute(
 			resourcePath := filepath.Dir(test.Path)
 			responses, err := runTest(openApiManager, test, false)
 			if err != nil {
-				return sanitizederror.NewWithError("failed to run test", err)
+				return fmt.Errorf("failed to run test (%w)", err)
 			}
 			t, err := printTestResult(filteredResults, responses, rc, failOnly, detailedResults, test.Fs, resourcePath)
 			if err != nil {
-				return sanitizederror.NewWithError("failed to print test result:", err)
+				return fmt.Errorf("failed to print test result (%w)", err)
 			}
 			table.AddFailed(t.RawRows...)
 		}
@@ -154,7 +145,7 @@ func testCommandExecute(
 	return nil
 }
 
-func checkResult(test testapi.TestResults, fs billy.Filesystem, resoucePath string, response engineapi.EngineResponse, rule engineapi.RuleResponse) (bool, string, string) {
+func checkResult(test testapi.TestResult, fs billy.Filesystem, resoucePath string, response engineapi.EngineResponse, rule engineapi.RuleResponse) (bool, string, string) {
 	expected := test.Result
 	// fallback to the deprecated field
 	if expected == "" {
@@ -179,31 +170,27 @@ func checkResult(test testapi.TestResults, fs billy.Filesystem, resoucePath stri
 			return false, "Generated resource didn't match the generated resource in the test result", "Resource diff"
 		}
 	}
-	result, err := report.ComputePolicyReportResult(false, response, rule)
-	if err != nil {
-		return false, err.Error(), "Error"
-	}
+	result := report.ComputePolicyReportResult(false, response, rule)
 	if result.Result != expected {
 		return false, result.Message, fmt.Sprintf("Want %s, got %s", expected, result.Result)
 	}
 	return true, result.Message, "Ok"
 }
 
-func lookupEngineResponses(test testapi.TestResults, resourceName string, responses ...engineapi.EngineResponse) []engineapi.EngineResponse {
+func lookupEngineResponses(test testapi.TestResult, resourceName string, responses ...engineapi.EngineResponse) []engineapi.EngineResponse {
 	var matches []engineapi.EngineResponse
 	for _, response := range responses {
 		policy := response.Policy()
 		resource := response.Resource
-		if policy.GetName() != test.Policy {
-			continue
-		}
+		pName := cache.MetaObjectToName(policy.MetaObject()).String()
+		rName := cache.MetaObjectToName(&resource).String()
 		if test.Kind != resource.GetKind() {
 			continue
 		}
-		if resourceName != "" && resourceName != resource.GetName() {
+		if pName != test.Policy {
 			continue
 		}
-		if test.Namespace != "" && test.Namespace != resource.GetNamespace() {
+		if resourceName != "" && rName != resourceName && resource.GetName() != resourceName {
 			continue
 		}
 		matches = append(matches, response)
@@ -211,7 +198,7 @@ func lookupEngineResponses(test testapi.TestResults, resourceName string, respon
 	return matches
 }
 
-func lookupRuleResponses(test testapi.TestResults, responses ...engineapi.RuleResponse) []engineapi.RuleResponse {
+func lookupRuleResponses(test testapi.TestResult, responses ...engineapi.RuleResponse) []engineapi.RuleResponse {
 	var matches []engineapi.RuleResponse
 	// Since there are no rules in case of validating admission policies, responses are returned without checking rule names.
 	if test.IsValidatingAdmissionPolicy {
