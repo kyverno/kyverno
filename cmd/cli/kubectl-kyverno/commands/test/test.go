@@ -15,7 +15,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	pathutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/path"
-	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
@@ -40,9 +39,7 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 	fmt.Println("  Loading values/variables", "...")
 	vars, err := variables.New(testCase.Fs, testDir, testCase.Test.Variables, testCase.Test.Values)
 	if err != nil {
-		if !sanitizederror.IsErrorSanitized(err) {
-			err = sanitizederror.NewWithError("failed to decode yaml", err)
-		}
+		err = fmt.Errorf("failed to decode yaml (%w)", err)
 		return nil, err
 	}
 	// user info
@@ -157,8 +154,7 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
-			message := fmt.Sprintf("failed to apply policies on resource %v", resource.GetName())
-			return nil, sanitizederror.NewWithError(message, err)
+			return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 		}
 		engineResponses = append(engineResponses, ers...)
 	}
@@ -171,8 +167,7 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 		}
 		ers, err := processor.ApplyPolicyOnResource()
 		if err != nil {
-			message := fmt.Sprintf("failed to apply policies on resource %s", resource.GetName())
-			return nil, sanitizederror.NewWithError(message, err)
+			return nil, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
 		}
 		engineResponses = append(engineResponses, ers...)
 	}

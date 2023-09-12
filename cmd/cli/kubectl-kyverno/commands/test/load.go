@@ -10,7 +10,6 @@ import (
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
-	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 )
 
@@ -65,7 +64,7 @@ func loadTest(path string, fileName string, gitBranch string) (test.TestCases, e
 			}
 			yamlFiles, err := gitutils.ListYamls(fs, gitPathToYamls)
 			if err != nil {
-				return nil, sanitizederror.NewWithError("failed to list YAMLs in repository", err)
+				return nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
 			}
 			sort.Strings(yamlFiles)
 			for _, yamlFilePath := range yamlFiles {
