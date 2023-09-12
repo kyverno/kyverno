@@ -17,14 +17,14 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/tools/cache"
 )
 
 func Command() *cobra.Command {
-	var cmd *cobra.Command
 	var testCase string
 	var fileName, gitBranch string
 	var registryAccess, failOnly, removeColor, detailedResults bool
-	cmd = &cobra.Command{
+	cmd := &cobra.Command{
 		Use:     "test [local folder or git repository]...",
 		Args:    cobra.MinimumNArgs(1),
 		Short:   command.FormatDescription(true, websiteUrl, false, description...),
@@ -118,7 +118,7 @@ func testCommandExecute(
 	for _, test := range tests {
 		if test.Err == nil {
 			// filter results
-			var filteredResults []testapi.TestResults
+			var filteredResults []testapi.TestResult
 			for _, res := range test.Test.Results {
 				if filter.Apply(res) {
 					filteredResults = append(filteredResults, res)
@@ -154,7 +154,7 @@ func testCommandExecute(
 	return nil
 }
 
-func checkResult(test testapi.TestResults, fs billy.Filesystem, resoucePath string, response engineapi.EngineResponse, rule engineapi.RuleResponse) (bool, string, string) {
+func checkResult(test testapi.TestResult, fs billy.Filesystem, resoucePath string, response engineapi.EngineResponse, rule engineapi.RuleResponse) (bool, string, string) {
 	expected := test.Result
 	// fallback to the deprecated field
 	if expected == "" {
@@ -179,39 +179,41 @@ func checkResult(test testapi.TestResults, fs billy.Filesystem, resoucePath stri
 			return false, "Generated resource didn't match the generated resource in the test result", "Resource diff"
 		}
 	}
-	result, err := report.ComputePolicyReportResult(false, response, rule)
-	if err != nil {
-		return false, err.Error(), "Error"
-	}
+	result := report.ComputePolicyReportResult(false, response, rule)
 	if result.Result != expected {
 		return false, result.Message, fmt.Sprintf("Want %s, got %s", expected, result.Result)
 	}
 	return true, result.Message, "Ok"
 }
 
-func lookupEngineResponses(test testapi.TestResults, resourceName string, responses ...engineapi.EngineResponse) []engineapi.EngineResponse {
+func lookupEngineResponses(test testapi.TestResult, resourceName string, responses ...engineapi.EngineResponse) []engineapi.EngineResponse {
 	var matches []engineapi.EngineResponse
 	for _, response := range responses {
 		policy := response.Policy()
 		resource := response.Resource
-		if policy.GetName() != test.Policy {
-			continue
-		}
+		pName := cache.MetaObjectToName(policy.MetaObject()).String()
+		rName := cache.MetaObjectToName(&resource).String()
 		if test.Kind != resource.GetKind() {
 			continue
 		}
-		if resourceName != "" && resourceName != resource.GetName() {
+		if pName != test.Policy {
 			continue
 		}
-		if test.Namespace != "" && test.Namespace != resource.GetNamespace() {
+		if resourceName != "" && rName != resourceName && resource.GetName() != resourceName {
 			continue
 		}
+		// if resourceName != "" && resourceName != resource.GetName() {
+		// 	continue
+		// }
+		// if test.Namespace != "" && test.Namespace != resource.GetNamespace() {
+		// 	continue
+		// }
 		matches = append(matches, response)
 	}
 	return matches
 }
 
-func lookupRuleResponses(test testapi.TestResults, responses ...engineapi.RuleResponse) []engineapi.RuleResponse {
+func lookupRuleResponses(test testapi.TestResult, responses ...engineapi.RuleResponse) []engineapi.RuleResponse {
 	var matches []engineapi.RuleResponse
 	// Since there are no rules in case of validating admission policies, responses are returned without checking rule names.
 	if test.IsValidatingAdmissionPolicy {

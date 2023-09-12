@@ -5,10 +5,9 @@ resources:
 - resource.yaml
 results:
 - kind: Scale
-  namespace: default
   policy: enforce-replicas-for-scale-subresource
   resources:
-  - nginx-test
+  - default/nginx-test
   result: fail
   rule: validate-nginx-test
 variables: values.yaml

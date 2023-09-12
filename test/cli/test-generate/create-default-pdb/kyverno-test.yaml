@@ -6,9 +6,8 @@ resources:
 results:
 - generatedResource: generatedResource.yaml
   kind: Deployment
-  namespace: hello-world
   policy: create-default-pdb
   resources:
-  - nginx-deployment
+  - hello-world/nginx-deployment
   result: pass
   rule: create-default-pdb

@@ -4,7 +4,7 @@ import (
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 )
 
-type TestResults struct {
+type TestResultBase struct {
 	// Policy mentions the name of the policy.
 	Policy string `json:"policy"`
 	// Rule mentions the name of the rule in the policy.
@@ -18,17 +18,8 @@ type TestResults struct {
 	// Result mentions the result that the user is expecting.
 	// Possible values are pass, fail and skip.
 	Result policyreportv1alpha2.PolicyResult `json:"result"`
-	// Status mentions the status that the user is expecting.
-	// Possible values are pass, fail and skip.
-	Status policyreportv1alpha2.PolicyResult `json:"status,omitempty"`
-	// Resource mentions the name of the resource on which the policy is to be applied.
-	Resource string `json:"resource,omitempty"`
-	// Resources gives us the list of resources on which the policy is going to be applied.
-	Resources []string `json:"resources"`
 	// Kind mentions the kind of the resource on which the policy is to be applied.
 	Kind string `json:"kind"`
-	// Namespace mentions the namespace of the policy which has namespace scope.
-	Namespace string `json:"namespace,omitempty"`
 	// PatchedResource takes a resource configuration file in yaml format from
 	// the user to compare it against the Kyverno mutated resource configuration.
 	PatchedResource string `json:"patchedResource,omitempty"`
@@ -38,4 +29,24 @@ type TestResults struct {
 	// CloneSourceResource takes the resource configuration file in yaml format
 	// from the user which is meant to be cloned by the generate rule.
 	CloneSourceResource string `json:"cloneSourceResource,omitempty"`
+}
+
+type TestResultDeprecated struct {
+	// Status mentions the status that the user is expecting.
+	// Possible values are pass, fail and skip.
+	// This is DEPRECATED, use `Result` instead.
+	Status policyreportv1alpha2.PolicyResult `json:"status,omitempty"`
+	// Resource mentions the name of the resource on which the policy is to be applied.
+	// This is DEPRECATED, use `Resources` instead.
+	Resource string `json:"resource,omitempty"`
+	// Namespace mentions the namespace of the policy which has namespace scope.
+	// This is DEPRECATED, use a name in the form `<namespace>/<name>` for policies and/or resources instead.
+	Namespace string `json:"namespace,omitempty"`
+}
+
+type TestResult struct {
+	TestResultBase       `json:",inline,omitempty"`
+	TestResultDeprecated `json:",inline,omitempty"`
+	// Resources gives us the list of resources on which the policy is going to be applied.
+	Resources []string `json:"resources"`
 }
