@@ -15,7 +15,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
-	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -99,7 +98,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			return responses, err
 		}
 		mutateResponse := eng.Mutate(context.Background(), policyContext)
-		combineRuleResponses(mutateResponse)
 		err = p.processMutateEngineResponse(mutateResponse, resPath)
 		if err != nil {
 			if !sanitizederror.IsErrorSanitized(err) {
@@ -117,11 +115,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		}
 		// TODO annotation
 		verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
-		if !verifyImageResponse.IsEmpty() {
-			verifyImageResponse = combineRuleResponses(verifyImageResponse)
-			responses = append(responses, verifyImageResponse)
-			resource = verifyImageResponse.PatchedResource
-		}
+		responses = append(responses, verifyImageResponse)
+		resource = verifyImageResponse.PatchedResource
 	}
 	// validate
 	for _, policy := range p.Policies {
@@ -130,26 +125,16 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			return responses, err
 		}
 		validateResponse := eng.Validate(context.TODO(), policyContext)
-		if !validateResponse.IsEmpty() {
-			validateResponse = combineRuleResponses(validateResponse)
-			responses = append(responses, validateResponse)
-			resource = validateResponse.PatchedResource
-		}
+		responses = append(responses, validateResponse)
+		resource = validateResponse.PatchedResource
 	}
 	// generate
 	for _, policy := range p.Policies {
-		var policyHasGenerate bool
-		for _, rule := range autogen.ComputeRules(policy) {
-			if rule.HasGenerate() {
-				policyHasGenerate = true
-			}
-		}
-		if policyHasGenerate {
+		if policyHasGenerate(policy) {
 			policyContext, err := p.makePolicyContext(jp, cfg, resource, policy, namespaceLabels, gvk, subresource)
 			if err != nil {
 				return responses, err
 			}
-
 			generateResponse := eng.ApplyBackgroundChecks(context.TODO(), policyContext)
 			if !generateResponse.IsEmpty() {
 				newRuleResponse, err := handleGeneratePolicy(&generateResponse, *policyContext, p.RuleToCloneSourceResource)
@@ -158,7 +143,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				} else {
 					generateResponse.PolicyResponse.Rules = newRuleResponse
 				}
-				combineRuleResponses(generateResponse)
 				responses = append(responses, generateResponse)
 			}
 			p.Rc.addGenerateResponse(p.AuditWarn, resPath, generateResponse)
