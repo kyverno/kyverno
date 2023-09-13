@@ -5,16 +5,15 @@ resources:
 - resource.yaml
 results:
 - kind: ConfigMap
-  namespace: any-namespace
   policy: limit-configmap-for-sa
   resources:
-  - any-configmap-name-good
+  - any-namespace/any-configmap-name-good
   result: fail
   rule: limit-configmap-for-sa-developer
 - kind: ConfigMap
   policy: limit-configmap-for-sa
   resources:
-  - any-configmap-name-bad
+  - any-namespace/any-configmap-name-bad
   result: skip
   rule: limit-configmap-for-sa-developer
 variables: variables.yaml

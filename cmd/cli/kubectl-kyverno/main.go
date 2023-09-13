@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/experimental"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/spf13/cobra"
 )
@@ -18,7 +19,7 @@ func main() {
 }
 
 func run() error {
-	cmd := commands.RootCommand()
+	cmd := commands.RootCommand(experimental.IsEnabled())
 	if err := configureLogs(cmd); err != nil {
 		return fmt.Errorf("Failed to setup logging (%w)", err)
 	}

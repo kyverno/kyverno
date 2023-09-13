@@ -6,8 +6,8 @@ import (
 	"text/template"
 
 	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/templates"
-	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	"github.com/spf13/cobra"
 )
 
@@ -15,16 +15,19 @@ func Command() *cobra.Command {
 	var path string
 	var globalValues, namespaceSelector, rules, resources []string
 	cmd := &cobra.Command{
-		Use:     "values",
-		Short:   cobrautils.FormatDescription(true, websiteUrl, false, description...),
-		Long:    cobrautils.FormatDescription(false, websiteUrl, false, description...),
-		Example: cobrautils.FormatExamples(examples...),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Use:           "values",
+		Short:         command.FormatDescription(true, websiteUrl, false, description...),
+		Long:          command.FormatDescription(false, websiteUrl, false, description...),
+		Example:       command.FormatExamples(examples...),
+		Args:          cobra.NoArgs,
+		SilenceErrors: true,
+		SilenceUsage:  true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			tmpl, err := template.New("values").Parse(templates.ValuesTemplate)
 			if err != nil {
 				return err
 			}
-			output := os.Stdout
+			output := cmd.OutOrStdout()
 			if path != "" {
 				file, err := os.Create(path)
 				if err != nil {
@@ -34,7 +37,7 @@ func Command() *cobra.Command {
 				output = file
 			}
 			values := valuesapi.Values{
-				GlobalValues: map[string]string{},
+				GlobalValues: map[string]interface{}{},
 			}
 			for _, result := range namespaceSelector {
 				result := parseNamespaceSelector(result)

@@ -2,7 +2,7 @@ package experimental
 
 import "testing"
 
-func TestIsExperimentalEnabled(t *testing.T) {
+func TestIsEnabled(t *testing.T) {
 	tests := []struct {
 		name string
 		env  map[string]string
@@ -54,8 +54,8 @@ func TestIsExperimentalEnabled(t *testing.T) {
 			for k, v := range tt.env {
 				t.Setenv(k, v)
 			}
-			if got := IsExperimentalEnabled(); got != tt.want {
-				t.Errorf("IsExperimentalEnabled() = %v, want %v", got, tt.want)
+			if got := IsEnabled(); got != tt.want {
+				t.Errorf("IsEnabled() = %v, want %v", got, tt.want)
 			}
 		})
 	}

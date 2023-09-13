@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/apply"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/docs"
@@ -9,17 +10,18 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/version"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/experimental"
-	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	"github.com/spf13/cobra"
 )
 
-func RootCommand() *cobra.Command {
+func RootCommand(experimental bool) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "kyverno",
-		Short: cobrautils.FormatDescription(true, websiteUrl, false, description...),
-		Long:  cobrautils.FormatDescription(false, websiteUrl, false, description...),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Use:           "kyverno",
+		Short:         command.FormatDescription(true, websiteUrl, false, description...),
+		Long:          command.FormatDescription(false, websiteUrl, false, description...),
+		Args:          cobra.NoArgs,
+		SilenceErrors: true,
+		SilenceUsage:  true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return cmd.Help()
 		},
 	}
@@ -31,7 +33,7 @@ func RootCommand() *cobra.Command {
 		test.Command(),
 		version.Command(),
 	)
-	if experimental.IsExperimentalEnabled() {
+	if experimental {
 		cmd.AddCommand(
 			fix.Command(),
 			oci.Command(),

@@ -98,6 +98,7 @@ func (c *cache) Set(ctx context.Context, policy kyvernov1.PolicyInterface, ruleN
 	key := generateKey(policy, ruleName, imageRef)
 
 	stored := c.cache.SetWithTTL(key, nil, 1, c.ttl)
+	c.cache.Wait()
 	if stored {
 		return true, nil
 	}

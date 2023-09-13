@@ -5,8 +5,8 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/templates"
-	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
 	"github.com/spf13/cobra"
 )
 
@@ -33,11 +33,14 @@ func Command() *cobra.Command {
 	var options options
 	var pass, fail, skip []string
 	cmd := &cobra.Command{
-		Use:     "test",
-		Short:   cobrautils.FormatDescription(true, websiteUrl, false, description...),
-		Long:    cobrautils.FormatDescription(false, websiteUrl, false, description...),
-		Example: cobrautils.FormatExamples(examples...),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Use:           "test",
+		Short:         command.FormatDescription(true, websiteUrl, false, description...),
+		Long:          command.FormatDescription(false, websiteUrl, false, description...),
+		Example:       command.FormatExamples(examples...),
+		Args:          cobra.NoArgs,
+		SilenceErrors: true,
+		SilenceUsage:  true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			tmpl, err := template.New("test").Parse(templates.TestTemplate)
 			if err != nil {
 				return err
@@ -60,7 +63,7 @@ func Command() *cobra.Command {
 					options.Results = append(options.Results, result)
 				}
 			}
-			output := os.Stdout
+			output := cmd.OutOrStdout()
 			if path != "" {
 				file, err := os.Create(path)
 				if err != nil {

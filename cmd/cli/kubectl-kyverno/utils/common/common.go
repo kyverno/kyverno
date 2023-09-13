@@ -12,7 +12,6 @@ import (
 	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
-	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -20,32 +19,25 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-// RemoveDuplicateAndObjectVariables - remove duplicate variables
-func RemoveDuplicateAndObjectVariables(matches [][]string) string {
-	var variableStr string
-	for _, m := range matches {
-		for _, v := range m {
-			foundVariable := strings.Contains(variableStr, v)
-			if !foundVariable {
-				if !strings.Contains(v, "request.object") && !strings.Contains(v, "element") && v == "elementIndex" {
-					variableStr = variableStr + " " + v
-				}
-			}
-		}
-	}
-	return variableStr
-}
-
 // GetResourceAccordingToResourcePath - get resources according to the resource path
-func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []string,
-	cluster bool, policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, dClient dclient.Interface, namespace string, policyReport bool, isGit bool, policyResourcePath string,
+func GetResourceAccordingToResourcePath(
+	fs billy.Filesystem,
+	resourcePaths []string,
+	cluster bool,
+	policies []kyvernov1.PolicyInterface,
+	validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy,
+	dClient dclient.Interface,
+	namespace string,
+	policyReport bool,
+	policyResourcePath string,
 ) (resources []*unstructured.Unstructured, err error) {
-	if isGit {
-		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, isGit, policyResourcePath)
+	if fs != nil {
+		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, policyResourcePath)
 		if err != nil {
-			return nil, sanitizederror.NewWithError("failed to extract the resources", err)
+			return nil, fmt.Errorf("failed to extract the resources (%w)", err)
 		}
 	} else {
 		if len(resourcePaths) > 0 && resourcePaths[0] == "-" {
@@ -59,7 +51,7 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 				yamlBytes := []byte(resourceStr)
 				resources, err = resource.GetUnstructuredResources(yamlBytes)
 				if err != nil {
-					return nil, sanitizederror.NewWithError("failed to extract the resources", err)
+					return nil, fmt.Errorf("failed to extract the resources (%w)", err)
 				}
 			}
 		} else {
@@ -71,7 +63,7 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 				if fileDesc.IsDir() {
 					files, err := os.ReadDir(resourcePaths[0])
 					if err != nil {
-						return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to parse %v", resourcePaths[0]), err)
+						return nil, fmt.Errorf("failed to parse %v (%w)", resourcePaths[0], err)
 					}
 					listOfFiles := make([]string, 0)
 					for _, file := range files {
@@ -93,8 +85,8 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 	return resources, err
 }
 
-func GetKindsFromPolicy(policy kyvernov1.PolicyInterface, subresources []valuesapi.Subresource, dClient dclient.Interface) map[string]struct{} {
-	kindOnwhichPolicyIsApplied := make(map[string]struct{})
+func GetKindsFromPolicy(policy kyvernov1.PolicyInterface, subresources []valuesapi.Subresource, dClient dclient.Interface) sets.Set[string] {
+	knownkinds := sets.New[string]()
 	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
 			k, err := getKind(kind, subresources, dClient)
@@ -102,7 +94,7 @@ func GetKindsFromPolicy(policy kyvernov1.PolicyInterface, subresources []valuesa
 				fmt.Printf("Error: %s", err.Error())
 				continue
 			}
-			kindOnwhichPolicyIsApplied[k] = struct{}{}
+			knownkinds.Insert(k)
 		}
 		for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
 			k, err := getKind(kind, subresources, dClient)
@@ -110,10 +102,10 @@ func GetKindsFromPolicy(policy kyvernov1.PolicyInterface, subresources []valuesa
 				fmt.Printf("Error: %s", err.Error())
 				continue
 			}
-			kindOnwhichPolicyIsApplied[k] = struct{}{}
+			knownkinds.Insert(k)
 		}
 	}
-	return kindOnwhichPolicyIsApplied
+	return knownkinds
 }
 
 func getKind(kind string, subresources []valuesapi.Subresource, dClient dclient.Interface) (string, error) {
@@ -152,7 +144,7 @@ func getSubresourceKind(groupVersion, parentKind, subresourceName string, subres
 			}
 		}
 	}
-	return "", sanitizederror.NewWithError(fmt.Sprintf("subresource %s not found for parent resource %s", subresourceName, parentKind), nil)
+	return "", fmt.Errorf("subresource %s not found for parent resource %s", subresourceName, parentKind)
 }
 
 func GetGitBranchOrPolicyPaths(gitBranch, repoURL string, policyPaths ...string) (string, string) {

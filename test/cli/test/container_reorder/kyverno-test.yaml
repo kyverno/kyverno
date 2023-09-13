@@ -8,11 +8,6 @@ results:
   policy: check-image
   resources:
   - signed-first
-  result: fail
-  rule: verify-signature
-- kind: Pod
-  policy: check-image
-  resources:
   - unsigned-first
   result: fail
   rule: verify-signature

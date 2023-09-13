@@ -2,8 +2,9 @@ package function
 
 import (
 	"fmt"
+	"io"
 
-	cobrautils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/cobra"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/spf13/cobra"
@@ -13,18 +14,19 @@ import (
 
 func Command() *cobra.Command {
 	return &cobra.Command{
-		Use:          "function [function_name]...",
-		Short:        cobrautils.FormatDescription(true, websiteUrl, false, description...),
-		Long:         cobrautils.FormatDescription(false, websiteUrl, false, description...),
-		Example:      cobrautils.FormatExamples(examples...),
-		SilenceUsage: true,
+		Use:           "function [function_name]...",
+		Short:         command.FormatDescription(true, websiteUrl, false, description...),
+		Long:          command.FormatDescription(false, websiteUrl, false, description...),
+		Example:       command.FormatExamples(examples...),
+		SilenceErrors: true,
+		SilenceUsage:  true,
 		Run: func(cmd *cobra.Command, args []string) {
-			printFunctions(args...)
+			printFunctions(cmd.OutOrStdout(), args...)
 		},
 	}
 }
 
-func printFunctions(names ...string) {
+func printFunctions(out io.Writer, names ...string) {
 	functions := jmespath.GetFunctions(config.NewDefaultConfiguration(false))
 	slices.SortFunc(functions, func(a, b jmespath.FunctionEntry) bool {
 		return a.String() < b.String()
@@ -34,12 +36,12 @@ func printFunctions(names ...string) {
 		if len(namesSet) == 0 || namesSet.Has(function.Name) {
 			note := function.Note
 			function.Note = ""
-			fmt.Println("Name:", function.Name)
-			fmt.Println("  Signature:", function.String())
+			fmt.Fprintln(out, "Name:", function.Name)
+			fmt.Fprintln(out, "  Signature:", function.String())
 			if note != "" {
-				fmt.Println("  Note:     ", note)
+				fmt.Fprintln(out, "  Note:     ", note)
 			}
-			fmt.Println()
+			fmt.Fprintln(out)
 		}
 	}
 }

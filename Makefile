@@ -518,6 +518,11 @@ codegen-cli-docs: $(CLI_BIN) ## Generate CLI docs
 	@rm -rf docs/user/cli && mkdir -p docs/user/cli
 	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) docs -o docs/user/cli --autogenTag=false
 
+.PHONY: codegen-cli-tests
+codegen-cli-tests: $(CLI_BIN) ## Fix CLI test files
+	@echo Fix CLI test files... >&2
+	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix test ./test/cli --save
+
 .PHONY: codegen-docs-all
 codegen-docs-all: codegen-helm-docs codegen-cli-docs codegen-api-docs  ## Generate all docs
 
@@ -649,6 +654,13 @@ verify-manifests: codegen-manifest-all ## Check manifests are up to date
 	@echo 'To correct this, locally run "make codegen-manifest-all", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code ${INSTALL_MANIFEST_PATH}
 
+.PHONY: verify-cli-tests
+verify-cli-tests: ## Check CLI test files are up to date
+	@echo Checking CLI test files are up to date... >&2
+	@git --no-pager diff test/cli
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-cli-tests".' >&2
+	@echo 'To correct this, locally run "make codegen-cli-tests", commit the changes, and re-run tests.' >&2
+	@git diff --quiet --exit-code test/cli
 
 .PHONY: verify-codegen
 verify-codegen: verify-crds verify-client verify-deepcopy verify-docs verify-helm verify-manifests ## Verify all generated code and docs are up to date
@@ -703,7 +715,7 @@ test-cli: test-cli-policies test-cli-local ## Run all CLI tests
 .PHONY: test-cli-policies
 test-cli-policies: $(CLI_BIN) ## Run CLI tests against the policies repository
 	@echo Running cli tests against $(TEST_GIT_REPO)/$(TEST_GIT_BRANCH)... >&2
-	@$(CLI_BIN) test https://github.com/eddycharly/policies/test-refactor
+	@$(CLI_BIN) test $(TEST_GIT_REPO)/$(TEST_GIT_BRANCH)
 
 .PHONY: test-cli-local
 test-cli-local: test-cli-local-validate test-cli-local-mutate test-cli-local-generate test-cli-local-registry test-cli-local-scenarios test-cli-local-selector ## Run local CLI tests

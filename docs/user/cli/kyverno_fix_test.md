@@ -9,7 +9,7 @@ Fix inconsistencies and deprecated usage in Kyverno test files.
   NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
 
 ```
-kyverno fix test [folder]... [flags]
+kyverno fix test [dir]... [flags]
 ```
 
 ### Examples
@@ -28,6 +28,7 @@ kyverno fix test [folder]... [flags]
 ### Options
 
 ```
+      --compress           Compress test results
   -f, --file-name string   Test filename (default "kyverno-test.yaml")
   -h, --help               help for test
       --save               Save fixed file

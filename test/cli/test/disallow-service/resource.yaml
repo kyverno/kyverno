@@ -1,0 +1,13 @@
+# should be skipped
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc1
+  namespace: ns1
+---
+# should fail (wrong namespace)
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc2
+  namespace: ns3
