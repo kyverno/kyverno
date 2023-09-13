@@ -14,12 +14,11 @@ import (
 
 func Command() *cobra.Command {
 	return &cobra.Command{
-		Use:           "function [function_name]...",
-		Short:         command.FormatDescription(true, websiteUrl, false, description...),
-		Long:          command.FormatDescription(false, websiteUrl, false, description...),
-		Example:       command.FormatExamples(examples...),
-		SilenceErrors: true,
-		SilenceUsage:  true,
+		Use:          "function [function_name]...",
+		Short:        command.FormatDescription(true, websiteUrl, false, description...),
+		Long:         command.FormatDescription(false, websiteUrl, false, description...),
+		Example:      command.FormatExamples(examples...),
+		SilenceUsage: true,
 		Run: func(cmd *cobra.Command, args []string) {
 			printFunctions(cmd.OutOrStdout(), args...)
 		},
