@@ -10,13 +10,12 @@ import (
 
 func Command() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:           "jp",
-		Short:         command.FormatDescription(true, websiteUrl, false, description...),
-		Long:          command.FormatDescription(false, websiteUrl, false, description...),
-		Example:       command.FormatExamples(examples...),
-		Args:          cobra.NoArgs,
-		SilenceErrors: true,
-		SilenceUsage:  true,
+		Use:          "jp",
+		Short:        command.FormatDescription(true, websiteUrl, false, description...),
+		Long:         command.FormatDescription(false, websiteUrl, false, description...),
+		Example:      command.FormatExamples(examples...),
+		Args:         cobra.NoArgs,
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return cmd.Help()
 		},

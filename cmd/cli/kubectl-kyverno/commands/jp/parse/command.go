@@ -14,12 +14,11 @@ import (
 func Command() *cobra.Command {
 	var files []string
 	cmd := &cobra.Command{
-		Use:           "parse [-f file|expression]...",
-		Short:         command.FormatDescription(true, websiteUrl, false, description...),
-		Long:          command.FormatDescription(false, websiteUrl, false, description...),
-		Example:       command.FormatExamples(examples...),
-		SilenceErrors: true,
-		SilenceUsage:  true,
+		Use:          "parse [-f file|expression]...",
+		Short:        command.FormatDescription(true, websiteUrl, false, description...),
+		Long:         command.FormatDescription(false, websiteUrl, false, description...),
+		Example:      command.FormatExamples(examples...),
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			expressions, err := loadExpressions(cmd, args, files)
 			if err != nil {
