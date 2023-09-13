@@ -42,7 +42,7 @@ require (
 	github.com/sigstore/k8s-manifest-sigstore v0.4.4
 	github.com/sigstore/sigstore v1.6.3
 	github.com/spf13/cobra v1.7.0
-	github.com/stretchr/testify v1.8.2
+	github.com/stretchr/testify v1.8.4
 	github.com/zach-klippenstein/goregen v0.0.0-20160303162051-795b5e3961ea
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.40.0
 	go.opentelemetry.io/otel v1.14.0
@@ -329,6 +329,6 @@ require (
 )
 
 replace (
-	github.com/jmespath/go-jmespath => github.com/kyverno/go-jmespath v0.4.1-0.20230204162932-3ee946b9433d
+	github.com/jmespath/go-jmespath => github.com/kyverno/go-jmespath v0.4.1-0.20230906134905-62fa64b71f91
 	github.com/sigstore/cosign => github.com/nirmata/cosign v1.13.2-0.20230726092108-615d4da057d8
 )
