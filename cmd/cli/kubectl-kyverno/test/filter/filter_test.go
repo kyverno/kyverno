@@ -12,51 +12,51 @@ func Test_policy_Apply(t *testing.T) {
 	tests := []struct {
 		name   string
 		value  string
-		result testapi.TestResults
+		result testapi.TestResult
 		want   bool
 	}{{
 		name:   "empty result",
 		value:  "test",
-		result: testapi.TestResults{},
+		result: testapi.TestResult{},
 		want:   true,
 	}, {
 		name:  "empty value",
 		value: "",
-		result: testapi.TestResults{
-			Policy: "test",
+		result: testapi.TestResult{
+			TestResultBase: testapi.TestResultBase{Policy: "test"},
 		},
 		want: false,
 	}, {
 		name:   "empty value and result",
 		value:  "",
-		result: testapi.TestResults{},
+		result: testapi.TestResult{},
 		want:   true,
 	}, {
 		name:  "match",
 		value: "test",
-		result: testapi.TestResults{
-			Policy: "test",
+		result: testapi.TestResult{
+			TestResultBase: testapi.TestResultBase{Policy: "test"},
 		},
 		want: true,
 	}, {
 		name:  "no match",
 		value: "test",
-		result: testapi.TestResults{
-			Policy: "not-test",
+		result: testapi.TestResult{
+			TestResultBase: testapi.TestResultBase{Policy: "not-test"},
 		},
 		want: false,
 	}, {
 		name:  "wildcard match",
 		value: "disallow-*",
-		result: testapi.TestResults{
-			Policy: "disallow-latest-tag",
+		result: testapi.TestResult{
+			TestResultBase: testapi.TestResultBase{Policy: "disallow-latest-tag"},
 		},
 		want: true,
 	}, {
 		name:  "wildcard does not match",
 		value: "allow-*",
-		result: testapi.TestResults{
-			Policy: "disallow-latest-tag",
+		result: testapi.TestResult{
+			TestResultBase: testapi.TestResultBase{Policy: "disallow-latest-tag"},
 		},
 		want: false,
 	}}
@@ -76,51 +76,51 @@ func Test_rule_Apply(t *testing.T) {
 	tests := []struct {
 		name   string
 		value  string
-		result testapi.TestResults
+		result testapi.TestResult
 		want   bool
 	}{{
 		name:   "empty result",
 		value:  "test",
-		result: testapi.TestResults{},
+		result: testapi.TestResult{},
 		want:   true,
 	}, {
 		name:  "empty value",
 		value: "",
-		result: testapi.TestResults{
-			Rule: "test",
+		result: testapi.TestResult{
+			TestResultBase: testapi.TestResultBase{Rule: "test"},
 		},
 		want: false,
 	}, {
 		name:   "empty value and result",
 		value:  "",
-		result: testapi.TestResults{},
+		result: testapi.TestResult{},
 		want:   true,
 	}, {
 		name:  "match",
 		value: "test",
-		result: testapi.TestResults{
-			Rule: "test",
+		result: testapi.TestResult{
+			TestResultBase: testapi.TestResultBase{Rule: "test"},
 		},
 		want: true,
 	}, {
 		name:  "no match",
 		value: "test",
-		result: testapi.TestResults{
-			Rule: "not-test",
+		result: testapi.TestResult{
+			TestResultBase: testapi.TestResultBase{Rule: "not-test"},
 		},
 		want: false,
 	}, {
 		name:  "wildcard match",
 		value: "*-image-tag",
-		result: testapi.TestResults{
-			Rule: "validate-image-tag",
+		result: testapi.TestResult{
+			TestResultBase: testapi.TestResultBase{Rule: "validate-image-tag"},
 		},
 		want: true,
 	}, {
 		name:  "wildcard does not match",
 		value: "require-*",
-		result: testapi.TestResults{
-			Rule: "validate-image-tag",
+		result: testapi.TestResult{
+			TestResultBase: testapi.TestResultBase{Rule: "validate-image-tag"},
 		},
 		want: false,
 	}}
@@ -140,51 +140,51 @@ func Test_resource_Apply(t *testing.T) {
 	tests := []struct {
 		name   string
 		value  string
-		result testapi.TestResults
+		result testapi.TestResult
 		want   bool
 	}{{
 		name:   "empty result",
 		value:  "test",
-		result: testapi.TestResults{},
+		result: testapi.TestResult{},
 		want:   true,
 	}, {
 		name:  "empty value",
 		value: "",
-		result: testapi.TestResults{
-			Resource: "test",
+		result: testapi.TestResult{
+			TestResultDeprecated: testapi.TestResultDeprecated{Resource: "test"},
 		},
 		want: false,
 	}, {
 		name:   "empty value and result",
 		value:  "",
-		result: testapi.TestResults{},
+		result: testapi.TestResult{},
 		want:   true,
 	}, {
 		name:  "match",
 		value: "test",
-		result: testapi.TestResults{
-			Resource: "test",
+		result: testapi.TestResult{
+			TestResultDeprecated: testapi.TestResultDeprecated{Resource: "test"},
 		},
 		want: true,
 	}, {
 		name:  "no match",
 		value: "test",
-		result: testapi.TestResults{
-			Resource: "not-test",
+		result: testapi.TestResult{
+			TestResultDeprecated: testapi.TestResultDeprecated{Resource: "not-test"},
 		},
 		want: false,
 	}, {
 		name:  "wildcard match",
 		value: "good*01",
-		result: testapi.TestResults{
-			Resource: "good-deployment-01",
+		result: testapi.TestResult{
+			TestResultDeprecated: testapi.TestResultDeprecated{Resource: "good-deployment-01"},
 		},
 		want: true,
 	}, {
 		name:  "wildcard does not match",
 		value: "good*01",
-		result: testapi.TestResults{
-			Resource: "bad-deployment-01",
+		result: testapi.TestResult{
+			TestResultDeprecated: testapi.TestResultDeprecated{Resource: "bad-deployment-01"},
 		},
 		want: false,
 	}}
@@ -204,46 +204,46 @@ func Test_composite_Apply(t *testing.T) {
 	tests := []struct {
 		name    string
 		filters []Filter
-		result  testapi.TestResults
+		result  testapi.TestResult
 		want    bool
 	}{{
 		name:    "nil",
 		filters: nil,
-		result:  testapi.TestResults{},
+		result:  testapi.TestResult{},
 		want:    true,
 	}, {
 		name:    "empty",
 		filters: []Filter{},
-		result:  testapi.TestResults{},
+		result:  testapi.TestResult{},
 		want:    true,
 	}, {
 		name:    "policy match",
 		filters: []Filter{policy{"test"}},
-		result: testapi.TestResults{
-			Policy: "test",
+		result: testapi.TestResult{
+			TestResultBase: testapi.TestResultBase{Policy: "test"},
 		},
 		want: true,
 	}, {
 		name:    "policy no match",
 		filters: []Filter{policy{"test"}},
-		result: testapi.TestResults{
-			Policy: "not-test",
+		result: testapi.TestResult{
+			TestResultBase: testapi.TestResultBase{Policy: "not-test"},
 		},
 		want: false,
 	}, {
 		name:    "policy and resource match",
 		filters: []Filter{policy{"test"}, resource{"resource"}},
-		result: testapi.TestResults{
-			Policy:   "test",
-			Resource: "resource",
+		result: testapi.TestResult{
+			TestResultBase:       testapi.TestResultBase{Policy: "test"},
+			TestResultDeprecated: testapi.TestResultDeprecated{Resource: "resource"},
 		},
 		want: true,
 	}, {
 		name:    "policy match and resource no match",
 		filters: []Filter{policy{"test"}, resource{"resource"}},
-		result: testapi.TestResults{
-			Policy:   "test",
-			Resource: "not-resource",
+		result: testapi.TestResult{
+			TestResultBase:       testapi.TestResultBase{Policy: "test"},
+			TestResultDeprecated: testapi.TestResultDeprecated{Resource: "not-resource"},
 		},
 		want: false,
 	},

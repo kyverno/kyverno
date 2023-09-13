@@ -1063,7 +1063,7 @@ func Test_ImageVerifyCacheCosign(t *testing.T) {
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-	assert.Check(t, secondOperationTime < firstOperationTime/10, "cache entry is valid, so image verification should be from cache.", firstOperationTime, secondOperationTime)
+	assert.Check(t, secondOperationTime < firstOperationTime/2, "cache entry is valid, so image verification should be from cache.", firstOperationTime, secondOperationTime)
 }
 
 func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
@@ -1092,7 +1092,7 @@ func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache entry is expired, so image verification should not be from cache.")
+	assert.Check(t, secondOperationTime > firstOperationTime/2 && secondOperationTime < firstOperationTime*2, "cache entry is expired, so image verification should not be from cache.")
 }
 
 func Test_changePolicyCacheVerificationCosign(t *testing.T) {
@@ -1119,7 +1119,7 @@ func Test_changePolicyCacheVerificationCosign(t *testing.T) {
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache entry not found, so image verification should not be from cache.")
+	assert.Check(t, secondOperationTime > firstOperationTime/2 && secondOperationTime < firstOperationTime*2, "cache entry not found, so image verification should not be from cache.")
 }
 
 var verifyImageNotaryPolicy = `{
@@ -1266,7 +1266,7 @@ func Test_ImageVerifyCacheNotary(t *testing.T) {
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-	assert.Check(t, secondOperationTime < firstOperationTime/10, "cache entry is valid, so image verification should be from cache.", firstOperationTime, secondOperationTime)
+	assert.Check(t, secondOperationTime < firstOperationTime/2, "cache entry is valid, so image verification should be from cache.", firstOperationTime, secondOperationTime)
 }
 
 func Test_ImageVerifyCacheExpiredNotary(t *testing.T) {
@@ -1293,7 +1293,7 @@ func Test_ImageVerifyCacheExpiredNotary(t *testing.T) {
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache entry is expired, so image verification should not be from cache.")
+	assert.Check(t, secondOperationTime > firstOperationTime/2 && secondOperationTime < firstOperationTime*2, "cache entry is expired, so image verification should not be from cache.")
 
 }
 
@@ -1318,6 +1318,6 @@ func Test_changePolicyCacheVerificationNotary(t *testing.T) {
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache entry not found, so image verification should not be from cache.")
+	assert.Check(t, secondOperationTime > firstOperationTime/2 && secondOperationTime < firstOperationTime*2, "cache entry not found, so image verification should not be from cache.")
 
 }

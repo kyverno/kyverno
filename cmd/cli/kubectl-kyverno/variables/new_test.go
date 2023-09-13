@@ -48,14 +48,14 @@ func TestNew(t *testing.T) {
 		resourcePath: "",
 		path:         "",
 		vals: &valuesapi.Values{
-			GlobalValues: map[string]string{
+			GlobalValues: map[string]interface{}{
 				"bar": "baz",
 			},
 		},
 		vars: nil,
 		want: &Variables{
 			values: &valuesapi.Values{
-				GlobalValues: map[string]string{
+				GlobalValues: map[string]interface{}{
 					"bar": "baz",
 				},
 			},
@@ -67,7 +67,7 @@ func TestNew(t *testing.T) {
 		resourcePath: "",
 		path:         "",
 		vals: &valuesapi.Values{
-			GlobalValues: map[string]string{
+			GlobalValues: map[string]interface{}{
 				"bar": "baz",
 			},
 		},
@@ -76,7 +76,7 @@ func TestNew(t *testing.T) {
 		},
 		want: &Variables{
 			values: &valuesapi.Values{
-				GlobalValues: map[string]string{
+				GlobalValues: map[string]interface{}{
 					"bar": "baz",
 				},
 			},
@@ -169,14 +169,14 @@ func TestNew(t *testing.T) {
 		resourcePath: "",
 		path:         "../_testdata/values/limit-configmap-for-sa.yaml",
 		vals: &valuesapi.Values{
-			GlobalValues: map[string]string{
+			GlobalValues: map[string]interface{}{
 				"bar": "baz",
 			},
 		},
 		vars: nil,
 		want: &Variables{
 			values: &valuesapi.Values{
-				GlobalValues: map[string]string{
+				GlobalValues: map[string]interface{}{
 					"bar": "baz",
 				},
 			},

@@ -1,0 +1,13 @@
+name: bug-demo
+policies:
+- ./policy.yaml
+resources:
+- ./resource.yaml
+results:
+- policy: bug-demo
+  rule: mutate1
+  resources:
+  - pod1
+  kind: Pod
+  patchedResource: patched-resource-pattern.yaml
+  result: pass

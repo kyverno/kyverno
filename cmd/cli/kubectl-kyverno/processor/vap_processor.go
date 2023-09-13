@@ -8,14 +8,18 @@ import (
 )
 
 type ValidatingAdmissionPolicyProcessor struct {
-	ValidatingAdmissionPolicy v1alpha1.ValidatingAdmissionPolicy
-	Resource                  *unstructured.Unstructured
-	PolicyReport              bool
-	Rc                        *ResultCounts
+	Policies     []v1alpha1.ValidatingAdmissionPolicy
+	Resource     *unstructured.Unstructured
+	PolicyReport bool
+	Rc           *ResultCounts
 }
 
 func (p *ValidatingAdmissionPolicyProcessor) ApplyPolicyOnResource() ([]engineapi.EngineResponse, error) {
-	engineResp := validatingadmissionpolicy.Validate(p.ValidatingAdmissionPolicy, *p.Resource)
-	p.Rc.addValidatingAdmissionResponse(p.ValidatingAdmissionPolicy, engineResp)
-	return []engineapi.EngineResponse{engineResp}, nil
+	var responses []engineapi.EngineResponse
+	for _, policy := range p.Policies {
+		response := validatingadmissionpolicy.Validate(policy, *p.Resource)
+		responses = append(responses, response)
+		p.Rc.addValidatingAdmissionResponse(policy, response)
+	}
+	return responses, nil
 }
