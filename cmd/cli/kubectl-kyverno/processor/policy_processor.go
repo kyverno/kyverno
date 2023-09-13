@@ -168,7 +168,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			}
 			generateResponse := eng.ApplyBackgroundChecks(context.TODO(), policyContext)
 			if !generateResponse.IsEmpty() {
-				newRuleResponse, err := handleGeneratePolicy(&generateResponse, *policyContext, p.RuleToCloneSourceResource)
+				newRuleResponse, err := handleGeneratePolicy(p.Out, &generateResponse, *policyContext, p.RuleToCloneSourceResource)
 				if err != nil {
 					log.Log.Error(err, "failed to apply generate policy")
 				} else {
