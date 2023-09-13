@@ -11,7 +11,7 @@ Push policie(s) that are included in an OCI image to OCI registry.
   For more information visit https://kyverno.io/docs/kyverno-cli/#pushing
 
 ```
-kyverno oci push [flags]
+kyverno oci push [dir or file] [flags]
 ```
 
 ### Examples

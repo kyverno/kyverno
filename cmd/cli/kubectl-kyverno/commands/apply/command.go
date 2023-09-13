@@ -74,9 +74,9 @@ func Command() *cobra.Command {
 		Long:         command.FormatDescription(false, websiteUrl, false, description...),
 		Example:      command.FormatExamples(examples...),
 		SilenceUsage: true,
-		RunE: func(cmd *cobra.Command, policyPaths []string) (err error) {
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			color.InitColors(removeColor)
-			applyCommandConfig.PolicyPaths = policyPaths
+			applyCommandConfig.PolicyPaths = args
 			rc, _, skipInvalidPolicies, responses, err := applyCommandConfig.applyCommandHelper()
 			if err != nil {
 				return err
