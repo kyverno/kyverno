@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -49,6 +50,7 @@ type PolicyProcessor struct {
 	Client                    dclient.Interface
 	AuditWarn                 bool
 	Subresources              []valuesapi.Subresource
+	Out                       io.Writer
 }
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
@@ -174,7 +176,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				}
 				responses = append(responses, generateResponse)
 			}
-			p.Rc.addGenerateResponse(p.AuditWarn, resPath, generateResponse)
+			p.Rc.addGenerateResponse(p.Out, p.AuditWarn, resPath, generateResponse)
 		}
 	}
 	p.Rc.addEngineResponses(p.AuditWarn, responses...)
@@ -193,7 +195,7 @@ func (p *PolicyProcessor) makePolicyContext(
 	operation := kyvernov1.Create
 	var resourceValues map[string]interface{}
 	if p.Variables != nil {
-		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy, p.Variables.Subresources(), p.Client)
+		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(p.Out, policy, p.Variables.Subresources(), p.Client)
 		vals, err := p.Variables.ComputeVariables(policy.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied /*matches...*/)
 		if err != nil {
 			return nil, fmt.Errorf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag (%w)",
@@ -305,7 +307,7 @@ func (p *PolicyProcessor) makePolicyContext(
 }
 
 func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineResponse, resourcePath string) error {
-	printMutatedRes := p.Rc.addMutateResponse(resourcePath, response)
+	printMutatedRes := p.Rc.addMutateResponse(p.Out, resourcePath, response)
 	if printMutatedRes && p.PrintPatchResource {
 		yamlEncodedResource, err := yamlv2.Marshal(response.PatchedResource.Object)
 		if err != nil {
@@ -316,16 +318,16 @@ func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineR
 			mutatedResource := string(yamlEncodedResource) + string("\n---")
 			if len(strings.TrimSpace(mutatedResource)) > 0 {
 				if !p.Stdin {
-					fmt.Printf("\nmutate policy %s applied to %s:", response.Policy().GetName(), resourcePath)
+					fmt.Fprintf(p.Out, "\nmutate policy %s applied to %s:", response.Policy().GetName(), resourcePath)
 				}
-				fmt.Printf("\n" + mutatedResource + "\n")
+				fmt.Fprintf(p.Out, "\n"+mutatedResource+"\n")
 			}
 		} else {
 			err := p.printMutatedOutput(string(yamlEncodedResource))
 			if err != nil {
 				return fmt.Errorf("failed to print mutated result (%w)", err)
 			}
-			fmt.Printf("\n\nMutation:\nMutation has been applied successfully. Check the files.")
+			fmt.Fprintf(p.Out, "\n\nMutation:\nMutation has been applied successfully. Check the files.")
 		}
 	}
 	return nil
