@@ -557,7 +557,7 @@ jobs:
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@main
+        uses: sigstore/scaffolding/actions/setup@9fb4937ae18ed8456d725e99cb2871d309673022
       - name: Create test image
         shell: bash
         run: |
@@ -565,7 +565,6 @@ jobs:
           TEST_IMAGE_URL=ttl.sh/${IMAGE_NAME}:1h
           docker build -t $TEST_IMAGE_URL .
           docker push $TEST_IMAGE_URL
-          go install github.com/sigstore/cosign/v2/cmd/cosign@latest
           COSIGN_EXPERIMENTAL=1 cosign sign --fulcio-url http://localhost:5555 --rekor-url http://localhost:3000 us-west1-docker.pkg.dev/project-id/docker-repo/image:tag1
           echo "TEST_IMAGE_URL=$TEST_IMAGE_URL" >> $GITHUB_ENV
       - name: Test with kuttl
