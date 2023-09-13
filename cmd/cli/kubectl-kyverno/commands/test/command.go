@@ -24,11 +24,12 @@ func Command() *cobra.Command {
 	var fileName, gitBranch string
 	var registryAccess, failOnly, removeColor, detailedResults bool
 	cmd := &cobra.Command{
-		Use:     "test [local folder or git repository]...",
-		Args:    cobra.MinimumNArgs(1),
-		Short:   command.FormatDescription(true, websiteUrl, false, description...),
-		Long:    command.FormatDescription(false, websiteUrl, false, description...),
-		Example: command.FormatExamples(examples...),
+		Use:          "test [local folder or git repository]...",
+		Short:        command.FormatDescription(true, websiteUrl, false, description...),
+		Long:         command.FormatDescription(false, websiteUrl, false, description...),
+		Example:      command.FormatExamples(examples...),
+		Args:         cobra.MinimumNArgs(1),
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, dirPath []string) (err error) {
 			color.InitColors(removeColor)
 			store.SetRegistryAccess(registryAccess)

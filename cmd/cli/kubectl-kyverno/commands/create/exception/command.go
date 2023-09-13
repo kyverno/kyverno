@@ -27,13 +27,12 @@ func Command() *cobra.Command {
 	var rules, any, all []string
 	var options options
 	cmd := &cobra.Command{
-		Use:           "exception [name]",
-		Short:         command.FormatDescription(true, websiteUrl, false, description...),
-		Long:          command.FormatDescription(false, websiteUrl, false, description...),
-		Example:       command.FormatExamples(examples...),
-		Args:          cobra.ExactArgs(1),
-		SilenceErrors: true,
-		SilenceUsage:  true,
+		Use:          "exception [name]",
+		Short:        command.FormatDescription(true, websiteUrl, false, description...),
+		Long:         command.FormatDescription(false, websiteUrl, false, description...),
+		Example:      command.FormatExamples(examples...),
+		Args:         cobra.ExactArgs(1),
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			tmpl, err := template.New("exception").Parse(templates.ExceptionTemplate)
 			if err != nil {

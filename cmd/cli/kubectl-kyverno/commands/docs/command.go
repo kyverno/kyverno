@@ -10,17 +10,16 @@ import (
 func Command(root *cobra.Command) *cobra.Command {
 	var options options
 	cmd := &cobra.Command{
-		Use:     "docs",
-		Short:   command.FormatDescription(true, websiteUrl, false, description...),
-		Long:    command.FormatDescription(false, websiteUrl, false, description...),
-		Example: command.FormatExamples(examples...),
-		Args:    cobra.NoArgs,
+		Use:          "docs",
+		Short:        command.FormatDescription(true, websiteUrl, false, description...),
+		Long:         command.FormatDescription(false, websiteUrl, false, description...),
+		Example:      command.FormatExamples(examples...),
+		Args:         cobra.NoArgs,
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := options.validate(root); err != nil {
 				return err
 			}
-			cmd.SilenceUsage = true
-			cmd.SilenceErrors = true
 			return options.execute(root)
 		},
 	}
