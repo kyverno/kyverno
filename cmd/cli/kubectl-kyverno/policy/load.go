@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/pkg/utils/git"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
@@ -22,6 +23,13 @@ import (
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
 	"sigs.k8s.io/kubectl-validate/pkg/validatorfactory"
 )
+
+var client = openapiclient.NewComposite(
+	openapiclient.NewHardcodedBuiltins("1.27"),
+	openapiclient.NewLocalCRDFiles(data.Crds(), data.CrdsFolder),
+)
+
+var factory, _ = validatorfactory.New(client)
 
 func getPolicies(bytes []byte) ([]kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, error) {
 	var policies []kyvernov1.PolicyInterface
@@ -36,11 +44,6 @@ func getPolicies(bytes []byte) ([]kyvernov1.PolicyInterface, []v1alpha1.Validati
 			return nil, nil, err
 		}
 		gvk := metadata.GetObjectKind().GroupVersionKind()
-		client := openapiclient.NewHardcodedBuiltins("1.27")
-		factory, err := validatorfactory.New(client)
-		if err != nil {
-			return nil, nil, err
-		}
 		validator, err := factory.ValidatorsForGVK(gvk)
 		if err != nil {
 			return nil, nil, err
