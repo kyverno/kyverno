@@ -2,6 +2,7 @@ package processor
 
 import (
 	"fmt"
+	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
@@ -17,6 +18,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]string) ([]engineapi.RuleResponse, error) {
@@ -84,7 +87,12 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 		fmt.Printf("Failed to mock dynamic client")
 		return nil, err
 	}
-	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+	gvrs := sets.New[schema.GroupVersionResource]()
+	for _, object := range objects {
+		gvk := object.GetObjectKind().GroupVersionKind()
+		gvrs.Insert(gvk.GroupVersion().WithResource(strings.ToLower(gvk.Kind) + "s"))
+	}
+	client.SetDiscovery(dclient.NewFakeDiscoveryClient(gvrs.UnsortedList()))
 	cfg := config.NewDefaultConfiguration(false)
 	c := generate.NewGenerateControllerWithOnlyClient(client, engine.NewEngine(
 		cfg,
