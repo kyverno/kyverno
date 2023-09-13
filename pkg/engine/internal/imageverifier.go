@@ -564,11 +564,6 @@ func (iv *ImageVerifier) buildCosignVerifier(
 			opts.IgnoreSCT = false
 		}
 
-		if attestor.Keys.TUF != nil {
-			opts.TUFMirror = attestor.Keys.TUF.Mirror
-			opts.TUFRoot = attestor.Keys.TUF.Root
-		}
-
 		opts.SignatureAlgorithm = attestor.Keys.SignatureAlgorithm
 	} else if attestor.Certificates != nil {
 		path = path + ".certificates"
@@ -593,11 +588,6 @@ func (iv *ImageVerifier) buildCosignVerifier(
 			opts.CTLogsPubKey = attestor.Keyless.CTLog.CTLogPubKey
 		} else {
 			opts.IgnoreSCT = false
-		}
-
-		if attestor.Keyless.TUF != nil {
-			opts.TUFMirror = attestor.Keyless.TUF.Mirror
-			opts.TUFRoot = attestor.Keyless.TUF.Root
 		}
 
 		opts.Roots = attestor.Keyless.Roots

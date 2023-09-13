@@ -129,8 +129,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov1.StaticKeyAttestorApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("TargetResourceSpec"):
 		return &kyvernov1.TargetResourceSpecApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("TUF"):
-		return &kyvernov1.TUFApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("UserInfo"):
 		return &kyvernov1.UserInfoApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyStatus"):

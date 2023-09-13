@@ -38,8 +38,6 @@ type Options struct {
 	RekorPubKey          string
 	IgnoreSCT            bool
 	CTLogsPubKey         string
-	TUFRoot              string
-	TUFMirror            string
 	SignatureAlgorithm   string
 	PredicateType        string
 	Type                 string

@@ -186,11 +186,6 @@ type StaticKeyAttestor struct {
 	// If the value is nil, default ctlog public key is used
 	// +kubebuilder:validation:Optional
 	CTLog *CTLog `json:"ctlog,omitempty" yaml:"ctlog,omitempty"`
-
-	// TUF provides root and mirror for the custom sigstore using TUF
-	// If the value is nil, cosign's default TUF is used.
-	// +kubebuilder:validation:Optional
-	TUF *TUF `json:"tuf,omitempty" yaml:"tuf,omitempty"`
 }
 
 type SecretReference struct {
@@ -219,11 +214,6 @@ type CertificateAttestor struct {
 	// If the value is nil, default ctlog public key is used
 	// +kubebuilder:validation:Optional
 	CTLog *CTLog `json:"ctlog,omitempty" yaml:"ctlog,omitempty"`
-
-	// TUF provides root and mirror for the custom sigstore using TUF
-	// If the value is nil, cosign's default TUF is used.
-	// +kubebuilder:validation:Optional
-	TUF *TUF `json:"tuf,omitempty" yaml:"tuf,omitempty"`
 }
 
 type KeylessAttestor struct {
@@ -236,11 +226,6 @@ type KeylessAttestor struct {
 	// If the value is nil, default ctlog public key is used
 	// +kubebuilder:validation:Optional
 	CTLog *CTLog `json:"ctlog,omitempty" yaml:"ctlog,omitempty"`
-
-	// TUF provides root and mirror for the custom sigstore using TUF
-	// If the value is nil, cosign's default TUF is used.
-	// +kubebuilder:validation:Optional
-	TUF *TUF `json:"tuf,omitempty" yaml:"tuf,omitempty"`
 
 	// Issuer is the certificate issuer used for keyless signing.
 	// +kubebuilder:validation:Optional
@@ -284,16 +269,6 @@ type CTLog struct {
 	// CTLogPubKey, if set, is used to validate SCTs against those keys.
 	// +kubebuilder:validation:Optional
 	CTLogPubKey string `json:"pubkey,omitempty" yaml:"pubkey,omitempty"`
-}
-
-type TUF struct {
-	// Root is the path to TUF root file or URL.
-	// +kubebuilder:validation:Required
-	Root string `json:"root,omitempty" yaml:"root,omitempty"`
-
-	// Mirror, is the url of the mirror repository from which files can be downloaded by cosign.
-	// +kubebuilder:validation:Required
-	Mirror string `json:"mirror,omitempty" yaml:"mirror,omitempty"`
 }
 
 // Attestation are checks for signed in-toto Statements that are used to verify the image.

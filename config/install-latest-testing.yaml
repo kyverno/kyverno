@@ -7195,23 +7195,6 @@ spec:
                                               required:
                                               - url
                                               type: object
-                                            tuf:
-                                              description: TUF provides root and mirror
-                                                for the custom sigstore using TUF
-                                                If the value is nil, cosign's default
-                                                TUF is used.
-                                              properties:
-                                                mirror:
-                                                  description: Mirror, is the url
-                                                    of the mirror repository from
-                                                    which files can be downloaded
-                                                    by cosign.
-                                                  type: string
-                                                root:
-                                                  description: Root is the path to
-                                                    TUF root file or URL.
-                                                  type: string
-                                              type: object
                                           type: object
                                         keyless:
                                           description: Keyless is a set of attribute
@@ -7283,23 +7266,6 @@ spec:
                                                 identity used for keyless signing,
                                                 for example the email address
                                               type: string
-                                            tuf:
-                                              description: TUF provides root and mirror
-                                                for the custom sigstore using TUF
-                                                If the value is nil, cosign's default
-                                                TUF is used.
-                                              properties:
-                                                mirror:
-                                                  description: Mirror, is the url
-                                                    of the mirror repository from
-                                                    which files can be downloaded
-                                                    by cosign.
-                                                  type: string
-                                                root:
-                                                  description: Root is the path to
-                                                    TUF root file or URL.
-                                                  type: string
-                                              type: object
                                           type: object
                                         keys:
                                           description: Keys specifies one or more
@@ -7395,23 +7361,6 @@ spec:
                                                 for public keys. Supported values
                                                 are sha256 and sha512
                                               type: string
-                                            tuf:
-                                              description: TUF provides root and mirror
-                                                for the custom sigstore using TUF
-                                                If the value is nil, cosign's default
-                                                TUF is used.
-                                              properties:
-                                                mirror:
-                                                  description: Mirror, is the url
-                                                    of the mirror repository from
-                                                    which files can be downloaded
-                                                    by cosign.
-                                                  type: string
-                                                root:
-                                                  description: Root is the path to
-                                                    TUF root file or URL.
-                                                  type: string
-                                              type: object
                                           type: object
                                         repository:
                                           description: Repository is an optional alternate
@@ -7674,23 +7623,6 @@ spec:
                                                   required:
                                                   - url
                                                   type: object
-                                                tuf:
-                                                  description: TUF provides root and
-                                                    mirror for the custom sigstore
-                                                    using TUF If the value is nil,
-                                                    cosign's default TUF is used.
-                                                  properties:
-                                                    mirror:
-                                                      description: Mirror, is the
-                                                        url of the mirror repository
-                                                        from which files can be downloaded
-                                                        by cosign.
-                                                      type: string
-                                                    root:
-                                                      description: Root is the path
-                                                        to TUF root file or URL.
-                                                      type: string
-                                                  type: object
                                               type: object
                                             keyless:
                                               description: Keyless is a set of attribute
@@ -7764,23 +7696,6 @@ spec:
                                                     identity used for keyless signing,
                                                     for example the email address
                                                   type: string
-                                                tuf:
-                                                  description: TUF provides root and
-                                                    mirror for the custom sigstore
-                                                    using TUF If the value is nil,
-                                                    cosign's default TUF is used.
-                                                  properties:
-                                                    mirror:
-                                                      description: Mirror, is the
-                                                        url of the mirror repository
-                                                        from which files can be downloaded
-                                                        by cosign.
-                                                      type: string
-                                                    root:
-                                                      description: Root is the path
-                                                        to TUF root file or URL.
-                                                      type: string
-                                                  type: object
                                               type: object
                                             keys:
                                               description: Keys specifies one or more
@@ -7882,23 +7797,6 @@ spec:
                                                     for public keys. Supported values
                                                     are sha256 and sha512
                                                   type: string
-                                                tuf:
-                                                  description: TUF provides root and
-                                                    mirror for the custom sigstore
-                                                    using TUF If the value is nil,
-                                                    cosign's default TUF is used.
-                                                  properties:
-                                                    mirror:
-                                                      description: Mirror, is the
-                                                        url of the mirror repository
-                                                        from which files can be downloaded
-                                                        by cosign.
-                                                      type: string
-                                                    root:
-                                                      description: Root is the path
-                                                        to TUF root file or URL.
-                                                      type: string
-                                                  type: object
                                               type: object
                                             repository:
                                               description: Repository is an optional
@@ -8138,22 +8036,6 @@ spec:
                                             required:
                                             - url
                                             type: object
-                                          tuf:
-                                            description: TUF provides root and mirror
-                                              for the custom sigstore using TUF If
-                                              the value is nil, cosign's default TUF
-                                              is used.
-                                            properties:
-                                              mirror:
-                                                description: Mirror, is the url of
-                                                  the mirror repository from which
-                                                  files can be downloaded by cosign.
-                                                type: string
-                                              root:
-                                                description: Root is the path to TUF
-                                                  root file or URL.
-                                                type: string
-                                            type: object
                                         type: object
                                       keyless:
                                         description: Keyless is a set of attribute
@@ -8225,22 +8107,6 @@ spec:
                                               used for keyless signing, for example
                                               the email address
                                             type: string
-                                          tuf:
-                                            description: TUF provides root and mirror
-                                              for the custom sigstore using TUF If
-                                              the value is nil, cosign's default TUF
-                                              is used.
-                                            properties:
-                                              mirror:
-                                                description: Mirror, is the url of
-                                                  the mirror repository from which
-                                                  files can be downloaded by cosign.
-                                                type: string
-                                              root:
-                                                description: Root is the path to TUF
-                                                  root file or URL.
-                                                type: string
-                                            type: object
                                         type: object
                                       keys:
                                         description: Keys specifies one or more public
@@ -8335,22 +8201,6 @@ spec:
                                               for public keys. Supported values are
                                               sha256 and sha512
                                             type: string
-                                          tuf:
-                                            description: TUF provides root and mirror
-                                              for the custom sigstore using TUF If
-                                              the value is nil, cosign's default TUF
-                                              is used.
-                                            properties:
-                                              mirror:
-                                                description: Mirror, is the url of
-                                                  the mirror repository from which
-                                                  files can be downloaded by cosign.
-                                                type: string
-                                              root:
-                                                description: Root is the path to TUF
-                                                  root file or URL.
-                                                type: string
-                                            type: object
                                         type: object
                                       repository:
                                         description: Repository is an optional alternate
@@ -11766,23 +11616,6 @@ spec:
                                                   required:
                                                   - url
                                                   type: object
-                                                tuf:
-                                                  description: TUF provides root and
-                                                    mirror for the custom sigstore
-                                                    using TUF If the value is nil,
-                                                    cosign's default TUF is used.
-                                                  properties:
-                                                    mirror:
-                                                      description: Mirror, is the
-                                                        url of the mirror repository
-                                                        from which files can be downloaded
-                                                        by cosign.
-                                                      type: string
-                                                    root:
-                                                      description: Root is the path
-                                                        to TUF root file or URL.
-                                                      type: string
-                                                  type: object
                                               type: object
                                             keyless:
                                               description: Keyless is a set of attribute
@@ -11856,23 +11689,6 @@ spec:
                                                     identity used for keyless signing,
                                                     for example the email address
                                                   type: string
-                                                tuf:
-                                                  description: TUF provides root and
-                                                    mirror for the custom sigstore
-                                                    using TUF If the value is nil,
-                                                    cosign's default TUF is used.
-                                                  properties:
-                                                    mirror:
-                                                      description: Mirror, is the
-                                                        url of the mirror repository
-                                                        from which files can be downloaded
-                                                        by cosign.
-                                                      type: string
-                                                    root:
-                                                      description: Root is the path
-                                                        to TUF root file or URL.
-                                                      type: string
-                                                  type: object
                                               type: object
                                             keys:
                                               description: Keys specifies one or more
@@ -11974,23 +11790,6 @@ spec:
                                                     for public keys. Supported values
                                                     are sha256 and sha512
                                                   type: string
-                                                tuf:
-                                                  description: TUF provides root and
-                                                    mirror for the custom sigstore
-                                                    using TUF If the value is nil,
-                                                    cosign's default TUF is used.
-                                                  properties:
-                                                    mirror:
-                                                      description: Mirror, is the
-                                                        url of the mirror repository
-                                                        from which files can be downloaded
-                                                        by cosign.
-                                                      type: string
-                                                    root:
-                                                      description: Root is the path
-                                                        to TUF root file or URL.
-                                                      type: string
-                                                  type: object
                                               type: object
                                             repository:
                                               description: Repository is an optional
@@ -12265,26 +12064,6 @@ spec:
                                                       required:
                                                       - url
                                                       type: object
-                                                    tuf:
-                                                      description: TUF provides root
-                                                        and mirror for the custom
-                                                        sigstore using TUF If the
-                                                        value is nil, cosign's default
-                                                        TUF is used.
-                                                      properties:
-                                                        mirror:
-                                                          description: Mirror, is
-                                                            the url of the mirror
-                                                            repository from which
-                                                            files can be downloaded
-                                                            by cosign.
-                                                          type: string
-                                                        root:
-                                                          description: Root is the
-                                                            path to TUF root file
-                                                            or URL.
-                                                          type: string
-                                                      type: object
                                                   type: object
                                                 keyless:
                                                   description: Keyless is a set of
@@ -12364,26 +12143,6 @@ spec:
                                                         keyless signing, for example
                                                         the email address
                                                       type: string
-                                                    tuf:
-                                                      description: TUF provides root
-                                                        and mirror for the custom
-                                                        sigstore using TUF If the
-                                                        value is nil, cosign's default
-                                                        TUF is used.
-                                                      properties:
-                                                        mirror:
-                                                          description: Mirror, is
-                                                            the url of the mirror
-                                                            repository from which
-                                                            files can be downloaded
-                                                            by cosign.
-                                                          type: string
-                                                        root:
-                                                          description: Root is the
-                                                            path to TUF root file
-                                                            or URL.
-                                                          type: string
-                                                      type: object
                                                   type: object
                                                 keys:
                                                   description: Keys specifies one
@@ -12493,26 +12252,6 @@ spec:
                                                         Supported values are sha256
                                                         and sha512
                                                       type: string
-                                                    tuf:
-                                                      description: TUF provides root
-                                                        and mirror for the custom
-                                                        sigstore using TUF If the
-                                                        value is nil, cosign's default
-                                                        TUF is used.
-                                                      properties:
-                                                        mirror:
-                                                          description: Mirror, is
-                                                            the url of the mirror
-                                                            repository from which
-                                                            files can be downloaded
-                                                            by cosign.
-                                                          type: string
-                                                        root:
-                                                          description: Root is the
-                                                            path to TUF root file
-                                                            or URL.
-                                                          type: string
-                                                      type: object
                                                   type: object
                                                 repository:
                                                   description: Repository is an optional
@@ -12759,23 +12498,6 @@ spec:
                                                 required:
                                                 - url
                                                 type: object
-                                              tuf:
-                                                description: TUF provides root and
-                                                  mirror for the custom sigstore using
-                                                  TUF If the value is nil, cosign's
-                                                  default TUF is used.
-                                                properties:
-                                                  mirror:
-                                                    description: Mirror, is the url
-                                                      of the mirror repository from
-                                                      which files can be downloaded
-                                                      by cosign.
-                                                    type: string
-                                                  root:
-                                                    description: Root is the path
-                                                      to TUF root file or URL.
-                                                    type: string
-                                                type: object
                                             type: object
                                           keyless:
                                             description: Keyless is a set of attribute
@@ -12848,23 +12570,6 @@ spec:
                                                   identity used for keyless signing,
                                                   for example the email address
                                                 type: string
-                                              tuf:
-                                                description: TUF provides root and
-                                                  mirror for the custom sigstore using
-                                                  TUF If the value is nil, cosign's
-                                                  default TUF is used.
-                                                properties:
-                                                  mirror:
-                                                    description: Mirror, is the url
-                                                      of the mirror repository from
-                                                      which files can be downloaded
-                                                      by cosign.
-                                                    type: string
-                                                  root:
-                                                    description: Root is the path
-                                                      to TUF root file or URL.
-                                                    type: string
-                                                type: object
                                             type: object
                                           keys:
                                             description: Keys specifies one or more
@@ -12964,23 +12669,6 @@ spec:
                                                   for public keys. Supported values
                                                   are sha256 and sha512
                                                 type: string
-                                              tuf:
-                                                description: TUF provides root and
-                                                  mirror for the custom sigstore using
-                                                  TUF If the value is nil, cosign's
-                                                  default TUF is used.
-                                                properties:
-                                                  mirror:
-                                                    description: Mirror, is the url
-                                                      of the mirror repository from
-                                                      which files can be downloaded
-                                                      by cosign.
-                                                    type: string
-                                                  root:
-                                                    description: Root is the path
-                                                      to TUF root file or URL.
-                                                    type: string
-                                                type: object
                                             type: object
                                           repository:
                                             description: Repository is an optional
@@ -16126,23 +15814,6 @@ spec:
                                               required:
                                               - url
                                               type: object
-                                            tuf:
-                                              description: TUF provides root and mirror
-                                                for the custom sigstore using TUF
-                                                If the value is nil, cosign's default
-                                                TUF is used.
-                                              properties:
-                                                mirror:
-                                                  description: Mirror, is the url
-                                                    of the mirror repository from
-                                                    which files can be downloaded
-                                                    by cosign.
-                                                  type: string
-                                                root:
-                                                  description: Root is the path to
-                                                    TUF root file or URL.
-                                                  type: string
-                                              type: object
                                           type: object
                                         keyless:
                                           description: Keyless is a set of attribute
@@ -16214,23 +15885,6 @@ spec:
                                                 identity used for keyless signing,
                                                 for example the email address
                                               type: string
-                                            tuf:
-                                              description: TUF provides root and mirror
-                                                for the custom sigstore using TUF
-                                                If the value is nil, cosign's default
-                                                TUF is used.
-                                              properties:
-                                                mirror:
-                                                  description: Mirror, is the url
-                                                    of the mirror repository from
-                                                    which files can be downloaded
-                                                    by cosign.
-                                                  type: string
-                                                root:
-                                                  description: Root is the path to
-                                                    TUF root file or URL.
-                                                  type: string
-                                              type: object
                                           type: object
                                         keys:
                                           description: Keys specifies one or more
@@ -16326,23 +15980,6 @@ spec:
                                                 for public keys. Supported values
                                                 are sha256 and sha512
                                               type: string
-                                            tuf:
-                                              description: TUF provides root and mirror
-                                                for the custom sigstore using TUF
-                                                If the value is nil, cosign's default
-                                                TUF is used.
-                                              properties:
-                                                mirror:
-                                                  description: Mirror, is the url
-                                                    of the mirror repository from
-                                                    which files can be downloaded
-                                                    by cosign.
-                                                  type: string
-                                                root:
-                                                  description: Root is the path to
-                                                    TUF root file or URL.
-                                                  type: string
-                                              type: object
                                           type: object
                                         repository:
                                           description: Repository is an optional alternate
@@ -16594,23 +16231,6 @@ spec:
                                                   required:
                                                   - url
                                                   type: object
-                                                tuf:
-                                                  description: TUF provides root and
-                                                    mirror for the custom sigstore
-                                                    using TUF If the value is nil,
-                                                    cosign's default TUF is used.
-                                                  properties:
-                                                    mirror:
-                                                      description: Mirror, is the
-                                                        url of the mirror repository
-                                                        from which files can be downloaded
-                                                        by cosign.
-                                                      type: string
-                                                    root:
-                                                      description: Root is the path
-                                                        to TUF root file or URL.
-                                                      type: string
-                                                  type: object
                                               type: object
                                             keyless:
                                               description: Keyless is a set of attribute
@@ -16684,23 +16304,6 @@ spec:
                                                     identity used for keyless signing,
                                                     for example the email address
                                                   type: string
-                                                tuf:
-                                                  description: TUF provides root and
-                                                    mirror for the custom sigstore
-                                                    using TUF If the value is nil,
-                                                    cosign's default TUF is used.
-                                                  properties:
-                                                    mirror:
-                                                      description: Mirror, is the
-                                                        url of the mirror repository
-                                                        from which files can be downloaded
-                                                        by cosign.
-                                                      type: string
-                                                    root:
-                                                      description: Root is the path
-                                                        to TUF root file or URL.
-                                                      type: string
-                                                  type: object
                                               type: object
                                             keys:
                                               description: Keys specifies one or more
@@ -16802,23 +16405,6 @@ spec:
                                                     for public keys. Supported values
                                                     are sha256 and sha512
                                                   type: string
-                                                tuf:
-                                                  description: TUF provides root and
-                                                    mirror for the custom sigstore
-                                                    using TUF If the value is nil,
-                                                    cosign's default TUF is used.
-                                                  properties:
-                                                    mirror:
-                                                      description: Mirror, is the
-                                                        url of the mirror repository
-                                                        from which files can be downloaded
-                                                        by cosign.
-                                                      type: string
-                                                    root:
-                                                      description: Root is the path
-                                                        to TUF root file or URL.
-                                                      type: string
-                                                  type: object
                                               type: object
                                             repository:
                                               description: Repository is an optional
@@ -17058,22 +16644,6 @@ spec:
                                             required:
                                             - url
                                             type: object
-                                          tuf:
-                                            description: TUF provides root and mirror
-                                              for the custom sigstore using TUF If
-                                              the value is nil, cosign's default TUF
-                                              is used.
-                                            properties:
-                                              mirror:
-                                                description: Mirror, is the url of
-                                                  the mirror repository from which
-                                                  files can be downloaded by cosign.
-                                                type: string
-                                              root:
-                                                description: Root is the path to TUF
-                                                  root file or URL.
-                                                type: string
-                                            type: object
                                         type: object
                                       keyless:
                                         description: Keyless is a set of attribute
@@ -17145,22 +16715,6 @@ spec:
                                               used for keyless signing, for example
                                               the email address
                                             type: string
-                                          tuf:
-                                            description: TUF provides root and mirror
-                                              for the custom sigstore using TUF If
-                                              the value is nil, cosign's default TUF
-                                              is used.
-                                            properties:
-                                              mirror:
-                                                description: Mirror, is the url of
-                                                  the mirror repository from which
-                                                  files can be downloaded by cosign.
-                                                type: string
-                                              root:
-                                                description: Root is the path to TUF
-                                                  root file or URL.
-                                                type: string
-                                            type: object
                                         type: object
                                       keys:
                                         description: Keys specifies one or more public
@@ -17255,22 +16809,6 @@ spec:
                                               for public keys. Supported values are
                                               sha256 and sha512
                                             type: string
-                                          tuf:
-                                            description: TUF provides root and mirror
-                                              for the custom sigstore using TUF If
-                                              the value is nil, cosign's default TUF
-                                              is used.
-                                            properties:
-                                              mirror:
-                                                description: Mirror, is the url of
-                                                  the mirror repository from which
-                                                  files can be downloaded by cosign.
-                                                type: string
-                                              root:
-                                                description: Root is the path to TUF
-                                                  root file or URL.
-                                                type: string
-                                            type: object
                                         type: object
                                       repository:
                                         description: Repository is an optional alternate
@@ -20671,23 +20209,6 @@ spec:
                                                   required:
                                                   - url
                                                   type: object
-                                                tuf:
-                                                  description: TUF provides root and
-                                                    mirror for the custom sigstore
-                                                    using TUF If the value is nil,
-                                                    cosign's default TUF is used.
-                                                  properties:
-                                                    mirror:
-                                                      description: Mirror, is the
-                                                        url of the mirror repository
-                                                        from which files can be downloaded
-                                                        by cosign.
-                                                      type: string
-                                                    root:
-                                                      description: Root is the path
-                                                        to TUF root file or URL.
-                                                      type: string
-                                                  type: object
                                               type: object
                                             keyless:
                                               description: Keyless is a set of attribute
@@ -20761,23 +20282,6 @@ spec:
                                                     identity used for keyless signing,
                                                     for example the email address
                                                   type: string
-                                                tuf:
-                                                  description: TUF provides root and
-                                                    mirror for the custom sigstore
-                                                    using TUF If the value is nil,
-                                                    cosign's default TUF is used.
-                                                  properties:
-                                                    mirror:
-                                                      description: Mirror, is the
-                                                        url of the mirror repository
-                                                        from which files can be downloaded
-                                                        by cosign.
-                                                      type: string
-                                                    root:
-                                                      description: Root is the path
-                                                        to TUF root file or URL.
-                                                      type: string
-                                                  type: object
                                               type: object
                                             keys:
                                               description: Keys specifies one or more
@@ -20879,23 +20383,6 @@ spec:
                                                     for public keys. Supported values
                                                     are sha256 and sha512
                                                   type: string
-                                                tuf:
-                                                  description: TUF provides root and
-                                                    mirror for the custom sigstore
-                                                    using TUF If the value is nil,
-                                                    cosign's default TUF is used.
-                                                  properties:
-                                                    mirror:
-                                                      description: Mirror, is the
-                                                        url of the mirror repository
-                                                        from which files can be downloaded
-                                                        by cosign.
-                                                      type: string
-                                                    root:
-                                                      description: Root is the path
-                                                        to TUF root file or URL.
-                                                      type: string
-                                                  type: object
                                               type: object
                                             repository:
                                               description: Repository is an optional
@@ -21170,26 +20657,6 @@ spec:
                                                       required:
                                                       - url
                                                       type: object
-                                                    tuf:
-                                                      description: TUF provides root
-                                                        and mirror for the custom
-                                                        sigstore using TUF If the
-                                                        value is nil, cosign's default
-                                                        TUF is used.
-                                                      properties:
-                                                        mirror:
-                                                          description: Mirror, is
-                                                            the url of the mirror
-                                                            repository from which
-                                                            files can be downloaded
-                                                            by cosign.
-                                                          type: string
-                                                        root:
-                                                          description: Root is the
-                                                            path to TUF root file
-                                                            or URL.
-                                                          type: string
-                                                      type: object
                                                   type: object
                                                 keyless:
                                                   description: Keyless is a set of
@@ -21269,26 +20736,6 @@ spec:
                                                         keyless signing, for example
                                                         the email address
                                                       type: string
-                                                    tuf:
-                                                      description: TUF provides root
-                                                        and mirror for the custom
-                                                        sigstore using TUF If the
-                                                        value is nil, cosign's default
-                                                        TUF is used.
-                                                      properties:
-                                                        mirror:
-                                                          description: Mirror, is
-                                                            the url of the mirror
-                                                            repository from which
-                                                            files can be downloaded
-                                                            by cosign.
-                                                          type: string
-                                                        root:
-                                                          description: Root is the
-                                                            path to TUF root file
-                                                            or URL.
-                                                          type: string
-                                                      type: object
                                                   type: object
                                                 keys:
                                                   description: Keys specifies one
@@ -21398,26 +20845,6 @@ spec:
                                                         Supported values are sha256
                                                         and sha512
                                                       type: string
-                                                    tuf:
-                                                      description: TUF provides root
-                                                        and mirror for the custom
-                                                        sigstore using TUF If the
-                                                        value is nil, cosign's default
-                                                        TUF is used.
-                                                      properties:
-                                                        mirror:
-                                                          description: Mirror, is
-                                                            the url of the mirror
-                                                            repository from which
-                                                            files can be downloaded
-                                                            by cosign.
-                                                          type: string
-                                                        root:
-                                                          description: Root is the
-                                                            path to TUF root file
-                                                            or URL.
-                                                          type: string
-                                                      type: object
                                                   type: object
                                                 repository:
                                                   description: Repository is an optional
@@ -21664,23 +21091,6 @@ spec:
                                                 required:
                                                 - url
                                                 type: object
-                                              tuf:
-                                                description: TUF provides root and
-                                                  mirror for the custom sigstore using
-                                                  TUF If the value is nil, cosign's
-                                                  default TUF is used.
-                                                properties:
-                                                  mirror:
-                                                    description: Mirror, is the url
-                                                      of the mirror repository from
-                                                      which files can be downloaded
-                                                      by cosign.
-                                                    type: string
-                                                  root:
-                                                    description: Root is the path
-                                                      to TUF root file or URL.
-                                                    type: string
-                                                type: object
                                             type: object
                                           keyless:
                                             description: Keyless is a set of attribute
@@ -21753,23 +21163,6 @@ spec:
                                                   identity used for keyless signing,
                                                   for example the email address
                                                 type: string
-                                              tuf:
-                                                description: TUF provides root and
-                                                  mirror for the custom sigstore using
-                                                  TUF If the value is nil, cosign's
-                                                  default TUF is used.
-                                                properties:
-                                                  mirror:
-                                                    description: Mirror, is the url
-                                                      of the mirror repository from
-                                                      which files can be downloaded
-                                                      by cosign.
-                                                    type: string
-                                                  root:
-                                                    description: Root is the path
-                                                      to TUF root file or URL.
-                                                    type: string
-                                                type: object
                                             type: object
                                           keys:
                                             description: Keys specifies one or more
@@ -21869,23 +21262,6 @@ spec:
                                                   for public keys. Supported values
                                                   are sha256 and sha512
                                                 type: string
-                                              tuf:
-                                                description: TUF provides root and
-                                                  mirror for the custom sigstore using
-                                                  TUF If the value is nil, cosign's
-                                                  default TUF is used.
-                                                properties:
-                                                  mirror:
-                                                    description: Mirror, is the url
-                                                      of the mirror repository from
-                                                      which files can be downloaded
-                                                      by cosign.
-                                                    type: string
-                                                  root:
-                                                    description: Root is the path
-                                                      to TUF root file or URL.
-                                                    type: string
-                                                type: object
                                             type: object
                                           repository:
                                             description: Repository is an optional
@@ -25305,23 +24681,6 @@ spec:
                                               required:
                                               - url
                                               type: object
-                                            tuf:
-                                              description: TUF provides root and mirror
-                                                for the custom sigstore using TUF
-                                                If the value is nil, cosign's default
-                                                TUF is used.
-                                              properties:
-                                                mirror:
-                                                  description: Mirror, is the url
-                                                    of the mirror repository from
-                                                    which files can be downloaded
-                                                    by cosign.
-                                                  type: string
-                                                root:
-                                                  description: Root is the path to
-                                                    TUF root file or URL.
-                                                  type: string
-                                              type: object
                                           type: object
                                         keyless:
                                           description: Keyless is a set of attribute
@@ -25393,23 +24752,6 @@ spec:
                                                 identity used for keyless signing,
                                                 for example the email address
                                               type: string
-                                            tuf:
-                                              description: TUF provides root and mirror
-                                                for the custom sigstore using TUF
-                                                If the value is nil, cosign's default
-                                                TUF is used.
-                                              properties:
-                                                mirror:
-                                                  description: Mirror, is the url
-                                                    of the mirror repository from
-                                                    which files can be downloaded
-                                                    by cosign.
-                                                  type: string
-                                                root:
-                                                  description: Root is the path to
-                                                    TUF root file or URL.
-                                                  type: string
-                                              type: object
                                           type: object
                                         keys:
                                           description: Keys specifies one or more
@@ -25505,23 +24847,6 @@ spec:
                                                 for public keys. Supported values
                                                 are sha256 and sha512
                                               type: string
-                                            tuf:
-                                              description: TUF provides root and mirror
-                                                for the custom sigstore using TUF
-                                                If the value is nil, cosign's default
-                                                TUF is used.
-                                              properties:
-                                                mirror:
-                                                  description: Mirror, is the url
-                                                    of the mirror repository from
-                                                    which files can be downloaded
-                                                    by cosign.
-                                                  type: string
-                                                root:
-                                                  description: Root is the path to
-                                                    TUF root file or URL.
-                                                  type: string
-                                              type: object
                                           type: object
                                         repository:
                                           description: Repository is an optional alternate
@@ -25784,23 +25109,6 @@ spec:
                                                   required:
                                                   - url
                                                   type: object
-                                                tuf:
-                                                  description: TUF provides root and
-                                                    mirror for the custom sigstore
-                                                    using TUF If the value is nil,
-                                                    cosign's default TUF is used.
-                                                  properties:
-                                                    mirror:
-                                                      description: Mirror, is the
-                                                        url of the mirror repository
-                                                        from which files can be downloaded
-                                                        by cosign.
-                                                      type: string
-                                                    root:
-                                                      description: Root is the path
-                                                        to TUF root file or URL.
-                                                      type: string
-                                                  type: object
                                               type: object
                                             keyless:
                                               description: Keyless is a set of attribute
@@ -25874,23 +25182,6 @@ spec:
                                                     identity used for keyless signing,
                                                     for example the email address
                                                   type: string
-                                                tuf:
-                                                  description: TUF provides root and
-                                                    mirror for the custom sigstore
-                                                    using TUF If the value is nil,
-                                                    cosign's default TUF is used.
-                                                  properties:
-                                                    mirror:
-                                                      description: Mirror, is the
-                                                        url of the mirror repository
-                                                        from which files can be downloaded
-                                                        by cosign.
-                                                      type: string
-                                                    root:
-                                                      description: Root is the path
-                                                        to TUF root file or URL.
-                                                      type: string
-                                                  type: object
                                               type: object
                                             keys:
                                               description: Keys specifies one or more
@@ -25992,23 +25283,6 @@ spec:
                                                     for public keys. Supported values
                                                     are sha256 and sha512
                                                   type: string
-                                                tuf:
-                                                  description: TUF provides root and
-                                                    mirror for the custom sigstore
-                                                    using TUF If the value is nil,
-                                                    cosign's default TUF is used.
-                                                  properties:
-                                                    mirror:
-                                                      description: Mirror, is the
-                                                        url of the mirror repository
-                                                        from which files can be downloaded
-                                                        by cosign.
-                                                      type: string
-                                                    root:
-                                                      description: Root is the path
-                                                        to TUF root file or URL.
-                                                      type: string
-                                                  type: object
                                               type: object
                                             repository:
                                               description: Repository is an optional
@@ -26248,22 +25522,6 @@ spec:
                                             required:
                                             - url
                                             type: object
-                                          tuf:
-                                            description: TUF provides root and mirror
-                                              for the custom sigstore using TUF If
-                                              the value is nil, cosign's default TUF
-                                              is used.
-                                            properties:
-                                              mirror:
-                                                description: Mirror, is the url of
-                                                  the mirror repository from which
-                                                  files can be downloaded by cosign.
-                                                type: string
-                                              root:
-                                                description: Root is the path to TUF
-                                                  root file or URL.
-                                                type: string
-                                            type: object
                                         type: object
                                       keyless:
                                         description: Keyless is a set of attribute
@@ -26335,22 +25593,6 @@ spec:
                                               used for keyless signing, for example
                                               the email address
                                             type: string
-                                          tuf:
-                                            description: TUF provides root and mirror
-                                              for the custom sigstore using TUF If
-                                              the value is nil, cosign's default TUF
-                                              is used.
-                                            properties:
-                                              mirror:
-                                                description: Mirror, is the url of
-                                                  the mirror repository from which
-                                                  files can be downloaded by cosign.
-                                                type: string
-                                              root:
-                                                description: Root is the path to TUF
-                                                  root file or URL.
-                                                type: string
-                                            type: object
                                         type: object
                                       keys:
                                         description: Keys specifies one or more public
@@ -26445,22 +25687,6 @@ spec:
                                               for public keys. Supported values are
                                               sha256 and sha512
                                             type: string
-                                          tuf:
-                                            description: TUF provides root and mirror
-                                              for the custom sigstore using TUF If
-                                              the value is nil, cosign's default TUF
-                                              is used.
-                                            properties:
-                                              mirror:
-                                                description: Mirror, is the url of
-                                                  the mirror repository from which
-                                                  files can be downloaded by cosign.
-                                                type: string
-                                              root:
-                                                description: Root is the path to TUF
-                                                  root file or URL.
-                                                type: string
-                                            type: object
                                         type: object
                                       repository:
                                         description: Repository is an optional alternate
@@ -29877,23 +29103,6 @@ spec:
                                                   required:
                                                   - url
                                                   type: object
-                                                tuf:
-                                                  description: TUF provides root and
-                                                    mirror for the custom sigstore
-                                                    using TUF If the value is nil,
-                                                    cosign's default TUF is used.
-                                                  properties:
-                                                    mirror:
-                                                      description: Mirror, is the
-                                                        url of the mirror repository
-                                                        from which files can be downloaded
-                                                        by cosign.
-                                                      type: string
-                                                    root:
-                                                      description: Root is the path
-                                                        to TUF root file or URL.
-                                                      type: string
-                                                  type: object
                                               type: object
                                             keyless:
                                               description: Keyless is a set of attribute
@@ -29967,23 +29176,6 @@ spec:
                                                     identity used for keyless signing,
                                                     for example the email address
                                                   type: string
-                                                tuf:
-                                                  description: TUF provides root and
-                                                    mirror for the custom sigstore
-                                                    using TUF If the value is nil,
-                                                    cosign's default TUF is used.
-                                                  properties:
-                                                    mirror:
-                                                      description: Mirror, is the
-                                                        url of the mirror repository
-                                                        from which files can be downloaded
-                                                        by cosign.
-                                                      type: string
-                                                    root:
-                                                      description: Root is the path
-                                                        to TUF root file or URL.
-                                                      type: string
-                                                  type: object
                                               type: object
                                             keys:
                                               description: Keys specifies one or more
@@ -30085,23 +29277,6 @@ spec:
                                                     for public keys. Supported values
                                                     are sha256 and sha512
                                                   type: string
-                                                tuf:
-                                                  description: TUF provides root and
-                                                    mirror for the custom sigstore
-                                                    using TUF If the value is nil,
-                                                    cosign's default TUF is used.
-                                                  properties:
-                                                    mirror:
-                                                      description: Mirror, is the
-                                                        url of the mirror repository
-                                                        from which files can be downloaded
-                                                        by cosign.
-                                                      type: string
-                                                    root:
-                                                      description: Root is the path
-                                                        to TUF root file or URL.
-                                                      type: string
-                                                  type: object
                                               type: object
                                             repository:
                                               description: Repository is an optional
@@ -30376,26 +29551,6 @@ spec:
                                                       required:
                                                       - url
                                                       type: object
-                                                    tuf:
-                                                      description: TUF provides root
-                                                        and mirror for the custom
-                                                        sigstore using TUF If the
-                                                        value is nil, cosign's default
-                                                        TUF is used.
-                                                      properties:
-                                                        mirror:
-                                                          description: Mirror, is
-                                                            the url of the mirror
-                                                            repository from which
-                                                            files can be downloaded
-                                                            by cosign.
-                                                          type: string
-                                                        root:
-                                                          description: Root is the
-                                                            path to TUF root file
-                                                            or URL.
-                                                          type: string
-                                                      type: object
                                                   type: object
                                                 keyless:
                                                   description: Keyless is a set of
@@ -30475,26 +29630,6 @@ spec:
                                                         keyless signing, for example
                                                         the email address
                                                       type: string
-                                                    tuf:
-                                                      description: TUF provides root
-                                                        and mirror for the custom
-                                                        sigstore using TUF If the
-                                                        value is nil, cosign's default
-                                                        TUF is used.
-                                                      properties:
-                                                        mirror:
-                                                          description: Mirror, is
-                                                            the url of the mirror
-                                                            repository from which
-                                                            files can be downloaded
-                                                            by cosign.
-                                                          type: string
-                                                        root:
-                                                          description: Root is the
-                                                            path to TUF root file
-                                                            or URL.
-                                                          type: string
-                                                      type: object
                                                   type: object
                                                 keys:
                                                   description: Keys specifies one
@@ -30604,26 +29739,6 @@ spec:
                                                         Supported values are sha256
                                                         and sha512
                                                       type: string
-                                                    tuf:
-                                                      description: TUF provides root
-                                                        and mirror for the custom
-                                                        sigstore using TUF If the
-                                                        value is nil, cosign's default
-                                                        TUF is used.
-                                                      properties:
-                                                        mirror:
-                                                          description: Mirror, is
-                                                            the url of the mirror
-                                                            repository from which
-                                                            files can be downloaded
-                                                            by cosign.
-                                                          type: string
-                                                        root:
-                                                          description: Root is the
-                                                            path to TUF root file
-                                                            or URL.
-                                                          type: string
-                                                      type: object
                                                   type: object
                                                 repository:
                                                   description: Repository is an optional
@@ -30870,23 +29985,6 @@ spec:
                                                 required:
                                                 - url
                                                 type: object
-                                              tuf:
-                                                description: TUF provides root and
-                                                  mirror for the custom sigstore using
-                                                  TUF If the value is nil, cosign's
-                                                  default TUF is used.
-                                                properties:
-                                                  mirror:
-                                                    description: Mirror, is the url
-                                                      of the mirror repository from
-                                                      which files can be downloaded
-                                                      by cosign.
-                                                    type: string
-                                                  root:
-                                                    description: Root is the path
-                                                      to TUF root file or URL.
-                                                    type: string
-                                                type: object
                                             type: object
                                           keyless:
                                             description: Keyless is a set of attribute
@@ -30959,23 +30057,6 @@ spec:
                                                   identity used for keyless signing,
                                                   for example the email address
                                                 type: string
-                                              tuf:
-                                                description: TUF provides root and
-                                                  mirror for the custom sigstore using
-                                                  TUF If the value is nil, cosign's
-                                                  default TUF is used.
-                                                properties:
-                                                  mirror:
-                                                    description: Mirror, is the url
-                                                      of the mirror repository from
-                                                      which files can be downloaded
-                                                      by cosign.
-                                                    type: string
-                                                  root:
-                                                    description: Root is the path
-                                                      to TUF root file or URL.
-                                                    type: string
-                                                type: object
                                             type: object
                                           keys:
                                             description: Keys specifies one or more
@@ -31075,23 +30156,6 @@ spec:
                                                   for public keys. Supported values
                                                   are sha256 and sha512
                                                 type: string
-                                              tuf:
-                                                description: TUF provides root and
-                                                  mirror for the custom sigstore using
-                                                  TUF If the value is nil, cosign's
-                                                  default TUF is used.
-                                                properties:
-                                                  mirror:
-                                                    description: Mirror, is the url
-                                                      of the mirror repository from
-                                                      which files can be downloaded
-                                                      by cosign.
-                                                    type: string
-                                                  root:
-                                                    description: Root is the path
-                                                      to TUF root file or URL.
-                                                    type: string
-                                                type: object
                                             type: object
                                           repository:
                                             description: Repository is an optional
@@ -34238,23 +33302,6 @@ spec:
                                               required:
                                               - url
                                               type: object
-                                            tuf:
-                                              description: TUF provides root and mirror
-                                                for the custom sigstore using TUF
-                                                If the value is nil, cosign's default
-                                                TUF is used.
-                                              properties:
-                                                mirror:
-                                                  description: Mirror, is the url
-                                                    of the mirror repository from
-                                                    which files can be downloaded
-                                                    by cosign.
-                                                  type: string
-                                                root:
-                                                  description: Root is the path to
-                                                    TUF root file or URL.
-                                                  type: string
-                                              type: object
                                           type: object
                                         keyless:
                                           description: Keyless is a set of attribute
@@ -34326,23 +33373,6 @@ spec:
                                                 identity used for keyless signing,
                                                 for example the email address
                                               type: string
-                                            tuf:
-                                              description: TUF provides root and mirror
-                                                for the custom sigstore using TUF
-                                                If the value is nil, cosign's default
-                                                TUF is used.
-                                              properties:
-                                                mirror:
-                                                  description: Mirror, is the url
-                                                    of the mirror repository from
-                                                    which files can be downloaded
-                                                    by cosign.
-                                                  type: string
-                                                root:
-                                                  description: Root is the path to
-                                                    TUF root file or URL.
-                                                  type: string
-                                              type: object
                                           type: object
                                         keys:
                                           description: Keys specifies one or more
@@ -34438,23 +33468,6 @@ spec:
                                                 for public keys. Supported values
                                                 are sha256 and sha512
                                               type: string
-                                            tuf:
-                                              description: TUF provides root and mirror
-                                                for the custom sigstore using TUF
-                                                If the value is nil, cosign's default
-                                                TUF is used.
-                                              properties:
-                                                mirror:
-                                                  description: Mirror, is the url
-                                                    of the mirror repository from
-                                                    which files can be downloaded
-                                                    by cosign.
-                                                  type: string
-                                                root:
-                                                  description: Root is the path to
-                                                    TUF root file or URL.
-                                                  type: string
-                                              type: object
                                           type: object
                                         repository:
                                           description: Repository is an optional alternate
@@ -34706,23 +33719,6 @@ spec:
                                                   required:
                                                   - url
                                                   type: object
-                                                tuf:
-                                                  description: TUF provides root and
-                                                    mirror for the custom sigstore
-                                                    using TUF If the value is nil,
-                                                    cosign's default TUF is used.
-                                                  properties:
-                                                    mirror:
-                                                      description: Mirror, is the
-                                                        url of the mirror repository
-                                                        from which files can be downloaded
-                                                        by cosign.
-                                                      type: string
-                                                    root:
-                                                      description: Root is the path
-                                                        to TUF root file or URL.
-                                                      type: string
-                                                  type: object
                                               type: object
                                             keyless:
                                               description: Keyless is a set of attribute
@@ -34796,23 +33792,6 @@ spec:
                                                     identity used for keyless signing,
                                                     for example the email address
                                                   type: string
-                                                tuf:
-                                                  description: TUF provides root and
-                                                    mirror for the custom sigstore
-                                                    using TUF If the value is nil,
-                                                    cosign's default TUF is used.
-                                                  properties:
-                                                    mirror:
-                                                      description: Mirror, is the
-                                                        url of the mirror repository
-                                                        from which files can be downloaded
-                                                        by cosign.
-                                                      type: string
-                                                    root:
-                                                      description: Root is the path
-                                                        to TUF root file or URL.
-                                                      type: string
-                                                  type: object
                                               type: object
                                             keys:
                                               description: Keys specifies one or more
@@ -34914,23 +33893,6 @@ spec:
                                                     for public keys. Supported values
                                                     are sha256 and sha512
                                                   type: string
-                                                tuf:
-                                                  description: TUF provides root and
-                                                    mirror for the custom sigstore
-                                                    using TUF If the value is nil,
-                                                    cosign's default TUF is used.
-                                                  properties:
-                                                    mirror:
-                                                      description: Mirror, is the
-                                                        url of the mirror repository
-                                                        from which files can be downloaded
-                                                        by cosign.
-                                                      type: string
-                                                    root:
-                                                      description: Root is the path
-                                                        to TUF root file or URL.
-                                                      type: string
-                                                  type: object
                                               type: object
                                             repository:
                                               description: Repository is an optional
@@ -35170,22 +34132,6 @@ spec:
                                             required:
                                             - url
                                             type: object
-                                          tuf:
-                                            description: TUF provides root and mirror
-                                              for the custom sigstore using TUF If
-                                              the value is nil, cosign's default TUF
-                                              is used.
-                                            properties:
-                                              mirror:
-                                                description: Mirror, is the url of
-                                                  the mirror repository from which
-                                                  files can be downloaded by cosign.
-                                                type: string
-                                              root:
-                                                description: Root is the path to TUF
-                                                  root file or URL.
-                                                type: string
-                                            type: object
                                         type: object
                                       keyless:
                                         description: Keyless is a set of attribute
@@ -35257,22 +34203,6 @@ spec:
                                               used for keyless signing, for example
                                               the email address
                                             type: string
-                                          tuf:
-                                            description: TUF provides root and mirror
-                                              for the custom sigstore using TUF If
-                                              the value is nil, cosign's default TUF
-                                              is used.
-                                            properties:
-                                              mirror:
-                                                description: Mirror, is the url of
-                                                  the mirror repository from which
-                                                  files can be downloaded by cosign.
-                                                type: string
-                                              root:
-                                                description: Root is the path to TUF
-                                                  root file or URL.
-                                                type: string
-                                            type: object
                                         type: object
                                       keys:
                                         description: Keys specifies one or more public
@@ -35367,22 +34297,6 @@ spec:
                                               for public keys. Supported values are
                                               sha256 and sha512
                                             type: string
-                                          tuf:
-                                            description: TUF provides root and mirror
-                                              for the custom sigstore using TUF If
-                                              the value is nil, cosign's default TUF
-                                              is used.
-                                            properties:
-                                              mirror:
-                                                description: Mirror, is the url of
-                                                  the mirror repository from which
-                                                  files can be downloaded by cosign.
-                                                type: string
-                                              root:
-                                                description: Root is the path to TUF
-                                                  root file or URL.
-                                                type: string
-                                            type: object
                                         type: object
                                       repository:
                                         description: Repository is an optional alternate
@@ -38783,23 +37697,6 @@ spec:
                                                   required:
                                                   - url
                                                   type: object
-                                                tuf:
-                                                  description: TUF provides root and
-                                                    mirror for the custom sigstore
-                                                    using TUF If the value is nil,
-                                                    cosign's default TUF is used.
-                                                  properties:
-                                                    mirror:
-                                                      description: Mirror, is the
-                                                        url of the mirror repository
-                                                        from which files can be downloaded
-                                                        by cosign.
-                                                      type: string
-                                                    root:
-                                                      description: Root is the path
-                                                        to TUF root file or URL.
-                                                      type: string
-                                                  type: object
                                               type: object
                                             keyless:
                                               description: Keyless is a set of attribute
@@ -38873,23 +37770,6 @@ spec:
                                                     identity used for keyless signing,
                                                     for example the email address
                                                   type: string
-                                                tuf:
-                                                  description: TUF provides root and
-                                                    mirror for the custom sigstore
-                                                    using TUF If the value is nil,
-                                                    cosign's default TUF is used.
-                                                  properties:
-                                                    mirror:
-                                                      description: Mirror, is the
-                                                        url of the mirror repository
-                                                        from which files can be downloaded
-                                                        by cosign.
-                                                      type: string
-                                                    root:
-                                                      description: Root is the path
-                                                        to TUF root file or URL.
-                                                      type: string
-                                                  type: object
                                               type: object
                                             keys:
                                               description: Keys specifies one or more
@@ -38991,23 +37871,6 @@ spec:
                                                     for public keys. Supported values
                                                     are sha256 and sha512
                                                   type: string
-                                                tuf:
-                                                  description: TUF provides root and
-                                                    mirror for the custom sigstore
-                                                    using TUF If the value is nil,
-                                                    cosign's default TUF is used.
-                                                  properties:
-                                                    mirror:
-                                                      description: Mirror, is the
-                                                        url of the mirror repository
-                                                        from which files can be downloaded
-                                                        by cosign.
-                                                      type: string
-                                                    root:
-                                                      description: Root is the path
-                                                        to TUF root file or URL.
-                                                      type: string
-                                                  type: object
                                               type: object
                                             repository:
                                               description: Repository is an optional
@@ -39282,26 +38145,6 @@ spec:
                                                       required:
                                                       - url
                                                       type: object
-                                                    tuf:
-                                                      description: TUF provides root
-                                                        and mirror for the custom
-                                                        sigstore using TUF If the
-                                                        value is nil, cosign's default
-                                                        TUF is used.
-                                                      properties:
-                                                        mirror:
-                                                          description: Mirror, is
-                                                            the url of the mirror
-                                                            repository from which
-                                                            files can be downloaded
-                                                            by cosign.
-                                                          type: string
-                                                        root:
-                                                          description: Root is the
-                                                            path to TUF root file
-                                                            or URL.
-                                                          type: string
-                                                      type: object
                                                   type: object
                                                 keyless:
                                                   description: Keyless is a set of
@@ -39381,26 +38224,6 @@ spec:
                                                         keyless signing, for example
                                                         the email address
                                                       type: string
-                                                    tuf:
-                                                      description: TUF provides root
-                                                        and mirror for the custom
-                                                        sigstore using TUF If the
-                                                        value is nil, cosign's default
-                                                        TUF is used.
-                                                      properties:
-                                                        mirror:
-                                                          description: Mirror, is
-                                                            the url of the mirror
-                                                            repository from which
-                                                            files can be downloaded
-                                                            by cosign.
-                                                          type: string
-                                                        root:
-                                                          description: Root is the
-                                                            path to TUF root file
-                                                            or URL.
-                                                          type: string
-                                                      type: object
                                                   type: object
                                                 keys:
                                                   description: Keys specifies one
@@ -39510,26 +38333,6 @@ spec:
                                                         Supported values are sha256
                                                         and sha512
                                                       type: string
-                                                    tuf:
-                                                      description: TUF provides root
-                                                        and mirror for the custom
-                                                        sigstore using TUF If the
-                                                        value is nil, cosign's default
-                                                        TUF is used.
-                                                      properties:
-                                                        mirror:
-                                                          description: Mirror, is
-                                                            the url of the mirror
-                                                            repository from which
-                                                            files can be downloaded
-                                                            by cosign.
-                                                          type: string
-                                                        root:
-                                                          description: Root is the
-                                                            path to TUF root file
-                                                            or URL.
-                                                          type: string
-                                                      type: object
                                                   type: object
                                                 repository:
                                                   description: Repository is an optional
@@ -39776,23 +38579,6 @@ spec:
                                                 required:
                                                 - url
                                                 type: object
-                                              tuf:
-                                                description: TUF provides root and
-                                                  mirror for the custom sigstore using
-                                                  TUF If the value is nil, cosign's
-                                                  default TUF is used.
-                                                properties:
-                                                  mirror:
-                                                    description: Mirror, is the url
-                                                      of the mirror repository from
-                                                      which files can be downloaded
-                                                      by cosign.
-                                                    type: string
-                                                  root:
-                                                    description: Root is the path
-                                                      to TUF root file or URL.
-                                                    type: string
-                                                type: object
                                             type: object
                                           keyless:
                                             description: Keyless is a set of attribute
@@ -39865,23 +38651,6 @@ spec:
                                                   identity used for keyless signing,
                                                   for example the email address
                                                 type: string
-                                              tuf:
-                                                description: TUF provides root and
-                                                  mirror for the custom sigstore using
-                                                  TUF If the value is nil, cosign's
-                                                  default TUF is used.
-                                                properties:
-                                                  mirror:
-                                                    description: Mirror, is the url
-                                                      of the mirror repository from
-                                                      which files can be downloaded
-                                                      by cosign.
-                                                    type: string
-                                                  root:
-                                                    description: Root is the path
-                                                      to TUF root file or URL.
-                                                    type: string
-                                                type: object
                                             type: object
                                           keys:
                                             description: Keys specifies one or more
@@ -39981,23 +38750,6 @@ spec:
                                                   for public keys. Supported values
                                                   are sha256 and sha512
                                                 type: string
-                                              tuf:
-                                                description: TUF provides root and
-                                                  mirror for the custom sigstore using
-                                                  TUF If the value is nil, cosign's
-                                                  default TUF is used.
-                                                properties:
-                                                  mirror:
-                                                    description: Mirror, is the url
-                                                      of the mirror repository from
-                                                      which files can be downloaded
-                                                      by cosign.
-                                                    type: string
-                                                  root:
-                                                    description: Root is the path
-                                                      to TUF root file or URL.
-                                                    type: string
-                                                type: object
                                             type: object
                                           repository:
                                             description: Repository is an optional

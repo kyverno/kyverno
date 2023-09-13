@@ -16,7 +16,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/tracing"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
-	"github.com/sigstore/cosign/v2/pkg/blob"
 	"github.com/sigstore/cosign/v2/pkg/cosign"
 	"github.com/sigstore/cosign/v2/pkg/cosign/attestation"
 	"github.com/sigstore/cosign/v2/pkg/oci"
@@ -173,11 +172,6 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 				}
 			}
 		}
-	}
-
-	err = initializeTUF(ctx, opts.TUFRoot, opts.TUFMirror)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize tuf client from root=%s, mirror=%s: %w", opts.TUFRoot, opts.TUFMirror, err)
 	}
 
 	cosignOpts.IgnoreTlog = opts.IgnoreTlog
@@ -600,24 +594,4 @@ func getCTLogPubs(ctx context.Context, ctlogPubKey string) (*cosign.TrustedTrans
 		return nil, fmt.Errorf("AddRekorPubKey: %w", err)
 	}
 	return &publicKeys, nil
-}
-
-func initializeTUF(ctx context.Context, root, mirror string) error {
-	if len(root) == 0 || len(mirror) == 0 {
-		return nil
-	}
-
-	var rootFileBytes []byte
-	var err error
-	if root != "" {
-		rootFileBytes, err = blob.LoadFileOrURL(root)
-		if err != nil {
-			return err
-		}
-	}
-
-	if err := tuf.Initialize(ctx, mirror, rootFileBytes); err != nil {
-		return err
-	}
-	return nil
 }

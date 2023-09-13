@@ -1192,20 +1192,6 @@ CTLog
 If the value is nil, default ctlog public key is used</p>
 </td>
 </tr>
-<tr>
-<td>
-<code>tuf</code><br/>
-<em>
-<a href="#kyverno.io/v1.TUF">
-TUF
-</a>
-</em>
-</td>
-<td>
-<p>TUF provides root and mirror for the custom sigstore using TUF
-If the value is nil, cosign&rsquo;s default TUF is used.</p>
-</td>
-</tr>
 </tbody>
 </table>
 <hr />
@@ -2418,20 +2404,6 @@ CTLog
 <td>
 <p>CTLog provides configuration for validation of SCTs.
 If the value is nil, default ctlog public key is used</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>tuf</code><br/>
-<em>
-<a href="#kyverno.io/v1.TUF">
-TUF
-</a>
-</em>
-</td>
-<td>
-<p>TUF provides root and mirror for the custom sigstore using TUF
-If the value is nil, cosign&rsquo;s default TUF is used.</p>
 </td>
 </tr>
 <tr>
@@ -3964,63 +3936,6 @@ CTLog
 <td>
 <p>CTLog provides configuration for validation of SCTs.
 If the value is nil, default ctlog public key is used</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>tuf</code><br/>
-<em>
-<a href="#kyverno.io/v1.TUF">
-TUF
-</a>
-</em>
-</td>
-<td>
-<p>TUF provides root and mirror for the custom sigstore using TUF
-If the value is nil, cosign&rsquo;s default TUF is used.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1.TUF">TUF
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.CertificateAttestor">CertificateAttestor</a>, 
-<a href="#kyverno.io/v1.KeylessAttestor">KeylessAttestor</a>, 
-<a href="#kyverno.io/v1.StaticKeyAttestor">StaticKeyAttestor</a>)
-</p>
-<p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>root</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Root is the path to TUF root file or URL.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>mirror</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Mirror, is the url of the mirror repository from which files can be downloaded by cosign.</p>
 </td>
 </tr>
 </tbody>
