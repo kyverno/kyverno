@@ -556,6 +556,10 @@ jobs:
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
+      - name: Update Kyverno Deployment
+        run: |
+          kubectl create configmap tufvalues --from-literal=TUF_MIRROR=$TUF_MIRROR --from-literal=FULCIO_URL=$FULCIO_URL --from-literal=REKOR_URL=$REKOR_URL --from-literal=CTLOG_URL=$CTLOG_URL
+          kubectl apply -f ./scripts/config/custom-sigstore/deployment.yaml
       - name: Setup Sigstore Scaffolding
         uses: sigstore/scaffolding/actions/setup@9fb4937ae18ed8456d725e99cb2871d309673022
       - name: Create test image

@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kyverno-admission-controller
+  namespace: kyverno
+spec:
+  template:
+    spec:
+      containers:
+        - name: kyverno
+          args:
+            - --tuf-mirror=$(TUF_MIRROR)
+            - --tuf-root=./root.json
+            - --caSecretName=kyverno-svc.kyverno.svc.kyverno-tls-ca
+            - --tlsSecretName=kyverno-svc.kyverno.svc.kyverno-tls-pair
+            - --backgroundServiceAccountName=system:serviceaccount:kyverno:kyverno-background-controller
+            - --servicePort=443
+            - --disableMetrics=false
+            - --otelConfig=prometheus
+            - --metricsPort=8000
+            - --admissionReports=true
+            - --autoUpdateWebhooks=true
+            - --enableConfigMapCaching=true
+            - --enableDeferredLoading=true
+            - --dumpPayload=false
+            - --forceFailurePolicyIgnore=false
+            - --generateValidatingAdmissionPolicy=false
+            - --loggingFormat=text
+            - --v=6
+            - --enablePolicyException=false
+            - --protectManagedResources=false
+            - --allowInsecureRegistry=false
+            - --registryCredentialHelpers=default,google,amazon,azure,github
+          env: 
+          - name: TUF_MIRROR
+            valueFrom:
+              configMapKeyRef:
+                name: tufvalues
+                key: data.TUF_MIRROR
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kyverno-reports-controller
+  namespace: kyverno
+spec:
+  template:
+    spec:
+      containers:
+        - name: controller
+          args:
+            - --tuf-mirror=$(TUF_MIRROR)
+            - --tuf-root=./root.json
+            - --disableMetrics=false
+            - --otelConfig=prometheus
+            - --metricsPort=8000
+            - --admissionReports=true
+            - --aggregateReports=true
+            - --policyReports=true
+            - --validatingAdmissionPolicyReports=false
+            - --backgroundScan=true
+            - --backgroundScanWorkers=2
+            - --backgroundScanInterval=1h
+            - --skipResourceFilters=true
+            - --enableConfigMapCaching=true
+            - --enableDeferredLoading=true
+            - --loggingFormat=text
+            - --v=2
+            - --enablePolicyException=false
+            - --reportsChunkSize=1000
+            - --allowInsecureRegistry=false
+            - --registryCredentialHelpers=default,google,amazon,azure,github
+          env: 
+          - name: TUF_MIRROR
+            valueFrom:
+              configMapKeyRef:
+                name: tufvalues
+                key: data.TUF_MIRROR
