@@ -220,9 +220,13 @@ func (p *PolicyProcessor) makePolicyContext(
 	)
 	if err != nil {
 		log.Log.Error(err, "failed to create policy context")
+		return nil, fmt.Errorf("failed to create policy context (%w)", err)
 	}
 	if operation == kyvernov1.Update {
 		policyContext = policyContext.WithOldResource(resource)
+		if err := policyContext.JSONContext().AddOldResource(resource.Object); err != nil {
+			return nil, fmt.Errorf("failed to update old resource in json context (%w)", err)
+		}
 	}
 	policyContext = policyContext.
 		WithPolicy(policy).
@@ -231,7 +235,8 @@ func (p *PolicyProcessor) makePolicyContext(
 	for key, value := range resourceValues {
 		err = policyContext.JSONContext().AddVariable(key, value)
 		if err != nil {
-			log.Log.Error(err, "failed to add variable to context")
+			log.Log.Error(err, "failed to add variable to context", "key", key, "value", value)
+			return nil, fmt.Errorf("failed to add variable to context %s (%w)", key, err)
 		}
 	}
 	// we need to get the resources back from the context to account for injected variables
@@ -241,28 +246,60 @@ func (p *PolicyProcessor) makePolicyContext(
 		if err != nil {
 			return nil, err
 		}
-		policyContext = policyContext.WithNewResource(unstructured.Unstructured{Object: ret.(map[string]interface{})})
+		if ret == nil {
+			policyContext = policyContext.WithNewResource(unstructured.Unstructured{})
+		} else {
+			object, ok := ret.(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("the object retrieved from the json context is not valid")
+			}
+			policyContext = policyContext.WithNewResource(unstructured.Unstructured{Object: object})
+		}
 	case kyvernov1.Update:
 		{
 			ret, err := policyContext.JSONContext().Query("request.object")
 			if err != nil {
 				return nil, err
 			}
-			policyContext = policyContext.WithNewResource(unstructured.Unstructured{Object: ret.(map[string]interface{})})
+			if ret == nil {
+				policyContext = policyContext.WithNewResource(unstructured.Unstructured{})
+			} else {
+				object, ok := ret.(map[string]interface{})
+				if !ok {
+					return nil, fmt.Errorf("the object retrieved from the json context is not valid")
+				}
+				policyContext = policyContext.WithNewResource(unstructured.Unstructured{Object: object})
+			}
 		}
 		{
 			ret, err := policyContext.JSONContext().Query("request.oldObject")
 			if err != nil {
 				return nil, err
 			}
-			policyContext = policyContext.WithOldResource(unstructured.Unstructured{Object: ret.(map[string]interface{})})
+			if ret == nil {
+				policyContext = policyContext.WithOldResource(unstructured.Unstructured{})
+			} else {
+				object, ok := ret.(map[string]interface{})
+				if !ok {
+					return nil, fmt.Errorf("the object retrieved from the json context is not valid")
+				}
+				policyContext = policyContext.WithOldResource(unstructured.Unstructured{Object: object})
+			}
 		}
 	case kyvernov1.Delete:
 		ret, err := policyContext.JSONContext().Query("request.oldObject")
 		if err != nil {
 			return nil, err
 		}
-		policyContext = policyContext.WithOldResource(unstructured.Unstructured{Object: ret.(map[string]interface{})})
+		if ret == nil {
+			policyContext = policyContext.WithOldResource(unstructured.Unstructured{})
+		} else {
+			object, ok := ret.(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("the object retrieved from the json context is not valid")
+			}
+			policyContext = policyContext.WithOldResource(unstructured.Unstructured{Object: object})
+		}
 	}
 	return policyContext, nil
 }
