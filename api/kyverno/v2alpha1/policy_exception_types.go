@@ -27,6 +27,7 @@ import (
 // +genclient
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:storageversion
 // +kubebuilder:resource:shortName=polex,categories=kyverno
 
 // PolicyException declares resources to be excluded from specified policies.
