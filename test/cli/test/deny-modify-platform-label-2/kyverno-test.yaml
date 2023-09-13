@@ -3,7 +3,6 @@ policies:
 - deny-modify-platform-label.yaml
 resources:
 - resource.yaml
-variables: variables.yaml
 results:
 - kind: Role
   policy: deny-modify-platform-label
@@ -15,11 +14,7 @@ results:
   policy: deny-modify-platform-label
   resources:
   - my-role-without-platform
-  result: skip
-  rule: deny-modify-platform-role
-- kind: Role
-  policy: deny-modify-platform-label
-  resources:
   - my-role-with-platform-false
   result: skip
   rule: deny-modify-platform-role
+variables: variables.yaml
