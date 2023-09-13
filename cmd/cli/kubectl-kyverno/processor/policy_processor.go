@@ -204,8 +204,11 @@ func (p *PolicyProcessor) makePolicyContext(
 		}
 		resourceValues = vals
 	}
-	if resourceValues["request.operation"] == "DELETE" {
+	switch resourceValues["request.operation"] {
+	case "DELETE":
 		operation = kyvernov1.Delete
+	case "UPDATE":
+		operation = kyvernov1.Update
 	}
 	policyContext, err := engine.NewPolicyContext(
 		jp,
@@ -216,6 +219,9 @@ func (p *PolicyProcessor) makePolicyContext(
 	)
 	if err != nil {
 		log.Log.Error(err, "failed to create policy context")
+	}
+	if operation == kyvernov1.Update {
+		policyContext = policyContext.WithOldResource(resource)
 	}
 	policyContext = policyContext.
 		WithPolicy(policy).
