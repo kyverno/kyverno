@@ -7,6 +7,7 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/pluralize"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/path"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
@@ -14,7 +15,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
-	pathutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/path"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
@@ -54,14 +54,14 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 	}
 	// policies
 	fmt.Println("  Loading policies", "...")
-	policyFullPath := pathutils.GetFullPaths(testCase.Test.Policies, testDir, isGit)
+	policyFullPath := path.GetFullPaths(testCase.Test.Policies, testDir, isGit)
 	policies, validatingAdmissionPolicies, err := policy.Load(testCase.Fs, testDir, policyFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("Error: failed to load policies (%s)", err)
 	}
 	// resources
 	fmt.Println("  Loading resources", "...")
-	resourceFullPath := pathutils.GetFullPaths(testCase.Test.Resources, testDir, isGit)
+	resourceFullPath := path.GetFullPaths(testCase.Test.Resources, testDir, isGit)
 	resources, err := common.GetResourceAccordingToResourcePath(testCase.Fs, resourceFullPath, false, policies, validatingAdmissionPolicies, dClient, "", false, testDir)
 	if err != nil {
 		return nil, fmt.Errorf("Error: failed to load resources (%s)", err)
@@ -101,7 +101,7 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 							if isGit {
 								ruleToCloneSourceResource[rule.Name] = res.CloneSourceResource
 							} else {
-								ruleToCloneSourceResource[rule.Name] = pathutils.GetFullPath(res.CloneSourceResource, testDir)
+								ruleToCloneSourceResource[rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
 							}
 						}
 					}
