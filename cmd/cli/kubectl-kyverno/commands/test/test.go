@@ -7,6 +7,7 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/pluralize"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/path"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
@@ -14,8 +15,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
-	pathutils "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/path"
-	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
@@ -40,9 +39,7 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 	fmt.Println("  Loading values/variables", "...")
 	vars, err := variables.New(testCase.Fs, testDir, testCase.Test.Variables, testCase.Test.Values)
 	if err != nil {
-		if !sanitizederror.IsErrorSanitized(err) {
-			err = sanitizederror.NewWithError("failed to decode yaml", err)
-		}
+		err = fmt.Errorf("failed to decode yaml (%w)", err)
 		return nil, err
 	}
 	// user info
@@ -57,14 +54,14 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 	}
 	// policies
 	fmt.Println("  Loading policies", "...")
-	policyFullPath := pathutils.GetFullPaths(testCase.Test.Policies, testDir, isGit)
+	policyFullPath := path.GetFullPaths(testCase.Test.Policies, testDir, isGit)
 	policies, validatingAdmissionPolicies, err := policy.Load(testCase.Fs, testDir, policyFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("Error: failed to load policies (%s)", err)
 	}
 	// resources
 	fmt.Println("  Loading resources", "...")
-	resourceFullPath := pathutils.GetFullPaths(testCase.Test.Resources, testDir, isGit)
+	resourceFullPath := path.GetFullPaths(testCase.Test.Resources, testDir, isGit)
 	resources, err := common.GetResourceAccordingToResourcePath(testCase.Fs, resourceFullPath, false, policies, validatingAdmissionPolicies, dClient, "", false, testDir)
 	if err != nil {
 		return nil, fmt.Errorf("Error: failed to load resources (%s)", err)
@@ -104,7 +101,7 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 							if isGit {
 								ruleToCloneSourceResource[rule.Name] = res.CloneSourceResource
 							} else {
-								ruleToCloneSourceResource[rule.Name] = pathutils.GetFullPath(res.CloneSourceResource, testDir)
+								ruleToCloneSourceResource[rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
 							}
 						}
 					}
@@ -157,8 +154,7 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
-			message := fmt.Sprintf("failed to apply policies on resource %v", resource.GetName())
-			return nil, sanitizederror.NewWithError(message, err)
+			return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 		}
 		engineResponses = append(engineResponses, ers...)
 	}
@@ -171,8 +167,7 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 		}
 		ers, err := processor.ApplyPolicyOnResource()
 		if err != nil {
-			message := fmt.Sprintf("failed to apply policies on resource %s", resource.GetName())
-			return nil, sanitizederror.NewWithError(message, err)
+			return nil, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
 		}
 		engineResponses = append(engineResponses, ers...)
 	}

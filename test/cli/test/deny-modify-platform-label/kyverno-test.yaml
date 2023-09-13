@@ -1,0 +1,13 @@
+name: modify_with_master_access
+policies:
+- deny-modify-platform-label.yaml
+resources:
+- resource.yaml
+results:
+- kind: Role
+  policy: deny-modify-platform-label
+  resources:
+  - my-role-with-platform
+  result: skip
+  rule: deny-modify-platform-role
+variables: variables.yaml

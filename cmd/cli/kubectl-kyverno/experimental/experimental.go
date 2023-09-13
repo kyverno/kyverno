@@ -7,7 +7,7 @@ import (
 
 const experimentalEnv = "KYVERNO_EXPERIMENTAL"
 
-func IsExperimentalEnabled() bool {
+func IsEnabled() bool {
 	if b, err := strconv.ParseBool(os.Getenv(experimentalEnv)); err == nil {
 		return b
 	}

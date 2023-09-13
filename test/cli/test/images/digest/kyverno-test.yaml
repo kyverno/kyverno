@@ -5,16 +5,14 @@ resources:
 - resources.yaml
 results:
 - kind: Pod
-  namespace: test
   policy: require-image-digest
   resources:
-  - no-digest
+  - test/no-digest
   result: fail
   rule: check-digest
 - kind: Pod
-  namespace: test
   policy: require-image-digest
   resources:
-  - with-digest
+  - test/with-digest
   result: pass
   rule: check-digest

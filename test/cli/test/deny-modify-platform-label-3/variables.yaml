@@ -1,0 +1,6 @@
+policies:
+  - name: deny-modify-platform-label
+    resources:
+      - name: my-role-with-platform
+        values:
+          request.object.metadata.annotations."hpedevops.net/platform": 'true'
