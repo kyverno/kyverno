@@ -24,34 +24,34 @@ func TestGetPolicy(t *testing.T) {
 		name: "policy",
 		args: args{
 			[]byte(`
-		apiVersion: kyverno.io/v1
-		kind: Policy
-		metadata:
-		  name: generate-policy
-		  namespace: ns-1
-		spec:
-		  rules:
-		  - name: copy-game-demo
-		    match:
-		      resources:
-		        kinds:
-		        - Namespace
-		    exclude:
-		      resources:
-		        namespaces:
-		        - kube-system
-		        - default
-		        - kube-public
-		        - kyverno
-		    generate:
-		      kind: ConfigMap
-		      name: game-demo
-		      namespace: "{{request.object.metadata.name}}"
-		      synchronize: true
-		      clone:
-		        namespace: default
-		        name: game-demo
-		`),
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: generate-policy
+  namespace: ns-1
+spec:
+  rules:
+  - name: copy-game-demo
+    match:
+      resources:
+        kinds:
+        - Namespace
+    exclude:
+      resources:
+        namespaces:
+        - kube-system
+        - default
+        - kube-public
+        - kyverno
+    generate:
+      kind: ConfigMap
+      name: game-demo
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      clone:
+        namespace: default
+        name: game-demo
+`),
 		},
 		wantPolicies: []policy{
 			{"Policy", "ns-1"},
@@ -61,33 +61,33 @@ func TestGetPolicy(t *testing.T) {
 		name: "policy without ns",
 		args: args{
 			[]byte(`
-		apiVersion: kyverno.io/v1
-		kind: Policy
-		metadata:
-		  name: generate-policy
-		spec:
-		  rules:
-		  - name: copy-game-demo
-		    match:
-		      resources:
-		        kinds:
-		        - Namespace
-		    exclude:
-		      resources:
-		        namespaces:
-		        - kube-system
-		        - default
-		        - kube-public
-		        - kyverno
-		    generate:
-		      kind: ConfigMap
-		      name: game-demo
-		      namespace: "{{request.object.metadata.name}}"
-		      synchronize: true
-		      clone:
-		        namespace: default
-		        name: game-demo
-		`),
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: generate-policy
+spec:
+  rules:
+  - name: copy-game-demo
+    match:
+      resources:
+        kinds:
+        - Namespace
+    exclude:
+      resources:
+        namespaces:
+        - kube-system
+        - default
+        - kube-public
+        - kyverno
+    generate:
+      kind: ConfigMap
+      name: game-demo
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      clone:
+        namespace: default
+        name: game-demo
+`),
 		},
 		wantPolicies: []policy{
 			{"Policy", "default"},
@@ -97,33 +97,33 @@ func TestGetPolicy(t *testing.T) {
 		name: "cluster policy",
 		args: args{
 			[]byte(`
-		apiVersion: kyverno.io/v1
-		kind: ClusterPolicy
-		metadata:
-		  name: generate-policy
-		spec:
-		  rules:
-		  - name: copy-game-demo
-		    match:
-		      resources:
-		        kinds:
-		        - Namespace
-		    exclude:
-		      resources:
-		        namespaces:
-		        - kube-system
-		        - default
-		        - kube-public
-		        - kyverno
-		    generate:
-		      kind: ConfigMap
-		      name: game-demo
-		      namespace: "{{request.object.metadata.name}}"
-		      synchronize: true
-		      clone:
-		        namespace: default
-		        name: game-demo
-		`),
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-policy
+spec:
+  rules:
+  - name: copy-game-demo
+    match:
+      resources:
+        kinds:
+        - Namespace
+    exclude:
+      resources:
+        namespaces:
+        - kube-system
+        - default
+        - kube-public
+        - kyverno
+    generate:
+      kind: ConfigMap
+      name: game-demo
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      clone:
+        namespace: default
+        name: game-demo
+`),
 		},
 		wantPolicies: []policy{
 			{"ClusterPolicy", ""},
@@ -133,34 +133,34 @@ func TestGetPolicy(t *testing.T) {
 		name: "cluster policy with ns",
 		args: args{
 			[]byte(`
-		apiVersion: kyverno.io/v1
-		kind: ClusterPolicy
-		metadata:
-		  name: generate-policy
-		  namespace: ns-1
-		spec:
-		  rules:
-		  - name: copy-game-demo
-		    match:
-		      resources:
-		        kinds:
-		        - Namespace
-		    exclude:
-		      resources:
-		        namespaces:
-		        - kube-system
-		        - default
-		        - kube-public
-		        - kyverno
-		    generate:
-		      kind: ConfigMap
-		      name: game-demo
-		      namespace: "{{request.object.metadata.name}}"
-		      synchronize: true
-		      clone:
-		        namespace: default
-		        name: game-demo
-		`),
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-policy
+  namespace: ns-1
+spec:
+  rules:
+  - name: copy-game-demo
+    match:
+      resources:
+        kinds:
+        - Namespace
+    exclude:
+      resources:
+        namespaces:
+        - kube-system
+        - default
+        - kube-public
+        - kyverno
+    generate:
+      kind: ConfigMap
+      name: game-demo
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      clone:
+        namespace: default
+        name: game-demo
+`),
 		},
 		wantPolicies: []policy{
 			{"ClusterPolicy", ""},
@@ -170,61 +170,61 @@ func TestGetPolicy(t *testing.T) {
 		name: "policy and cluster policy",
 		args: args{
 			[]byte(`
-		apiVersion: kyverno.io/v1
-		kind: Policy
-		metadata:
-		  name: generate-policy
-		  namespace: ns-1
-		spec:
-		  rules:
-		  - name: copy-game-demo
-		    match:
-		      resources:
-		        kinds:
-		        - Namespace
-		    exclude:
-		      resources:
-		        namespaces:
-		        - kube-system
-		        - default
-		        - kube-public
-		        - kyverno
-		    generate:
-		      kind: ConfigMap
-		      name: game-demo
-		      namespace: "{{request.object.metadata.name}}"
-		      synchronize: true
-		      clone:
-		        namespace: default
-		        name: game-demo
-		---
-		apiVersion: kyverno.io/v1
-		kind: ClusterPolicy
-		metadata:
-		  name: generate-policy
-		spec:
-		  rules:
-		  - name: copy-game-demo
-		    match:
-		      resources:
-		        kinds:
-		        - Namespace
-		    exclude:
-		      resources:
-		        namespaces:
-		        - kube-system
-		        - default
-		        - kube-public
-		        - kyverno
-		    generate:
-		      kind: ConfigMap
-		      name: game-demo
-		      namespace: "{{request.object.metadata.name}}"
-		      synchronize: true
-		      clone:
-		        namespace: default
-		        name: game-demo
-		`),
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: generate-policy
+  namespace: ns-1
+spec:
+  rules:
+  - name: copy-game-demo
+    match:
+      resources:
+        kinds:
+        - Namespace
+    exclude:
+      resources:
+        namespaces:
+        - kube-system
+        - default
+        - kube-public
+        - kyverno
+    generate:
+      kind: ConfigMap
+      name: game-demo
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      clone:
+        namespace: default
+        name: game-demo
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-policy
+spec:
+  rules:
+  - name: copy-game-demo
+    match:
+      resources:
+        kinds:
+        - Namespace
+    exclude:
+      resources:
+        namespaces:
+        - kube-system
+        - default
+        - kube-public
+        - kyverno
+    generate:
+      kind: ConfigMap
+      name: game-demo
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      clone:
+        namespace: default
+        name: game-demo
+`),
 		},
 		wantPolicies: []policy{
 			{"Policy", "ns-1"},
@@ -235,63 +235,63 @@ func TestGetPolicy(t *testing.T) {
 		name: "policy and cluster policy in list",
 		args: args{
 			[]byte(`
-		apiVersion: v1
-		kind: List
-		items:
-		  - apiVersion: kyverno.io/v1
-		    kind: Policy
-		    metadata:
-		      name: generate-policy
-		      namespace: ns-1
-		    spec:
-		      rules:
-		        - name: copy-game-demo
-		          match:
-		            resources:
-		              kinds:
-		                - Namespace
-		          exclude:
-		            resources:
-		              namespaces:
-		                - kube-system
-		                - default
-		                - kube-public
-		                - kyverno
-		          generate:
-		            kind: ConfigMap
-		            name: game-demo
-		            namespace: "{{request.object.metadata.name}}"
-		            synchronize: true
-		            clone:
-		              namespace: default
-		              name: game-demo
-		  - apiVersion: kyverno.io/v1
-		    kind: ClusterPolicy
-		    metadata:
-		      name: generate-policy
-		    spec:
-		      rules:
-		        - name: copy-game-demo
-		          match:
-		            resources:
-		              kinds:
-		                - Namespace
-		          exclude:
-		            resources:
-		              namespaces:
-		                - kube-system
-		                - default
-		                - kube-public
-		                - kyverno
-		          generate:
-		            kind: ConfigMap
-		            name: game-demo
-		            namespace: "{{request.object.metadata.name}}"
-		            synchronize: true
-		            clone:
-		              namespace: default
-		              name: game-demo
-		`),
+apiVersion: v1
+kind: List
+items:
+  - apiVersion: kyverno.io/v1
+    kind: Policy
+    metadata:
+      name: generate-policy
+      namespace: ns-1
+    spec:
+      rules:
+        - name: copy-game-demo
+          match:
+            resources:
+              kinds:
+                - Namespace
+          exclude:
+            resources:
+              namespaces:
+                - kube-system
+                - default
+                - kube-public
+                - kyverno
+          generate:
+            kind: ConfigMap
+            name: game-demo
+            namespace: "{{request.object.metadata.name}}"
+            synchronize: true
+            clone:
+              namespace: default
+              name: game-demo
+  - apiVersion: kyverno.io/v1
+    kind: ClusterPolicy
+    metadata:
+      name: generate-policy
+    spec:
+      rules:
+        - name: copy-game-demo
+          match:
+            resources:
+              kinds:
+                - Namespace
+          exclude:
+            resources:
+              namespaces:
+                - kube-system
+                - default
+                - kube-public
+                - kyverno
+          generate:
+            kind: ConfigMap
+            name: game-demo
+            namespace: "{{request.object.metadata.name}}"
+            synchronize: true
+            clone:
+              namespace: default
+              name: game-demo
+`),
 		},
 		wantPolicies: []policy{
 			{"Policy", "ns-1"},
