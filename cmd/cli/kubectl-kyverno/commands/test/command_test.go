@@ -1,4 +1,4 @@
-package pull
+package test
 
 import (
 	"bytes"
@@ -6,37 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/authn/github"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/stretchr/testify/assert"
 )
 
-var keychain = authn.NewMultiKeychain(
-	authn.DefaultKeychain,
-	github.Keychain,
-	registryclient.AWSKeychain,
-	registryclient.GCPKeychain,
-	registryclient.AzureKeychain,
-)
-
-func TestCommandNoImageRef(t *testing.T) {
-	cmd := Command(keychain)
-	assert.NotNil(t, cmd)
-	err := cmd.Execute()
-	assert.Error(t, err)
-}
-
-func TestCommandWithArgs(t *testing.T) {
-	cmd := Command(keychain)
-	assert.NotNil(t, cmd)
-	cmd.SetArgs([]string{"foo"})
-	err := cmd.Execute()
-	assert.Error(t, err)
-}
-
 func TestCommandWithInvalidArg(t *testing.T) {
-	cmd := Command(keychain)
+	cmd := Command()
 	assert.NotNil(t, cmd)
 	b := bytes.NewBufferString("")
 	cmd.SetErr(b)
@@ -44,12 +18,12 @@ func TestCommandWithInvalidArg(t *testing.T) {
 	assert.Error(t, err)
 	out, err := io.ReadAll(b)
 	assert.NoError(t, err)
-	expected := `Error: accepts 1 arg(s), received 0`
+	expected := `Error: requires at least 1 arg(s), only received 0`
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
 }
 
 func TestCommandWithInvalidFlag(t *testing.T) {
-	cmd := Command(keychain)
+	cmd := Command()
 	assert.NotNil(t, cmd)
 	b := bytes.NewBufferString("")
 	cmd.SetErr(b)
@@ -63,7 +37,7 @@ func TestCommandWithInvalidFlag(t *testing.T) {
 }
 
 func TestCommandHelp(t *testing.T) {
-	cmd := Command(keychain)
+	cmd := Command()
 	assert.NotNil(t, cmd)
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)

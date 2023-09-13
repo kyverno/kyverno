@@ -25,13 +25,12 @@ func Command() *cobra.Command {
 	var path string
 	var options options
 	cmd := &cobra.Command{
-		Use:           "metrics-config",
-		Short:         command.FormatDescription(true, websiteUrl, false, description...),
-		Long:          command.FormatDescription(false, websiteUrl, false, description...),
-		Example:       command.FormatExamples(examples...),
-		Args:          cobra.NoArgs,
-		SilenceErrors: true,
-		SilenceUsage:  true,
+		Use:          "metrics-config",
+		Short:        command.FormatDescription(true, websiteUrl, false, description...),
+		Long:         command.FormatDescription(false, websiteUrl, false, description...),
+		Example:      command.FormatExamples(examples...),
+		Args:         cobra.NoArgs,
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			tmpl, err := template.New("metricsconfig").Funcs(sprig.HermeticTxtFuncMap()).Parse(templates.MetricsConfigTemplate)
 			if err != nil {
