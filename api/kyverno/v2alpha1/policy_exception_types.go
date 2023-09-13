@@ -20,7 +20,6 @@ import (
 
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -31,13 +30,7 @@ import (
 // +kubebuilder:resource:shortName=polex,categories=kyverno
 
 // PolicyException declares resources to be excluded from specified policies.
-type PolicyException struct {
-	metav1.TypeMeta   `json:",inline,omitempty"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	// Spec declares policy exception behaviors.
-	Spec kyvernov2beta1.PolicyExceptionSpec `json:"spec"`
-}
+type PolicyException kyvernov2beta1.PolicyException
 
 // Validate implements programmatic validation
 func (p *PolicyException) Validate() (errs field.ErrorList) {
@@ -64,8 +57,4 @@ type Exception = kyvernov2beta1.Exception
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // PolicyExceptionList is a list of Policy Exceptions
-type PolicyExceptionList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-	Items           []PolicyException `json:"items"`
-}
+type PolicyExceptionList kyvernov2beta1.PolicyExceptionList

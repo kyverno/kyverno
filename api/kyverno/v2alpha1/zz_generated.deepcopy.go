@@ -241,7 +241,7 @@ func (in *PolicyExceptionList) DeepCopyInto(out *PolicyExceptionList) {
 	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]PolicyException, len(*in))
+		*out = make([]v2beta1.PolicyException, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
