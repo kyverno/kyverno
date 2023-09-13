@@ -204,6 +204,7 @@ func (p *PolicyProcessor) makePolicyContext(
 		}
 		resourceValues = vals
 	}
+	// TODO: this is kind of buggy, we should read that from the json context
 	switch resourceValues["request.operation"] {
 	case "DELETE":
 		operation = kyvernov1.Delete
@@ -232,6 +233,36 @@ func (p *PolicyProcessor) makePolicyContext(
 		if err != nil {
 			log.Log.Error(err, "failed to add variable to context")
 		}
+	}
+	// we need to get the resources back from the context to account for injected variables
+	switch operation {
+	case kyvernov1.Create:
+		ret, err := policyContext.JSONContext().Query("request.object")
+		if err != nil {
+			return nil, err
+		}
+		policyContext = policyContext.WithNewResource(unstructured.Unstructured{Object: ret.(map[string]interface{})})
+	case kyvernov1.Update:
+		{
+			ret, err := policyContext.JSONContext().Query("request.object")
+			if err != nil {
+				return nil, err
+			}
+			policyContext = policyContext.WithNewResource(unstructured.Unstructured{Object: ret.(map[string]interface{})})
+		}
+		{
+			ret, err := policyContext.JSONContext().Query("request.oldObject")
+			if err != nil {
+				return nil, err
+			}
+			policyContext = policyContext.WithOldResource(unstructured.Unstructured{Object: ret.(map[string]interface{})})
+		}
+	case kyvernov1.Delete:
+		ret, err := policyContext.JSONContext().Query("request.oldObject")
+		if err != nil {
+			return nil, err
+		}
+		policyContext = policyContext.WithOldResource(unstructured.Unstructured{Object: ret.(map[string]interface{})})
 	}
 	return policyContext, nil
 }
