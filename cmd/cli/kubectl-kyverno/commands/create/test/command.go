@@ -33,13 +33,12 @@ func Command() *cobra.Command {
 	var options options
 	var pass, fail, skip []string
 	cmd := &cobra.Command{
-		Use:           "test",
-		Short:         command.FormatDescription(true, websiteUrl, false, description...),
-		Long:          command.FormatDescription(false, websiteUrl, false, description...),
-		Example:       command.FormatExamples(examples...),
-		Args:          cobra.NoArgs,
-		SilenceErrors: true,
-		SilenceUsage:  true,
+		Use:          "test",
+		Short:        command.FormatDescription(true, websiteUrl, false, description...),
+		Long:         command.FormatDescription(false, websiteUrl, false, description...),
+		Example:      command.FormatExamples(examples...),
+		Args:         cobra.NoArgs,
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			tmpl, err := template.New("test").Parse(templates.TestTemplate)
 			if err != nil {
