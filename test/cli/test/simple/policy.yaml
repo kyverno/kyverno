@@ -40,7 +40,7 @@ apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: duration-test
-  namespace: kyverno
+  # namespace: kyverno
 spec:
   background: true
   validationFailureAction: enforce
