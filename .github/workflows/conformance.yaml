@@ -535,6 +535,9 @@ jobs:
           build-cache-key: run-conformance
       - name: Create kind cluster and setup Sigstore Scaffolding
         uses: sigstore/scaffolding/actions/setup@9fb4937ae18ed8456d725e99cb2871d309673022
+      - name: Create TUF values config map
+        run: |
+          kubectl create configmap tufvalues --from-literal=TUF_MIRROR=$TUF_MIRROR --from-literal=FULCIO_URL=$FULCIO_URL --from-literal=REKOR_URL=$REKOR_URL --from-literal=CTLOG_URL=$CTLOG_URL
       - name: Download kyverno images archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
@@ -555,7 +558,6 @@ jobs:
       - name: Update Kyverno Deployment
         run: |
           kubectl create configmap tufvalues --from-literal=TUF_MIRROR=$TUF_MIRROR --from-literal=FULCIO_URL=$FULCIO_URL --from-literal=REKOR_URL=$REKOR_URL --from-literal=CTLOG_URL=$CTLOG_URL
-          kubectl apply -f ./scripts/config/custom-sigstore/deployment.yaml
       - name: Install crane
         uses: imjasonh/setup-crane@00c9e93efa4e1138c9a7a5c594acd6c75a2fbf0c
       - name: Install Cosign
@@ -567,7 +569,7 @@ jobs:
           IMAGE_NAME=$(uuidgen | tr "[:upper:]" "[:lower:]")
           TEST_IMAGE_URL=ttl.sh/${IMAGE_NAME}:1h
           crane copy cgr.dev/chainguard/static@$DIGEST $TEST_IMAGE_URL
-          COSIGN_EXPERIMENTAL=1 cosign sign --fulcio-url $FULCIO_URL --rekor-url $REKOR_URL $TEST_IMAGE_URL
+          COSIGN_EXPERIMENTAL=1 cosign sign --fulcio-url $FULCIO_URL --rekor-url $REKOR_URL --insecure-skip-verify $TEST_IMAGE_URL
           echo "TEST_IMAGE_URL=$TEST_IMAGE_URL" >> $GITHUB_ENV
       - name: Test with kuttl
         shell: bash
