@@ -27,8 +27,16 @@ func Command() *cobra.Command {
 
 func printFunctions(out io.Writer, names ...string) {
 	functions := jmespath.GetFunctions(config.NewDefaultConfiguration(false))
-	slices.SortFunc(functions, func(a, b jmespath.FunctionEntry) bool {
-		return a.String() < b.String()
+	slices.SortFunc(functions, func(a, b jmespath.FunctionEntry) int {
+		sa := a.String()
+		sb := b.String()
+		if sa < sb {
+			return -1
+		}
+		if sa > sb {
+			return 1
+		}
+		return 0
 	})
 	namesSet := sets.New(names...)
 	for _, function := range functions {

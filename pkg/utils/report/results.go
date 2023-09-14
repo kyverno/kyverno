@@ -11,28 +11,39 @@ import (
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
+func cmp[T constraints.Ordered](a, b T) int {
+	if a < b {
+		return -1
+	}
+	if a > b {
+		return 1
+	}
+	return 0
+}
+
 func SortReportResults(results []policyreportv1alpha2.PolicyReportResult) {
-	slices.SortFunc(results, func(a policyreportv1alpha2.PolicyReportResult, b policyreportv1alpha2.PolicyReportResult) bool {
-		if a.Policy != b.Policy {
-			return a.Policy < b.Policy
+	slices.SortFunc(results, func(a policyreportv1alpha2.PolicyReportResult, b policyreportv1alpha2.PolicyReportResult) int {
+		if x := cmp(a.Policy, b.Policy); x != 0 {
+			return x
 		}
-		if a.Rule != b.Rule {
-			return a.Rule < b.Rule
+		if x := cmp(a.Rule, b.Rule); x != 0 {
+			return x
 		}
-		if len(a.Resources) != len(b.Resources) {
-			return len(a.Resources) < len(b.Resources)
+		if x := cmp(len(a.Resources), len(b.Resources)); x != 0 {
+			return x
 		}
 		for i := range a.Resources {
-			if a.Resources[i].UID != b.Resources[i].UID {
-				return a.Resources[i].UID < b.Resources[i].UID
+			if x := cmp(a.Resources[i].UID, b.Resources[i].UID); x != 0 {
+				return x
 			}
 		}
-		return a.Timestamp.String() < b.Timestamp.String()
+		return cmp(a.Timestamp.String(), b.Timestamp.String())
 	})
 }
 
