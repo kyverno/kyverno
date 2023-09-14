@@ -97,16 +97,16 @@ func NewController(
 		chunkSize:      chunkSize,
 	}
 	if _, _, err := controllerutils.AddDelayedExplicitEventHandlers(logger, polrInformer.Informer(), c.queue, enqueueDelay, keyFunc); err != nil {
-		logger.Error(err, "failed to register even handlers")
+		logger.Error(err, "failed to register event handlers")
 	}
 	if _, _, err := controllerutils.AddDelayedExplicitEventHandlers(logger, cpolrInformer.Informer(), c.queue, enqueueDelay, keyFunc); err != nil {
-		logger.Error(err, "failed to register even handlers")
+		logger.Error(err, "failed to register event handlers")
 	}
 	if _, _, err := controllerutils.AddDelayedExplicitEventHandlers(logger, bgscanrInformer.Informer(), c.queue, enqueueDelay, keyFunc); err != nil {
-		logger.Error(err, "failed to register even handlers")
+		logger.Error(err, "failed to register event handlers")
 	}
 	if _, _, err := controllerutils.AddDelayedExplicitEventHandlers(logger, cbgscanrInformer.Informer(), c.queue, enqueueDelay, keyFunc); err != nil {
-		logger.Error(err, "failed to register even handlers")
+		logger.Error(err, "failed to register event handlers")
 	}
 	enqueueFromAdmr := func(obj metav1.Object) {
 		// no need to consider non aggregated reports
@@ -120,7 +120,7 @@ func NewController(
 		func(_, obj metav1.Object) { enqueueFromAdmr(obj) },
 		func(obj metav1.Object) { enqueueFromAdmr(obj) },
 	); err != nil {
-		logger.Error(err, "failed to register even handlers")
+		logger.Error(err, "failed to register event handlers")
 	}
 	if _, err := controllerutils.AddEventHandlersT(
 		cadmrInformer.Informer(),
@@ -128,7 +128,7 @@ func NewController(
 		func(_, obj metav1.Object) { enqueueFromAdmr(obj) },
 		func(obj metav1.Object) { enqueueFromAdmr(obj) },
 	); err != nil {
-		logger.Error(err, "failed to register even handlers")
+		logger.Error(err, "failed to register event handlers")
 	}
 	return &c
 }
