@@ -7,13 +7,13 @@ results:
 - kind: ConfigMap
   policy: limit-configmap-for-sa
   resources:
-  - any-namespace/any-configmap-name-good
-  result: fail
+  - any-namespace/any-configmap-name-bad
+  result: skip
   rule: limit-configmap-for-sa-developer
 - kind: ConfigMap
   policy: limit-configmap-for-sa
   resources:
-  - any-namespace/any-configmap-name-bad
-  result: skip
+  - any-namespace/any-configmap-name-good
+  result: fail
   rule: limit-configmap-for-sa-developer
 variables: variables.yaml

@@ -4,13 +4,6 @@ policies:
 resources:
 - resource.yaml
 results:
-- generatedResource: generatedResourceQuota.yaml
-  kind: Namespace
-  policy: add-ns-quota
-  resources:
-  - hello-world-namespace
-  result: pass
-  rule: generate-resourcequota
 - generatedResource: generatedLimitRange.yaml
   kind: Namespace
   policy: add-ns-quota
@@ -18,3 +11,10 @@ results:
   - hello-world-namespace
   result: pass
   rule: generate-limitrange
+- generatedResource: generatedResourceQuota.yaml
+  kind: Namespace
+  policy: add-ns-quota
+  resources:
+  - hello-world-namespace
+  result: pass
+  rule: generate-resourcequota

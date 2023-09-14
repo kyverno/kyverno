@@ -9,12 +9,6 @@ results:
   resources:
   - example
   result: pass
-  rule: defined-value
-- kind: Pod
-  policy: example
-  resources:
-  - example
-  result: pass
   rule: defined-jmespath
 - kind: Pod
   policy: example
@@ -27,13 +21,13 @@ results:
   resources:
   - example
   result: pass
-  rule: defined-value-with-variable
+  rule: defined-jmespath-with-default-variable
 - kind: Pod
   policy: example
   resources:
   - example
   result: pass
-  rule: defined-jmespath-with-default-variable
+  rule: defined-value
 - kind: Pod
   policy: example
   resources:
@@ -51,13 +45,7 @@ results:
   resources:
   - example
   result: pass
-  rule: value-override
-- kind: Pod
-  policy: example
-  resources:
-  - example
-  result: pass
-  rule: wildcard-match
+  rule: defined-value-with-variable
 - kind: Pod
   policy: example
   resources:
@@ -70,3 +58,15 @@ results:
   - example
   result: pass
   rule: unused-var
+- kind: Pod
+  policy: example
+  resources:
+  - example
+  result: pass
+  rule: value-override
+- kind: Pod
+  policy: example
+  resources:
+  - example
+  result: pass
+  rule: wildcard-match
