@@ -133,6 +133,11 @@ spec:
             - --{{ $key }}={{ $value }}
             {{- end }}
             {{- end }}
+          {{- if .Values.reportsController.customSigstoreConfigMap }}
+          envFrom:
+            - configMapRef:
+              name: {{ .Values.reportsController.customSigstoreConfigMap }}
+          {{- end }}
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME
             value: {{ template "kyverno.reports-controller.serviceAccountName" . }}
@@ -150,13 +155,6 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
-          {{- if .Values.reportsController.customSigstoreConfigMap }}
-          - name: TUF_MIRROR
-            valueFrom:
-              configMapKeyRef:
-                name: {{ .Values.reportsController.customSigstoreConfigMap }}
-                key: data.TUF_MIRROR
-          {{- end }}
           - name: TUF_ROOT
             value: {{ .Values.reportsController.tufRootMountPath }}
           {{- with .Values.reportsController.extraEnvVars }}
