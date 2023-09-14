@@ -18,17 +18,14 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/git"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"k8s.io/api/admissionregistration/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
-	"sigs.k8s.io/kubectl-validate/pkg/validatorfactory"
+	"sigs.k8s.io/kubectl-validate/pkg/validator"
 )
 
 var (
-	factory, _      = validatorfactory.New(client)
+	factory, _      = validator.New(client)
 	policyV1        = schema.GroupVersion(kyvernov1.GroupVersion).WithKind("Policy")
 	policyV2        = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("Policy")
 	clusterPolicyV1 = schema.GroupVersion(kyvernov1.GroupVersion).WithKind("ClusterPolicy")
@@ -51,26 +48,11 @@ func getPolicies(bytes []byte) ([]kyvernov1.PolicyInterface, []v1alpha1.Validati
 		return nil, nil, err
 	}
 	for _, document := range documents {
-		var metadata metav1.TypeMeta
-		if err := yaml.Unmarshal(document, &metadata); err != nil {
-			return nil, nil, err
-		}
-		gvk := metadata.GetObjectKind().GroupVersionKind()
-		validator, err := factory.ValidatorsForGVK(gvk)
+		gvk, untyped, err := factory.Parse(document)
 		if err != nil {
 			return nil, nil, err
 		}
-		decoder, err := validator.Decoder(gvk)
-		if err != nil {
-			return nil, nil, err
-		}
-		info, ok := runtime.SerializerInfoForMediaType(decoder.SupportedMediaTypes(), runtime.ContentTypeYAML)
-		if !ok {
-			return nil, nil, fmt.Errorf("failed to get serializer info for %s", gvk)
-		}
-		var untyped unstructured.Unstructured
-		_, _, err = decoder.DecoderToVersion(info.StrictSerializer, gvk.GroupVersion()).Decode(document, &gvk, &untyped)
-		if err != nil {
+		if err := factory.Validate(untyped); err != nil {
 			return nil, nil, err
 		}
 		switch gvk {
