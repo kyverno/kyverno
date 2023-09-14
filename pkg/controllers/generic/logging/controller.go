@@ -32,7 +32,7 @@ func NewController(logger logr.Logger, objectType string, informer informer, pre
 		predicates: predicates,
 	}
 	if _, err := controllerutils.AddEventHandlersT(informer.Informer(), c.add, c.update, c.delete); err != nil {
-		logger.Error(err, "failed to register even handlers")
+		logger.Error(err, "failed to register event handlers")
 	}
 }
 

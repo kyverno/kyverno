@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -49,6 +50,7 @@ type PolicyProcessor struct {
 	Client                    dclient.Interface
 	AuditWarn                 bool
 	Subresources              []valuesapi.Subresource
+	Out                       io.Writer
 }
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
@@ -166,7 +168,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			}
 			generateResponse := eng.ApplyBackgroundChecks(context.TODO(), policyContext)
 			if !generateResponse.IsEmpty() {
-				newRuleResponse, err := handleGeneratePolicy(&generateResponse, *policyContext, p.RuleToCloneSourceResource)
+				newRuleResponse, err := handleGeneratePolicy(p.Out, &generateResponse, *policyContext, p.RuleToCloneSourceResource)
 				if err != nil {
 					log.Log.Error(err, "failed to apply generate policy")
 				} else {
@@ -193,7 +195,7 @@ func (p *PolicyProcessor) makePolicyContext(
 	operation := kyvernov1.Create
 	var resourceValues map[string]interface{}
 	if p.Variables != nil {
-		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy, p.Variables.Subresources(), p.Client)
+		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(p.Out, policy, p.Variables.Subresources(), p.Client)
 		vals, err := p.Variables.ComputeVariables(policy.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied /*matches...*/)
 		if err != nil {
 			return nil, fmt.Errorf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag (%w)",
@@ -316,16 +318,16 @@ func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineR
 			mutatedResource := string(yamlEncodedResource) + string("\n---")
 			if len(strings.TrimSpace(mutatedResource)) > 0 {
 				if !p.Stdin {
-					fmt.Printf("\nmutate policy %s applied to %s:", response.Policy().GetName(), resourcePath)
+					fmt.Fprintf(p.Out, "\nmutate policy %s applied to %s:", response.Policy().GetName(), resourcePath)
 				}
-				fmt.Printf("\n" + mutatedResource + "\n")
+				fmt.Fprintf(p.Out, "\n"+mutatedResource+"\n")
 			}
 		} else {
 			err := p.printMutatedOutput(string(yamlEncodedResource))
 			if err != nil {
 				return fmt.Errorf("failed to print mutated result (%w)", err)
 			}
-			fmt.Printf("\n\nMutation:\nMutation has been applied successfully. Check the files.")
+			fmt.Fprintf(p.Out, "\n\nMutation:\nMutation has been applied successfully. Check the files.")
 		}
 	}
 	return nil

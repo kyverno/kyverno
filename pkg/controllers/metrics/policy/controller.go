@@ -53,10 +53,10 @@ func NewController(
 		waitGroup:     waitGroup,
 	}
 	if _, err := controllerutils.AddEventHandlers(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy); err != nil {
-		logger.Error(err, "failed to register even handlers")
+		logger.Error(err, "failed to register event handlers")
 	}
 	if _, err := controllerutils.AddEventHandlers(polInformer.Informer(), c.addNsPolicy, c.updateNsPolicy, c.deleteNsPolicy); err != nil {
-		logger.Error(err, "failed to register even handlers")
+		logger.Error(err, "failed to register event handlers")
 	}
 	if c.ruleInfo != nil {
 		_, err := meter.RegisterCallback(c.report, c.ruleInfo)

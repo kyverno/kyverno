@@ -11,28 +11,28 @@ func TestIsEnabled(t *testing.T) {
 		{
 			name: "enabled",
 			env: map[string]string{
-				experimentalEnv: "true",
+				ExperimentalEnv: "true",
 			},
 			want: true,
 		},
 		{
 			name: "enabled",
 			env: map[string]string{
-				experimentalEnv: "1",
+				ExperimentalEnv: "1",
 			},
 			want: true,
 		},
 		{
 			name: "enabled",
 			env: map[string]string{
-				experimentalEnv: "t",
+				ExperimentalEnv: "t",
 			},
 			want: true,
 		},
 		{
 			name: "disabled",
 			env: map[string]string{
-				experimentalEnv: "false",
+				ExperimentalEnv: "false",
 			},
 			want: false,
 		},
@@ -44,7 +44,7 @@ func TestIsEnabled(t *testing.T) {
 		{
 			name: "bad format",
 			env: map[string]string{
-				experimentalEnv: "maybe",
+				ExperimentalEnv: "maybe",
 			},
 			want: false,
 		},

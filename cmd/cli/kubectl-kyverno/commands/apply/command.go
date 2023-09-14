@@ -3,6 +3,7 @@ package apply
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -75,19 +76,20 @@ func Command() *cobra.Command {
 		Example:      command.FormatExamples(examples...),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			out := cmd.OutOrStdout()
 			color.InitColors(removeColor)
 			applyCommandConfig.PolicyPaths = args
-			rc, _, skipInvalidPolicies, responses, err := applyCommandConfig.applyCommandHelper()
+			rc, _, skipInvalidPolicies, responses, err := applyCommandConfig.applyCommandHelper(out)
 			if err != nil {
 				return err
 			}
-			printSkippedAndInvalidPolicies(skipInvalidPolicies)
+			printSkippedAndInvalidPolicies(out, skipInvalidPolicies)
 			if applyCommandConfig.PolicyReport {
-				printReport(responses, applyCommandConfig.AuditWarn)
+				printReport(out, responses, applyCommandConfig.AuditWarn)
 			} else if table {
-				printTable(detailedResults, applyCommandConfig.AuditWarn, responses...)
+				printTable(out, detailedResults, applyCommandConfig.AuditWarn, responses...)
 			} else {
-				printViolations(rc)
+				printViolations(out, rc)
 			}
 			return exit(rc, applyCommandConfig.warnExitCode, applyCommandConfig.warnNoPassed)
 		},
@@ -115,7 +117,7 @@ func Command() *cobra.Command {
 	return cmd
 }
 
-func (c *ApplyCommandConfig) applyCommandHelper() (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
+func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	rc, resources1, skipInvalidPolicies, responses1, err := c.checkArguments()
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
@@ -151,7 +153,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*processor.ResultCounts, []*u
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	resources, err := c.loadResources(policies, validatingAdmissionPolicies, dClient)
+	resources, err := c.loadResources(out, policies, validatingAdmissionPolicies, dClient)
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
@@ -161,9 +163,10 @@ func (c *ApplyCommandConfig) applyCommandHelper() (*processor.ResultCounts, []*u
 			policyRulesCount += len(autogen.ComputeRules(policy))
 		}
 		policyRulesCount += len(validatingAdmissionPolicies)
-		fmt.Printf("\nApplying %d policy rule(s) to %d resource(s)...\n", policyRulesCount, len(resources))
+		fmt.Fprintf(out, "\nApplying %d policy rule(s) to %d resource(s)...\n", policyRulesCount, len(resources))
 	}
 	rc, resources1, responses1, err = c.applyPolicytoResource(
+		out,
 		variables,
 		policies,
 		resources,
@@ -220,6 +223,7 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(
 }
 
 func (c *ApplyCommandConfig) applyPolicytoResource(
+	out io.Writer,
 	vars *variables.Variables,
 	policies []kyvernov1.PolicyInterface,
 	resources []*unstructured.Unstructured,
@@ -254,7 +258,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 		if !vars.HasVariables() && variables.NeedsVariables(matches...) {
 			// check policy in variable file
 			if !vars.HasPolicyVariables(pol.GetName()) {
-				fmt.Printf("test skipped for policy %v (as required variables are not provided by the users) \n \n", pol.GetName())
+				fmt.Fprintf(out, "test skipped for policy %v (as required variables are not provided by the users) \n \n", pol.GetName())
 				continue
 			}
 		}
@@ -278,6 +282,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 			Client:               dClient,
 			AuditWarn:            c.AuditWarn,
 			Subresources:         vars.Subresources(),
+			Out:                  out,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
@@ -288,8 +293,8 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	return &rc, resources, responses, nil
 }
 
-func (c *ApplyCommandConfig) loadResources(policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, error) {
-	resources, err := common.GetResourceAccordingToResourcePath(nil, c.ResourcePaths, c.Cluster, policies, validatingAdmissionPolicies, dClient, c.Namespace, c.PolicyReport, "")
+func (c *ApplyCommandConfig) loadResources(out io.Writer, policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, error) {
+	resources, err := common.GetResourceAccordingToResourcePath(out, nil, c.ResourcePaths, c.Cluster, policies, validatingAdmissionPolicies, dClient, c.Namespace, c.PolicyReport, "")
 	if err != nil {
 		return resources, fmt.Errorf("failed to load resources (%w)", err)
 	}
@@ -409,42 +414,42 @@ func (c *ApplyCommandConfig) checkArguments() (*processor.ResultCounts, []*unstr
 	return nil, nil, skipInvalidPolicies, nil, nil
 }
 
-func printSkippedAndInvalidPolicies(skipInvalidPolicies SkippedInvalidPolicies) {
+func printSkippedAndInvalidPolicies(out io.Writer, skipInvalidPolicies SkippedInvalidPolicies) {
 	if len(skipInvalidPolicies.skipped) > 0 {
-		fmt.Println(divider)
-		fmt.Println("Policies Skipped (as required variables are not provided by the user):")
+		fmt.Fprintln(out, divider)
+		fmt.Fprintln(out, "Policies Skipped (as required variables are not provided by the user):")
 		for i, policyName := range skipInvalidPolicies.skipped {
-			fmt.Printf("%d. %s\n", i+1, policyName)
+			fmt.Fprintf(out, "%d. %s\n", i+1, policyName)
 		}
-		fmt.Println(divider)
+		fmt.Fprintln(out, divider)
 	}
 	if len(skipInvalidPolicies.invalid) > 0 {
-		fmt.Println(divider)
-		fmt.Println("Invalid Policies:")
+		fmt.Fprintln(out, divider)
+		fmt.Fprintln(out, "Invalid Policies:")
 		for i, policyName := range skipInvalidPolicies.invalid {
-			fmt.Printf("%d. %s\n", i+1, policyName)
+			fmt.Fprintf(out, "%d. %s\n", i+1, policyName)
 		}
-		fmt.Println(divider)
+		fmt.Fprintln(out, divider)
 	}
 }
 
-func printReport(engineResponses []engineapi.EngineResponse, auditWarn bool) {
+func printReport(out io.Writer, engineResponses []engineapi.EngineResponse, auditWarn bool) {
 	clustered, namespaced := report.ComputePolicyReports(auditWarn, engineResponses...)
 	if len(clustered) > 0 || len(namespaced) > 0 {
-		fmt.Println(divider)
-		fmt.Println("POLICY REPORT:")
-		fmt.Println(divider)
+		fmt.Fprintln(out, divider)
+		fmt.Fprintln(out, "POLICY REPORT:")
+		fmt.Fprintln(out, divider)
 		report := report.MergeClusterReports(clustered)
 		yamlReport, _ := yaml.Marshal(report)
-		fmt.Println(string(yamlReport))
+		fmt.Fprintln(out, string(yamlReport))
 	} else {
-		fmt.Println(divider)
-		fmt.Println("POLICY REPORT: skip generating policy report (no validate policy found/resource skipped)")
+		fmt.Fprintln(out, divider)
+		fmt.Fprintln(out, "POLICY REPORT: skip generating policy report (no validate policy found/resource skipped)")
 	}
 }
 
-func printViolations(rc *processor.ResultCounts) {
-	fmt.Printf("\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n", rc.Pass(), rc.Fail(), rc.Warn(), rc.Error(), rc.Skip())
+func printViolations(out io.Writer, rc *processor.ResultCounts) {
+	fmt.Fprintf(out, "\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n", rc.Pass(), rc.Fail(), rc.Warn(), rc.Error(), rc.Skip())
 }
 
 func exit(rc *processor.ResultCounts, warnExitCode int, warnNoPassed bool) error {
