@@ -4,23 +4,17 @@ policies:
 resources:
 - resources.yaml
 results:
-- kind: Pod
+- kind: StatefulSet
   policy: require-common-labels
   resources:
-  - pod-with-labels
+  - StatefulSet-with-labels
   result: pass
   rule: check-for-labels
-- kind: Pod
+- kind: CronJob
   policy: require-common-labels
   resources:
-  - pod-missing-labels
+  - cronjob-without-labels
   result: fail
-  rule: check-for-labels
-- kind: Deployment
-  policy: require-common-labels
-  resources:
-  - deployment-with-labels
-  result: pass
   rule: check-for-labels
 - kind: Deployment
   policy: require-common-labels
@@ -28,16 +22,10 @@ results:
   - deployment-missing-labels
   result: fail
   rule: check-for-labels
-- kind: StatefulSet
+- kind: Pod
   policy: require-common-labels
   resources:
-  - StatefulSet-with-labels
-  result: pass
-  rule: check-for-labels
-- kind: StatefulSet
-  policy: require-common-labels
-  resources:
-  - StatefulSet-without-labels
+  - pod-missing-labels
   result: fail
   rule: check-for-labels
 - kind: CronJob
@@ -46,9 +34,21 @@ results:
   - cronjob-with-labels
   result: pass
   rule: check-for-labels
-- kind: CronJob
+- kind: Deployment
   policy: require-common-labels
   resources:
-  - cronjob-without-labels
+  - deployment-with-labels
+  result: pass
+  rule: check-for-labels
+- kind: Pod
+  policy: require-common-labels
+  resources:
+  - pod-with-labels
+  result: pass
+  rule: check-for-labels
+- kind: StatefulSet
+  policy: require-common-labels
+  resources:
+  - StatefulSet-without-labels
   result: fail
   rule: check-for-labels

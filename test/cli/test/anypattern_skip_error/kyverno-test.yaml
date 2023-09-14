@@ -7,9 +7,8 @@ results:
 - kind: Service
   policy: validate-service-loadbalancer
   resources:
-  - service-public-pass
-  - service-public-2-pass
-  result: pass
+  - service-clusterip-skip
+  result: skip
   rule: check-loadbalancer-public
 - kind: Service
   policy: validate-service-loadbalancer
@@ -20,6 +19,7 @@ results:
 - kind: Service
   policy: validate-service-loadbalancer
   resources:
-  - service-clusterip-skip
-  result: skip
+  - service-public-2-pass
+  - service-public-pass
+  result: pass
   rule: check-loadbalancer-public

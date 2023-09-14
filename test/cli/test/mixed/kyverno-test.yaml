@@ -11,15 +11,15 @@ results:
   result: fail
   rule: ondemand-managed_by
 - kind: Pod
+  policy: ondemand
+  resources:
+  - user-space/nodeselector-with-labels-on-mutation
+  result: pass
+  rule: ondemand-managed_by
+- kind: Pod
   patchedResource: patched-resource.yaml
   policy: ondemand
   resources:
   - user-space/nodeselector-with-labels-on-mutation
   result: pass
   rule: ondemand-nodeselector
-- kind: Pod
-  policy: ondemand
-  resources:
-  - user-space/nodeselector-with-labels-on-mutation
-  result: pass
-  rule: ondemand-managed_by
