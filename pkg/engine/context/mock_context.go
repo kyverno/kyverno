@@ -64,6 +64,16 @@ func (ctx *MockContext) Query(query string) (interface{}, error) {
 	}
 }
 
+func (ctx *MockContext) QueryOperation() string {
+	if op, err := ctx.Query("request.operation"); err != nil {
+		if op != nil {
+			return op.(string)
+		}
+	}
+
+	return ""
+}
+
 func (ctx *MockContext) isVariableDefined(variable string) bool {
 	for _, pattern := range ctx.getVariables() {
 		if wildcard.Match(pattern, variable) {
