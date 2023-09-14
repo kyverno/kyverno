@@ -404,5 +404,3 @@ require (
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.1.4 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 )
-
-replace golang.org/x/exp => golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
