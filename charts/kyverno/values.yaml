@@ -778,7 +778,7 @@ admissionController:
     # - secretName
 
   # --tuf-root
-  tufRoot: 
+  tufRoot:
 
   # --tuf-mirror
   tufMirror:
@@ -1539,7 +1539,7 @@ reportsController:
   # -- Image pull secrets
   imagePullSecrets: []
     # - secretName
-  
+
   # --tuf-root
   tufRoot:
 
