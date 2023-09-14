@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"io"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
@@ -26,17 +27,17 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn bool) ([]engineapi.EngineResponse, error) {
+func runTest(out io.Writer, openApiManager openapi.Manager, testCase test.TestCase, auditWarn bool) ([]engineapi.EngineResponse, error) {
 	// don't process test case with errors
 	if testCase.Err != nil {
 		return nil, testCase.Err
 	}
-	fmt.Println("Loading test", testCase.Test.Name, "(", testCase.Path, ")", "...")
+	fmt.Fprintln(out, "Loading test", testCase.Test.Name, "(", testCase.Path, ")", "...")
 	isGit := testCase.Fs != nil
 	testDir := testCase.Dir()
 	var dClient dclient.Interface
 	// values/variables
-	fmt.Println("  Loading values/variables", "...")
+	fmt.Fprintln(out, "  Loading values/variables", "...")
 	vars, err := variables.New(testCase.Fs, testDir, testCase.Test.Variables, testCase.Test.Values)
 	if err != nil {
 		err = fmt.Errorf("failed to decode yaml (%w)", err)
@@ -45,7 +46,7 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 	// user info
 	var userInfo *v1beta1.RequestInfo
 	if testCase.Test.UserInfo != "" {
-		fmt.Println("  Loading user infos", "...")
+		fmt.Fprintln(out, "  Loading user infos", "...")
 		var err error
 		userInfo, err = userinfo.Load(testCase.Fs, testCase.Test.UserInfo, testDir)
 		if err != nil {
@@ -53,23 +54,23 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 		}
 	}
 	// policies
-	fmt.Println("  Loading policies", "...")
+	fmt.Fprintln(out, "  Loading policies", "...")
 	policyFullPath := path.GetFullPaths(testCase.Test.Policies, testDir, isGit)
 	policies, validatingAdmissionPolicies, err := policy.Load(testCase.Fs, testDir, policyFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("Error: failed to load policies (%s)", err)
 	}
 	// resources
-	fmt.Println("  Loading resources", "...")
+	fmt.Fprintln(out, "  Loading resources", "...")
 	resourceFullPath := path.GetFullPaths(testCase.Test.Resources, testDir, isGit)
-	resources, err := common.GetResourceAccordingToResourcePath(testCase.Fs, resourceFullPath, false, policies, validatingAdmissionPolicies, dClient, "", false, testDir)
+	resources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, resourceFullPath, false, policies, validatingAdmissionPolicies, dClient, "", false, testDir)
 	if err != nil {
 		return nil, fmt.Errorf("Error: failed to load resources (%s)", err)
 	}
 	uniques, duplicates := resource.RemoveDuplicates(resources)
 	if len(duplicates) > 0 {
 		for dup := range duplicates {
-			fmt.Println("  Warning: found duplicated resource", dup.Kind, dup.Name, dup.Namespace)
+			fmt.Fprintln(out, "  Warning: found duplicated resource", dup.Kind, dup.Name, dup.Namespace)
 		}
 	}
 	// init store
@@ -89,12 +90,12 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 					if rule.HasGenerate() {
 						ruleUnstr, err := generate.GetUnstrRule(rule.Generation.DeepCopy())
 						if err != nil {
-							fmt.Printf("Error: failed to get unstructured rule\nCause: %s\n", err)
+							fmt.Fprintf(out, "Error: failed to get unstructured rule\nCause: %s\n", err)
 							break
 						}
 						genClone, _, err := unstructured.NestedMap(ruleUnstr.Object, "clone")
 						if err != nil {
-							fmt.Printf("Error: failed to read data\nCause: %s\n", err)
+							fmt.Fprintf(out, "Error: failed to read data\nCause: %s\n", err)
 							break
 						}
 						if len(genClone) != 0 {
@@ -127,14 +128,14 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 		if !vars.HasVariables() && variables.NeedsVariables(matches...) {
 			// check policy in variable file
 			if !vars.HasPolicyVariables(pol.GetName()) {
-				fmt.Printf("test skipped for policy %v (as required variables are not provided by the users) \n \n", pol.GetName())
+				fmt.Fprintf(out, "test skipped for policy %v (as required variables are not provided by the users) \n \n", pol.GetName())
 				// continue
 			}
 		}
 		validPolicies = append(validPolicies, pol)
 	}
 	// execute engine
-	fmt.Println("  Applying", len(policies), pluralize.Pluralize(len(policies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
+	fmt.Fprintln(out, "  Applying", len(policies), pluralize.Pluralize(len(policies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
 	var engineResponses []engineapi.EngineResponse
 	var resultCounts processor.ResultCounts
 
@@ -151,6 +152,7 @@ func runTest(openApiManager openapi.Manager, testCase test.TestCase, auditWarn b
 			RuleToCloneSourceResource: ruleToCloneSourceResource,
 			Client:                    dClient,
 			Subresources:              vars.Subresources(),
+			Out:                       out,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {

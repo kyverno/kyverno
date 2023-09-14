@@ -186,7 +186,7 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 	}
 
 	cosignOpts.IgnoreSCT = opts.IgnoreSCT
-	cosignOpts.CTLogPubKeys, err = cosign.GetCTLogPubs(ctx)
+	cosignOpts.CTLogPubKeys, err = getCTLogPubs(ctx, opts.CTLogsPubKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load Rekor public keys: %w", err)
 	}
@@ -579,6 +579,18 @@ func getRekorPubs(ctx context.Context, rekorPubKey string) (*cosign.TrustedTrans
 
 	publicKeys := cosign.NewTrustedTransparencyLogPubKeys()
 	if err := publicKeys.AddTransparencyLogPubKey([]byte(rekorPubKey), tuf.Active); err != nil {
+		return nil, fmt.Errorf("AddRekorPubKey: %w", err)
+	}
+	return &publicKeys, nil
+}
+
+func getCTLogPubs(ctx context.Context, ctlogPubKey string) (*cosign.TrustedTransparencyLogPubKeys, error) {
+	if ctlogPubKey == "" {
+		return cosign.GetCTLogPubs(ctx)
+	}
+
+	publicKeys := cosign.NewTrustedTransparencyLogPubKeys()
+	if err := publicKeys.AddTransparencyLogPubKey([]byte(ctlogPubKey), tuf.Active); err != nil {
 		return nil, fmt.Errorf("AddRekorPubKey: %w", err)
 	}
 	return &publicKeys, nil

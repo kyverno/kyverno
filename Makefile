@@ -521,7 +521,7 @@ codegen-cli-docs: $(CLI_BIN) ## Generate CLI docs
 .PHONY: codegen-cli-tests
 codegen-cli-tests: $(CLI_BIN) ## Fix CLI test files
 	@echo Fix CLI test files... >&2
-	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix test ./test/cli --save
+	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix test ./test/cli --save --compress
 
 .PHONY: codegen-docs-all
 codegen-docs-all: codegen-helm-docs codegen-cli-docs codegen-api-docs  ## Generate all docs

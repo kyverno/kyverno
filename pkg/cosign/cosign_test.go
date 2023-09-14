@@ -63,7 +63,7 @@ kBbmLSGtks4L3qX6yYY0zufBnhC8Ur/iy55GhWP/9A/bY2LhC30M9+RYtw==
 -----END PUBLIC KEY-----
 `
 
-const wrongRekorPubKey = `-----BEGIN PUBLIC KEY-----
+const wrongPubKey = `-----BEGIN PUBLIC KEY-----
 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEoiR2ouEAp4JS/JIgkCVYCxpp/dMe
 4Mkc/92O8rbWs6xIAcIEju7+Z2yecpQH6RbztEVCZbBZhEVfMdRgWKOrrQ==
 -----END PUBLIC KEY-----`
@@ -128,7 +128,7 @@ func TestRekorPubkeys(t *testing.T) {
 		Issuer:      "https://github.com/login/oauth",
 		Subject:     "jim@nirmata.com",
 		RekorURL:    "--INVALID--", // To avoid using the default rekor url as thats where signature is uploaded
-		RekorPubKey: wrongRekorPubKey,
+		RekorPubKey: wrongPubKey,
 		IgnoreSCT:   true,
 	}
 
@@ -141,6 +141,28 @@ func TestRekorPubkeys(t *testing.T) {
 	assert.ErrorContains(t, err, "rekor log public key not found for payload")
 
 	opts.RekorPubKey = globalRekorPubKey
+	_, err = verifier.VerifySignature(context.TODO(), opts)
+	assert.NilError(t, err)
+}
+
+func TestCTLogsPubkeys(t *testing.T) {
+	opts := images.Options{
+		ImageRef:     "ghcr.io/vishal-chdhry/cosign-test:v1",
+		Issuer:       "https://accounts.google.com",
+		Subject:      "vishal.choudhary@nirmata.com",
+		RekorPubKey:  globalRekorPubKey,
+		CTLogsPubKey: wrongPubKey,
+	}
+
+	rc, err := registryclient.New()
+	assert.NilError(t, err)
+	opts.Client = rc
+
+	verifier := &cosignVerifier{}
+	_, err = verifier.VerifySignature(context.TODO(), opts)
+	assert.ErrorContains(t, err, "no matching signatures: ctfe public key not found for payload.")
+
+	opts.CTLogsPubKey = ""
 	_, err = verifier.VerifySignature(context.TODO(), opts)
 	assert.NilError(t, err)
 }
