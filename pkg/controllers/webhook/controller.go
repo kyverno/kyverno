@@ -642,7 +642,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(cfg config.Config
 				}
 			}
 			rules := p.GetSpec().Rules
-			operationStatusMap = analyseOperationStatusMapMutatingWebhookConfiguration(rules, operationStatusMap)
+			operationStatusMap = computeOperationsForMutatingWebhookConf(rules, operationStatusMap)
 		}
 		operationReq := getMinimumOperations(operationStatusMap)
 		webhookCfg := config.WebhookConfig{}
@@ -753,7 +753,7 @@ func getOperationStatusMap() map[string]bool {
 	return operationStatusMap
 }
 
-func analyseOperationStatusMapValidatingWebhookConfiguration(rules []kyvernov1.Rule, operationStatusMap map[string]bool) map[string]bool {
+func computeOperationsForValidatingWebhookConf(rules []kyvernov1.Rule, operationStatusMap map[string]bool) map[string]bool {
 	for _, r := range rules {
 		if r.MatchResources.ResourceDescription.Operations != nil {
 			for _, o := range r.MatchResources.ResourceDescription.Operations {
@@ -777,7 +777,7 @@ func analyseOperationStatusMapValidatingWebhookConfiguration(rules []kyvernov1.R
 	return operationStatusMap
 }
 
-func analyseOperationStatusMapMutatingWebhookConfiguration(rules []kyvernov1.Rule, operationStatusMap map[string]bool) map[string]bool {
+func computeOperationsForMutatingWebhookConf(rules []kyvernov1.Rule, operationStatusMap map[string]bool) map[string]bool {
 	for _, r := range rules {
 		if r.MatchResources.ResourceDescription.Operations != nil {
 			for _, o := range r.MatchResources.ResourceDescription.Operations {
@@ -832,9 +832,9 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(cfg config.Conf
 				}
 			}
 			rules := p.GetSpec().Rules
-			operationStatusMap = analyseOperationStatusMapValidatingWebhookConfiguration(rules, operationStatusMap)
+			operationStatusMap = computeOperationsForValidatingWebhookConf(rules, operationStatusMap)
 		}
-		operationReq := getMinimumOperations(operationStatusMap)
+		operationsNeeded := getMinimumOperations(operationStatusMap)
 
 		webhookCfg := config.WebhookConfig{}
 		webhookCfgs := cfg.GetWebhooks()
@@ -852,7 +852,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(cfg config.Conf
 				admissionregistrationv1.ValidatingWebhook{
 					Name:                    config.ValidatingWebhookName + "-ignore",
 					ClientConfig:            c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/ignore"),
-					Rules:                   ignore.buildRulesWithOperations(operationReq...),
+					Rules:                   ignore.buildRulesWithOperations(operationsNeeded...),
 					FailurePolicy:           &ignore.failurePolicy,
 					SideEffects:             sideEffects,
 					AdmissionReviewVersions: []string{"v1"},
@@ -869,7 +869,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(cfg config.Conf
 				admissionregistrationv1.ValidatingWebhook{
 					Name:                    config.ValidatingWebhookName + "-fail",
 					ClientConfig:            c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/fail"),
-					Rules:                   fail.buildRulesWithOperations(operationReq...),
+					Rules:                   fail.buildRulesWithOperations(operationsNeeded...),
 					FailurePolicy:           &fail.failurePolicy,
 					SideEffects:             sideEffects,
 					AdmissionReviewVersions: []string{"v1"},
