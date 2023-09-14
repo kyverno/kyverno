@@ -70,8 +70,10 @@ func addPolicy(policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies
 		var policy kyvernov1.PolicyInterface
 		if us.GetKind() == "ClusterPolicy" {
 			policy = &kyvernov1.ClusterPolicy{}
-		} else {
+		} else if us.GetKind() == "Policy" {
 			policy = &kyvernov1.Policy{}
+		} else {
+			return policies, validatingAdmissionPolicies, nil
 		}
 
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(us.Object, policy, true); err != nil {
