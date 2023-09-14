@@ -3199,9 +3199,8 @@ func Test_delete_ignore_pattern(t *testing.T) {
 	assert.Equal(t, len(engineResponseCreate.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResponseCreate.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusFail)
 
-	policyContextDelete := NewPolicyContextWithJsonContext(kyvernov1.Create, ctx).
-		WithPolicy(&policy).
-		WithOldResource(*resourceUnstructured)
+	policyContextDelete := NewPolicyContextWithJsonContext(kyvernov1.Delete, ctx).
+		WithPolicy(&policy)
 
 	engineResponseDelete := testValidate(context.TODO(), registryclient.NewOrDie(), policyContextDelete, cfg, nil)
 	assert.Equal(t, len(engineResponseDelete.PolicyResponse.Rules), 0)
