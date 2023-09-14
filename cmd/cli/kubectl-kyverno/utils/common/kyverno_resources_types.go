@@ -1,6 +1,8 @@
 package common
 
 import (
+	"io"
+
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
 	"github.com/kyverno/kyverno/pkg/autogen"
@@ -13,7 +15,7 @@ type KyvernoResources struct {
 	policies []kyvernov1.PolicyInterface
 }
 
-func (r *KyvernoResources) FetchResourcesFromPolicy(resourcePaths []string, dClient dclient.Interface, namespace string, policyReport bool) ([]*unstructured.Unstructured, error) {
+func (r *KyvernoResources) FetchResourcesFromPolicy(out io.Writer, resourcePaths []string, dClient dclient.Interface, namespace string, policyReport bool) ([]*unstructured.Unstructured, error) {
 	var resources []*unstructured.Unstructured
 	var err error
 
@@ -35,7 +37,7 @@ func (r *KyvernoResources) FetchResourcesFromPolicy(resourcePaths []string, dCli
 		resourceTypes = append(resourceTypes, kind)
 	}
 
-	resources, err = whenClusterIsTrue(resourceTypes, subresourceMap, dClient, namespace, resourcePaths, policyReport)
+	resources, err = whenClusterIsTrue(out, resourceTypes, subresourceMap, dClient, namespace, resourcePaths, policyReport)
 
 	return resources, err
 }

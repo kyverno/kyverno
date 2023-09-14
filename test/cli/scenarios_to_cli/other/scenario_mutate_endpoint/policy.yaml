@@ -10,9 +10,9 @@ spec:
         - resources:
             kinds:
             - Endpoints
-          selector:
-            matchLabels:
-              label: test
+            selector:
+              matchLabels:
+                label: test
       mutate:
         patchesJson6902: |-
           [
