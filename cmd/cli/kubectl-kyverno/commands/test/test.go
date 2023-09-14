@@ -78,6 +78,7 @@ func runTest(out io.Writer, openApiManager openapi.Manager, testCase test.TestCa
 	if vars != nil {
 		vars.SetInStore()
 	}
+	fmt.Fprintln(out, "  Applying", len(policies), pluralize.Pluralize(len(policies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
 	// TODO document the code below
 	ruleToCloneSourceResource := map[string]string{}
 	for _, policy := range policies {
@@ -90,12 +91,12 @@ func runTest(out io.Writer, openApiManager openapi.Manager, testCase test.TestCa
 					if rule.HasGenerate() {
 						ruleUnstr, err := generate.GetUnstrRule(rule.Generation.DeepCopy())
 						if err != nil {
-							fmt.Fprintf(out, "Error: failed to get unstructured rule\nCause: %s\n", err)
+							fmt.Fprintf(out, "    Error: failed to get unstructured rule (%s)\n", err)
 							break
 						}
 						genClone, _, err := unstructured.NestedMap(ruleUnstr.Object, "clone")
 						if err != nil {
-							fmt.Fprintf(out, "Error: failed to read data\nCause: %s\n", err)
+							fmt.Fprintf(out, "    Error: failed to read data (%s)\n", err)
 							break
 						}
 						if len(genClone) != 0 {
@@ -128,14 +129,13 @@ func runTest(out io.Writer, openApiManager openapi.Manager, testCase test.TestCa
 		if !vars.HasVariables() && variables.NeedsVariables(matches...) {
 			// check policy in variable file
 			if !vars.HasPolicyVariables(pol.GetName()) {
-				fmt.Fprintf(out, "test skipped for policy %v (as required variables are not provided by the users) \n \n", pol.GetName())
+				fmt.Fprintln(out, "    test skipped for policy", pol.GetName(), "(as required variables are not provided by the users)")
 				// continue
 			}
 		}
 		validPolicies = append(validPolicies, pol)
 	}
 	// execute engine
-	fmt.Fprintln(out, "  Applying", len(policies), pluralize.Pluralize(len(policies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
 	var engineResponses []engineapi.EngineResponse
 	var resultCounts processor.ResultCounts
 
