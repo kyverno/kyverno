@@ -2378,6 +2378,8 @@ sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd h1:EDPBXCAspyGV4jQlpZSudPeMm
 sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd/go.mod h1:B8JuhiUyNFVKdsE8h686QcCxMaH6HrOAZj4vswFpcB0=
 sigs.k8s.io/kubectl-validate v0.0.0-20230914142413-ed2eb2bf4d8c h1:zAY1oQLaUQqO4r45vM9YewbmjsHX8Rl/KPaBkZaxXws=
 sigs.k8s.io/kubectl-validate v0.0.0-20230914142413-ed2eb2bf4d8c/go.mod h1:9FgW8ync4Up+D1hIYTSO1vc9HkNbgm55N2iZ/LYNYxk=
+sigs.k8s.io/kubectl-validate v0.0.0-20230914185012-0d8eb44296e9 h1:2SQuQcVormMzrPZyayZ2q4t1EJBe0RTtqmFozc6HQTA=
+sigs.k8s.io/kubectl-validate v0.0.0-20230914185012-0d8eb44296e9/go.mod h1:9FgW8ync4Up+D1hIYTSO1vc9HkNbgm55N2iZ/LYNYxk=
 sigs.k8s.io/kustomize/api v0.14.0 h1:6+QLmXXA8X4eDM7ejeaNUyruA1DDB3PVIjbpVhDOJRA=
 sigs.k8s.io/kustomize/api v0.14.0/go.mod h1:vmOXlC8BcmcUJQjiceUbcyQ75JBP6eg8sgoyzc+eLpQ=
 sigs.k8s.io/kustomize/kyaml v0.14.3 h1:WpabVAKZe2YEp/irTSHwD6bfjwZnTtSDewd2BVJGMZs=

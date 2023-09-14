@@ -1,6 +1,8 @@
 package color
 
 import (
+	"strings"
+
 	"github.com/fatih/color"
 	"github.com/kataras/tablewriter"
 )
@@ -32,6 +34,13 @@ func InitColors(noColor bool) {
 }
 
 func Policy(namespace, name string) string {
+	if strings.Contains(name, "/") {
+		parts := strings.Split(name, "/")
+		if len(parts) >= 2 {
+			namespace = parts[0]
+			name = parts[1]
+		}
+	}
 	if namespace == "" {
 		return BoldFgCyan.Sprint(name)
 	}
@@ -43,6 +52,13 @@ func Rule(name string) string {
 }
 
 func Resource(kind, namespace, name string) string {
+	if strings.Contains(name, "/") {
+		parts := strings.Split(name, "/")
+		if len(parts) >= 2 {
+			namespace = parts[0]
+			name = parts[1]
+		}
+	}
 	if namespace == "" {
 		return BoldFgCyan.Sprint(kind) + "/" + BoldFgCyan.Sprint(name)
 	}
