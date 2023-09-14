@@ -36,6 +36,10 @@ func (c *FakeKyvernoV2beta1) Policies(namespace string) v2beta1.PolicyInterface 
 	return &FakePolicies{c, namespace}
 }
 
+func (c *FakeKyvernoV2beta1) PolicyExceptions(namespace string) v2beta1.PolicyExceptionInterface {
+	return &FakePolicyExceptions{c, namespace}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeKyvernoV2beta1) RESTClient() rest.Interface {
