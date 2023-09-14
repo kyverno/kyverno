@@ -523,6 +523,12 @@ codegen-cli-tests: $(CLI_BIN) ## Fix CLI test files
 	@echo Fix CLI test files... >&2
 	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix test ./test/cli --save --compress
 
+.PHONY: codegen-cli-crds
+codegen-cli-crds: codegen-crds-kyverno ## Copy generated CRDs to embed in the CLI
+	@echo Copy generated CRDs to embed in the CLI... >&2
+	@rm -rf cmd/cli/kubectl-kyverno/data/crds && mkdir -p cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/kyverno.io*.yaml cmd/cli/kubectl-kyverno/data/crds
+
 .PHONY: codegen-docs-all
 codegen-docs-all: codegen-helm-docs codegen-cli-docs codegen-api-docs  ## Generate all docs
 

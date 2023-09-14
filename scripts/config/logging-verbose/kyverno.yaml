@@ -1,0 +1,15 @@
+admissionController:
+  logging:
+    verbosity: 4
+
+backgroundController:
+  logging:
+    verbosity: 4
+
+cleanupController:
+  logging:
+    verbosity: 4
+
+reportsController:
+  logging:
+    verbosity: 4
