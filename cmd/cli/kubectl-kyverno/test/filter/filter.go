@@ -9,14 +9,14 @@ import (
 )
 
 type Filter interface {
-	Apply(testapi.TestResults) bool
+	Apply(testapi.TestResult) bool
 }
 
 type policy struct {
 	value string
 }
 
-func (f policy) Apply(result testapi.TestResults) bool {
+func (f policy) Apply(result testapi.TestResult) bool {
 	if result.Policy == "" {
 		return true
 	}
@@ -30,7 +30,7 @@ type rule struct {
 	value string
 }
 
-func (f rule) Apply(result testapi.TestResults) bool {
+func (f rule) Apply(result testapi.TestResult) bool {
 	if result.Rule == "" {
 		return true
 	}
@@ -44,7 +44,7 @@ type resource struct {
 	value string
 }
 
-func (f resource) Apply(result testapi.TestResults) bool {
+func (f resource) Apply(result testapi.TestResult) bool {
 	if result.Resource == "" {
 		return true
 	}
@@ -58,7 +58,7 @@ type composite struct {
 	filters []Filter
 }
 
-func (f composite) Apply(result testapi.TestResults) bool {
+func (f composite) Apply(result testapi.TestResult) bool {
 	for _, f := range f.filters {
 		if !f.Apply(result) {
 			return false

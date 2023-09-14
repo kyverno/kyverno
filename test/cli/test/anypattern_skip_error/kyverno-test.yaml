@@ -8,11 +8,6 @@ results:
   policy: validate-service-loadbalancer
   resources:
   - service-public-pass
-  result: pass
-  rule: check-loadbalancer-public
-- kind: Service
-  policy: validate-service-loadbalancer
-  resources:
   - service-public-2-pass
   result: pass
   rule: check-loadbalancer-public

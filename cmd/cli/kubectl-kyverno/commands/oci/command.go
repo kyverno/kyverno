@@ -19,11 +19,13 @@ func Command() *cobra.Command {
 		registryclient.AzureKeychain,
 	)
 	cmd := &cobra.Command{
-		Use:     "oci",
-		Short:   command.FormatDescription(true, websiteUrl, true, description...),
-		Long:    command.FormatDescription(false, websiteUrl, true, description...),
-		Example: command.FormatExamples(examples...),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Use:          "oci",
+		Short:        command.FormatDescription(true, websiteUrl, true, description...),
+		Long:         command.FormatDescription(false, websiteUrl, true, description...),
+		Example:      command.FormatExamples(examples...),
+		Args:         cobra.NoArgs,
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return cmd.Help()
 		},
 	}

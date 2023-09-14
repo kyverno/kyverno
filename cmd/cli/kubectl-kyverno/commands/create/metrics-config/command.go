@@ -25,16 +25,18 @@ func Command() *cobra.Command {
 	var path string
 	var options options
 	cmd := &cobra.Command{
-		Use:     "metrics-config",
-		Short:   command.FormatDescription(true, websiteUrl, false, description...),
-		Long:    command.FormatDescription(false, websiteUrl, false, description...),
-		Example: command.FormatExamples(examples...),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Use:          "metrics-config",
+		Short:        command.FormatDescription(true, websiteUrl, false, description...),
+		Long:         command.FormatDescription(false, websiteUrl, false, description...),
+		Example:      command.FormatExamples(examples...),
+		Args:         cobra.NoArgs,
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			tmpl, err := template.New("metricsconfig").Funcs(sprig.HermeticTxtFuncMap()).Parse(templates.MetricsConfigTemplate)
 			if err != nil {
 				return err
 			}
-			output := os.Stdout
+			output := cmd.OutOrStdout()
 			if path != "" {
 				file, err := os.Create(path)
 				if err != nil {

@@ -8,10 +8,12 @@ import (
 
 func Command() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "fix",
-		Short:   command.FormatDescription(true, websiteUrl, true, description...),
-		Long:    command.FormatDescription(false, websiteUrl, true, description...),
-		Example: command.FormatExamples(examples...),
+		Use:          "fix",
+		Short:        command.FormatDescription(true, websiteUrl, true, description...),
+		Long:         command.FormatDescription(false, websiteUrl, true, description...),
+		Example:      command.FormatExamples(examples...),
+		Args:         cobra.NoArgs,
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},

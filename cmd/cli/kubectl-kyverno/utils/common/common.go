@@ -3,6 +3,7 @@ package common
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,7 +13,6 @@ import (
 	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
-	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -25,6 +25,7 @@ import (
 
 // GetResourceAccordingToResourcePath - get resources according to the resource path
 func GetResourceAccordingToResourcePath(
+	out io.Writer,
 	fs billy.Filesystem,
 	resourcePaths []string,
 	cluster bool,
@@ -36,9 +37,9 @@ func GetResourceAccordingToResourcePath(
 	policyResourcePath string,
 ) (resources []*unstructured.Unstructured, err error) {
 	if fs != nil {
-		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, policyResourcePath)
+		resources, err = GetResourcesWithTest(out, fs, policies, resourcePaths, policyResourcePath)
 		if err != nil {
-			return nil, sanitizederror.NewWithError("failed to extract the resources", err)
+			return nil, fmt.Errorf("failed to extract the resources (%w)", err)
 		}
 	} else {
 		if len(resourcePaths) > 0 && resourcePaths[0] == "-" {
@@ -52,7 +53,7 @@ func GetResourceAccordingToResourcePath(
 				yamlBytes := []byte(resourceStr)
 				resources, err = resource.GetUnstructuredResources(yamlBytes)
 				if err != nil {
-					return nil, sanitizederror.NewWithError("failed to extract the resources", err)
+					return nil, fmt.Errorf("failed to extract the resources (%w)", err)
 				}
 			}
 		} else {
@@ -64,7 +65,7 @@ func GetResourceAccordingToResourcePath(
 				if fileDesc.IsDir() {
 					files, err := os.ReadDir(resourcePaths[0])
 					if err != nil {
-						return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to parse %v", resourcePaths[0]), err)
+						return nil, fmt.Errorf("failed to parse %v (%w)", resourcePaths[0], err)
 					}
 					listOfFiles := make([]string, 0)
 					for _, file := range files {
@@ -77,7 +78,7 @@ func GetResourceAccordingToResourcePath(
 				}
 			}
 
-			resources, err = GetResources(policies, validatingAdmissionPolicies, resourcePaths, dClient, cluster, namespace, policyReport)
+			resources, err = GetResources(out, policies, validatingAdmissionPolicies, resourcePaths, dClient, cluster, namespace, policyReport)
 			if err != nil {
 				return resources, err
 			}
@@ -86,13 +87,13 @@ func GetResourceAccordingToResourcePath(
 	return resources, err
 }
 
-func GetKindsFromPolicy(policy kyvernov1.PolicyInterface, subresources []valuesapi.Subresource, dClient dclient.Interface) sets.Set[string] {
+func GetKindsFromPolicy(out io.Writer, policy kyvernov1.PolicyInterface, subresources []valuesapi.Subresource, dClient dclient.Interface) sets.Set[string] {
 	knownkinds := sets.New[string]()
 	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
 			k, err := getKind(kind, subresources, dClient)
 			if err != nil {
-				fmt.Printf("Error: %s", err.Error())
+				fmt.Fprintf(out, "Error: %s", err.Error())
 				continue
 			}
 			knownkinds.Insert(k)
@@ -100,7 +101,7 @@ func GetKindsFromPolicy(policy kyvernov1.PolicyInterface, subresources []valuesa
 		for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
 			k, err := getKind(kind, subresources, dClient)
 			if err != nil {
-				fmt.Printf("Error: %s", err.Error())
+				fmt.Fprintf(out, "Error: %s", err.Error())
 				continue
 			}
 			knownkinds.Insert(k)
@@ -145,7 +146,7 @@ func getSubresourceKind(groupVersion, parentKind, subresourceName string, subres
 			}
 		}
 	}
-	return "", sanitizederror.NewWithError(fmt.Sprintf("subresource %s not found for parent resource %s", subresourceName, parentKind), nil)
+	return "", fmt.Errorf("subresource %s not found for parent resource %s", subresourceName, parentKind)
 }
 
 func GetGitBranchOrPolicyPaths(gitBranch, repoURL string, policyPaths ...string) (string, string) {

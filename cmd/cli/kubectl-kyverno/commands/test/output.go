@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/go-git/go-billy/v5"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
@@ -12,7 +13,8 @@ import (
 )
 
 func printTestResult(
-	tests []testapi.TestResults,
+	out io.Writer,
+	tests []testapi.TestResult,
 	responses []engineapi.EngineResponse,
 	rc *resultCounts,
 	failOnly bool,
@@ -95,17 +97,17 @@ func printTestResult(
 			}
 		}
 	}
-	fmt.Printf("\n")
+	fmt.Fprintln(out)
 	printer.Print(resultsTable.Rows(detailedResults))
 	return resultsTable, nil
 }
 
-func printFailedTestResult(resultsTable table.Table, detailedResults bool) {
+func printFailedTestResult(out io.Writer, resultsTable table.Table, detailedResults bool) {
 	printer := table.NewTablePrinter()
 	for i := range resultsTable.RawRows {
 		resultsTable.RawRows[i].ID = i + 1
 	}
-	fmt.Printf("Aggregated Failed Test Cases : ")
-	fmt.Println()
+	fmt.Fprintf(out, "Aggregated Failed Test Cases : ")
+	fmt.Fprintln(out)
 	printer.Print(resultsTable.Rows(detailedResults))
 }

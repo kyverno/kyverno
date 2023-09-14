@@ -1,0 +1,13 @@
+name: deny-modify-platform-label-2
+policies:
+- deny-modify-platform-label.yaml
+resources:
+- resource.yaml
+variables: variables.yaml
+results:
+- kind: Role
+  policy: deny-modify-platform-label
+  resources:
+  - my-role-with-platform
+  result: fail
+  rule: deny-modify-platform-role

@@ -146,73 +146,18 @@ func TestMergeClusterReport(t *testing.T) {
 			},
 		},
 	}}
-	namespaced := []policyreportv1alpha2.PolicyReport{{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PolicyReport",
-			APIVersion: report.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ns-polr-1",
-			Namespace: "ns-polr",
-		},
-		Results: []policyreportv1alpha2.PolicyReportResult{
-			{
-				Policy:    "ns-polr-1",
-				Result:    report.StatusPass,
-				Resources: make([]corev1.ObjectReference, 10),
-			},
-		},
-	}, {
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PolicyReport",
-			APIVersion: report.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "ns-polr-2",
-		},
-		Results: []policyreportv1alpha2.PolicyReportResult{
-			{
-				Policy:    "ns-polr-2",
-				Result:    report.StatusPass,
-				Resources: make([]corev1.ObjectReference, 5),
-			},
-		},
-	}, {
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PolicyReport",
-			APIVersion: report.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "polr-3",
-		},
-		Results: []policyreportv1alpha2.PolicyReportResult{
-			{
-				Policy:    "polr-3",
-				Result:    report.StatusPass,
-				Resources: make([]corev1.ObjectReference, 1),
-			},
-		},
-	}}
 	expectedResults := []policyreportv1alpha2.PolicyReportResult{{
 		Policy: "cpolr-4",
 		Result: report.StatusFail,
 	}, {
 		Policy: "cpolr-5",
 		Result: report.StatusFail,
-	}, {
-		Policy:    "ns-polr-2",
-		Result:    report.StatusPass,
-		Resources: make([]corev1.ObjectReference, 5),
-	}, {
-		Policy:    "polr-3",
-		Result:    report.StatusPass,
-		Resources: make([]corev1.ObjectReference, 1),
 	}}
-	cpolr := MergeClusterReports(clustered, namespaced)
+	cpolr := MergeClusterReports(clustered)
 	assert.Equal(t, cpolr.APIVersion, report.SchemeGroupVersion.String())
 	assert.Equal(t, cpolr.Kind, "ClusterPolicyReport")
 	assert.DeepEqual(t, cpolr.Results, expectedResults)
-	assert.Equal(t, cpolr.Summary.Pass, 2)
+	assert.Equal(t, cpolr.Summary.Pass, 0)
 	assert.Equal(t, cpolr.Summary.Fail, 2)
 }
 
@@ -351,7 +296,8 @@ func TestComputePolicyReportResultsPerPolicy(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ComputePolicyReportResultsPerPolicy(tt.auditWarn, tt.engineResponses...); !reflect.DeepEqual(got, tt.want) {
+			got := ComputePolicyReportResultsPerPolicy(tt.auditWarn, tt.engineResponses...)
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ComputePolicyReportResultsPerPolicy() = %v, want %v", got, tt.want)
 			}
 		})

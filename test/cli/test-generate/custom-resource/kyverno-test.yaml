@@ -1,0 +1,14 @@
+name: generate-tests
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- cloneSourceResource: clone-secret.yaml
+  generatedResource: gen-secret.yaml
+  kind: Namespace
+  policy: sync-pull-image-secrets
+  resources:
+  - test-ns
+  result: pass
+  rule: sync-image-pull-secret

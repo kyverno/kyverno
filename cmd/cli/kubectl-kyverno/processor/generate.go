@@ -2,6 +2,8 @@ package processor
 
 import (
 	"fmt"
+	"io"
+	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
@@ -16,35 +18,34 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]string) ([]engineapi.RuleResponse, error) {
+func handleGeneratePolicy(out io.Writer, generateResponse *engineapi.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]string) ([]engineapi.RuleResponse, error) {
 	newResource := policyContext.NewResource()
 	objects := []runtime.Object{&newResource}
-	resources := []*unstructured.Unstructured{}
 	for _, rule := range generateResponse.PolicyResponse.Rules {
 		if path, ok := ruleToCloneSourceResource[rule.Name()]; ok {
 			resourceBytes, err := resource.GetFileBytes(path)
 			if err != nil {
-				fmt.Printf("failed to get resource bytes\n")
+				fmt.Fprintf(out, "failed to get resource bytes\n")
 			} else {
-				resources, err = resource.GetUnstructuredResources(resourceBytes)
+				r, err := resource.GetUnstructuredResources(resourceBytes)
 				if err != nil {
-					fmt.Printf("failed to convert resource bytes to unstructured format\n")
+					fmt.Fprintf(out, "failed to convert resource bytes to unstructured format\n")
+				}
+				for _, res := range r {
+					objects = append(objects, res)
 				}
 			}
 		}
 	}
 
-	for _, res := range resources {
-		objects = append(objects, res)
-	}
-
-	c, err := initializeMockController(objects)
+	c, err := initializeMockController(out, objects)
 	if err != nil {
-		fmt.Println("error at controller")
+		fmt.Fprintln(out, "error at controller")
 		return nil, err
 	}
 
@@ -81,13 +82,18 @@ func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyCont
 	return newRuleResponse, nil
 }
 
-func initializeMockController(objects []runtime.Object) (*generate.GenerateController, error) {
+func initializeMockController(out io.Writer, objects []runtime.Object) (*generate.GenerateController, error) {
 	client, err := dclient.NewFakeClient(runtime.NewScheme(), nil, objects...)
 	if err != nil {
-		fmt.Printf("Failed to mock dynamic client")
+		fmt.Fprintf(out, "Failed to mock dynamic client")
 		return nil, err
 	}
-	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+	gvrs := sets.New[schema.GroupVersionResource]()
+	for _, object := range objects {
+		gvk := object.GetObjectKind().GroupVersionKind()
+		gvrs.Insert(gvk.GroupVersion().WithResource(strings.ToLower(gvk.Kind) + "s"))
+	}
+	client.SetDiscovery(dclient.NewFakeDiscoveryClient(gvrs.UnsortedList()))
 	cfg := config.NewDefaultConfiguration(false)
 	c := generate.NewGenerateControllerWithOnlyClient(client, engine.NewEngine(
 		cfg,
