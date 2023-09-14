@@ -65,7 +65,7 @@ require (
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.25.0
 	golang.org/x/crypto v0.13.0
-	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63
+	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
 	golang.org/x/text v0.13.0
 	gomodules.xyz/jsonpatch/v2 v2.4.0
 	google.golang.org/grpc v1.58.0
@@ -383,7 +383,7 @@ require (
 	golang.org/x/sys v0.12.0 // indirect
 	golang.org/x/term v0.12.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
-	golang.org/x/tools v0.12.1-0.20230815132531-74c255bcf846 // indirect
+	golang.org/x/tools v0.13.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/api v0.138.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
@@ -404,5 +404,3 @@ require (
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.1.4 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 )
-
-replace golang.org/x/exp => golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
