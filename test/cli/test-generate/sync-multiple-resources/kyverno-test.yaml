@@ -1,22 +1,22 @@
 name: sync-controller-data
 policies:
-  - policy.yaml
+- policy.yaml
 resources:
-  - deployment.yaml
+- deployment.yaml
 results:
-  - policy: sync-controller-data
-    rule: sync-controller-secret
-    resources:
-      - kubernetes-cluster-controller
-    generatedResource: gen-secret.yaml
-    cloneSourceResource: secret.yaml
-    kind: Deployment
-    result: pass
-  - policy: sync-controller-data
-    rule: sync-controller-configmap
-    resources: 
-      - kubernetes-cluster-controller
-    generatedResource: gen-cm.yaml
-    cloneSourceResource: cm.yaml
-    kind: Deployment
-    result: pass
+- cloneSourceResource: cm.yaml
+  generatedResource: gen-cm.yaml
+  kind: Deployment
+  policy: sync-controller-data
+  resources:
+  - kubernetes-cluster-controller
+  result: pass
+  rule: sync-controller-configmap
+- cloneSourceResource: secret.yaml
+  generatedResource: gen-secret.yaml
+  kind: Deployment
+  policy: sync-controller-data
+  resources:
+  - kubernetes-cluster-controller
+  result: pass
+  rule: sync-controller-secret
