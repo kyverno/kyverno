@@ -13,8 +13,8 @@ results:
 - kind: Role
   policy: deny-modify-platform-label
   resources:
-  - my-role-without-platform
   - my-role-with-platform-false
+  - my-role-without-platform
   result: skip
   rule: deny-modify-platform-role
 variables: variables.yaml

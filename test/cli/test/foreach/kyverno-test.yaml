@@ -5,17 +5,23 @@ resources:
 - resources.yaml
 results:
 - kind: Pod
-  policy: validate-empty-dir-mountpath
+  policy: validate-image-list
   resources:
   - test-pod
-  - test-pod2
-  result: pass
-  rule: check-mount-paths
+  - test-pod-ghcr
+  result: fail
+  rule: check-image
 - kind: Pod
   policy: validate-empty-dir-resources
   resources:
-  - test-pod-bad-mount
+  - test-pod-with-gke-vol
+  result: skip
+  rule: check-resources
+- kind: Pod
+  policy: validate-empty-dir-resources
+  resources:
   - test-pod
+  - test-pod-bad-mount
   result: fail
   rule: check-resources
 - kind: Pod
@@ -26,18 +32,12 @@ results:
   result: pass
   rule: check-resources
 - kind: Pod
-  policy: validate-empty-dir-resources
-  resources:
-  - test-pod-with-gke-vol
-  result: skip
-  rule: check-resources
-- kind: Pod
-  policy: validate-image-list
+  policy: validate-empty-dir-mountpath
   resources:
   - test-pod
-  - test-pod-ghcr
-  result: fail
-  rule: check-image
+  - test-pod2
+  result: pass
+  rule: check-mount-paths
 - kind: Pod
   policy: validate-image-list-error
   resources:

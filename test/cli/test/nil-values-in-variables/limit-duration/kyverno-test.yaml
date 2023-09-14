@@ -7,12 +7,12 @@ results:
 - kind: Certificate
   policy: cert-manager-limit-duration
   resources:
-  - letsencrypt-crt
-  result: skip
+  - acme-crt
+  result: error
   rule: certificate-duration-max-100days
 - kind: Certificate
   policy: cert-manager-limit-duration
   resources:
-  - acme-crt
-  result: error
+  - letsencrypt-crt
+  result: skip
   rule: certificate-duration-max-100days

@@ -8,11 +8,11 @@ results:
   kind: Deployment
   policy: disallow-host-path
   resources:
-  - deployment-pass
-  result: pass
+  - deployment-fail
+  result: fail
 - isValidatingAdmissionPolicy: true
   kind: Deployment
   policy: disallow-host-path
   resources:
-  - deployment-fail
-  result: fail
+  - deployment-pass
+  result: pass
