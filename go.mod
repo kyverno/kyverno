@@ -85,7 +85,7 @@ require (
 	k8s.io/pod-security-admission v0.28.1
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/controller-runtime v0.16.1
-	sigs.k8s.io/kubectl-validate v0.0.0-20230831184315-970931e331ef
+	sigs.k8s.io/kubectl-validate v0.0.0-20230914023412-34b6c093162c
 	sigs.k8s.io/kustomize/api v0.14.0
 	sigs.k8s.io/kustomize/kyaml v0.14.3
 	sigs.k8s.io/release-utils v0.7.4
@@ -405,4 +405,4 @@ require (
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 )
 
-replace sigs.k8s.io/kubectl-validate => github.com/eddycharly/kubectl-validate v0.0.0-20230913164605-cb3ef35c5d21
+replace sigs.k8s.io/kubectl-validate => github.com/eddycharly/kubectl-validate v0.0.0-20230914071638-b53689140439
