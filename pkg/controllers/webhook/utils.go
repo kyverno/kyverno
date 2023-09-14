@@ -5,7 +5,7 @@ import (
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"golang.org/x/exp/constraints"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"golang.org/x/exp/slices"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,16 +29,6 @@ func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePoli
 	}
 }
 
-func cmp[T constraints.Ordered](a, b T) int {
-	if a < b {
-		return -1
-	}
-	if a > b {
-		return 1
-	}
-	return 0
-}
-
 func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.OperationType) []admissionregistrationv1.RuleWithOperations {
 	var rules []admissionregistrationv1.RuleWithOperations
 	for gv, resources := range wh.rules {
@@ -56,11 +46,11 @@ func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.Opera
 		})
 	}
 	less := func(a []string, b []string) (int, bool) {
-		if x := cmp(len(a), len(b)); x != 0 {
+		if x := datautils.Compare(len(a), len(b)); x != 0 {
 			return x, true
 		}
 		for i := range a {
-			if x := cmp(a[i], b[i]); x != 0 {
+			if x := datautils.Compare(a[i], b[i]); x != 0 {
 				return x, true
 			}
 		}

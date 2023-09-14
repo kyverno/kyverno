@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/test"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"golang.org/x/exp/slices"
 )
 
@@ -60,41 +61,41 @@ func FixTest(test testapi.Test, compress bool) (testapi.Test, []string, error) {
 			})
 		}
 	}
-	slices.SortFunc(results, func(a, b testapi.TestResult) bool {
-		if a.Policy < b.Policy {
-			return true
+	slices.SortFunc(results, func(a, b testapi.TestResult) int {
+		if x := datautils.Compare(a.Policy, b.Policy); x != 0 {
+			return x
 		}
-		if a.Rule < b.Rule {
-			return true
+		if x := datautils.Compare(a.Rule, b.Rule); x != 0 {
+			return x
 		}
-		if a.Result < b.Result {
-			return true
+		if x := datautils.Compare(a.Result, b.Result); x != 0 {
+			return x
 		}
-		if a.Kind < b.Kind {
-			return true
+		if x := datautils.Compare(a.Kind, b.Kind); x != 0 {
+			return x
 		}
-		if a.PatchedResource < b.PatchedResource {
-			return true
+		if x := datautils.Compare(a.PatchedResource, b.PatchedResource); x != 0 {
+			return x
 		}
-		if a.GeneratedResource < b.GeneratedResource {
-			return true
+		if x := datautils.Compare(a.GeneratedResource, b.GeneratedResource); x != 0 {
+			return x
 		}
-		if a.CloneSourceResource < b.CloneSourceResource {
-			return true
+		if x := datautils.Compare(a.CloneSourceResource, b.CloneSourceResource); x != 0 {
+			return x
 		}
 		slices.Sort(a.Resources)
 		slices.Sort(b.Resources)
-		if len(a.Resources) < len(b.Resources) {
-			return true
+		if x := datautils.Compare(len(a.Resources), len(b.Resources)); x != 0 {
+			return x
 		}
 		if len(a.Resources) == len(b.Resources) {
 			for i := range a.Resources {
-				if a.Resources[i] < b.Resources[i] {
-					return true
+				if x := datautils.Compare(a.Resources[i], b.Resources[i]); x != 0 {
+					return x
 				}
 			}
 		}
-		return false
+		return 0
 	})
 	test.Results = results
 	return test, messages, nil
