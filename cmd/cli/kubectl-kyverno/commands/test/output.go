@@ -22,7 +22,7 @@ func printTestResult(
 	fs billy.Filesystem,
 	resoucePath string,
 ) (table.Table, error) {
-	printer := table.NewTablePrinter()
+	printer := table.NewTablePrinter(out)
 	var resultsTable table.Table
 	var countDeprecatedResource int
 	testCount := 1
@@ -99,11 +99,12 @@ func printTestResult(
 	}
 	fmt.Fprintln(out)
 	printer.Print(resultsTable.Rows(detailedResults))
+	fmt.Fprintln(out)
 	return resultsTable, nil
 }
 
 func printFailedTestResult(out io.Writer, resultsTable table.Table, detailedResults bool) {
-	printer := table.NewTablePrinter()
+	printer := table.NewTablePrinter(out)
 	for i := range resultsTable.RawRows {
 		resultsTable.RawRows[i].ID = i + 1
 	}

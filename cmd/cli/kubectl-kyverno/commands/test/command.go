@@ -126,6 +126,7 @@ func testCommandExecute(
 			if err != nil {
 				return fmt.Errorf("failed to run test (%w)", err)
 			}
+			fmt.Fprintln(out, "  Checking results ...")
 			t, err := printTestResult(out, filteredResults, responses, rc, failOnly, detailedResults, test.Fs, resourcePath)
 			if err != nil {
 				return fmt.Errorf("failed to print test result (%w)", err)
