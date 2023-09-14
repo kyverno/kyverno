@@ -136,7 +136,7 @@ spec:
           {{- if .Values.reportsController.customSigstoreConfigMap }}
           envFrom:
             - configMapRef:
-              name: {{ .Values.reportsController.customSigstoreConfigMap }}
+                name: {{ .Values.reportsController.customSigstoreConfigMap }}
           {{- end }}
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME

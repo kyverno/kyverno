@@ -196,7 +196,7 @@ spec:
           {{- if .Values.admissionController.customSigstoreConfigMap }}
           envFrom:
             - configMapRef:
-              name: {{ .Values.admissionController.customSigstoreConfigMap }}
+                name: {{ .Values.admissionController.customSigstoreConfigMap }}
           {{- end }}
           env:
           - name: INIT_CONFIG
