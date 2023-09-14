@@ -3,6 +3,7 @@ package context
 import (
 	"testing"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admission/v1"
 )
@@ -64,4 +65,24 @@ func createTestContext(obj, oldObj string) Interface {
 	ctx := NewContext(jp)
 	ctx.AddRequest(request)
 	return ctx
+}
+
+func TestQueryOperation(t *testing.T) {
+	ctx := createTestContext(`{"a": {"b": 1, "c": 2}, "d": 3}`, `{"a": {"b": 2, "c": 2}, "d": 4}`)
+	assert.Equal(t, ctx.QueryOperation(), "UPDATE")
+	request := admissionv1.AdmissionRequest{
+		Operation: admissionv1.Delete,
+	}
+
+	err := ctx.AddRequest(request)
+	assert.Nil(t, err)
+	assert.Equal(t, ctx.QueryOperation(), "DELETE")
+
+	err = ctx.AddOperation(string(kyvernov1.Connect))
+	assert.Nil(t, err)
+	assert.Equal(t, ctx.QueryOperation(), "CONNECT")
+
+	err = ctx.AddRequest(admissionv1.AdmissionRequest{})
+	assert.Nil(t, err)
+	assert.Equal(t, ctx.QueryOperation(), "")
 }
