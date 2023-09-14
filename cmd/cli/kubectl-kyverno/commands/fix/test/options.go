@@ -6,8 +6,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 
-	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/test"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/fix"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
 	"sigs.k8s.io/yaml"
 )
@@ -45,66 +46,24 @@ func (o options) execute(out io.Writer, dirs ...string) error {
 			fmt.Fprintln(out)
 			continue
 		}
-		test := testCase.Test
-		needsSave := false
-		if test.Name == "" {
+		fixed := *testCase.Test
+		if fixed.Name == "" {
 			fmt.Fprintln(out, "  WARNING: name is not set")
-			test.Name = filepath.Base(testCase.Path)
-			needsSave = true
+			fixed.Name = filepath.Base(testCase.Path)
 		}
-		if len(test.Policies) == 0 {
-			fmt.Fprintln(out, "  WARNING: test has no policies")
+		fixed, messages, err := fix.FixTest(fixed, o.compress)
+		for _, warning := range messages {
+			fmt.Fprintln(out, "  WARNING:", warning)
 		}
-		if len(test.Resources) == 0 {
-			fmt.Fprintln(out, "  WARNING: test has no resources")
+		if err != nil {
+			fmt.Fprintln(out, "  ERROR:", err)
+			continue
 		}
-		for i := range test.Results {
-			result := &test.Results[i]
-			if result.Resource != "" && len(result.Resources) != 0 {
-				fmt.Fprintln(out, "  WARNING: test result should not use both `resource` and `resources` fields")
-			}
-			if result.Resource != "" {
-				fmt.Fprintln(out, "  WARNING: test result uses deprecated `resource` field, moving it into the `resources` field")
-				result.Resources = append(result.Resources, result.Resource)
-				result.Resource = ""
-				needsSave = true
-			}
-			if result.Namespace != "" {
-				fmt.Fprintln(out, "  WARNING: test result uses deprecated `namespace` field, replacing `policy` with a `<namespace>/<name>` pattern")
-				result.Policy = fmt.Sprintf("%s/%s", result.Namespace, result.Policy)
-				result.Namespace = ""
-				needsSave = true
-			}
-			if result.Status != "" && result.Result != "" {
-				fmt.Fprintln(out, "  ERROR: test result should not use both `status` and `result` fields")
-			}
-			if result.Status != "" && result.Result == "" {
-				fmt.Fprintln(out, "  WARNING: test result uses deprecated `status` field, moving it into the `result` field")
-				result.Result = result.Status
-				result.Status = ""
-				needsSave = true
-			}
-		}
-		if o.compress {
-			compressed := map[testapi.TestResultBase][]string{}
-			for _, result := range test.Results {
-				compressed[result.TestResultBase] = append(compressed[result.TestResultBase], result.Resources...)
-			}
-			if len(compressed) != len(test.Results) {
-				needsSave = true
-			}
-			test.Results = nil
-			for k, v := range compressed {
-				test.Results = append(test.Results, testapi.TestResult{
-					TestResultBase: k,
-					Resources:      v,
-				})
-			}
-		}
+		needsSave := !reflect.DeepEqual(testCase.Test, &fixed)
 		if o.save && needsSave {
 			fmt.Fprintf(out, "  Saving test file (%s)...", testCase.Path)
 			fmt.Fprintln(out)
-			yamlBytes, err := yaml.Marshal(test)
+			yamlBytes, err := yaml.Marshal(fixed)
 			if err != nil {
 				fmt.Fprintf(out, "    ERROR: converting test to yaml: %s", err)
 				fmt.Fprintln(out)

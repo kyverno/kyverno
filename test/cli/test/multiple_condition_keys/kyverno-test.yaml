@@ -7,12 +7,12 @@ results:
 - kind: Pod
   policy: test-multiple-key
   resources:
-  - test-resource-pass
-  result: pass
+  - test-resource-fail
+  result: fail
   rule: test-multiple-key
 - kind: Pod
   policy: test-multiple-key
   resources:
-  - test-resource-fail
-  result: fail
+  - test-resource-pass
+  result: pass
   rule: test-multiple-key

@@ -7,12 +7,12 @@ results:
 - kind: Pod
   policy: verify-signature
   resources:
-  - signed
-  result: pass
+  - unsigned
+  result: fail
   rule: check-static-key
 - kind: Pod
   policy: verify-signature
   resources:
-  - unsigned
-  result: fail
+  - signed
+  result: pass
   rule: check-static-key
