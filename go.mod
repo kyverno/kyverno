@@ -56,7 +56,7 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v0.40.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.18.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.18.0
-	go.opentelemetry.io/otel/exporters/prometheus v0.40.0
+	go.opentelemetry.io/otel/exporters/prometheus v0.41.0
 	go.opentelemetry.io/otel/metric v1.18.0
 	go.opentelemetry.io/otel/sdk v1.18.0
 	go.opentelemetry.io/otel/sdk/metric v0.41.0
@@ -73,9 +73,9 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	gotest.tools v2.2.0+incompatible
-	k8s.io/api v0.28.1
+	k8s.io/api v0.28.2
 	k8s.io/apiextensions-apiserver v0.28.1
-	k8s.io/apimachinery v0.28.1
+	k8s.io/apimachinery v0.28.2
 	k8s.io/apiserver v0.28.1
 	k8s.io/cli-runtime v0.28.1
 	k8s.io/client-go v0.28.1
