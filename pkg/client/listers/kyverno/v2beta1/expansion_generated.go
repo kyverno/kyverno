@@ -29,3 +29,11 @@ type PolicyListerExpansion interface{}
 // PolicyNamespaceListerExpansion allows custom methods to be added to
 // PolicyNamespaceLister.
 type PolicyNamespaceListerExpansion interface{}
+
+// PolicyExceptionListerExpansion allows custom methods to be added to
+// PolicyExceptionLister.
+type PolicyExceptionListerExpansion interface{}
+
+// PolicyExceptionNamespaceListerExpansion allows custom methods to be added to
+// PolicyExceptionNamespaceLister.
+type PolicyExceptionNamespaceListerExpansion interface{}
