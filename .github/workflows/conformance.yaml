@@ -556,6 +556,8 @@ jobs:
         run: |
           kubectl create configmap tufvalues --from-literal=TUF_MIRROR=$TUF_MIRROR --from-literal=FULCIO_URL=$FULCIO_URL --from-literal=REKOR_URL=$REKOR_URL --from-literal=CTLOG_URL=$CTLOG_URL
           kubectl apply -f ./scripts/config/custom-sigstore/deployment.yaml
+      - name: Install crane
+        uses: imjasonh/setup-crane@v0.1
       - name: Create test image
         shell: bash
         run: |
