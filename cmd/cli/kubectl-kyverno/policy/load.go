@@ -13,6 +13,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/experimental"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/pkg/utils/git"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
@@ -40,6 +41,9 @@ var (
 )
 
 func getPolicies(bytes []byte) ([]kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, error) {
+	if !experimental.UseKubectlValidate() {
+		return yamlutils.GetPolicy(bytes)
+	}
 	var policies []kyvernov1.PolicyInterface
 	var validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy
 	documents, err := yamlutils.SplitDocuments(bytes)
