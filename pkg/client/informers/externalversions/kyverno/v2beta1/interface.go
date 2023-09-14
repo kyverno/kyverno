@@ -28,6 +28,8 @@ type Interface interface {
 	ClusterPolicies() ClusterPolicyInformer
 	// Policies returns a PolicyInformer.
 	Policies() PolicyInformer
+	// PolicyExceptions returns a PolicyExceptionInformer.
+	PolicyExceptions() PolicyExceptionInformer
 }
 
 type version struct {
@@ -49,4 +51,9 @@ func (v *version) ClusterPolicies() ClusterPolicyInformer {
 // Policies returns a PolicyInformer.
 func (v *version) Policies() PolicyInformer {
 	return &policyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// PolicyExceptions returns a PolicyExceptionInformer.
+func (v *version) PolicyExceptions() PolicyExceptionInformer {
+	return &policyExceptionInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
