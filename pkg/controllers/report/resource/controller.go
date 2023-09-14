@@ -106,15 +106,15 @@ func NewController(
 	if vapInformer != nil {
 		c.vapLister = vapInformer.Lister()
 		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, vapInformer.Informer(), c.queue); err != nil {
-			logger.Error(err, "failed to register even handlers")
+			logger.Error(err, "failed to register event handlers")
 		}
 	}
 
 	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue); err != nil {
-		logger.Error(err, "failed to register even handlers")
+		logger.Error(err, "failed to register event handlers")
 	}
 	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue); err != nil {
-		logger.Error(err, "failed to register even handlers")
+		logger.Error(err, "failed to register event handlers")
 	}
 	return &c
 }
