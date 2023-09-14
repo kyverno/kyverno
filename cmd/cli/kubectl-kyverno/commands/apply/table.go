@@ -1,13 +1,15 @@
 package apply
 
 import (
+	"io"
+
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy/annotations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 )
 
-func printTable(compact, auditWarn bool, engineResponses ...engineapi.EngineResponse) {
+func printTable(out io.Writer, compact, auditWarn bool, engineResponses ...engineapi.EngineResponse) {
 	var resultsTable table.Table
 	id := 1
 	for _, engineResponse := range engineResponses {
@@ -49,6 +51,6 @@ func printTable(compact, auditWarn bool, engineResponses ...engineapi.EngineResp
 			resultsTable.Add(row)
 		}
 	}
-	printer := table.NewTablePrinter()
+	printer := table.NewTablePrinter(out)
 	printer.Print(resultsTable.Rows(compact))
 }
