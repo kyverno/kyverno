@@ -3,6 +3,7 @@ package common
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,6 +25,7 @@ import (
 
 // GetResourceAccordingToResourcePath - get resources according to the resource path
 func GetResourceAccordingToResourcePath(
+	out io.Writer,
 	fs billy.Filesystem,
 	resourcePaths []string,
 	cluster bool,
@@ -35,7 +37,7 @@ func GetResourceAccordingToResourcePath(
 	policyResourcePath string,
 ) (resources []*unstructured.Unstructured, err error) {
 	if fs != nil {
-		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, policyResourcePath)
+		resources, err = GetResourcesWithTest(out, fs, policies, resourcePaths, policyResourcePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract the resources (%w)", err)
 		}
@@ -76,7 +78,7 @@ func GetResourceAccordingToResourcePath(
 				}
 			}
 
-			resources, err = GetResources(policies, validatingAdmissionPolicies, resourcePaths, dClient, cluster, namespace, policyReport)
+			resources, err = GetResources(out, policies, validatingAdmissionPolicies, resourcePaths, dClient, cluster, namespace, policyReport)
 			if err != nil {
 				return resources, err
 			}
@@ -85,13 +87,13 @@ func GetResourceAccordingToResourcePath(
 	return resources, err
 }
 
-func GetKindsFromPolicy(policy kyvernov1.PolicyInterface, subresources []valuesapi.Subresource, dClient dclient.Interface) sets.Set[string] {
+func GetKindsFromPolicy(out io.Writer, policy kyvernov1.PolicyInterface, subresources []valuesapi.Subresource, dClient dclient.Interface) sets.Set[string] {
 	knownkinds := sets.New[string]()
 	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
 			k, err := getKind(kind, subresources, dClient)
 			if err != nil {
-				fmt.Printf("Error: %s", err.Error())
+				fmt.Fprintf(out, "Error: %s", err.Error())
 				continue
 			}
 			knownkinds.Insert(k)
@@ -99,7 +101,7 @@ func GetKindsFromPolicy(policy kyvernov1.PolicyInterface, subresources []valuesa
 		for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
 			k, err := getKind(kind, subresources, dClient)
 			if err != nil {
-				fmt.Printf("Error: %s", err.Error())
+				fmt.Fprintf(out, "Error: %s", err.Error())
 				continue
 			}
 			knownkinds.Insert(k)

@@ -334,7 +334,7 @@ func Test_Apply(t *testing.T) {
 		}
 		desc := fmt.Sprintf("Policies: [%s], / Resources: [%s]", strings.Join(tc.config.PolicyPaths, ","), strings.Join(tc.config.ResourcePaths, ","))
 
-		_, _, _, responses, err := tc.config.applyCommandHelper()
+		_, _, _, responses, err := tc.config.applyCommandHelper(os.Stdout)
 		assert.NoError(t, err, desc)
 
 		clustered, _ := report.ComputePolicyReports(tc.config.AuditWarn, responses...)

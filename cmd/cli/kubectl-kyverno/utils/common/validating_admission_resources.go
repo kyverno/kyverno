@@ -1,6 +1,8 @@
 package common
 
 import (
+	"io"
+
 	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"k8s.io/api/admissionregistration/v1alpha1"
@@ -12,7 +14,7 @@ type ValidatingAdmissionResources struct {
 	policies []v1alpha1.ValidatingAdmissionPolicy
 }
 
-func (r *ValidatingAdmissionResources) FetchResourcesFromPolicy(resourcePaths []string, dClient dclient.Interface, namespace string, policyReport bool) ([]*unstructured.Unstructured, error) {
+func (r *ValidatingAdmissionResources) FetchResourcesFromPolicy(out io.Writer, resourcePaths []string, dClient dclient.Interface, namespace string, policyReport bool) ([]*unstructured.Unstructured, error) {
 	var resources []*unstructured.Unstructured
 	var err error
 
@@ -35,6 +37,6 @@ func (r *ValidatingAdmissionResources) FetchResourcesFromPolicy(resourcePaths []
 		resourceTypes = append(resourceTypes, kind)
 	}
 
-	resources, err = whenClusterIsTrue(resourceTypes, subresourceMap, dClient, namespace, resourcePaths, policyReport)
+	resources, err = whenClusterIsTrue(out, resourceTypes, subresourceMap, dClient, namespace, resourcePaths, policyReport)
 	return resources, err
 }

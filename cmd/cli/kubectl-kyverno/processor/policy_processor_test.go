@@ -1,6 +1,7 @@
 package processor
 
 import (
+	"os"
 	"testing"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
@@ -112,6 +113,7 @@ func Test_NamespaceSelector(t *testing.T) {
 			UserInfo:             nil,
 			NamespaceSelectorMap: tc.namespaceSelectorMap,
 			Rc:                   rc,
+			Out:                  os.Stdout,
 		}
 		processor.ApplyPoliciesOnResource()
 		assert.Equal(t, int64(rc.Pass()), int64(tc.result.pass))

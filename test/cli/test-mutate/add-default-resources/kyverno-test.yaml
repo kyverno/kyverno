@@ -1,24 +1,27 @@
 name: add-default-resources
 policies:
-  - add-default-resources.yaml
+- add-default-resources.yaml
 resources:
-  - resource.yaml
+- resource.yaml
 results:
-  - policy: add-default-resources
-    rule: add-default-requests
-    resource: nginx-demo1
-    patchedResource: patchedResource1.yaml
-    kind: Pod
-    result: pass
-  - policy: add-default-resources
-    rule: add-default-requests
-    resource: nginx-demo2
-    patchedResource: patchedResource2.yaml
-    kind: Pod
-    result: skip
-  - policy: add-default-resources
-    rule: add-default-requests
-    resource: nginx-demo3
-    patchedResource: patchedResource3.yaml
-    kind: Pod
-    result: pass
+- kind: Pod
+  patchedResource: patchedResource1.yaml
+  policy: add-default-resources
+  resources:
+  - nginx-demo1
+  result: pass
+  rule: add-default-requests
+- kind: Pod
+  patchedResource: patchedResource2.yaml
+  policy: add-default-resources
+  resources:
+  - nginx-demo2
+  result: skip
+  rule: add-default-requests
+- kind: Pod
+  patchedResource: patchedResource3.yaml
+  policy: add-default-resources
+  resources:
+  - nginx-demo3
+  result: pass
+  rule: add-default-requests

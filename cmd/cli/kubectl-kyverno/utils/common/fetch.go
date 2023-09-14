@@ -27,8 +27,14 @@ import (
 // - local paths to resources, if given
 // - the k8s cluster, if given
 func GetResources(
-	policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, resourcePaths []string, dClient dclient.Interface, cluster bool,
-	namespace string, policyReport bool,
+	out io.Writer,
+	policies []kyvernov1.PolicyInterface,
+	validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy,
+	resourcePaths []string,
+	dClient dclient.Interface,
+	cluster bool,
+	namespace string,
+	policyReport bool,
 ) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	var err error
@@ -39,7 +45,7 @@ func GetResources(
 				policies: policies,
 			}
 
-			resources, err = matchedResources.FetchResourcesFromPolicy(resourcePaths, dClient, namespace, policyReport)
+			resources, err = matchedResources.FetchResourcesFromPolicy(out, resourcePaths, dClient, namespace, policyReport)
 			if err != nil {
 				return resources, err
 			}
@@ -50,13 +56,13 @@ func GetResources(
 				policies: validatingAdmissionPolicies,
 			}
 
-			resources, err = matchedResources.FetchResourcesFromPolicy(resourcePaths, dClient, namespace, policyReport)
+			resources, err = matchedResources.FetchResourcesFromPolicy(out, resourcePaths, dClient, namespace, policyReport)
 			if err != nil {
 				return resources, err
 			}
 		}
 	} else if len(resourcePaths) > 0 {
-		resources, err = whenClusterIsFalse(resourcePaths, policyReport)
+		resources, err = whenClusterIsFalse(out, resourcePaths, policyReport)
 		if err != nil {
 			return resources, err
 		}
@@ -64,9 +70,9 @@ func GetResources(
 	return resources, err
 }
 
-func whenClusterIsTrue(resourceTypes []schema.GroupVersionKind, subresourceMap map[schema.GroupVersionKind]valuesapi.Subresource, dClient dclient.Interface, namespace string, resourcePaths []string, policyReport bool) ([]*unstructured.Unstructured, error) {
+func whenClusterIsTrue(out io.Writer, resourceTypes []schema.GroupVersionKind, subresourceMap map[schema.GroupVersionKind]valuesapi.Subresource, dClient dclient.Interface, namespace string, resourcePaths []string, policyReport bool) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
-	resourceMap, err := getResourcesOfTypeFromCluster(resourceTypes, subresourceMap, dClient, namespace)
+	resourceMap, err := getResourcesOfTypeFromCluster(out, resourceTypes, subresourceMap, dClient, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +93,7 @@ func whenClusterIsTrue(resourceTypes []schema.GroupVersionKind, subresourceMap m
 				if policyReport {
 					log.Log.V(3).Info(fmt.Sprintf("%s not found in cluster", resourcePath))
 				} else {
-					fmt.Printf("\n----------------------------------------------------------------------\nresource %s not found in cluster\n----------------------------------------------------------------------\n", resourcePath)
+					fmt.Fprintf(out, "\n----------------------------------------------------------------------\nresource %s not found in cluster\n----------------------------------------------------------------------\n", resourcePath)
 				}
 				return nil, fmt.Errorf("%s not found in cluster", resourcePath)
 			}
@@ -96,7 +102,7 @@ func whenClusterIsTrue(resourceTypes []schema.GroupVersionKind, subresourceMap m
 	return resources, nil
 }
 
-func whenClusterIsFalse(resourcePaths []string, policyReport bool) ([]*unstructured.Unstructured, error) {
+func whenClusterIsFalse(out io.Writer, resourcePaths []string, policyReport bool) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	for _, resourcePath := range resourcePaths {
 		resourceBytes, err := resource.GetFileBytes(resourcePath)
@@ -104,7 +110,7 @@ func whenClusterIsFalse(resourcePaths []string, policyReport bool) ([]*unstructu
 			if policyReport {
 				log.Log.V(3).Info(fmt.Sprintf("failed to load resources: %s.", resourcePath), "error", err)
 			} else {
-				fmt.Printf("\n----------------------------------------------------------------------\nfailed to load resources: %s. \nerror: %s\n----------------------------------------------------------------------\n", resourcePath, err)
+				fmt.Fprintf(out, "\n----------------------------------------------------------------------\nfailed to load resources: %s. \nerror: %s\n----------------------------------------------------------------------\n", resourcePath, err)
 			}
 			continue
 		}
@@ -120,7 +126,7 @@ func whenClusterIsFalse(resourcePaths []string, policyReport bool) ([]*unstructu
 }
 
 // GetResourcesWithTest with gets matched resources by the given policies
-func GetResourcesWithTest(fs billy.Filesystem, policies []kyvernov1.PolicyInterface, resourcePaths []string, policyResourcePath string) ([]*unstructured.Unstructured, error) {
+func GetResourcesWithTest(out io.Writer, fs billy.Filesystem, policies []kyvernov1.PolicyInterface, resourcePaths []string, policyResourcePath string) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	resourceTypesMap := make(map[string]bool)
 	for _, policy := range policies {
@@ -137,7 +143,7 @@ func GetResourcesWithTest(fs billy.Filesystem, policies []kyvernov1.PolicyInterf
 			if fs != nil {
 				filep, err := fs.Open(filepath.Join(policyResourcePath, resourcePath))
 				if err != nil {
-					fmt.Printf("Unable to open resource file: %s. error: %s", resourcePath, err)
+					fmt.Fprintf(out, "Unable to open resource file: %s. error: %s", resourcePath, err)
 					continue
 				}
 				resourceBytes, _ = io.ReadAll(filep)
@@ -145,7 +151,7 @@ func GetResourcesWithTest(fs billy.Filesystem, policies []kyvernov1.PolicyInterf
 				resourceBytes, err = resource.GetFileBytes(resourcePath)
 			}
 			if err != nil {
-				fmt.Printf("\n----------------------------------------------------------------------\nfailed to load resources: %s. \nerror: %s\n----------------------------------------------------------------------\n", resourcePath, err)
+				fmt.Fprintf(out, "\n----------------------------------------------------------------------\nfailed to load resources: %s. \nerror: %s\n----------------------------------------------------------------------\n", resourcePath, err)
 				continue
 			}
 
@@ -160,7 +166,7 @@ func GetResourcesWithTest(fs billy.Filesystem, policies []kyvernov1.PolicyInterf
 	return resources, nil
 }
 
-func getResourcesOfTypeFromCluster(resourceTypes []schema.GroupVersionKind, subresourceMap map[schema.GroupVersionKind]valuesapi.Subresource, dClient dclient.Interface, namespace string) (map[string]*unstructured.Unstructured, error) {
+func getResourcesOfTypeFromCluster(out io.Writer, resourceTypes []schema.GroupVersionKind, subresourceMap map[schema.GroupVersionKind]valuesapi.Subresource, dClient dclient.Interface, namespace string) (map[string]*unstructured.Unstructured, error) {
 	r := make(map[string]*unstructured.Unstructured)
 	for _, kind := range resourceTypes {
 		resourceList, err := dClient.ListResource(context.TODO(), kind.GroupVersion().String(), kind.Kind, namespace, nil)
@@ -192,7 +198,7 @@ func getResourcesOfTypeFromCluster(resourceTypes []schema.GroupVersionKind, subr
 			subresourceName := strings.Split(subresource.APIResource.Name, "/")[1]
 			resource, err := dClient.GetResource(context.TODO(), parentGV.String(), subresource.ParentResource.Kind, namespace, parentResourceName, subresourceName)
 			if err != nil {
-				fmt.Printf("Error: %s", err.Error())
+				fmt.Fprintf(out, "Error: %s", err.Error())
 				continue
 			}
 			key := subresource.APIResource.Kind + "-" + resource.GetNamespace() + "-" + resource.GetName()
