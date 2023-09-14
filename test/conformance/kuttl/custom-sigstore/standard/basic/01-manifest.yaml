@@ -23,6 +23,7 @@ spec:
       - name: tufvalues
         configMap:
           name: tufvalues
+          namespace: kyverno
     verifyImages:
     - imageReferences:
       - "ttl.sh/*"
