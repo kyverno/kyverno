@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"io"
 	"path/filepath"
 
 	"github.com/go-git/go-billy/v5"
@@ -24,15 +25,16 @@ func Command() *cobra.Command {
 	var fileName, gitBranch string
 	var registryAccess, failOnly, removeColor, detailedResults bool
 	cmd := &cobra.Command{
-		Use:     "test [local folder or git repository]...",
-		Args:    cobra.MinimumNArgs(1),
-		Short:   command.FormatDescription(true, websiteUrl, false, description...),
-		Long:    command.FormatDescription(false, websiteUrl, false, description...),
-		Example: command.FormatExamples(examples...),
+		Use:          "test [local folder or git repository]...",
+		Short:        command.FormatDescription(true, websiteUrl, false, description...),
+		Long:         command.FormatDescription(false, websiteUrl, false, description...),
+		Example:      command.FormatExamples(examples...),
+		Args:         cobra.MinimumNArgs(1),
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, dirPath []string) (err error) {
 			color.InitColors(removeColor)
 			store.SetRegistryAccess(registryAccess)
-			return testCommandExecute(dirPath, fileName, gitBranch, testCase, failOnly, detailedResults)
+			return testCommandExecute(cmd.OutOrStdout(), dirPath, fileName, gitBranch, testCase, failOnly, detailedResults)
 		},
 	}
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "Test filename")
@@ -52,6 +54,7 @@ type resultCounts struct {
 }
 
 func testCommandExecute(
+	out io.Writer,
 	dirPath []string,
 	fileName string,
 	gitBranch string,
@@ -66,10 +69,10 @@ func testCommandExecute(
 	// parse filter
 	filter, errors := filter.ParseFilter(testCase)
 	if len(errors) > 0 {
-		fmt.Println()
-		fmt.Println("Filter errors:")
+		fmt.Fprintln(out)
+		fmt.Fprintln(out, "Filter errors:")
 		for _, e := range errors {
-			fmt.Println("  Error:", e)
+			fmt.Fprintln(out, "  Error:", e)
 		}
 	}
 	// init openapi manager
@@ -80,20 +83,20 @@ func testCommandExecute(
 	// load tests
 	tests, err := loadTests(dirPath, fileName, gitBranch)
 	if err != nil {
-		fmt.Println()
-		fmt.Println("Error loading tests:", err)
+		fmt.Fprintln(out)
+		fmt.Fprintln(out, "Error loading tests:", err)
 		return err
 	}
 	if len(tests) == 0 {
-		fmt.Println()
-		fmt.Println("No test yamls available")
+		fmt.Fprintln(out)
+		fmt.Fprintln(out, "No test yamls available")
 	}
 	if errs := tests.Errors(); len(errs) > 0 {
-		fmt.Println()
-		fmt.Println("Test errors:")
+		fmt.Fprintln(out)
+		fmt.Fprintln(out, "Test errors:")
 		for _, e := range errs {
-			fmt.Println("  Path:", e.Path)
-			fmt.Println("    Error:", e.Err)
+			fmt.Fprintln(out, "  Path:", e.Path)
+			fmt.Fprintln(out, "    Error:", e.Err)
 		}
 	}
 	if len(tests) == 0 {
@@ -119,11 +122,11 @@ func testCommandExecute(
 				continue
 			}
 			resourcePath := filepath.Dir(test.Path)
-			responses, err := runTest(openApiManager, test, false)
+			responses, err := runTest(out, openApiManager, test, false)
 			if err != nil {
 				return fmt.Errorf("failed to run test (%w)", err)
 			}
-			t, err := printTestResult(filteredResults, responses, rc, failOnly, detailedResults, test.Fs, resourcePath)
+			t, err := printTestResult(out, filteredResults, responses, rc, failOnly, detailedResults, test.Fs, resourcePath)
 			if err != nil {
 				return fmt.Errorf("failed to print test result (%w)", err)
 			}
@@ -131,14 +134,14 @@ func testCommandExecute(
 		}
 	}
 	if !failOnly {
-		fmt.Printf("\nTest Summary: %d tests passed and %d tests failed\n", rc.Pass+rc.Skip, rc.Fail)
+		fmt.Fprintf(out, "\nTest Summary: %d tests passed and %d tests failed\n", rc.Pass+rc.Skip, rc.Fail)
 	} else {
-		fmt.Printf("\nTest Summary: %d out of %d tests failed\n", rc.Fail, rc.Pass+rc.Skip+rc.Fail)
+		fmt.Fprintf(out, "\nTest Summary: %d out of %d tests failed\n", rc.Fail, rc.Pass+rc.Skip+rc.Fail)
 	}
-	fmt.Println()
+	fmt.Fprintln(out)
 	if rc.Fail > 0 {
 		if !failOnly {
-			printFailedTestResult(table, detailedResults)
+			printFailedTestResult(out, table, detailedResults)
 		}
 		return fmt.Errorf("%d tests failed", rc.Fail)
 	}

@@ -2,6 +2,7 @@ package processor
 
 import (
 	"fmt"
+	"io"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy/annotations"
@@ -74,7 +75,7 @@ func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.Eng
 	}
 }
 
-func (rc *ResultCounts) addGenerateResponse(auditWarn bool, resPath string, response engineapi.EngineResponse) {
+func (rc *ResultCounts) addGenerateResponse(out io.Writer, auditWarn bool, resPath string, response engineapi.EngineResponse) {
 	genericPolicy := response.Policy()
 	if polType := genericPolicy.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
 		return
@@ -90,10 +91,10 @@ func (rc *ResultCounts) addGenerateResponse(auditWarn bool, resPath string, resp
 					rc.pass++
 				} else {
 					if printCount < 1 {
-						fmt.Println("\ninvalid resource", "policy", policy.GetName(), "resource", resPath)
+						fmt.Fprintln(out, "\ninvalid resource", "policy", policy.GetName(), "resource", resPath)
 						printCount++
 					}
-					fmt.Printf("%d. %s - %s\n", i+1, ruleResponse.Name(), ruleResponse.Message())
+					fmt.Fprintf(out, "%d. %s - %s\n", i+1, ruleResponse.Name(), ruleResponse.Message())
 					if auditWarn && response.GetValidationFailureAction().Audit() {
 						rc.warn++
 					} else {
@@ -109,7 +110,7 @@ func (rc *ResultCounts) addGenerateResponse(auditWarn bool, resPath string, resp
 	}
 }
 
-func (rc *ResultCounts) addMutateResponse(resourcePath string, response engineapi.EngineResponse) bool {
+func (rc *ResultCounts) addMutateResponse(out io.Writer, resourcePath string, response engineapi.EngineResponse) bool {
 	genericPolicy := response.Policy()
 	if polType := genericPolicy.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
 		return false
@@ -135,17 +136,17 @@ func (rc *ResultCounts) addMutateResponse(resourcePath string, response engineap
 					rc.pass++
 					printMutatedRes = true
 				} else if mutateResponseRule.Status() == engineapi.RuleStatusSkip {
-					fmt.Printf("\nskipped mutate policy %s -> resource %s", policy.GetName(), resourcePath)
+					fmt.Fprintf(out, "\nskipped mutate policy %s -> resource %s", policy.GetName(), resourcePath)
 					rc.skip++
 				} else if mutateResponseRule.Status() == engineapi.RuleStatusError {
-					fmt.Printf("\nerror while applying mutate policy %s -> resource %s\nerror: %s", policy.GetName(), resourcePath, mutateResponseRule.Message())
+					fmt.Fprintf(out, "\nerror while applying mutate policy %s -> resource %s\nerror: %s", policy.GetName(), resourcePath, mutateResponseRule.Message())
 					rc.err++
 				} else {
 					if printCount < 1 {
-						fmt.Printf("\nfailed to apply mutate policy %s -> resource %s", policy.GetName(), resourcePath)
+						fmt.Fprintf(out, "\nfailed to apply mutate policy %s -> resource %s", policy.GetName(), resourcePath)
 						printCount++
 					}
-					fmt.Printf("%d. %s - %s \n", i+1, mutateResponseRule.Name(), mutateResponseRule.Message())
+					fmt.Fprintf(out, "%d. %s - %s \n", i+1, mutateResponseRule.Name(), mutateResponseRule.Message())
 					rc.fail++
 				}
 				continue

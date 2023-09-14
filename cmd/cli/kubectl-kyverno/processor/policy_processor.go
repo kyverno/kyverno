@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -49,6 +50,7 @@ type PolicyProcessor struct {
 	Client                    dclient.Interface
 	AuditWarn                 bool
 	Subresources              []valuesapi.Subresource
+	Out                       io.Writer
 }
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
@@ -166,7 +168,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			}
 			generateResponse := eng.ApplyBackgroundChecks(context.TODO(), policyContext)
 			if !generateResponse.IsEmpty() {
-				newRuleResponse, err := handleGeneratePolicy(&generateResponse, *policyContext, p.RuleToCloneSourceResource)
+				newRuleResponse, err := handleGeneratePolicy(p.Out, &generateResponse, *policyContext, p.RuleToCloneSourceResource)
 				if err != nil {
 					log.Log.Error(err, "failed to apply generate policy")
 				} else {
@@ -174,7 +176,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				}
 				responses = append(responses, generateResponse)
 			}
-			p.Rc.addGenerateResponse(p.AuditWarn, resPath, generateResponse)
+			p.Rc.addGenerateResponse(p.Out, p.AuditWarn, resPath, generateResponse)
 		}
 	}
 	p.Rc.addEngineResponses(p.AuditWarn, responses...)
@@ -193,7 +195,7 @@ func (p *PolicyProcessor) makePolicyContext(
 	operation := kyvernov1.Create
 	var resourceValues map[string]interface{}
 	if p.Variables != nil {
-		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy, p.Variables.Subresources(), p.Client)
+		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(p.Out, policy, p.Variables.Subresources(), p.Client)
 		vals, err := p.Variables.ComputeVariables(policy.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied /*matches...*/)
 		if err != nil {
 			return nil, fmt.Errorf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag (%w)",
@@ -204,6 +206,7 @@ func (p *PolicyProcessor) makePolicyContext(
 		}
 		resourceValues = vals
 	}
+	// TODO: this is kind of buggy, we should read that from the json context
 	switch resourceValues["request.operation"] {
 	case "DELETE":
 		operation = kyvernov1.Delete
@@ -219,9 +222,13 @@ func (p *PolicyProcessor) makePolicyContext(
 	)
 	if err != nil {
 		log.Log.Error(err, "failed to create policy context")
+		return nil, fmt.Errorf("failed to create policy context (%w)", err)
 	}
 	if operation == kyvernov1.Update {
 		policyContext = policyContext.WithOldResource(resource)
+		if err := policyContext.JSONContext().AddOldResource(resource.Object); err != nil {
+			return nil, fmt.Errorf("failed to update old resource in json context (%w)", err)
+		}
 	}
 	policyContext = policyContext.
 		WithPolicy(policy).
@@ -230,14 +237,77 @@ func (p *PolicyProcessor) makePolicyContext(
 	for key, value := range resourceValues {
 		err = policyContext.JSONContext().AddVariable(key, value)
 		if err != nil {
-			log.Log.Error(err, "failed to add variable to context")
+			log.Log.Error(err, "failed to add variable to context", "key", key, "value", value)
+			return nil, fmt.Errorf("failed to add variable to context %s (%w)", key, err)
+		}
+	}
+	// we need to get the resources back from the context to account for injected variables
+	switch operation {
+	case kyvernov1.Create:
+		ret, err := policyContext.JSONContext().Query("request.object")
+		if err != nil {
+			return nil, err
+		}
+		if ret == nil {
+			policyContext = policyContext.WithNewResource(unstructured.Unstructured{})
+		} else {
+			object, ok := ret.(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("the object retrieved from the json context is not valid")
+			}
+			policyContext = policyContext.WithNewResource(unstructured.Unstructured{Object: object})
+		}
+	case kyvernov1.Update:
+		{
+			ret, err := policyContext.JSONContext().Query("request.object")
+			if err != nil {
+				return nil, err
+			}
+			if ret == nil {
+				policyContext = policyContext.WithNewResource(unstructured.Unstructured{})
+			} else {
+				object, ok := ret.(map[string]interface{})
+				if !ok {
+					return nil, fmt.Errorf("the object retrieved from the json context is not valid")
+				}
+				policyContext = policyContext.WithNewResource(unstructured.Unstructured{Object: object})
+			}
+		}
+		{
+			ret, err := policyContext.JSONContext().Query("request.oldObject")
+			if err != nil {
+				return nil, err
+			}
+			if ret == nil {
+				policyContext = policyContext.WithOldResource(unstructured.Unstructured{})
+			} else {
+				object, ok := ret.(map[string]interface{})
+				if !ok {
+					return nil, fmt.Errorf("the object retrieved from the json context is not valid")
+				}
+				policyContext = policyContext.WithOldResource(unstructured.Unstructured{Object: object})
+			}
+		}
+	case kyvernov1.Delete:
+		ret, err := policyContext.JSONContext().Query("request.oldObject")
+		if err != nil {
+			return nil, err
+		}
+		if ret == nil {
+			policyContext = policyContext.WithOldResource(unstructured.Unstructured{})
+		} else {
+			object, ok := ret.(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("the object retrieved from the json context is not valid")
+			}
+			policyContext = policyContext.WithOldResource(unstructured.Unstructured{Object: object})
 		}
 	}
 	return policyContext, nil
 }
 
 func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineResponse, resourcePath string) error {
-	printMutatedRes := p.Rc.addMutateResponse(resourcePath, response)
+	printMutatedRes := p.Rc.addMutateResponse(p.Out, resourcePath, response)
 	if printMutatedRes && p.PrintPatchResource {
 		yamlEncodedResource, err := yamlv2.Marshal(response.PatchedResource.Object)
 		if err != nil {
@@ -248,16 +318,16 @@ func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineR
 			mutatedResource := string(yamlEncodedResource) + string("\n---")
 			if len(strings.TrimSpace(mutatedResource)) > 0 {
 				if !p.Stdin {
-					fmt.Printf("\nmutate policy %s applied to %s:", response.Policy().GetName(), resourcePath)
+					fmt.Fprintf(p.Out, "\nmutate policy %s applied to %s:", response.Policy().GetName(), resourcePath)
 				}
-				fmt.Printf("\n" + mutatedResource + "\n")
+				fmt.Fprintf(p.Out, "\n"+mutatedResource+"\n")
 			}
 		} else {
 			err := p.printMutatedOutput(string(yamlEncodedResource))
 			if err != nil {
 				return fmt.Errorf("failed to print mutated result (%w)", err)
 			}
-			fmt.Printf("\n\nMutation:\nMutation has been applied successfully. Check the files.")
+			fmt.Fprintf(p.Out, "\n\nMutation:\nMutation has been applied successfully. Check the files.")
 		}
 	}
 	return nil

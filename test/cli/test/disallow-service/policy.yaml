@@ -1,8 +1,9 @@
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: disallow-service
 spec:
-  validationFailureAction: Validate
+  validationFailureAction: Enforce
   failurePolicy: Ignore
   rules:
     - name: disallow-service
