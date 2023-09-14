@@ -61,6 +61,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&ClusterPolicy{},
 		&ClusterPolicyList{},
 		&Policy{},
+		&PolicyException{},
+		&PolicyExceptionList{},
 		&PolicyList{},
 	)
 	// AddToGroupVersion allows the serialization of client types like ListOptions.

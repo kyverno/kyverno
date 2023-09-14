@@ -21,3 +21,5 @@ package v2beta1
 type ClusterPolicyExpansion interface{}
 
 type PolicyExpansion interface{}
+
+type PolicyExceptionExpansion interface{}

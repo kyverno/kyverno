@@ -87,7 +87,7 @@ func Command() *cobra.Command {
 			if applyCommandConfig.PolicyReport {
 				printReport(out, responses, applyCommandConfig.AuditWarn)
 			} else if table {
-				printTable(detailedResults, applyCommandConfig.AuditWarn, responses...)
+				printTable(out, detailedResults, applyCommandConfig.AuditWarn, responses...)
 			} else {
 				printViolations(out, rc)
 			}
