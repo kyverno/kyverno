@@ -1,9 +1,21 @@
 admissionController:
-  tufRoot: "$(TUF_MIRROR)/root.json"
+  tufRoot: "/etc/tuf-root/tuf_root/root"
   tufMirror: "$(TUF_MIRROR)"
   customSigstoreConfigMap: tufvalues
+  sigstoreVolume:
+    secret:
+      secretName: tuf-root
+      items:
+      - key: root
+        path: tuf_root
 
 reportsController:
-  tufRoot: "$(TUF_MIRROR)/root.json"
+  tufRoot: "/etc/tuf-root/tuf_root/root"
   tufMirror: "$(TUF_MIRROR)"
   customSigstoreConfigMap: tufvalues
+  sigstoreVolume:
+    secret:
+      secretName: tuf-root
+      items:
+      - key: root
+        path: tuf_root
