@@ -51,6 +51,10 @@ const (
 	IdleDeadline              = tickerInterval * 10
 	maxRetries                = 10
 	tickerInterval            = 10 * time.Second
+	webhookCreate             = "CREATE"
+	webhookUpdate             = "UPDATE"
+	webhookDelete             = "DELETE"
+	webhookConnect            = "CONNECT"
 )
 
 var (
@@ -742,10 +746,10 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(cfg conf
 
 func getOperationStatusMap() map[string]bool {
 	operationStatusMap := make(map[string]bool)
-	operationStatusMap["CREATE"] = false
-	operationStatusMap["UPDATE"] = false
-	operationStatusMap["DELETE"] = false
-	operationStatusMap["CONNECT"] = false
+	operationStatusMap[webhookCreate] = false
+	operationStatusMap[webhookUpdate] = false
+	operationStatusMap[webhookDelete] = false
+	operationStatusMap[webhookConnect] = false
 	return operationStatusMap
 }
 
@@ -762,10 +766,12 @@ func analyseOperationStatusMapValidatingWebhookConfiguration(rules []kyvernov1.R
 			}
 		}
 		if r.MatchResources.ResourceDescription.Operations == nil && r.ExcludeResources.ResourceDescription.Operations == nil {
-			operationStatusMap["CREATE"] = true
-			operationStatusMap["UPDATE"] = true
-			operationStatusMap["DELETE"] = true
-			operationStatusMap["CONNECT"] = true
+			operationStatusMap[webhookCreate] = true
+			operationStatusMap[webhookUpdate] = true
+
+			if r.HasGenerate() {
+				operationStatusMap[webhookDelete] = true
+			}
 		}
 	}
 	return operationStatusMap
@@ -784,8 +790,8 @@ func analyseOperationStatusMapMutatingWebhookConfiguration(rules []kyvernov1.Rul
 			}
 		}
 		if r.MatchResources.ResourceDescription.Operations == nil && r.ExcludeResources.ResourceDescription.Operations == nil {
-			operationStatusMap["CREATE"] = true
-			operationStatusMap["UPDATE"] = true
+			operationStatusMap[webhookCreate] = true
+			operationStatusMap[webhookUpdate] = true
 		}
 	}
 	return operationStatusMap
