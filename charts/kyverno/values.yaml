@@ -1540,10 +1540,10 @@ reportsController:
   imagePullSecrets: []
     # - secretName
   
-    # --tuf-root
+  # --tuf-root
   tufRoot:
 
-# --tuf-mirror
+  # --tuf-mirror
   tufMirror:
 
   # -- name of the config map containing tuf environment variables
