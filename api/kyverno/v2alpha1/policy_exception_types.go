@@ -18,7 +18,6 @@ package v2alpha1
 import (
 	"fmt"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -49,6 +48,10 @@ func ValidateVariables(polex *PolicyException) error {
 // Contains returns true if it contains an exception for the given policy/rule pair
 func (p *PolicyException) Contains(policy string, rule string) bool {
 	return p.Spec.Contains(policy, rule)
+}
+
+func (p *PolicyException) HasPodSecuruty() bool {
+	return p.Spec.PodSecurity != nil
 }
 
 // Exception stores infos about a policy and rules

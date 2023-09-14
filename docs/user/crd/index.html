@@ -2808,7 +2808,7 @@ Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, v1.26, lates
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.PodSecurity">PodSecurity</a>, 
-<a href="#kyverno.io/v2alpha1.PolicyExceptionSpec">PolicyExceptionSpec</a>)
+<a href="#kyverno.io/v2beta1.PolicyExceptionSpec">PolicyExceptionSpec</a>)
 </p>
 <p>
 <p>PodSecurityStandard specifies the Pod Security Standard controls to be excluded.</p>
@@ -5958,7 +5958,6 @@ AnyAllConditions
 </tbody>
 </table>
 <hr />
-
 <h2 id="kyverno.io/v2beta1">kyverno.io/v2beta1</h2>
 Resource Types:
 <ul><li>
@@ -6593,6 +6592,20 @@ MatchResources
 <p>Exceptions is a list policy/rules to be excluded</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>podSecurity</code><br/>
+<em>
+<a href="#kyverno.io/v1.PodSecurityStandard">
+PodSecurityStandard
+</a>
+</em>
+</td>
+<td>
+<p>PodSecurity is used to check if resource applies to the exception
+Applicable only to validate.podSecurity.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -7070,6 +7083,20 @@ MatchResources
 </td>
 <td>
 <p>Exceptions is a list policy/rules to be excluded</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>podSecurity</code><br/>
+<em>
+<a href="#kyverno.io/v1.PodSecurityStandard">
+PodSecurityStandard
+</a>
+</em>
+</td>
+<td>
+<p>PodSecurity is used to check if resource applies to the exception
+Applicable only to validate.podSecurity.</p>
 </td>
 </tr>
 </tbody>

@@ -18,6 +18,7 @@ package v2beta1
 import (
 	"fmt"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -68,6 +69,14 @@ type PolicyExceptionSpec struct {
 
 	// Exceptions is a list policy/rules to be excluded
 	Exceptions []Exception `json:"exceptions" yaml:"exceptions"`
+
+	// PodSecurity is used to check if resource applies to the exception
+	// Applicable only to validate.podSecurity.
+	PodSecurity *kyvernov1.PodSecurityStandard `json:"podSecurity,omitempty"`
+}
+
+func (p *PolicyException) HasPodSecuruty() bool {
+	return p.Spec.PodSecurity != nil
 }
 
 func (p *PolicyExceptionSpec) BackgroundProcessingEnabled() bool {

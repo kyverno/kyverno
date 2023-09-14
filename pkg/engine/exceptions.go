@@ -55,7 +55,7 @@ func matchesException(
 		resource = policyContext.OldResource()
 	}
 	for _, candidate := range candidates {
-		if candidate.Spec.HasPodSecuruty() {
+		if candidate.HasPodSecuruty() {
 			if rule.HasValidatePodSecurity() {
 				for _, pss := range rule.Validation.PodSecurity.Exclude {
 					if wildcard.Match(pss.ControlName, candidate.Spec.PodSecurity.ControlName) {
