@@ -552,7 +552,7 @@ jobs:
         run: |
           set -e
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
-          make kind-install-kyverno
+          make kind-deploy-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Install crane
