@@ -2807,7 +2807,8 @@ Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, v1.26, lates
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.PodSecurity">PodSecurity</a>)
+<a href="#kyverno.io/v1.PodSecurity">PodSecurity</a>, 
+<a href="#kyverno.io/v2alpha1.PolicyExceptionSpec">PolicyExceptionSpec</a>)
 </p>
 <p>
 <p>PodSecurityStandard specifies the Pod Security Standard controls to be excluded.</p>
@@ -5810,8 +5811,8 @@ MatchResources
 <td>
 <code>podSecurity</code><br/>
 <em>
-<a href="#kyverno.io/v2alpha1.PodSecuritySpec">
-PodSecuritySpec
+<a href="#kyverno.io/v1.PodSecurityStandard">
+PodSecurityStandard
 </a>
 </em>
 </td>
@@ -6001,48 +6002,6 @@ references a ClusterPolicy.</p>
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v2alpha1.PodSecuritySpec">PodSecuritySpec
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v2alpha1.PolicyExceptionSpec">PolicyExceptionSpec</a>)
-</p>
-<p>
-<p>PodSecuritySpec consists of a ControlName and a list of images to check if a resource applies to the exception</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>controlName</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>ControlName specifies the name of the Pod Security Standard control to check if a resource applies to the exception</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>images</code><br/>
-<em>
-[]string
-</em>
-</td>
-<td>
-<p>Images is a list of images to check if a resource applies to the exception.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="kyverno.io/v2alpha1.PolicyExceptionSpec">PolicyExceptionSpec
 </h3>
 <p>
@@ -6103,8 +6062,8 @@ MatchResources
 <td>
 <code>podSecurity</code><br/>
 <em>
-<a href="#kyverno.io/v2alpha1.PodSecuritySpec">
-PodSecuritySpec
+<a href="#kyverno.io/v1.PodSecurityStandard">
+PodSecurityStandard
 </a>
 </em>
 </td>

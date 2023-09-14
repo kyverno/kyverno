@@ -19,6 +19,7 @@ limitations under the License.
 package v2alpha1
 
 import (
+	v1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v1"
 	v2beta1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v2beta1"
 )
 
@@ -28,7 +29,7 @@ type PolicyExceptionSpecApplyConfiguration struct {
 	Background  *bool                                     `json:"background,omitempty"`
 	Match       *v2beta1.MatchResourcesApplyConfiguration `json:"match,omitempty"`
 	Exceptions  []ExceptionApplyConfiguration             `json:"exceptions,omitempty"`
-	PodSecurity *PodSecuritySpecApplyConfiguration        `json:"podSecurity,omitempty"`
+	PodSecurity *v1.PodSecurityStandardApplyConfiguration `json:"podSecurity,omitempty"`
 }
 
 // PolicyExceptionSpecApplyConfiguration constructs an declarative configuration of the PolicyExceptionSpec type for use with
@@ -69,7 +70,7 @@ func (b *PolicyExceptionSpecApplyConfiguration) WithExceptions(values ...*Except
 // WithPodSecurity sets the PodSecurity field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the PodSecurity field is set to the value of the last call.
-func (b *PolicyExceptionSpecApplyConfiguration) WithPodSecurity(value *PodSecuritySpecApplyConfiguration) *PolicyExceptionSpecApplyConfiguration {
+func (b *PolicyExceptionSpecApplyConfiguration) WithPodSecurity(value *v1.PodSecurityStandardApplyConfiguration) *PolicyExceptionSpecApplyConfiguration {
 	b.PodSecurity = value
 	return b
 }

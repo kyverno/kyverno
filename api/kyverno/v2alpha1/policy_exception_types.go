@@ -18,6 +18,7 @@ package v2alpha1
 import (
 	"fmt"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
@@ -74,16 +75,7 @@ type PolicyExceptionSpec struct {
 
 	// PodSecurity is used to check if resource applies to the exception
 	// Applicable only to validate.podSecurity.
-	PodSecurity PodSecuritySpec `json:"podSecurity,omitempty"`
-}
-
-// PodSecuritySpec consists of a ControlName and a list of images to check if a resource applies to the exception
-type PodSecuritySpec struct {
-	// ControlName specifies the name of the Pod Security Standard control to check if a resource applies to the exception
-	ControlName string `json:"controlName"`
-
-	// Images is a list of images to check if a resource applies to the exception.
-	Images []string `json:"images"`
+	PodSecurity kyvernov1.PodSecurityStandard `json:"podSecurity,omitempty"`
 }
 
 func (p *PolicyExceptionSpec) HasPodSecuruty() bool {
