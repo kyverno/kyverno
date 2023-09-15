@@ -7,14 +7,14 @@ results:
 - kind: Ingress
   policy: unique-ingress-host
   resources:
-  - ingress-foo-host
-  result: skip
+  - ingress-kyverno-host
+  result: fail
   rule: check-single-host
 - kind: Ingress
   policy: unique-ingress-host
   resources:
-  - ingress-kyverno-host
-  result: fail
+  - ingress-foo-host
+  result: skip
   rule: check-single-host
 - kind: Ingress
   policy: unique-ingress-host

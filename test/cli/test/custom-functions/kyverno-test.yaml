@@ -4,12 +4,6 @@ policies:
 resources:
 - resources.yaml
 results:
-- kind: Pod
-  policy: path-canonicalize
-  resources:
-  - mount-containerd-sock
-  result: fail
-  rule: disallow-mount-containerd-sock
 - kind: Secret
   policy: base64
   resources:
@@ -22,48 +16,12 @@ results:
   - base64-test-match
   result: pass
   rule: secret-value-must-match-label
-- kind: ConfigMap
-  policy: test-parse-json
+- kind: Pod
+  policy: path-canonicalize
   resources:
-  - invalid-test
+  - mount-containerd-sock
   result: fail
-  rule: test-json-parsing-jmespath
-- kind: ConfigMap
-  policy: test-parse-yaml
-  resources:
-  - invalid-yaml-test
-  result: fail
-  rule: test-yaml-parsing-jmespath
-- kind: ConfigMap
-  policy: test-parse-json
-  resources:
-  - valid-test
-  result: pass
-  rule: test-json-parsing-jmespath
-- kind: ConfigMap
-  policy: test-parse-yaml
-  resources:
-  - valid-yaml-test
-  result: pass
-  rule: test-yaml-parsing-jmespath
-- kind: ConfigMap
-  policy: test-parse-yaml-array
-  resources:
-  - invalid-yaml-test
-  result: fail
-  rule: test-yaml-parsing-jmespath
-- kind: ConfigMap
-  policy: test-x509-decode
-  resources:
-  - test-x509-configmap
-  result: fail
-  rule: test-x509-decode
-- kind: ConfigMap
-  policy: test-parse-yaml-array
-  resources:
-  - valid-yaml-test
-  result: pass
-  rule: test-yaml-parsing-jmespath
+  rule: disallow-mount-containerd-sock
 - kind: Namespace
   policy: pattern-match
   resources:
@@ -76,3 +34,45 @@ results:
   - pattern-match-test-match
   result: pass
   rule: label-must-match-pattern
+- kind: ConfigMap
+  policy: test-parse-json
+  resources:
+  - invalid-test
+  result: fail
+  rule: test-json-parsing-jmespath
+- kind: ConfigMap
+  policy: test-parse-json
+  resources:
+  - valid-test
+  result: pass
+  rule: test-json-parsing-jmespath
+- kind: ConfigMap
+  policy: test-parse-yaml
+  resources:
+  - invalid-yaml-test
+  result: fail
+  rule: test-yaml-parsing-jmespath
+- kind: ConfigMap
+  policy: test-parse-yaml
+  resources:
+  - valid-yaml-test
+  result: pass
+  rule: test-yaml-parsing-jmespath
+- kind: ConfigMap
+  policy: test-parse-yaml-array
+  resources:
+  - invalid-yaml-test
+  result: fail
+  rule: test-yaml-parsing-jmespath
+- kind: ConfigMap
+  policy: test-parse-yaml-array
+  resources:
+  - valid-yaml-test
+  result: pass
+  rule: test-yaml-parsing-jmespath
+- kind: ConfigMap
+  policy: test-x509-decode
+  resources:
+  - test-x509-configmap
+  result: fail
+  rule: test-x509-decode

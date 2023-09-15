@@ -32,15 +32,67 @@ var (
 	clusterPolicyV2 = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("ClusterPolicy")
 	vapV1           = v1alpha1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy")
 	client          = openapiclient.NewComposite(
-		openapiclient.NewHardcodedBuiltins("1.27"),
+		openapiclient.NewHardcodedBuiltins("1.28"),
 		openapiclient.NewLocalCRDFiles(data.Crds(), data.CrdsFolder),
 	)
+	LegacyLoader          = yamlutils.GetPolicy
+	KubectlValidateLoader = kubectlValidateLoader
+	defaultLoader         = func(bytes []byte) ([]kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, error) {
+		if experimental.UseKubectlValidate() {
+			return KubectlValidateLoader(bytes)
+		} else {
+			return LegacyLoader(bytes)
+		}
+	}
 )
 
-func getPolicies(bytes []byte) ([]kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, error) {
-	if !experimental.UseKubectlValidate() {
-		return yamlutils.GetPolicy(bytes)
+type loader = func([]byte) ([]kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, error)
+
+func Load(fs billy.Filesystem, resourcePath string, paths ...string) ([]kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, error) {
+	return LoadWithLoader(nil, fs, resourcePath, paths...)
+}
+
+func LoadWithLoader(loader loader, fs billy.Filesystem, resourcePath string, paths ...string) ([]kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, error) {
+	if loader == nil {
+		loader = defaultLoader
 	}
+	var pols []kyvernov1.PolicyInterface
+	var vaps []v1alpha1.ValidatingAdmissionPolicy
+	for _, path := range paths {
+		if source.IsStdin(path) {
+			p, v, err := stdinLoad(loader)
+			if err != nil {
+				return nil, nil, err
+			}
+			pols = append(pols, p...)
+			vaps = append(vaps, v...)
+		} else if fs != nil {
+			p, v, err := gitLoad(loader, fs, filepath.Join(resourcePath, path))
+			if err != nil {
+				return nil, nil, err
+			}
+			pols = append(pols, p...)
+			vaps = append(vaps, v...)
+		} else if source.IsHttp(path) {
+			p, v, err := httpLoad(loader, path)
+			if err != nil {
+				return nil, nil, err
+			}
+			pols = append(pols, p...)
+			vaps = append(vaps, v...)
+		} else {
+			p, v, err := fsLoad(loader, path)
+			if err != nil {
+				return nil, nil, err
+			}
+			pols = append(pols, p...)
+			vaps = append(vaps, v...)
+		}
+	}
+	return pols, vaps, nil
+}
+
+func kubectlValidateLoader(bytes []byte) ([]kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, error) {
 	var policies []kyvernov1.PolicyInterface
 	var validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy
 	documents, err := yamlutils.SplitDocuments(bytes)
@@ -81,44 +133,7 @@ func getPolicies(bytes []byte) ([]kyvernov1.PolicyInterface, []v1alpha1.Validati
 	return policies, validatingAdmissionPolicies, nil
 }
 
-func Load(fs billy.Filesystem, resourcePath string, paths ...string) ([]kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, error) {
-	var pols []kyvernov1.PolicyInterface
-	var vaps []v1alpha1.ValidatingAdmissionPolicy
-	for _, path := range paths {
-		if source.IsStdin(path) {
-			p, v, err := stdinLoad()
-			if err != nil {
-				return nil, nil, err
-			}
-			pols = append(pols, p...)
-			vaps = append(vaps, v...)
-		} else if fs != nil {
-			p, v, err := gitLoad(fs, filepath.Join(resourcePath, path))
-			if err != nil {
-				return nil, nil, err
-			}
-			pols = append(pols, p...)
-			vaps = append(vaps, v...)
-		} else if source.IsHttp(path) {
-			p, v, err := httpLoad(path)
-			if err != nil {
-				return nil, nil, err
-			}
-			pols = append(pols, p...)
-			vaps = append(vaps, v...)
-		} else {
-			p, v, err := fsLoad(path)
-			if err != nil {
-				return nil, nil, err
-			}
-			pols = append(pols, p...)
-			vaps = append(vaps, v...)
-		}
-	}
-	return pols, vaps, nil
-}
-
-func fsLoad(path string) ([]kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, error) {
+func fsLoad(loader loader, path string) ([]kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, error) {
 	var pols []kyvernov1.PolicyInterface
 	var vaps []v1alpha1.ValidatingAdmissionPolicy
 	fi, err := os.Stat(filepath.Clean(path))
@@ -131,7 +146,7 @@ func fsLoad(path string) ([]kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmi
 			return nil, nil, err
 		}
 		for _, file := range files {
-			p, v, err := fsLoad(filepath.Join(path, file.Name()))
+			p, v, err := fsLoad(loader, filepath.Join(path, file.Name()))
 			if err != nil {
 				return nil, nil, err
 			}
@@ -143,7 +158,7 @@ func fsLoad(path string) ([]kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmi
 		if err != nil {
 			return nil, nil, err
 		}
-		p, v, err := getPolicies(fileBytes)
+		p, v, err := loader(fileBytes)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -153,7 +168,7 @@ func fsLoad(path string) ([]kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmi
 	return pols, vaps, nil
 }
 
-func httpLoad(path string) ([]kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, error) {
+func httpLoad(loader loader, path string) ([]kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, error) {
 	// We accept here that a random URL might be called based on user provided input.
 	req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, path, nil)
 	if err != nil {
@@ -171,10 +186,10 @@ func httpLoad(path string) ([]kyvernov1.PolicyInterface, []v1alpha1.ValidatingAd
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to process %v: %v", path, err)
 	}
-	return getPolicies(fileBytes)
+	return loader(fileBytes)
 }
 
-func gitLoad(fs billy.Filesystem, path string) ([]kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, error) {
+func gitLoad(loader loader, fs billy.Filesystem, path string) ([]kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, error) {
 	file, err := fs.Open(path)
 	if err != nil {
 		return nil, nil, err
@@ -183,14 +198,14 @@ func gitLoad(fs billy.Filesystem, path string) ([]kyvernov1.PolicyInterface, []v
 	if err != nil {
 		return nil, nil, err
 	}
-	return getPolicies(fileBytes)
+	return loader(fileBytes)
 }
 
-func stdinLoad() ([]kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, error) {
+func stdinLoad(loader loader) ([]kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, error) {
 	policyStr := ""
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		policyStr = policyStr + scanner.Text() + "\n"
 	}
-	return getPolicies([]byte(policyStr))
+	return loader([]byte(policyStr))
 }
