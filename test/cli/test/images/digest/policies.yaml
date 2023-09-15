@@ -15,7 +15,6 @@ spec:
           kinds:
           - Pod
     name: check-digest
-    validate: {}
     verifyImages:
     - imageReferences:
       - '*'
