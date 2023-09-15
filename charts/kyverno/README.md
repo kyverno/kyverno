@@ -315,7 +315,8 @@ The chart values are organised per component.
 | features.registryClient.credentialHelpers | list | `["default","google","amazon","azure","github"]` | Enable registry client helpers |
 | features.reports.chunkSize | int | `1000` | Reports chunk size |
 | features.ttlController.reconciliationInterval | string | `"1m"` | Reconciliation interval for the label based cleanup manager |
-| features.tuf.tufRoot | string | `nil` |  |
+| features.tuf | object | `{"tufConfigMap":null,"tufMirror":null,"tufRoot":null}` | sigstore-tuf-configuration |
+| features.tuf.tufRoot | string | `nil` | tuf-root |
 | features.tuf.tufMirror | string | `nil` | tuf-mirror |
 | features.tuf.tufConfigMap | string | `nil` | name of the config map containing tuf environment variables |
 
