@@ -19,16 +19,15 @@ spec:
       - resources:
           kinds:
           - Pod
-    context:
-      - name: tufvalues
-        configMap:
-          name: tufvalues
-          namespace: kyverno
     verifyImages:
     - imageReferences:
-      - "ttl.sh/*"
+      - "ghcr.io/*"
       attestors:
-      - entries:
-        - keys:
+      - count: 1
+        entries:
+        - keyless:
+            issuer: "https://accounts.google.com"
+            subject: "vishal.choudhary@nirmata.com"
             rekor:
-              url: "{{ tufvalues.data.REKOR_URL }}"
+              url: https://rekor.sigstore.dev
+      required: true

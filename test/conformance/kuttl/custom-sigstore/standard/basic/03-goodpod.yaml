@@ -1,4 +1,9 @@
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: kubectl -n test-custom-sigstore run test-sigstore --image=$TEST_IMAGE_URL
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-sigstore
+  namespace: test-custom-sigstore
+spec:
+  containers:
+  - image: ghcr.io/vishal-chdhry/image-verify-test:v1
+    name: test-sigstore
