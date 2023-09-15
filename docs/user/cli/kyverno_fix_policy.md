@@ -1,31 +1,32 @@
-## kyverno fix
+## kyverno fix policy
 
-Fix inconsistencies and deprecated usage of Kyverno resources.
+Fix inconsistencies and deprecated usage in Kyverno policy files.
 
 ### Synopsis
 
-Fix inconsistencies and deprecated usage of Kyverno resources.
-  
-  The fix command provides a command-line interface to fix inconsistencies and deprecated usage of Kyverno resources.
-  It can be used to fix Kyverno test files.
+Fix inconsistencies and deprecated usage in Kyverno policy files.
 
   NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
 
 ```
-kyverno fix [flags]
+kyverno fix policy [dir]... [flags]
 ```
 
 ### Examples
 
 ```
-  # Fix Kyverno test files
-  KYVERNO_EXPERIMENTAL=true kyverno fix test . --save
+  # Fix Kyverno policy files
+  KYVERNO_EXPERIMENTAL=true kyverno fix policy .
+
+  # Fix Kyverno policy files and save them back
+  KYVERNO_EXPERIMENTAL=true kyverno fix policy . --save
 ```
 
 ### Options
 
 ```
-  -h, --help   help for fix
+  -h, --help   help for policy
+      --save   Save fixed file
 ```
 
 ### Options inherited from parent commands
@@ -48,7 +49,5 @@ kyverno fix [flags]
 
 ### SEE ALSO
 
-* [kyverno](kyverno.md)	 - Kubernetes Native Policy Management.
-* [kyverno fix policy](kyverno_fix_policy.md)	 - Fix inconsistencies and deprecated usage in Kyverno policy files.
-* [kyverno fix test](kyverno_fix_test.md)	 - Fix inconsistencies and deprecated usage in Kyverno test files.
+* [kyverno fix](kyverno_fix.md)	 - Fix inconsistencies and deprecated usage of Kyverno resources.
 

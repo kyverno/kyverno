@@ -12,15 +12,15 @@ results:
   result: pass
   rule: keda-prometheus-serveraddress
 - kind: ScaledObject
-  policy: keda-prometheus-serveraddress
-  resources:
-  - service-3
-  result: skip
-  rule: keda-prometheus-serveraddress
-- kind: ScaledObject
   patchedResource: patchedResource2.yaml
   policy: keda-prometheus-serveraddress
   resources:
   - service-2
   result: pass
+  rule: keda-prometheus-serveraddress
+- kind: ScaledObject
+  policy: keda-prometheus-serveraddress
+  resources:
+  - service-3
+  result: skip
   rule: keda-prometheus-serveraddress
