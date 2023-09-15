@@ -31,7 +31,7 @@ spec:
       - count: 1
         entries:
         - keyless:
-            issuer: "{{ tufvalues.data.ISSUER_URL }}"
+            issuer: "https://kubernetes.default.svc.cluster.local"
             subject: "*"
             rekor:
               url: "{{ tufvalues.data.REKOR_URL }}"
