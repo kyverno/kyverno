@@ -1,4 +1,4 @@
-package aggregate
+package namespace
 
 import "github.com/kyverno/kyverno/pkg/logging"
 
