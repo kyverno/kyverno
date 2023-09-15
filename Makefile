@@ -494,6 +494,11 @@ codegen-crds-report: $(CONTROLLER_GEN) ## Generate policy reports CRDs
 	@echo Generate policy reports crds... >&2
 	@$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)
 
+.PHONY: codegen-crds-cli
+codegen-crds-cli: $(CONTROLLER_GEN) ## Generate policy reports CRDs
+	@echo Generate cli crds... >&2
+	@$(CONTROLLER_GEN) crd paths=./cmd/cli/kubectl-kyverno/apis/values/v1alpha1/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)
+
 .PHONY: codegen-crds-all
 codegen-crds-all: codegen-crds-kyverno codegen-crds-report ## Generate all CRDs
 
