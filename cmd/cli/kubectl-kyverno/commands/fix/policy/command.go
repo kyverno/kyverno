@@ -1,27 +1,26 @@
-package fix
+package policy
 
 import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/fix/policy"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/fix/test"
 	"github.com/spf13/cobra"
 )
 
 func Command() *cobra.Command {
+	var options options
 	cmd := &cobra.Command{
-		Use:          "fix",
+		Use:          "policy [dir]...",
 		Short:        command.FormatDescription(true, websiteUrl, true, description...),
 		Long:         command.FormatDescription(false, websiteUrl, true, description...),
 		Example:      command.FormatExamples(examples...),
-		Args:         cobra.NoArgs,
+		Args:         cobra.MinimumNArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return cmd.Help()
+			if err := options.validate(args...); err != nil {
+				return err
+			}
+			return options.execute(cmd.OutOrStdout(), args...)
 		},
 	}
-	cmd.AddCommand(
-		policy.Command(),
-		test.Command(),
-	)
+	cmd.Flags().BoolVar(&options.save, "save", false, "Save fixed file")
 	return cmd
 }

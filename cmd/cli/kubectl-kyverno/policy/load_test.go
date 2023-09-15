@@ -5,7 +5,6 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/experimental"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/api/admissionregistration/v1alpha1"
 )
@@ -88,8 +87,7 @@ func TestLoadWithKubectlValidate(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv(experimental.KubectlValidateEnv, "true")
-			policies, vaps, err := Load(tt.fs, tt.resourcePath, tt.paths...)
+			policies, vaps, err := LoadWithLoader(KubectlValidateLoader, tt.fs, tt.resourcePath, tt.paths...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
 				return
