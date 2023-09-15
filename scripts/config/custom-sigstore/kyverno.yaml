@@ -1,7 +1,5 @@
 admissionController:
-  tufRoot: " https://tuf-repo-cdn.sigstore.dev/root.json"
   tufMirror: "https://tuf-repo-cdn.sigstore.dev"
 
 reportsController:
-  tufRoot: " https://tuf-repo-cdn.sigstore.dev/root.json"
   tufMirror: "https://tuf-repo-cdn.sigstore.dev"
