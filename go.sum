@@ -2352,8 +2352,8 @@ k8s.io/kube-openapi v0.0.0-20230816210353-14e408962443 h1:CAIciCnJnSOQxPd0xvpV6J
 k8s.io/kube-openapi v0.0.0-20230816210353-14e408962443/go.mod h1:wZK2AVp1uHCp4VamDVgBP2COHZjqD1T68Rf0CM3YjSM=
 k8s.io/kubectl v0.28.1 h1:jAq4yKEqQL+fwkWcEsUWxhJ7uIRcOYQraJxx4SyAMTY=
 k8s.io/kubectl v0.28.1/go.mod h1:a0nk/lMMeKBulp0lMTJAKbkjZg1ykqfLfz/d6dnv1ak=
-k8s.io/pod-security-admission v0.28.1 h1:d3jvo/+C6yDR1wnlX9ot1WvLyJ5R4uachJyxhdn9cW8=
-k8s.io/pod-security-admission v0.28.1/go.mod h1:Qm1rSy3l96m6QXGNU/8u+cmdpNdmAeA3OYDinrXhi6U=
+k8s.io/pod-security-admission v0.28.2 h1:3kiOL+gc6auNTGHuQ0hVsGxYu2YO/7DZb0xYR84GxiQ=
+k8s.io/pod-security-admission v0.28.2/go.mod h1:gReea39xbhIzf4Ry0FDuiTi8uj1N5R9YXOh8zQSuTxs=
 k8s.io/utils v0.0.0-20201110183641-67b214c5f920/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
 k8s.io/utils v0.0.0-20210111153108-fddb29f9d009/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
 k8s.io/utils v0.0.0-20230726121419-3b25d923346b h1:sgn3ZU783SCgtaSJjpcVVlRqd6GSnlTLKgpAAttJvpI=
