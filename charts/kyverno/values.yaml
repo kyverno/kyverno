@@ -448,7 +448,9 @@ features:
     # -- Reconciliation interval for the label based cleanup manager
     reconciliationInterval: 1m
 
-  tuf:  # --tuf-root
+  # --sigstore-tuf-configuration
+  tuf:  
+    # --tuf-root
     tufRoot:
     # --tuf-mirror
     tufMirror:
