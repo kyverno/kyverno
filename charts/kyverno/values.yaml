@@ -449,7 +449,7 @@ features:
     reconciliationInterval: 1m
 
   # --sigstore-tuf-configuration
-  tuf:  
+  tuf:
     # --tuf-root
     tufRoot:
     # --tuf-mirror
