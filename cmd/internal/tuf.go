@@ -3,9 +3,9 @@ package internal
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/go-logr/logr"
+	"github.com/sigstore/cosign/v2/pkg/blob"
 	"github.com/sigstore/sigstore/pkg/tuf"
 )
 
@@ -15,7 +15,7 @@ func setupSigstoreTUF(ctx context.Context, logger logr.Logger) {
 	var tufRootBytes []byte
 	var err error
 	if tufRoot != "" {
-		tufRootBytes, err = os.ReadFile(tufRoot)
+		tufRootBytes, err = blob.LoadFileOrURL(tufRoot)
 		if err != nil {
 			checkError(logger, err, fmt.Sprintf("Failed to read alternate TUF root file %s : %v", tufRoot, err))
 		}
