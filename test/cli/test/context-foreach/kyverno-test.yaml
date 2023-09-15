@@ -7,13 +7,13 @@ results:
 - kind: Pod
   policy: block-images
   resources:
-  - good-pod
-  result: pass
+  - bad-pod
+  result: fail
   rule: block-images
 - kind: Pod
   policy: block-images
   resources:
-  - bad-pod
-  result: fail
+  - good-pod
+  result: pass
   rule: block-images
 variables: values.yaml
