@@ -566,7 +566,7 @@ jobs:
           IMAGE_NAME=$(uuidgen | tr "[:upper:]" "[:lower:]")
           TEST_IMAGE_URL=ttl.sh/${IMAGE_NAME}:1h
           crane copy cgr.dev/chainguard/static@$DIGEST $TEST_IMAGE_URL
-          COSIGN_EXPERIMENTAL=1 cosign sign --rekor-url $REKOR_URL --fulcio-url $FULCIO_URL --force $TEST_IMAGE_URL --identity-token `curl -s $ISSUER_URL`
+          COSIGN_EXPERIMENTAL=1 cosign sign --rekor-url $REKOR_URL --fulcio-url $FULCIO_URL $TEST_IMAGE_URL --identity-token `curl -s $ISSUER_URL`
           echo "TEST_IMAGE_URL=$TEST_IMAGE_URL" >> $GITHUB_ENV
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
