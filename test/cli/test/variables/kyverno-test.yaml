@@ -10,17 +10,11 @@ resources:
 - resources.yaml
 results:
 - kind: Pod
-  policy: cm-multiple-example
+  policy: cm-array-example
   resources:
-  - test-env-dev
+  - test-web
   result: fail
-  rule: example-configmap-lookup
-- kind: Pod
-  policy: cm-multiple-example
-  resources:
-  - test-env-test
-  result: pass
-  rule: example-configmap-lookup
+  rule: validate-role-annotation
 - kind: Pod
   policy: cm-array-example
   resources:
@@ -34,12 +28,6 @@ results:
   result: fail
   rule: validate-blk-role-annotation
 - kind: Pod
-  policy: cm-globalval-example
-  resources:
-  - test-global-prod
-  result: fail
-  rule: validate-mode
-- kind: Pod
   policy: cm-blk-scalar-example
   resources:
   - test-blk-app
@@ -48,15 +36,27 @@ results:
 - kind: Pod
   policy: cm-globalval-example
   resources:
+  - test-global-prod
+  result: fail
+  rule: validate-mode
+- kind: Pod
+  policy: cm-globalval-example
+  resources:
   - test-global-dev
   result: pass
   rule: validate-mode
 - kind: Pod
-  policy: cm-array-example
+  policy: cm-multiple-example
   resources:
-  - test-web
+  - test-env-dev
   result: fail
-  rule: validate-role-annotation
+  rule: example-configmap-lookup
+- kind: Pod
+  policy: cm-multiple-example
+  resources:
+  - test-env-test
+  result: pass
+  rule: example-configmap-lookup
 - kind: Pod
   policy: cm-variable-example
   resources:
@@ -64,17 +64,17 @@ results:
   result: fail
   rule: example-configmap-lookup
 - kind: Pod
-  policy: images
-  resources:
-  - test-pod-with-non-trusted-registry
-  result: fail
-  rule: only-allow-trusted-images
-- kind: Pod
   policy: cm-variable-example
   resources:
   - test-env-test
   result: pass
   rule: example-configmap-lookup
+- kind: Pod
+  policy: images
+  resources:
+  - test-pod-with-non-trusted-registry
+  result: fail
+  rule: only-allow-trusted-images
 - kind: Pod
   policy: images
   resources:

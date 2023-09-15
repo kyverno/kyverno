@@ -7,13 +7,13 @@ results:
 - kind: Pod
   policy: resource-lists
   resources:
-  - myapp-pod3
-  result: pass
-  rule: validate-image-tag
-- kind: Pod
-  policy: resource-lists
-  resources:
   - myapp-pod1
   - myapp-pod2
   result: pass
   rule: require-image-tag
+- kind: Pod
+  policy: resource-lists
+  resources:
+  - myapp-pod3
+  result: pass
+  rule: validate-image-tag
