@@ -14,8 +14,8 @@ results:
 - kind: Pod
   policy: validate-empty-dir-resources
   resources:
-  - test-pod-bad-mount
   - test-pod
+  - test-pod-bad-mount
   result: fail
   rule: check-resources
 - kind: Pod

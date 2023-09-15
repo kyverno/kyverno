@@ -9,10 +9,10 @@ results:
   resources:
   - probe
   result: pass
-  rule: check-readinessProbe-exists
+  rule: check-livenessProbe-exists
 - kind: Pod
   policy: check-probe-exists
   resources:
   - probe
   result: pass
-  rule: check-livenessProbe-exists
+  rule: check-readinessProbe-exists

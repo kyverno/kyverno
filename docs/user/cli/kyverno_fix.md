@@ -49,5 +49,6 @@ kyverno fix [flags]
 ### SEE ALSO
 
 * [kyverno](kyverno.md)	 - Kubernetes Native Policy Management.
+* [kyverno fix policy](kyverno_fix_policy.md)	 - Fix inconsistencies and deprecated usage in Kyverno policy files.
 * [kyverno fix test](kyverno_fix_test.md)	 - Fix inconsistencies and deprecated usage in Kyverno test files.
 

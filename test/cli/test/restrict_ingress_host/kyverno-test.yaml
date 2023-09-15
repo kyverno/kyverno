@@ -19,13 +19,13 @@ results:
 - kind: Ingress
   policy: unique-ingress-host
   resources:
-  - ingress-kyverno-host
-  result: skip
+  - ingress-foo-host
+  result: fail
   rule: deny-multiple-hosts
 - kind: Ingress
   policy: unique-ingress-host
   resources:
-  - ingress-foo-host
-  result: fail
+  - ingress-kyverno-host
+  result: skip
   rule: deny-multiple-hosts
 variables: values.yaml

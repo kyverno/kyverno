@@ -4,16 +4,10 @@ policies:
 resources:
 - resources.yaml
 results:
-- kind: Pod
-  policy: check-image
+- kind: DataVolume
+  policy: check-data-volume-image
   resources:
-  - signed
-  result: pass
-  rule: verify-signature
-- kind: Pod
-  policy: check-image
-  resources:
-  - unsigned
+  - unsigned-registry-image-datavolume
   result: fail
   rule: verify-signature
 - kind: DataVolume
@@ -22,9 +16,15 @@ results:
   - signed-registry-image-datavolume
   result: pass
   rule: verify-signature
-- kind: DataVolume
-  policy: check-data-volume-image
+- kind: Pod
+  policy: check-image
   resources:
-  - unsigned-registry-image-datavolume
+  - unsigned
   result: fail
+  rule: verify-signature
+- kind: Pod
+  policy: check-image
+  resources:
+  - signed
+  result: pass
   rule: verify-signature

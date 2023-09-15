@@ -10,25 +10,6 @@ resources:
 - resources.yaml
 results:
 - kind: Pod
-  policy: images
-  resources:
-  - test-pod-with-non-root-user-image
-  - test-pod-with-trusted-registry
-  result: pass
-  rule: only-allow-trusted-images
-- kind: Pod
-  policy: cm-variable-example
-  resources:
-  - test-env-test
-  result: pass
-  rule: example-configmap-lookup
-- kind: Pod
-  policy: cm-variable-example
-  resources:
-  - test-env-dev
-  result: fail
-  rule: example-configmap-lookup
-- kind: Pod
   policy: cm-array-example
   resources:
   - test-web
@@ -43,33 +24,21 @@ results:
 - kind: Pod
   policy: cm-blk-scalar-example
   resources:
+  - test-blk-web
+  result: fail
+  rule: validate-blk-role-annotation
+- kind: Pod
+  policy: cm-blk-scalar-example
+  resources:
   - test-blk-app
   result: pass
   rule: validate-blk-role-annotation
 - kind: Pod
-  policy: images
+  policy: cm-globalval-example
   resources:
-  - test-pod-with-non-trusted-registry
+  - test-global-prod
   result: fail
-  rule: only-allow-trusted-images
-- kind: Pod
-  policy: cm-multiple-example
-  resources:
-  - test-env-test
-  result: pass
-  rule: example-configmap-lookup
-- kind: Pod
-  policy: cm-multiple-example
-  resources:
-  - test-env-dev
-  result: fail
-  rule: example-configmap-lookup
-- kind: Pod
-  policy: cm-blk-scalar-example
-  resources:
-  - test-blk-web
-  result: fail
-  rule: validate-blk-role-annotation
+  rule: validate-mode
 - kind: Pod
   policy: cm-globalval-example
   resources:
@@ -77,9 +46,40 @@ results:
   result: pass
   rule: validate-mode
 - kind: Pod
-  policy: cm-globalval-example
+  policy: cm-multiple-example
   resources:
-  - test-global-prod
+  - test-env-dev
   result: fail
-  rule: validate-mode
+  rule: example-configmap-lookup
+- kind: Pod
+  policy: cm-multiple-example
+  resources:
+  - test-env-test
+  result: pass
+  rule: example-configmap-lookup
+- kind: Pod
+  policy: cm-variable-example
+  resources:
+  - test-env-dev
+  result: fail
+  rule: example-configmap-lookup
+- kind: Pod
+  policy: cm-variable-example
+  resources:
+  - test-env-test
+  result: pass
+  rule: example-configmap-lookup
+- kind: Pod
+  policy: images
+  resources:
+  - test-pod-with-non-trusted-registry
+  result: fail
+  rule: only-allow-trusted-images
+- kind: Pod
+  policy: images
+  resources:
+  - test-pod-with-non-root-user-image
+  - test-pod-with-trusted-registry
+  result: pass
+  rule: only-allow-trusted-images
 variables: variables.yaml

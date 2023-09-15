@@ -7,16 +7,16 @@ results:
 - kind: Pod
   policy: default/test-jmespath
   resources:
-  - test-valid1
-  - test-valid2
-  - test-valid3
-  result: pass
+  - test-invalid
+  result: fail
   rule: test-jmespath
 - kind: Pod
   policy: default/test-jmespath
   resources:
-  - test-invalid
-  result: fail
+  - test-valid1
+  - test-valid2
+  - test-valid3
+  result: pass
   rule: test-jmespath
 - kind: Namespace
   policy: namespace-validation

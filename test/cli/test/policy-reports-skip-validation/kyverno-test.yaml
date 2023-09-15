@@ -7,13 +7,13 @@ results:
 - kind: Pod
   policy: disallow-naked-pods
   resources:
-  - blank-skip
-  result: skip
+  - blank-fail
+  result: fail
   rule: validate-naked-pods
 - kind: Pod
   policy: disallow-naked-pods
   resources:
-  - blank-fail
-  result: fail
+  - blank-skip
+  result: skip
   rule: validate-naked-pods
 variables: values.yaml

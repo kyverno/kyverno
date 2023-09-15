@@ -2,6 +2,7 @@ package fix
 
 import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/fix/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/fix/test"
 	"github.com/spf13/cobra"
 )
@@ -19,6 +20,7 @@ func Command() *cobra.Command {
 		},
 	}
 	cmd.AddCommand(
+		policy.Command(),
 		test.Command(),
 	)
 	return cmd
