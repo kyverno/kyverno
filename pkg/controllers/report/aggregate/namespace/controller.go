@@ -1,4 +1,4 @@
-package aggregate
+package namespace
 
 import (
 	"context"
@@ -34,7 +34,7 @@ import (
 const (
 	// Workers is the number of workers for this controller
 	Workers        = 1
-	ControllerName = "aggregate-report-controller"
+	ControllerName = "namespace-aggregate-report-controller"
 	maxRetries     = 10
 	mergeLimit     = 1000
 	enqueueDelay   = 30 * time.Second

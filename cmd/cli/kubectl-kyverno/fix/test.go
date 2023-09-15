@@ -7,6 +7,7 @@ import (
 	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/test"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"golang.org/x/exp/slices"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func FixTest(test testapi.Test, compress bool) (testapi.Test, []string, error) {
@@ -33,6 +34,11 @@ func FixTest(test testapi.Test, compress bool) (testapi.Test, []string, error) {
 			result.Resources = resources
 			result.Resource = ""
 		}
+		unique := sets.New(result.Resources...)
+		if len(result.Resources) != len(unique) {
+			messages = append(messages, "test results contains duplicate resources")
+			result.Resources = unique.UnsortedList()
+		}
 		if result.Namespace != "" {
 			messages = append(messages, "test result uses deprecated `namespace` field, replacing `policy` with a `<namespace>/<name>` pattern")
 			result.Policy = fmt.Sprintf("%s/%s", result.Namespace, result.Policy)
@@ -55,6 +61,11 @@ func FixTest(test testapi.Test, compress bool) (testapi.Test, []string, error) {
 		}
 		results = nil
 		for k, v := range compressed {
+			unique := sets.New(v...)
+			if len(v) != len(unique) {
+				messages = append(messages, "test results contains duplicate resources")
+				v = unique.UnsortedList()
+			}
 			results = append(results, testapi.TestResult{
 				TestResultBase: k,
 				Resources:      v,
