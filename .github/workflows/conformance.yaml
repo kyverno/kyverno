@@ -533,12 +533,13 @@ jobs:
         timeout-minutes: 10
         with:
           build-cache-key: run-conformance
-      - name: Create kind cluster
-        shell: bash
+      - name: Create kind cluster and setup Sigstore Scaffolding
+        uses: sigstore/scaffolding/actions/setup@9fb4937ae18ed8456d725e99cb2871d309673022
+      - name: Create TUF values config map
         run: |
-          set -e
-          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
-          make kind-create-cluster
+          kubectl create namespace kyverno
+          kubectl -n kyverno create configmap tufvalues --from-literal=TUF_MIRROR=$TUF_MIRROR --from-literal=FULCIO_URL=$FULCIO_URL --from-literal=REKOR_URL=$REKOR_URL --from-literal=CTLOG_URL=$CTLOG_URL --from-literal=ISSUER_URL=$ISSUER_URL
+          kubectl -n tuf-system get secrets tuf-root -oyaml | sed 's/namespace: .*/namespace: kyverno/' | kubectl create -f -
       - name: Download kyverno images archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
@@ -553,7 +554,20 @@ jobs:
         run: |
           set -e
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
-          make kind-install-kyverno
+          make kind-deploy-kyverno
+      - name: Install crane
+        uses: imjasonh/setup-crane@00c9e93efa4e1138c9a7a5c594acd6c75a2fbf0c
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@11086d25041f77fe8fe7b9ea4e48e3b9192b8f19
+      - name: Create test image
+        shell: bash
+        run: |
+          DIGEST=$(crane digest cgr.dev/chainguard/static)   
+          IMAGE_NAME=$(uuidgen | tr "[:upper:]" "[:lower:]")
+          TEST_IMAGE_URL=ttl.sh/${IMAGE_NAME}:1h
+          crane copy cgr.dev/chainguard/static@$DIGEST $TEST_IMAGE_URL
+          COSIGN_EXPERIMENTAL=1 cosign sign --rekor-url $REKOR_URL --fulcio-url $FULCIO_URL --force $TEST_IMAGE_URL --identity-token `curl -s $ISSUER_URL`
+          echo "TEST_IMAGE_URL=$TEST_IMAGE_URL" >> $GITHUB_ENV
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Test with kuttl
