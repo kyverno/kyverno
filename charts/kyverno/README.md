@@ -355,9 +355,6 @@ The chart values are organised per component.
 | admissionController.tufRootMountPath | string | `"/.sigstore"` | A writable volume to use for the TUF root initialization. |
 | admissionController.sigstoreVolume | object | `{"emptyDir":{}}` | Volume to be mounted in pods for TUF/cosign work. |
 | admissionController.imagePullSecrets | list | `[]` | Image pull secrets |
-| admissionController.tufRoot | string | `nil` | tuf-root |
-| admissionController.tufMirror | string | `nil` | tuf-mirror |
-| admissionController.tufConfigMap | string | `nil` | name of the config map containing tuf environment variables |
 | admissionController.initContainer.image.registry | string | `"ghcr.io"` | Image registry |
 | admissionController.initContainer.image.repository | string | `"kyverno/kyvernopre"` | Image repository |
 | admissionController.initContainer.image.tag | string | `nil` | Image tag If missing, defaults to image.tag |
@@ -558,9 +555,6 @@ The chart values are organised per component.
 | reportsController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | reportsController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | reportsController.imagePullSecrets | list | `[]` | Image pull secrets |
-| reportsController.tufRoot | string | `nil` | tuf-root |
-| reportsController.tufMirror | string | `nil` | tuf-mirror |
-| reportsController.tufConfigMap | string | `nil` | name of the config map containing tuf environment variables |
 | reportsController.replicas | int | `nil` | Desired number of pods |
 | reportsController.podLabels | object | `{}` | Additional labels to add to each pod |
 | reportsController.podAnnotations | object | `{}` | Additional annotations to add to each pod |

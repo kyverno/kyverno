@@ -786,15 +786,6 @@ admissionController:
   imagePullSecrets: []
     # - secretName
 
-  # --tuf-root
-  tufRoot:
-
-  # --tuf-mirror
-  tufMirror:
-
-  # -- name of the config map containing tuf environment variables
-  tufConfigMap:
-
   initContainer:
 
     image:
@@ -1548,15 +1539,6 @@ reportsController:
   # -- Image pull secrets
   imagePullSecrets: []
     # - secretName
-
-  # --tuf-root
-  tufRoot:
-
-  # --tuf-mirror
-  tufMirror:
-
-  # -- name of the config map containing tuf environment variables
-  tufConfigMap:
 
   # -- (int) Desired number of pods
   replicas: ~
