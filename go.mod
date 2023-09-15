@@ -63,7 +63,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.18.0
 	go.uber.org/automaxprocs v1.5.3
 	go.uber.org/multierr v1.11.0
-	go.uber.org/zap v1.25.0
+	go.uber.org/zap v1.26.0
 	golang.org/x/crypto v0.13.0
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
 	golang.org/x/text v0.13.0
@@ -80,9 +80,9 @@ require (
 	k8s.io/cli-runtime v0.28.1
 	k8s.io/client-go v0.28.2
 	k8s.io/klog/v2 v2.100.1
-	k8s.io/kube-aggregator v0.28.1
+	k8s.io/kube-aggregator v0.28.2
 	k8s.io/kube-openapi v0.0.0-20230816210353-14e408962443
-	k8s.io/pod-security-admission v0.28.1
+	k8s.io/pod-security-admission v0.28.2
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/controller-runtime v0.16.1
 	sigs.k8s.io/kubectl-validate v0.0.0-20230914185012-0d8eb44296e9
