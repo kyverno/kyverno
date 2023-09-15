@@ -1,95 +1,112 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: validate-empty-dir-mountpath
 spec:
+  admission: true
+  background: true
   rules:
-  - name: check-mount-paths
-    match:
-      resources:
-        kinds:
+  - match:
+      any:
+      - resources:
+          kinds:
           - Pod
+    name: check-mount-paths
     validate:
-      message: "emptyDir volumes must be mounted under /tmp"
       foreach:
-      - list: "request.object.spec.volumes[?contains(keys(@), 'emptyDir')]"
-        elementScope: false
+      - elementScope: false
+        list: request.object.spec.volumes[?contains(keys(@), 'emptyDir')]
         pattern:
           spec:
             containers:
-              - name: "*"
-                volumeMounts:
-                - (name): "{{element.name}}"
-                  mountPath: "/tmp/*"
+            - name: '*'
+              volumeMounts:
+              - (name): '{{element.name}}'
+                mountPath: /tmp/*
+      message: emptyDir volumes must be mounted under /tmp
+  validationFailureAction: Audit
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: validate-empty-dir-resources
 spec:
+  admission: true
+  background: true
   rules:
-  - name: check-resources
-    match:
-      resources:
-        kinds:
+  - match:
+      any:
+      - resources:
+          kinds:
           - Pod
+    name: check-resources
     validate:
-      message: "ephemeral-storage requests and limits are required for emptyDir volumes"
       foreach:
-      - list: "request.object.spec.volumes[?contains(keys(@), 'emptyDir')]"
-        elementScope: false
+      - elementScope: false
+        list: request.object.spec.volumes[?contains(keys(@), 'emptyDir')]
         pattern:
           spec:
             containers:
-            - volumeMounts:
-              - <(name): "{{element.name}}"
-              resources:
-                requests:
-                 ephemeral-storage: "?*"
+            - resources:
                 limits:
-                  ephemeral-storage: "?*"
+                  ephemeral-storage: ?*
+                requests:
+                  ephemeral-storage: ?*
+              volumeMounts:
+              - <(name): '{{element.name}}'
+      message: ephemeral-storage requests and limits are required for emptyDir volumes
+  validationFailureAction: Audit
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: validate-image-list
 spec:
+  admission: true
+  background: true
   rules:
-  - name: check-image
-    match:
-      resources:
-        kinds:
+  - match:
+      any:
+      - resources:
+          kinds:
           - Pod
+    name: check-image
     validate:
-      message: "images must begin with ghcr.io"
       foreach:
-      - list: "request.object.spec.containers[].image"
-        deny:
+      - deny:
           conditions:
             all:
-              - key: '{{ element }}'
-                operator: NotEquals
-                value: 'ghcr.io'
+            - key: '{{ element }}'
+              operator: NotEquals
+              value: ghcr.io
+        list: request.object.spec.containers[].image
+      message: images must begin with ghcr.io
+  validationFailureAction: Audit
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: validate-image-list-error
 spec:
+  admission: true
+  background: true
   rules:
-  - name: check-image
-    match:
-      resources:
-        kinds:
+  - match:
+      any:
+      - resources:
+          kinds:
           - Pod
+    name: check-image
     validate:
-      message: "images must begin with ghcr.io"
       foreach:
-      - list: "request.object.spec.containers[].image"
-        elementScope: true
-        deny:
+      - deny:
           conditions:
             all:
-              - key: '{{ element }}'
-                operator: NotEquals
-                value: 'ghcr.io'
+            - key: '{{ element }}'
+              operator: NotEquals
+              value: ghcr.io
+        elementScope: true
+        list: request.object.spec.containers[].image
+      message: images must begin with ghcr.io
+  validationFailureAction: Audit
