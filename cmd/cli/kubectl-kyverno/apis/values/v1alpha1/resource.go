@@ -1,4 +1,4 @@
-package values
+package v1alpha1
 
 type Resource struct {
 	Name string `json:"name"`

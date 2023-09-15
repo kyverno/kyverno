@@ -1,7 +1,6 @@
 package v1alpha1
 
 import (
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -12,8 +11,7 @@ import (
 
 // Values declares values to be loaded by the Kyverno CLI.
 type Values struct {
-	metav1.TypeMeta   `json:",inline,omitempty"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta `json:",inline,omitempty"`
 	// Spec declares values.
-	Spec values.Values `json:"spec"`
+	Spec ValuesSpec `json:"spec"`
 }

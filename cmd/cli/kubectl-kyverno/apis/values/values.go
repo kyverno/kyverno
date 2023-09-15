@@ -1,11 +1,14 @@
 package values
 
-type Values struct {
-	Policies []Policy `json:"policies,omitempty"`
-	// +kubebuilder:validation:Type=object
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Schemaless
-	GlobalValues       map[string]interface{} `json:"globalValues,omitempty"`
-	NamespaceSelectors []NamespaceSelector    `json:"namespaceSelector,omitempty"`
-	Subresources       []Subresource          `json:"subresources,omitempty"`
-}
+import (
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values/v1alpha1"
+)
+
+type (
+	Values            = v1alpha1.ValuesSpec
+	Subresource       = v1alpha1.Subresource
+	Policy            = v1alpha1.Policy
+	Rule              = v1alpha1.Rule
+	Resource          = v1alpha1.Resource
+	NamespaceSelector = v1alpha1.NamespaceSelector
+)

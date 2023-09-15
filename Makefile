@@ -516,17 +516,28 @@ codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API 
 		-config docs/user/config.json \
 		-template-dir docs/user/template \
 		-out-file docs/user/crd/index.html
+	@rm -rf docs/user/cli/crd && mkdir -p docs/user/cli/crd
+	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 4 \
+		-api-dir $(PACKAGE)/cmd/cli/kubectl-kyverno/apis/values \
+		-config docs/user/config.json \
+		-template-dir docs/user/template \
+		-out-file docs/user/cli/crd/index.html
 
 .PHONY: codegen-cli-docs
 codegen-cli-docs: $(CLI_BIN) ## Generate CLI docs
 	@echo Generate cli docs... >&2
-	@rm -rf docs/user/cli && mkdir -p docs/user/cli
-	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) docs -o docs/user/cli --autogenTag=false
+	@rm -rf docs/user/cli/commands && mkdir -p docs/user/cli/commands
+	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) docs -o docs/user/cli/commands --autogenTag=false
 
 .PHONY: codegen-cli-tests
 codegen-cli-tests: $(CLI_BIN) ## Fix CLI test files
 	@echo Fix CLI test files... >&2
 	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix test ./test/cli --save --compress
+
+.PHONY: codegen-cli-policies
+codegen-cli-policies: $(CLI_BIN) ## Fix CLI policy files
+	@echo Fix CLI policy files... >&2
+	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix policy ./test/cli/test --save
 
 .PHONY: codegen-cli-crds
 codegen-cli-crds: codegen-crds-kyverno ## Copy generated CRDs to embed in the CLI
