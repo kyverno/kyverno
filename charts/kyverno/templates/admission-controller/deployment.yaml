@@ -127,11 +127,11 @@ spec:
           image: {{ include "kyverno.image" (dict "image" .Values.admissionController.container.image "defaultTag" .Chart.AppVersion) | quote }}
           imagePullPolicy: {{ .Values.admissionController.container.image.pullPolicy }}
           args:
-            {{- if .Values.admissionController.tufMirror }}
-            - --tuf-mirror={{ .Values.admissionController.tufMirror }}
+            {{- if .Values.features.tuf.tufMirror }}
+            - --tuf-mirror={{ .Values.features.tuf.tufMirror }}
             {{- end }}
-            {{- if .Values.admissionController.tufRoot }}
-            - --tuf-root={{ .Values.admissionController.tufRoot }}
+            {{- if .Values.features.tuf.tufRoot }}
+            - --tuf-root={{ .Values.features.tuf.tufRoot }}
             {{- end }}
             - --caSecretName={{ template "kyverno.admission-controller.serviceName" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-ca
             - --tlsSecretName={{ template "kyverno.admission-controller.serviceName" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-pair
@@ -193,10 +193,10 @@ spec:
           - containerPort: 8000
             name: metrics-port
             protocol: TCP
-          {{- if .Values.admissionController.customSigstoreConfigMap }}
+          {{- if .Values.features.tuf.tufConfigMap }}
           envFrom:
             - configMapRef:
-                name: {{ .Values.admissionController.customSigstoreConfigMap }}
+                name: {{ .Values.features.tuf.tufConfigMap }}
           {{- end }}
           env:
           - name: INIT_CONFIG

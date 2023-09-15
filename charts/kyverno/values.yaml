@@ -448,6 +448,13 @@ features:
     # -- Reconciliation interval for the label based cleanup manager
     reconciliationInterval: 1m
 
+  tuf:  # --tuf-root
+    tufRoot:
+    # --tuf-mirror
+    tufMirror:
+    # -- name of the config map containing tuf environment variables
+    tufConfigMap:
+
 # Cleanup cronjobs to prevent internal resources from stacking up in the cluster
 cleanupJobs:
 
@@ -784,7 +791,7 @@ admissionController:
   tufMirror:
 
   # -- name of the config map containing tuf environment variables
-  customSigstoreConfigMap:
+  tufConfigMap:
 
   initContainer:
 
@@ -1547,7 +1554,7 @@ reportsController:
   tufMirror:
 
   # -- name of the config map containing tuf environment variables
-  customSigstoreConfigMap:
+  tufConfigMap:
 
   # -- (int) Desired number of pods
   replicas: ~

@@ -86,11 +86,11 @@ spec:
             name: metrics
             protocol: TCP
           args:
-            {{- if .Values.reportsController.tufMirror }}
-            - --tuf-mirror={{ .Values.reportsController.tufMirror }}
+            {{- if .Values.features.tuf.tufMirror }}
+            - --tuf-mirror={{ .Values.features.tuf.tufMirror }}
             {{- end }}
-            {{- if .Values.reportsController.tufRoot }}
-            - --tuf-root={{ .Values.reportsController.tufRoot }}
+            {{- if .Values.features.tuf.tufRoot }}
+            - --tuf-root={{ .Values.features.tuf.tufRoot }}
             {{- end }}
             {{- if .Values.reportsController.tracing.enabled }}
             - --enableTracing
@@ -133,10 +133,10 @@ spec:
             - --{{ $key }}={{ $value }}
             {{- end }}
             {{- end }}
-          {{- if .Values.reportsController.customSigstoreConfigMap }}
+          {{- if .Values.features.tuf.tufConfigMap }}
           envFrom:
             - configMapRef:
-                name: {{ .Values.reportsController.customSigstoreConfigMap }}
+                name: {{ .Values.features.tuf.tufConfigMap }}
           {{- end }}
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME

@@ -1,9 +1,5 @@
-admissionController:
-  tufRoot: "$(TUF_MIRROR)/root.json"
-  tufMirror: "$(TUF_MIRROR)"
-  customSigstoreConfigMap: tufvalues
-
-reportsController:
-  tufRoot: "$(TUF_MIRROR)/root.json"
-  tufMirror: "$(TUF_MIRROR)"
-  customSigstoreConfigMap: tufvalues
+features:
+  tuf:
+    tufRoot: "$(TUF_MIRROR)/root.json"
+    tufMirror: "$(TUF_MIRROR)"
+    tufConfigMap: tufvalues

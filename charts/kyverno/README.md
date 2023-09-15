@@ -315,6 +315,9 @@ The chart values are organised per component.
 | features.registryClient.credentialHelpers | list | `["default","google","amazon","azure","github"]` | Enable registry client helpers |
 | features.reports.chunkSize | int | `1000` | Reports chunk size |
 | features.ttlController.reconciliationInterval | string | `"1m"` | Reconciliation interval for the label based cleanup manager |
+| features.tuf.tufRoot | string | `nil` |  |
+| features.tuf.tufMirror | string | `nil` | tuf-mirror |
+| features.tuf.tufConfigMap | string | `nil` | name of the config map containing tuf environment variables |
 
 ### Admission controller
 
@@ -353,7 +356,7 @@ The chart values are organised per component.
 | admissionController.imagePullSecrets | list | `[]` | Image pull secrets |
 | admissionController.tufRoot | string | `nil` | tuf-root |
 | admissionController.tufMirror | string | `nil` | tuf-mirror |
-| admissionController.customSigstoreConfigMap | string | `nil` | name of the config map containing tuf environment variables |
+| admissionController.tufConfigMap | string | `nil` | name of the config map containing tuf environment variables |
 | admissionController.initContainer.image.registry | string | `"ghcr.io"` | Image registry |
 | admissionController.initContainer.image.repository | string | `"kyverno/kyvernopre"` | Image repository |
 | admissionController.initContainer.image.tag | string | `nil` | Image tag If missing, defaults to image.tag |
@@ -556,7 +559,7 @@ The chart values are organised per component.
 | reportsController.imagePullSecrets | list | `[]` | Image pull secrets |
 | reportsController.tufRoot | string | `nil` | tuf-root |
 | reportsController.tufMirror | string | `nil` | tuf-mirror |
-| reportsController.customSigstoreConfigMap | string | `nil` | name of the config map containing tuf environment variables |
+| reportsController.tufConfigMap | string | `nil` | name of the config map containing tuf environment variables |
 | reportsController.replicas | int | `nil` | Desired number of pods |
 | reportsController.podLabels | object | `{}` | Additional labels to add to each pod |
 | reportsController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
