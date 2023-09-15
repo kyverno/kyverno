@@ -4,18 +4,6 @@ policies:
 resources:
 - resources.yaml
 results:
-- kind: Namespace
-  policy: namespace-validation
-  resources:
-  - test-invalid
-  result: fail
-  rule: namespace-validation
-- kind: Namespace
-  policy: namespace-validation
-  resources:
-  - test-valid
-  result: pass
-  rule: namespace-validation
 - kind: Pod
   policy: default/test-jmespath
   resources:
@@ -30,3 +18,15 @@ results:
   - test-valid3
   result: pass
   rule: test-jmespath
+- kind: Namespace
+  policy: namespace-validation
+  resources:
+  - test-invalid
+  result: fail
+  rule: namespace-validation
+- kind: Namespace
+  policy: namespace-validation
+  resources:
+  - test-valid
+  result: pass
+  rule: namespace-validation
