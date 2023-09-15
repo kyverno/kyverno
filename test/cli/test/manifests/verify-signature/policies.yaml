@@ -34,7 +34,6 @@ spec:
                 FdGxexVrR4YqO1pRViKxmD9oMu4I7K/4sM51nbH65ycB2uRiDfIdRoV/+A==
                 -----END PUBLIC KEY-----
               signatureAlgorithm: sha256
-        dryRun: {}
   - match:
       any:
       - resources:
@@ -60,6 +59,5 @@ spec:
                 FdGxexVrR4YqO1pRViKxmD9oMu4I7K/4sM51nbH65ycB2uRiDfIdRoV/+A==
                 -----END PUBLIC KEY-----
               signatureAlgorithm: sha256
-        dryRun: {}
   validationFailureAction: Enforce
   webhookTimeoutSeconds: 30
