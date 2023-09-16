@@ -4,8 +4,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// +genclient:nonNamespaced
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope="Cluster"
 
@@ -20,7 +19,7 @@ type Test struct {
 	// Policies are the policies to be used in the test
 	Policies []string `json:"policies,omitempty"`
 
-	// Policies are the resource to be used in the test
+	// Resources are the resource to be used in the test
 	Resources []string `json:"resources,omitempty"`
 
 	// Variables is the values to be used in the test

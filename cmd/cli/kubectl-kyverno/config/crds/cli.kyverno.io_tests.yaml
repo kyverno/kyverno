@@ -40,7 +40,7 @@ spec:
               type: string
             type: array
           resources:
-            description: Policies are the resource to be used in the test
+            description: Resources are the resource to be used in the test
             items:
               type: string
             type: array

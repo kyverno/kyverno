@@ -6,7 +6,7 @@ import (
 
 // Subresource declares subresource/parent resource mapping
 type Subresource struct {
-	// subresource declares the subresource api
+	// Subresource declares the subresource api
 	Subresource metav1.APIResource `json:"subresource"`
 
 	// ParentResource declares the parent resource api

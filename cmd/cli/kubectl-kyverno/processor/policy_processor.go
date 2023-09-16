@@ -11,7 +11,7 @@ import (
 	json_patch "github.com/evanphx/json-patch/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
@@ -49,7 +49,7 @@ type PolicyProcessor struct {
 	RuleToCloneSourceResource map[string]string
 	Client                    dclient.Interface
 	AuditWarn                 bool
-	Subresources              []valuesapi.Subresource
+	Subresources              []v1alpha1.Subresource
 	Out                       io.Writer
 }
 

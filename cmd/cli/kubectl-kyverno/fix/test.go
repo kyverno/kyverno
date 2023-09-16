@@ -4,13 +4,13 @@ import (
 	"errors"
 	"fmt"
 
-	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"golang.org/x/exp/slices"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func FixTest(test testapi.Test, compress bool) (testapi.Test, []string, error) {
+func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error) {
 	var messages []string
 	if test.Name == "" {
 		messages = append(messages, "name is not set")
@@ -21,7 +21,7 @@ func FixTest(test testapi.Test, compress bool) (testapi.Test, []string, error) {
 	if len(test.Resources) == 0 {
 		messages = append(messages, "test has no resources")
 	}
-	var results []testapi.TestResult
+	var results []v1alpha1.TestResult
 	for _, result := range test.Results {
 		if result.Resource != "" && len(result.Resources) != 0 {
 			messages = append(messages, "test result should not use both `resource` and `resources` fields")
@@ -55,7 +55,7 @@ func FixTest(test testapi.Test, compress bool) (testapi.Test, []string, error) {
 		results = append(results, result)
 	}
 	if compress {
-		compressed := map[testapi.TestResultBase][]string{}
+		compressed := map[v1alpha1.TestResultBase][]string{}
 		for _, result := range results {
 			compressed[result.TestResultBase] = append(compressed[result.TestResultBase], result.Resources...)
 		}
@@ -66,13 +66,13 @@ func FixTest(test testapi.Test, compress bool) (testapi.Test, []string, error) {
 				messages = append(messages, "test results contains duplicate resources")
 				v = unique.UnsortedList()
 			}
-			results = append(results, testapi.TestResult{
+			results = append(results, v1alpha1.TestResult{
 				TestResultBase: k,
 				Resources:      v,
 			})
 		}
 	}
-	slices.SortFunc(results, func(a, b testapi.TestResult) int {
+	slices.SortFunc(results, func(a, b v1alpha1.TestResult) int {
 		if x := datautils.Compare(a.Policy, b.Policy); x != 0 {
 			return x
 		}

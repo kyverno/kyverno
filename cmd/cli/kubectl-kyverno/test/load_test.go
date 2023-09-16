@@ -9,7 +9,7 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 )
 
 func TestLoadTests(t *testing.T) {
@@ -46,12 +46,12 @@ func TestLoadTests(t *testing.T) {
 		fileName: "kyverno-test.yaml",
 		want: []TestCase{{
 			Path: "../_testdata/tests/test-1/kyverno-test.yaml",
-			Test: &testapi.Test{
+			Test: &v1alpha1.Test{
 				Name:      "test-registry",
 				Policies:  []string{"image-example.yaml"},
 				Resources: []string{"resources.yaml"},
-				Results: []testapi.TestResult{{
-					TestResultBase: testapi.TestResultBase{
+				Results: []v1alpha1.TestResult{{
+					TestResultBase: v1alpha1.TestResultBase{
 						Kind:   "Pod",
 						Policy: "images",
 						Result: policyreportv1alpha2.StatusPass,
@@ -59,7 +59,7 @@ func TestLoadTests(t *testing.T) {
 					},
 					Resources: []string{"test-pod-with-non-root-user-image"},
 				}, {
-					TestResultBase: testapi.TestResultBase{
+					TestResultBase: v1alpha1.TestResultBase{
 						Kind:   "Pod",
 						Policy: "images",
 						Result: policyreportv1alpha2.StatusPass,
@@ -76,12 +76,12 @@ func TestLoadTests(t *testing.T) {
 		fileName: "kyverno-test.yaml",
 		want: []TestCase{{
 			Path: "../_testdata/tests/test-2/kyverno-test.yaml",
-			Test: &testapi.Test{
+			Test: &v1alpha1.Test{
 				Name:      "add-quota",
 				Policies:  []string{"policy.yaml"},
 				Resources: []string{"resource.yaml"},
-				Results: []testapi.TestResult{{
-					TestResultBase: testapi.TestResultBase{
+				Results: []v1alpha1.TestResult{{
+					TestResultBase: v1alpha1.TestResultBase{
 						Kind:              "Namespace",
 						Policy:            "add-ns-quota",
 						Result:            policyreportv1alpha2.StatusPass,
@@ -90,7 +90,7 @@ func TestLoadTests(t *testing.T) {
 					},
 					Resources: []string{"hello-world-namespace"},
 				}, {
-					TestResultBase: testapi.TestResultBase{
+					TestResultBase: v1alpha1.TestResultBase{
 						Kind:              "Namespace",
 						Policy:            "add-ns-quota",
 						Result:            policyreportv1alpha2.StatusPass,
@@ -108,12 +108,12 @@ func TestLoadTests(t *testing.T) {
 		fileName: "kyverno-test.yaml",
 		want: []TestCase{{
 			Path: "../_testdata/tests/test-1/kyverno-test.yaml",
-			Test: &testapi.Test{
+			Test: &v1alpha1.Test{
 				Name:      "test-registry",
 				Policies:  []string{"image-example.yaml"},
 				Resources: []string{"resources.yaml"},
-				Results: []testapi.TestResult{{
-					TestResultBase: testapi.TestResultBase{
+				Results: []v1alpha1.TestResult{{
+					TestResultBase: v1alpha1.TestResultBase{
 						Kind:   "Pod",
 						Policy: "images",
 						Result: policyreportv1alpha2.StatusPass,
@@ -121,7 +121,7 @@ func TestLoadTests(t *testing.T) {
 					},
 					Resources: []string{"test-pod-with-non-root-user-image"},
 				}, {
-					TestResultBase: testapi.TestResultBase{
+					TestResultBase: v1alpha1.TestResultBase{
 						Kind:   "Pod",
 						Policy: "images",
 						Result: policyreportv1alpha2.StatusPass,
@@ -132,12 +132,12 @@ func TestLoadTests(t *testing.T) {
 			},
 		}, {
 			Path: "../_testdata/tests/test-2/kyverno-test.yaml",
-			Test: &testapi.Test{
+			Test: &v1alpha1.Test{
 				Name:      "add-quota",
 				Policies:  []string{"policy.yaml"},
 				Resources: []string{"resource.yaml"},
-				Results: []testapi.TestResult{{
-					TestResultBase: testapi.TestResultBase{
+				Results: []v1alpha1.TestResult{{
+					TestResultBase: v1alpha1.TestResultBase{
 						Kind:              "Namespace",
 						Policy:            "add-ns-quota",
 						Result:            policyreportv1alpha2.StatusPass,
@@ -146,7 +146,7 @@ func TestLoadTests(t *testing.T) {
 					},
 					Resources: []string{"hello-world-namespace"},
 				}, {
-					TestResultBase: testapi.TestResultBase{
+					TestResultBase: v1alpha1.TestResultBase{
 						Kind:              "Namespace",
 						Policy:            "add-ns-quota",
 						Result:            policyreportv1alpha2.StatusPass,
@@ -197,12 +197,12 @@ func TestLoadTest(t *testing.T) {
 		path: "../_testdata/tests/test-1/kyverno-test.yaml",
 		want: TestCase{
 			Path: "../_testdata/tests/test-1/kyverno-test.yaml",
-			Test: &testapi.Test{
+			Test: &v1alpha1.Test{
 				Name:      "test-registry",
 				Policies:  []string{"image-example.yaml"},
 				Resources: []string{"resources.yaml"},
-				Results: []testapi.TestResult{{
-					TestResultBase: testapi.TestResultBase{
+				Results: []v1alpha1.TestResult{{
+					TestResultBase: v1alpha1.TestResultBase{
 						Kind:   "Pod",
 						Policy: "images",
 						Result: policyreportv1alpha2.StatusPass,
@@ -210,7 +210,7 @@ func TestLoadTest(t *testing.T) {
 					},
 					Resources: []string{"test-pod-with-non-root-user-image"},
 				}, {
-					TestResultBase: testapi.TestResultBase{
+					TestResultBase: v1alpha1.TestResultBase{
 						Kind:   "Pod",
 						Policy: "images",
 						Result: policyreportv1alpha2.StatusPass,
@@ -225,12 +225,12 @@ func TestLoadTest(t *testing.T) {
 		path: "kyverno-test.yaml",
 		want: TestCase{
 			Path: "kyverno-test.yaml",
-			Test: &testapi.Test{
+			Test: &v1alpha1.Test{
 				Name:      "test-registry",
 				Policies:  []string{"image-example.yaml"},
 				Resources: []string{"resources.yaml"},
-				Results: []testapi.TestResult{{
-					TestResultBase: testapi.TestResultBase{
+				Results: []v1alpha1.TestResult{{
+					TestResultBase: v1alpha1.TestResultBase{
 						Kind:   "Pod",
 						Policy: "images",
 						Result: policyreportv1alpha2.StatusPass,
@@ -238,7 +238,7 @@ func TestLoadTest(t *testing.T) {
 					},
 					Resources: []string{"test-pod-with-non-root-user-image"},
 				}, {
-					TestResultBase: testapi.TestResultBase{
+					TestResultBase: v1alpha1.TestResultBase{
 						Kind:   "Pod",
 						Policy: "images",
 						Result: policyreportv1alpha2.StatusPass,

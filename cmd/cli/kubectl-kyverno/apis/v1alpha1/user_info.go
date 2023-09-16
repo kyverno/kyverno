@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -8,11 +9,11 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope="Cluster"
 
-// Values declares values to be loaded by the Kyverno CLI
-type Values struct {
+// UserInfo declares user infos to be loaded by the Kyverno CLI
+type UserInfo struct {
 	metav1.TypeMeta   `json:",inline,omitempty"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// ValuesSpec declares values
-	Spec ValuesSpec `json:",inline"`
+	// RequestInfo declares user infos
+	kyvernov1beta1.RequestInfo `json:",inline"`
 }
