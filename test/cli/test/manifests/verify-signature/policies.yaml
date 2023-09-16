@@ -1,63 +1,63 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: validate-yaml
 spec:
-  validationFailureAction: enforce
+  admission: true
   background: false
-  webhookTimeoutSeconds: 30
-  failurePolicy: Fail  
+  failurePolicy: Fail
   rules:
-    - name: validate-yaml
-      match:
-        any:
-        - resources:
-            kinds:
-            - Service
-            name: test*
-      validate:
-        manifests:
-          attestors:
-          # at least one signature required
-          - count: 1
-            entries:
-            - keys:
-                # pub
-                publicKeys: |-
-                    -----BEGIN PUBLIC KEY-----
-                    MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEyQfmL5YwHbn9xrrgG3vgbU0KJxMY
-                    BibYLJ5L4VSMvGxeMLnBGdM48w5IE//6idUPj3rscigFdHs7GDMH4LLAng==
-                    -----END PUBLIC KEY-----
-            - keys:
-                # pub1
-                publicKeys: |-
-                    -----BEGIN PUBLIC KEY-----
-                    MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEE8uGVnyDWPPlB7M5KOHRzxzPHtAy
-                    FdGxexVrR4YqO1pRViKxmD9oMu4I7K/4sM51nbH65ycB2uRiDfIdRoV/+A==
-                    -----END PUBLIC KEY-----
-    - name: validate-yaml-multi-sig
-      match:
-        any:
-        - resources:
-            kinds:
-            - Service
-            name: test*
-      validate:
-        manifests:
-          attestors:
-          # all signatures required
-          - entries:
-            - keys:
-                # pub
-                publicKeys: |-
-                    -----BEGIN PUBLIC KEY-----
-                    MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEyQfmL5YwHbn9xrrgG3vgbU0KJxMY
-                    BibYLJ5L4VSMvGxeMLnBGdM48w5IE//6idUPj3rscigFdHs7GDMH4LLAng==
-                    -----END PUBLIC KEY-----
-            - keys:
-                # pub1
-                publicKeys: |-
-                    -----BEGIN PUBLIC KEY-----
-                    MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEE8uGVnyDWPPlB7M5KOHRzxzPHtAy
-                    FdGxexVrR4YqO1pRViKxmD9oMu4I7K/4sM51nbH65ycB2uRiDfIdRoV/+A==
-                    -----END PUBLIC KEY-----
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Service
+          name: test*
+    name: validate-yaml
+    validate:
+      manifests:
+        attestors:
+        - count: 1
+          entries:
+          - keys:
+              publicKeys: |-
+                -----BEGIN PUBLIC KEY-----
+                MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEyQfmL5YwHbn9xrrgG3vgbU0KJxMY
+                BibYLJ5L4VSMvGxeMLnBGdM48w5IE//6idUPj3rscigFdHs7GDMH4LLAng==
+                -----END PUBLIC KEY-----
+              signatureAlgorithm: sha256
+          - keys:
+              publicKeys: |-
+                -----BEGIN PUBLIC KEY-----
+                MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEE8uGVnyDWPPlB7M5KOHRzxzPHtAy
+                FdGxexVrR4YqO1pRViKxmD9oMu4I7K/4sM51nbH65ycB2uRiDfIdRoV/+A==
+                -----END PUBLIC KEY-----
+              signatureAlgorithm: sha256
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Service
+          name: test*
+    name: validate-yaml-multi-sig
+    validate:
+      manifests:
+        attestors:
+        - entries:
+          - keys:
+              publicKeys: |-
+                -----BEGIN PUBLIC KEY-----
+                MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEyQfmL5YwHbn9xrrgG3vgbU0KJxMY
+                BibYLJ5L4VSMvGxeMLnBGdM48w5IE//6idUPj3rscigFdHs7GDMH4LLAng==
+                -----END PUBLIC KEY-----
+              signatureAlgorithm: sha256
+          - keys:
+              publicKeys: |-
+                -----BEGIN PUBLIC KEY-----
+                MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEE8uGVnyDWPPlB7M5KOHRzxzPHtAy
+                FdGxexVrR4YqO1pRViKxmD9oMu4I7K/4sM51nbH65ycB2uRiDfIdRoV/+A==
+                -----END PUBLIC KEY-----
+              signatureAlgorithm: sha256
+  validationFailureAction: Enforce
+  webhookTimeoutSeconds: 30

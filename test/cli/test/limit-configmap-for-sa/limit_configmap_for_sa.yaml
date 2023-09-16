@@ -1,21 +1,22 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: limit-configmap-for-sa
   annotations:
-    policies.kyverno.io/title: Limit ConfigMap to ServiceAccounts for a User
-    policies.kyverno.io/category: Other
-    policies.kyverno.io/severity: medium
+    kyverno.io/kubernetes-version: 1.20-1.23
     kyverno.io/kyverno-version: 1.6.0
-    kyverno.io/kubernetes-version: "1.20-1.23"
+    policies.kyverno.io/category: Other
+    policies.kyverno.io/description: This policy shows how to restrict certain operations
+      on specific ConfigMaps by ServiceAccounts.
+    policies.kyverno.io/severity: medium
     policies.kyverno.io/subject: ConfigMap, ServiceAccount
-    policies.kyverno.io/description: This policy shows how to restrict certain operations on specific ConfigMaps by ServiceAccounts.
+    policies.kyverno.io/title: Limit ConfigMap to ServiceAccounts for a User
+  name: limit-configmap-for-sa
 spec:
+  admission: true
   background: false
-  validationFailureAction: audit
   rules:
-  - name: limit-configmap-for-sa-developer
-    match:
+  - match:
       any:
       - resources:
           kinds:
@@ -31,25 +32,28 @@ spec:
         - kind: ServiceAccount
           name: another-developer
           namespace: another-namespace
+    name: limit-configmap-for-sa-developer
     preconditions:
       all:
-      - key: "{{request.object.metadata.namespace}}"
-        operator: In
+      - key: '{{request.object.metadata.namespace}}'
+        operator: AllIn
         value:
-        - "any-namespace"
-        - "another-namespace"
-      - key: "{{request.object.metadata.name}}"
-        operator: In
+        - any-namespace
+        - another-namespace
+      - key: '{{request.object.metadata.name}}'
+        operator: AllIn
         value:
-        - "any-configmap-name-good"
-        - "another-configmap-name"
+        - any-configmap-name-good
+        - another-configmap-name
     validate:
-      message: "{{request.object.metadata.namespace}}/{{request.object.kind}}/{{request.object.metadata.name}} resource is protected. Admin or allowed users can change the resource"
       deny:
         conditions:
           all:
-          - key: "{{request.operation}}"
-            operator: "In"
+          - key: '{{request.operation}}'
+            operator: In
             value:
-            - "UPDATE"
-            - "CREATE"
+            - UPDATE
+            - CREATE
+      message: '{{request.object.metadata.namespace}}/{{request.object.kind}}/{{request.object.metadata.name}}
+        resource is protected. Admin or allowed users can change the resource'
+  validationFailureAction: Audit

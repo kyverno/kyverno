@@ -549,6 +549,16 @@ codegen-cli-crds: codegen-crds-kyverno ## Copy generated CRDs to embed in the CL
 .PHONY: codegen-docs-all
 codegen-docs-all: codegen-helm-docs codegen-cli-docs codegen-api-docs  ## Generate all docs
 
+.PHONY: codegen-fix-tests
+codegen-fix-tests: $(CLI_BIN) ## Fix CLI test files
+	@echo Fix CLI test files... >&2
+	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix test ./test/cli --save --compress
+
+.PHONY: codegen-fix-policies
+codegen-fix-policies: $(CLI_BIN) ## Fix CLI policy files
+	@echo Fix CLI policy files... >&2
+	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix policy ./test/cli/test --save
+
 .PHONY: codegen-helm-crds
 codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 	@echo Generate helm crds... >&2
@@ -689,8 +699,8 @@ verify-cli-crds: codegen-cli-crds ## Check generated CRDs to be embedded in the 
 verify-cli-tests: ## Check CLI test files are up to date
 	@echo Checking CLI test files are up to date... >&2
 	@git --no-pager diff test/cli
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-cli-tests".' >&2
-	@echo 'To correct this, locally run "make codegen-cli-tests", commit the changes, and re-run tests.' >&2
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-fix-tests".' >&2
+	@echo 'To correct this, locally run "make codegen-fix-tests", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code test/cli
 
 .PHONY: verify-codegen
