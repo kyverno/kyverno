@@ -9,14 +9,29 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope="Cluster"
 
+// Test declares a test
 type Test struct {
 	metav1.TypeMeta   `json:",inline,omitempty"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Name              string       `json:"name"`
-	Policies          []string     `json:"policies,omitempty"`
-	Resources         []string     `json:"resources,omitempty"`
-	Variables         string       `json:"variables,omitempty"`
-	UserInfo          string       `json:"userinfo,omitempty"`
-	Results           []TestResult `json:"results,omitempty"`
-	Values            *ValuesSpec  `json:"values,omitempty"`
+
+	// Name is the name of the test
+	Name string `json:"name"`
+
+	// Policies are the policies to be used in the test
+	Policies []string `json:"policies,omitempty"`
+
+	// Policies are the resource to be used in the test
+	Resources []string `json:"resources,omitempty"`
+
+	// Variables is the values to be used in the test
+	Variables string `json:"variables,omitempty"`
+
+	// UserInfo is the user info to be used in the test
+	UserInfo string `json:"userinfo,omitempty"`
+
+	// Results are the results to be checked in the test
+	Results []TestResult `json:"results,omitempty"`
+
+	// Values are the values to be used in the test
+	Values *ValuesSpec `json:"values,omitempty"`
 }

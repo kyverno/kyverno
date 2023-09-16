@@ -9,9 +9,8 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope="Cluster"
 
-// Values declares values to be loaded by the Kyverno CLI.
+// Values declares values to be loaded by the Kyverno CLI
 type Values struct {
 	metav1.TypeMeta `json:",inline,omitempty"`
-	// Spec declares values.
-	ValuesSpec `json:",inline"`
+	ValuesSpec      `json:",inline"`
 }

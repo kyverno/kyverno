@@ -518,7 +518,7 @@ codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API 
 		-out-file docs/user/crd/index.html
 	@rm -rf docs/user/cli/crd && mkdir -p docs/user/cli/crd
 	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 4 \
-		-api-dir $(PACKAGE)/cmd/cli/kubectl-kyverno/apis/values \
+		-api-dir $(PACKAGE)/cmd/cli/kubectl-kyverno/apis \
 		-config docs/user/config.json \
 		-template-dir docs/user/template \
 		-out-file docs/user/cli/crd/index.html

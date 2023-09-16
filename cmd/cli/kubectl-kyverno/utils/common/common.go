@@ -140,8 +140,8 @@ func getSubresourceKind(groupVersion, parentKind, subresourceName string, subres
 		}.String()
 		if groupVersion == "" || kubeutils.GroupVersionMatches(groupVersion, parentResourceGroupVersion) {
 			if parentKind == subresource.ParentResource.Kind {
-				if strings.ToLower(subresourceName) == strings.Split(subresource.APIResource.Name, "/")[1] {
-					return subresource.APIResource.Kind, nil
+				if strings.ToLower(subresourceName) == strings.Split(subresource.Subresource.Name, "/")[1] {
+					return subresource.Subresource.Kind, nil
 				}
 			}
 		}

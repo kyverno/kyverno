@@ -17,6 +17,7 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
+        description: Test declares a test
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -31,17 +32,22 @@ spec:
           metadata:
             type: object
           name:
+            description: Name is the name of the test
             type: string
           policies:
+            description: Policies are the policies to be used in the test
             items:
               type: string
             type: array
           resources:
+            description: Policies are the resource to be used in the test
             items:
               type: string
             type: array
           results:
+            description: Results are the results to be checked in the test
             items:
+              description: TestResultBase declares a test result
               properties:
                 cloneSourceResource:
                   description: CloneSourceResource takes the resource configuration
@@ -119,22 +125,27 @@ spec:
               type: object
             type: array
           userinfo:
+            description: UserInfo is the user info to be used in the test
             type: string
           values:
+            description: Values are the values to be used in the test
             properties:
               globalValues:
+                description: GlobalValues are the global values
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
               namespaceSelector:
+                description: NamespaceSelectors are the namespace labels
                 items:
-                  description: NamespaceSelector declares values to be loaded by the
-                    Kyverno CLI.
+                  description: NamespaceSelector declares labels for a given namespace
                   properties:
                     labels:
                       additionalProperties:
                         type: string
+                      description: Labels are the labels for the given namespace
                       type: object
                     name:
+                      description: Name is the namespace name
                       type: string
                   required:
                   - labels
@@ -142,16 +153,23 @@ spec:
                   type: object
                 type: array
               policies:
+                description: Policies are the policy values
                 items:
+                  description: Policy declares values for a given policy
                   properties:
                     name:
+                      description: Name is the policy name
                       type: string
                     resources:
+                      description: Resources are values for specific resources
                       items:
+                        description: Resource declares values for a given resource
                         properties:
                           name:
+                            description: Name is the name of the resource
                             type: string
                           values:
+                            description: Values are the values for the given resource
                             type: object
                             x-kubernetes-preserve-unknown-fields: true
                         required:
@@ -159,14 +177,21 @@ spec:
                         type: object
                       type: array
                     rules:
+                      description: Rules are values for specific policy rules
                       items:
+                        description: Rule declares values for a given policy rule
                         properties:
                           foreachValues:
+                            description: ForeachValues are the foreach values for
+                              the given policy rule
                             type: object
                             x-kubernetes-preserve-unknown-fields: true
                           name:
+                            description: Name is the name of the ppolicy rule
                             type: string
                           values:
+                            description: Values are the values for the given policy
+                              rule
                             type: object
                             x-kubernetes-preserve-unknown-fields: true
                         required:
@@ -178,11 +203,12 @@ spec:
                   type: object
                 type: array
               subresources:
+                description: Subresources are the subresource/parent resource mappings
                 items:
+                  description: Subresource declares subresource/parent resource mapping
                   properties:
                     parentResource:
-                      description: APIResource specifies the name of a resource and
-                        whether it is namespaced.
+                      description: ParentResource declares the parent resource api
                       properties:
                         categories:
                           description: categories is a list of the grouped resources
@@ -252,8 +278,7 @@ spec:
                       - verbs
                       type: object
                     subresource:
-                      description: APIResource specifies the name of a resource and
-                        whether it is namespaced.
+                      description: Subresource declares the subresource api
                       properties:
                         categories:
                           description: categories is a list of the grouped resources
@@ -329,6 +354,7 @@ spec:
                 type: array
             type: object
           variables:
+            description: Variables is the values to be used in the test
             type: string
         required:
         - name

@@ -25,13 +25,143 @@ background-color: #1589dd;
 <h2 id="cli.kyverno.io/v1alpha1">cli.kyverno.io/v1alpha1</h2>
 Resource Types:
 <ul><li>
+<a href="#cli.kyverno.io/v1alpha1.Test">Test</a>
+</li><li>
 <a href="#cli.kyverno.io/v1alpha1.Values">Values</a>
 </li></ul>
+<hr />
+<h3 id="cli.kyverno.io/v1alpha1.Test">Test
+</h3>
+<p>
+<p>Test declares a test</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+cli.kyverno.io/v1alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>Test</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>name</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Name is the name of the test</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>policies</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>Policies are the policies to be used in the test</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>resources</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>Policies are the resource to be used in the test</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>variables</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Variables is the values to be used in the test</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>userinfo</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>UserInfo is the user info to be used in the test</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#cli.kyverno.io/v1alpha1.TestResult">
+[]TestResult
+</a>
+</em>
+</td>
+<td>
+<p>Results are the results to be checked in the test</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>values</code><br/>
+<em>
+<a href="#cli.kyverno.io/v1alpha1.ValuesSpec">
+ValuesSpec
+</a>
+</em>
+</td>
+<td>
+<p>Values are the values to be used in the test</p>
+</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h3 id="cli.kyverno.io/v1alpha1.Values">Values
 </h3>
 <p>
-<p>Values declares values to be loaded by the Kyverno CLI.</p>
+<p>Values declares values to be loaded by the Kyverno CLI</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -60,7 +190,7 @@ string
 </tr>
 <tr>
 <td>
-<code>spec</code><br/>
+<code>ValuesSpec</code><br/>
 <em>
 <a href="#cli.kyverno.io/v1alpha1.ValuesSpec">
 ValuesSpec
@@ -68,57 +198,9 @@ ValuesSpec
 </em>
 </td>
 <td>
-<p>Spec declares values.</p>
-<br/>
-<br/>
-<table class="table table-striped">
-<tr>
-<td>
-<code>policies</code><br/>
-<em>
-<a href="#cli.kyverno.io/v1alpha1.Policy">
-[]Policy
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>globalValues</code><br/>
-<em>
-map[string]interface{}
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>namespaceSelector</code><br/>
-<em>
-<a href="#cli.kyverno.io/v1alpha1.NamespaceSelector">
-[]NamespaceSelector
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>subresources</code><br/>
-<em>
-<a href="#cli.kyverno.io/v1alpha1.Subresource">
-[]Subresource
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-</table>
+<p>
+(Members of <code>ValuesSpec</code> are embedded into this type.)
+</p>
 </td>
 </tr>
 </tbody>
@@ -131,7 +213,7 @@ map[string]interface{}
 <a href="#cli.kyverno.io/v1alpha1.ValuesSpec">ValuesSpec</a>)
 </p>
 <p>
-<p>NamespaceSelector declares values to be loaded by the Kyverno CLI.</p>
+<p>NamespaceSelector declares labels for a given namespace</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -149,6 +231,7 @@ string
 </em>
 </td>
 <td>
+<p>name is the namespace name</p>
 </td>
 </tr>
 <tr>
@@ -159,6 +242,7 @@ map[string]string
 </em>
 </td>
 <td>
+<p>labels are the labels for the given namespace</p>
 </td>
 </tr>
 </tbody>
@@ -171,6 +255,7 @@ map[string]string
 <a href="#cli.kyverno.io/v1alpha1.ValuesSpec">ValuesSpec</a>)
 </p>
 <p>
+<p>Policy declares values for a given policy</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -188,6 +273,7 @@ string
 </em>
 </td>
 <td>
+<p>Name is the policy name</p>
 </td>
 </tr>
 <tr>
@@ -200,6 +286,7 @@ string
 </em>
 </td>
 <td>
+<p>Resources are values for specific resources</p>
 </td>
 </tr>
 <tr>
@@ -212,6 +299,7 @@ string
 </em>
 </td>
 <td>
+<p>Rules are values for specific policy rules</p>
 </td>
 </tr>
 </tbody>
@@ -224,6 +312,7 @@ string
 <a href="#cli.kyverno.io/v1alpha1.Policy">Policy</a>)
 </p>
 <p>
+<p>Resource declares values for a given resource</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -241,6 +330,7 @@ string
 </em>
 </td>
 <td>
+<p>Name is the name of the resource</p>
 </td>
 </tr>
 <tr>
@@ -251,6 +341,7 @@ map[string]interface{}
 </em>
 </td>
 <td>
+<p>Values are the values for the given resource</p>
 </td>
 </tr>
 </tbody>
@@ -263,6 +354,7 @@ map[string]interface{}
 <a href="#cli.kyverno.io/v1alpha1.Policy">Policy</a>)
 </p>
 <p>
+<p>Rule declares values for a given policy rule</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -280,6 +372,7 @@ string
 </em>
 </td>
 <td>
+<p>Name is the name of the ppolicy rule</p>
 </td>
 </tr>
 <tr>
@@ -290,6 +383,7 @@ map[string]interface{}
 </em>
 </td>
 <td>
+<p>Values are the values for the given policy rule</p>
 </td>
 </tr>
 <tr>
@@ -300,6 +394,7 @@ map[string][]interface{}
 </em>
 </td>
 <td>
+<p>ForeachValues are the foreach values for the given policy rule</p>
 </td>
 </tr>
 </tbody>
@@ -312,6 +407,7 @@ map[string][]interface{}
 <a href="#cli.kyverno.io/v1alpha1.ValuesSpec">ValuesSpec</a>)
 </p>
 <p>
+<p>Subresource declares subresource/parent resource mapping</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -331,6 +427,7 @@ Kubernetes meta/v1.APIResource
 </em>
 </td>
 <td>
+<p>subresource declares the subresource api</p>
 </td>
 </tr>
 <tr>
@@ -343,18 +440,20 @@ Kubernetes meta/v1.APIResource
 </em>
 </td>
 <td>
+<p>ParentResource declares the parent resource api</p>
 </td>
 </tr>
 </tbody>
 </table>
 <hr />
-<h3 id="cli.kyverno.io/v1alpha1.ValuesSpec">ValuesSpec
+<h3 id="cli.kyverno.io/v1alpha1.TestResult">TestResult
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#cli.kyverno.io/v1alpha1.Values">Values</a>)
+<a href="#cli.kyverno.io/v1alpha1.Test">Test</a>)
 </p>
 <p>
+<p>TestResultBase declares a test result</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -366,16 +465,239 @@ Kubernetes meta/v1.APIResource
 <tbody>
 <tr>
 <td>
-<code>policies</code><br/>
+<code>TestResultBase</code><br/>
 <em>
-<a href="#cli.kyverno.io/v1alpha1.Policy">
-[]Policy
+<a href="#cli.kyverno.io/v1alpha1.TestResultBase">
+TestResultBase
 </a>
 </em>
 </td>
 <td>
+<p>
+(Members of <code>TestResultBase</code> are embedded into this type.)
+</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>TestResultDeprecated</code><br/>
+<em>
+<a href="#cli.kyverno.io/v1alpha1.TestResultDeprecated">
+TestResultDeprecated
+</a>
+</em>
+</td>
+<td>
+<p>
+(Members of <code>TestResultDeprecated</code> are embedded into this type.)
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>resources</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>Resources gives us the list of resources on which the policy is going to be applied.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="cli.kyverno.io/v1alpha1.TestResultBase">TestResultBase
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#cli.kyverno.io/v1alpha1.TestResult">TestResult</a>)
+</p>
+<p>
+<p>TestResultBase declares a test result base fields</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>policy</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Policy mentions the name of the policy.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>rule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Rule mentions the name of the rule in the policy.
+It&rsquo;s required in case policy is a kyverno policy.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>isValidatingAdmissionPolicy</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IsValidatingAdmissionPolicy indicates if the policy is a validating admission policy.
+It&rsquo;s required in case policy is a validating admission policy.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>result</code><br/>
+<em>
+github.com/kyverno/kyverno/api/policyreport/v1alpha2.PolicyResult
+</em>
+</td>
+<td>
+<p>Result mentions the result that the user is expecting.
+Possible values are pass, fail and skip.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Kind mentions the kind of the resource on which the policy is to be applied.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>patchedResource</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>PatchedResource takes a resource configuration file in yaml format from
+the user to compare it against the Kyverno mutated resource configuration.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generatedResource</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>GeneratedResource takes a resource configuration file in yaml format from
+the user to compare it against the Kyverno generated resource configuration.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>cloneSourceResource</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>CloneSourceResource takes the resource configuration file in yaml format
+from the user which is meant to be cloned by the generate rule.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="cli.kyverno.io/v1alpha1.TestResultDeprecated">TestResultDeprecated
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#cli.kyverno.io/v1alpha1.TestResult">TestResult</a>)
+</p>
+<p>
+<p>TestResultBase declares a test result deprecated fields</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+github.com/kyverno/kyverno/api/policyreport/v1alpha2.PolicyResult
+</em>
+</td>
+<td>
+<p>Status mentions the status that the user is expecting.
+Possible values are pass, fail and skip.
+This is DEPRECATED, use <code>Result</code> instead.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>resource</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Resource mentions the name of the resource on which the policy is to be applied.
+This is DEPRECATED, use <code>Resources</code> instead.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>namespace</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Namespace mentions the namespace of the policy which has namespace scope.
+This is DEPRECATED, use a name in the form <code>&lt;namespace&gt;/&lt;name&gt;</code> for policies and/or resources instead.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="cli.kyverno.io/v1alpha1.ValuesSpec">ValuesSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#cli.kyverno.io/v1alpha1.Test">Test</a>, 
+<a href="#cli.kyverno.io/v1alpha1.Values">Values</a>)
+</p>
+<p>
+<p>ValuesSpec declares values to be loaded by the Kyverno CLI</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
 <tr>
 <td>
 <code>globalValues</code><br/>
@@ -384,6 +706,20 @@ map[string]interface{}
 </em>
 </td>
 <td>
+<p>GlobalValues are the global values</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>policies</code><br/>
+<em>
+<a href="#cli.kyverno.io/v1alpha1.Policy">
+[]Policy
+</a>
+</em>
+</td>
+<td>
+<p>Policies are the policy values</p>
 </td>
 </tr>
 <tr>
@@ -396,6 +732,7 @@ map[string]interface{}
 </em>
 </td>
 <td>
+<p>NamespaceSelectors are the namespace labels</p>
 </td>
 </tr>
 <tr>
@@ -408,6 +745,7 @@ map[string]interface{}
 </em>
 </td>
 <td>
+<p>Subresources are the subresource/parent resource mappings</p>
 </td>
 </tr>
 </tbody>

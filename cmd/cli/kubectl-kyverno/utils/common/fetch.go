@@ -195,17 +195,17 @@ func getResourcesOfTypeFromCluster(out io.Writer, resourceTypes []schema.GroupVe
 			parentResourceNames = append(parentResourceNames, resource.GetName())
 		}
 		for _, parentResourceName := range parentResourceNames {
-			subresourceName := strings.Split(subresource.APIResource.Name, "/")[1]
+			subresourceName := strings.Split(subresource.Subresource.Name, "/")[1]
 			resource, err := dClient.GetResource(context.TODO(), parentGV.String(), subresource.ParentResource.Kind, namespace, parentResourceName, subresourceName)
 			if err != nil {
 				fmt.Fprintf(out, "Error: %s", err.Error())
 				continue
 			}
-			key := subresource.APIResource.Kind + "-" + resource.GetNamespace() + "-" + resource.GetName()
+			key := subresource.Subresource.Kind + "-" + resource.GetNamespace() + "-" + resource.GetName()
 			resource.SetGroupVersionKind(schema.GroupVersionKind{
-				Group:   subresource.APIResource.Group,
-				Version: subresource.APIResource.Version,
-				Kind:    subresource.APIResource.Kind,
+				Group:   subresource.Subresource.Group,
+				Version: subresource.Subresource.Version,
+				Kind:    subresource.Subresource.Kind,
 			})
 			r[key] = resource.DeepCopy()
 		}
@@ -278,7 +278,7 @@ func addGVKToResourceTypesMap(kind string, resourceTypesMap map[schema.GroupVers
 				Group: child.Group, Version: child.Version, Kind: child.Kind,
 			}
 			subresourceMap[gvk] = valuesapi.Subresource{
-				APIResource: child,
+				Subresource: child,
 				ParentResource: metav1.APIResource{
 					Group:   parent.Group,
 					Version: parent.Version,

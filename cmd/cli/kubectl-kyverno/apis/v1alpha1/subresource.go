@@ -4,7 +4,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Subresource declares subresource/parent resource mapping
 type Subresource struct {
-	APIResource    metav1.APIResource `json:"subresource"`
+	// subresource declares the subresource api
+	Subresource metav1.APIResource `json:"subresource"`
+
+	// ParentResource declares the parent resource api
 	ParentResource metav1.APIResource `json:"parentResource"`
 }

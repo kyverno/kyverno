@@ -99,7 +99,7 @@ func Test_getSubresourceKind(t *testing.T) {
 
 	subresources := []valuesapi.Subresource{
 		{
-			APIResource:    podEvictionAPIResource,
+			Subresource:    podEvictionAPIResource,
 			ParentResource: podAPIResource,
 		},
 	}
