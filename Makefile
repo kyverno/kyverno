@@ -529,16 +529,6 @@ codegen-cli-docs: $(CLI_BIN) ## Generate CLI docs
 	@rm -rf docs/user/cli/commands && mkdir -p docs/user/cli/commands
 	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) docs -o docs/user/cli/commands --autogenTag=false
 
-.PHONY: codegen-cli-tests
-codegen-cli-tests: $(CLI_BIN) ## Fix CLI test files
-	@echo Fix CLI test files... >&2
-	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix test ./test/cli --save --compress
-
-.PHONY: codegen-cli-policies
-codegen-cli-policies: $(CLI_BIN) ## Fix CLI policy files
-	@echo Fix CLI policy files... >&2
-	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix policy ./test/cli/test --save
-
 .PHONY: codegen-cli-crds
 codegen-cli-crds: codegen-crds-kyverno ## Copy generated CRDs to embed in the CLI
 	@echo Copy generated CRDs to embed in the CLI... >&2
