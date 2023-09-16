@@ -3,13 +3,13 @@ package variables
 import (
 	"fmt"
 
-	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
+	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type Variables struct {
-	values    *valuesapi.Values
+	values    *valuesapi.ValuesSpec
 	variables map[string]string
 }
 

@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 
 	"github.com/go-git/go-billy/v5"
-	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/test"
+	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 )
 
 type TestCase struct {

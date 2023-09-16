@@ -1,4 +1,4 @@
-package test
+package v1alpha1
 
 import (
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/test"
+	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 )
 

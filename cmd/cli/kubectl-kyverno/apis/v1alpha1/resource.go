@@ -5,5 +5,5 @@ type Resource struct {
 	// +kubebuilder:validation:Type=object
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
-	Values map[string]interface{} `json:"values"`
+	Values map[string]interface{} `json:"values,omitempty"`
 }

@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/test"
+	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 )
 
 func Test_policy_Apply(t *testing.T) {

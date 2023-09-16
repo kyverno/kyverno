@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
-	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
+	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 )
 
 func Test_readFile(t *testing.T) {
@@ -109,26 +109,28 @@ func TestLoad(t *testing.T) {
 		name:     "valid",
 		filepath: "../_testdata/values/limit-configmap-for-sa.yaml",
 		want: &valuesapi.Values{
-			NamespaceSelectors: []valuesapi.NamespaceSelector{{
-				Name: "test1",
-				Labels: map[string]string{
-					"foo.com/managed-state": "managed",
-				},
-			}},
-			Policies: []valuesapi.Policy{{
-				Name: "limit-configmap-for-sa",
-				Resources: []valuesapi.Resource{{
-					Name: "any-configmap-name-good",
-					Values: map[string]interface{}{
-						"request.operation": "UPDATE",
-					},
-				}, {
-					Name: "any-configmap-name-bad",
-					Values: map[string]interface{}{
-						"request.operation": "UPDATE",
+			ValuesSpec: valuesapi.ValuesSpec{
+				NamespaceSelectors: []valuesapi.NamespaceSelector{{
+					Name: "test1",
+					Labels: map[string]string{
+						"foo.com/managed-state": "managed",
 					},
 				}},
-			}},
+				Policies: []valuesapi.Policy{{
+					Name: "limit-configmap-for-sa",
+					Resources: []valuesapi.Resource{{
+						Name: "any-configmap-name-good",
+						Values: map[string]interface{}{
+							"request.operation": "UPDATE",
+						},
+					}, {
+						Name: "any-configmap-name-bad",
+						Values: map[string]interface{}{
+							"request.operation": "UPDATE",
+						},
+					}},
+				}},
+			},
 		},
 		wantErr: false,
 	}}

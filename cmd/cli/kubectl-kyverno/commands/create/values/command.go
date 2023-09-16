@@ -5,7 +5,7 @@ import (
 	"strings"
 	"text/template"
 
-	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
+	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/templates"
 	"github.com/spf13/cobra"
@@ -35,9 +35,8 @@ func Command() *cobra.Command {
 				defer file.Close()
 				output = file
 			}
-			values := valuesapi.Values{
-				GlobalValues: map[string]interface{}{},
-			}
+			values := valuesapi.Values{}
+			values.GlobalValues = map[string]interface{}{}
 			for _, result := range namespaceSelector {
 				result := parseNamespaceSelector(result)
 				if result != nil {

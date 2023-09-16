@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/test"
+	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"golang.org/x/exp/slices"
 	"k8s.io/apimachinery/pkg/util/sets"

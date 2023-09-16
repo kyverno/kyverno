@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/go-git/go-billy/v5"
-	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
+	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 

@@ -13,5 +13,5 @@ import (
 type Values struct {
 	metav1.TypeMeta `json:",inline,omitempty"`
 	// Spec declares values.
-	Spec ValuesSpec `json:"spec"`
+	ValuesSpec `json:",inline"`
 }
