@@ -86,6 +86,11 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 	}
 	manifestDesc := manifest.Layers[0]
 
+	// See: https://github.com/kyverno/kyverno/security/advisories/GHSA-4mp4-46gq-hv3r
+	if manifestDesc.Size > int64(maxPayloadSize) {
+		return nil, ocispec.Descriptor{}, fmt.Errorf("payload size is too large, max size is %d: %+v", maxPayloadSize, manifestDesc)
+	}
+
 	signatureBlobRef, err := name.ParseReference(c.getReferenceFromDescriptor(manifestDesc))
 	if err != nil {
 		return nil, ocispec.Descriptor{}, err
