@@ -90,7 +90,7 @@ func (o options) processFile(out io.Writer, path string) {
 		for _, policy := range fixed {
 			untyped, err := kubeutils.ObjToUnstructured(policy)
 			if err != nil {
-				fmt.Fprintf(out, "    ERROR: converting to yaml: %s", err)
+				fmt.Fprintf(out, "    ERROR: converting to unstructured: %s", err)
 				fmt.Fprintln(out)
 				return
 			}
@@ -134,7 +134,7 @@ func (o options) processFile(out io.Writer, path string) {
 			}
 			jsonBytes, err := untyped.MarshalJSON()
 			if err != nil {
-				fmt.Fprintf(out, "    ERROR: converting to yaml: %s", err)
+				fmt.Fprintf(out, "    ERROR: converting to json: %s", err)
 				fmt.Fprintln(out)
 				return
 			}

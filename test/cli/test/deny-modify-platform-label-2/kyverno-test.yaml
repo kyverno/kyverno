@@ -1,4 +1,7 @@
-name: deny-modify-platform-label-2
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
 - deny-modify-platform-label.yaml
 resources:

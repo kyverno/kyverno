@@ -10,12 +10,15 @@ import (
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/fix"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 )
 
 type options struct {
 	fileName string
 	save     bool
+	force    bool
 	compress bool
 }
 
@@ -47,9 +50,9 @@ func (o options) execute(out io.Writer, dirs ...string) error {
 			continue
 		}
 		fixed := *testCase.Test
-		if fixed.Name == "" {
+		if fixed.ObjectMeta.Name == "" && fixed.Name == "" {
 			fmt.Fprintln(out, "  WARNING: name is not set")
-			fixed.Name = filepath.Base(testCase.Path)
+			fixed.ObjectMeta.Name = filepath.Base(testCase.Path)
 		}
 		fixed, messages, err := fix.FixTest(fixed, o.compress)
 		for _, warning := range messages {
@@ -60,12 +63,27 @@ func (o options) execute(out io.Writer, dirs ...string) error {
 			continue
 		}
 		needsSave := !reflect.DeepEqual(testCase.Test, &fixed)
-		if o.save && needsSave {
+		if o.save && (o.force || needsSave) {
 			fmt.Fprintf(out, "  Saving test file (%s)...", testCase.Path)
 			fmt.Fprintln(out)
-			yamlBytes, err := yaml.Marshal(fixed)
+			untyped, err := kubeutils.ObjToUnstructured(fixed)
 			if err != nil {
-				fmt.Fprintf(out, "    ERROR: converting test to yaml: %s", err)
+				fmt.Fprintf(out, "    ERROR: converting to unstructured: %s", err)
+				fmt.Fprintln(out)
+				continue
+			}
+			unstructured.RemoveNestedField(untyped.UnstructuredContent(), "metadata", "creationTimestamp")
+			unstructured.RemoveNestedField(untyped.UnstructuredContent(), "metadata", "generation")
+			unstructured.RemoveNestedField(untyped.UnstructuredContent(), "metadata", "uid")
+			jsonBytes, err := untyped.MarshalJSON()
+			if err != nil {
+				fmt.Fprintf(out, "    ERROR: converting to json: %s", err)
+				fmt.Fprintln(out)
+				continue
+			}
+			yamlBytes, err := yaml.JSONToYAML(jsonBytes)
+			if err != nil {
+				fmt.Fprintf(out, "    ERROR: converting to yaml: %s", err)
 				fmt.Fprintln(out)
 				continue
 			}

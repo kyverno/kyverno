@@ -1,13 +1,16 @@
-name: bug-demo
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
 - ./policy.yaml
 resources:
 - ./resource.yaml
 results:
-- policy: bug-demo
-  rule: mutate1
+- kind: Pod
+  patchedResource: patched-resource-pattern.yaml
+  policy: bug-demo
   resources:
   - pod1
-  kind: Pod
-  patchedResource: patched-resource-pattern.yaml
   result: pass
+  rule: mutate1
