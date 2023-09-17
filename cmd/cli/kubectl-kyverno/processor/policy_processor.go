@@ -11,7 +11,7 @@ import (
 	json_patch "github.com/evanphx/json-patch/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
@@ -49,7 +49,7 @@ type PolicyProcessor struct {
 	RuleToCloneSourceResource map[string]string
 	Client                    dclient.Interface
 	AuditWarn                 bool
-	Subresources              []valuesapi.Subresource
+	Subresources              []v1alpha1.Subresource
 	Out                       io.Writer
 }
 
@@ -79,9 +79,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	if p.Client == nil {
 		for _, s := range p.Subresources {
 			subgvk := schema.GroupVersionKind{
-				Group:   s.APIResource.Group,
-				Version: s.APIResource.Version,
-				Kind:    s.APIResource.Kind,
+				Group:   s.Subresource.Group,
+				Version: s.Subresource.Version,
+				Kind:    s.Subresource.Kind,
 			}
 			if gvk == subgvk {
 				gvk = schema.GroupVersionKind{
@@ -89,7 +89,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					Version: s.ParentResource.Version,
 					Kind:    s.ParentResource.Kind,
 				}
-				parts := strings.Split(s.APIResource.Name, "/")
+				parts := strings.Split(s.Subresource.Name, "/")
 				subresource = parts[1]
 			}
 		}

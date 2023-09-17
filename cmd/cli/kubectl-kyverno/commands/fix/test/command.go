@@ -23,6 +23,7 @@ func Command() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&options.fileName, "file-name", "f", "kyverno-test.yaml", "Test filename")
 	cmd.Flags().BoolVar(&options.save, "save", false, "Save fixed file")
+	cmd.Flags().BoolVar(&options.force, "force", false, "Force save file")
 	cmd.Flags().BoolVar(&options.compress, "compress", false, "Compress test results")
 	return cmd
 }
