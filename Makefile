@@ -516,6 +516,10 @@ codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API 
 		-config docs/user/config.json \
 		-template-dir docs/user/template \
 		-out-file docs/user/crd/index.html
+
+.PHONY: codegen-cli-api-docs
+codegen-cli-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate CLI API docs
+	@echo Generate CLI api docs... >&2
 	@rm -rf docs/user/cli/crd && mkdir -p docs/user/cli/crd
 	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 4 \
 		-api-dir $(PACKAGE)/cmd/cli/kubectl-kyverno/apis \
@@ -548,6 +552,9 @@ codegen-fix-tests: $(CLI_BIN) ## Fix CLI test files
 codegen-fix-policies: $(CLI_BIN) ## Fix CLI policy files
 	@echo Fix CLI policy files... >&2
 	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix policy ./test/cli/test --save
+
+.PHONY: codegen-cli-all
+codegen-cli-all: codegen-cli-crds codegen-cli-docs codegen-cli-api-docs codegen-fix-tests ## Generate all CLI related code and docs
 
 .PHONY: codegen-helm-crds
 codegen-helm-crds: codegen-crds-all ## Generate helm CRDs

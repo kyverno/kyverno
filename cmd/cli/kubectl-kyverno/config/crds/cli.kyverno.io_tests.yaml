@@ -32,7 +32,8 @@ spec:
           metadata:
             type: object
           name:
-            description: Name is the name of the test
+            description: Name is the name of the test. This field is deprecated, use
+              `metadata.name` instead
             type: string
           policies:
             description: Policies are the policies to be used in the test
@@ -356,8 +357,6 @@ spec:
           variables:
             description: Variables is the values to be used in the test
             type: string
-        required:
-        - name
         type: object
     served: true
     storage: true

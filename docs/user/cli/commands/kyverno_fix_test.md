@@ -30,6 +30,7 @@ kyverno fix test [dir]... [flags]
 ```
       --compress           Compress test results
   -f, --file-name string   Test filename (default "kyverno-test.yaml")
+      --force              Force save file
   -h, --help               help for test
       --save               Save fixed file
 ```
