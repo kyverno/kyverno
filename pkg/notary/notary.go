@@ -24,6 +24,10 @@ import (
 	"go.uber.org/multierr"
 )
 
+var (
+	maxReferrersCount = 50
+)
+
 func NewVerifier() images.ImageVerifier {
 	return &notaryVerifier{
 		log: logging.WithName("Notary"),
@@ -160,6 +164,11 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 	referrersDescs, err := referrers.IndexManifest()
 	if err != nil {
 		return nil, err
+	}
+
+	// See: https://github.com/kyverno/kyverno/security/advisories/GHSA-9g37-h7p2-2c6r
+	if len(referrersDescs.Manifests) > maxReferrersCount {
+		return nil, fmt.Errorf("failed to fetch referrers: to many referrers found")
 	}
 
 	v.log.V(4).Info("fetched referrers", "referrers", referrersDescs)
