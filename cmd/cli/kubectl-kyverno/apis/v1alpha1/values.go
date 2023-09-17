@@ -14,5 +14,5 @@ type Values struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// ValuesSpec declares values
-	Spec ValuesSpec `json:",inline"`
+	ValuesSpec `json:",inline"`
 }

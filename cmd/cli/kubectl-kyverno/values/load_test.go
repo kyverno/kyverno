@@ -109,7 +109,7 @@ func TestLoad(t *testing.T) {
 		name:     "valid",
 		filepath: "../_testdata/values/limit-configmap-for-sa.yaml",
 		want: &v1alpha1.Values{
-			Spec: v1alpha1.ValuesSpec{
+			ValuesSpec: v1alpha1.ValuesSpec{
 				NamespaceSelectors: []v1alpha1.NamespaceSelector{{
 					Name: "test1",
 					Labels: map[string]string{

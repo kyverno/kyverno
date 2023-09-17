@@ -113,7 +113,7 @@ func TestVariables_NamespaceSelectors(t *testing.T) {
 		want:      nil,
 	}, {
 		name:      "values",
-		values:    &vals.Spec,
+		values:    &vals.ValuesSpec,
 		variables: nil,
 		want: map[string]map[string]string{
 			"test1": {
@@ -137,7 +137,7 @@ func TestVariables_NamespaceSelectors(t *testing.T) {
 func TestVariables_SetInStore(t *testing.T) {
 	vals, err := values.Load(nil, "../_testdata/values/limit-configmap-for-sa.yaml")
 	assert.NoError(t, err)
-	vals.Spec.Policies = append(vals.Spec.Policies, v1alpha1.Policy{
+	vals.ValuesSpec.Policies = append(vals.ValuesSpec.Policies, v1alpha1.Policy{
 		Name: "limit-configmap-for-sa",
 		Rules: []v1alpha1.Rule{{
 			Name: "rule",
@@ -163,7 +163,7 @@ func TestVariables_SetInStore(t *testing.T) {
 		variables: nil,
 	}, {
 		name:      "values",
-		values:    &vals.Spec,
+		values:    &vals.ValuesSpec,
 		variables: nil,
 	}}
 	for _, tt := range tests {
@@ -180,7 +180,7 @@ func TestVariables_SetInStore(t *testing.T) {
 func TestVariables_HasPolicyVariables(t *testing.T) {
 	vals, err := values.Load(nil, "../_testdata/values/limit-configmap-for-sa.yaml")
 	assert.NoError(t, err)
-	vals.Spec.Policies = append(vals.Spec.Policies, v1alpha1.Policy{
+	vals.ValuesSpec.Policies = append(vals.ValuesSpec.Policies, v1alpha1.Policy{
 		Name: "limit-configmap-for-sa",
 		Rules: []v1alpha1.Rule{{
 			Name: "rule",
@@ -212,13 +212,13 @@ func TestVariables_HasPolicyVariables(t *testing.T) {
 		want:      false,
 	}, {
 		name:      "values - test",
-		values:    &vals.Spec,
+		values:    &vals.ValuesSpec,
 		variables: nil,
 		policy:    "test",
 		want:      false,
 	}, {
 		name:      "values - limit-configmap-for-sa",
-		values:    &vals.Spec,
+		values:    &vals.ValuesSpec,
 		variables: nil,
 		policy:    "limit-configmap-for-sa",
 		want:      true,
@@ -241,7 +241,7 @@ func TestVariables_ComputeVariables(t *testing.T) {
 		t.Helper()
 		vals, err := values.Load(nil, path)
 		assert.NoError(t, err)
-		return &vals.Spec
+		return &vals.ValuesSpec
 	}
 	type fields struct {
 		values    *v1alpha1.ValuesSpec
