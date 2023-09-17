@@ -12,8 +12,18 @@ import (
 
 func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error) {
 	var messages []string
-	if test.Name == "" {
-		messages = append(messages, "name is not set")
+	if test.APIVersion == "" {
+		messages = append(messages, "api version is not set, setting `cli.kyverno.io/v1alpha1`")
+		test.APIVersion = "cli.kyverno.io/v1alpha1"
+	}
+	if test.Kind == "" {
+		messages = append(messages, "kind is not set, setting `Test`")
+		test.Kind = "Test"
+	}
+	if test.Name != "" {
+		messages = append(messages, "name is deprecated, moving it into `metadata.name`")
+		test.ObjectMeta.Name = test.Name
+		test.Name = ""
 	}
 	if len(test.Policies) == 0 {
 		messages = append(messages, "test has no policies")

@@ -1,4 +1,7 @@
-name: test-variables
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
 - cm-variable-example.yaml
 - cm-multiple-example.yaml

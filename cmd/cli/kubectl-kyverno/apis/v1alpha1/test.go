@@ -13,8 +13,9 @@ type Test struct {
 	metav1.TypeMeta   `json:",inline,omitempty"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// Name is the name of the test
-	Name string `json:"name"`
+	// Name is the name of the test.
+	// This field is deprecated, use `metadata.name` instead
+	Name string `json:"name,omitempty"`
 
 	// Policies are the policies to be used in the test
 	Policies []string `json:"policies,omitempty"`
