@@ -1,45 +1,53 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: validate-userid-groupid-fsgroup
   annotations:
     policies.kyverno.io/category: Security Context
-    policies.kyverno.io/description: All processes inside the pod can be made to run with specific user 
-      and groupID by setting 'runAsUser' and 'runAsGroup' respectively. 'fsGroup' can be specified 
-      to make sure any file created in the volume with have the specified groupID. These options can be 
-      used to validate the IDs used for user and group.
+    policies.kyverno.io/description: All processes inside the pod can be made to run
+      with specific user and groupID by setting 'runAsUser' and 'runAsGroup' respectively.
+      'fsGroup' can be specified to make sure any file created in the volume with
+      have the specified groupID. These options can be used to validate the IDs used
+      for user and group.
+  name: validate-userid-groupid-fsgroup
 spec:
+  admission: true
+  background: true
   rules:
-  - name: validate-userid
-    match:
-      resources:
-        kinds:
-        - Pod
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: validate-userid
     validate:
-      message: "User ID should be 1000"
+      message: User ID should be 1000
       pattern:
         spec:
           securityContext:
-            runAsUser: '1000'
-  - name: validate-groupid
-    match:
-      resources:
-        kinds:
-        - Pod
+            runAsUser: "1000"
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: validate-groupid
     validate:
-      message: "Group ID should be 3000"
+      message: Group ID should be 3000
       pattern:
         spec:
           securityContext:
-            runAsGroup: '3000'
-  - name: validate-fsgroup
-    match:
-      resources:
-        kinds:
-        - Pod
+            runAsGroup: "3000"
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: validate-fsgroup
     validate:
-      message: "fsgroup should be 2000"
+      message: fsgroup should be 2000
       pattern:
         spec:
           securityContext:
-            fsGroup: '2000'
+            fsGroup: "2000"
+  validationFailureAction: Audit
