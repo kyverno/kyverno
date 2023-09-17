@@ -26,6 +26,7 @@ import (
 
 var (
 	maxReferrersCount = 50
+	maxPayloadSize    = 10 * 1000 * 1000 // 10 MB
 )
 
 func NewVerifier() images.ImageVerifier {
@@ -168,7 +169,7 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 
 	// See: https://github.com/kyverno/kyverno/security/advisories/GHSA-9g37-h7p2-2c6r
 	if len(referrersDescs.Manifests) > maxReferrersCount {
-		return nil, fmt.Errorf("failed to fetch referrers: to many referrers found")
+		return nil, fmt.Errorf("failed to fetch referrers: to many referrers found, max limit is %d", maxReferrersCount)
 	}
 
 	v.log.V(4).Info("fetched referrers", "referrers", referrersDescs)
@@ -316,6 +317,11 @@ func extractStatement(ctx context.Context, repoRef name.Reference, desc v1.Descr
 		return nil, fmt.Errorf("multiple layers in predicate not supported: %+v", manifest)
 	}
 	predicateDesc := manifest.Layers[0]
+
+	// See: https://github.com/kyverno/kyverno/security/advisories/GHSA-wc3x-5rfv-hh5v
+	if predicateDesc.Size > int64(maxPayloadSize) {
+		return nil, fmt.Errorf("payload size is too large, max size is %d: %+v", maxPayloadSize, predicateDesc)
+	}
 
 	layer, err := gcrremote.Layer(ref.Context().Digest(predicateDesc.Digest.String()), remoteOpts...)
 	if err != nil {
