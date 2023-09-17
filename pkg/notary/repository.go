@@ -50,6 +50,11 @@ func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Desc
 		return err
 	}
 
+	// See: https://github.com/kyverno/kyverno/security/advisories/GHSA-hjpv-68f4-2262
+	if len(referrersDescs.Manifests) > maxReferrersCount {
+		return fmt.Errorf("failed to fetch referrers: to many referrers found, max limit is %d", maxReferrersCount)
+	}
+
 	descList := []ocispec.Descriptor{}
 	for _, d := range referrersDescs.Manifests {
 		if d.ArtifactType == notationregistry.ArtifactTypeNotation {
