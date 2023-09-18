@@ -232,7 +232,7 @@ func (c *mutateExistingController) report(err error, policy kyvernov1.PolicyInte
 	var events []event.Info
 
 	if target == nil {
-		c.log.WithName("mutateExisting").Info("cannot generate events for empty target resource", "policy", policy.GetName(), "rule", rule)
+		c.log.WithName("mutateExisting").Info("cannot generate events for empty target resource", "policy", policy.GetName(), "rule", rule, "err", err.Error)
 		return
 	}
 
