@@ -66,13 +66,21 @@ func (nla *notaryLoggerAdapter) Errorln(args ...interface{}) {
 }
 
 func (nla *notaryLoggerAdapter) info(level int, args ...interface{}) {
-	nla.logger.V(level).Info(fmt.Sprint(args...))
+	nla.log(level, fmt.Sprint(args...))
 }
 
 func (nla *notaryLoggerAdapter) infof(level int, format string, args ...interface{}) {
-	nla.logger.V(level).Info(fmt.Sprintf(format, args...))
+	nla.log(level, fmt.Sprintf(format, args...))
 }
 
 func (nla *notaryLoggerAdapter) infoln(level int, args ...interface{}) {
-	nla.logger.V(level).Info(fmt.Sprintln(args...))
+	nla.log(level, fmt.Sprintln(args...))
+}
+
+func (nla *notaryLoggerAdapter) log(level int, message string) {
+logger := nla.logger
+if level > 0 {
+logger = logger.V(level)
+}
+	logger.Info(message)
 }
