@@ -22,7 +22,7 @@ func (nla *notaryLoggerAdapter) Debug(args ...interface{}) {
 }
 
 func (nla *notaryLoggerAdapter) Debugf(format string, args ...interface{}) {
-	nla.logger.Info(fmt.Sprintf(format, args...))
+	nla.logger.V(4).Info(fmt.Sprintf(format, args...))
 }
 
 func (nla *notaryLoggerAdapter) Debugln(args ...interface{}) {
@@ -34,7 +34,7 @@ func (nla *notaryLoggerAdapter) Info(args ...interface{}) {
 }
 
 func (nla *notaryLoggerAdapter) Infof(format string, args ...interface{}) {
-	nla.logger.Info(fmt.Sprintf(format, args...))
+	nla.logger.V(4).Info(fmt.Sprintf(format, args...))
 }
 
 func (nla *notaryLoggerAdapter) Infoln(args ...interface{}) {
@@ -46,7 +46,7 @@ func (nla *notaryLoggerAdapter) Warn(args ...interface{}) {
 }
 
 func (nla *notaryLoggerAdapter) Warnf(format string, args ...interface{}) {
-	nla.logger.Info(fmt.Sprintf(format, args...))
+	nla.logger.V(4).Info(fmt.Sprintf(format, args...))
 }
 
 func (nla *notaryLoggerAdapter) Warnln(args ...interface{}) {
@@ -54,15 +54,15 @@ func (nla *notaryLoggerAdapter) Warnln(args ...interface{}) {
 }
 
 func (nla *notaryLoggerAdapter) Error(args ...interface{}) {
-	nla.info(args...)
+	nla.error(args...)
 }
 
 func (nla *notaryLoggerAdapter) Errorf(format string, args ...interface{}) {
-	nla.logger.Info(fmt.Sprintf(format, args...))
+	nla.logger.Error(fmt.Errorf(format, args...), "")
 }
 
 func (nla *notaryLoggerAdapter) Errorln(args ...interface{}) {
-	nla.info(args...)
+	nla.error(args...)
 }
 
 func (nla *notaryLoggerAdapter) info(args ...interface{}) {
@@ -77,5 +77,20 @@ func (nla *notaryLoggerAdapter) info(args ...interface{}) {
 		}
 	}
 
-	nla.logger.Info(fmt.Sprint(args...))
+	nla.logger.V(4).Info(fmt.Sprint(args...))
+}
+
+func (nla *notaryLoggerAdapter) error(args ...interface{}) {
+	if len(args) == 0 {
+		return
+	}
+
+	if len(args) == 1 {
+		if str, ok := args[0].(string); ok {
+			nla.logger.Error(fmt.Errorf(str), "")
+			return
+		}
+	}
+
+	nla.logger.Error(fmt.Errorf(fmt.Sprint(args...)), "")
 }
