@@ -65,14 +65,14 @@ func (nla *notaryLoggerAdapter) Errorln(args ...interface{}) {
 	nla.logger.Error(fmt.Errorf(fmt.Sprintln(args...)), "")
 }
 
-func (nla *notaryLoggerAdapter) info(args ...interface{}) {
-	nla.logger.Info(fmt.Sprint(args...))
+func (nla *notaryLoggerAdapter) info(level int, args ...interface{}) {
+	nla.logger.V(level).Info(fmt.Sprint(args...))
 }
 
-func (nla *notaryLoggerAdapter) infof(format string, args ...interface{}) {
-	nla.logger.Info(fmt.Sprintf(format, args...))
+func (nla *notaryLoggerAdapter) infof(level int, format string, args ...interface{}) {
+	nla.logger.V(level).Info(fmt.Sprintf(format, args...))
 }
 
-func (nla *notaryLoggerAdapter) infoln(args ...interface{}) {
-	nla.logger.Info(fmt.Sprintln(args...))
+func (nla *notaryLoggerAdapter) infoln(level int, args ...interface{}) {
+	nla.logger.V(level).Info(fmt.Sprintln(args...))
 }
