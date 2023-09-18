@@ -18,7 +18,7 @@ require (
 	github.com/fluxcd/pkg/oci v0.31.1
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-git/go-billy/v5 v5.5.0
-	github.com/go-git/go-git/v5 v5.8.1
+	github.com/go-git/go-git/v5 v5.9.0
 	github.com/go-logr/logr v1.2.4
 	github.com/go-logr/zapr v1.2.4
 	github.com/google/gnostic-models v0.6.8
@@ -35,7 +35,7 @@ require (
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.27.10
 	github.com/opencontainers/go-digest v1.0.0
-	github.com/opencontainers/image-spec v1.1.0-rc4
+	github.com/opencontainers/image-spec v1.1.0-rc5
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.16.0
@@ -63,12 +63,12 @@ require (
 	go.opentelemetry.io/otel/trace v1.18.0
 	go.uber.org/automaxprocs v1.5.3
 	go.uber.org/multierr v1.11.0
-	go.uber.org/zap v1.25.0
+	go.uber.org/zap v1.26.0
 	golang.org/x/crypto v0.13.0
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
 	golang.org/x/text v0.13.0
 	gomodules.xyz/jsonpatch/v2 v2.4.0
-	google.golang.org/grpc v1.58.0
+	google.golang.org/grpc v1.58.1
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -77,14 +77,14 @@ require (
 	k8s.io/apiextensions-apiserver v0.28.1
 	k8s.io/apimachinery v0.28.2
 	k8s.io/apiserver v0.28.2
-	k8s.io/cli-runtime v0.28.1
+	k8s.io/cli-runtime v0.28.2
 	k8s.io/client-go v0.28.2
 	k8s.io/klog/v2 v2.100.1
-	k8s.io/kube-aggregator v0.28.1
+	k8s.io/kube-aggregator v0.28.2
 	k8s.io/kube-openapi v0.0.0-20230816210353-14e408962443
-	k8s.io/pod-security-admission v0.28.1
+	k8s.io/pod-security-admission v0.28.2
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
-	sigs.k8s.io/controller-runtime v0.16.1
+	sigs.k8s.io/controller-runtime v0.16.2
 	sigs.k8s.io/kubectl-validate v0.0.0-20230914185012-0d8eb44296e9
 	sigs.k8s.io/kustomize/api v0.14.0
 	sigs.k8s.io/kustomize/kyaml v0.14.3

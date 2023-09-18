@@ -90,7 +90,7 @@ func (o options) processFile(out io.Writer, path string) {
 		for _, policy := range fixed {
 			untyped, err := kubeutils.ObjToUnstructured(policy)
 			if err != nil {
-				fmt.Fprintf(out, "    ERROR: converting to yaml: %s", err)
+				fmt.Fprintf(out, "    ERROR: converting to unstructured: %s", err)
 				fmt.Fprintln(out)
 				return
 			}
@@ -119,6 +119,12 @@ func (o options) processFile(out io.Writer, path string) {
 				if item, _, _ := unstructured.NestedMap(rule, "mutate"); len(item) == 0 {
 					unstructured.RemoveNestedField(rule, "mutate")
 				}
+				if item, _, _ := unstructured.NestedMap(rule, "validate", "manifests", "dryRun"); len(item) == 0 {
+					unstructured.RemoveNestedField(rule, "validate", "manifests", "dryRun")
+				}
+				if item, _, _ := unstructured.NestedMap(rule, "validate"); len(item) == 0 {
+					unstructured.RemoveNestedField(rule, "validate")
+				}
 				if item, _, _ := unstructured.NestedMap(rule, "exclude"); len(item) == 0 {
 					unstructured.RemoveNestedField(rule, "exclude")
 				}
@@ -128,7 +134,7 @@ func (o options) processFile(out io.Writer, path string) {
 			}
 			jsonBytes, err := untyped.MarshalJSON()
 			if err != nil {
-				fmt.Fprintf(out, "    ERROR: converting to yaml: %s", err)
+				fmt.Fprintf(out, "    ERROR: converting to json: %s", err)
 				fmt.Fprintln(out)
 				return
 			}

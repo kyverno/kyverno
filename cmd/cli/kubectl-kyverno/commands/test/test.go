@@ -47,11 +47,11 @@ func runTest(out io.Writer, openApiManager openapi.Manager, testCase test.TestCa
 	var userInfo *v1beta1.RequestInfo
 	if testCase.Test.UserInfo != "" {
 		fmt.Fprintln(out, "  Loading user infos", "...")
-		var err error
-		userInfo, err = userinfo.Load(testCase.Fs, testCase.Test.UserInfo, testDir)
+		info, err := userinfo.Load(testCase.Fs, testCase.Test.UserInfo, testDir)
 		if err != nil {
 			return nil, fmt.Errorf("Error: failed to load request info (%s)", err)
 		}
+		userInfo = &info.RequestInfo
 	}
 	// policies
 	fmt.Fprintln(out, "  Loading policies", "...")

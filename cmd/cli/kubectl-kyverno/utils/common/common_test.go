@@ -3,8 +3,7 @@ package common
 import (
 	"testing"
 
-	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
-
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -97,9 +96,9 @@ func Test_getSubresourceKind(t *testing.T) {
 	podAPIResource := metav1.APIResource{Name: "pods", SingularName: "", Namespaced: true, Kind: "Pod"}
 	podEvictionAPIResource := metav1.APIResource{Name: "pods/eviction", SingularName: "", Namespaced: true, Group: "policy", Version: "v1", Kind: "Eviction"}
 
-	subresources := []valuesapi.Subresource{
+	subresources := []v1alpha1.Subresource{
 		{
-			APIResource:    podEvictionAPIResource,
+			Subresource:    podEvictionAPIResource,
 			ParentResource: podAPIResource,
 		},
 	}

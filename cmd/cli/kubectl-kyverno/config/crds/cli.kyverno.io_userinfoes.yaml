@@ -1,0 +1,75 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.12.0
+  name: userinfoes.cli.kyverno.io
+spec:
+  group: cli.kyverno.io
+  names:
+    kind: UserInfo
+    listKind: UserInfoList
+    plural: userinfoes
+    singular: userinfo
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: UserInfo declares user infos to be loaded by the Kyverno CLI
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          clusterRoles:
+            description: ClusterRoles is a list of possible clusterRoles send the
+              request.
+            items:
+              type: string
+            nullable: true
+            type: array
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          roles:
+            description: Roles is a list of possible role send the request.
+            items:
+              type: string
+            nullable: true
+            type: array
+          userInfo:
+            description: UserInfo is the userInfo carried in the admission request.
+            properties:
+              extra:
+                additionalProperties:
+                  description: ExtraValue masks the value so protobuf can generate
+                  items:
+                    type: string
+                  type: array
+                description: Any additional information provided by the authenticator.
+                type: object
+              groups:
+                description: The names of groups this user is a part of.
+                items:
+                  type: string
+                type: array
+              uid:
+                description: A unique value that identifies this user across time.
+                  If this user is deleted and another user by the same name is added,
+                  they will have different UIDs.
+                type: string
+              username:
+                description: The name that uniquely identifies this user among all
+                  active users.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
