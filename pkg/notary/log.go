@@ -78,9 +78,9 @@ func (nla *notaryLoggerAdapter) infoln(level int, args ...interface{}) {
 }
 
 func (nla *notaryLoggerAdapter) log(level int, message string) {
-logger := nla.logger
-if level > 0 {
-logger = logger.V(level)
-}
+	logger := nla.logger
+	if level > 0 {
+		logger = logger.V(level)
+	}
 	logger.Info(message)
 }
