@@ -1,12 +1,12 @@
-# This file sets the values that will be null unless otherwise set explicitly.
-# We are effectively mocking these values because there is no real API call.
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Values
 policies:
-  - name: deny-modify-platform-label
-    rules:
-    - name: deny-modify-platform-role
-      values:
-        request:
-          operation: "UPDATE"
-          userInfo:
-            groups:
-             - "system:masters"
+- name: deny-modify-platform-label
+  rules:
+  - name: deny-modify-platform-role
+    values:
+      request:
+        operation: UPDATE
+        userInfo:
+          groups:
+          - system:masters

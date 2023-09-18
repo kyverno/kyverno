@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/fix"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/values"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
@@ -137,6 +138,53 @@ func (o options) execute(out io.Writer, dirs ...string) error {
 				}
 				if err := os.WriteFile(path, yamlBytes, os.ModePerm); err != nil {
 					fmt.Fprintf(out, "    ERROR: saving user info file (%s): %s\n", path, err)
+					continue
+				}
+				fmt.Fprintln(out, "    OK")
+			}
+		}
+		if testCase.Test.Variables != "" {
+			fmt.Fprintf(out, "  Processing values file (%s)...\n", testCase.Test.Variables)
+			path := filepath.Join(testCase.Dir(), testCase.Test.Variables)
+			values, err := values.Load(nil, path)
+			if err != nil {
+				fmt.Fprintf(out, "    ERROR: failed to load values: %s\n", err)
+				continue
+			}
+			fixed, messages, err := fix.FixValues(*values)
+			for _, warning := range messages {
+				fmt.Fprintln(out, "  WARNING:", warning)
+			}
+			if err != nil {
+				fmt.Fprintln(out, "  ERROR:", err)
+				continue
+			}
+			needsSave := !reflect.DeepEqual(values, &fixed)
+			if o.save && (o.force || needsSave) {
+				fmt.Fprintf(out, "  Saving values file (%s)...\n", path)
+				untyped, err := kubeutils.ObjToUnstructured(fixed)
+				if err != nil {
+					fmt.Fprintf(out, "    ERROR: converting to unstructured: %s\n", err)
+					continue
+				}
+				unstructured.RemoveNestedField(untyped.UnstructuredContent(), "metadata", "creationTimestamp")
+				unstructured.RemoveNestedField(untyped.UnstructuredContent(), "metadata", "generation")
+				unstructured.RemoveNestedField(untyped.UnstructuredContent(), "metadata", "uid")
+				if item, _, _ := unstructured.NestedMap(untyped.UnstructuredContent(), "metadata"); len(item) == 0 {
+					unstructured.RemoveNestedField(untyped.UnstructuredContent(), "metadata")
+				}
+				jsonBytes, err := untyped.MarshalJSON()
+				if err != nil {
+					fmt.Fprintf(out, "    ERROR: converting to json: %s\n", err)
+					continue
+				}
+				yamlBytes, err := yaml.JSONToYAML(jsonBytes)
+				if err != nil {
+					fmt.Fprintf(out, "    ERROR: converting to yaml: %s\n", err)
+					continue
+				}
+				if err := os.WriteFile(path, yamlBytes, os.ModePerm); err != nil {
+					fmt.Fprintf(out, "    ERROR: saving values file (%s): %s\n", path, err)
 					continue
 				}
 				fmt.Fprintln(out, "    OK")
