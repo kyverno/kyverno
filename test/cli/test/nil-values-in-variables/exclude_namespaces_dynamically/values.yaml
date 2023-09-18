@@ -1,10 +1,12 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Values
 policies:
-  - name: exclude-namespaces-example
-    rules:
-      - name: exclude-namespaces-dynamically
-    resources:
-    - name: bad-pod01
-      values:
-        namespacefilters.data.exclude: "[\"default\", \"test\"]"
-        request.namespace: default
-    - name: bad-pod02
+- name: exclude-namespaces-example
+  resources:
+  - name: bad-pod01
+    values:
+      namespacefilters.data.exclude: '["default", "test"]'
+      request.namespace: default
+  - name: bad-pod02
+  rules:
+  - name: exclude-namespaces-dynamically
