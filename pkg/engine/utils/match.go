@@ -166,22 +166,18 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 
 // matchesResourceDescription checks if the resource matches resource description of the rule or not
 func MatchesResourceDescription(
-	resourceRef unstructured.Unstructured,
-	ruleRef kyvernov1.Rule,
-	admissionInfoRef kyvernov1beta1.RequestInfo,
+	resource unstructured.Unstructured,
+	rule kyvernov1.Rule,
+	admissionInfo kyvernov1beta1.RequestInfo,
 	namespaceLabels map[string]string,
 	policyNamespace string,
 	gvk schema.GroupVersionKind,
 	subresource string,
 	operation kyvernov1.AdmissionOperation,
 ) error {
-	if resourceRef.Object == nil {
+	if resource.Object == nil {
 		return fmt.Errorf("resource is empty")
 	}
-
-	rule := ruleRef.DeepCopy()
-	resource := *resourceRef.DeepCopy()
-	admissionInfo := *admissionInfoRef.DeepCopy()
 
 	var reasonsForFailure []error
 	if policyNamespace != "" && policyNamespace != resource.GetNamespace() {
