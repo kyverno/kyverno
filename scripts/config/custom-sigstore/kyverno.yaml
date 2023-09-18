@@ -2,4 +2,4 @@ features:
   tuf:
     tufRoot: "$(TUF_MIRROR)/root.json"
     tufMirror: "$(TUF_MIRROR)"
-    tufConfigMap: tufvalues
+  envConfigMap: tufvalues

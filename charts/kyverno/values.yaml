@@ -454,8 +454,9 @@ features:
     tufRoot:
     # --tuf-mirror
     tufMirror:
-    # -- name of the config map containing tuf environment variables
-    tufConfigMap:
+
+  # -- name of the config map containing environment variables, this will be passed in envFrom: in deployments
+  envConfigMap:
 
 # Cleanup cronjobs to prevent internal resources from stacking up in the cluster
 cleanupJobs:

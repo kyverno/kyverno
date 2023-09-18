@@ -193,10 +193,10 @@ spec:
           - containerPort: 8000
             name: metrics-port
             protocol: TCP
-          {{- if .Values.features.tuf.tufConfigMap }}
+          {{- if .Values.features.envConfigMap }}
           envFrom:
             - configMapRef:
-                name: {{ .Values.features.tuf.tufConfigMap }}
+                name: {{ .Values.features.envConfigMap }}
           {{- end }}
           env:
           - name: INIT_CONFIG
