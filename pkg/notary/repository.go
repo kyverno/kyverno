@@ -50,6 +50,11 @@ func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Desc
 		return err
 	}
 
+	// See: https://github.com/kyverno/kyverno/security/advisories/GHSA-hjpv-68f4-2262
+	if len(referrersDescs.Manifests) > maxReferrersCount {
+		return fmt.Errorf("failed to fetch referrers: to many referrers found, max limit is %d", maxReferrersCount)
+	}
+
 	descList := []ocispec.Descriptor{}
 	for _, d := range referrersDescs.Manifests {
 		if d.ArtifactType == notationregistry.ArtifactTypeNotation {
@@ -80,6 +85,11 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 		return nil, ocispec.Descriptor{}, err
 	}
 	manifestDesc := manifest.Layers[0]
+
+	// See: https://github.com/kyverno/kyverno/security/advisories/GHSA-4mp4-46gq-hv3r
+	if manifestDesc.Size > int64(maxPayloadSize) {
+		return nil, ocispec.Descriptor{}, fmt.Errorf("payload size is too large, max size is %d: %+v", maxPayloadSize, manifestDesc)
+	}
 
 	signatureBlobRef, err := name.ParseReference(c.getReferenceFromDescriptor(manifestDesc))
 	if err != nil {
