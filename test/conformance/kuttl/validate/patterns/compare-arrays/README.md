@@ -1,6 +1,6 @@
 # ## Description
 
-This test creates a policy to validate resources with patterns comparing arrays.
+This test creates a policy to validate resources with patterns comparing arrays with more than one element.
 
 ## Expected Behavior
 
