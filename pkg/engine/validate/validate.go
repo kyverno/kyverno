@@ -173,11 +173,11 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 		if err != nil {
 			return elemPath, err
 		}
-	case string, float64, int, int64, bool, nil:
-		elemPath, err := validateResourceElement(log, resourceArray, typedPatternElement, originPattern, path, ac)
-		if err != nil {
-			return elemPath, err
-		}
+	// case string, float64, int, int64, bool, nil:
+	// 	elemPath, err := validateResourceElement(log, resourceArray, patternArray, originPattern, path, ac)
+	// 	if err != nil {
+	// 		return elemPath, err
+	// 	}
 	default:
 		// In all other cases - detect type and handle each array element with validateResourceElement
 		if len(resourceArray) < len(patternArray) {
