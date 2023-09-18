@@ -75,10 +75,10 @@
   {{- $flags = append $flags (print "--ttlReconciliationInterval=" .reconciliationInterval) -}}
 {{- end -}}
 {{- with .tuf.root -}}
-  {{- $flags = append $flags (print "-tufRoot=" .) -}}
+  {{- $flags = append $flags (print "--tufRoot=" .) -}}
 {{- end -}}
 {{- with .tuf.mirror -}}
-  {{- $flags = append $flags (print "-tufMirror=" .) -}}
+  {{- $flags = append $flags (print "--tufMirror=" .) -}}
 {{- end -}}
 {{- with $flags -}}
   {{- toYaml . -}}
