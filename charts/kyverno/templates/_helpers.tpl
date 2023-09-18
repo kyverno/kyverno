@@ -74,6 +74,14 @@
 {{- with .ttlController -}}
   {{- $flags = append $flags (print "--ttlReconciliationInterval=" .reconciliationInterval) -}}
 {{- end -}}
+{{- with .tuf -}}
+  {{- with .mirror -}}
+    {{- $flags = append $flags (print "--tufMirror=" .) -}}
+  {{- end -}}
+  {{- with .root -}}
+    {{- $flags = append $flags (print "--tufRoot=" .) -}}
+  {{- end -}}
+{{- end -}}
 {{- with $flags -}}
   {{- toYaml . -}}
 {{- end -}}
