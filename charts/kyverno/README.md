@@ -317,6 +317,7 @@ The chart values are organised per component.
 | features.ttlController.reconciliationInterval | string | `"1m"` | Reconciliation interval for the label based cleanup manager |
 | features.tuf.root | string | `nil` | Tuf root |
 | features.tuf.mirror | string | `nil` | Tuf mirror |
+| features.envConfigMap | string | `nil` | name of the config map containing environment variables, this will be passed in envFrom: in deployments |
 
 ### Admission controller
 

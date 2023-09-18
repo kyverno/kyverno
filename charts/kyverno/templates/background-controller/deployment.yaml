@@ -120,11 +120,6 @@ spec:
             - --{{ $key }}={{ $value }}
             {{- end }}
             {{- end }}
-          {{- if .Values.features.envConfigMap }}
-          envFrom:
-            - configMapRef:
-                name: {{ .Values.features.envConfigMap }}
-          {{- end }}
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME
             value: {{ template "kyverno.background-controller.serviceAccountName" . }}
