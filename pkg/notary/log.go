@@ -9,7 +9,7 @@ import (
 
 func NotaryLoggerAdapter(logger logr.Logger) notationlog.Logger {
 	return &notaryLoggerAdapter{
-		logger: logger,
+		logger: logger.V(4),
 	}
 }
 
@@ -18,39 +18,39 @@ type notaryLoggerAdapter struct {
 }
 
 func (nla *notaryLoggerAdapter) Debug(args ...interface{}) {
-	nla.logger.V(4).Info(fmt.Sprint(args...))
+	nla.logger.Info(fmt.Sprint(args...))
 }
 
 func (nla *notaryLoggerAdapter) Debugf(format string, args ...interface{}) {
-	nla.logger.V(4).Info(fmt.Sprintf(format, args...))
+	nla.logger.Info(fmt.Sprintf(format, args...))
 }
 
 func (nla *notaryLoggerAdapter) Debugln(args ...interface{}) {
-	nla.logger.V(4).Info(fmt.Sprintln(args...))
+	nla.logger.Info(fmt.Sprintln(args...))
 }
 
 func (nla *notaryLoggerAdapter) Info(args ...interface{}) {
-	nla.logger.V(4).Info(fmt.Sprint(args...))
+	nla.logger.Info(fmt.Sprint(args...))
 }
 
 func (nla *notaryLoggerAdapter) Infof(format string, args ...interface{}) {
-	nla.logger.V(4).Info(fmt.Sprintf(format, args...))
+	nla.logger.Info(fmt.Sprintf(format, args...))
 }
 
 func (nla *notaryLoggerAdapter) Infoln(args ...interface{}) {
-	nla.logger.V(4).Info(fmt.Sprintln(args...))
+	nla.logger.Info(fmt.Sprintln(args...))
 }
 
 func (nla *notaryLoggerAdapter) Warn(args ...interface{}) {
-	nla.logger.V(4).Info(fmt.Sprint(args...))
+	nla.logger.Info(fmt.Sprint(args...))
 }
 
 func (nla *notaryLoggerAdapter) Warnf(format string, args ...interface{}) {
-	nla.logger.V(4).Info(fmt.Sprintf(format, args...))
+	nla.logger.Info(fmt.Sprintf(format, args...))
 }
 
 func (nla *notaryLoggerAdapter) Warnln(args ...interface{}) {
-	nla.logger.V(4).Info(fmt.Sprintln(args...))
+	nla.logger.Info(fmt.Sprintln(args...))
 }
 
 func (nla *notaryLoggerAdapter) Error(args ...interface{}) {
