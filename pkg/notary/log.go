@@ -62,5 +62,5 @@ func (nla *notaryLoggerAdapter) Errorf(format string, args ...interface{}) {
 }
 
 func (nla *notaryLoggerAdapter) Errorln(args ...interface{}) {
-	nla.logger.Error(fmt.Errorf(fmt.Sprint(args...)), "")
+	nla.logger.Error(fmt.Errorf(fmt.Sprintln(args...)), "")
 }
