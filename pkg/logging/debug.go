@@ -107,9 +107,18 @@ func (dl *debugLogger) Errorln(args ...interface{}) {
 }
 
 func (dl *debugLogger) info(args ...interface{}) {
+	if len(args) == 0 {
+		return
+	}
+
+	msg, ok := args[0].(string)
+	if !ok {
+		return
+	}
+
 	if len(args) > 1 {
-		dl.logger.Info(args[0].(string), args[1:]...)
+		dl.logger.Info(msg, args[1:]...)
 	} else if len(args) == 1 {
-		dl.logger.Info(args[0].(string))
+		dl.logger.Info(msg)
 	}
 }
