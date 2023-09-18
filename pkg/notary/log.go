@@ -69,7 +69,7 @@ func (nla *notaryLoggerAdapter) info(args ...interface{}) {
 	nla.logger.Info(fmt.Sprint(args...))
 }
 
-func (nla *notaryLoggerAdapter) sprintf(format string, args ...interface{}) {
+func (nla *notaryLoggerAdapter) infof(format string, args ...interface{}) {
 	nla.logger.Info(fmt.Sprintf(format, args...))
 }
 
