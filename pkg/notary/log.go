@@ -18,39 +18,39 @@ type notaryLoggerAdapter struct {
 }
 
 func (nla *notaryLoggerAdapter) Debug(args ...interface{}) {
-	nla.sprint(args...)
+	nla.info(args...)
 }
 
 func (nla *notaryLoggerAdapter) Debugf(format string, args ...interface{}) {
-	nla.sprintf(format, args...)
+	nla.infof(format, args...)
 }
 
 func (nla *notaryLoggerAdapter) Debugln(args ...interface{}) {
-	nla.sprintln(args...)
+	nla.infoln(args...)
 }
 
 func (nla *notaryLoggerAdapter) Info(args ...interface{}) {
-	nla.sprint(args...)
+	nla.info(args...)
 }
 
 func (nla *notaryLoggerAdapter) Infof(format string, args ...interface{}) {
-	nla.sprintf(format, args...)
+	nla.infof(format, args...)
 }
 
 func (nla *notaryLoggerAdapter) Infoln(args ...interface{}) {
-	nla.sprintln(args...)
+	nla.infoln(args...)
 }
 
 func (nla *notaryLoggerAdapter) Warn(args ...interface{}) {
-	nla.sprint(args...)
+	nla.info(args...)
 }
 
 func (nla *notaryLoggerAdapter) Warnf(format string, args ...interface{}) {
-	nla.sprintf(format, args...)
+	nla.infof(format, args...)
 }
 
 func (nla *notaryLoggerAdapter) Warnln(args ...interface{}) {
-	nla.sprintln(args...)
+	nla.infoln(args...)
 }
 
 func (nla *notaryLoggerAdapter) Error(args ...interface{}) {
