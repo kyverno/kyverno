@@ -70,14 +70,12 @@ func (nla *notaryLoggerAdapter) info(args ...interface{}) {
 		return
 	}
 
-	msg, ok := args[0].(string)
-	if !ok {
-		return
+	if len(args) == 1 {
+		if str, ok := args[0].(string); ok {
+			nla.logger.Info(str)
+			return
+		}
 	}
 
-	if len(args) > 1 {
-		nla.logger.Info(msg, args[1:]...)
-	} else if len(args) == 1 {
-		nla.logger.Info(msg)
-	}
+	nla.logger.Info(fmt.Sprint(args...))
 }
