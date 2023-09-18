@@ -173,17 +173,11 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 		if err != nil {
 			return elemPath, err
 		}
-	// case string, float64, int, int64, bool, nil:
-	// 	elemPath, err := validateResourceElement(log, resourceArray, patternArray, originPattern, path, ac)
-	// 	if err != nil {
-	// 		return elemPath, err
-	// 	}
 	default:
 		// In all other cases - detect type and handle each array element with validateResourceElement
 		if len(resourceArray) < len(patternArray) {
 			return "", fmt.Errorf("validate Array failed, array length mismatch, resource Array len is %d and pattern Array len is %d", len(resourceArray), len(patternArray))
 		}
-
 		var applyCount int
 		var skipErrors []error
 		for i, patternElement := range patternArray {
@@ -194,13 +188,10 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 					skipErrors = append(skipErrors, err)
 					continue
 				}
-
 				return elemPath, err
 			}
-
 			applyCount++
 		}
-
 		if applyCount == 0 && len(skipErrors) > 0 {
 			return path, &PatternError{
 				Err:  multierr.Combine(skipErrors...),

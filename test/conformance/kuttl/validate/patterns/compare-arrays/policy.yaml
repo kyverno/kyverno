@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: foo
+spec:
+  validationFailureAction: Enforce
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Role
+    name: validate-array
+    validate:
+      message: Failed!!!
+      pattern:
+        rules:
+          - resources:
+            - pods
+            - persistentvolumeclaims
