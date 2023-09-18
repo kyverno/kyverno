@@ -167,7 +167,7 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 		return nil, err
 	}
 
-	// See: https://github.com/kyverno/kyverno/security/advisories/GHSA-9g37-h7p2-2c6r
+	// This check ensures that the manifest does not have an abnormal amount of referrers attached to it to protect against compromised images
 	if len(referrersDescs.Manifests) > maxReferrersCount {
 		return nil, fmt.Errorf("failed to fetch referrers: to many referrers found, max limit is %d", maxReferrersCount)
 	}
@@ -318,7 +318,7 @@ func extractStatement(ctx context.Context, repoRef name.Reference, desc v1.Descr
 	}
 	predicateDesc := manifest.Layers[0]
 
-	// See: https://github.com/kyverno/kyverno/security/advisories/GHSA-wc3x-5rfv-hh5v
+	// This check ensures that the size of a layer isn't abnormally large to avoid malicious payloads
 	if predicateDesc.Size > int64(maxPayloadSize) {
 		return nil, fmt.Errorf("payload size is too large, max size is %d: %+v", maxPayloadSize, predicateDesc)
 	}
