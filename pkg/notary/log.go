@@ -1,6 +1,7 @@
 package notary
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -54,7 +55,7 @@ func (nla *notaryLoggerAdapter) Warnln(args ...interface{}) {
 }
 
 func (nla *notaryLoggerAdapter) Error(args ...interface{}) {
-	nla.logger.Error(fmt.Errorf(fmt.Sprint(args...)), "")
+	nla.logger.Error(errors.New(fmt.Sprint(args...)), "")
 }
 
 func (nla *notaryLoggerAdapter) Errorf(format string, args ...interface{}) {
@@ -62,7 +63,7 @@ func (nla *notaryLoggerAdapter) Errorf(format string, args ...interface{}) {
 }
 
 func (nla *notaryLoggerAdapter) Errorln(args ...interface{}) {
-	nla.logger.Error(fmt.Errorf(fmt.Sprintln(args...)), "")
+	nla.logger.Error(errors.New(fmt.Sprintln(args...)), "")
 }
 
 func (nla *notaryLoggerAdapter) info(level int, args ...interface{}) {
