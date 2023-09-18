@@ -86,12 +86,6 @@ spec:
             name: metrics
             protocol: TCP
           args:
-            {{- if .Values.features.tuf.tufMirror }}
-            - --tuf-mirror={{ .Values.features.tuf.tufMirror }}
-            {{- end }}
-            {{- if .Values.features.tuf.tufRoot }}
-            - --tuf-root={{ .Values.features.tuf.tufRoot }}
-            {{- end }}
             {{- if .Values.reportsController.tracing.enabled }}
             - --enableTracing
             - --tracingAddress={{ .Values.reportsController.tracing.address }}
@@ -127,6 +121,7 @@ spec:
               "policyExceptions"
               "reports"
               "registryClient"
+              "tuf"
             ) | nindent 12 }}
             {{- range $key, $value := .Values.reportsController.extraArgs }}
             {{- if $value }}

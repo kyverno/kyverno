@@ -1,5 +1,5 @@
 features:
   tuf:
-    tufRoot: "$(TUF_MIRROR)/root.json"
-    tufMirror: "$(TUF_MIRROR)"
+    root: "$(TUF_MIRROR)/root.json"
+    mirror: "$(TUF_MIRROR)"
   envConfigMap: tufvalues

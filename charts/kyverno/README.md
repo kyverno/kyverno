@@ -315,10 +315,8 @@ The chart values are organised per component.
 | features.registryClient.credentialHelpers | list | `["default","google","amazon","azure","github"]` | Enable registry client helpers |
 | features.reports.chunkSize | int | `1000` | Reports chunk size |
 | features.ttlController.reconciliationInterval | string | `"1m"` | Reconciliation interval for the label based cleanup manager |
-| features.tuf | object | `{"tufMirror":null,"tufRoot":null}` | sigstore-tuf-configuration |
-| features.tuf.tufRoot | string | `nil` | tuf-root |
-| features.tuf.tufMirror | string | `nil` | tuf-mirror |
-| features.envConfigMap | string | `nil` | name of the config map containing environment variables, this will be passed in envFrom: in deployments |
+| features.tuf.root | string | `nil` | Tuf root |
+| features.tuf.mirror | string | `nil` | Tuf mirror |
 
 ### Admission controller
 

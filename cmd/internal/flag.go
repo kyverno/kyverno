@@ -101,8 +101,8 @@ func initDeferredLoadingFlags() {
 
 func initCosignFlags() {
 	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "(DEPRECATED, will be removed in 1.12) Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
-	flag.StringVar(&tufMirror, "tuf-mirror", tuf.DefaultRemoteRoot, "Alternate TUF mirror for sigstore. If left blank, public sigstore one is used for cosign verification..")
-	flag.StringVar(&tufRoot, "tuf-root", "", "Alternate TUF root.json for sigstore. If left blank, public sigstore one is used for cosign verification.")
+	flag.StringVar(&tufMirror, "tufMirror", tuf.DefaultRemoteRoot, "Alternate TUF mirror for sigstore. If left blank, public sigstore one is used for cosign verification..")
+	flag.StringVar(&tufRoot, "tufRoot", "", "Alternate TUF root.json for sigstore. If left blank, public sigstore one is used for cosign verification.")
 }
 
 func initRegistryClientFlags() {

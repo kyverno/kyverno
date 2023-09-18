@@ -447,16 +447,11 @@ features:
   ttlController:
     # -- Reconciliation interval for the label based cleanup manager
     reconciliationInterval: 1m
-
-  # --sigstore-tuf-configuration
   tuf:
-    # --tuf-root
-    tufRoot:
-    # --tuf-mirror
-    tufMirror:
-
-  # -- name of the config map containing environment variables, this will be passed in envFrom: in deployments
-  envConfigMap:
+    # -- Tuf root
+    root:
+    # -- Tuf mirror
+    mirror:
 
 # Cleanup cronjobs to prevent internal resources from stacking up in the cluster
 cleanupJobs:
