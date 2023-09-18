@@ -50,7 +50,7 @@ func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Desc
 		return err
 	}
 
-	// See: https://github.com/kyverno/kyverno/security/advisories/GHSA-hjpv-68f4-2262
+	// This check ensures that the manifest does not have an abnormal amount of referrers attached to it to protect against compromised images
 	if len(referrersDescs.Manifests) > maxReferrersCount {
 		return fmt.Errorf("failed to fetch referrers: to many referrers found, max limit is %d", maxReferrersCount)
 	}
@@ -86,7 +86,7 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 	}
 	manifestDesc := manifest.Layers[0]
 
-	// See: https://github.com/kyverno/kyverno/security/advisories/GHSA-4mp4-46gq-hv3r
+	// This check ensures that the size of a layer isn't abnormally large to avoid malicious payloads
 	if manifestDesc.Size > int64(maxPayloadSize) {
 		return nil, ocispec.Descriptor{}, fmt.Errorf("payload size is too large, max size is %d: %+v", maxPayloadSize, manifestDesc)
 	}
