@@ -4,6 +4,7 @@
 
 ### Note
 
+- Added `--tufRoot` and `--tufMirror` flags to configure tuf for custom sigstore deployments.
 - Remove description from deprecated fields in CRDs
 - Remove CLI `kyverno test manifest ...` commands (replaced by `kyverno create ...`).
 - Added `--caSecretName` and `--tlsSecretName` flags to control names of certificate related secrets.

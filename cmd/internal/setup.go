@@ -72,6 +72,9 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	if config.UsesImageVerifyCache() {
 		imageVerifyCache = setupImageVerifyCache(ctx, logger)
 	}
+	if config.UsesCosign() {
+		setupSigstoreTUF(ctx, logger)
+	}
 	var leaderElectionClient kubeclient.UpstreamInterface
 	if config.UsesLeaderElection() {
 		leaderElectionClient = createKubernetesClient(logger, kubeclient.WithMetrics(metricsManager, metrics.KubeClient), kubeclient.WithTracing())

@@ -1,0 +1,4 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl -n test-custom-sigstore run test-sigstore --image=$TEST_IMAGE_URL
