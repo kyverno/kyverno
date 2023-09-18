@@ -447,6 +447,11 @@ features:
   ttlController:
     # -- Reconciliation interval for the label based cleanup manager
     reconciliationInterval: 1m
+  tuf:
+    # -- Tuf root
+    root:
+    # -- Tuf mirror
+    mirror:
 
 # Cleanup cronjobs to prevent internal resources from stacking up in the cluster
 cleanupJobs:
