@@ -18,7 +18,7 @@ type notaryLoggerAdapter struct {
 }
 
 func (nla *notaryLoggerAdapter) Debug(args ...interface{}) {
-	nla.info(args...)
+	nla.logger.V(4).Info(fmt.Sprint(args...))
 }
 
 func (nla *notaryLoggerAdapter) Debugf(format string, args ...interface{}) {
@@ -26,11 +26,11 @@ func (nla *notaryLoggerAdapter) Debugf(format string, args ...interface{}) {
 }
 
 func (nla *notaryLoggerAdapter) Debugln(args ...interface{}) {
-	nla.info(args...)
+	nla.logger.V(4).Info(fmt.Sprintln(args...))
 }
 
 func (nla *notaryLoggerAdapter) Info(args ...interface{}) {
-	nla.info(args...)
+	nla.logger.V(4).Info(fmt.Sprint(args...))
 }
 
 func (nla *notaryLoggerAdapter) Infof(format string, args ...interface{}) {
@@ -38,11 +38,11 @@ func (nla *notaryLoggerAdapter) Infof(format string, args ...interface{}) {
 }
 
 func (nla *notaryLoggerAdapter) Infoln(args ...interface{}) {
-	nla.info(args...)
+	nla.logger.V(4).Info(fmt.Sprintln(args...))
 }
 
 func (nla *notaryLoggerAdapter) Warn(args ...interface{}) {
-	nla.info(args...)
+	nla.logger.V(4).Info(fmt.Sprint(args...))
 }
 
 func (nla *notaryLoggerAdapter) Warnf(format string, args ...interface{}) {
@@ -50,11 +50,11 @@ func (nla *notaryLoggerAdapter) Warnf(format string, args ...interface{}) {
 }
 
 func (nla *notaryLoggerAdapter) Warnln(args ...interface{}) {
-	nla.info(args...)
+	nla.logger.V(4).Info(fmt.Sprintln(args...))
 }
 
 func (nla *notaryLoggerAdapter) Error(args ...interface{}) {
-	nla.error(args...)
+	nla.logger.Error(fmt.Errorf(fmt.Sprint(args...)), "")
 }
 
 func (nla *notaryLoggerAdapter) Errorf(format string, args ...interface{}) {
@@ -62,35 +62,5 @@ func (nla *notaryLoggerAdapter) Errorf(format string, args ...interface{}) {
 }
 
 func (nla *notaryLoggerAdapter) Errorln(args ...interface{}) {
-	nla.error(args...)
-}
-
-func (nla *notaryLoggerAdapter) info(args ...interface{}) {
-	if len(args) == 0 {
-		return
-	}
-
-	if len(args) == 1 {
-		if str, ok := args[0].(string); ok {
-			nla.logger.Info(str)
-			return
-		}
-	}
-
-	nla.logger.V(4).Info(fmt.Sprint(args...))
-}
-
-func (nla *notaryLoggerAdapter) error(args ...interface{}) {
-	if len(args) == 0 {
-		return
-	}
-
-	if len(args) == 1 {
-		if str, ok := args[0].(string); ok {
-			nla.logger.Error(fmt.Errorf(str), "")
-			return
-		}
-	}
-
 	nla.logger.Error(fmt.Errorf(fmt.Sprint(args...)), "")
 }
