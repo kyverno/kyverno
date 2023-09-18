@@ -10,13 +10,13 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -30,7 +30,7 @@ func GetResourceAccordingToResourcePath(
 	resourcePaths []string,
 	cluster bool,
 	policies []kyvernov1.PolicyInterface,
-	validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy,
+	validatingAdmissionPolicies []admissionregistrationv1alpha1.ValidatingAdmissionPolicy,
 	dClient dclient.Interface,
 	namespace string,
 	policyReport bool,
@@ -87,7 +87,7 @@ func GetResourceAccordingToResourcePath(
 	return resources, err
 }
 
-func GetKindsFromPolicy(out io.Writer, policy kyvernov1.PolicyInterface, subresources []valuesapi.Subresource, dClient dclient.Interface) sets.Set[string] {
+func GetKindsFromPolicy(out io.Writer, policy kyvernov1.PolicyInterface, subresources []v1alpha1.Subresource, dClient dclient.Interface) sets.Set[string] {
 	knownkinds := sets.New[string]()
 	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
@@ -110,7 +110,7 @@ func GetKindsFromPolicy(out io.Writer, policy kyvernov1.PolicyInterface, subreso
 	return knownkinds
 }
 
-func getKind(kind string, subresources []valuesapi.Subresource, dClient dclient.Interface) (string, error) {
+func getKind(kind string, subresources []v1alpha1.Subresource, dClient dclient.Interface) (string, error) {
 	group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 	if subresource == "" {
 		return kind, nil
@@ -132,7 +132,7 @@ func getKind(kind string, subresources []valuesapi.Subresource, dClient dclient.
 	return kind, nil
 }
 
-func getSubresourceKind(groupVersion, parentKind, subresourceName string, subresources []valuesapi.Subresource) (string, error) {
+func getSubresourceKind(groupVersion, parentKind, subresourceName string, subresources []v1alpha1.Subresource) (string, error) {
 	for _, subresource := range subresources {
 		parentResourceGroupVersion := metav1.GroupVersion{
 			Group:   subresource.ParentResource.Group,
@@ -140,8 +140,8 @@ func getSubresourceKind(groupVersion, parentKind, subresourceName string, subres
 		}.String()
 		if groupVersion == "" || kubeutils.GroupVersionMatches(groupVersion, parentResourceGroupVersion) {
 			if parentKind == subresource.ParentResource.Kind {
-				if strings.ToLower(subresourceName) == strings.Split(subresource.APIResource.Name, "/")[1] {
-					return subresource.APIResource.Kind, nil
+				if strings.ToLower(subresourceName) == strings.Split(subresource.Subresource.Name, "/")[1] {
+					return subresource.Subresource.Kind, nil
 				}
 			}
 		}
