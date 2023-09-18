@@ -4,7 +4,7 @@ import (
 	"io"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -21,7 +21,7 @@ func (r *KyvernoResources) FetchResourcesFromPolicy(out io.Writer, resourcePaths
 
 	resourceTypesMap := make(map[schema.GroupVersionKind]bool)
 	var resourceTypes []schema.GroupVersionKind
-	var subresourceMap map[schema.GroupVersionKind]valuesapi.Subresource
+	var subresourceMap map[schema.GroupVersionKind]v1alpha1.Subresource
 
 	for _, policy := range r.policies {
 		for _, rule := range autogen.ComputeRules(policy) {
