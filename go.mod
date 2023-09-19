@@ -1,6 +1,6 @@
 module github.com/kyverno/kyverno
 
-go 1.20
+go 1.21
 
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24
