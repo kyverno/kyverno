@@ -163,50 +163,49 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 			patched, parentGVR, patchedSubresource := r.PatchedTarget()
 			switch r.Status() {
 			case engineapi.RuleStatusFail, engineapi.RuleStatusError, engineapi.RuleStatusWarn:
-				err := fmt.Errorf("failed to mutate existing resource, rule response%v: %s", r.Status(), r.Message())
+				err := fmt.Errorf("failed to mutate existing resource, rule %s, response %v: %s", r.Name(), r.Status(), r.Message())
 				logger.Error(err, "")
 				errs = append(errs, err)
 				c.report(err, policy, rule.Name, patched)
 
 			case engineapi.RuleStatusSkip:
-				logger.Info("mutate existing rule skipped", "rule", r.Name(), "message", r.Message())
+				err := fmt.Errorf("mutate existing rule skipped, rule %s, response %v: %s", r.Name(), r.Status(), r.Message())
+				logger.Error(err, "")
 				c.report(err, policy, rule.Name, patched)
 
 			case engineapi.RuleStatusPass:
 				patchedNew := patched
 				if patchedNew == nil {
 					logger.Error(ErrEmptyPatch, "", "rule", r.Name(), "message", r.Message())
-					errs = append(errs, err)
+					errs = append(errs, ErrEmptyPatch)
 					continue
 				}
 
-				if r.Status() == engineapi.RuleStatusPass {
-					patchedNew.SetResourceVersion(patched.GetResourceVersion())
-					var updateErr error
-					if patchedSubresource == "status" {
-						_, updateErr = c.client.UpdateStatusResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
-					} else if patchedSubresource != "" {
-						parentResourceGVR := parentGVR
-						parentResourceGV := schema.GroupVersion{Group: parentResourceGVR.Group, Version: parentResourceGVR.Version}
-						parentResourceGVK, err := c.client.Discovery().GetGVKFromGVR(parentResourceGV.WithResource(parentResourceGVR.Resource))
-						if err != nil {
-							logger.Error(err, "failed to get GVK from GVR", "GVR", parentResourceGVR)
-							errs = append(errs, err)
-							continue
-						}
-						_, updateErr = c.client.UpdateResource(context.TODO(), parentResourceGV.String(), parentResourceGVK.Kind, patchedNew.GetNamespace(), patchedNew.Object, false, patchedSubresource)
-					} else {
-						_, updateErr = c.client.UpdateResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
+				patchedNew.SetResourceVersion(patched.GetResourceVersion())
+				var updateErr error
+				if patchedSubresource == "status" {
+					_, updateErr = c.client.UpdateStatusResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
+				} else if patchedSubresource != "" {
+					parentResourceGVR := parentGVR
+					parentResourceGV := schema.GroupVersion{Group: parentResourceGVR.Group, Version: parentResourceGVR.Version}
+					parentResourceGVK, err := c.client.Discovery().GetGVKFromGVR(parentResourceGV.WithResource(parentResourceGVR.Resource))
+					if err != nil {
+						logger.Error(err, "failed to get GVK from GVR", "GVR", parentResourceGVR)
+						errs = append(errs, err)
+						continue
 					}
-					if updateErr != nil {
-						errs = append(errs, updateErr)
-						logger.WithName(rule.Name).Error(updateErr, "failed to update target resource", "namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())
-					} else {
-						logger.WithName(rule.Name).V(4).Info("successfully mutated existing resource", "namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())
-					}
-
-					c.report(updateErr, policy, rule.Name, patched)
+					_, updateErr = c.client.UpdateResource(context.TODO(), parentResourceGV.String(), parentResourceGVK.Kind, patchedNew.GetNamespace(), patchedNew.Object, false, patchedSubresource)
+				} else {
+					_, updateErr = c.client.UpdateResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
 				}
+				if updateErr != nil {
+					errs = append(errs, updateErr)
+					logger.WithName(rule.Name).Error(updateErr, "failed to update target resource", "namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())
+				} else {
+					logger.WithName(rule.Name).V(4).Info("successfully mutated existing resource", "namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())
+				}
+
+				c.report(updateErr, policy, rule.Name, patched)
 			}
 		}
 	}
