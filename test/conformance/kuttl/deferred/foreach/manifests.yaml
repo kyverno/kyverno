@@ -1,13 +1,16 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: testcase-7fki3
 spec:
-  schemaValidation: false
+  admission: true
   background: false
-  validationFailureAction: Enforce
   rules:
-  - name: mutate1
+  - context:
+    - name: var1
+      variable:
+        value: AAA
     match:
       all:
       - resources:
@@ -15,31 +18,27 @@ spec:
           - v1/ConfigMap
           names:
           - testcase-7fki3-resource
-    context:
-    - name: var1
-      variable:
-        value: AAA
+    mutate:
+      foreach:
+      - list: '[''dummy'']'
+        patchStrategicMerge:
+          data:
+            from_loop_1: '{{ var1 || ''!!!variable not resolved!!!'' }}'
+      - list: '[''dummy'']'
+        patchStrategicMerge:
+          data:
+            from_loop_2: '{{ var1 || ''!!!variable not resolved!!!'' }}'
+      - list: '[''dummy'']'
+        patchStrategicMerge:
+          data:
+            from_loop_3: '{{ var1 || ''!!!variable not resolved!!!'' }}'
+    name: mutate1
     preconditions:
       all:
-      - key: "{{ request.operation }}"
-        operator: In
+      - key: '{{ request.operation }}'
+        operator: AllIn
         value:
         - CREATE
         - UPDATE
-    mutate:
-      foreach:
-      # first loop
-      - list: "['dummy']"
-        patchStrategicMerge:
-          data:
-            from_loop_1: "{{ var1 || '!!!variable not resolved!!!' }}"
-      # second loop
-      - list: "['dummy']"
-        patchStrategicMerge:
-          data:
-            from_loop_2: "{{ var1 || '!!!variable not resolved!!!' }}"
-      # third loop
-      - list: "['dummy']"
-        patchStrategicMerge:
-          data:
-            from_loop_3: "{{ var1 || '!!!variable not resolved!!!' }}"
+  schemaValidation: false
+  validationFailureAction: Enforce

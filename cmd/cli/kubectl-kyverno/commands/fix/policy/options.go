@@ -107,6 +107,18 @@ func (o options) processFile(out io.Writer, path string) {
 				rule := rule.(map[string]interface{})
 				unstructured.RemoveNestedField(rule, "exclude", "resources")
 				unstructured.RemoveNestedField(rule, "match", "resources")
+				if any, ok, err := unstructured.NestedFieldNoCopy(rule, "match", "any"); ok && err == nil {
+					cleanResourceFilters(any.([]interface{}))
+				}
+				if all, ok, err := unstructured.NestedFieldNoCopy(rule, "match", "all"); ok && err == nil {
+					cleanResourceFilters(all.([]interface{}))
+				}
+				if any, ok, err := unstructured.NestedFieldNoCopy(rule, "exclude", "any"); ok && err == nil {
+					cleanResourceFilters(any.([]interface{}))
+				}
+				if all, ok, err := unstructured.NestedFieldNoCopy(rule, "exclude", "all"); ok && err == nil {
+					cleanResourceFilters(all.([]interface{}))
+				}
 				if item, _, _ := unstructured.NestedMap(rule, "generate", "clone"); len(item) == 0 {
 					unstructured.RemoveNestedField(rule, "generate", "clone")
 				}
@@ -163,5 +175,14 @@ func (o options) processFile(out io.Writer, path string) {
 			return
 		}
 		fmt.Fprintln(out, "    OK")
+	}
+}
+
+func cleanResourceFilters(rf []interface{}) {
+	for _, f := range rf {
+		a := f.(map[string]interface{})
+		if item, _, _ := unstructured.NestedMap(a, "resources"); len(item) == 0 {
+			unstructured.RemoveNestedField(a, "resources")
+		}
 	}
 }
