@@ -3,7 +3,7 @@
 {{- define "kyverno.pdb.apiVersion" -}}
 {{- if .Values.apiVersionOverride.podDisruptionBudget -}}
   {{- .Values.apiVersionOverride.podDisruptionBudget -}}
-{{- else if .Capabilities.APIVersions.Has "policy/v1/PodDisruptionBudget" -}}
+{{- else if .Capabilities.APIVersions.Has "policy/v1" -}}
   policy/v1
 {{- else -}}
   policy/v1beta1
