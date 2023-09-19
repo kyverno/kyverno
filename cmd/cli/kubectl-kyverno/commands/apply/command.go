@@ -132,10 +132,11 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	var userInfo *v1beta1.RequestInfo
 	if c.UserInfoPath != "" {
-		userInfo, err = userinfo.Load(nil, c.UserInfoPath, "")
+		info, err := userinfo.Load(nil, c.UserInfoPath, "")
 		if err != nil {
 			return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("failed to load request info (%w)", err)
 		}
+		userInfo = &info.RequestInfo
 	}
 	variables, err := variables.New(nil, "", c.ValuesFile, nil, c.Variables...)
 	if err != nil {

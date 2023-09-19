@@ -1,12 +1,12 @@
 package webhook
 
 import (
+	"cmp"
+	"slices"
 	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	"golang.org/x/exp/slices"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -46,11 +46,11 @@ func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.Opera
 		})
 	}
 	less := func(a []string, b []string) (int, bool) {
-		if x := datautils.Compare(len(a), len(b)); x != 0 {
+		if x := cmp.Compare(len(a), len(b)); x != 0 {
 			return x, true
 		}
 		for i := range a {
-			if x := datautils.Compare(a[i], b[i]); x != 0 {
+			if x := cmp.Compare(a[i], b[i]); x != 0 {
 				return x, true
 			}
 		}

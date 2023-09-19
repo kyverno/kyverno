@@ -21,4 +21,3 @@ values:
     - name: nginx-demo
       values:
         request.operation: CREATE
-variables: variables.yaml
