@@ -1,22 +1,24 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: mutate
 spec:
-  validationFailureAction: Audit
   admission: false
   background: true
   rules:
-  - name: mutate
-    match:
-      resources:
-        kinds:
-        - Pod
-        - Service
-        - ConfigMap
-        - Secret
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          - Service
+          - ConfigMap
+          - Secret
     mutate:
       patchStrategicMerge:
         metadata:
           labels:
             foo: bar
+    name: mutate
+  validationFailureAction: Audit

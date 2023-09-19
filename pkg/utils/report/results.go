@@ -1,6 +1,8 @@
 package report
 
 import (
+	"cmp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -11,29 +13,27 @@ import (
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
 func SortReportResults(results []policyreportv1alpha2.PolicyReportResult) {
 	slices.SortFunc(results, func(a policyreportv1alpha2.PolicyReportResult, b policyreportv1alpha2.PolicyReportResult) int {
-		if x := datautils.Compare(a.Policy, b.Policy); x != 0 {
+		if x := cmp.Compare(a.Policy, b.Policy); x != 0 {
 			return x
 		}
-		if x := datautils.Compare(a.Rule, b.Rule); x != 0 {
+		if x := cmp.Compare(a.Rule, b.Rule); x != 0 {
 			return x
 		}
-		if x := datautils.Compare(len(a.Resources), len(b.Resources)); x != 0 {
+		if x := cmp.Compare(len(a.Resources), len(b.Resources)); x != 0 {
 			return x
 		}
 		for i := range a.Resources {
-			if x := datautils.Compare(a.Resources[i].UID, b.Resources[i].UID); x != 0 {
+			if x := cmp.Compare(a.Resources[i].UID, b.Resources[i].UID); x != 0 {
 				return x
 			}
 		}
-		return datautils.Compare(a.Timestamp.String(), b.Timestamp.String())
+		return cmp.Compare(a.Timestamp.String(), b.Timestamp.String())
 	})
 }
 
