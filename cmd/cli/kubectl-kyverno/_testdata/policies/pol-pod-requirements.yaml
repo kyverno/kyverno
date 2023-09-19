@@ -1,0 +1,45 @@
+---
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+    policies.kyverno.io/category: Pod Security Standards (Restricted)
+    policies.kyverno.io/severity: medium
+  name: pod-requirements
+  namespace: test
+spec:
+  admission: true
+  background: false
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: pods-require-account
+    validate:
+      message: User pods must include an account for charging
+      pattern:
+        metadata:
+          labels:
+            account: '*?'
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: pods-require-limits
+    validate:
+      message: CPU and memory resource requests and limits are required for user pods
+      pattern:
+        spec:
+          containers:
+          - resources:
+              limits:
+                cpu: ?*
+                memory: ?*
+              requests:
+                cpu: ?*
+                memory: ?*
+  validationFailureAction: Audit

@@ -6,26 +6,28 @@ import (
 	"os"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/experimental"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/spf13/cobra"
 )
 
 func main() {
-	if err := run(); err != nil {
+	cmd, err := setup()
+	if err != nil {
 		fmt.Println("Error:", err)
+		os.Exit(1)
+	}
+	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
 	}
 }
 
-func run() error {
-	cmd := commands.RootCommand()
+func setup() (*cobra.Command, error) {
+	cmd := commands.RootCommand(experimental.IsEnabled())
 	if err := configureLogs(cmd); err != nil {
-		return fmt.Errorf("Failed to setup logging (%w)", err)
+		return nil, fmt.Errorf("Failed to setup logging (%w)", err)
 	}
-	if err := cmd.Execute(); err != nil {
-		return fmt.Errorf("Failed to execute command (%w)", err)
-	}
-	return nil
+	return cmd, nil
 }
 
 func configureLogs(cli *cobra.Command) error {

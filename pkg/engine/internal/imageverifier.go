@@ -554,15 +554,16 @@ func (iv *ImageVerifier) buildCosignVerifier(
 			opts.IgnoreTlog = attestor.Keys.Rekor.IgnoreTlog
 		} else {
 			opts.RekorURL = "https://rekor.sigstore.dev"
-			opts.IgnoreSCT = false
 			opts.IgnoreTlog = false
 		}
 
 		if attestor.Keys.CTLog != nil {
 			opts.IgnoreSCT = attestor.Keys.CTLog.IgnoreSCT
+			opts.CTLogsPubKey = attestor.Keys.CTLog.CTLogPubKey
 		} else {
 			opts.IgnoreSCT = false
 		}
+
 		opts.SignatureAlgorithm = attestor.Keys.SignatureAlgorithm
 	} else if attestor.Certificates != nil {
 		path = path + ".certificates"
@@ -579,12 +580,12 @@ func (iv *ImageVerifier) buildCosignVerifier(
 			opts.IgnoreTlog = attestor.Keyless.Rekor.IgnoreTlog
 		} else {
 			opts.RekorURL = "https://rekor.sigstore.dev"
-			opts.IgnoreSCT = false
 			opts.IgnoreTlog = false
 		}
 
 		if attestor.Keyless.CTLog != nil {
 			opts.IgnoreSCT = attestor.Keyless.CTLog.IgnoreSCT
+			opts.CTLogsPubKey = attestor.Keyless.CTLog.CTLogPubKey
 		} else {
 			opts.IgnoreSCT = false
 		}

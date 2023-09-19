@@ -2,17 +2,19 @@ package test
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/go-git/go-billy/v5"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/test"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 )
 
 func printTestResult(
-	tests []testapi.TestResults,
+	out io.Writer,
+	tests []v1alpha1.TestResult,
 	responses []engineapi.EngineResponse,
 	rc *resultCounts,
 	failOnly bool,
@@ -20,7 +22,7 @@ func printTestResult(
 	fs billy.Filesystem,
 	resoucePath string,
 ) (table.Table, error) {
-	printer := table.NewTablePrinter()
+	printer := table.NewTablePrinter(out)
 	var resultsTable table.Table
 	var countDeprecatedResource int
 	testCount := 1
@@ -48,7 +50,7 @@ func printTestResult(
 					// if checks failed but we were expecting a fail it's considered a success
 					success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
 					row := table.Row{
-						CompactRow: table.CompactRow{
+						RowCompact: table.RowCompact{
 							ID:        testCount,
 							Policy:    color.Policy("", test.Policy),
 							Rule:      color.Rule(test.Rule),
@@ -76,7 +78,7 @@ func printTestResult(
 			// if not found
 			if len(rows) == 0 {
 				row := table.Row{
-					CompactRow: table.CompactRow{
+					RowCompact: table.RowCompact{
 						ID:        testCount,
 						Policy:    color.Policy("", test.Policy),
 						Rule:      color.Rule(test.Rule),
@@ -95,17 +97,18 @@ func printTestResult(
 			}
 		}
 	}
-	fmt.Printf("\n")
+	fmt.Fprintln(out)
 	printer.Print(resultsTable.Rows(detailedResults))
+	fmt.Fprintln(out)
 	return resultsTable, nil
 }
 
-func printFailedTestResult(resultsTable table.Table, detailedResults bool) {
-	printer := table.NewTablePrinter()
+func printFailedTestResult(out io.Writer, resultsTable table.Table, detailedResults bool) {
+	printer := table.NewTablePrinter(out)
 	for i := range resultsTable.RawRows {
 		resultsTable.RawRows[i].ID = i + 1
 	}
-	fmt.Printf("Aggregated Failed Test Cases : ")
-	fmt.Println()
+	fmt.Fprintf(out, "Aggregated Failed Test Cases : ")
+	fmt.Fprintln(out)
 	printer.Print(resultsTable.Rows(detailedResults))
 }

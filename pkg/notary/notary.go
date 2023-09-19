@@ -15,6 +15,7 @@ import (
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	_ "github.com/notaryproject/notation-core-go/signature/jws"
 	"github.com/notaryproject/notation-go"
+	notationlog "github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/verifier"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/opencontainers/go-digest"
@@ -22,6 +23,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"go.uber.org/multierr"
+)
+
+var (
+	maxReferrersCount = 50
+	maxPayloadSize    = 10 * 1000 * 1000 // 10 MB
 )
 
 func NewVerifier() images.ImageVerifier {
@@ -63,7 +69,7 @@ func (v *notaryVerifier) VerifySignature(ctx context.Context, opts images.Option
 		MaxSignatureAttempts: 10,
 	}
 
-	targetDesc, outcomes, err := notation.Verify(context.TODO(), notationVerifier, parsedRef.Repo, remoteVerifyOptions)
+	targetDesc, outcomes, err := notation.Verify(notationlog.WithLogger(ctx, NotaryLoggerAdapter(v.log.WithName("Notary Verifier Debug"))), notationVerifier, parsedRef.Repo, remoteVerifyOptions)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to verify %s", ref)
 	}
@@ -160,6 +166,11 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 	referrersDescs, err := referrers.IndexManifest()
 	if err != nil {
 		return nil, err
+	}
+
+	// This check ensures that the manifest does not have an abnormal amount of referrers attached to it to protect against compromised images
+	if len(referrersDescs.Manifests) > maxReferrersCount {
+		return nil, fmt.Errorf("failed to fetch referrers: to many referrers found, max limit is %d", maxReferrersCount)
 	}
 
 	v.log.V(4).Info("fetched referrers", "referrers", referrersDescs)
@@ -307,6 +318,11 @@ func extractStatement(ctx context.Context, repoRef name.Reference, desc v1.Descr
 		return nil, fmt.Errorf("multiple layers in predicate not supported: %+v", manifest)
 	}
 	predicateDesc := manifest.Layers[0]
+
+	// This check ensures that the size of a layer isn't abnormally large to avoid malicious payloads
+	if predicateDesc.Size > int64(maxPayloadSize) {
+		return nil, fmt.Errorf("payload size is too large, max size is %d: %+v", maxPayloadSize, predicateDesc)
+	}
 
 	layer, err := gcrremote.Layer(ref.Context().Digest(predicateDesc.Digest.String()), remoteOpts...)
 	if err != nil {

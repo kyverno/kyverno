@@ -1,0 +1,25 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
+policies:
+- policy.yaml
+resources:
+- deployment.yaml
+results:
+- cloneSourceResource: cm.yaml
+  generatedResource: gen-cm.yaml
+  kind: Deployment
+  policy: sync-controller-data
+  resources:
+  - kubernetes-cluster-controller
+  result: pass
+  rule: sync-controller-configmap
+- cloneSourceResource: secret.yaml
+  generatedResource: gen-secret.yaml
+  kind: Deployment
+  policy: sync-controller-data
+  resources:
+  - kubernetes-cluster-controller
+  result: pass
+  rule: sync-controller-secret

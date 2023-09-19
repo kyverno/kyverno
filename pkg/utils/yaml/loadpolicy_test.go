@@ -314,8 +314,8 @@ spec:
         apiVersions: ["v1"]
         operations:  ["CREATE", "UPDATE"]
         resources:   ["deployments"]
-    validations:
-      - expression: "object.spec.replicas <= 5"
+  validations:
+    - expression: "object.spec.replicas <= 5"
 `),
 		}, validatingAdmissionPolicies: []policy{
 			{"ValidatingAdmissionPolicy", ""},
@@ -337,8 +337,8 @@ spec:
         apiVersions: ["v1"]
         operations:  ["CREATE", "UPDATE"]
         resources:   ["deployments"]
-    validations:
-      - expression: "object.spec.replicas <= 5"
+  validations:
+    - expression: "object.spec.replicas <= 5"
 ---
 apiVersion: kyverno.io/v1
 kind: Policy
@@ -391,8 +391,8 @@ spec:
         apiVersions: ["v1"]
         operations:  ["CREATE", "UPDATE"]
         resources:   ["deployments"]
-    validations:
-      - expression: "object.spec.replicas <= 5"
+  validations:
+    - expression: "object.spec.replicas <= 5"
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
