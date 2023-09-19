@@ -133,22 +133,6 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
-func (c *controller) cleanReports(ctx context.Context, actual map[string]kyvernov1alpha2.ReportInterface, expected []kyvernov1alpha2.ReportInterface) error {
-	keep := sets.New[string]()
-	for _, obj := range expected {
-		keep.Insert(obj.GetName())
-	}
-	for _, obj := range actual {
-		if !keep.Has(obj.GetName()) {
-			err := reportutils.DeleteReport(ctx, obj, c.client)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 func mergeReports(policyMap map[string]policyMapEntry, accumulator map[string]policyreportv1alpha2.PolicyReportResult, reports ...kyvernov1alpha2.ReportInterface) {
 	for _, report := range reports {
 		if report != nil {
@@ -326,6 +310,16 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 				if _, err := reportutils.UpdateReport(ctx, policyReport, c.client); err != nil {
 					return err
 				}
+			}
+		}
+		if admissionReport != nil {
+			if err := reportutils.DeleteReport(ctx, admissionReport, c.client); err != nil {
+				return err
+			}
+		}
+		if backgroundReport != nil {
+			if err := reportutils.DeleteReport(ctx, backgroundReport, c.client); err != nil {
+				return err
 			}
 		}
 	}
