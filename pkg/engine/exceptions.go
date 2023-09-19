@@ -1,15 +1,15 @@
 package engine
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/pss"
 	matched "github.com/kyverno/kyverno/pkg/utils/match"
-	"github.com/kyverno/kyverno/pkg/utils/wildcard"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 )
@@ -55,24 +55,7 @@ func matchesException(
 		resource = policyContext.OldResource()
 	}
 	for _, candidate := range candidates {
-		if candidate.HasPodSecuruty() {
-			if rule.HasValidatePodSecurity() {
-				for _, pss := range rule.Validation.PodSecurity.Exclude {
-					if wildcard.Match(pss.ControlName, candidate.Spec.PodSecurity.ControlName) {
-						for _, iref := range pss.Images {
-							for _, i := range candidate.Spec.PodSecurity.Images {
-								if wildcard.Match(iref, i) {
-									return candidate, nil
-								}
-							}
-						}
-					}
-				}
-			}
-			return nil, errors.New("no image is matched")
-		}
-
-		err := matched.CheckMatchesResources(
+		err = matched.CheckMatchesResources(
 			resource,
 			candidate.Spec.Match,
 			policyContext.NamespaceLabels(),
@@ -82,6 +65,17 @@ func matchesException(
 		)
 		// if there's no error it means a match
 		if err == nil {
+			if rule.HasValidatePodSecurity() && candidate.HasPodSecuruty() {
+				// copy the rule
+				r := rule.DeepCopy()
+
+				exclude := make([]kyvernov1.PodSecurityStandard, 1)
+				exclude[0] = *candidate.Spec.PodSecurity
+
+				// Set the validation.podsecurity.exclude in the rule
+				r.Validation.PodSecurity.Exclude = exclude
+				_, _, _ = pss.EvaluatePod(r.Validation.PodSecurity, &v1.Pod{})
+			}
 			return candidate, nil
 		}
 	}
