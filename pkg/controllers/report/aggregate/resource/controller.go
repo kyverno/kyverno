@@ -2,7 +2,6 @@ package resource
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -15,13 +14,13 @@ import (
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
-	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
-	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
@@ -64,7 +63,7 @@ type policyMapEntry struct {
 }
 
 func keyFunc(obj metav1.Object) cache.ExplicitKey {
-	return cache.ExplicitKey(obj.GetUID())
+	return cache.ExplicitKey(obj.GetName())
 }
 
 func NewController(
@@ -134,118 +133,6 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
-func (c *controller) mergeAdmissionReports(ctx context.Context, namespace string, policyMap map[string]policyMapEntry, accumulator map[string]policyreportv1alpha2.PolicyReportResult) error {
-	if namespace == "" {
-		next := ""
-		for {
-			cadms, err := c.client.KyvernoV1alpha2().ClusterAdmissionReports().List(ctx, metav1.ListOptions{
-				// no need to consider non aggregated reports
-				LabelSelector: reportutils.LabelAggregatedReport,
-				Limit:         mergeLimit,
-				Continue:      next,
-			})
-			if err != nil {
-				return err
-			}
-			next = cadms.Continue
-			for i := range cadms.Items {
-				mergeReports(policyMap, accumulator, &cadms.Items[i])
-			}
-			if next == "" {
-				return nil
-			}
-		}
-	} else {
-		next := ""
-		for {
-			adms, err := c.client.KyvernoV1alpha2().AdmissionReports(namespace).List(ctx, metav1.ListOptions{
-				// no need to consider non aggregated reports
-				LabelSelector: reportutils.LabelAggregatedReport,
-				Limit:         mergeLimit,
-				Continue:      next,
-			})
-			if err != nil {
-				return err
-			}
-			next = adms.Continue
-			for i := range adms.Items {
-				mergeReports(policyMap, accumulator, &adms.Items[i])
-			}
-			if next == "" {
-				return nil
-			}
-		}
-	}
-}
-
-func (c *controller) mergeBackgroundScanReports(ctx context.Context, namespace string, policyMap map[string]policyMapEntry, accumulator map[string]policyreportv1alpha2.PolicyReportResult) error {
-	if namespace == "" {
-		next := ""
-		for {
-			cbgscans, err := c.client.KyvernoV1alpha2().ClusterBackgroundScanReports().List(ctx, metav1.ListOptions{
-				Limit:    mergeLimit,
-				Continue: next,
-			})
-			if err != nil {
-				return err
-			}
-			next = cbgscans.Continue
-			for i := range cbgscans.Items {
-				mergeReports(policyMap, accumulator, &cbgscans.Items[i])
-			}
-			if next == "" {
-				return nil
-			}
-		}
-	} else {
-		next := ""
-		for {
-			bgscans, err := c.client.KyvernoV1alpha2().BackgroundScanReports(namespace).List(ctx, metav1.ListOptions{
-				Limit:    mergeLimit,
-				Continue: next,
-			})
-			if err != nil {
-				return err
-			}
-			next = bgscans.Continue
-			for i := range bgscans.Items {
-				mergeReports(policyMap, accumulator, &bgscans.Items[i])
-			}
-			if next == "" {
-				return nil
-			}
-		}
-	}
-}
-
-func (c *controller) reconcileReport(ctx context.Context, policyMap map[string]policyMapEntry, report kyvernov1alpha2.ReportInterface, namespace, name string, results ...policyreportv1alpha2.PolicyReportResult) (kyvernov1alpha2.ReportInterface, error) {
-	if report == nil {
-		report = reportutils.NewPolicyReport(namespace, name, results...)
-		for _, result := range results {
-			policy := policyMap[result.Policy]
-			if policy.policy != nil {
-				reportutils.SetPolicyLabel(report, engineapi.NewKyvernoPolicy(policy.policy))
-			}
-		}
-		return reportutils.CreateReport(ctx, report, c.client)
-	}
-	after := reportutils.DeepCopy(report)
-	// hold custom labels
-	reportutils.CleanupKyvernoLabels(after)
-	reportutils.SetManagedByKyvernoLabel(after)
-	for _, result := range results {
-		policy := policyMap[result.Policy]
-		if policy.policy != nil {
-			reportutils.SetPolicyLabel(after, engineapi.NewKyvernoPolicy(policy.policy))
-		}
-	}
-	reportutils.SetResults(after, results...)
-	if datautils.DeepEqual(report, after) {
-		return after, nil
-	}
-	return reportutils.UpdateReport(ctx, after, c.client)
-}
-
 func (c *controller) cleanReports(ctx context.Context, actual map[string]kyvernov1alpha2.ReportInterface, expected []kyvernov1alpha2.ReportInterface) error {
 	keep := sets.New[string]()
 	for _, obj := range expected {
@@ -264,24 +151,26 @@ func (c *controller) cleanReports(ctx context.Context, actual map[string]kyverno
 
 func mergeReports(policyMap map[string]policyMapEntry, accumulator map[string]policyreportv1alpha2.PolicyReportResult, reports ...kyvernov1alpha2.ReportInterface) {
 	for _, report := range reports {
-		if len(report.GetOwnerReferences()) == 1 {
-			ownerRef := report.GetOwnerReferences()[0]
-			objectRefs := []corev1.ObjectReference{{
-				APIVersion: ownerRef.APIVersion,
-				Kind:       ownerRef.Kind,
-				Namespace:  report.GetNamespace(),
-				Name:       ownerRef.Name,
-				UID:        ownerRef.UID,
-			}}
-			for _, result := range report.GetResults() {
-				currentPolicy := policyMap[result.Policy]
-				if currentPolicy.rules != nil && currentPolicy.rules.Has(result.Rule) {
-					key := result.Policy + "/" + result.Rule + "/" + string(ownerRef.UID)
-					result.Resources = objectRefs
-					if rule, exists := accumulator[key]; !exists {
-						accumulator[key] = result
-					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
-						accumulator[key] = result
+		if report != nil {
+			if len(report.GetOwnerReferences()) == 1 {
+				ownerRef := report.GetOwnerReferences()[0]
+				objectRefs := []corev1.ObjectReference{{
+					APIVersion: ownerRef.APIVersion,
+					Kind:       ownerRef.Kind,
+					Namespace:  report.GetNamespace(),
+					Name:       ownerRef.Name,
+					UID:        ownerRef.UID,
+				}}
+				for _, result := range report.GetResults() {
+					currentPolicy := policyMap[result.Policy]
+					if currentPolicy.rules != nil && currentPolicy.rules.Has(result.Rule) {
+						key := result.Policy + "/" + result.Rule + "/" + string(ownerRef.UID)
+						result.Resources = objectRefs
+						if rule, exists := accumulator[key]; !exists {
+							accumulator[key] = result
+						} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
+							accumulator[key] = result
+						}
 					}
 				}
 			}
@@ -328,89 +217,117 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 	return results, nil
 }
 
-func (c *controller) buildReportsResults(ctx context.Context, namespace string) ([]policyreportv1alpha2.PolicyReportResult, map[string]policyMapEntry, error) {
-	policyMap, err := c.createPolicyMap()
-	if err != nil {
-		return nil, nil, err
+func (c *controller) getBackgroundScanReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
+	if namespace == "" {
+		report, err := c.client.KyvernoV1alpha2().ClusterBackgroundScanReports().Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		return report, nil
+	} else {
+		report, err := c.client.KyvernoV1alpha2().BackgroundScanReports(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		return report, nil
 	}
-	merged := map[string]policyreportv1alpha2.PolicyReportResult{}
-	if err := c.mergeAdmissionReports(ctx, namespace, policyMap, merged); err != nil {
-		return nil, nil, err
-	}
-	if err := c.mergeBackgroundScanReports(ctx, namespace, policyMap, merged); err != nil {
-		return nil, nil, err
-	}
-	var results []policyreportv1alpha2.PolicyReportResult
-	for _, result := range merged {
-		results = append(results, result)
-	}
-	return results, policyMap, nil
 }
 
-func (c *controller) getPolicyReports(ctx context.Context, namespace string) ([]kyvernov1alpha2.ReportInterface, error) {
-	var reports []kyvernov1alpha2.ReportInterface
+func (c *controller) getAdmissionReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
-		list, err := c.client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().List(ctx, metav1.ListOptions{})
+		report, err := c.client.KyvernoV1alpha2().ClusterAdmissionReports().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
-		for i := range list.Items {
-			if controllerutils.IsManagedByKyverno(&list.Items[i]) {
-				reports = append(reports, &list.Items[i])
-			}
-		}
+		return report, nil
 	} else {
-		list, err := c.client.Wgpolicyk8sV1alpha2().PolicyReports(namespace).List(ctx, metav1.ListOptions{})
+		report, err := c.client.KyvernoV1alpha2().AdmissionReports(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
-		for i := range list.Items {
-			if controllerutils.IsManagedByKyverno(&list.Items[i]) {
-				reports = append(reports, &list.Items[i])
-			}
-		}
+		return report, nil
 	}
-	return reports, nil
+}
+
+func (c *controller) getPolicyReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
+	if namespace == "" {
+		report, err := c.client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		return report, nil
+	} else {
+		report, err := c.client.Wgpolicyk8sV1alpha2().PolicyReports(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		return report, nil
+	}
+}
+
+func (c *controller) getReports(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, kyvernov1alpha2.ReportInterface, error) {
+	admissionReport, err := c.getAdmissionReport(ctx, namespace, name)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, nil, err
+	}
+	backgroundReport, err := c.getBackgroundScanReport(ctx, namespace, name)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, nil, err
+	}
+	return admissionReport, backgroundReport, nil
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, _ string) error {
-	report := reportutils.NewPolicyReport("", key)
-	_, err := reportutils.CreateReport(ctx, report, c.client)
-	return err
-	results, policyMap, err := c.buildReportsResults(ctx, key)
-	if err != nil {
-		return err
-	}
-	policyReports, err := c.getPolicyReports(ctx, key)
-	if err != nil {
-		return err
-	}
-	actual := map[string]kyvernov1alpha2.ReportInterface{}
-	for _, report := range policyReports {
-		actual[report.GetName()] = report
-	}
-	splitReports := reportutils.SplitResultsByPolicy(logger, results)
-	var expected []kyvernov1alpha2.ReportInterface
-	chunkSize := c.chunkSize
-	if chunkSize <= 0 {
-		chunkSize = len(results)
-	}
-	for name, results := range splitReports {
-		for i := 0; i < len(results); i += chunkSize {
-			end := i + chunkSize
-			if end > len(results) {
-				end = len(results)
-			}
-			name := name
-			if i > 0 {
-				name = fmt.Sprintf("%s-%d", name, i/chunkSize)
-			}
-			report, err := c.reconcileReport(ctx, policyMap, actual[name], key, name, results[i:end]...)
-			if err != nil {
+	uid := types.UID(key)
+	resource, gvk, exists := c.metadataCache.GetResourceHash(uid)
+	if exists {
+		admissionReport, backgroundReport, err := c.getReports(ctx, resource.Namespace, key)
+		if err != nil {
+			return err
+		}
+		if admissionReport == nil && backgroundReport == nil {
+			return nil
+		}
+		policyReport, err := c.getPolicyReport(ctx, resource.Namespace, key)
+		if err != nil {
+			return err
+		}
+		create := false
+		if policyReport == nil {
+			create = true
+			policyReport = reportutils.NewPolicyReport(resource.Namespace, key)
+		}
+		controllerutils.SetOwner(policyReport, gvk.GroupVersion().String(), gvk.Kind, resource.Name, uid)
+		reportutils.SetResourceUid(policyReport, uid)
+		// reportutils.SetResourceGVR(report, gvr)
+		reportutils.SetResourceNamespaceAndName(policyReport, resource.Namespace, resource.Name)
+		// aggregate reports
+		policyMap, err := c.createPolicyMap()
+		if err != nil {
+			return err
+		}
+		merged := map[string]policyreportv1alpha2.PolicyReportResult{}
+		mergeReports(policyMap, merged, policyReport, admissionReport, backgroundReport)
+		var results []policyreportv1alpha2.PolicyReportResult
+		for _, result := range merged {
+			results = append(results, result)
+		}
+		if len(results) == 0 {
+			if err := reportutils.DeleteReport(ctx, policyReport, c.client); err != nil {
 				return err
 			}
-			expected = append(expected, report)
+		} else {
+			reportutils.SetResults(policyReport, results...)
+			if create {
+				if _, err := reportutils.CreateReport(ctx, policyReport, c.client); err != nil {
+					return err
+				}
+			} else {
+				if _, err := reportutils.UpdateReport(ctx, policyReport, c.client); err != nil {
+					return err
+				}
+			}
 		}
 	}
-	return c.cleanReports(ctx, actual, expected)
+	return nil
 }

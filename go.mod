@@ -196,6 +196,7 @@ require (
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
+	github.com/frankban/quicktest v1.14.5 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.5.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
@@ -370,7 +371,7 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.44.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric v0.41.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
-	go.starlark.net v0.0.0-20230814145427-12f4cb8177e4 // indirect
+	go.starlark.net v0.0.0-20230912135651-745481cf39ed // indirect
 	go.step.sm/crypto v0.35.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go4.org/intern v0.0.0-20230525184215-6c62f75575cb // indirect
