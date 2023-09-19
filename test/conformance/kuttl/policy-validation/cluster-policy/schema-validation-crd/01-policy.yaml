@@ -22,7 +22,7 @@ spec:
       - resources:
           kinds:
           - CustomResourceDefinition
-      - subjects:
+        subjects:
         - kind: Group
           name: aad:9b9had99-6k66-2222-9999-8aadb888e888
     mutate:
