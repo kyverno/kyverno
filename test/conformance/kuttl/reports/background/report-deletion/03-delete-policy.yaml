@@ -4,5 +4,3 @@ delete:
 - apiVersion: kyverno.io/v1
   kind: ClusterPolicy
   name: podsecurity-subrule-restricted
-error:
-- report-error.yaml

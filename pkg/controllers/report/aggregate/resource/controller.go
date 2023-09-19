@@ -29,10 +29,9 @@ import (
 
 const (
 	// Workers is the number of workers for this controller
-	Workers        = 1
-	ControllerName = "namespace-aggregate-report-controller"
+	Workers        = 10
+	ControllerName = "resource-aggregate-report-controller"
 	maxRetries     = 10
-	mergeLimit     = 1000
 	enqueueDelay   = 10 * time.Second
 )
 
@@ -41,12 +40,8 @@ type controller struct {
 	client versioned.Interface
 
 	// listers
-	polLister      kyvernov1listers.PolicyLister
-	cpolLister     kyvernov1listers.ClusterPolicyLister
-	admrLister     cache.GenericLister
-	cadmrLister    cache.GenericLister
-	bgscanrLister  cache.GenericLister
-	cbgscanrLister cache.GenericLister
+	polLister  kyvernov1listers.PolicyLister
+	cpolLister kyvernov1listers.ClusterPolicyLister
 
 	// queue
 	queue workqueue.RateLimitingInterface
@@ -60,10 +55,6 @@ type controller struct {
 type policyMapEntry struct {
 	policy kyvernov1.PolicyInterface
 	rules  sets.Set[string]
-}
-
-func keyFunc(obj metav1.Object) cache.ExplicitKey {
-	return cache.ExplicitKey(obj.GetName())
 }
 
 func NewController(
@@ -81,33 +72,51 @@ func NewController(
 	polrInformer := metadataFactory.ForResource(policyreportv1alpha2.SchemeGroupVersion.WithResource("policyreports"))
 	cpolrInformer := metadataFactory.ForResource(policyreportv1alpha2.SchemeGroupVersion.WithResource("clusterpolicyreports"))
 	c := controller{
-		client:         client,
-		polLister:      polInformer.Lister(),
-		cpolLister:     cpolInformer.Lister(),
-		admrLister:     admrInformer.Lister(),
-		cadmrLister:    cadmrInformer.Lister(),
-		bgscanrLister:  bgscanrInformer.Lister(),
-		cbgscanrLister: cbgscanrInformer.Lister(),
-		queue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
-		metadataCache:  metadataCache,
-		chunkSize:      chunkSize,
+		client:        client,
+		polLister:     polInformer.Lister(),
+		cpolLister:    cpolInformer.Lister(),
+		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
+		metadataCache: metadataCache,
+		chunkSize:     chunkSize,
 	}
-	if _, _, err := controllerutils.AddDelayedExplicitEventHandlers(logger, polrInformer.Informer(), c.queue, enqueueDelay, keyFunc); err != nil {
+	enqueueAll := func() {
+		if list, err := polrInformer.Lister().List(labels.Everything()); err == nil {
+			for _, item := range list {
+				c.queue.AddAfter(controllerutils.MetaObjectToName(item.(*metav1.PartialObjectMetadata)), enqueueDelay)
+			}
+		}
+		if list, err := cpolrInformer.Lister().List(labels.Everything()); err == nil {
+			for _, item := range list {
+				c.queue.AddAfter(controllerutils.MetaObjectToName(item.(*metav1.PartialObjectMetadata)), enqueueDelay)
+			}
+		}
+	}
+	if _, err := controllerutils.AddEventHandlersT(
+		polInformer.Informer(),
+		func(_ metav1.Object) { enqueueAll() },
+		func(_, _ metav1.Object) { enqueueAll() },
+		func(_ metav1.Object) { enqueueAll() },
+	); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
-	if _, _, err := controllerutils.AddDelayedExplicitEventHandlers(logger, cpolrInformer.Informer(), c.queue, enqueueDelay, keyFunc); err != nil {
+	if _, err := controllerutils.AddEventHandlersT(
+		cpolInformer.Informer(),
+		func(_ metav1.Object) { enqueueAll() },
+		func(_, _ metav1.Object) { enqueueAll() },
+		func(_ metav1.Object) { enqueueAll() },
+	); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
-	if _, _, err := controllerutils.AddDelayedExplicitEventHandlers(logger, bgscanrInformer.Informer(), c.queue, enqueueDelay, keyFunc); err != nil {
+	if _, _, err := controllerutils.AddDelayedDefaultEventHandlers(logger, bgscanrInformer.Informer(), c.queue, enqueueDelay); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
-	if _, _, err := controllerutils.AddDelayedExplicitEventHandlers(logger, cbgscanrInformer.Informer(), c.queue, enqueueDelay, keyFunc); err != nil {
+	if _, _, err := controllerutils.AddDelayedDefaultEventHandlers(logger, cbgscanrInformer.Informer(), c.queue, enqueueDelay); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
 	enqueueFromAdmr := func(obj metav1.Object) {
 		// no need to consider non aggregated reports
 		if controllerutils.HasLabel(obj, reportutils.LabelAggregatedReport) {
-			c.queue.AddAfter(keyFunc(obj), enqueueDelay)
+			c.queue.AddAfter(controllerutils.MetaObjectToName(obj), enqueueDelay)
 		}
 	}
 	if _, err := controllerutils.AddEventHandlersT(
@@ -138,18 +147,10 @@ func mergeReports(policyMap map[string]policyMapEntry, accumulator map[string]po
 		if report != nil {
 			if len(report.GetOwnerReferences()) == 1 {
 				ownerRef := report.GetOwnerReferences()[0]
-				objectRefs := []corev1.ObjectReference{{
-					APIVersion: ownerRef.APIVersion,
-					Kind:       ownerRef.Kind,
-					Namespace:  report.GetNamespace(),
-					Name:       ownerRef.Name,
-					UID:        ownerRef.UID,
-				}}
 				for _, result := range report.GetResults() {
 					currentPolicy := policyMap[result.Policy]
 					if currentPolicy.rules != nil && currentPolicy.rules.Has(result.Rule) {
 						key := result.Policy + "/" + result.Rule + "/" + string(ownerRef.UID)
-						result.Resources = objectRefs
 						if rule, exists := accumulator[key]; !exists {
 							accumulator[key] = result
 						} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
@@ -279,30 +280,31 @@ func (c *controller) getReports(ctx context.Context, namespace, name string) (ky
 	return admissionReport, backgroundReport, nil
 }
 
-func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, _ string) error {
-	uid := types.UID(key)
+func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, namespace, name string) error {
+	uid := types.UID(name)
 	resource, gvk, exists := c.metadataCache.GetResourceHash(uid)
 	if exists {
-		admissionReport, backgroundReport, err := c.getReports(ctx, resource.Namespace, key)
+		admissionReport, backgroundReport, err := c.getReports(ctx, namespace, name)
 		if err != nil {
 			return err
 		}
-		if admissionReport == nil && backgroundReport == nil {
-			return nil
-		}
-		policyReport, err := c.getPolicyReport(ctx, resource.Namespace, key)
+		policyReport, err := c.getPolicyReport(ctx, namespace, name)
 		if err != nil {
 			return err
 		}
 		create := false
+		scope := &corev1.ObjectReference{
+			Kind:       gvk.Kind,
+			Namespace:  namespace,
+			Name:       resource.Name,
+			UID:        uid,
+			APIVersion: gvk.GroupVersion().String(),
+		}
 		if policyReport == nil {
 			create = true
-			policyReport = reportutils.NewPolicyReport(resource.Namespace, key)
+			policyReport = reportutils.NewPolicyReport(namespace, name, scope)
+			controllerutils.SetOwner(policyReport, gvk.GroupVersion().String(), gvk.Kind, resource.Name, uid)
 		}
-		controllerutils.SetOwner(policyReport, gvk.GroupVersion().String(), gvk.Kind, resource.Name, uid)
-		reportutils.SetResourceUid(policyReport, uid)
-		// reportutils.SetResourceGVR(report, gvr)
-		reportutils.SetResourceNamespaceAndName(policyReport, resource.Namespace, resource.Name)
 		// aggregate reports
 		policyMap, err := c.createPolicyMap()
 		if err != nil {
@@ -315,8 +317,10 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 			results = append(results, result)
 		}
 		if len(results) == 0 {
-			if err := reportutils.DeleteReport(ctx, policyReport, c.client); err != nil {
-				return err
+			if !create {
+				if err := reportutils.DeleteReport(ctx, policyReport, c.client); err != nil {
+					return err
+				}
 			}
 		} else {
 			reportutils.SetResults(policyReport, results...)
@@ -337,6 +341,16 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 		}
 		if backgroundReport != nil {
 			if err := reportutils.DeleteReport(ctx, backgroundReport, c.client); err != nil {
+				return err
+			}
+		}
+	} else {
+		policyReport, err := c.getPolicyReport(ctx, namespace, name)
+		if err != nil {
+			return err
+		}
+		if policyReport != nil {
+			if err := reportutils.DeleteReport(ctx, policyReport, c.client); err != nil {
 				return err
 			}
 		}
