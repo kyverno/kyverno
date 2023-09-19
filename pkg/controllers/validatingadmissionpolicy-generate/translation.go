@@ -2,10 +2,10 @@ package validatingadmissionpolicygenerate
 
 import (
 	"fmt"
+	"slices"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"golang.org/x/exp/slices"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/api/admissionregistration/v1alpha1"
 )
