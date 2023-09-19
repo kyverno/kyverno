@@ -204,13 +204,13 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 func (c *controller) getBackgroundScanReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
 		report, err := c.client.KyvernoV1alpha2().ClusterBackgroundScanReports().Get(ctx, name, metav1.GetOptions{})
-		if err != nil {
+		if err != nil && !apierrors.IsNotFound(err) {
 			return nil, err
 		}
 		return report, nil
 	} else {
 		report, err := c.client.KyvernoV1alpha2().BackgroundScanReports(namespace).Get(ctx, name, metav1.GetOptions{})
-		if err != nil {
+		if err != nil && !apierrors.IsNotFound(err) {
 			return nil, err
 		}
 		return report, nil
@@ -220,13 +220,13 @@ func (c *controller) getBackgroundScanReport(ctx context.Context, namespace, nam
 func (c *controller) getAdmissionReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
 		report, err := c.client.KyvernoV1alpha2().ClusterAdmissionReports().Get(ctx, name, metav1.GetOptions{})
-		if err != nil {
+		if err != nil && !apierrors.IsNotFound(err) {
 			return nil, err
 		}
 		return report, nil
 	} else {
 		report, err := c.client.KyvernoV1alpha2().AdmissionReports(namespace).Get(ctx, name, metav1.GetOptions{})
-		if err != nil {
+		if err != nil && !apierrors.IsNotFound(err) {
 			return nil, err
 		}
 		return report, nil
@@ -236,13 +236,13 @@ func (c *controller) getAdmissionReport(ctx context.Context, namespace, name str
 func (c *controller) getPolicyReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
 		report, err := c.client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Get(ctx, name, metav1.GetOptions{})
-		if err != nil {
+		if err != nil && !apierrors.IsNotFound(err) {
 			return nil, err
 		}
 		return report, nil
 	} else {
 		report, err := c.client.Wgpolicyk8sV1alpha2().PolicyReports(namespace).Get(ctx, name, metav1.GetOptions{})
-		if err != nil {
+		if err != nil && !apierrors.IsNotFound(err) {
 			return nil, err
 		}
 		return report, nil
@@ -251,11 +251,11 @@ func (c *controller) getPolicyReport(ctx context.Context, namespace, name string
 
 func (c *controller) getReports(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, kyvernov1alpha2.ReportInterface, error) {
 	admissionReport, err := c.getAdmissionReport(ctx, namespace, name)
-	if err != nil && !apierrors.IsNotFound(err) {
+	if err != nil {
 		return nil, nil, err
 	}
 	backgroundReport, err := c.getBackgroundScanReport(ctx, namespace, name)
-	if err != nil && !apierrors.IsNotFound(err) {
+	if err != nil {
 		return nil, nil, err
 	}
 	return admissionReport, backgroundReport, nil
