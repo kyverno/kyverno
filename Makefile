@@ -552,7 +552,7 @@ codegen-fix-tests: $(CLI_BIN) ## Fix CLI test files
 .PHONY: codegen-fix-policies
 codegen-fix-policies: $(CLI_BIN) ## Fix CLI policy files
 	@echo Fix CLI policy files... >&2
-	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix policy ./test/cli/test --save
+	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix policy ./test --save
 
 .PHONY: codegen-cli-all
 codegen-cli-all: codegen-cli-crds codegen-cli-docs codegen-cli-api-docs codegen-fix-tests ## Generate all CLI related code and docs
