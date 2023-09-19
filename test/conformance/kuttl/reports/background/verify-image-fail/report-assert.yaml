@@ -5,6 +5,10 @@ metadata:
   - apiVersion: v1
     kind: Pod
     name: unsigned
+scope:
+  apiVersion: v1
+  kind: Pod
+  name: unsigned
 summary:
   error: 0
   fail: 1
@@ -19,6 +23,10 @@ metadata:
   - apiVersion: v1
     kind: Pod
     name: signed-by-someone-else
+scope:
+  apiVersion: v1
+  kind: Pod
+  name: signed-by-someone-else
 summary:
   error: 0
   fail: 1

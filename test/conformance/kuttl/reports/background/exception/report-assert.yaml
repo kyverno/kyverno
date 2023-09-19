@@ -5,6 +5,10 @@ metadata:
   - apiVersion: v1
     kind: ConfigMap
     name: emergency
+scope:
+  apiVersion: v1
+  kind: ConfigMap
+  name: emergency
 results:
 - policy: require-labels
   result: skip

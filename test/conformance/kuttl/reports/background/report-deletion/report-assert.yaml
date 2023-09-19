@@ -5,6 +5,10 @@ metadata:
   - apiVersion: v1
     kind: Pod
     name: badpod01
+scope:
+  apiVersion: v1
+  kind: Pod
+  name: badpod01
 summary:
   error: 0
   fail: 1

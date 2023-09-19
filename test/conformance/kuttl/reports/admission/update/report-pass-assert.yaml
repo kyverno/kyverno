@@ -5,13 +5,13 @@ metadata:
   - apiVersion: apps/v1
     kind: Deployment
     name: test-dpl-1
+scope:
+  apiVersion: apps/v1
+  kind: Deployment
+  name: test-dpl-1
 results:
 - message: validation rule 'autogen-validate-image-tag-pod' passed.
   policy: disallow-latest-tag
-  resources:
-  - apiVersion: apps/v1
-    kind: Deployment
-    name: test-dpl-1
   result: pass
   rule: autogen-validate-image-tag-pod
   source: kyverno

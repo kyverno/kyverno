@@ -6,16 +6,20 @@ metadata:
   - apiVersion: v1
     kind: Pod
     name: badpod01
+scope:
+  apiVersion: v1
+  kind: Pod
+  name: badpod01
+  namespace: default
 results:
 - category: Pod Security
   message: |
     Validation rule 'restricted' failed. It violates PodSecurity "restricted:latest": ({Allowed:false ForbiddenReason:unrestricted capabilities ForbiddenDetail:container "container01" must set securityContext.capabilities.drop=["ALL"]})
   policy: podsecurity-subrule-restricted
-  resources:
-  - apiVersion: v1
-    kind: Pod
-    name: badpod01
-    namespace: default
+  properties:
+    controls: capabilities_restricted
+    standard: restricted
+    version: latest
   result: fail
   rule: restricted
   scored: true

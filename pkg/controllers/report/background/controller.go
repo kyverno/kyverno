@@ -115,12 +115,6 @@ func NewController(
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
-	// if _, _, err := controllerutils.AddDefaultEventHandlers(logger, bgscanr.Informer(), queue); err != nil {
-	// 	logger.Error(err, "failed to register event handlers")
-	// }
-	// if _, _, err := controllerutils.AddDefaultEventHandlers(logger, cbgscanr.Informer(), queue); err != nil {
-	// 	logger.Error(err, "failed to register event handlers")
-	// }
 	if _, err := controllerutils.AddEventHandlersT(polInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}

@@ -5,12 +5,12 @@ metadata:
   - apiVersion: v1
     kind: ConfigMap
     name: emergency
+scope:
+  apiVersion: v1
+  kind: ConfigMap
+  name: emergency
 results:
 - policy: require-labels
-  resources:
-  - apiVersion: v1
-    kind: ConfigMap
-    name: emergency
   result: skip
   rule: require-team
   scored: true

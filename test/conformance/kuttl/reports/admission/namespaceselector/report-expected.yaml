@@ -6,12 +6,12 @@ metadata:
   - apiVersion: v1
     kind: Pod
     name: audit-pod
+scope:
+  apiVersion: v1
+  kind: Pod
+  name: audit-pod
+  namespace: test-audit-reports-namespacesselector
 results:
 - policy: test-audit-reports-namespacesselector
-  resources:
-  - apiVersion: v1
-    kind: Pod
-    name: audit-pod
-    namespace: test-audit-reports-namespacesselector
   result: fail
   rule: test-audit-reports-namespacesselector
