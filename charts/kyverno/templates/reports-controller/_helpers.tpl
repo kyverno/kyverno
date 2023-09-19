@@ -15,6 +15,7 @@
 {{- template "kyverno.labels.merge" (list
   (include "kyverno.matchLabels.common" .)
   (include "kyverno.labels.component" "reports-controller")
+  (include "kyverno.labels.name" "reports-controller")
 ) -}}
 {{- end -}}
 

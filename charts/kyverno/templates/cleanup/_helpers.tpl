@@ -5,5 +5,6 @@
   (include "kyverno.labels.common" .)
   (include "kyverno.matchLabels.common" .)
   (include "kyverno.labels.component" "cleanup")
+  (include "kyverno.labels.name" "cleanup")
 ) -}}
 {{- end -}}

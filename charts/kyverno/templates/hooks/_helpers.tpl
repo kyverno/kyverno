@@ -11,5 +11,6 @@
 {{- template "kyverno.labels.merge" (list
   (include "kyverno.matchLabels.common" .)
   (include "kyverno.labels.component" "hooks")
+  (include "kyverno.labels.name" "hooks")
 ) -}}
 {{- end -}}

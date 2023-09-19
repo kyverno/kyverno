@@ -20,6 +20,7 @@
 {{- template "kyverno.labels.merge" (list
   (include "kyverno.matchLabels.common" .)
   (include "kyverno.labels.component" "rbac")
+  (include "kyverno.labels.name" "rbac")
 ) -}}
 {{- end -}}
 
