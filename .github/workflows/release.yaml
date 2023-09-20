@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
+        timeout-minutes: 20
         with:
           build-cache-key: release-images
       - name: Run Trivy vulnerability scanner in repo mode
@@ -230,7 +230,7 @@ jobs:
         uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
+        timeout-minutes: 20
       - uses: creekorful/goreportcard-action@1f35ced8cdac2cba28c9a2f2288a16aacfd507f9 # v1.0
       - name: Install Cosign
         uses: sigstore/cosign-installer@11086d25041f77fe8fe7b9ea4e48e3b9192b8f19 # v3.1.2
