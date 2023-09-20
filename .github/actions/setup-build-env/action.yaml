@@ -19,7 +19,7 @@ runs:
         dotnet: true
         haskell: true
         large-packages: false
-        swap-storage: true
+        swap-storage: false
     - shell: bash
       if: ${{ inputs.unshallow == 'true' }}
       run: |
