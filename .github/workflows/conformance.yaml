@@ -554,7 +554,7 @@ jobs:
         run: |
           set -e
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
-          make kind-deploy-kyverno
+          make kind-install-kyverno
       - name: Install crane
         uses: imjasonh/setup-crane@00c9e93efa4e1138c9a7a5c594acd6c75a2fbf0c
       - name: Install Cosign
@@ -831,3 +831,20 @@ jobs:
           set -e
           KYVERNO_EXPERIMENTAL=true kyverno fix test ./test/cli --save --compress
           make verify-cli-tests
+
+  required:
+    needs:
+    - standard
+    - ttl
+    - force-failure-policy-ignore
+    - validating-admission-policies-v1alpha1
+    - validating-admission-policies-v1beta1
+    - validating-admission-policy-reports-v1alpha1
+    - validating-admission-policy-reports-v1beta1
+    - custom-sigstore
+    - default
+    - monitor-helm-secret-size
+    - check-tests
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "Required jobs success!"
