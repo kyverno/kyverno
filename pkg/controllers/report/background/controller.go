@@ -109,19 +109,11 @@ func NewController(
 		eventGen:       eventGen,
 		policyReports:  policyReports,
 	}
-
 	if vapInformer != nil {
 		c.vapLister = vapInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(vapInformer.Informer(), c.addVAP, c.updateVAP, c.deleteVAP); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
-	}
-
-	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, bgscanr.Informer(), queue); err != nil {
-		logger.Error(err, "failed to register event handlers")
-	}
-	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, cbgscanr.Informer(), queue); err != nil {
-		logger.Error(err, "failed to register event handlers")
 	}
 	if _, err := controllerutils.AddEventHandlersT(polInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy); err != nil {
 		logger.Error(err, "failed to register event handlers")

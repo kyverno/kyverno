@@ -4,6 +4,7 @@ metadata:
   name: require-labels
 spec:
   validationFailureAction: Enforce
+  admission: false
   background: true
   rules:
     - name: require-team
