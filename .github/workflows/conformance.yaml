@@ -831,3 +831,20 @@ jobs:
           set -e
           KYVERNO_EXPERIMENTAL=true kyverno fix test ./test/cli --save --compress
           make verify-cli-tests
+
+  required:
+    needs:
+    - standard
+    - ttl
+    - force-failure-policy-ignore
+    - validating-admission-policies-v1alpha1
+    - validating-admission-policies-v1beta1
+    - validating-admission-policy-reports-v1alpha1
+    - validating-admission-policy-reports-v1beta1
+    - custom-sigstore
+    - default
+    - monitor-helm-secret-size
+    - check-tests
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "Required jobs success!"
