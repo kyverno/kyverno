@@ -333,6 +333,7 @@ func testVerifyAndPatchImages(
 func Test_CosignMockAttest(t *testing.T) {
 	policyContext := buildContext(t, testPolicyGood, testResource, "")
 	err := cosign.SetMock("ghcr.io/jimbugwadia/pause2:latest", attestationPayloads)
+	defer cosign.ClearMock()
 	assert.NilError(t, err)
 
 	er, ivm := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
@@ -347,6 +348,7 @@ func Test_CosignMockAttest(t *testing.T) {
 func Test_CosignMockAttest_fail(t *testing.T) {
 	policyContext := buildContext(t, testPolicyBad, testResource, "")
 	err := cosign.SetMock("ghcr.io/jimbugwadia/pause2:latest", attestationPayloads)
+	defer cosign.ClearMock()
 	assert.NilError(t, err)
 
 	er, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
@@ -623,7 +625,6 @@ var (
 
 func Test_NoMatch(t *testing.T) {
 	policyContext := buildContext(t, testConfigMapMissing, testConfigMapMissingResource, "")
-	cosign.ClearMock()
 	err, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 0)
 }
@@ -633,7 +634,6 @@ func Test_ConfigMapMissingFailure(t *testing.T) {
 	policyContext := buildContext(t, testConfigMapMissing, ghcrImage, "")
 	resolver, err := resolvers.NewClientBasedResolver(kubefake.NewSimpleClientset())
 	assert.NilError(t, err)
-	cosign.ClearMock()
 	resp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), resolver, policyContext, cfg)
 	assert.Equal(t, len(resp.PolicyResponse.Rules), 1)
 	assert.Equal(t, resp.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusError, resp.PolicyResponse.Rules[0].Message())
@@ -642,7 +642,6 @@ func Test_ConfigMapMissingFailure(t *testing.T) {
 func Test_SignatureGoodSigned(t *testing.T) {
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource, "")
 	policyContext.Policy().GetSpec().Rules[0].VerifyImages[0].MutateDigest = true
-	cosign.ClearMock()
 	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResp.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass, engineResp.PolicyResponse.Rules[0].Message())
@@ -656,7 +655,6 @@ func Test_SignatureGoodSigned(t *testing.T) {
 }
 
 func Test_SignatureUnsigned(t *testing.T) {
-	cosign.ClearMock()
 	unsigned := strings.Replace(testSampleResource, ":signed", ":unsigned", -1)
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, unsigned, "")
 	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
@@ -665,7 +663,6 @@ func Test_SignatureUnsigned(t *testing.T) {
 }
 
 func Test_SignatureWrongKey(t *testing.T) {
-	cosign.ClearMock()
 	otherKey := strings.Replace(testSampleResource, ":signed", ":signed-by-someone-else", -1)
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, otherKey, "")
 	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
@@ -674,7 +671,6 @@ func Test_SignatureWrongKey(t *testing.T) {
 }
 
 func Test_SignaturesMultiKey(t *testing.T) {
-	cosign.ClearMock()
 	policy := strings.Replace(testSampleMultipleKeyPolicy, "KEY1", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "KEY2", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "COUNT", "0", -1)
@@ -685,7 +681,6 @@ func Test_SignaturesMultiKey(t *testing.T) {
 }
 
 func Test_SignaturesMultiKeyFail(t *testing.T) {
-	cosign.ClearMock()
 	policy := strings.Replace(testSampleMultipleKeyPolicy, "KEY1", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "COUNT", "0", -1)
 	policyContext := buildContext(t, policy, testSampleResource, "")
@@ -695,7 +690,6 @@ func Test_SignaturesMultiKeyFail(t *testing.T) {
 }
 
 func Test_SignaturesMultiKeyOneGoodKey(t *testing.T) {
-	cosign.ClearMock()
 	policy := strings.Replace(testSampleMultipleKeyPolicy, "KEY1", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "KEY2", testOtherKey, -1)
 	policy = strings.Replace(policy, "COUNT", "1", -1)
@@ -706,7 +700,6 @@ func Test_SignaturesMultiKeyOneGoodKey(t *testing.T) {
 }
 
 func Test_SignaturesMultiKeyZeroGoodKey(t *testing.T) {
-	cosign.ClearMock()
 	policy := strings.Replace(testSampleMultipleKeyPolicy, "KEY1", testOtherKey, -1)
 	policy = strings.Replace(policy, "KEY2", testOtherKey, -1)
 	policy = strings.Replace(policy, "COUNT", "1", -1)
@@ -717,7 +710,6 @@ func Test_SignaturesMultiKeyZeroGoodKey(t *testing.T) {
 }
 
 func Test_RuleSelectorImageVerify(t *testing.T) {
-	cosign.ClearMock()
 
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource, "")
 	rule := newStaticKeyRule("match-all", "*", testOtherKey)
@@ -846,7 +838,6 @@ var testNestedAttestorPolicy = `
 `
 
 func Test_NestedAttestors(t *testing.T) {
-	cosign.ClearMock()
 
 	policy := strings.Replace(testNestedAttestorPolicy, "KEY1", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "KEY2", testVerifyImageKey, -1)
@@ -955,9 +946,9 @@ func Test_ChangedAnnotation(t *testing.T) {
 
 func Test_MarkImageVerified(t *testing.T) {
 	image := "ghcr.io/jimbugwadia/pause2:latest"
-	cosign.ClearMock()
 	policyContext := buildContext(t, testPolicyGood, testResource, "")
 	err := cosign.SetMock(image, attestationPayloads)
+	defer cosign.ClearMock()
 	assert.NilError(t, err)
 
 	engineResponse, verifiedImages := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
@@ -1053,9 +1044,9 @@ func Test_ParsePEMDelimited(t *testing.T) {
 	 }`
 
 	image := "ghcr.io/jimbugwadia/pause2:latest"
-	cosign.ClearMock()
 	policyContext := buildContext(t, testPEMPolicy, testResource, "")
 	err := cosign.SetMock(image, signaturePayloads)
+	defer cosign.ClearMock()
 	assert.NilError(t, err)
 
 	engineResponse, verifiedImages := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
@@ -1108,7 +1099,6 @@ func Test_ImageVerifyCacheCosign(t *testing.T) {
 	imageVerifyCache, err := imageverifycache.New(opts...)
 	assert.NilError(t, err)
 
-	cosign.ClearMock()
 	image := "ghcr.io/kyverno/test-verify-image:signed"
 	policyContext := buildContext(t, cosignTestPolicy, cosignTestResource, "")
 
@@ -1133,7 +1123,6 @@ func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
 	imageVerifyCache, err := imageverifycache.New(opts...)
 	assert.NilError(t, err)
 
-	cosign.ClearMock()
 	image := "ghcr.io/kyverno/test-verify-image:signed"
 	policyContext := buildContext(t, cosignTestPolicy, cosignTestResource, "")
 
@@ -1160,7 +1149,6 @@ func Test_changePolicyCacheVerificationCosign(t *testing.T) {
 	imageVerifyCache, err := imageverifycache.New(opts...)
 	assert.NilError(t, err)
 
-	cosign.ClearMock()
 	image := "ghcr.io/kyverno/test-verify-image:signed"
 	policyContext := buildContext(t, cosignTestPolicy, cosignTestResource, "")
 
