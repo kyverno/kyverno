@@ -13,5 +13,6 @@ const (
 	URGenerateResourceNameLabel    = "generate.kyverno.io/resource-name"
 	URGenerateResourceNSLabel      = "generate.kyverno.io/resource-namespace"
 	URGenerateResourceKindLabel    = "generate.kyverno.io/resource-kind"
+	URGenerateResourceUIDLabel     = "generate.kyverno.io/resource-uid"
 	URGenerateRetryCountAnnotation = "generate.kyverno.io/retry-count"
 )
