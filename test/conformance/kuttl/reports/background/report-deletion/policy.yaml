@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: podsecurity-subrule-restricted
 spec:
+  admission: false
   background: true
   rules:
   - match:
