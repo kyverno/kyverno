@@ -1100,7 +1100,6 @@ func errorAssertionUtil(t *testing.T, image string, ivm engineapi.ImageVerificat
 }
 
 func Test_ImageVerifyCacheCosign(t *testing.T) {
-
 	opts := []imageverifycache.Option{
 		imageverifycache.WithCacheEnableFlag(true),
 		imageverifycache.WithMaxSize(1000),
@@ -1109,6 +1108,7 @@ func Test_ImageVerifyCacheCosign(t *testing.T) {
 	imageVerifyCache, err := imageverifycache.New(opts...)
 	assert.NilError(t, err)
 
+	cosign.ClearMock()
 	image := "ghcr.io/kyverno/test-verify-image:signed"
 	policyContext := buildContext(t, cosignTestPolicy, cosignTestResource, "")
 
@@ -1125,7 +1125,6 @@ func Test_ImageVerifyCacheCosign(t *testing.T) {
 }
 
 func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
-
 	opts := []imageverifycache.Option{
 		imageverifycache.WithCacheEnableFlag(true),
 		imageverifycache.WithMaxSize(1000),
@@ -1134,6 +1133,7 @@ func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
 	imageVerifyCache, err := imageverifycache.New(opts...)
 	assert.NilError(t, err)
 
+	cosign.ClearMock()
 	image := "ghcr.io/kyverno/test-verify-image:signed"
 	policyContext := buildContext(t, cosignTestPolicy, cosignTestResource, "")
 
@@ -1160,6 +1160,7 @@ func Test_changePolicyCacheVerificationCosign(t *testing.T) {
 	imageVerifyCache, err := imageverifycache.New(opts...)
 	assert.NilError(t, err)
 
+	cosign.ClearMock()
 	image := "ghcr.io/kyverno/test-verify-image:signed"
 	policyContext := buildContext(t, cosignTestPolicy, cosignTestResource, "")
 
