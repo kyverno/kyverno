@@ -44,12 +44,12 @@ archives:
 - id: kyverno-cli-archive
   name_template: |-
      kyverno-cli_{{ .Tag }}_{{ .Os }}_
-     {{ - with .Arch - }}
-     {{ - if eq . "amd64" - }}x86_64{{- else if eq . "386" -}}i386{{- else -}}{{- . -}}{{- end -}}
-     {{ - end - }}
-     {{ - with .Arm - }}
-     {{ - if eq . "6" - }}hf{{- else -}}v{{- . -}}{{- end -}}
-     {{ - end - }}
+     {{- with .Arch -}}
+     {{- if eq . "amd64" -}}x86_64{{- else if eq . "386" -}}i386{{- else -}}{{- . -}}{{- end -}}
+     {{- end -}}
+     {{- with .Arm -}}
+     {{- if eq . "6" -}}hf{{- else -}}v{{- . -}}{{- end -}}
+     {{- end -}}
   builds:
     - kyverno-cli
   format_overrides:
