@@ -146,7 +146,8 @@ var testPolicyBad = `{
       }
     ]
   }
-}`
+}
+`
 
 var testResource = `{
   "apiVersion": "v1",
@@ -165,6 +166,130 @@ var testResource = `{
   }
 }`
 
+var cosignTestResource = `{
+  "apiVersion": "v1",
+  "kind": "Pod",
+  "metadata": {
+     "name": "test",
+     "annotations": {}
+  },
+  "spec": {
+    "containers": [
+      {
+        "name": "pause2",
+        "image": "ghcr.io/kyverno/test-verify-image:signed"
+      }
+    ]
+  }
+}`
+
+var cosignTestPolicy = `{
+    "apiVersion": "kyverno.io/v1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+        "name": "check-image",
+        "annotations": {
+            "pod-policies.kyverno.io/autogen-controllers": "none"
+        }
+    },
+    "spec": {
+        "validationFailureAction": "enforce",
+        "background": false,
+        "webhookTimeoutSeconds": 30,
+        "failurePolicy": "Fail",
+        "rules": [
+            {
+                "name": "check-signature",
+                "match": {
+                    "resources": {
+                        "kinds": [
+                            "Pod"
+                        ]
+                    }
+                },
+                "verifyImages": [
+                    {
+                        "imageReferences": [
+                            "ghcr.io/kyverno/test-verify-image:*"
+                        ],
+                        "attestors": [
+                            {
+                                "entries": [
+                                    {
+                                        "keys": {
+                                            "publicKeys":  "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM\n5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----",
+																						"rekor": {
+																							"url": "https://rekor.sigstore.dev",
+																							"ignoreTlog": true
+																						},
+																						"ctlog": {
+																							"ignoreSCT": true
+																						}
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}`
+
+var cosignTestPolicyUpdated = `{
+    "apiVersion": "kyverno.io/v1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+        "name": "check-image",
+        "annotations": {
+            "pod-policies.kyverno.io/autogen-controllers": "none"
+        }
+    },
+    "spec": {
+        "validationFailureAction": "enforce",
+        "background": false,
+        "webhookTimeoutSeconds": 30,
+        "failurePolicy": "Fail",
+        "rules": [
+            {
+                "name": "check-signature-updated",
+                "match": {
+                    "resources": {
+                        "kinds": [
+                            "Pod"
+                        ]
+                    }
+                },
+                "verifyImages": [
+                    {
+                        "imageReferences": [
+                            "ghcr.io/kyverno/test-verify-image:*"
+                        ],
+                        "attestors": [
+                            {
+                                "entries": [
+                                    {
+                                        "keys": {
+                                            "publicKeys":  "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM\n5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----",
+																						"rekor": {
+																							"url": "https://rekor.sigstore.dev",
+																							"ignoreTlog": true
+																						},
+																						"ctlog": {
+																							"ignoreSCT": true
+																						}
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}`
 var attestationPayloads = [][]byte{
 	[]byte(`{"payloadType":"https://example.com/CodeReview/v1","payload":"eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjAuMSIsInByZWRpY2F0ZVR5cGUiOiJodHRwczovL2V4YW1wbGUuY29tL0NvZGVSZXZpZXcvdjEiLCJzdWJqZWN0IjpbeyJuYW1lIjoiZ2hjci5pby9qaW1idWd3YWRpYS9wYXVzZTIiLCJkaWdlc3QiOnsic2hhMjU2IjoiYjMxYmZiNGQwMjEzZjI1NGQzNjFlMDA3OWRlYWFlYmVmYTRmODJiYTdhYTc2ZWY4MmU5MGI0OTM1YWQ1YjEwNSJ9fV0sInByZWRpY2F0ZSI6eyJhdXRob3IiOiJtYWlsdG86YWxpY2VAZXhhbXBsZS5jb20iLCJyZXBvIjp7ImJyYW5jaCI6Im1haW4iLCJ0eXBlIjoiZ2l0IiwidXJpIjoiaHR0cHM6Ly9naXRodWIuY29tL2V4YW1wbGUvbXktcHJvamVjdCJ9LCJyZXZpZXdlcnMiOlsibWFpbHRvOmJvYkBleGFtcGxlLmNvbSJdfX0=","signatures":[{"keyid":"","sig":"MEYCIQCrEr+vgPDmNCrqGDE/4z9iMLmCXMXcDlGKtSoiuMTSFgIhAN2riBaGk4accWzVl7ypi1XTRxyrPYHst8DesugPXgOf"}]}`),
 	[]byte(`{"payloadType":"cosign.sigstore.dev/attestation/v1","payload":"eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjAuMSIsInByZWRpY2F0ZVR5cGUiOiJjb3NpZ24uc2lnc3RvcmUuZGV2L2F0dGVzdGF0aW9uL3YxIiwic3ViamVjdCI6W3sibmFtZSI6ImdoY3IuaW8vamltYnVnd2FkaWEvcGF1c2UyIiwiZGlnZXN0Ijp7InNoYTI1NiI6ImIzMWJmYjRkMDIxM2YyNTRkMzYxZTAwNzlkZWFhZWJlZmE0ZjgyYmE3YWE3NmVmODJlOTBiNDkzNWFkNWIxMDUifX1dLCJwcmVkaWNhdGUiOnsiRGF0YSI6ImhlbGxvIVxuIiwiVGltZXN0YW1wIjoiMjAyMS0xMC0wNVQwNToxODoxMVoifX0=","signatures":[{"keyid":"","sig":"MEQCIF5r9lf55rnYNPByZ9v6bortww694UEPvmyBIelIDYbIAiBNTGX4V64Oj6jZVRpkJQRxdzKUPYqC5GZTb4oS6eQ6aQ=="}]}`),
@@ -974,71 +1099,6 @@ func errorAssertionUtil(t *testing.T, image string, ivm engineapi.ImageVerificat
 	assert.Equal(t, ivm.IsVerified(image), true)
 }
 
-var testUpdatedPolicyGood = `{
-	"apiVersion": "kyverno.io/v1",
-	"kind": "ClusterPolicy",
-	"metadata": {
-	  "name": "attest"
-	},
-	"spec": {
-	  "rules": [
-		{
-		  "name": "attest-testing",
-		  "match": {
-			"resources": {
-			  "kinds": [
-				"Pod"
-			  ]
-			}
-		  },
-		  "verifyImages": [
-			{
-			  "image": "*",
-			  "key": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHMmDjK65krAyDaGaeyWNzgvIu155JI50B2vezCw8+3CVeE0lJTL5dbL3OP98Za0oAEBJcOxky8Riy/XcmfKZbw==\n-----END PUBLIC KEY-----",
-			  "attestations": [
-				{
-				  "predicateType": "https://example.com/CodeReview/v1",
-				  "attestors": [
-					  {
-						  "entries": [
-							  {
-								  "keys": {
-									  "publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHMmDjK65krAyDaGaeyWNzgvIu155JI50B2vezCw8+3CVeE0lJTL5dbL3OP98Za0oAEBJcOxky8Riy/XcmfKZbw==\n-----END PUBLIC KEY-----",
-									  "rekor": {
-										  "url": "https://rekor.sigstore.dev",
-										  "ignoreSCT": true,
-										  "ignoreTlog": true
-									  }
-								  }
-							  }
-						  ]
-					  }
-				  ],
-				  "conditions": [
-					{
-					  "all": [
-						{
-						  "key": "{{ repo.uri }}",
-						  "operator": "Equals",
-						  "value": "https://github.com/example/my-project"
-						},
-						{
-						  "key": "{{ repo.branch }}",
-						  "operator": "Equals",
-						  "value": "main"
-						}
-					  ]
-					}
-				  ]
-				}
-			  ]
-			}
-		  ]
-		}
-	  ]
-	}
-  }`
-
 func Test_ImageVerifyCacheCosign(t *testing.T) {
 
 	opts := []imageverifycache.Option{
@@ -1049,10 +1109,8 @@ func Test_ImageVerifyCacheCosign(t *testing.T) {
 	imageVerifyCache, err := imageverifycache.New(opts...)
 	assert.NilError(t, err)
 
-	policyContext := buildContext(t, testPolicyGood, testResource, "")
-	image := "ghcr.io/jimbugwadia/pause2:latest"
-	err = cosign.SetMock(image, attestationPayloads)
-	assert.NilError(t, err)
+	image := "ghcr.io/kyverno/test-verify-image:signed"
+	policyContext := buildContext(t, cosignTestPolicy, cosignTestResource, "")
 
 	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
@@ -1063,7 +1121,7 @@ func Test_ImageVerifyCacheCosign(t *testing.T) {
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-	assert.Check(t, secondOperationTime < firstOperationTime/2, "cache entry is valid, so image verification should be from cache.", firstOperationTime, secondOperationTime)
+	assert.Check(t, secondOperationTime < firstOperationTime/10, "cache entry is valid, so image verification should be from cache.", firstOperationTime, secondOperationTime)
 }
 
 func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
@@ -1076,10 +1134,8 @@ func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
 	imageVerifyCache, err := imageverifycache.New(opts...)
 	assert.NilError(t, err)
 
-	policyContext := buildContext(t, testPolicyGood, testResource, "")
-	image := "ghcr.io/jimbugwadia/pause2:latest"
-	err = cosign.SetMock(image, attestationPayloads)
-	assert.NilError(t, err)
+	image := "ghcr.io/kyverno/test-verify-image:signed"
+	policyContext := buildContext(t, cosignTestPolicy, cosignTestResource, "")
 
 	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
@@ -1092,7 +1148,7 @@ func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-	assert.Check(t, secondOperationTime > firstOperationTime/2 && secondOperationTime < firstOperationTime*2, "cache entry is expired, so image verification should not be from cache.")
+	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache entry is expired, so image verification should not be from cache.")
 }
 
 func Test_changePolicyCacheVerificationCosign(t *testing.T) {
@@ -1104,22 +1160,20 @@ func Test_changePolicyCacheVerificationCosign(t *testing.T) {
 	imageVerifyCache, err := imageverifycache.New(opts...)
 	assert.NilError(t, err)
 
-	policyContext := buildContext(t, testPolicyGood, testResource, "")
-	image := "ghcr.io/jimbugwadia/pause2:latest"
-	err = cosign.SetMock(image, attestationPayloads)
-	assert.NilError(t, err)
+	image := "ghcr.io/kyverno/test-verify-image:signed"
+	policyContext := buildContext(t, cosignTestPolicy, cosignTestResource, "")
 
 	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	firstOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-	policyContext = buildContext(t, testUpdatedPolicyGood, testResource, "")
+	policyContext = buildContext(t, cosignTestPolicyUpdated, cosignTestResource, "")
 
 	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-	assert.Check(t, secondOperationTime > firstOperationTime/2 && secondOperationTime < firstOperationTime*2, "cache entry not found, so image verification should not be from cache.")
+	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache entry not found, so image verification should not be from cache.")
 }
 
 var verifyImageNotaryPolicy = `{
@@ -1266,7 +1320,7 @@ func Test_ImageVerifyCacheNotary(t *testing.T) {
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-	assert.Check(t, secondOperationTime < firstOperationTime/2, "cache entry is valid, so image verification should be from cache.", firstOperationTime, secondOperationTime)
+	assert.Check(t, secondOperationTime < firstOperationTime/10, "cache entry is valid, so image verification should be from cache.", firstOperationTime, secondOperationTime)
 }
 
 func Test_ImageVerifyCacheExpiredNotary(t *testing.T) {
@@ -1293,7 +1347,7 @@ func Test_ImageVerifyCacheExpiredNotary(t *testing.T) {
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-	assert.Check(t, secondOperationTime > firstOperationTime/2 && secondOperationTime < firstOperationTime*2, "cache entry is expired, so image verification should not be from cache.")
+	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache entry is expired, so image verification should not be from cache.")
 
 }
 
@@ -1318,6 +1372,6 @@ func Test_changePolicyCacheVerificationNotary(t *testing.T) {
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-	assert.Check(t, secondOperationTime > firstOperationTime/2 && secondOperationTime < firstOperationTime*2, "cache entry not found, so image verification should not be from cache.")
+	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache entry not found, so image verification should not be from cache.")
 
 }
