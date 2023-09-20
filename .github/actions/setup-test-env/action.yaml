@@ -17,7 +17,7 @@ runs:
         dotnet: true
         haskell: true
         large-packages: false
-        swap-storage: true
+        swap-storage: false
     - shell: bash
       run: |
         export KIND_IMAGE=kindest/node:${{ inputs.version }}
