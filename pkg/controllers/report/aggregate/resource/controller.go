@@ -22,6 +22,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
+	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -42,6 +44,7 @@ type controller struct {
 	// listers
 	polLister  kyvernov1listers.PolicyLister
 	cpolLister kyvernov1listers.ClusterPolicyLister
+	vapLister  admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyLister
 
 	// queue
 	queue workqueue.RateLimitingInterface
@@ -62,6 +65,7 @@ func NewController(
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
+	vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer,
 	metadataCache resource.MetadataCache,
 	chunkSize int,
 ) controllers.Controller {
@@ -107,6 +111,17 @@ func NewController(
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
+	if vapInformer != nil {
+		c.vapLister = vapInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(
+			vapInformer.Informer(),
+			func(_ metav1.Object) { enqueueAll() },
+			func(_, _ metav1.Object) { enqueueAll() },
+			func(_ metav1.Object) { enqueueAll() },
+		); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
 	if _, _, err := controllerutils.AddDelayedDefaultEventHandlers(logger, bgscanrInformer.Informer(), c.queue, enqueueDelay); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
@@ -142,18 +157,28 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
-func mergeReports(policyMap map[string]policyMapEntry, accumulator map[string]policyreportv1alpha2.PolicyReportResult, uid types.UID, reports ...kyvernov1alpha2.ReportInterface) {
+func mergeReports(policyMap map[string]policyMapEntry, vapMap sets.Set[string], accumulator map[string]policyreportv1alpha2.PolicyReportResult, uid types.UID, reports ...kyvernov1alpha2.ReportInterface) {
 	for _, report := range reports {
 		if report != nil {
 			for _, result := range report.GetResults() {
-				currentPolicy := policyMap[result.Policy]
-				// TODO: vap map
-				if currentPolicy.rules != nil && currentPolicy.rules.Has(result.Rule) || result.Source == "ValidatingAdmissionPolicy" {
-					key := result.Source + "/" + result.Policy + "/" + result.Rule + "/" + string(uid)
-					if rule, exists := accumulator[key]; !exists {
-						accumulator[key] = result
-					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
-						accumulator[key] = result
+				if result.Source == "ValidatingAdmissionPolicy" {
+					if vapMap != nil && vapMap.Has(result.Policy) {
+						key := result.Source + "/" + result.Policy + "/" + string(uid)
+						if rule, exists := accumulator[key]; !exists {
+							accumulator[key] = result
+						} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
+							accumulator[key] = result
+						}
+					}
+				} else {
+					currentPolicy := policyMap[result.Policy]
+					if currentPolicy.rules != nil && currentPolicy.rules.Has(result.Rule) {
+						key := result.Source + "/" + result.Policy + "/" + result.Rule + "/" + string(uid)
+						if rule, exists := accumulator[key]; !exists {
+							accumulator[key] = result
+						} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
+							accumulator[key] = result
+						}
 					}
 				}
 			}
@@ -195,6 +220,24 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 		}
 		for _, rule := range autogen.ComputeRules(pol) {
 			results[key].rules.Insert(rule.Name)
+		}
+	}
+	return results, nil
+}
+
+func (c *controller) createVapMap() (sets.Set[string], error) {
+	results := sets.New[string]()
+	if c.vapLister != nil {
+		vaps, err := c.vapLister.List(labels.Everything())
+		if err != nil {
+			return nil, err
+		}
+		for _, vap := range vaps {
+			key, err := cache.MetaNamespaceKeyFunc(vap)
+			if err != nil {
+				return nil, err
+			}
+			results.Insert(key)
 		}
 	}
 	return results, nil
@@ -308,8 +351,12 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, names
 		if err != nil {
 			return err
 		}
+		vapMap, err := c.createVapMap()
+		if err != nil {
+			return err
+		}
 		merged := map[string]policyreportv1alpha2.PolicyReportResult{}
-		mergeReports(policyMap, merged, uid, policyReport, admissionReport, backgroundReport)
+		mergeReports(policyMap, vapMap, merged, uid, policyReport, admissionReport, backgroundReport)
 		var results []policyreportv1alpha2.PolicyReportResult
 		for _, result := range merged {
 			results = append(results, result)
