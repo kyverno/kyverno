@@ -8,11 +8,15 @@ inputs:
     default: 'true'
   build-cache-key:
     description: build cache prefix
+  free-disk-space:
+    description: free disk space
+    default: 'true'
 
 runs:
   using: composite
   steps:
     - uses: jlumbroso/free-disk-space@76866dbe54312617f00798d1762df7f43def6e5c # v1.2.0
+      if: ${{ inputs.free-disk-space == 'true' }}
       with:
         tool-cache: true
         android: true
