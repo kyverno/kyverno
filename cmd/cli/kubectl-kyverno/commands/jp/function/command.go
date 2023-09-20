@@ -1,15 +1,15 @@
 package function
 
 import (
+	"cmp"
 	"fmt"
 	"io"
+	"slices"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
-	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"github.com/spf13/cobra"
-	"golang.org/x/exp/slices"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -29,7 +29,7 @@ func Command() *cobra.Command {
 func printFunctions(out io.Writer, names ...string) {
 	functions := jmespath.GetFunctions(config.NewDefaultConfiguration(false))
 	slices.SortFunc(functions, func(a, b jmespath.FunctionEntry) int {
-		return datautils.Compare(a.String(), b.String())
+		return cmp.Compare(a.String(), b.String())
 	})
 	namesSet := sets.New(names...)
 	for _, function := range functions {

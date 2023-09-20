@@ -8,6 +8,6 @@ When the policy is deleted, the background scan report should also be deleted.
 1.  - Create a cluster policy
     - Assert the policy becomes ready
 1.  - Create a pod
-1.  - Assert a background scan report is created for the pod and contains the right summary
+1.  - Assert a policy report is created for the pod and contains the right summary
 1.  - Delete the policy
-    - Assert the background scan report is deleted for the pod
+    - Assert the policy report is deleted for the pod
