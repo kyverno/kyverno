@@ -7,4 +7,4 @@ Note: the pods have to be created first because we don't want the policy to appl
 
 ## Expected Behavior
 
-The pods are created and background scan reports are generated with a fail result.
+The pods are created and policy reports are generated with a fail result.
