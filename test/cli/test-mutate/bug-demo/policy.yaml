@@ -1,29 +1,26 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: bug-demo
   annotations:
-    pod-policies.kyverno.io/autogen-controllers: "none"
+    pod-policies.kyverno.io/autogen-controllers: none
+  name: bug-demo
 spec:
+  admission: true
   background: false
-  validationFailureAction: enforce
-
   rules:
-
-  - name: mutate1
-    match:
+  - match:
       all:
       - resources:
           kinds:
           - v1/Pod
     mutate:
       foreach:
-      - list: |-
-          request.object.spec.containers || `[]`
-        context:
+      - context:
         - name: container_path
           variable:
-            value: "/spec/containers/{{ elementIndex }}"
+            value: /spec/containers/{{ elementIndex }}
+        list: request.object.spec.containers || `[]`
         patchesJson6902: |-
           {{
             [
@@ -82,3 +79,5 @@ spec:
             |
             to_string(@)
           }}
+    name: mutate1
+  validationFailureAction: Enforce

@@ -50,6 +50,11 @@ func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Desc
 		return err
 	}
 
+	// This check ensures that the manifest does not have an abnormal amount of referrers attached to it to protect against compromised images
+	if len(referrersDescs.Manifests) > maxReferrersCount {
+		return fmt.Errorf("failed to fetch referrers: to many referrers found, max limit is %d", maxReferrersCount)
+	}
+
 	descList := []ocispec.Descriptor{}
 	for _, d := range referrersDescs.Manifests {
 		if d.ArtifactType == notationregistry.ArtifactTypeNotation {
@@ -80,6 +85,11 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 		return nil, ocispec.Descriptor{}, err
 	}
 	manifestDesc := manifest.Layers[0]
+
+	// This check ensures that the size of a layer isn't abnormally large to avoid malicious payloads
+	if manifestDesc.Size > int64(maxPayloadSize) {
+		return nil, ocispec.Descriptor{}, fmt.Errorf("payload size is too large, max size is %d: %+v", maxPayloadSize, manifestDesc)
+	}
 
 	signatureBlobRef, err := name.ParseReference(c.getReferenceFromDescriptor(manifestDesc))
 	if err != nil {

@@ -539,6 +539,7 @@ codegen-cli-crds: codegen-crds-kyverno ## Copy generated CRDs to embed in the CL
 	@rm -rf cmd/cli/kubectl-kyverno/data/crds && mkdir -p cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/kyverno.io_clusterpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/kyverno.io_policies.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp cmd/cli/kubectl-kyverno/config/crds/* cmd/cli/kubectl-kyverno/data/crds
 
 .PHONY: codegen-docs-all
 codegen-docs-all: codegen-helm-docs codegen-cli-docs codegen-api-docs  ## Generate all docs
@@ -546,12 +547,12 @@ codegen-docs-all: codegen-helm-docs codegen-cli-docs codegen-api-docs  ## Genera
 .PHONY: codegen-fix-tests
 codegen-fix-tests: $(CLI_BIN) ## Fix CLI test files
 	@echo Fix CLI test files... >&2
-	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix test ./test/cli --save --compress --force
+	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix test . --save --compress --force
 
 .PHONY: codegen-fix-policies
 codegen-fix-policies: $(CLI_BIN) ## Fix CLI policy files
 	@echo Fix CLI policy files... >&2
-	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix policy ./test/cli/test --save
+	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix policy . --save
 
 .PHONY: codegen-cli-all
 codegen-cli-all: codegen-cli-crds codegen-cli-docs codegen-cli-api-docs codegen-fix-tests ## Generate all CLI related code and docs

@@ -1,24 +1,29 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: deployment-has-multiple-replicas
 spec:
-  validationFailureAction: audit
+  admission: true
+  background: true
   rules:
-    - name: deployment-has-multiple-replicas
-      match:
-        resources:
-          kinds:
-            - Deployment
-      exclude:
-        resources:
+  - exclude:
+      any:
+      - resources:
           namespaces:
           - kyverno
           - kube-system
           - kube-node-lease
           - kube-public
-      validate:
-        message: "Deployments must have more than one replica to ensure availability."
-        pattern:
-          spec:
-            replicas: ">1"
+    match:
+      any:
+      - resources:
+          kinds:
+          - Deployment
+    name: deployment-has-multiple-replicas
+    validate:
+      message: Deployments must have more than one replica to ensure availability.
+      pattern:
+        spec:
+          replicas: '>1'
+  validationFailureAction: Audit
