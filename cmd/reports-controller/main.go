@@ -85,6 +85,7 @@ func createReportControllers(
 					metadataFactory,
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
+					vapInformer,
 					resourceReportController,
 					reportsChunkSize,
 				),
