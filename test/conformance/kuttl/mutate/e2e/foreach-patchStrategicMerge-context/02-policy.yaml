@@ -1,32 +1,36 @@
-apiVersion : kyverno.io/v1
+---
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: foreach-patchstrategicmerge-context-policy
 spec:
+  admission: true
   background: false
   rules:
-  - name: resolve-image-containers
-    match:
-      resources:
-        kinds:
-        - Pod
-    preconditions:
-      all:
-      - key: "{{request.operation}}"
-        operator: In
-        value:
-        - CREATE
-        - UPDATE
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
     mutate:
       foreach:
-      - list: "request.object.spec.containers"
-        context:
-          - name: dictionary
-            configMap:
-              name: foreach-patchstrategicmerge-context-configmap
-              namespace: foreach-patchstrategicmerge-context-ns
+      - context:
+        - configMap:
+            name: foreach-patchstrategicmerge-context-configmap
+            namespace: foreach-patchstrategicmerge-context-ns
+          name: dictionary
+        list: request.object.spec.containers
         patchStrategicMerge:
           spec:
             containers:
-            - name: "{{ element.name }}"           
-              image: "{{ dictionary.data.image }}"
+            - image: '{{ dictionary.data.image }}'
+              name: '{{ element.name }}'
+    name: resolve-image-containers
+    preconditions:
+      all:
+      - key: '{{request.operation}}'
+        operator: AllIn
+        value:
+        - CREATE
+        - UPDATE
+  validationFailureAction: Audit

@@ -3,6 +3,7 @@ package openapi
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -11,7 +12,6 @@ import (
 	openapiv2 "github.com/google/gnostic-models/openapiv2"
 	"github.com/kyverno/kyverno/data"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

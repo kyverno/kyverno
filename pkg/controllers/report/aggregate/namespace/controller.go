@@ -223,7 +223,7 @@ func (c *controller) mergeBackgroundScanReports(ctx context.Context, namespace s
 
 func (c *controller) reconcileReport(ctx context.Context, policyMap map[string]policyMapEntry, report kyvernov1alpha2.ReportInterface, namespace, name string, results ...policyreportv1alpha2.PolicyReportResult) (kyvernov1alpha2.ReportInterface, error) {
 	if report == nil {
-		report = reportutils.NewPolicyReport(namespace, name, results...)
+		report = reportutils.NewPolicyReport(namespace, name, nil, results...)
 		for _, result := range results {
 			policy := policyMap[result.Policy]
 			if policy.policy != nil {
