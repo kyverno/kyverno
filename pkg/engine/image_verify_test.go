@@ -1094,7 +1094,7 @@ func testImageVerifyCache(
 
 func errorAssertionUtil(t *testing.T, image string, ivm engineapi.ImageVerificationMetadata, er engineapi.EngineResponse) {
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass, er.PolicyResponse.Rules[0].Message())
 	assert.Equal(t, ivm.IsEmpty(), false)
 	assert.Equal(t, ivm.IsVerified(image), true)
 }
