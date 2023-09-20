@@ -142,20 +142,18 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
-func mergeReports(policyMap map[string]policyMapEntry, accumulator map[string]policyreportv1alpha2.PolicyReportResult, reports ...kyvernov1alpha2.ReportInterface) {
+func mergeReports(policyMap map[string]policyMapEntry, accumulator map[string]policyreportv1alpha2.PolicyReportResult, uid types.UID, reports ...kyvernov1alpha2.ReportInterface) {
 	for _, report := range reports {
 		if report != nil {
-			if len(report.GetOwnerReferences()) == 1 {
-				ownerRef := report.GetOwnerReferences()[0]
-				for _, result := range report.GetResults() {
-					currentPolicy := policyMap[result.Policy]
-					if currentPolicy.rules != nil && currentPolicy.rules.Has(result.Rule) {
-						key := result.Policy + "/" + result.Rule + "/" + string(ownerRef.UID)
-						if rule, exists := accumulator[key]; !exists {
-							accumulator[key] = result
-						} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
-							accumulator[key] = result
-						}
+			for _, result := range report.GetResults() {
+				currentPolicy := policyMap[result.Policy]
+				// TODO: vap map
+				if currentPolicy.rules != nil && currentPolicy.rules.Has(result.Rule) || result.Source == "ValidatingAdmissionPolicy" {
+					key := result.Source + "/" + result.Policy + "/" + result.Rule + "/" + string(uid)
+					if rule, exists := accumulator[key]; !exists {
+						accumulator[key] = result
+					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
+						accumulator[key] = result
 					}
 				}
 			}
@@ -311,7 +309,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, names
 			return err
 		}
 		merged := map[string]policyreportv1alpha2.PolicyReportResult{}
-		mergeReports(policyMap, merged, policyReport, admissionReport, backgroundReport)
+		mergeReports(policyMap, merged, uid, policyReport, admissionReport, backgroundReport)
 		var results []policyreportv1alpha2.PolicyReportResult
 		for _, result := range merged {
 			results = append(results, result)
