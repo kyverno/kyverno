@@ -554,7 +554,7 @@ jobs:
         run: |
           set -e
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
-          make kind-deploy-kyverno
+          make kind-install-kyverno
       - name: Install crane
         uses: imjasonh/setup-crane@00c9e93efa4e1138c9a7a5c594acd6c75a2fbf0c
       - name: Install Cosign
