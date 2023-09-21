@@ -104,7 +104,8 @@ func kubectlValidateLoader(bytes []byte) ([]kyvernov1.PolicyInterface, []v1alpha
 		if err != nil {
 			return nil, nil, err
 		}
-		if err := factory.Validate(untyped); err != nil {
+		// TODO remove DeepCopy when fixed upstream
+		if err := factory.Validate(untyped.DeepCopy()); err != nil {
 			return nil, nil, err
 		}
 		switch gvk {
