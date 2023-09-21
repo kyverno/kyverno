@@ -174,6 +174,7 @@ func (c *client) BuildCosignRemoteOption(ctx context.Context) (remote.Option, er
 	if err != nil {
 		return nil, err
 	}
+	gcrRemoteOpts = append(gcrRemoteOpts, gcrremote.WithUserAgent(userAgent))
 	return remote.WithRemoteOptions(gcrRemoteOpts...), nil
 }
 
