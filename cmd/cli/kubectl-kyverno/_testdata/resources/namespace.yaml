@@ -4,3 +4,5 @@ metadata:
   name: prod-bus-app1
   labels:
     purpose: production
+spec: {}
+status: {}
