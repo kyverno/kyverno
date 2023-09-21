@@ -8,7 +8,7 @@ import (
 )
 
 func Load[T any](l loader.Loader, content []byte) (*T, error) {
-	untyped, err := l.Load(content)
+	_, untyped, err := l.Load(content)
 	if err != nil {
 		return nil, err
 	}
@@ -26,7 +26,7 @@ func LoadResources(l loader.Loader, content []byte) ([]unstructured.Unstructured
 	}
 	var resources []unstructured.Unstructured
 	for _, document := range documents {
-		untyped, err := l.Load(document)
+		_, untyped, err := l.Load(document)
 		if err != nil {
 			return nil, err
 		}
