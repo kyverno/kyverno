@@ -180,7 +180,6 @@ func (e *engine) ContextLoader(
 			e.jp,
 			e.client,
 			e.rclientFactory,
-			e.ivCache,
 			contextEntries,
 			jsonContext,
 		)
