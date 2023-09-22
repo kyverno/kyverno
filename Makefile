@@ -46,8 +46,8 @@ DEEPCOPY_GEN                       := $(TOOLS_DIR)/deepcopy-gen
 DEFAULTER_GEN                      := $(TOOLS_DIR)/defaulter-gen
 APPLYCONFIGURATION_GEN             := $(TOOLS_DIR)/applyconfiguration-gen
 CODE_GEN_VERSION                   := v0.28.0
-GEN_CRD_API_REFERENCE_DOCS         := $(TOOLS_DIR)/gen-crd-api-reference-docs
-GEN_CRD_API_REFERENCE_DOCS_VERSION := latest
+GEN_CRD_API_REFERENCE_DOCS         := $(TOOLS_DIR)/kubernetes-sigs-reference-docs
+K8S_SIGS_REFERENCE_DOCS_VERSION    := latest
 GO_ACC                             := $(TOOLS_DIR)/go-acc
 GO_ACC_VERSION                     := latest
 GOIMPORTS                          := $(TOOLS_DIR)/goimports
@@ -109,8 +109,8 @@ $(APPLYCONFIGURATION_GEN):
 	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/applyconfiguration-gen@$(CODE_GEN_VERSION)
 
 $(GEN_CRD_API_REFERENCE_DOCS):
-	@echo Install gen-crd-api-reference-docs... >&2
-	@GOBIN=$(TOOLS_DIR) go install github.com/ahmetb/gen-crd-api-reference-docs@$(GEN_CRD_API_REFERENCE_DOCS_VERSION)
+	@echo Install kubernetes-sigs-reference-docs... >&2
+	@GOBIN=$(TOOLS_DIR) go install github.com/kubernetes-sigs/reference-docs@$(GEN_CRD_API_REFERENCE_DOCS_VERSION)
 
 $(GO_ACC):
 	@echo Install go-acc... >&2
