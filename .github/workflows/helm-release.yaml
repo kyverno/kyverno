@@ -16,6 +16,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
@@ -50,6 +54,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
