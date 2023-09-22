@@ -534,7 +534,7 @@ jobs:
         with:
           build-cache-key: run-conformance
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@b52f64ebe86d2d081b753d7d8549e0b668dcabb7
+        uses: sigstore/scaffolding/actions/setup@d5eada0a29719b385d26831ead049f188bbfd824
       - name: Create TUF values config map
         run: |
           kubectl create namespace kyverno
