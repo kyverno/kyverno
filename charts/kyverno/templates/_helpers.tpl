@@ -76,7 +76,7 @@
 {{- end -}}
 {{- with .tuf -}}
   {{- with .enable -}}
-    {{- $flags = append $flags (print "--enableTuf"=" .) -}}
+    {{- $flags = append $flags (print "--enableTuf=" .) -}}
   {{- end -}}
   {{- with .mirror -}}
     {{- $flags = append $flags (print "--tufMirror=" .) -}}
