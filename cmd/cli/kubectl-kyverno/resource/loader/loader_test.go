@@ -42,15 +42,9 @@ func TestNew(t *testing.T) {
 			}
 		}(),
 	}, {
-		name:   "invalid local",
-		client: openapiclient.NewLocalCRDFiles(data.Crds(), "blam"),
-		want: func() Loader {
-			validator, err := validator.New(openapiclient.NewLocalCRDFiles(data.Crds(), "blam"))
-			require.NoError(t, err)
-			return &loader{
-				validator: validator,
-			}
-		}(),
+		name:    "invalid local",
+		client:  openapiclient.NewLocalCRDFiles(data.Crds(), "blam"),
+		wantErr: true,
 	}, {
 		name:   "composite - no clients",
 		client: openapiclient.NewComposite(),
@@ -70,15 +64,9 @@ func TestNew(t *testing.T) {
 		client:  openapiclient.NewComposite(openapiclient.NewHardcodedBuiltins("1.27"), errClient{}),
 		wantErr: true,
 	}, {
-		name:   "composite - invalid local",
-		client: openapiclient.NewComposite(openapiclient.NewLocalCRDFiles(data.Crds(), "blam")),
-		want: func() Loader {
-			validator, err := validator.New(openapiclient.NewComposite(openapiclient.NewLocalCRDFiles(data.Crds(), "blam")))
-			require.NoError(t, err)
-			return &loader{
-				validator: validator,
-			}
-		}(),
+		name:    "composite - invalid local",
+		client:  openapiclient.NewComposite(openapiclient.NewLocalCRDFiles(data.Crds(), "blam")),
+		wantErr: true,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
