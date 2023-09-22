@@ -32,14 +32,20 @@ runs:
       with:
         go-version: ~1.21.1
     - uses: actions/cache@4723a57e26efda3a62cbde1812113b730952852d # v3.2.2
+      timeout-minutes: 2
+      continue-on-error: true
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-pkg-mod-${{ hashFiles('**/go.sum') }}-${{ hashFiles('Makefile') }}
     - uses: actions/cache@4723a57e26efda3a62cbde1812113b730952852d # v3.2.2
+      timeout-minutes: 2
+      continue-on-error: true
       with:
         path: ~/.cache/kyverno/tools
         key: ${{ runner.os }}-cache-kyverno-tools-${{ hashFiles('**/go.sum') }}-${{ hashFiles('Makefile') }}
     - uses: actions/cache@4723a57e26efda3a62cbde1812113b730952852d # v3.2.2
+      timeout-minutes: 2
+      continue-on-error: true
       if: ${{ inputs.build-cache-key }}
       with:
         path: ~/.cache/go-build
