@@ -157,35 +157,6 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
-func mergeReports(policyMap map[string]policyMapEntry, vapMap sets.Set[string], accumulator map[string]policyreportv1alpha2.PolicyReportResult, uid types.UID, reports ...kyvernov1alpha2.ReportInterface) {
-	for _, report := range reports {
-		if report != nil {
-			for _, result := range report.GetResults() {
-				if result.Source == "ValidatingAdmissionPolicy" {
-					if vapMap != nil && vapMap.Has(result.Policy) {
-						key := result.Source + "/" + result.Policy + "/" + string(uid)
-						if rule, exists := accumulator[key]; !exists {
-							accumulator[key] = result
-						} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
-							accumulator[key] = result
-						}
-					}
-				} else {
-					currentPolicy := policyMap[result.Policy]
-					if currentPolicy.rules != nil && currentPolicy.rules.Has(result.Rule) {
-						key := result.Source + "/" + result.Policy + "/" + result.Rule + "/" + string(uid)
-						if rule, exists := accumulator[key]; !exists {
-							accumulator[key] = result
-						} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
-							accumulator[key] = result
-						}
-					}
-				}
-			}
-		}
-	}
-}
-
 func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 	results := map[string]policyMapEntry{}
 	cpols, err := c.cpolLister.List(labels.Everything())
@@ -363,7 +334,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, names
 		}
 		if len(results) == 0 {
 			if !create {
-				if err := reportutils.DeleteReport(ctx, policyReport, c.client); err != nil {
+				if err := deleteReport(ctx, policyReport, c.client); err != nil {
 					return err
 				}
 			}
@@ -374,18 +345,18 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, names
 					return err
 				}
 			} else {
-				if _, err := reportutils.UpdateReport(ctx, policyReport, c.client); err != nil {
+				if _, err := updateReport(ctx, policyReport, c.client); err != nil {
 					return err
 				}
 			}
 		}
 		if admissionReport != nil {
-			if err := reportutils.DeleteReport(ctx, admissionReport, c.client); err != nil {
+			if err := deleteReport(ctx, admissionReport, c.client); err != nil {
 				return err
 			}
 		}
 		if backgroundReport != nil {
-			if err := reportutils.DeleteReport(ctx, backgroundReport, c.client); err != nil {
+			if err := deleteReport(ctx, backgroundReport, c.client); err != nil {
 				return err
 			}
 		}
@@ -395,7 +366,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, names
 			return err
 		}
 		if policyReport != nil {
-			if err := reportutils.DeleteReport(ctx, policyReport, c.client); err != nil {
+			if err := deleteReport(ctx, policyReport, c.client); err != nil {
 				return err
 			}
 		}
