@@ -10,6 +10,10 @@ import (
 )
 
 func setupSigstoreTUF(ctx context.Context, logger logr.Logger) {
+	if !enableTUF {
+		return
+	}
+
 	logger = logger.WithName("sigstore-tuf").WithValues("tufroot", tufRoot, "tufmirror", tufMirror)
 	logger.Info("setup tuf client for sigstore...")
 	var tufRootBytes []byte
