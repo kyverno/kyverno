@@ -69,9 +69,12 @@ func (g *generator) tryApplyResource(ctx context.Context, urSpec kyvernov1beta1.
 		queryLabels = common.MutateLabelsSet(urSpec.Policy, urSpec.GetResource())
 	} else if urSpec.GetRequestType() == kyvernov1beta1.Generate {
 		resource := &unstructured.Unstructured{}
-		err := json.Unmarshal(urSpec.Context.AdmissionRequestInfo.AdmissionRequest.Object.Raw, &resource)
-		if err != nil {
-			logger.Error(err, "failed to unmarshal admission request object")
+		if urSpec.Context.AdmissionRequestInfo.AdmissionRequest != nil {
+			err := json.Unmarshal(urSpec.Context.AdmissionRequestInfo.AdmissionRequest.Object.Raw, &resource)
+			if err != nil {
+				logger.Error(err, "failed to unmarshal admission request object")
+				return nil
+			}
 		}
 		queryLabels = common.GenerateLabelsSet(urSpec.Policy, urSpec.GetResource(), string(resource.GetUID()))
 	}

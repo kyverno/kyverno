@@ -12,6 +12,7 @@ const (
 	GenerateSourceNameLabel      = "generate.kyverno.io/source-name"
 	GenerateSourceNSLabel        = "generate.kyverno.io/source-namespace"
 	GenerateSourceKindLabel      = "generate.kyverno.io/source-kind"
+	GenerateSourceUIDLabel       = "generate.kyverno.io/source-uid"
 	GenerateSourceVersionLabel   = "generate.kyverno.io/source-version"
 	GenerateSourceGroupLabel     = "generate.kyverno.io/source-group"
 	GenerateTypeCloneSourceLabel = "generate.kyverno.io/clone-source"
