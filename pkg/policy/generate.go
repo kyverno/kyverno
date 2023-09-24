@@ -42,7 +42,7 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 		ruleType := kyvernov1beta1.Generate
 		triggers := generateTriggers(pc.client, rule, pc.log)
 		for _, trigger := range triggers {
-			ur := newUR(policy, common.ResourceSpecFromUnstructured(*trigger), rule.Name, ruleType, false)
+			ur := newUR(policy, common.ResourceSpecFromUnstructured(*trigger), rule.Name, ruleType, false, string(trigger.GetUID()))
 			skip, err := pc.handleUpdateRequest(ur, trigger, rule, policy)
 			if err != nil {
 				pc.log.Error(err, "failed to create new UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
@@ -111,7 +111,7 @@ func (pc *policyController) syncDataRulechanges(policy kyvernov1.PolicyInterface
 	for _, downstream := range downstreams.Items {
 		labels := downstream.GetLabels()
 		trigger := generateutils.TriggerFromLabels(labels)
-		ur := newUR(policy, trigger, rule.Name, kyvernov1beta1.Generate, deleteDownstream)
+		ur := newUR(policy, trigger, rule.Name, kyvernov1beta1.Generate, deleteDownstream, string(downstream.GetUID()))
 		created, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
 		if err != nil {
 			errorList = append(errorList, err)
