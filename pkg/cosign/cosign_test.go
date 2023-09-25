@@ -145,6 +145,42 @@ func TestRekorPubkeys(t *testing.T) {
 	assert.NilError(t, err)
 }
 
+func TestIgnoreTlogsandIgnoreSCT(t *testing.T) {
+	err := SetMock("ghcr.io/kyverno/test-verify-image", [][]byte{[]byte(keylessPayload)})
+	defer ClearMock()
+	assert.NilError(t, err)
+
+	opts := images.Options{
+		ImageRef: "ghcr.io/kyverno/test-verify-image",
+	}
+
+	rc, err := registryclient.New()
+	assert.NilError(t, err)
+	opts.Client = rc
+
+	verifier := &cosignVerifier{}
+
+	opts.RekorPubKey = "--INVALID KEY--"
+	_, err = verifier.VerifySignature(context.TODO(), opts)
+	// RekorPubKey is checked when ignoreTlog is set to false
+	assert.ErrorContains(t, err, "failed to load Rekor public keys: failed to get rekor public keys: PEM decoding failed")
+
+	opts.IgnoreTlog = true
+	_, err = verifier.VerifySignature(context.TODO(), opts)
+	// RekorPubKey is NOT checked when ignoreTlog is set to true
+	assert.NilError(t, err)
+
+	opts.CTLogsPubKey = "--INVALID KEY--"
+	_, err = verifier.VerifySignature(context.TODO(), opts)
+	// CTLogsPubKey is checked when ignoreSCT is set to false
+	assert.ErrorContains(t, err, "failed to load CTLogs public keys: failed to get transparency log public keys: PEM decoding failed")
+
+	opts.IgnoreSCT = true
+	_, err = verifier.VerifySignature(context.TODO(), opts)
+	// CTLogsPubKey is NOT checked when ignoreSCT is set to true
+	assert.NilError(t, err)
+}
+
 func TestCTLogsPubkeys(t *testing.T) {
 	opts := images.Options{
 		ImageRef:     "ghcr.io/vishal-chdhry/cosign-test:v1",
