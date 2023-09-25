@@ -1248,6 +1248,9 @@ spec:
                   - type
                   type: object
                 type: array
+              nextExecutionTime:
+                format: date-time
+                type: string
             type: object
         required:
         - spec
