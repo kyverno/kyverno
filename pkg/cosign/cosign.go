@@ -191,7 +191,7 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 	if !opts.IgnoreSCT {
 		cosignOpts.CTLogPubKeys, err = getCTLogPubs(ctx, opts.CTLogsPubKey)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load Rekor public keys: %w", err)
+			return nil, fmt.Errorf("failed to load CTLogs public keys: %w", err)
 		}
 	}
 
