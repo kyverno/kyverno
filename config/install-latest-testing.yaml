@@ -2099,7 +2099,7 @@ spec:
                   - type
                   type: object
                 type: array
-              nextExecutionTime:
+              lastExecutionTime:
                 format: date-time
                 type: string
             type: object
@@ -4008,7 +4008,7 @@ spec:
                   - type
                   type: object
                 type: array
-              nextExecutionTime:
+              lastExecutionTime:
                 format: date-time
                 type: string
             type: object

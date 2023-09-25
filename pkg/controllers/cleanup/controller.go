@@ -335,28 +335,34 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	}
 
 	status := policy.GetStatus()
-	// check if this is the first execution of the cleanup policy.
-	if status.NextExecutionTime.IsZero() {
-		nextExecutionTime := cronExpr.Next(time.Now())
-		c.updateCleanupPolicyStatus(ctx, policy, namespace, nextExecutionTime)
-		// calculate the remaining time until deletion.
-		timeRemaining := time.Until(nextExecutionTime)
-		// add the item back to the queue after the remaining time.
-		c.queue.AddAfter(key, timeRemaining)
-		return nil
-	}
+	creationTime := policy.GetCreationTimestamp().Time
+	firstExecutionTime := cronExpr.Next(creationTime)
 
 	var nextExecutionTime time.Time
-	if time.Now().After(status.NextExecutionTime.Time) {
-		err := c.cleanup(ctx, logger, policy)
-		if err != nil {
-			return err
+	// In case it isn't the first execution of the cleanup policy.
+	if firstExecutionTime.Before(time.Now()) {
+		var executionTime time.Time
+		if status.LastExecutionTime.IsZero() {
+			executionTime = firstExecutionTime
+		} else {
+			executionTime = cronExpr.Next(status.LastExecutionTime.Time)
 		}
-		nextExecutionTime = cronExpr.Next(time.Now())
-		c.updateCleanupPolicyStatus(ctx, policy, namespace, nextExecutionTime)
+		// In case it is the time to do the cleanup process
+		if time.Now().After(executionTime) {
+			err := c.cleanup(ctx, logger, policy)
+			if err != nil {
+				return err
+			}
+			c.updateCleanupPolicyStatus(ctx, policy, namespace, executionTime)
+			nextExecutionTime = cronExpr.Next(executionTime)
+		} else {
+			nextExecutionTime = executionTime
+		}
 	} else {
-		nextExecutionTime = status.NextExecutionTime.Time
+		// In case it is the first execution of the cleanup policy.
+		nextExecutionTime = firstExecutionTime
 	}
+
 	// calculate the remaining time until deletion.
 	timeRemaining := time.Until(nextExecutionTime)
 	// add the item back to the queue after the remaining time.
@@ -368,13 +374,13 @@ func (c *controller) updateCleanupPolicyStatus(ctx context.Context, policy kyver
 	switch obj := policy.(type) {
 	case *kyvernov2alpha1.ClusterCleanupPolicy:
 		latest := obj.DeepCopy()
-		latest.Status.NextExecutionTime.Time = time
+		latest.Status.LastExecutionTime.Time = time
 
 		new, _ := c.kyvernoClient.KyvernoV2alpha1().ClusterCleanupPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
 		logging.V(3).Info("updated cluster cleanup policy status", "name", policy.GetName(), "status", new.Status)
 	case *kyvernov2alpha1.CleanupPolicy:
 		latest := obj.DeepCopy()
-		latest.Status.NextExecutionTime.Time = time
+		latest.Status.LastExecutionTime.Time = time
 
 		new, _ := c.kyvernoClient.KyvernoV2alpha1().CleanupPolicies(namespace).UpdateStatus(ctx, latest, metav1.UpdateOptions{})
 		logging.V(3).Info("updated cleanup policy status", "name", policy.GetName(), "namespace", policy.GetNamespace(), "status", new.Status)

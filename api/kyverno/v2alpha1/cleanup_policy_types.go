@@ -185,7 +185,7 @@ type CleanupPolicySpec struct {
 // CleanupPolicyStatus stores the status of the policy.
 type CleanupPolicyStatus struct {
 	Conditions        []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
-	NextExecutionTime metav1.Time        `json:"nextExecutionTime,omitempty"`
+	LastExecutionTime metav1.Time        `json:"lastExecutionTime,omitempty"`
 }
 
 // Validate implements programmatic validation
