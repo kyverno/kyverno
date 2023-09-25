@@ -72,13 +72,14 @@ func (g *generator) tryApplyResource(ctx context.Context, urSpec kyvernov1beta1.
 		admissionRequest := urSpec.Context.AdmissionRequestInfo.AdmissionRequest
 		if admissionRequest != nil {
 			var err error
-			if admissionRequest.Operation != "DELETE" {
-				err = json.Unmarshal(urSpec.Context.AdmissionRequestInfo.AdmissionRequest.Object.Raw, &resource)
-			} else {
+			if admissionRequest.Operation == "DELETE" {
 				err = json.Unmarshal(urSpec.Context.AdmissionRequestInfo.AdmissionRequest.OldObject.Raw, &resource)
+			} else {
+				err = json.Unmarshal(urSpec.Context.AdmissionRequestInfo.AdmissionRequest.Object.Raw, &resource)
 			}
 			if err != nil {
 				logger.Error(err, "failed to unmarshal admission request object")
+				return err
 			}
 		}
 		queryLabels = common.GenerateLabelsSet(urSpec.Policy, urSpec.GetResource(), string(resource.GetUID()))
