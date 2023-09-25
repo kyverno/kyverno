@@ -583,7 +583,7 @@ func getRekorPubs(ctx context.Context, rekorPubKey string) (*cosign.TrustedTrans
 
 	publicKeys := cosign.NewTrustedTransparencyLogPubKeys()
 	if err := publicKeys.AddTransparencyLogPubKey([]byte(rekorPubKey), tuf.Active); err != nil {
-		return nil, fmt.Errorf("AddRekorPubKey: %w", err)
+		return nil, fmt.Errorf("failed to get rekor public keys: %w", err)
 	}
 	return &publicKeys, nil
 }
@@ -595,7 +595,7 @@ func getCTLogPubs(ctx context.Context, ctlogPubKey string) (*cosign.TrustedTrans
 
 	publicKeys := cosign.NewTrustedTransparencyLogPubKeys()
 	if err := publicKeys.AddTransparencyLogPubKey([]byte(ctlogPubKey), tuf.Active); err != nil {
-		return nil, fmt.Errorf("AddCTLogsPubKey: %w", err)
+		return nil, fmt.Errorf("failed to get transparency log public keys: %w", err)
 	}
 	return &publicKeys, nil
 }
