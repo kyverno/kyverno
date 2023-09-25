@@ -162,7 +162,7 @@ func TestIgnoreTlogsandIgnoreSCT(t *testing.T) {
 
 	opts.RekorPubKey = "--INVALID KEY--"
 	_, err = verifier.VerifySignature(context.TODO(), opts)
-	// RekorPubKey is checked when ignoreTlog is not set to false
+	// RekorPubKey is checked when ignoreTlog is set to false
 	assert.ErrorContains(t, err, "failed to load Rekor public keys: failed to get rekor public keys: PEM decoding failed")
 
 	opts.IgnoreTlog = true
@@ -172,7 +172,7 @@ func TestIgnoreTlogsandIgnoreSCT(t *testing.T) {
 
 	opts.CTLogsPubKey = "--INVALID KEY--"
 	_, err = verifier.VerifySignature(context.TODO(), opts)
-	// CTLogsPubKey is checked when ignoreSCT is not set to false
+	// CTLogsPubKey is checked when ignoreSCT is set to false
 	assert.ErrorContains(t, err, "failed to load CTLogs public keys: failed to get transparency log public keys: PEM decoding failed")
 
 	opts.IgnoreSCT = true
