@@ -11,7 +11,6 @@ import (
 	openapiv2 "github.com/google/gnostic-models/openapiv2"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	"github.com/kyverno/kyverno/pkg/engine"
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"gopkg.in/yaml.v3"
@@ -28,7 +27,7 @@ type ValidateInterface interface {
 
 type Manager interface {
 	ValidateInterface
-	openapicontroller.Manager
+	// openapicontroller.Manager
 }
 
 type manager struct {

@@ -1,7 +1,6 @@
 package policy
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,7 +18,6 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
@@ -125,9 +123,9 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
 	mutateExistingOnPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
-	if !mock {
-		openapicontroller.NewController(client, openApiManager).CheckSync(context.TODO())
-	}
+	// if !mock {
+	// 	openapicontroller.NewController(client, openApiManager).CheckSync(context.TODO())
+	// }
 
 	warnings = append(warnings, checkValidationFailureAction(spec)...)
 	var errs field.ErrorList

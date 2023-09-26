@@ -20,7 +20,6 @@ import (
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
-	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/validatingadmissionpolicy-generate"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
@@ -90,13 +89,13 @@ func createNonLeaderControllers(
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 	)
-	openApiController := openapicontroller.NewController(
-		dynamicClient,
-		manager,
-	)
+	// openApiController := openapicontroller.NewController(
+	// 	dynamicClient,
+	// 	manager,
+	// )
 	return []internal.Controller{
 			internal.NewController(policycachecontroller.ControllerName, policyCacheController, policycachecontroller.Workers),
-			internal.NewController(openapicontroller.ControllerName, openApiController, openapicontroller.Workers),
+			// internal.NewController(openapicontroller.ControllerName, openApiController, openapicontroller.Workers),
 		},
 		func(ctx context.Context) error {
 			if err := policyCacheController.WarmUp(); err != nil {
