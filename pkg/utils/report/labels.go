@@ -152,7 +152,7 @@ func GetResourceGVR(report metav1.Object) schema.GroupVersionResource {
 }
 
 func GetResourceNamespaceAndName(report kyvernov1alpha2.ReportInterface) (string, string) {
-	return controllerutils.GetAnnotation(report, AnnotationResourceNamespace), controllerutils.GetLabel(report, AnnotationResourceName)
+	return controllerutils.GetAnnotation(report, AnnotationResourceNamespace), controllerutils.GetAnnotation(report, AnnotationResourceName)
 }
 
 func GetResourceHash(report metav1.Object) string {
