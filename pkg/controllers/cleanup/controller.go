@@ -334,7 +334,6 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		return err
 	}
 
-	status := policy.GetStatus()
 	creationTime := policy.GetCreationTimestamp().Time
 	firstExecutionTime := cronExpr.Next(creationTime)
 
@@ -342,10 +341,11 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	// In case it isn't the first execution of the cleanup policy.
 	if firstExecutionTime.Before(time.Now()) {
 		var executionTime time.Time
-		if status.LastExecutionTime.IsZero() {
+		lastExecutionTime := policy.GetLastExecutionTime()
+		if lastExecutionTime.IsZero() {
 			executionTime = firstExecutionTime
 		} else {
-			executionTime = cronExpr.Next(status.LastExecutionTime.Time)
+			executionTime = cronExpr.Next(lastExecutionTime.Time)
 		}
 		// In case it is the time to do the cleanup process
 		if time.Now().After(executionTime) {

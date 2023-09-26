@@ -13,6 +13,7 @@ type CleanupPolicyInterface interface {
 	IsNamespaced() bool
 	GetSpec() *CleanupPolicySpec
 	GetStatus() *CleanupPolicyStatus
+	GetLastExecutionTime() metav1.Time
 	Validate(sets.Set[string]) field.ErrorList
 	GetKind() string
 	GetAPIVersion() string

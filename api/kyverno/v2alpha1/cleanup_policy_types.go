@@ -58,6 +58,11 @@ func (p *CleanupPolicy) GetStatus() *CleanupPolicyStatus {
 	return &p.Status
 }
 
+// GetLastExecutionTime returns the last execution time of the policy
+func (p *CleanupPolicy) GetLastExecutionTime() metav1.Time {
+	return p.Status.LastExecutionTime
+}
+
 // Validate implements programmatic validation
 func (p *CleanupPolicy) Validate(clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, kyvernov1.ValidatePolicyName(field.NewPath("metadata").Child("name"), p.Name)...)
@@ -121,6 +126,11 @@ func (p *ClusterCleanupPolicy) GetSpec() *CleanupPolicySpec {
 // GetStatus returns the policy status
 func (p *ClusterCleanupPolicy) GetStatus() *CleanupPolicyStatus {
 	return &p.Status
+}
+
+// GetLastExecutionTime returns the last execution time of the policy
+func (p *ClusterCleanupPolicy) GetLastExecutionTime() metav1.Time {
+	return p.Status.LastExecutionTime
 }
 
 // GetKind returns the resource kind
