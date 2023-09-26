@@ -17,6 +17,9 @@ limitations under the License.
 package v2alpha1
 
 import (
+	"time"
+
+	"github.com/aptible/supercronic/cronexpr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -58,9 +61,25 @@ func (p *CleanupPolicy) GetStatus() *CleanupPolicyStatus {
 	return &p.Status
 }
 
-// GetLastExecutionTime returns the last execution time of the policy
-func (p *CleanupPolicy) GetLastExecutionTime() metav1.Time {
-	return p.Status.LastExecutionTime
+// GetExecutionTime returns the execution time of the policy
+func (p *CleanupPolicy) GetExecutionTime() (*time.Time, error) {
+	lastExecutionTime := p.Status.LastExecutionTime.Time
+	if lastExecutionTime.IsZero() {
+		creationTime := p.GetCreationTimestamp().Time
+		return p.GetNextExecutionTime(creationTime)
+	} else {
+		return p.GetNextExecutionTime(lastExecutionTime)
+	}
+}
+
+// GetNextExecutionTime returns the next execution time of the policy
+func (p *CleanupPolicy) GetNextExecutionTime(time time.Time) (*time.Time, error) {
+	cronExpr, err := cronexpr.Parse(p.Spec.Schedule)
+	if err != nil {
+		return nil, err
+	}
+	nextExecutionTime := cronExpr.Next(time)
+	return &nextExecutionTime, nil
 }
 
 // Validate implements programmatic validation
@@ -128,9 +147,25 @@ func (p *ClusterCleanupPolicy) GetStatus() *CleanupPolicyStatus {
 	return &p.Status
 }
 
-// GetLastExecutionTime returns the last execution time of the policy
-func (p *ClusterCleanupPolicy) GetLastExecutionTime() metav1.Time {
-	return p.Status.LastExecutionTime
+// GetExecutionTime returns the execution time of the policy
+func (p *ClusterCleanupPolicy) GetExecutionTime() (*time.Time, error) {
+	lastExecutionTime := p.Status.LastExecutionTime.Time
+	if lastExecutionTime.IsZero() {
+		creationTime := p.GetCreationTimestamp().Time
+		return p.GetNextExecutionTime(creationTime)
+	} else {
+		return p.GetNextExecutionTime(lastExecutionTime)
+	}
+}
+
+// GetNextExecutionTime returns the next execution time of the policy
+func (p *ClusterCleanupPolicy) GetNextExecutionTime(time time.Time) (*time.Time, error) {
+	cronExpr, err := cronexpr.Parse(p.Spec.Schedule)
+	if err != nil {
+		return nil, err
+	}
+	nextExecutionTime := cronExpr.Next(time)
+	return &nextExecutionTime, nil
 }
 
 // GetKind returns the resource kind
