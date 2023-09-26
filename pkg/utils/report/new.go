@@ -23,7 +23,6 @@ func NewAdmissionReport(namespace, name string, gvr schema.GroupVersionResource,
 	report.SetNamespace(namespace)
 	SetResourceUid(report, resource.GetUID())
 	SetResourceGVR(report, gvr)
-	SetResourceNamespaceAndName(report, resource.GetNamespace(), resource.GetName())
 	SetManagedByKyvernoLabel(report)
 	return report
 }
