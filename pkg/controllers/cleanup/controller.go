@@ -328,7 +328,11 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	}
 
 	var nextExecutionTime *time.Time
-	executionTime, _ := policy.GetExecutionTime()
+	executionTime, err := policy.GetExecutionTime()
+	if err != nil {
+		logger.Error(err, "failed to get the policy execution time")
+		return err
+	}
 	// In case it is the time to do the cleanup process
 	if time.Now().After(*executionTime) {
 		err := c.cleanup(ctx, logger, policy)
@@ -336,7 +340,11 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			return err
 		}
 		c.updateCleanupPolicyStatus(ctx, policy, namespace, *executionTime)
-		nextExecutionTime, _ = policy.GetNextExecutionTime(*executionTime)
+		nextExecutionTime, err = policy.GetNextExecutionTime(*executionTime)
+		if err != nil {
+			logger.Error(err, "failed to get the policy next execution time")
+			return err
+		}
 	} else {
 		nextExecutionTime = executionTime
 	}
