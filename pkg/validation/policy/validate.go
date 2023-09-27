@@ -22,7 +22,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/openapi"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -118,14 +117,11 @@ func checkValidationFailureAction(spec *kyvernov1.Spec) []string {
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager openapi.Manager, username string) ([]string, error) {
+func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, username string) ([]string, error) {
 	var warnings []string
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
 	mutateExistingOnPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
-	// if !mock {
-	// 	openapicontroller.NewController(client, openApiManager).CheckSync(context.TODO())
-	// }
 
 	warnings = append(warnings, checkValidationFailureAction(spec)...)
 	var errs field.ErrorList
@@ -360,11 +356,6 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 		if rule.HasVerifyImages() {
 			checkForDeprecatedFieldsInVerifyImages(rule, &warnings)
-		}
-	}
-	if !mock && (spec.SchemaValidation == nil || *spec.SchemaValidation) {
-		if err := openApiManager.ValidatePolicyMutation(policy); err != nil {
-			return warnings, fmt.Errorf("%s (you can bypass schema validation by setting `spec.schemaValidation: false`)", err)
 		}
 	}
 	return warnings, nil

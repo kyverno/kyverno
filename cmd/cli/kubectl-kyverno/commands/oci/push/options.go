@@ -14,10 +14,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/static"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
-	clilog "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/openapi"
 	policyutils "github.com/kyverno/kyverno/pkg/utils/policy"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 )
@@ -41,12 +39,8 @@ func (o options) execute(ctx context.Context, dir string, keychain authn.Keychai
 	if err != nil {
 		return fmt.Errorf("unable to read policy file or directory %s (%w)", dir, err)
 	}
-	openApiManager, err := openapi.NewManager(clilog.Log)
-	if err != nil {
-		return fmt.Errorf("creating openapi manager: %v", err)
-	}
 	for _, policy := range policies {
-		if _, err := policyvalidation.Validate(policy, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName())); err != nil {
+		if _, err := policyvalidation.Validate(policy, nil, nil, true, config.KyvernoUserName(config.KyvernoServiceAccountName())); err != nil {
 			return fmt.Errorf("validating policy %s: %v", policy.GetName(), err)
 		}
 	}
