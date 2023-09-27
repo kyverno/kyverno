@@ -255,10 +255,6 @@ func (e *engine) invokeRuleHandler(
 			} else if handler, err := handlerFactory(); err != nil {
 				return resource, handlers.WithError(rule, ruleType, "failed to instantiate handler", err)
 			} else if handler != nil {
-				// check if there's an exception
-				if ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule); ruleResp != nil {
-					return resource, handlers.WithResponses(ruleResp)
-				}
 				policyContext.JSONContext().Checkpoint()
 				defer func() {
 					policyContext.JSONContext().Restore()
@@ -288,7 +284,16 @@ func (e *engine) invokeRuleHandler(
 					return resource, handlers.WithSkip(rule, ruleType, s)
 				}
 				// process handler
-				return handler.Process(ctx, logger, policyContext, resource, rule, contextLoader)
+				resource, ruleResponses := handler.Process(ctx, logger, policyContext, resource, rule, contextLoader)
+				// check if there's an exception if rule fails.
+				for _, ruleResp := range ruleResponses {
+					if ruleResp.Status() == engineapi.RuleStatusFail {
+						if resp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule); resp != nil {
+							return resource, handlers.WithResponses(resp)
+						}
+					}
+				}
+				return resource, ruleResponses
 			}
 			return resource, nil
 		},
