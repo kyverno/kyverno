@@ -5,15 +5,13 @@ metadata:
     webhook.kyverno.io/managed-by: kyverno
   name: kyverno-resource-validating-webhook-cfg
 webhooks:
-- failurePolicy: Fail
-  rules:
+- rules:
   - apiGroups:
     - '*'
     apiVersions:
     - '*'
     operations:
     - CREATE
-    - UPDATE
     resources:
-    - '*/*'
+    - '*/scale'
     scope: '*'
