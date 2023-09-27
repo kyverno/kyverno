@@ -9,7 +9,9 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/test"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	"gotest.tools/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestLoadTests(t *testing.T) {
@@ -46,26 +48,27 @@ func TestLoadTests(t *testing.T) {
 		fileName: "kyverno-test.yaml",
 		want: []TestCase{{
 			Path: "../_testdata/tests/test-1/kyverno-test.yaml",
-			Test: &testapi.Test{
-				Name:      "test-registry",
+			Test: &v1alpha1.Test{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "cli.kyverno.io/v1alpha1",
+					Kind:       "Test",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-registry",
+				},
 				Policies:  []string{"image-example.yaml"},
 				Resources: []string{"resources.yaml"},
-				Results: []testapi.TestResult{{
-					TestResultBase: testapi.TestResultBase{
+				Results: []v1alpha1.TestResult{{
+					TestResultBase: v1alpha1.TestResultBase{
 						Kind:   "Pod",
 						Policy: "images",
 						Result: policyreportv1alpha2.StatusPass,
 						Rule:   "only-allow-trusted-images",
 					},
-					Resources: []string{"test-pod-with-non-root-user-image"},
-				}, {
-					TestResultBase: testapi.TestResultBase{
-						Kind:   "Pod",
-						Policy: "images",
-						Result: policyreportv1alpha2.StatusPass,
-						Rule:   "only-allow-trusted-images",
+					Resources: []string{
+						"test-pod-with-non-root-user-image",
+						"test-pod-with-trusted-registry",
 					},
-					Resources: []string{"test-pod-with-trusted-registry"},
 				}},
 			},
 		}},
@@ -76,26 +79,32 @@ func TestLoadTests(t *testing.T) {
 		fileName: "kyverno-test.yaml",
 		want: []TestCase{{
 			Path: "../_testdata/tests/test-2/kyverno-test.yaml",
-			Test: &testapi.Test{
-				Name:      "add-quota",
+			Test: &v1alpha1.Test{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "cli.kyverno.io/v1alpha1",
+					Kind:       "Test",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "add-quota",
+				},
 				Policies:  []string{"policy.yaml"},
 				Resources: []string{"resource.yaml"},
-				Results: []testapi.TestResult{{
-					TestResultBase: testapi.TestResultBase{
-						Kind:              "Namespace",
-						Policy:            "add-ns-quota",
-						Result:            policyreportv1alpha2.StatusPass,
-						Rule:              "generate-resourcequota",
-						GeneratedResource: "generatedResourceQuota.yaml",
-					},
-					Resources: []string{"hello-world-namespace"},
-				}, {
-					TestResultBase: testapi.TestResultBase{
+				Results: []v1alpha1.TestResult{{
+					TestResultBase: v1alpha1.TestResultBase{
 						Kind:              "Namespace",
 						Policy:            "add-ns-quota",
 						Result:            policyreportv1alpha2.StatusPass,
 						Rule:              "generate-limitrange",
 						GeneratedResource: "generatedLimitRange.yaml",
+					},
+					Resources: []string{"hello-world-namespace"},
+				}, {
+					TestResultBase: v1alpha1.TestResultBase{
+						Kind:              "Namespace",
+						Policy:            "add-ns-quota",
+						Result:            policyreportv1alpha2.StatusPass,
+						Rule:              "generate-resourcequota",
+						GeneratedResource: "generatedResourceQuota.yaml",
 					},
 					Resources: []string{"hello-world-namespace"},
 				}},
@@ -108,50 +117,57 @@ func TestLoadTests(t *testing.T) {
 		fileName: "kyverno-test.yaml",
 		want: []TestCase{{
 			Path: "../_testdata/tests/test-1/kyverno-test.yaml",
-			Test: &testapi.Test{
-				Name:      "test-registry",
+			Test: &v1alpha1.Test{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "cli.kyverno.io/v1alpha1",
+					Kind:       "Test",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-registry",
+				},
 				Policies:  []string{"image-example.yaml"},
 				Resources: []string{"resources.yaml"},
-				Results: []testapi.TestResult{{
-					TestResultBase: testapi.TestResultBase{
+				Results: []v1alpha1.TestResult{{
+					TestResultBase: v1alpha1.TestResultBase{
 						Kind:   "Pod",
 						Policy: "images",
 						Result: policyreportv1alpha2.StatusPass,
 						Rule:   "only-allow-trusted-images",
 					},
-					Resources: []string{"test-pod-with-non-root-user-image"},
-				}, {
-					TestResultBase: testapi.TestResultBase{
-						Kind:   "Pod",
-						Policy: "images",
-						Result: policyreportv1alpha2.StatusPass,
-						Rule:   "only-allow-trusted-images",
+					Resources: []string{
+						"test-pod-with-non-root-user-image",
+						"test-pod-with-trusted-registry",
 					},
-					Resources: []string{"test-pod-with-trusted-registry"},
 				}},
 			},
 		}, {
 			Path: "../_testdata/tests/test-2/kyverno-test.yaml",
-			Test: &testapi.Test{
-				Name:      "add-quota",
+			Test: &v1alpha1.Test{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "cli.kyverno.io/v1alpha1",
+					Kind:       "Test",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "add-quota",
+				},
 				Policies:  []string{"policy.yaml"},
 				Resources: []string{"resource.yaml"},
-				Results: []testapi.TestResult{{
-					TestResultBase: testapi.TestResultBase{
-						Kind:              "Namespace",
-						Policy:            "add-ns-quota",
-						Result:            policyreportv1alpha2.StatusPass,
-						Rule:              "generate-resourcequota",
-						GeneratedResource: "generatedResourceQuota.yaml",
-					},
-					Resources: []string{"hello-world-namespace"},
-				}, {
-					TestResultBase: testapi.TestResultBase{
+				Results: []v1alpha1.TestResult{{
+					TestResultBase: v1alpha1.TestResultBase{
 						Kind:              "Namespace",
 						Policy:            "add-ns-quota",
 						Result:            policyreportv1alpha2.StatusPass,
 						Rule:              "generate-limitrange",
 						GeneratedResource: "generatedLimitRange.yaml",
+					},
+					Resources: []string{"hello-world-namespace"},
+				}, {
+					TestResultBase: v1alpha1.TestResultBase{
+						Kind:              "Namespace",
+						Policy:            "add-ns-quota",
+						Result:            policyreportv1alpha2.StatusPass,
+						Rule:              "generate-resourcequota",
+						GeneratedResource: "generatedResourceQuota.yaml",
 					},
 					Resources: []string{"hello-world-namespace"},
 				}},
@@ -197,26 +213,27 @@ func TestLoadTest(t *testing.T) {
 		path: "../_testdata/tests/test-1/kyverno-test.yaml",
 		want: TestCase{
 			Path: "../_testdata/tests/test-1/kyverno-test.yaml",
-			Test: &testapi.Test{
-				Name:      "test-registry",
+			Test: &v1alpha1.Test{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "cli.kyverno.io/v1alpha1",
+					Kind:       "Test",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-registry",
+				},
 				Policies:  []string{"image-example.yaml"},
 				Resources: []string{"resources.yaml"},
-				Results: []testapi.TestResult{{
-					TestResultBase: testapi.TestResultBase{
+				Results: []v1alpha1.TestResult{{
+					TestResultBase: v1alpha1.TestResultBase{
 						Kind:   "Pod",
 						Policy: "images",
 						Result: policyreportv1alpha2.StatusPass,
 						Rule:   "only-allow-trusted-images",
 					},
-					Resources: []string{"test-pod-with-non-root-user-image"},
-				}, {
-					TestResultBase: testapi.TestResultBase{
-						Kind:   "Pod",
-						Policy: "images",
-						Result: policyreportv1alpha2.StatusPass,
-						Rule:   "only-allow-trusted-images",
+					Resources: []string{
+						"test-pod-with-non-root-user-image",
+						"test-pod-with-trusted-registry",
 					},
-					Resources: []string{"test-pod-with-trusted-registry"},
 				}},
 			},
 		},
@@ -225,26 +242,27 @@ func TestLoadTest(t *testing.T) {
 		path: "kyverno-test.yaml",
 		want: TestCase{
 			Path: "kyverno-test.yaml",
-			Test: &testapi.Test{
-				Name:      "test-registry",
+			Test: &v1alpha1.Test{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "cli.kyverno.io/v1alpha1",
+					Kind:       "Test",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-registry",
+				},
 				Policies:  []string{"image-example.yaml"},
 				Resources: []string{"resources.yaml"},
-				Results: []testapi.TestResult{{
-					TestResultBase: testapi.TestResultBase{
+				Results: []v1alpha1.TestResult{{
+					TestResultBase: v1alpha1.TestResultBase{
 						Kind:   "Pod",
 						Policy: "images",
 						Result: policyreportv1alpha2.StatusPass,
 						Rule:   "only-allow-trusted-images",
 					},
-					Resources: []string{"test-pod-with-non-root-user-image"},
-				}, {
-					TestResultBase: testapi.TestResultBase{
-						Kind:   "Pod",
-						Policy: "images",
-						Result: policyreportv1alpha2.StatusPass,
-						Rule:   "only-allow-trusted-images",
+					Resources: []string{
+						"test-pod-with-non-root-user-image",
+						"test-pod-with-trusted-registry",
 					},
-					Resources: []string{"test-pod-with-trusted-registry"},
 				}},
 			},
 		},
@@ -288,10 +306,9 @@ func TestLoadTest(t *testing.T) {
 				return
 			}
 			got.Err = nil
-			tt.want.Fs = tt.fs
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("LoadTest() = %v, want %v", got, tt.want)
-			}
+			tt.want.Fs = nil
+			got.Fs = nil
+			assert.DeepEqual(t, tt.want, got)
 		})
 	}
 }

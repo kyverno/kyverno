@@ -1,4 +1,7 @@
-name: deny-modify-platform-label-2
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
 - deny-modify-platform-label.yaml
 resources:
@@ -13,8 +16,8 @@ results:
 - kind: Role
   policy: deny-modify-platform-label
   resources:
-  - my-role-without-platform
   - my-role-with-platform-false
+  - my-role-without-platform
   result: skip
   rule: deny-modify-platform-role
 variables: variables.yaml

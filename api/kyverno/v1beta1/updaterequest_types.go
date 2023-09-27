@@ -112,12 +112,12 @@ type RequestInfo struct {
 	// Roles is a list of possible role send the request.
 	// +nullable
 	// +optional
-	Roles []string `json:"roles" yaml:"roles"`
+	Roles []string `json:"roles,omitempty" yaml:"roles,omitempty"`
 
 	// ClusterRoles is a list of possible clusterRoles send the request.
 	// +nullable
 	// +optional
-	ClusterRoles []string `json:"clusterRoles" yaml:"clusterRoles"`
+	ClusterRoles []string `json:"clusterRoles,omitempty" yaml:"clusterRoles,omitempty"`
 
 	// UserInfo is the userInfo carried in the admission request.
 	// +optional

@@ -1,56 +1,61 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: unique-ingress-host
   annotations:
-    policies.kyverno.io/title: Unique Ingress Host
     policies.kyverno.io/category: Sample
+    policies.kyverno.io/description: An Ingress host is a URL at which services may
+      be made available externally. In most cases, these hosts should be unique across
+      the cluster to ensure no routing conflicts occur. This policy checks an incoming
+      Ingress resource to ensure its hosts are unique to the cluster. It also ensures
+      that only a single host may be specified in a given manifest.
+    policies.kyverno.io/minversion: 1.3.2
     policies.kyverno.io/severity: medium
     policies.kyverno.io/subject: Ingress
-    policies.kyverno.io/minversion: 1.3.2
-    policies.kyverno.io/description: >-
-      An Ingress host is a URL at which services may be made available externally. In most cases,
-      these hosts should be unique across the cluster to ensure no routing conflicts occur.
-      This policy checks an incoming Ingress resource to ensure its hosts are unique to the cluster.
-      It also ensures that only a single host may be specified in a given manifest.
+    policies.kyverno.io/title: Unique Ingress Host
+  name: unique-ingress-host
 spec:
-  validationFailureAction: audit
+  admission: true
   background: false
   rules:
-    - name: check-single-host
-      match:
-        resources:
+  - context:
+    - apiCall:
+        jmesPath: items[].spec.rules[].host
+        method: GET
+        urlPath: /apis/networking.k8s.io/v1/ingresses
+      name: hosts
+    match:
+      any:
+      - resources:
           kinds:
-            - Ingress
-      context:
-        - name: hosts
-          apiCall:
-            urlPath: "/apis/networking.k8s.io/v1/ingresses"
-            jmesPath: "items[].spec.rules[].host"
-      preconditions:
-        all:
-        - key: "{{ request.operation }}"
-          operator: Equals
-          value: CREATE
-        - key: "{{ request.object.spec.rules[].host }}"
-          operator: In
-          value: "{{ hosts }}"
-      validate:
-        message: "The Ingress host name must be unique."
-        deny: {}
-    - name: deny-multiple-hosts
-      match:
-        resources:
+          - Ingress
+    name: check-single-host
+    preconditions:
+      all:
+      - key: '{{ request.operation }}'
+        operator: Equals
+        value: CREATE
+      - key: '{{ request.object.spec.rules[].host }}'
+        operator: AllIn
+        value: '{{ hosts }}'
+    validate:
+      deny: {}
+      message: The Ingress host name must be unique.
+  - match:
+      any:
+      - resources:
           kinds:
-            - Ingress
-      preconditions:
-        all:
-        - key: "{{ request.operation }}"
-          operator: Equals
-          value: CREATE
-        - key: "{{ request.object.spec.rules[].host | length(@)}}"
-          operator: GreaterThan
-          value: 1
-      validate:
-        message: "An Ingress resource may only contain a single host entry."
-        deny: {}
+          - Ingress
+    name: deny-multiple-hosts
+    preconditions:
+      all:
+      - key: '{{ request.operation }}'
+        operator: Equals
+        value: CREATE
+      - key: '{{ request.object.spec.rules[].host | length(@)}}'
+        operator: GreaterThan
+        value: 1
+    validate:
+      deny: {}
+      message: An Ingress resource may only contain a single host entry.
+  validationFailureAction: Audit

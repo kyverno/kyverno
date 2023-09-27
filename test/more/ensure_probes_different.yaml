@@ -1,66 +1,64 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: validate-probes
   annotations:
-    # Only applies to pods originating from DaemonSet, Deployment, or StatefulSet.
     pod-policies.kyverno.io/autogen-controllers: DaemonSet,Deployment,StatefulSet
+  name: validate-probes
 spec:
-  validationFailureAction: enforce
+  admission: true
   background: false
   rules:
-    # Checks the first container in a Pod.
-    - name: validate-probes-c0
-      match:
-        resources:
+  - match:
+      any:
+      - resources:
           kinds:
-            - Pod
-      validate:
-        message: "Liveness and readiness probes cannot be the same."
-        # A `deny` rule is different in structure than a `validate` rule and inverts the check. It uses `conditions` written in JMESPath notation upon which to base its decisions.
-        deny:
-          conditions:
-          # In this condition, it checks the entire map structure of the `readinessProbe` against that of the `livenessProbe`. If both are found to be equal, the Pod creation
-          # request will be denied.
-          - key: "{{ request.object.spec.containers[0].readinessProbe }}"
-            operator: Equals
-            value: "{{ request.object.spec.containers[0].livenessProbe }}"
-    # Checks the second container in a Pod.
-    - name: validate-probes-c1
-      match:
-        resources:
+          - Pod
+    name: validate-probes-c0
+    validate:
+      deny:
+        conditions:
+        - key: '{{ request.object.spec.containers[0].readinessProbe }}'
+          operator: Equals
+          value: '{{ request.object.spec.containers[0].livenessProbe }}'
+      message: Liveness and readiness probes cannot be the same.
+  - match:
+      any:
+      - resources:
           kinds:
-            - Pod
-      validate:
-        message: "Liveness and readiness probes cannot be the same."
-        deny:
-          conditions:
-          - key: "{{ request.object.spec.containers[1].readinessProbe }}"
-            operator: Equals
-            value: "{{ request.object.spec.containers[1].livenessProbe }}"
-    # Checks the third container in a Pod.
-    - name: validate-probes-c2
-      match:
-        resources:
+          - Pod
+    name: validate-probes-c1
+    validate:
+      deny:
+        conditions:
+        - key: '{{ request.object.spec.containers[1].readinessProbe }}'
+          operator: Equals
+          value: '{{ request.object.spec.containers[1].livenessProbe }}'
+      message: Liveness and readiness probes cannot be the same.
+  - match:
+      any:
+      - resources:
           kinds:
-            - Pod
-      validate:
-        message: "Liveness and readiness probes cannot be the same."
-        deny:
-          conditions:
-          - key: "{{ request.object.spec.containers[2].readinessProbe }}"
-            operator: Equals
-            value: "{{ request.object.spec.containers[2].livenessProbe }}"
-    # Checks the fourth container in a Pod.
-    - name: validate-probes-c3
-      match:
-        resources:
+          - Pod
+    name: validate-probes-c2
+    validate:
+      deny:
+        conditions:
+        - key: '{{ request.object.spec.containers[2].readinessProbe }}'
+          operator: Equals
+          value: '{{ request.object.spec.containers[2].livenessProbe }}'
+      message: Liveness and readiness probes cannot be the same.
+  - match:
+      any:
+      - resources:
           kinds:
-            - Pod
-      validate:
-        message: "Liveness and readiness probes cannot be the same."
-        deny:
-          conditions:
-          - key: "{{ request.object.spec.containers[3].readinessProbe }}"
-            operator: Equals
-            value: "{{ request.object.spec.containers[3].livenessProbe }}"
+          - Pod
+    name: validate-probes-c3
+    validate:
+      deny:
+        conditions:
+        - key: '{{ request.object.spec.containers[3].readinessProbe }}'
+          operator: Equals
+          value: '{{ request.object.spec.containers[3].livenessProbe }}'
+      message: Liveness and readiness probes cannot be the same.
+  validationFailureAction: Enforce

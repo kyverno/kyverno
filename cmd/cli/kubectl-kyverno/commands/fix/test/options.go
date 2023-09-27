@@ -6,15 +6,21 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 
-	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/test"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/fix"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/values"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 )
 
 type options struct {
 	fileName string
 	save     bool
+	force    bool
 	compress bool
 }
 
@@ -45,68 +51,41 @@ func (o options) execute(out io.Writer, dirs ...string) error {
 			fmt.Fprintln(out)
 			continue
 		}
-		test := testCase.Test
-		needsSave := false
-		if test.Name == "" {
+		fixed := *testCase.Test
+		if fixed.ObjectMeta.Name == "" && fixed.Name == "" {
 			fmt.Fprintln(out, "  WARNING: name is not set")
-			test.Name = filepath.Base(testCase.Path)
-			needsSave = true
+			fixed.ObjectMeta.Name = filepath.Base(testCase.Path)
 		}
-		if len(test.Policies) == 0 {
-			fmt.Fprintln(out, "  WARNING: test has no policies")
+		fixed, messages, err := fix.FixTest(fixed, o.compress)
+		for _, warning := range messages {
+			fmt.Fprintln(out, "  WARNING:", warning)
 		}
-		if len(test.Resources) == 0 {
-			fmt.Fprintln(out, "  WARNING: test has no resources")
+		if err != nil {
+			fmt.Fprintln(out, "  ERROR:", err)
+			continue
 		}
-		for i := range test.Results {
-			result := &test.Results[i]
-			if result.Resource != "" && len(result.Resources) != 0 {
-				fmt.Fprintln(out, "  WARNING: test result should not use both `resource` and `resources` fields")
-			}
-			if result.Resource != "" {
-				fmt.Fprintln(out, "  WARNING: test result uses deprecated `resource` field, moving it into the `resources` field")
-				result.Resources = append(result.Resources, result.Resource)
-				result.Resource = ""
-				needsSave = true
-			}
-			if result.Namespace != "" {
-				fmt.Fprintln(out, "  WARNING: test result uses deprecated `namespace` field, replacing `policy` with a `<namespace>/<name>` pattern")
-				result.Policy = fmt.Sprintf("%s/%s", result.Namespace, result.Policy)
-				result.Namespace = ""
-				needsSave = true
-			}
-			if result.Status != "" && result.Result != "" {
-				fmt.Fprintln(out, "  ERROR: test result should not use both `status` and `result` fields")
-			}
-			if result.Status != "" && result.Result == "" {
-				fmt.Fprintln(out, "  WARNING: test result uses deprecated `status` field, moving it into the `result` field")
-				result.Result = result.Status
-				result.Status = ""
-				needsSave = true
-			}
-		}
-		if o.compress {
-			compressed := map[testapi.TestResultBase][]string{}
-			for _, result := range test.Results {
-				compressed[result.TestResultBase] = append(compressed[result.TestResultBase], result.Resources...)
-			}
-			if len(compressed) != len(test.Results) {
-				needsSave = true
-			}
-			test.Results = nil
-			for k, v := range compressed {
-				test.Results = append(test.Results, testapi.TestResult{
-					TestResultBase: k,
-					Resources:      v,
-				})
-			}
-		}
-		if o.save && needsSave {
+		needsSave := !reflect.DeepEqual(testCase.Test, &fixed)
+		if o.save && (o.force || needsSave) {
 			fmt.Fprintf(out, "  Saving test file (%s)...", testCase.Path)
 			fmt.Fprintln(out)
-			yamlBytes, err := yaml.Marshal(test)
+			untyped, err := kubeutils.ObjToUnstructured(fixed)
 			if err != nil {
-				fmt.Fprintf(out, "    ERROR: converting test to yaml: %s", err)
+				fmt.Fprintf(out, "    ERROR: converting to unstructured: %s", err)
+				fmt.Fprintln(out)
+				continue
+			}
+			unstructured.RemoveNestedField(untyped.UnstructuredContent(), "metadata", "creationTimestamp")
+			unstructured.RemoveNestedField(untyped.UnstructuredContent(), "metadata", "generation")
+			unstructured.RemoveNestedField(untyped.UnstructuredContent(), "metadata", "uid")
+			jsonBytes, err := untyped.MarshalJSON()
+			if err != nil {
+				fmt.Fprintf(out, "    ERROR: converting to json: %s", err)
+				fmt.Fprintln(out)
+				continue
+			}
+			yamlBytes, err := yaml.JSONToYAML(jsonBytes)
+			if err != nil {
+				fmt.Fprintf(out, "    ERROR: converting to yaml: %s", err)
 				fmt.Fprintln(out)
 				continue
 			}
@@ -116,6 +95,100 @@ func (o options) execute(out io.Writer, dirs ...string) error {
 				continue
 			}
 			fmt.Fprintln(out, "    OK")
+		}
+		if testCase.Test.UserInfo != "" {
+			fmt.Fprintf(out, "  Processing user info file (%s)...\n", testCase.Test.UserInfo)
+			path := filepath.Join(testCase.Dir(), testCase.Test.UserInfo)
+			info, err := userinfo.Load(nil, path, "")
+			if err != nil {
+				fmt.Fprintf(out, "    ERROR: failed to load user info: %s\n", err)
+				continue
+			}
+			fixed, messages, err := fix.FixUserInfo(*info)
+			for _, warning := range messages {
+				fmt.Fprintln(out, "  WARNING:", warning)
+			}
+			if err != nil {
+				fmt.Fprintln(out, "  ERROR:", err)
+				continue
+			}
+			needsSave := !reflect.DeepEqual(info, &fixed)
+			if o.save && (o.force || needsSave) {
+				fmt.Fprintf(out, "  Saving user info file (%s)...\n", path)
+				untyped, err := kubeutils.ObjToUnstructured(fixed)
+				if err != nil {
+					fmt.Fprintf(out, "    ERROR: converting to unstructured: %s\n", err)
+					continue
+				}
+				unstructured.RemoveNestedField(untyped.UnstructuredContent(), "metadata", "creationTimestamp")
+				unstructured.RemoveNestedField(untyped.UnstructuredContent(), "metadata", "generation")
+				unstructured.RemoveNestedField(untyped.UnstructuredContent(), "metadata", "uid")
+				if item, _, _ := unstructured.NestedMap(untyped.UnstructuredContent(), "metadata"); len(item) == 0 {
+					unstructured.RemoveNestedField(untyped.UnstructuredContent(), "metadata")
+				}
+				jsonBytes, err := untyped.MarshalJSON()
+				if err != nil {
+					fmt.Fprintf(out, "    ERROR: converting to json: %s\n", err)
+					continue
+				}
+				yamlBytes, err := yaml.JSONToYAML(jsonBytes)
+				if err != nil {
+					fmt.Fprintf(out, "    ERROR: converting to yaml: %s\n", err)
+					continue
+				}
+				if err := os.WriteFile(path, yamlBytes, os.ModePerm); err != nil {
+					fmt.Fprintf(out, "    ERROR: saving user info file (%s): %s\n", path, err)
+					continue
+				}
+				fmt.Fprintln(out, "    OK")
+			}
+		}
+		if testCase.Test.Variables != "" {
+			fmt.Fprintf(out, "  Processing values file (%s)...\n", testCase.Test.Variables)
+			path := filepath.Join(testCase.Dir(), testCase.Test.Variables)
+			values, err := values.Load(nil, path)
+			if err != nil {
+				fmt.Fprintf(out, "    ERROR: failed to load values: %s\n", err)
+				continue
+			}
+			fixed, messages, err := fix.FixValues(*values)
+			for _, warning := range messages {
+				fmt.Fprintln(out, "  WARNING:", warning)
+			}
+			if err != nil {
+				fmt.Fprintln(out, "  ERROR:", err)
+				continue
+			}
+			needsSave := !reflect.DeepEqual(values, &fixed)
+			if o.save && (o.force || needsSave) {
+				fmt.Fprintf(out, "  Saving values file (%s)...\n", path)
+				untyped, err := kubeutils.ObjToUnstructured(fixed)
+				if err != nil {
+					fmt.Fprintf(out, "    ERROR: converting to unstructured: %s\n", err)
+					continue
+				}
+				unstructured.RemoveNestedField(untyped.UnstructuredContent(), "metadata", "creationTimestamp")
+				unstructured.RemoveNestedField(untyped.UnstructuredContent(), "metadata", "generation")
+				unstructured.RemoveNestedField(untyped.UnstructuredContent(), "metadata", "uid")
+				if item, _, _ := unstructured.NestedMap(untyped.UnstructuredContent(), "metadata"); len(item) == 0 {
+					unstructured.RemoveNestedField(untyped.UnstructuredContent(), "metadata")
+				}
+				jsonBytes, err := untyped.MarshalJSON()
+				if err != nil {
+					fmt.Fprintf(out, "    ERROR: converting to json: %s\n", err)
+					continue
+				}
+				yamlBytes, err := yaml.JSONToYAML(jsonBytes)
+				if err != nil {
+					fmt.Fprintf(out, "    ERROR: converting to yaml: %s\n", err)
+					continue
+				}
+				if err := os.WriteFile(path, yamlBytes, os.ModePerm); err != nil {
+					fmt.Fprintf(out, "    ERROR: saving values file (%s): %s\n", path, err)
+					continue
+				}
+				fmt.Fprintln(out, "    OK")
+			}
 		}
 		fmt.Fprintln(out)
 	}

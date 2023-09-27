@@ -7,10 +7,7 @@ import (
 )
 
 // CheckSubjects return true if one of ruleSubjects exist in userInfo
-func CheckSubjects(
-	ruleSubjects []rbacv1.Subject,
-	userInfo authenticationv1.UserInfo,
-) bool {
+func CheckSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.UserInfo) bool {
 	for _, subject := range ruleSubjects {
 		switch subject.Kind {
 		case rbacv1.ServiceAccountKind:

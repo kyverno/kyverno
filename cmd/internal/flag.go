@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	"github.com/sigstore/sigstore/pkg/tuf"
 )
 
 var (
@@ -38,6 +39,9 @@ var (
 	enableConfigMapCaching bool
 	// cosign
 	imageSignatureRepository string
+	enableTUF                bool
+	tufMirror                string
+	tufRoot                  string
 	// registry client
 	imagePullSecrets          string
 	allowInsecureRegistry     bool
@@ -98,6 +102,9 @@ func initDeferredLoadingFlags() {
 
 func initCosignFlags() {
 	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "(DEPRECATED, will be removed in 1.12) Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
+	flag.BoolVar(&enableTUF, "enableTuf", false, "enable tuf for private sigstore deployments")
+	flag.StringVar(&tufMirror, "tufMirror", tuf.DefaultRemoteRoot, "Alternate TUF mirror for sigstore. If left blank, public sigstore one is used for cosign verification.")
+	flag.StringVar(&tufRoot, "tufRoot", "", "Alternate TUF root.json for sigstore. If left blank, public sigstore one is used for cosign verification.")
 }
 
 func initRegistryClientFlags() {

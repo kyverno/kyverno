@@ -1,4 +1,7 @@
-name: check-probe-exists
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
 - policy.yaml
 resources:
@@ -9,10 +12,10 @@ results:
   resources:
   - probe
   result: pass
-  rule: check-readinessProbe-exists
+  rule: check-livenessProbe-exists
 - kind: Pod
   policy: check-probe-exists
   resources:
   - probe
   result: pass
-  rule: check-livenessProbe-exists
+  rule: check-readinessProbe-exists

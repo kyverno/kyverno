@@ -1,4 +1,7 @@
-name: test-foreach
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
 - policies.yaml
 resources:
@@ -14,8 +17,8 @@ results:
 - kind: Pod
   policy: validate-empty-dir-resources
   resources:
-  - test-pod-bad-mount
   - test-pod
+  - test-pod-bad-mount
   result: fail
   rule: check-resources
 - kind: Pod

@@ -1896,6 +1896,9 @@ spec:
                   - type
                   type: object
                 type: array
+              lastExecutionTime:
+                format: date-time
+                type: string
             type: object
         required:
         - spec
@@ -3802,6 +3805,9 @@ spec:
                   - type
                   type: object
                 type: array
+              lastExecutionTime:
+                format: date-time
+                type: string
             type: object
         required:
         - spec
