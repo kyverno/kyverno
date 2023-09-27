@@ -691,7 +691,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 				admissionregistrationv1.MutatingWebhook{
 					Name:                    config.MutatingWebhookName + "-fail",
 					ClientConfig:            c.clientConfig(caBundle, config.MutatingWebhookServicePath+"/fail"),
-					Rules:                   fail.buildRulesWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update),
+					Rules:                   fail.buildRulesWithOperations(operationReq...),
 					FailurePolicy:           &fail.failurePolicy,
 					SideEffects:             &noneOnDryRun,
 					AdmissionReviewVersions: []string{"v1"},
@@ -763,17 +763,60 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ contex
 
 func computeOperationsForValidatingWebhookConf(rules []kyvernov1.Rule, operationStatusMap map[string]bool) map[string]bool {
 	for _, r := range rules {
+		opFound := false
+		if len(r.MatchResources.Any) != 0 {
+			for _, matchAny := range r.MatchResources.Any {
+				if matchAny.ResourceDescription.Operations != nil {
+					for _, o := range matchAny.ResourceDescription.Operations {
+						opFound = true
+						operationStatusMap[string(o)] = true
+					}
+				}
+			}
+		}
+		if len(r.MatchResources.All) != 0 {
+			for _, matchAll := range r.MatchResources.All {
+				if matchAll.ResourceDescription.Operations != nil {
+					for _, o := range matchAll.ResourceDescription.Operations {
+						opFound = true
+						operationStatusMap[string(o)] = true
+					}
+				}
+			}
+		}
+		if len(r.ExcludeResources.Any) != 0 {
+			for _, excludeAny := range r.ExcludeResources.Any {
+				if excludeAny.ResourceDescription.Operations != nil {
+					for _, o := range excludeAny.ResourceDescription.Operations {
+						opFound = true
+						operationStatusMap[string(o)] = true
+					}
+				}
+			}
+		}
+		if len(r.ExcludeResources.All) != 0 {
+			for _, excludeAll := range r.ExcludeResources.Any {
+				if excludeAll.ResourceDescription.Operations != nil {
+					for _, o := range excludeAll.ResourceDescription.Operations {
+						opFound = true
+						operationStatusMap[string(o)] = true
+					}
+				}
+			}
+		}
 		if r.MatchResources.ResourceDescription.Operations != nil {
 			for _, o := range r.MatchResources.ResourceDescription.Operations {
+				opFound = true
 				operationStatusMap[string(o)] = true
 			}
 		}
 		if r.ExcludeResources.ResourceDescription.Operations != nil {
-			for _, o := range r.MatchResources.ResourceDescription.Operations {
+			for _, o := range r.ExcludeResources.ResourceDescription.Operations {
+				opFound = true
 				operationStatusMap[string(o)] = true
 			}
 		}
-		if r.MatchResources.ResourceDescription.Operations == nil && r.ExcludeResources.ResourceDescription.Operations == nil {
+		if !opFound {
 			operationStatusMap[webhookCreate] = true
 			operationStatusMap[webhookUpdate] = true
 
@@ -787,17 +830,60 @@ func computeOperationsForValidatingWebhookConf(rules []kyvernov1.Rule, operation
 
 func computeOperationsForMutatingWebhookConf(rules []kyvernov1.Rule, operationStatusMap map[string]bool) map[string]bool {
 	for _, r := range rules {
+		opFound := false
+		if len(r.MatchResources.Any) != 0 {
+			for _, matchAny := range r.MatchResources.Any {
+				if matchAny.ResourceDescription.Operations != nil {
+					for _, o := range matchAny.ResourceDescription.Operations {
+						opFound = true
+						operationStatusMap[string(o)] = true
+					}
+				}
+			}
+		}
+		if len(r.MatchResources.All) != 0 {
+			for _, matchAll := range r.MatchResources.All {
+				if matchAll.ResourceDescription.Operations != nil {
+					for _, o := range matchAll.ResourceDescription.Operations {
+						opFound = true
+						operationStatusMap[string(o)] = true
+					}
+				}
+			}
+		}
+		if len(r.ExcludeResources.Any) != 0 {
+			for _, excludeAny := range r.ExcludeResources.Any {
+				if excludeAny.ResourceDescription.Operations != nil {
+					for _, o := range excludeAny.ResourceDescription.Operations {
+						opFound = true
+						operationStatusMap[string(o)] = true
+					}
+				}
+			}
+		}
+		if len(r.ExcludeResources.All) != 0 {
+			for _, excludeAll := range r.ExcludeResources.Any {
+				if excludeAll.ResourceDescription.Operations != nil {
+					for _, o := range excludeAll.ResourceDescription.Operations {
+						opFound = true
+						operationStatusMap[string(o)] = true
+					}
+				}
+			}
+		}
 		if r.MatchResources.ResourceDescription.Operations != nil {
 			for _, o := range r.MatchResources.ResourceDescription.Operations {
+				opFound = true
 				operationStatusMap[string(o)] = true
 			}
 		}
 		if r.ExcludeResources.ResourceDescription.Operations != nil {
-			for _, o := range r.MatchResources.ResourceDescription.Operations {
+			for _, o := range r.ExcludeResources.ResourceDescription.Operations {
+				opFound = true
 				operationStatusMap[string(o)] = true
 			}
 		}
-		if r.MatchResources.ResourceDescription.Operations == nil && r.ExcludeResources.ResourceDescription.Operations == nil {
+		if !opFound {
 			operationStatusMap[webhookCreate] = true
 			operationStatusMap[webhookUpdate] = true
 		}
@@ -888,7 +974,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 				admissionregistrationv1.ValidatingWebhook{
 					Name:                    config.ValidatingWebhookName + "-fail",
 					ClientConfig:            c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/fail"),
-					Rules:                   fail.buildRulesWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect),
+					Rules:                   fail.buildRulesWithOperations(operationsNeeded...),
 					FailurePolicy:           &fail.failurePolicy,
 					SideEffects:             sideEffects,
 					AdmissionReviewVersions: []string{"v1"},
