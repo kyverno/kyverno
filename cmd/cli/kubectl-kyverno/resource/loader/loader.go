@@ -32,8 +32,7 @@ func (l *loader) Load(document []byte) (schema.GroupVersionKind, unstructured.Un
 	if err != nil {
 		return gvk, unstructured.Unstructured{}, fmt.Errorf("failed to parse document (%w)", err)
 	}
-	// TODO: remove DeepCopy when fixed upstream
-	if err := l.validator.Validate(result.DeepCopy()); err != nil {
+	if err := l.validator.Validate(result); err != nil {
 		return gvk, unstructured.Unstructured{}, fmt.Errorf("failed to validate resource (%w)", err)
 	}
 	return gvk, *result, nil
