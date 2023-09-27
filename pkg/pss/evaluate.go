@@ -112,7 +112,11 @@ func EvaluatePod(rule *kyvernov1.PodSecurity, pod *corev1.Pod) (bool, []pssutils
 	}
 
 	defaultCheckResults := evaluatePSS(levelVersion, *pod)
+	defaultCheckResults = GetDefaultCheckResults(rule, pod, levelVersion, defaultCheckResults)
+	return len(defaultCheckResults) == 0, defaultCheckResults, nil
+}
 
+func GetDefaultCheckResults(rule *kyvernov1.PodSecurity, pod *corev1.Pod, levelVersion *api.LevelVersion, defaultCheckResults []pssutils.PSSCheckResult) []pssutils.PSSCheckResult {
 	for _, exclude := range rule.Exclude {
 		spec, matching := GetPodWithMatchingContainers(exclude, pod)
 
@@ -128,8 +132,7 @@ func EvaluatePod(rule *kyvernov1.PodSecurity, pod *corev1.Pod) (bool, []pssutils
 			defaultCheckResults = exemptKyvernoExclusion(defaultCheckResults, excludeCheckResults, exclude)
 		}
 	}
-
-	return len(defaultCheckResults) == 0, defaultCheckResults, nil
+	return defaultCheckResults
 }
 
 // GetPodWithMatchingContainers extracts matching container/pod info by the given exclude rule
