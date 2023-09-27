@@ -450,10 +450,10 @@ features:
   tuf:
     # -- Enable tuf
     enable: false
-    # -- Tuf root
-    root:
-    # -- Tuf mirror
-    mirror:
+    # -- (string) Tuf root
+    root: ~
+    # -- (string) Tuf mirror
+    mirror: ~
 
 # Cleanup cronjobs to prevent internal resources from stacking up in the cluster
 cleanupJobs:
