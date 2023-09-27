@@ -12,7 +12,7 @@ func CheckSelector(expected *metav1.LabelSelector, actual map[string]string) (bo
 		return false, nil
 	}
 
-	wildcards.ReplaceInSelector(expected, actual)
+	expected = wildcards.ReplaceInSelector(expected, actual)
 	selector, err := metav1.LabelSelectorAsSelector(expected)
 	if err != nil {
 		logging.Error(err, "failed to build label selector")
