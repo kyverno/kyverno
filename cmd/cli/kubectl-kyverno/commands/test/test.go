@@ -22,12 +22,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/openapi"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func runTest(out io.Writer, openApiManager openapi.Manager, testCase test.TestCase, auditWarn bool) ([]engineapi.EngineResponse, error) {
+func runTest(out io.Writer, testCase test.TestCase, auditWarn bool) ([]engineapi.EngineResponse, error) {
 	// don't process test case with errors
 	if testCase.Err != nil {
 		return nil, testCase.Err
@@ -116,7 +115,7 @@ func runTest(out io.Writer, openApiManager openapi.Manager, testCase test.TestCa
 	var validPolicies []kyvernov1.PolicyInterface
 	for _, pol := range policies {
 		// TODO we should return this info to the caller
-		_, err := policyvalidation.Validate(pol, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
+		_, err := policyvalidation.Validate(pol, nil, nil, true, config.KyvernoUserName(config.KyvernoServiceAccountName()))
 		if err != nil {
 			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
 			continue
