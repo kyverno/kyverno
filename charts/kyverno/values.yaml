@@ -448,8 +448,8 @@ features:
     # -- Reconciliation interval for the label based cleanup manager
     reconciliationInterval: 1m
   tuf:
-    # -- Enable tuf
-    enable: false
+    # -- Enables the feature
+    enabled: false
     # -- Tuf root
     root:
     # -- Tuf mirror
