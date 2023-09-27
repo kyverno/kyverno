@@ -15,7 +15,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/webhooks"
@@ -45,16 +44,15 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 	rclient := registryclient.NewOrDie()
 
 	return &resourceHandlers{
-		client:         dclient,
-		configuration:  configuration,
-		metricsConfig:  metricsConfig,
-		pCache:         policyCache,
-		nsLister:       informers.Core().V1().Namespaces().Lister(),
-		urLister:       urLister,
-		urGenerator:    updaterequest.NewFake(),
-		eventGen:       event.NewFake(),
-		openApiManager: openapi.NewFake(),
-		pcBuilder:      webhookutils.NewPolicyContextBuilder(configuration, jp),
+		client:        dclient,
+		configuration: configuration,
+		metricsConfig: metricsConfig,
+		pCache:        policyCache,
+		nsLister:      informers.Core().V1().Namespaces().Lister(),
+		urLister:      urLister,
+		urGenerator:   updaterequest.NewFake(),
+		eventGen:      event.NewFake(),
+		pcBuilder:     webhookutils.NewPolicyContextBuilder(configuration, jp),
 		engine: engine.NewEngine(
 			configuration,
 			config.NewDefaultMetricsConfiguration(),
