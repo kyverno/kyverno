@@ -75,6 +75,9 @@
   {{- $flags = append $flags (print "--ttlReconciliationInterval=" .reconciliationInterval) -}}
 {{- end -}}
 {{- with .tuf -}}
+  {{- with .enabled -}}
+    {{- $flags = append $flags (print "--enableTuf=" .) -}}
+  {{- end -}}
   {{- with .mirror -}}
     {{- $flags = append $flags (print "--tufMirror=" .) -}}
   {{- end -}}

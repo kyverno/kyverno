@@ -17,12 +17,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
+        with:
+          build-cache-key: build-images
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
-        with:
-          build-cache-key: build-images
       - name: ko build
         shell: bash
         run: |
@@ -40,12 +44,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
+        with:
+          build-cache-key: build-cli
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
-        with:
-          build-cache-key: build-cli
       - name: Build CLI
         shell: bash
         run: |
@@ -104,12 +112,16 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
+        with:
+          build-cache-key: run-conformance
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
-        with:
-          build-cache-key: run-conformance
       - name: Create kind cluster
         shell: bash
         run: |
@@ -172,12 +184,16 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
+        with:
+          build-cache-key: run-conformance
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
-        with:
-          build-cache-key: run-conformance
       - name: Create kind cluster
         shell: bash
         run: |
@@ -241,12 +257,16 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
+        with:
+          build-cache-key: run-conformance
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
-        with:
-          build-cache-key: run-conformance
       - name: Create kind cluster
         shell: bash
         run: |
@@ -303,11 +323,15 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
         with:
           build-cache-key: run-conformance
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
       - name: Create kind cluster
         run: |
           export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
@@ -357,11 +381,15 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
         with:
           build-cache-key: run-conformance
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
       - name: Create kind cluster
         run: |
           export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
@@ -413,11 +441,15 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
         with:
           build-cache-key: run-conformance
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
       - name: Create kind cluster
         run: |
           export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
@@ -467,11 +499,15 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
         with:
           build-cache-key: run-conformance
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
       - name: Create kind cluster
         run: |
           export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
@@ -527,14 +563,18 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
+        with:
+          build-cache-key: run-conformance
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
-        with:
-          build-cache-key: run-conformance
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@b52f64ebe86d2d081b753d7d8549e0b668dcabb7
+        uses: sigstore/scaffolding/actions/setup@d21c412f3c2f95421413f43741c2e62c19241dfe
       - name: Create TUF values config map
         run: |
           kubectl create namespace kyverno
@@ -609,12 +649,16 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
+        with:
+          build-cache-key: run-conformance
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
-        with:
-          build-cache-key: run-conformance
       - name: Create kind cluster
         shell: bash
         run: |
@@ -706,17 +750,21 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout kyverno/kyverno
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
       - name: Checkout kyverno/policies
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
         with:
           repository: kyverno/policies
           path: policies
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
+        with:
+          build-cache-key: run-conformance
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
-        with:
-          build-cache-key: run-conformance
       - name: Create kind cluster
         shell: bash
         run: |
@@ -767,12 +815,16 @@ jobs:
     needs: prepare-images
     steps:
       - name: Checkout
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
+        with:
+          build-cache-key: run-conformance
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
-        with:
-          build-cache-key: run-conformance
       - name: Create kind cluster
         shell: bash
         run: |
@@ -814,7 +866,7 @@ jobs:
     needs: prepare-cli
     steps:
       - name: Checkout
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
       - name: Download kyverno CLI archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:

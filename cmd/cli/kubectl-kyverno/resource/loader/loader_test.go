@@ -42,15 +42,9 @@ func TestNew(t *testing.T) {
 			}
 		}(),
 	}, {
-		name:   "invalid local",
-		client: openapiclient.NewLocalSchemaFiles(data.Crds(), "blam"),
-		want: func() Loader {
-			validator, err := validator.New(openapiclient.NewLocalSchemaFiles(data.Crds(), "blam"))
-			require.NoError(t, err)
-			return &loader{
-				validator: validator,
-			}
-		}(),
+		name:    "invalid local",
+		client:  openapiclient.NewLocalCRDFiles(data.Crds(), "blam"),
+		wantErr: true,
 	}, {
 		name:   "composite - no clients",
 		client: openapiclient.NewComposite(),
@@ -70,15 +64,9 @@ func TestNew(t *testing.T) {
 		client:  openapiclient.NewComposite(openapiclient.NewHardcodedBuiltins("1.27"), errClient{}),
 		wantErr: true,
 	}, {
-		name:   "composite - invalid local",
-		client: openapiclient.NewComposite(openapiclient.NewLocalSchemaFiles(data.Crds(), "blam")),
-		want: func() Loader {
-			validator, err := validator.New(openapiclient.NewComposite(openapiclient.NewLocalSchemaFiles(data.Crds(), "blam")))
-			require.NoError(t, err)
-			return &loader{
-				validator: validator,
-			}
-		}(),
+		name:    "composite - invalid local",
+		client:  openapiclient.NewComposite(openapiclient.NewLocalCRDFiles(data.Crds(), "blam")),
+		wantErr: true,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -123,16 +111,16 @@ func Test_loader_Load(t *testing.T) {
 		wantErr  bool
 	}{{
 		name:    "nil",
-		loader:  newLoader(openapiclient.NewLocalSchemaFiles(data.Crds(), "schemas")),
+		loader:  newLoader(openapiclient.NewLocalCRDFiles(data.Crds(), "crds")),
 		wantErr: true,
 	}, {
 		name:     "empty GVK",
-		loader:   newLoader(openapiclient.NewLocalSchemaFiles(data.Crds(), "schemas")),
+		loader:   newLoader(openapiclient.NewLocalCRDFiles(data.Crds(), "crds")),
 		document: []byte(`foo: bar`),
 		wantErr:  true,
 	}, {
 		name:   "not yaml",
-		loader: newLoader(openapiclient.NewLocalSchemaFiles(data.Crds(), "schemas")),
+		loader: newLoader(openapiclient.NewLocalCRDFiles(data.Crds(), "crds")),
 		document: []byte(`
 		foo
 		  bar
@@ -140,7 +128,7 @@ func Test_loader_Load(t *testing.T) {
 		wantErr: true,
 	}, {
 		name:     "unknown GVK",
-		loader:   newLoader(openapiclient.NewLocalSchemaFiles(data.Crds(), "schemas")),
+		loader:   newLoader(openapiclient.NewLocalCRDFiles(data.Crds(), "crds")),
 		document: loadFile("../../_testdata/resources/namespace.yaml"),
 		wantErr:  true,
 	}, {
@@ -163,7 +151,7 @@ func Test_loader_Load(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.loader.Load(tt.document)
+			_, got, err := tt.loader.Load(tt.document)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("loader.Load() error = %v, wantErr %v", err, tt.wantErr)
 				return
