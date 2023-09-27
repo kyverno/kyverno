@@ -21,11 +21,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
+        with:
+          build-cache-key: codecov
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
-        with:
-          build-cache-key: codecov
       - name: Generate Code Coverage Report
         run: make code-cov-report
       - name: Upload Report to Codecov
