@@ -20,7 +20,6 @@ import (
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
-	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/validatingadmissionpolicy-generate"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
@@ -29,7 +28,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
@@ -82,7 +80,6 @@ func createNonLeaderControllers(
 	dynamicClient dclient.Interface,
 	configuration config.Configuration,
 	policyCache policycache.Cache,
-	manager openapi.Manager,
 ) ([]internal.Controller, func(context.Context) error) {
 	policyCacheController := policycachecontroller.NewController(
 		dynamicClient,
@@ -90,13 +87,8 @@ func createNonLeaderControllers(
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 	)
-	openApiController := openapicontroller.NewController(
-		dynamicClient,
-		manager,
-	)
 	return []internal.Controller{
 			internal.NewController(policycachecontroller.ControllerName, policyCacheController, policycachecontroller.Workers),
-			internal.NewController(openapicontroller.ControllerName, openApiController, openapicontroller.Workers),
 		},
 		func(ctx context.Context) error {
 			if err := policyCacheController.WarmUp(); err != nil {
@@ -294,11 +286,6 @@ func main() {
 	kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
-	openApiManager, err := openapi.NewManager(setup.Logger.WithName("openapi"))
-	if err != nil {
-		setup.Logger.Error(err, "Failed to create openapi manager")
-		os.Exit(1)
-	}
 	var wg sync.WaitGroup
 	certRenewer := tls.NewCertRenewer(
 		setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
@@ -375,7 +362,6 @@ func main() {
 		setup.KyvernoDynamicClient,
 		setup.Configuration,
 		policyCache,
-		openApiManager,
 	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
@@ -473,7 +459,6 @@ func main() {
 	)
 	policyHandlers := webhookspolicy.NewHandlers(
 		setup.KyvernoDynamicClient,
-		openApiManager,
 		backgroundServiceAccountName,
 	)
 	resourceHandlers := webhooksresource.NewHandlers(
@@ -489,7 +474,6 @@ func main() {
 		kyvernoInformer.Kyverno().V1().Policies(),
 		urgen,
 		eventGenerator,
-		openApiManager,
 		admissionReports,
 		backgroundServiceAccountName,
 		setup.Jp,
