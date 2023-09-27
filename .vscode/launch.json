@@ -9,7 +9,7 @@
             "program": "${workspaceFolder}/cmd/kyverno",
             "args": [
                 "--kubeconfig=${userHome}/.kube/config",
-                "--serverIP=<SERVER-IP>:9443",
+                "--serverIP=192.168.1.6:9443",
                 "-v=2",
                 "--caSecretName=kyverno-svc.kyverno.svc.kyverno-tls-ca",
                 "--tlsSecretName=kyverno-svc.kyverno.svc.kyverno-tls-pair",
@@ -89,9 +89,14 @@
             "program": "${workspaceFolder}/cmd/cli/kubectl-kyverno",
             "cwd": "${workspaceFolder}",
             "args": [
-                "test",
-                "./test/cli/",
+                "apply",
+                "./scratch/cli/apply/policy.yaml",
+                "-r",
+                "./scratch/cli/apply/resources.yaml",
             ],
+            "env": {
+                "KYVERNO_EXPERIMENTAL": "true",
+            }
         }
     ]
 }
