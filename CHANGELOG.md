@@ -13,6 +13,7 @@
 - Added `--aggregateReports` flag for reports controller to enable/disable aggregated reports (default value is `true`).
 - Added `--policyReports` flag for reports controller to enable/disable policy reports (default value is  `true`).
 - Renamed CLI flag `--compact` to `--detailed-results` (and changed default value from `true` to `false`).
+- Changed the default value of `--enablePolicyException` from `false` to `true`.
 
 ## v1.10.0
 
