@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/aptible/supercronic/cronexpr"
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
@@ -327,44 +326,31 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		logger.Error(err, "unable to get the policy from policy informer")
 		return err
 	}
-	spec := policy.GetSpec()
-	cronExpr, err := cronexpr.Parse(spec.Schedule)
+
+	var nextExecutionTime *time.Time
+	executionTime, err := policy.GetExecutionTime()
 	if err != nil {
-		logger.Error(err, "unable to parse the schedule")
+		logger.Error(err, "failed to get the policy execution time")
 		return err
 	}
-
-	status := policy.GetStatus()
-	creationTime := policy.GetCreationTimestamp().Time
-	firstExecutionTime := cronExpr.Next(creationTime)
-
-	var nextExecutionTime time.Time
-	// In case it isn't the first execution of the cleanup policy.
-	if firstExecutionTime.Before(time.Now()) {
-		var executionTime time.Time
-		if status.LastExecutionTime.IsZero() {
-			executionTime = firstExecutionTime
-		} else {
-			executionTime = cronExpr.Next(status.LastExecutionTime.Time)
+	// In case it is the time to do the cleanup process
+	if time.Now().After(*executionTime) {
+		err := c.cleanup(ctx, logger, policy)
+		if err != nil {
+			return err
 		}
-		// In case it is the time to do the cleanup process
-		if time.Now().After(executionTime) {
-			err := c.cleanup(ctx, logger, policy)
-			if err != nil {
-				return err
-			}
-			c.updateCleanupPolicyStatus(ctx, policy, namespace, executionTime)
-			nextExecutionTime = cronExpr.Next(executionTime)
-		} else {
-			nextExecutionTime = executionTime
+		c.updateCleanupPolicyStatus(ctx, policy, namespace, *executionTime)
+		nextExecutionTime, err = policy.GetNextExecutionTime(*executionTime)
+		if err != nil {
+			logger.Error(err, "failed to get the policy next execution time")
+			return err
 		}
 	} else {
-		// In case it is the first execution of the cleanup policy.
-		nextExecutionTime = firstExecutionTime
+		nextExecutionTime = executionTime
 	}
 
 	// calculate the remaining time until deletion.
-	timeRemaining := time.Until(nextExecutionTime)
+	timeRemaining := time.Until(*nextExecutionTime)
 	// add the item back to the queue after the remaining time.
 	c.queue.AddAfter(key, timeRemaining)
 	return nil
