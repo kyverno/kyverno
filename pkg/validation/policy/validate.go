@@ -27,7 +27,6 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -139,14 +138,14 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		}
 	}
 
-	var res []*metav1.APIResourceList
-	clusterResources := sets.New[string]()
-	if !mock {
+	getClusteredResources := func(invalidate bool) (sets.Set[string], error) {
+		clusterResources := sets.New[string]()
 		// Get all the cluster type kind supported by cluster
 		d := client.Discovery().CachedDiscoveryInterface()
-		// TODO: only invalidate when something changed
-		d.Invalidate()
-		res, err = discovery.ServerPreferredResources(d)
+		if invalidate {
+			d.Invalidate()
+		}
+		res, err := discovery.ServerPreferredResources(d)
 		if err != nil {
 			if discovery.IsGroupDiscoveryFailedError(err) {
 				err := err.(*discovery.ErrGroupDiscoveryFailed)
@@ -154,7 +153,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 					logging.Error(err, "failed to list api resources", "group", gv)
 				}
 			} else {
-				return warnings, err
+				return nil, err
 			}
 		}
 		for _, resList := range res {
@@ -165,10 +164,29 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 				}
 			}
 		}
+		return clusterResources, nil
 	}
+	clusterResources := sets.New[string]()
 
-	if errs := policy.Validate(clusterResources); len(errs) != 0 {
-		return warnings, errs.ToAggregate()
+	// if not using a mock, we first try to validate and if it fails we retry with cache invalidation in between
+	if !mock {
+		clusterResources, err = getClusteredResources(false)
+		if err != nil {
+			return warnings, err
+		}
+		if errs := policy.Validate(clusterResources); len(errs) != 0 {
+			clusterResources, err = getClusteredResources(true)
+			if err != nil {
+				return warnings, err
+			}
+			if errs := policy.Validate(clusterResources); len(errs) != 0 {
+				return warnings, errs.ToAggregate()
+			}
+		}
+	} else {
+		if errs := policy.Validate(clusterResources); len(errs) != 0 {
+			return warnings, errs.ToAggregate()
+		}
 	}
 
 	if !policy.IsNamespaced() {
