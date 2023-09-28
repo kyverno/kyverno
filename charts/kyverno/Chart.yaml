@@ -68,3 +68,5 @@ annotations:
       description: match conditions support in webhooks
     - kind: fixed
       description: missing image pull policy missing in a couple of deployments
+    - kind: added
+      description: added TUF flags for custom sigstore deployments

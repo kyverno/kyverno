@@ -8,6 +8,7 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 )
 
@@ -34,7 +35,7 @@ func TestLoad(t *testing.T) {
 		fs           billy.Filesystem
 		path         string
 		resourcePath string
-		want         *kyvernov1beta1.RequestInfo
+		want         *v1alpha1.UserInfo
 		wantErr      bool
 	}{{
 		name:         "empty",
@@ -55,10 +56,12 @@ func TestLoad(t *testing.T) {
 		fs:           nil,
 		path:         "../_testdata/user-infos/valid.yaml",
 		resourcePath: "",
-		want: &kyvernov1beta1.RequestInfo{
-			ClusterRoles: []string{"cluster-admin"},
-			AdmissionUserInfo: authenticationv1.UserInfo{
-				Username: "molybdenum@somecorp.com",
+		want: &v1alpha1.UserInfo{
+			RequestInfo: kyvernov1beta1.RequestInfo{
+				ClusterRoles: []string{"cluster-admin"},
+				AdmissionUserInfo: authenticationv1.UserInfo{
+					Username: "molybdenum@somecorp.com",
+				},
 			},
 		},
 		wantErr: false,
@@ -81,10 +84,12 @@ func TestLoad(t *testing.T) {
 		fs:           fs("../_testdata/user-infos/valid.yaml"),
 		path:         "valid.yaml",
 		resourcePath: "",
-		want: &kyvernov1beta1.RequestInfo{
-			ClusterRoles: []string{"cluster-admin"},
-			AdmissionUserInfo: authenticationv1.UserInfo{
-				Username: "molybdenum@somecorp.com",
+		want: &v1alpha1.UserInfo{
+			RequestInfo: kyvernov1beta1.RequestInfo{
+				ClusterRoles: []string{"cluster-admin"},
+				AdmissionUserInfo: authenticationv1.UserInfo{
+					Username: "molybdenum@somecorp.com",
+				},
 			},
 		},
 		wantErr: false,
