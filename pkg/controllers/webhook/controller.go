@@ -761,48 +761,33 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ contex
 		nil
 }
 
+func scanResourceFilter(resFilter kyvernov1.ResourceFilters, operationStatusMap map[string]bool) (bool, map[string]bool) {
+	opFound := false
+	for _, rf := range resFilter {
+		if rf.ResourceDescription.Operations != nil {
+			for _, o := range rf.ResourceDescription.Operations {
+				opFound = true
+				operationStatusMap[string(o)] = true
+			}
+		}
+	}
+	return opFound, operationStatusMap
+}
+
 func computeOperationsForValidatingWebhookConf(rules []kyvernov1.Rule, operationStatusMap map[string]bool) map[string]bool {
 	for _, r := range rules {
 		opFound := false
 		if len(r.MatchResources.Any) != 0 {
-			for _, matchAny := range r.MatchResources.Any {
-				if matchAny.ResourceDescription.Operations != nil {
-					for _, o := range matchAny.ResourceDescription.Operations {
-						opFound = true
-						operationStatusMap[string(o)] = true
-					}
-				}
-			}
+			opFound, operationStatusMap = scanResourceFilter(r.MatchResources.Any, operationStatusMap)
 		}
 		if len(r.MatchResources.All) != 0 {
-			for _, matchAll := range r.MatchResources.All {
-				if matchAll.ResourceDescription.Operations != nil {
-					for _, o := range matchAll.ResourceDescription.Operations {
-						opFound = true
-						operationStatusMap[string(o)] = true
-					}
-				}
-			}
+			opFound, operationStatusMap = scanResourceFilter(r.MatchResources.All, operationStatusMap)
 		}
 		if len(r.ExcludeResources.Any) != 0 {
-			for _, excludeAny := range r.ExcludeResources.Any {
-				if excludeAny.ResourceDescription.Operations != nil {
-					for _, o := range excludeAny.ResourceDescription.Operations {
-						opFound = true
-						operationStatusMap[string(o)] = true
-					}
-				}
-			}
+			opFound, operationStatusMap = scanResourceFilter(r.ExcludeResources.Any, operationStatusMap)
 		}
 		if len(r.ExcludeResources.All) != 0 {
-			for _, excludeAll := range r.ExcludeResources.Any {
-				if excludeAll.ResourceDescription.Operations != nil {
-					for _, o := range excludeAll.ResourceDescription.Operations {
-						opFound = true
-						operationStatusMap[string(o)] = true
-					}
-				}
-			}
+			opFound, operationStatusMap = scanResourceFilter(r.ExcludeResources.All, operationStatusMap)
 		}
 		if r.MatchResources.ResourceDescription.Operations != nil {
 			for _, o := range r.MatchResources.ResourceDescription.Operations {
@@ -832,44 +817,16 @@ func computeOperationsForMutatingWebhookConf(rules []kyvernov1.Rule, operationSt
 	for _, r := range rules {
 		opFound := false
 		if len(r.MatchResources.Any) != 0 {
-			for _, matchAny := range r.MatchResources.Any {
-				if matchAny.ResourceDescription.Operations != nil {
-					for _, o := range matchAny.ResourceDescription.Operations {
-						opFound = true
-						operationStatusMap[string(o)] = true
-					}
-				}
-			}
+			opFound, operationStatusMap = scanResourceFilter(r.MatchResources.Any, operationStatusMap)
 		}
 		if len(r.MatchResources.All) != 0 {
-			for _, matchAll := range r.MatchResources.All {
-				if matchAll.ResourceDescription.Operations != nil {
-					for _, o := range matchAll.ResourceDescription.Operations {
-						opFound = true
-						operationStatusMap[string(o)] = true
-					}
-				}
-			}
+			opFound, operationStatusMap = scanResourceFilter(r.MatchResources.All, operationStatusMap)
 		}
 		if len(r.ExcludeResources.Any) != 0 {
-			for _, excludeAny := range r.ExcludeResources.Any {
-				if excludeAny.ResourceDescription.Operations != nil {
-					for _, o := range excludeAny.ResourceDescription.Operations {
-						opFound = true
-						operationStatusMap[string(o)] = true
-					}
-				}
-			}
+			opFound, operationStatusMap = scanResourceFilter(r.ExcludeResources.Any, operationStatusMap)
 		}
 		if len(r.ExcludeResources.All) != 0 {
-			for _, excludeAll := range r.ExcludeResources.Any {
-				if excludeAll.ResourceDescription.Operations != nil {
-					for _, o := range excludeAll.ResourceDescription.Operations {
-						opFound = true
-						operationStatusMap[string(o)] = true
-					}
-				}
-			}
+			opFound, operationStatusMap = scanResourceFilter(r.ExcludeResources.All, operationStatusMap)
 		}
 		if r.MatchResources.ResourceDescription.Operations != nil {
 			for _, o := range r.MatchResources.ResourceDescription.Operations {
