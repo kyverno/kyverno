@@ -6,14 +6,14 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
 func TestGetMinimumOperations(t *testing.T) {
-	// Define a test case with an input map and expected result
 	testCases := []struct {
 		name           string
 		inputMap       map[string]bool
-		expectedResult []string
+		expectedResult []admissionregistrationv1.OperationType
 	}{
 		{
 			name: "Test Case 1",
@@ -22,7 +22,7 @@ func TestGetMinimumOperations(t *testing.T) {
 				"UPDATE": false,
 				"DELETE": true,
 			},
-			expectedResult: []string{"CREATE", "DELETE"},
+			expectedResult: []admissionregistrationv1.OperationType{"CREATE", "DELETE"},
 		},
 		{
 			name: "Test Case 2",
@@ -32,22 +32,15 @@ func TestGetMinimumOperations(t *testing.T) {
 				"DELETE":  false,
 				"CONNECT": true,
 			},
-			expectedResult: []string{"CONNECT"},
+			expectedResult: []admissionregistrationv1.OperationType{"CONNECT"},
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			result := getMinimumOperations(testCase.inputMap)
-			if len(result) != len(testCase.expectedResult) {
+			if !reflect.DeepEqual(result, testCase.expectedResult) {
 				t.Errorf("Expected %v, but got %v", testCase.expectedResult, result)
-				return
-			}
-			for i := range result {
-				if string(result[i]) != testCase.expectedResult[i] {
-					t.Errorf("Expected %v, but got %v", testCase.expectedResult, result)
-					return
-				}
 			}
 		})
 	}
