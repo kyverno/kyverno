@@ -6,30 +6,29 @@ import (
 	"reflect"
 	"strings"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 )
 
 type BypassChecker struct {
 	ResourceType  string
 	ShouldBlock   func(*corev1.Pod) (bool, error)
-	ClusterPolicy *kyverno.ClusterPolicy
+	ClusterPolicy *kyvernov1.ClusterPolicy
 }
 
 var (
-	cp1  *kyverno.ClusterPolicy
-	cp2  *kyverno.ClusterPolicy
-	cp3  *kyverno.ClusterPolicy
-	cp4  *kyverno.ClusterPolicy
-	cp5  *kyverno.ClusterPolicy
-	cp6  *kyverno.ClusterPolicy
-	cp7  *kyverno.ClusterPolicy
-	cp8  *kyverno.ClusterPolicy
-	cp9  *kyverno.ClusterPolicy
-	cp10 *kyverno.ClusterPolicy
-	cp11 *kyverno.ClusterPolicy
+	cp1  *kyvernov1.ClusterPolicy
+	cp2  *kyvernov1.ClusterPolicy
+	cp3  *kyvernov1.ClusterPolicy
+	cp4  *kyvernov1.ClusterPolicy
+	cp5  *kyvernov1.ClusterPolicy
+	cp6  *kyvernov1.ClusterPolicy
+	cp7  *kyvernov1.ClusterPolicy
+	cp8  *kyvernov1.ClusterPolicy
+	cp9  *kyvernov1.ClusterPolicy
+	cp10 *kyvernov1.ClusterPolicy
+	cp11 *kyvernov1.ClusterPolicy
 
 	mi2048 resource.Quantity
 
@@ -88,7 +87,7 @@ var (
 	}
 
 	LatestImageTagPolicy = []byte(`{
-		"apiVersion": "kyverno.io/v1",
+		"apiVersion": "kyvernov1.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		   "name": "validate-image"
@@ -147,7 +146,7 @@ var (
 
 	EqualityHostpathPolicy = []byte(`
 	{
-		"apiVersion": "kyverno.io/v1",
+		"apiVersion": "kyvernov1.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		   "name": "validate-host-path"
@@ -183,7 +182,7 @@ var (
 	 }
 	 `)
 	SecurityContextPolicy = []byte(`{
-		"apiVersion": "kyverno.io/v1",
+		"apiVersion": "kyvernov1.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		   "name": "policy-secaas-k8s"
@@ -216,7 +215,7 @@ var (
 
 	ContainerNamePolicy = []byte(`
 	{
-		"apiVersion": "kyverno.io/v1",
+		"apiVersion": "kyvernov1.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		  "name": "fuzzPolicy"
@@ -250,7 +249,7 @@ var (
 
 	PodExistencePolicy = []byte(`
 	{
-		"apiVersion": "kyverno.io/v1",
+		"apiVersion": "kyvernov1.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		  "name": "policy-secaas-k8s"
@@ -285,7 +284,7 @@ var (
 
 	HostPathCannotExistPolicy = []byte(`
 	{
-		"apiVersion": "kyverno.io/v1",
+		"apiVersion": "kyvernov1.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		  "name": "validate-host-path"
@@ -321,7 +320,7 @@ var (
 	 `)
 	NamespaceCannotBeEmptyOrDefaultPolicy = []byte(`
 	{
-		"apiVersion": "kyverno.io/v1",
+		"apiVersion": "kyvernov1.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		   "name": "validate-namespace"
@@ -360,7 +359,7 @@ var (
 
 	HostnetworkAndPortNotAllowedPolicy = []byte(`
 	{
-		"apiVersion": "kyverno.io/v1",
+		"apiVersion": "kyvernov1.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		   "name": "validate-host-network-port"
@@ -401,7 +400,7 @@ var (
 	 `)
 
 	SupplementalGroupsShouldBeHigherThanZeroPolicy = []byte(`{
-		"apiVersion": "kyverno.io/v1",
+		"apiVersion": "kyvernov1.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		   "name": "policy-secaas-k8s"
@@ -431,7 +430,7 @@ var (
 	 }	 `)
 
 	SupplementalGroupsShouldBeBetween = []byte(`{
-		"apiVersion": "kyverno.io/v1",
+		"apiVersion": "kyvernov1.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		   "name": "policy-secaas-k8s"
@@ -463,7 +462,7 @@ var (
 	 }	 `)
 
 	ShouldHaveMoreMemoryThanFirstContainer = []byte(`{
-		"apiVersion": "kyverno.io/v1",
+		"apiVersion": "kyvernov1.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		   "name": "policy-secaas-k8s"
@@ -507,7 +506,7 @@ var (
 
 func init() {
 	mi2048, _ = resource.ParseQuantity("2048Mi")
-	cp1 = &kyverno.ClusterPolicy{}
+	cp1 = &kyvernov1.ClusterPolicy{}
 	err := json.Unmarshal(ContainerNamePolicy, cp1)
 	if err != nil {
 		panic(err)
@@ -517,7 +516,7 @@ func init() {
 		ShouldBlock:   ShouldBlockContainerName,
 		ClusterPolicy: cp1,
 	}
-	cp2 = &kyverno.ClusterPolicy{}
+	cp2 = &kyvernov1.ClusterPolicy{}
 	err = json.Unmarshal(LatestImageTagPolicy, cp2)
 	if err != nil {
 		panic(err)
@@ -527,7 +526,7 @@ func init() {
 		ShouldBlock:   ShouldBlockImageTag,
 		ClusterPolicy: cp2,
 	}
-	cp3 = &kyverno.ClusterPolicy{}
+	cp3 = &kyvernov1.ClusterPolicy{}
 	err = json.Unmarshal(SecurityContextPolicy, cp3)
 	if err != nil {
 		panic(err)
@@ -537,7 +536,7 @@ func init() {
 		ShouldBlock:   ShouldBlockSecurityPolicy,
 		ClusterPolicy: cp3,
 	}
-	cp4 = &kyverno.ClusterPolicy{}
+	cp4 = &kyvernov1.ClusterPolicy{}
 	err = json.Unmarshal(EqualityHostpathPolicy, cp4)
 	if err != nil {
 		panic(err)
@@ -547,7 +546,7 @@ func init() {
 		ShouldBlock:   ShouldBlockEquality,
 		ClusterPolicy: cp4,
 	}
-	cp5 = &kyverno.ClusterPolicy{}
+	cp5 = &kyvernov1.ClusterPolicy{}
 	err = json.Unmarshal(PodExistencePolicy, cp5)
 	if err != nil {
 		panic(err)
@@ -557,7 +556,7 @@ func init() {
 		ShouldBlock:   ShouldBlockContainerNameExistenceAnchor,
 		ClusterPolicy: cp5,
 	}
-	cp6 = &kyverno.ClusterPolicy{}
+	cp6 = &kyvernov1.ClusterPolicy{}
 	err = json.Unmarshal(HostPathCannotExistPolicy, cp6)
 	if err != nil {
 		panic(err)
@@ -567,7 +566,7 @@ func init() {
 		ShouldBlock:   ShouldBlockIfHostPathExists,
 		ClusterPolicy: cp6,
 	}
-	cp7 = &kyverno.ClusterPolicy{}
+	cp7 = &kyvernov1.ClusterPolicy{}
 	err = json.Unmarshal(NamespaceCannotBeEmptyOrDefaultPolicy, cp7)
 	if err != nil {
 		panic(err)
@@ -577,7 +576,7 @@ func init() {
 		ShouldBlock:   ShouldBlockIfNamespaceIsEmptyOrDefault,
 		ClusterPolicy: cp7,
 	}
-	cp8 = &kyverno.ClusterPolicy{}
+	cp8 = &kyvernov1.ClusterPolicy{}
 	err = json.Unmarshal(HostnetworkAndPortNotAllowedPolicy, cp8)
 	if err != nil {
 		panic(err)
@@ -587,7 +586,7 @@ func init() {
 		ShouldBlock:   ShouldBlockIfHostnetworkOrPortAreSpecified,
 		ClusterPolicy: cp8,
 	}
-	cp9 = &kyverno.ClusterPolicy{}
+	cp9 = &kyvernov1.ClusterPolicy{}
 	err = json.Unmarshal(SupplementalGroupsShouldBeHigherThanZeroPolicy, cp9)
 	if err != nil {
 		panic(err)
@@ -597,7 +596,7 @@ func init() {
 		ShouldBlock:   ShouldBlockIfSupplementalGroupsExistAndAreLessThanZero,
 		ClusterPolicy: cp9,
 	}
-	cp10 = &kyverno.ClusterPolicy{}
+	cp10 = &kyvernov1.ClusterPolicy{}
 	err = json.Unmarshal(SupplementalGroupsShouldBeBetween, cp10)
 	if err != nil {
 		panic(err)
@@ -607,7 +606,7 @@ func init() {
 		ShouldBlock:   ShouldBlockIfSupplementalGroupsExistAndIsNotBetween,
 		ClusterPolicy: cp10,
 	}
-	cp11 = &kyverno.ClusterPolicy{}
+	cp11 = &kyvernov1.ClusterPolicy{}
 	err = json.Unmarshal(ShouldHaveMoreMemoryThanFirstContainer, cp11)
 	if err != nil {
 		panic(err)
@@ -705,7 +704,6 @@ func ShouldBlockIfLessMemoryThanFirstContainer(pod *corev1.Pod) (bool, error) {
 			}
 
 			if limit, ok := container.Resources.Requests[corev1.ResourceMemory]; ok {
-
 				smallerThanOrEqual := limit.Cmp(container0MemLimit)
 				if smallerThanOrEqual == -1 || smallerThanOrEqual == 0 {
 					return true, nil
@@ -876,7 +874,7 @@ func ShouldBlockSecurityPolicy(pod *corev1.Pod) (bool, error) {
 		return true, nil
 	}
 
-	if *securityContext.RunAsNonRoot == false {
+	if !*securityContext.RunAsNonRoot {
 		return true, nil
 	}
 

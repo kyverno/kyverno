@@ -7,6 +7,7 @@ import (
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 	openapiv2 "github.com/google/gnostic-models/openapiv2"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -16,8 +17,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
-
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 )
 
 type FuzzInterface struct {
@@ -26,7 +25,6 @@ type FuzzInterface struct {
 
 func (fi FuzzInterface) GetKubeClient() kubernetes.Interface {
 	return nil
-
 }
 
 func (fi FuzzInterface) GetEventsInterface() eventsv1.EventsV1Interface {
@@ -44,7 +42,6 @@ func (fi FuzzInterface) Discovery() dclient.IDiscovery {
 }
 
 func (fi FuzzInterface) SetDiscovery(discoveryClient dclient.IDiscovery) {
-
 }
 
 func (fi FuzzInterface) RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error) {
@@ -171,18 +168,24 @@ func (fid FuzzIDiscovery) FindResources(group, version, kind, subresource string
 		if err != nil {
 			return nil, err
 		}
-		var shortNames = make([]string, 0)
+		shortNames := make([]string, 0)
 		if setShortNames {
-			fid.ff.CreateSlice(&shortNames)
+			err = fid.ff.CreateSlice(&shortNames)
+			if err != nil {
+				return nil, err
+			}
 			apiResource.ShortNames = shortNames
 		}
 		setCategories, err := fid.ff.GetBool()
 		if err != nil {
 			return nil, err
 		}
-		var categories = make([]string, 0)
+		categories := make([]string, 0)
 		if setCategories {
-			fid.ff.CreateSlice(&categories)
+			err = fid.ff.CreateSlice(&categories)
+			if err != nil {
+				return nil, err
+			}
 			apiResource.Categories = categories
 		}
 
@@ -204,12 +207,10 @@ func (fid FuzzIDiscovery) FindResources(group, version, kind, subresource string
 
 func (fid FuzzIDiscovery) GetGVRFromGVK(schema.GroupVersionKind) (schema.GroupVersionResource, error) {
 	return schema.GroupVersionResource{}, fmt.Errorf("Not implemented")
-
 }
 
 func (fid FuzzIDiscovery) GetGVKFromGVR(schema.GroupVersionResource) (schema.GroupVersionKind, error) {
 	return schema.GroupVersionKind{}, fmt.Errorf("Not implemented")
-
 }
 
 func (fid FuzzIDiscovery) OpenAPISchema() (*openapiv2.Document, error) {
@@ -241,18 +242,23 @@ type FuzzResource struct {
 func (fr FuzzResource) Create(ctx context.Context, obj *unstructured.Unstructured, options metav1.CreateOptions, subresources ...string) (*unstructured.Unstructured, error) {
 	return nil, fmt.Errorf("Not implemented")
 }
+
 func (fr FuzzResource) Update(ctx context.Context, obj *unstructured.Unstructured, options metav1.UpdateOptions, subresources ...string) (*unstructured.Unstructured, error) {
 	return nil, fmt.Errorf("Not implemented")
 }
+
 func (fr FuzzResource) UpdateStatus(ctx context.Context, obj *unstructured.Unstructured, options metav1.UpdateOptions) (*unstructured.Unstructured, error) {
 	return nil, fmt.Errorf("Not implemented")
 }
+
 func (fr FuzzResource) Delete(ctx context.Context, name string, options metav1.DeleteOptions, subresources ...string) error {
 	return fmt.Errorf("Not implemented")
 }
+
 func (fr FuzzResource) DeleteCollection(ctx context.Context, options metav1.DeleteOptions, listOptions metav1.ListOptions) error {
 	return fmt.Errorf("Not implemented")
 }
+
 func (fr FuzzResource) Get(ctx context.Context, name string, options metav1.GetOptions, subresources ...string) (*unstructured.Unstructured, error) {
 	resource, err := CreateUnstructuredObject(fr.ff, "")
 	if err != nil {
@@ -261,18 +267,23 @@ func (fr FuzzResource) Get(ctx context.Context, name string, options metav1.GetO
 
 	return resource, fmt.Errorf("Not implemented")
 }
+
 func (fr FuzzResource) List(ctx context.Context, opts metav1.ListOptions) (*unstructured.UnstructuredList, error) {
 	return nil, fmt.Errorf("Not implemented")
 }
+
 func (fr FuzzResource) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	return nil, fmt.Errorf("Not implemented")
 }
+
 func (fr FuzzResource) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, options metav1.PatchOptions, subresources ...string) (*unstructured.Unstructured, error) {
 	return nil, fmt.Errorf("Not implemented")
 }
+
 func (fr FuzzResource) Apply(ctx context.Context, name string, obj *unstructured.Unstructured, options metav1.ApplyOptions, subresources ...string) (*unstructured.Unstructured, error) {
 	return nil, fmt.Errorf("Not implemented")
 }
+
 func (fr FuzzResource) ApplyStatus(ctx context.Context, name string, obj *unstructured.Unstructured, options metav1.ApplyOptions) (*unstructured.Unstructured, error) {
 	return nil, fmt.Errorf("Not implemented")
 }
@@ -286,21 +297,27 @@ func (fnr FuzzNamespaceableResource) Namespace(string) dynamic.ResourceInterface
 		ff: fnr.ff,
 	}
 }
+
 func (fr FuzzNamespaceableResource) Create(ctx context.Context, obj *unstructured.Unstructured, options metav1.CreateOptions, subresources ...string) (*unstructured.Unstructured, error) {
 	return nil, fmt.Errorf("Not implemented")
 }
+
 func (fr FuzzNamespaceableResource) Update(ctx context.Context, obj *unstructured.Unstructured, options metav1.UpdateOptions, subresources ...string) (*unstructured.Unstructured, error) {
 	return nil, fmt.Errorf("Not implemented")
 }
+
 func (fr FuzzNamespaceableResource) UpdateStatus(ctx context.Context, obj *unstructured.Unstructured, options metav1.UpdateOptions) (*unstructured.Unstructured, error) {
 	return nil, fmt.Errorf("Not implemented")
 }
+
 func (fr FuzzNamespaceableResource) Delete(ctx context.Context, name string, options metav1.DeleteOptions, subresources ...string) error {
 	return fmt.Errorf("Not implemented")
 }
+
 func (fr FuzzNamespaceableResource) DeleteCollection(ctx context.Context, options metav1.DeleteOptions, listOptions metav1.ListOptions) error {
 	return fmt.Errorf("Not implemented")
 }
+
 func (fr FuzzNamespaceableResource) Get(ctx context.Context, name string, options metav1.GetOptions, subresources ...string) (*unstructured.Unstructured, error) {
 	resource, err := CreateUnstructuredObject(fr.ff, "")
 	if err != nil {
@@ -309,6 +326,7 @@ func (fr FuzzNamespaceableResource) Get(ctx context.Context, name string, option
 
 	return resource, nil
 }
+
 func (fr FuzzNamespaceableResource) List(ctx context.Context, opts metav1.ListOptions) (*unstructured.UnstructuredList, error) {
 	var objs []unstructured.Unstructured
 	objs = make([]unstructured.Unstructured, 0)
@@ -328,15 +346,19 @@ func (fr FuzzNamespaceableResource) List(ctx context.Context, opts metav1.ListOp
 		Items:  objs,
 	}, nil
 }
+
 func (fr FuzzNamespaceableResource) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	return nil, fmt.Errorf("Not implemented")
 }
+
 func (fr FuzzNamespaceableResource) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, options metav1.PatchOptions, subresources ...string) (*unstructured.Unstructured, error) {
 	return nil, fmt.Errorf("Not implemented")
 }
+
 func (fr FuzzNamespaceableResource) Apply(ctx context.Context, name string, obj *unstructured.Unstructured, options metav1.ApplyOptions, subresources ...string) (*unstructured.Unstructured, error) {
 	return nil, fmt.Errorf("Not implemented")
 }
+
 func (fr FuzzNamespaceableResource) ApplyStatus(ctx context.Context, name string, obj *unstructured.Unstructured, options metav1.ApplyOptions) (*unstructured.Unstructured, error) {
 	return nil, fmt.Errorf("Not implemented")
 }

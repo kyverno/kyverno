@@ -5,14 +5,13 @@ import (
 	"sync"
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 )
 
-func CreatePolicySpec(ff *fuzz.ConsumeFuzzer) (kyverno.Spec, error) {
-	spec := &kyverno.Spec{}
+func CreatePolicySpec(ff *fuzz.ConsumeFuzzer) (kyvernov1.Spec, error) {
+	spec := &kyvernov1.Spec{}
 	rules := createRules(ff)
 	if len(rules) == 0 {
 		return *spec, fmt.Errorf("no rules")
@@ -24,10 +23,10 @@ func CreatePolicySpec(ff *fuzz.ConsumeFuzzer) (kyverno.Spec, error) {
 		return *spec, err
 	}
 	if applyAll {
-		aa := kyverno.ApplyAll
+		aa := kyvernov1.ApplyAll
 		spec.ApplyRules = &aa
 	} else {
-		ao := kyverno.ApplyOne
+		ao := kyvernov1.ApplyOne
 		spec.ApplyRules = &ao
 	}
 
@@ -36,10 +35,10 @@ func CreatePolicySpec(ff *fuzz.ConsumeFuzzer) (kyverno.Spec, error) {
 		return *spec, err
 	}
 	if failPolicy {
-		fa := kyverno.Fail
+		fa := kyvernov1.Fail
 		spec.FailurePolicy = &fa
 	} else {
-		ig := kyverno.Ignore
+		ig := kyvernov1.Ignore
 		spec.FailurePolicy = &ig
 	}
 
@@ -64,8 +63,11 @@ func CreatePolicySpec(ff *fuzz.ConsumeFuzzer) (kyverno.Spec, error) {
 		return *spec, err
 	}
 	if setValidationFailureActionOverrides {
-		vfao := make([]kyverno.ValidationFailureActionOverride, 0)
-		ff.CreateSlice(&vfao)
+		vfao := make([]kyvernov1.ValidationFailureActionOverride, 0)
+		err = ff.CreateSlice(&vfao)
+		if err != nil {
+			return *spec, err
+		}
 		if len(vfao) != 0 {
 			spec.ValidationFailureActionOverrides = vfao
 		}
@@ -111,8 +113,8 @@ func CreatePolicySpec(ff *fuzz.ConsumeFuzzer) (kyverno.Spec, error) {
 }
 
 // Creates a slice of Rules
-func createRules(ff *fuzz.ConsumeFuzzer) []kyverno.Rule {
-	rules := make([]kyverno.Rule, 0)
+func createRules(ff *fuzz.ConsumeFuzzer) []kyvernov1.Rule {
+	rules := make([]kyvernov1.Rule, 0)
 	noOfRules, err := ff.GetInt()
 	if err != nil {
 		return rules
@@ -144,8 +146,8 @@ func createRules(ff *fuzz.ConsumeFuzzer) []kyverno.Rule {
 }
 
 // Creates a single rule
-func createRule(f *fuzz.ConsumeFuzzer) (*kyverno.Rule, error) {
-	rule := &kyverno.Rule{}
+func createRule(f *fuzz.ConsumeFuzzer) (*kyvernov1.Rule, error) {
+	rule := &kyvernov1.Rule{}
 	name, err := f.GetString()
 	if err != nil {
 		return rule, err
@@ -157,15 +159,21 @@ func createRule(f *fuzz.ConsumeFuzzer) (*kyverno.Rule, error) {
 		return rule, err
 	}
 	if setContext {
-		c := make([]kyverno.ContextEntry, 0)
-		f.CreateSlice(&c)
+		c := make([]kyvernov1.ContextEntry, 0)
+		err = f.CreateSlice(&c)
+		if err != nil {
+			return rule, err
+		}
 		if len(c) != 0 {
 			rule.Context = c
 		}
 	}
 
-	mr := &kyverno.MatchResources{}
-	f.GenerateStruct(mr)
+	mr := &kyvernov1.MatchResources{}
+	err = f.GenerateStruct(mr)
+	if err != nil {
+		return rule, err
+	}
 	rule.MatchResources = *mr
 
 	setExcludeResources, err := f.GetBool()
@@ -173,8 +181,11 @@ func createRule(f *fuzz.ConsumeFuzzer) (*kyverno.Rule, error) {
 		return rule, err
 	}
 	if setExcludeResources {
-		er := &kyverno.MatchResources{}
-		f.GenerateStruct(mr)
+		er := &kyvernov1.MatchResources{}
+		err = f.GenerateStruct(mr)
+		if err != nil {
+			return rule, err
+		}
 		rule.ExcludeResources = *er
 	}
 
@@ -184,7 +195,10 @@ func createRule(f *fuzz.ConsumeFuzzer) (*kyverno.Rule, error) {
 	}
 	if setRawAnyAllConditions {
 		raac := &apiextv1.JSON{}
-		f.GenerateStruct(raac)
+		err = f.GenerateStruct(raac)
+		if err != nil {
+			return rule, err
+		}
 		rule.RawAnyAllConditions = raac
 	}
 
@@ -194,7 +208,10 @@ func createRule(f *fuzz.ConsumeFuzzer) (*kyverno.Rule, error) {
 	}
 	if setCELPreconditions {
 		celp := make([]admissionregistrationv1alpha1.MatchCondition, 0)
-		f.CreateSlice(&celp)
+		err = f.CreateSlice(&celp)
+		if err != nil {
+			return rule, err
+		}
 		if len(celp) != 0 {
 			rule.CELPreconditions = celp
 		}
@@ -205,8 +222,11 @@ func createRule(f *fuzz.ConsumeFuzzer) (*kyverno.Rule, error) {
 		return rule, err
 	}
 	if setMutation {
-		m := &kyverno.Mutation{}
-		f.GenerateStruct(m)
+		m := &kyvernov1.Mutation{}
+		err = f.GenerateStruct(m)
+		if err != nil {
+			return rule, err
+		}
 		rule.Mutation = *m
 	}
 
@@ -215,8 +235,11 @@ func createRule(f *fuzz.ConsumeFuzzer) (*kyverno.Rule, error) {
 		return rule, err
 	}
 	if setValidation {
-		v := &kyverno.Validation{}
-		f.GenerateStruct(v)
+		v := &kyvernov1.Validation{}
+		err = f.GenerateStruct(v)
+		if err != nil {
+			return rule, err
+		}
 		rule.Validation = *v
 	}
 
@@ -225,8 +248,11 @@ func createRule(f *fuzz.ConsumeFuzzer) (*kyverno.Rule, error) {
 		return rule, err
 	}
 	if setGeneration {
-		g := &kyverno.Generation{}
-		f.GenerateStruct(g)
+		g := &kyvernov1.Generation{}
+		err = f.GenerateStruct(g)
+		if err != nil {
+			return rule, err
+		}
 		rule.Generation = *g
 	}
 
@@ -235,8 +261,11 @@ func createRule(f *fuzz.ConsumeFuzzer) (*kyverno.Rule, error) {
 		return rule, err
 	}
 	if setVerifyImages {
-		iv := make([]kyverno.ImageVerification, 0)
-		f.CreateSlice(&iv)
+		iv := make([]kyvernov1.ImageVerification, 0)
+		err = f.CreateSlice(&iv)
+		if err != nil {
+			return rule, err
+		}
 		if len(iv) != 0 {
 			rule.VerifyImages = iv
 		}

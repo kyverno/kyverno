@@ -4,9 +4,8 @@ import (
 	"strings"
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // Creates an unstructured k8s object
