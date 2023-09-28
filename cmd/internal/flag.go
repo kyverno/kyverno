@@ -39,6 +39,7 @@ var (
 	enableConfigMapCaching bool
 	// cosign
 	imageSignatureRepository string
+	enableTUF                bool
 	tufMirror                string
 	tufRoot                  string
 	// registry client
@@ -88,7 +89,7 @@ func initKubeconfigFlags(qps float64, burst int) {
 
 func initPolicyExceptionsFlags() {
 	flag.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions.")
-	flag.BoolVar(&enablePolicyException, "enablePolicyException", false, "Enable PolicyException feature.")
+	flag.BoolVar(&enablePolicyException, "enablePolicyException", true, "Enable PolicyException feature.")
 }
 
 func initConfigMapCachingFlags() {
@@ -101,7 +102,8 @@ func initDeferredLoadingFlags() {
 
 func initCosignFlags() {
 	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "(DEPRECATED, will be removed in 1.12) Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
-	flag.StringVar(&tufMirror, "tufMirror", tuf.DefaultRemoteRoot, "Alternate TUF mirror for sigstore. If left blank, public sigstore one is used for cosign verification..")
+	flag.BoolVar(&enableTUF, "enableTuf", false, "enable tuf for private sigstore deployments")
+	flag.StringVar(&tufMirror, "tufMirror", tuf.DefaultRemoteRoot, "Alternate TUF mirror for sigstore. If left blank, public sigstore one is used for cosign verification.")
 	flag.StringVar(&tufRoot, "tufRoot", "", "Alternate TUF root.json for sigstore. If left blank, public sigstore one is used for cosign verification.")
 }
 

@@ -245,14 +245,19 @@ func (iv *ImageVerifier) Verify(
 			continue
 		}
 		start := time.Now()
-		found, err := iv.ivCache.Get(ctx, iv.policyContext.Policy(), iv.rule.Name, image)
-		if err != nil {
-			iv.logger.Error(err, "error occurred during cache get")
+		isInCache := false
+		if iv.ivCache != nil {
+			found, err := iv.ivCache.Get(ctx, iv.policyContext.Policy(), iv.rule.Name, image)
+			if err != nil {
+				iv.logger.Error(err, "error occurred during cache get")
+			} else {
+				isInCache = found
+			}
 		}
 
 		var ruleResp *engineapi.RuleResponse
 		var digest string
-		if found {
+		if isInCache {
 			iv.logger.V(2).Info("cache entry found", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
 			ruleResp = engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, "verified from cache")
 			digest = imageInfo.Digest
@@ -260,12 +265,14 @@ func (iv *ImageVerifier) Verify(
 			iv.logger.V(2).Info("cache entry not found", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
 			ruleResp, digest = iv.verifyImage(ctx, imageVerify, imageInfo, cfg)
 			if ruleResp != nil && ruleResp.Status() == engineapi.RuleStatusPass {
-				setted, err := iv.ivCache.Set(ctx, iv.policyContext.Policy(), iv.rule.Name, image)
-				if err != nil {
-					iv.logger.Error(err, "error occurred during cache set")
-				} else {
-					if setted {
-						iv.logger.V(4).Info("successfully set cache", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
+				if iv.ivCache != nil {
+					setted, err := iv.ivCache.Set(ctx, iv.policyContext.Policy(), iv.rule.Name, image)
+					if err != nil {
+						iv.logger.Error(err, "error occurred during cache set")
+					} else {
+						if setted {
+							iv.logger.V(4).Info("successfully set cache", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
+						}
 					}
 				}
 			}

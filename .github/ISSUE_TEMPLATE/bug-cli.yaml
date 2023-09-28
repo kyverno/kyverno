@@ -40,6 +40,7 @@ body:
         - 1.10.1
         - 1.10.2
         - 1.10.3
+        - 1.11.0
     validations:
       required: true
   - type: textarea
@@ -91,7 +92,7 @@ body:
       description: >-
         Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
         Kyverno CLI logs may be found by passing the -v flag to any command.
-      render: shell
+      render: Shell
   - type: input
     id: slack
     attributes:
