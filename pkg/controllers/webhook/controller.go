@@ -744,6 +744,19 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(cfg conf
 		nil
 }
 
+func scanResourceFilter(resFilter kyvernov1.ResourceFilters, operationStatusMap map[string]bool) (bool, map[string]bool) {
+	opFound := false
+	for _, rf := range resFilter {
+		if rf.ResourceDescription.Operations != nil {
+			for _, o := range rf.ResourceDescription.Operations {
+				opFound = true
+				operationStatusMap[string(o)] = true
+			}
+		}
+	}
+	return opFound, operationStatusMap
+}
+
 func getOperationStatusMap() map[string]bool {
 	operationStatusMap := make(map[string]bool)
 	operationStatusMap[webhookCreate] = false
@@ -755,17 +768,32 @@ func getOperationStatusMap() map[string]bool {
 
 func computeOperationsForValidatingWebhookConf(rules []kyvernov1.Rule, operationStatusMap map[string]bool) map[string]bool {
 	for _, r := range rules {
+		opFound := false
+		if len(r.MatchResources.Any) != 0 {
+			opFound, operationStatusMap = scanResourceFilter(r.MatchResources.Any, operationStatusMap)
+		}
+		if len(r.MatchResources.All) != 0 {
+			opFound, operationStatusMap = scanResourceFilter(r.MatchResources.All, operationStatusMap)
+		}
+		if len(r.ExcludeResources.Any) != 0 {
+			opFound, operationStatusMap = scanResourceFilter(r.ExcludeResources.Any, operationStatusMap)
+		}
+		if len(r.ExcludeResources.All) != 0 {
+			opFound, operationStatusMap = scanResourceFilter(r.ExcludeResources.All, operationStatusMap)
+		}
 		if r.MatchResources.ResourceDescription.Operations != nil {
 			for _, o := range r.MatchResources.ResourceDescription.Operations {
+				opFound = true
 				operationStatusMap[string(o)] = true
 			}
 		}
 		if r.ExcludeResources.ResourceDescription.Operations != nil {
-			for _, o := range r.MatchResources.ResourceDescription.Operations {
+			for _, o := range r.ExcludeResources.ResourceDescription.Operations {
+				opFound = true
 				operationStatusMap[string(o)] = true
 			}
 		}
-		if r.MatchResources.ResourceDescription.Operations == nil && r.ExcludeResources.ResourceDescription.Operations == nil {
+		if !opFound {
 			operationStatusMap[webhookCreate] = true
 			operationStatusMap[webhookUpdate] = true
 
@@ -779,17 +807,32 @@ func computeOperationsForValidatingWebhookConf(rules []kyvernov1.Rule, operation
 
 func computeOperationsForMutatingWebhookConf(rules []kyvernov1.Rule, operationStatusMap map[string]bool) map[string]bool {
 	for _, r := range rules {
+		opFound := false
+		if len(r.MatchResources.Any) != 0 {
+			opFound, operationStatusMap = scanResourceFilter(r.MatchResources.Any, operationStatusMap)
+		}
+		if len(r.MatchResources.All) != 0 {
+			opFound, operationStatusMap = scanResourceFilter(r.MatchResources.All, operationStatusMap)
+		}
+		if len(r.ExcludeResources.Any) != 0 {
+			opFound, operationStatusMap = scanResourceFilter(r.ExcludeResources.Any, operationStatusMap)
+		}
+		if len(r.ExcludeResources.All) != 0 {
+			opFound, operationStatusMap = scanResourceFilter(r.ExcludeResources.All, operationStatusMap)
+		}
 		if r.MatchResources.ResourceDescription.Operations != nil {
 			for _, o := range r.MatchResources.ResourceDescription.Operations {
+				opFound = true
 				operationStatusMap[string(o)] = true
 			}
 		}
 		if r.ExcludeResources.ResourceDescription.Operations != nil {
-			for _, o := range r.MatchResources.ResourceDescription.Operations {
+			for _, o := range r.ExcludeResources.ResourceDescription.Operations {
+				opFound = true
 				operationStatusMap[string(o)] = true
 			}
 		}
-		if r.MatchResources.ResourceDescription.Operations == nil && r.ExcludeResources.ResourceDescription.Operations == nil {
+		if !opFound {
 			operationStatusMap[webhookCreate] = true
 			operationStatusMap[webhookUpdate] = true
 		}
