@@ -13,6 +13,7 @@ webhooks:
     operations:
     - CREATE
     - UPDATE
+    - CONNECT
     resources:
     - pods/attach
     - pods/binding
