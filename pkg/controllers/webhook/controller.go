@@ -804,8 +804,9 @@ func computeOperationsForValidatingWebhookConf(rules []kyvernov1.Rule, operation
 		if !opFound {
 			operationStatusMap[webhookCreate] = true
 			operationStatusMap[webhookUpdate] = true
+			operationStatusMap[webhookConnect] = true
 
-			if r.HasGenerate() {
+			if r.HasGenerate() || r.HasMutate() {
 				operationStatusMap[webhookDelete] = true
 			}
 		}
@@ -844,6 +845,7 @@ func computeOperationsForMutatingWebhookConf(rules []kyvernov1.Rule, operationSt
 			operationStatusMap[webhookCreate] = true
 			operationStatusMap[webhookUpdate] = true
 		}
+		operationStatusMap[webhookDelete] = true
 	}
 	return operationStatusMap
 }
