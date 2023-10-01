@@ -116,6 +116,7 @@ spec:
               "dumpPayload"
               "logging"
               "ttlController"
+              "protectManagedResources"
             ) | nindent 12 }}
             {{- range $key, $value := .Values.cleanupController.extraArgs }}
             {{- if $value }}
