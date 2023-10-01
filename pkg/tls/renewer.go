@@ -95,7 +95,8 @@ func (c *certRenewer) RenewCA(ctx context.Context) error {
 	}
 	now := time.Now()
 	certs = removeExpiredCertificates(now, certs...)
-	if !allCertificatesExpired(now.Add(5*c.certRenewalInterval), certs...) {
+	renewBefore := 30 * c.certRenewalInterval
+	if !allCertificatesExpired(now.Add(renewBefore), certs...) {
 		return nil
 	}
 	if !isSecretManagedByKyverno(secret) {
@@ -136,10 +137,11 @@ func (c *certRenewer) RenewTLS(ctx context.Context) error {
 		return fmt.Errorf("failed to read TLS (%w)", err)
 	}
 	now := time.Now()
+	renewBefore := 30 * c.certRenewalInterval
 	if cert != nil {
 		valid, err := c.ValidateCert(ctx)
 		if err != nil || !valid {
-		} else if !allCertificatesExpired(now.Add(5*c.certRenewalInterval), cert) {
+		} else if !allCertificatesExpired(now.Add(renewBefore), cert) {
 			return nil
 		}
 	}
