@@ -20,7 +20,9 @@ const (
 	CAValidityDuration = 365 * 24 * time.Hour
 	// TLSValidityDuration is the valid duration for TLS certificates
 	TLSValidityDuration = 150 * 24 * time.Hour
-	rootCAKey           = "rootCA.crt"
+	// RenewBefore is the renewal time before expiration
+	RenewBefore = 15 * 24 * time.Hour
+	rootCAKey   = "rootCA.crt"
 )
 
 type CertValidator interface {
@@ -95,8 +97,7 @@ func (c *certRenewer) RenewCA(ctx context.Context) error {
 	}
 	now := time.Now()
 	certs = removeExpiredCertificates(now, certs...)
-	renewBefore := 30 * c.certRenewalInterval
-	if !allCertificatesExpired(now.Add(renewBefore), certs...) {
+	if !allCertificatesExpired(now.Add(RenewBefore), certs...) {
 		return nil
 	}
 	if !isSecretManagedByKyverno(secret) {
@@ -137,11 +138,10 @@ func (c *certRenewer) RenewTLS(ctx context.Context) error {
 		return fmt.Errorf("failed to read TLS (%w)", err)
 	}
 	now := time.Now()
-	renewBefore := 30 * c.certRenewalInterval
 	if cert != nil {
 		valid, err := c.ValidateCert(ctx)
 		if err != nil || !valid {
-		} else if !allCertificatesExpired(now.Add(renewBefore), cert) {
+		} else if !allCertificatesExpired(now.Add(RenewBefore), cert) {
 			return nil
 		}
 	}
