@@ -202,6 +202,7 @@ metadata:
     app.kubernetes.io/version: latest
 data:
   namespaces: "{\"exclude\":[],\"include\":[]}"
+  bucketBoundaries: "0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30"
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
