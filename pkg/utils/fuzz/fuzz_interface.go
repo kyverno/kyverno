@@ -230,9 +230,7 @@ type DynamicFuzz struct {
 }
 
 func (df DynamicFuzz) Resource(resource schema.GroupVersionResource) dynamic.NamespaceableResourceInterface {
-	return FuzzNamespaceableResource{
-		ff: df.ff,
-	}
+	return FuzzNamespaceableResource(df)
 }
 
 type FuzzResource struct {
@@ -293,9 +291,7 @@ type FuzzNamespaceableResource struct {
 }
 
 func (fnr FuzzNamespaceableResource) Namespace(string) dynamic.ResourceInterface {
-	return FuzzResource{
-		ff: fnr.ff,
-	}
+	return FuzzResource(fnr)
 }
 
 func (fr FuzzNamespaceableResource) Create(ctx context.Context, obj *unstructured.Unstructured, options metav1.CreateOptions, subresources ...string) (*unstructured.Unstructured, error) {

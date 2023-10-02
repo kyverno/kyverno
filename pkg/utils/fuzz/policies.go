@@ -504,7 +504,7 @@ var (
 	}	 `)
 )
 
-func init() {
+func InitFuzz() {
 	mi2048, _ = resource.ParseQuantity("2048Mi")
 	cp1 = &kyvernov1.ClusterPolicy{}
 	err := json.Unmarshal(ContainerNamePolicy, cp1)

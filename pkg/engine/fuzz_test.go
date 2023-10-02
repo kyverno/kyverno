@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"testing"
 
 	kyvFuzz "github.com/kyverno/kyverno/pkg/utils/fuzz"
@@ -44,6 +45,7 @@ var (
 		nil,
 		"",
 	)
+	initter sync.Once
 )
 
 func buildFuzzContext(ff *fuzz.ConsumeFuzzer) (*PolicyContext, error) {
@@ -176,6 +178,7 @@ func getPod(ff *fuzz.ConsumeFuzzer) (*corev1.Pod, error) {
 
 func FuzzPodBypass(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte) {
+		initter.Do(kyvFuzz.InitFuzz)
 
 		ff := fuzz.NewConsumer(data)
 		policyToCheck, err := ff.GetInt()
