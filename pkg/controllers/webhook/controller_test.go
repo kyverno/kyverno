@@ -151,6 +151,7 @@ func TestComputeOperationsForValidatingWebhookConf(t *testing.T) {
 				webhookCreate:  true,
 				webhookUpdate:  true,
 				webhookConnect: true,
+				webhookDelete:  true,
 			},
 		},
 		{

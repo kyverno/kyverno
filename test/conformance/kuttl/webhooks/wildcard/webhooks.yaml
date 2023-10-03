@@ -15,6 +15,7 @@ webhooks:
     - CREATE
     - UPDATE
     - CONNECT
+    - DELETE
     resources:
     - '*'
     - pods/ephemeralcontainers
