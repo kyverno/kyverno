@@ -798,7 +798,6 @@ func computeOperationsForValidatingWebhookConf(rules []kyvernov1.Rule, operation
 			operationStatusMap[webhookUpdate] = true
 			operationStatusMap[webhookConnect] = true
 			operationStatusMap[webhookDelete] = true
-
 		}
 	}
 	return operationStatusMap
