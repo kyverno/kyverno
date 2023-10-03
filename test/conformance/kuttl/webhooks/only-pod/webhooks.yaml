@@ -13,8 +13,8 @@ webhooks:
     operations:
     - CREATE
     - UPDATE
-    - CONNECT
     - DELETE
+    - CONNECT
     resources:
     - pods
     - pods/ephemeralcontainers
