@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 package engine
 
 import (
@@ -6,8 +5,9 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/utils/conditions"
 	matched "github.com/kyverno/kyverno/pkg/utils/match"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -17,7 +17,7 @@ func findExceptions(
 	selector engineapi.PolicyExceptionSelector,
 	policy kyvernov1.PolicyInterface,
 	rule string,
-) ([]*kyvernov2beta1.PolicyException, error) {
+) ([]*kyvernov2alpha1.PolicyException, error) {
 	if selector == nil {
 		return nil, nil
 	}
@@ -25,7 +25,7 @@ func findExceptions(
 	if err != nil {
 		return nil, err
 	}
-	var result []*kyvernov2beta1.PolicyException
+	var result []*kyvernov2alpha1.PolicyException
 	policyName, err := cache.MetaNamespaceKeyFunc(policy)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compute policy key: %w", err)
@@ -43,7 +43,8 @@ func matchesException(
 	selector engineapi.PolicyExceptionSelector,
 	policyContext engineapi.PolicyContext,
 	rule kyvernov1.Rule,
-) (*kyvernov2beta1.PolicyException, error) {
+	logger logr.Logger,
+) (*kyvernov2alpha1.PolicyException, error) {
 	candidates, err := findExceptions(selector, policyContext.Policy(), rule.Name)
 	if err != nil {
 		return nil, err
@@ -64,6 +65,15 @@ func matchesException(
 		)
 		// if there's no error it means a match
 		if err == nil {
+			if candidate.Spec.Conditions != nil {
+				passed, err := conditions.CheckAnyAllConditions(logger, policyContext, *candidate.Spec.Conditions)
+				if err != nil {
+					return nil, err
+				}
+				if !passed {
+					return nil, fmt.Errorf("conditions did not pass")
+				}
+			}
 			return candidate, nil
 		}
 	}
@@ -79,7 +89,7 @@ func (e *engine) hasPolicyExceptions(
 	rule kyvernov1.Rule,
 ) *engineapi.RuleResponse {
 	// if matches, check if there is a corresponding policy exception
-	exception, err := matchesException(e.exceptionSelector, ctx, rule)
+	exception, err := matchesException(e.exceptionSelector, ctx, rule, logger)
 	if err != nil {
 		logger.Error(err, "failed to match exceptions")
 		return nil
@@ -96,5 +106,3 @@ func (e *engine) hasPolicyExceptions(
 		return engineapi.RuleSkip(rule.Name, ruleType, "rule skipped due to policy exception "+key).WithException(exception)
 	}
 }
-=======
->>>>>>> 5283a593e (feat: support conditions in PolicyException)
