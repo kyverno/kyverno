@@ -14,6 +14,8 @@ webhooks:
     operations:
     - CREATE
     - UPDATE
+    - CONNECT
+    - DELETE
     resources:
     - '*/*'
     scope: '*'

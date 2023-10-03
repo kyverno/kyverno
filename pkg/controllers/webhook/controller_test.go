@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"reflect"
+	"sort"
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -39,6 +40,13 @@ func TestGetMinimumOperations(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			result := getMinimumOperations(testCase.inputMap)
+			sort.Slice(result, func(i, j int) bool {
+				return result[i] < result[j]
+			})
+			sort.Slice(testCase.expectedResult, func(i, j int) bool {
+				return testCase.expectedResult[i] < testCase.expectedResult[j]
+			})
+
 			if !reflect.DeepEqual(result, testCase.expectedResult) {
 				t.Errorf("Expected %v, but got %v", testCase.expectedResult, result)
 			}
@@ -65,6 +73,7 @@ func TestComputeOperationsForMutatingWebhookConf(t *testing.T) {
 			},
 			expectedResult: map[string]bool{
 				"CREATE": true,
+				"DELETE": true,
 			},
 		},
 		{
@@ -82,6 +91,7 @@ func TestComputeOperationsForMutatingWebhookConf(t *testing.T) {
 			expectedResult: map[string]bool{
 				webhookCreate: true,
 				webhookUpdate: true,
+				webhookDelete: true,
 			},
 		},
 	}
@@ -138,8 +148,10 @@ func TestComputeOperationsForValidatingWebhookConf(t *testing.T) {
 				},
 			},
 			expectedResult: map[string]bool{
-				webhookCreate: true,
-				webhookUpdate: true,
+				webhookCreate:  true,
+				webhookUpdate:  true,
+				webhookConnect: true,
+				webhookDelete:  true,
 			},
 		},
 		{

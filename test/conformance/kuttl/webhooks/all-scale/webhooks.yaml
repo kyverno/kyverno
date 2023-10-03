@@ -13,6 +13,8 @@ webhooks:
     operations:
     - CREATE
     - UPDATE
+    - CONNECT
+    - DELETE
     resources:
     - '*/scale'
     scope: '*'
