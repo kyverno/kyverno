@@ -1,4 +1,4 @@
-package cleanup
+package conditions
 
 import (
 	"fmt"
@@ -11,16 +11,16 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables/operator"
 )
 
-func checkAnyAllConditions(logger logr.Logger, ctx enginecontext.Interface, condition kyvernov2beta1.AnyAllConditions) (bool, error) {
+func CheckAnyAllConditions(logger logr.Logger, ctx enginecontext.Interface, condition kyvernov2beta1.AnyAllConditions) (bool, error) {
 	for _, condition := range condition.AllConditions {
-		if passed, err := checkCondition(logger, ctx, condition); err != nil {
+		if passed, err := CheckCondition(logger, ctx, condition); err != nil {
 			return false, err
 		} else if !passed {
 			return false, nil
 		}
 	}
 	for _, condition := range condition.AnyConditions {
-		if passed, err := checkCondition(logger, ctx, condition); err != nil {
+		if passed, err := CheckCondition(logger, ctx, condition); err != nil {
 			return false, err
 		} else if passed {
 			return true, nil
@@ -29,7 +29,7 @@ func checkAnyAllConditions(logger logr.Logger, ctx enginecontext.Interface, cond
 	return len(condition.AnyConditions) == 0, nil
 }
 
-func checkCondition(logger logr.Logger, ctx enginecontext.Interface, condition kyvernov2beta1.Condition) (bool, error) {
+func CheckCondition(logger logr.Logger, ctx enginecontext.Interface, condition kyvernov2beta1.Condition) (bool, error) {
 	key, err := variables.SubstituteAllInPreconditions(logger, ctx, condition.GetKey())
 	if err != nil {
 		return false, fmt.Errorf("failed to substitute variables in condition key: %w", err)

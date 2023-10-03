@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 package engine
 
 import (
@@ -95,3 +96,5 @@ func (e *engine) hasPolicyExceptions(
 		return engineapi.RuleSkip(rule.Name, ruleType, "rule skipped due to policy exception "+key).WithException(exception)
 	}
 }
+=======
+>>>>>>> 5283a593e (feat: support conditions in PolicyException)

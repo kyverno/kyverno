@@ -67,6 +67,11 @@ type PolicyExceptionSpec struct {
 	// Match defines match clause used to check if a resource applies to the exception
 	Match MatchResources `json:"match" yaml:"match"`
 
+	// Conditions are used to determine if a resource applies to the exception by evaluating a
+	// set of conditions. The declaration can contain nested `any` or `all` statements.
+	// +optional
+	Conditions *AnyAllConditions `json:"conditions,omitempty"`
+
 	// Exceptions is a list policy/rules to be excluded
 	Exceptions []Exception `json:"exceptions" yaml:"exceptions"`
 }
