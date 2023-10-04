@@ -52,6 +52,7 @@ func (h validatePssHandler) Process(
 		Level:   podSecurity.Level,
 		Version: podSecurity.Version,
 		Checks:  pssChecks,
+		Pod:     *pod,
 	}
 	if allowed {
 		msg := fmt.Sprintf("Validation rule '%s' passed.", rule.Name)
@@ -111,7 +112,7 @@ func getSpec(resource unstructured.Unstructured) (podSpec *corev1.PodSpec, metad
 		metadata = &pod.ObjectMeta
 		return podSpec, metadata, nil
 	} else {
-		return nil, nil, fmt.Errorf("Could not find correct resource type")
+		return nil, nil, fmt.Errorf("could not find correct resource type")
 	}
 	if err != nil {
 		return nil, nil, err

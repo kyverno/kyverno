@@ -84,36 +84,51 @@ func exemptKyvernoExclusion(defaultCheckResults, excludeCheckResults []pssutils.
 	return newDefaultCheckResults
 }
 
-func parseVersion(rule *kyvernov1.PodSecurity) (*api.LevelVersion, error) {
+func ParseVersion(level api.Level, version string) (*api.LevelVersion, error) {
 	// Get pod security admission version
 	var apiVersion api.Version
 
 	// Version set to "latest" by default
-	if rule.Version == "" || rule.Version == "latest" {
+	if version == "" || version == "latest" {
 		apiVersion = api.LatestVersion()
 	} else {
-		parsedApiVersion, err := api.ParseVersion(rule.Version)
+		parsedApiVersion, err := api.ParseVersion(version)
 		if err != nil {
 			return nil, err
 		}
 		apiVersion = api.MajorMinorVersion(parsedApiVersion.Major(), parsedApiVersion.Minor())
 	}
 	return &api.LevelVersion{
-		Level:   rule.Level,
+		Level:   level,
 		Version: apiVersion,
 	}, nil
 }
 
 // EvaluatePod applies PSS checks to the pod and exempts controls specified in the rule
 func EvaluatePod(rule *kyvernov1.PodSecurity, pod *corev1.Pod) (bool, []pssutils.PSSCheckResult, error) {
-	levelVersion, err := parseVersion(rule)
+	levelVersion, err := ParseVersion(rule.Level, rule.Version)
 	if err != nil {
 		return false, nil, err
 	}
 
+	// apply the pod security checks on pods
 	defaultCheckResults := evaluatePSS(levelVersion, *pod)
+	// exclude pod security controls if specified
+	if rule.HasExclude() {
+		defaultCheckResults = ApplyPodSecurityExclusion(levelVersion, rule.Exclude, defaultCheckResults, pod)
+	}
 
-	for _, exclude := range rule.Exclude {
+	return len(defaultCheckResults) == 0, defaultCheckResults, nil
+}
+
+// ApplyPodSecurityExclusion excludes pod security controls
+func ApplyPodSecurityExclusion(
+	levelVersion *api.LevelVersion,
+	excludes []kyvernov1.PodSecurityStandard,
+	defaultCheckResults []pssutils.PSSCheckResult,
+	pod *corev1.Pod,
+) []pssutils.PSSCheckResult {
+	for _, exclude := range excludes {
 		spec, matching := GetPodWithMatchingContainers(exclude, pod)
 
 		switch {
@@ -128,8 +143,7 @@ func EvaluatePod(rule *kyvernov1.PodSecurity, pod *corev1.Pod) (bool, []pssutils
 			defaultCheckResults = exemptKyvernoExclusion(defaultCheckResults, excludeCheckResults, exclude)
 		}
 	}
-
-	return len(defaultCheckResults) == 0, defaultCheckResults, nil
+	return defaultCheckResults
 }
 
 // GetPodWithMatchingContainers extracts matching container/pod info by the given exclude rule

@@ -60,10 +60,13 @@ func (e *engine) filterRule(
 		ruleType = engineapi.Generation
 	}
 
-	// check if there is a corresponding policy exception
-	ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule)
-	if ruleResp != nil {
-		return ruleResp
+	// get policy exceptions that matches both policy and rule name
+	preprocessExceptions, _, _ := e.GetPolicyExceptions(policyContext.Policy(), rule.Name)
+	// preprocess policy exceptions that match the incoming resource if exists
+	if len(preprocessExceptions) != 0 {
+		if ruleResp := PreprocessPolicyExceptions(logger, ruleType, preprocessExceptions, policyContext, rule); ruleResp != nil {
+			return ruleResp
+		}
 	}
 
 	newResource := policyContext.NewResource()

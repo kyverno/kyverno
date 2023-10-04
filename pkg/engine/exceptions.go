@@ -7,82 +7,53 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/pss"
 	matched "github.com/kyverno/kyverno/pkg/utils/match"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 )
 
-func findExceptions(
-	selector engineapi.PolicyExceptionSelector,
+// GetPolicyExceptions get all exceptions that match both the policy and the rule.
+// It returns two groups of exceptions:
+// 1. The 1st for exceptions that need to be executed before applying the actual policy.
+// 2. The 2nd for exceptions that need to be executed after applying the actual policy like podSecurity.
+func (e *engine) GetPolicyExceptions(
 	policy kyvernov1.PolicyInterface,
 	rule string,
-) ([]*kyvernov2beta1.PolicyException, error) {
-	if selector == nil {
-		return nil, nil
+) ([]kyvernov2beta1.PolicyException, []kyvernov2beta1.PolicyException, error) {
+	var preprocessExceptions, postprocessExceptions []kyvernov2beta1.PolicyException
+	if e.exceptionSelector == nil {
+		return preprocessExceptions, postprocessExceptions, nil
 	}
-	polexs, err := selector.List(labels.Everything())
+	polexs, err := e.exceptionSelector.List(labels.Everything())
 	if err != nil {
-		return nil, err
+		return preprocessExceptions, postprocessExceptions, err
 	}
-	var result []*kyvernov2beta1.PolicyException
 	policyName, err := cache.MetaNamespaceKeyFunc(policy)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compute policy key: %w", err)
+		return preprocessExceptions, postprocessExceptions, fmt.Errorf("failed to compute policy key: %w", err)
 	}
 	for _, polex := range polexs {
 		if polex.Contains(policyName, rule) {
-			result = append(result, polex)
+			if polex.HasPodSecurity() {
+				postprocessExceptions = append(postprocessExceptions, *polex)
+			} else {
+				preprocessExceptions = append(preprocessExceptions, *polex)
+			}
 		}
 	}
-	return result, nil
+	return preprocessExceptions, postprocessExceptions, nil
 }
 
-// matchesException checks if an exception applies to the resource being admitted
-func matchesException(
-	selector engineapi.PolicyExceptionSelector,
-	policyContext engineapi.PolicyContext,
-	rule kyvernov1.Rule,
-) (*kyvernov2beta1.PolicyException, error) {
-	candidates, err := findExceptions(selector, policyContext.Policy(), rule.Name)
-	if err != nil {
-		return nil, err
-	}
-	gvk, subresource := policyContext.ResourceKind()
-	resource := policyContext.NewResource()
-	if resource.Object == nil {
-		resource = policyContext.OldResource()
-	}
-	for _, candidate := range candidates {
-		err := matched.CheckMatchesResources(
-			resource,
-			candidate.Spec.Match,
-			policyContext.NamespaceLabels(),
-			policyContext.AdmissionInfo(),
-			gvk,
-			subresource,
-		)
-		// if there's no error it means a match
-		if err == nil {
-			return candidate, nil
-		}
-	}
-	return nil, nil
-}
-
-// hasPolicyExceptions returns nil when there are no matching exceptions.
-// A rule response is returned when an exception is matched, or there is an error.
-func (e *engine) hasPolicyExceptions(
+// PreprocessPolicyExceptions is used before the execution of a policy on a resource
+func PreprocessPolicyExceptions(
 	logger logr.Logger,
 	ruleType engineapi.RuleType,
-	ctx engineapi.PolicyContext,
+	polexs []kyvernov2beta1.PolicyException,
+	policyContext engineapi.PolicyContext,
 	rule kyvernov1.Rule,
 ) *engineapi.RuleResponse {
-	// if matches, check if there is a corresponding policy exception
-	exception, err := matchesException(e.exceptionSelector, ctx, rule)
-	if err != nil {
-		logger.Error(err, "failed to match exceptions")
-		return nil
-	}
+	exception := matchesException(polexs, policyContext)
 	if exception == nil {
 		return nil
 	}
@@ -94,4 +65,65 @@ func (e *engine) hasPolicyExceptions(
 		logger.V(3).Info("policy rule skipped due to policy exception", "exception", key)
 		return engineapi.RuleSkip(rule.Name, ruleType, "rule skipped due to policy exception "+key).WithException(exception)
 	}
+}
+
+// PostprocessPolicyExceptions is used after the execution of a policy on a resource in case of validate.podSecurity rule.
+func PostprocessPolicyExceptions(
+	logger logr.Logger,
+	ruleType engineapi.RuleType,
+	polexs []kyvernov2beta1.PolicyException,
+	podSecurityChecks *engineapi.PodSecurityChecks,
+	policyContext engineapi.PolicyContext,
+	rule kyvernov1.Rule,
+) *engineapi.RuleResponse {
+	exception := matchesException(polexs, policyContext)
+	if exception == nil {
+		return nil
+	}
+	key, err := cache.MetaNamespaceKeyFunc(exception)
+	if err != nil {
+		logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
+		return engineapi.RuleError(rule.Name, ruleType, "failed to compute exception key", err)
+	}
+
+	level := podSecurityChecks.Level
+	version := podSecurityChecks.Version
+	checks := podSecurityChecks.Checks
+	pod := podSecurityChecks.Pod
+	levelVersion, _ := pss.ParseVersion(level, version)
+	pssCheckResult := pss.ApplyPodSecurityExclusion(levelVersion, exception.Spec.PodSecurity, checks, &pod)
+
+	if len(pssCheckResult) == 0 {
+		logger.V(3).Info("policy rule skipped due to policy exception", "exception", key)
+		return engineapi.RuleSkip(rule.Name, ruleType, "rule skipped due to policy exception "+key).WithException(exception)
+	}
+	return nil
+}
+
+// matchesException checks if an exception applies to the incoming resource.
+// It returns the matched policy exception and the resource.
+func matchesException(
+	polexs []kyvernov2beta1.PolicyException,
+	policyContext engineapi.PolicyContext,
+) *kyvernov2beta1.PolicyException {
+	gvk, subresource := policyContext.ResourceKind()
+	resource := policyContext.NewResource()
+	if resource.Object == nil {
+		resource = policyContext.OldResource()
+	}
+	for _, polex := range polexs {
+		err := matched.CheckMatchesResources(
+			resource,
+			polex.Spec.Match,
+			policyContext.NamespaceLabels(),
+			policyContext.AdmissionInfo(),
+			gvk,
+			subresource,
+		)
+		// if there's no error it means a match
+		if err == nil {
+			return &polex
+		}
+	}
+	return nil
 }

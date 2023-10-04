@@ -416,6 +416,11 @@ type PodSecurity struct {
 	Exclude []PodSecurityStandard `json:"exclude,omitempty" yaml:"exclude,omitempty"`
 }
 
+// HasExclude checks if there is a Pod Security Standard controls to be excluded.
+func (p *PodSecurity) HasExclude() bool {
+	return len(p.Exclude) > 0
+}
+
 // PodSecurityStandard specifies the Pod Security Standard controls to be excluded.
 type PodSecurityStandard struct {
 	// ControlName specifies the name of the Pod Security Standard control.

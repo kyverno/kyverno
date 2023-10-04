@@ -5,6 +5,7 @@ import (
 
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/pod-security-admission/api"
@@ -18,6 +19,8 @@ type PodSecurityChecks struct {
 	Version string
 	// Checks contains check result details
 	Checks []pssutils.PSSCheckResult
+	// Pod is the pod on which the pod security control is applied
+	Pod corev1.Pod
 }
 
 // RuleResponse details for each rule application

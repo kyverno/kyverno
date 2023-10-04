@@ -255,6 +255,18 @@ func (e *engine) invokeRuleHandler(
 			} else if handler, err := handlerFactory(); err != nil {
 				return resource, handlers.WithError(rule, ruleType, "failed to instantiate handler", err)
 			} else if handler != nil {
+				// get policy exceptions that matches both policy and rule name
+				preprocessExceptions, postprocessExceptions, err := e.GetPolicyExceptions(policyContext.Policy(), rule.Name)
+				if err != nil {
+					logger.Error(err, "failed to get exceptions")
+					return resource, nil
+				}
+				// preprocess policy exceptions that match the incoming resource if exists
+				if len(preprocessExceptions) != 0 {
+					if ruleResp := PreprocessPolicyExceptions(logger, ruleType, preprocessExceptions, policyContext, rule); ruleResp != nil {
+						return resource, handlers.WithResponses(ruleResp)
+					}
+				}
 				policyContext.JSONContext().Checkpoint()
 				defer func() {
 					policyContext.JSONContext().Restore()
@@ -285,10 +297,10 @@ func (e *engine) invokeRuleHandler(
 				}
 				// process handler
 				resource, ruleResponses := handler.Process(ctx, logger, policyContext, resource, rule, contextLoader)
-				// check if there's an exception if rule fails.
 				for _, ruleResp := range ruleResponses {
-					if ruleResp.Status() == engineapi.RuleStatusFail {
-						if resp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule); resp != nil {
+					// In case policy fails and there are policy exceptions that can be processed after applying the policy.
+					if ruleResp.Status() == engineapi.RuleStatusFail && len(postprocessExceptions) != 0 {
+						if resp := PostprocessPolicyExceptions(logger, ruleType, postprocessExceptions, ruleResp.PodSecurityChecks(), policyContext, rule); resp != nil {
 							return resource, handlers.WithResponses(resp)
 						}
 					}
