@@ -2,7 +2,7 @@
 
 This is the list of organizations and users that have publicly shared how they are using Kyverno.
 
-💡 **Add your organization by creating a PR or [submitting this form](https://docs.google.com/forms/d/e/1FAIpQLSe1IBSxDFn_iAAq9vd0nQdjKbapvgGyM8j2IX_z4xSCu-OSNg/viewform)**
+💡 **Add your organization by creating a PR or [submitting this form](https://forms.gle/K5CApcBAD5D4H1AG8)**
 
 Note: There are several other organizations and users that are unable to publicly share their stories but are active in the Kyverno community. We appreciate all our users and their contributions to making Kyverno a successful CNCF project.
 
