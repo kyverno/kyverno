@@ -1,32 +1,36 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
-metadata: 
+metadata:
   name: disallow-naked-pods
 spec:
-  validationFailureAction: audit
+  admission: true
   background: false
   rules:
-  - name: validate-naked-pods
-    match: 
+  - context:
+    - apiCall:
+        jmesPath: metadata.annotations."policies.example.ignore-policy/disallow-naked-pods"
+          || ''
+        method: GET
+        urlPath: /api/v1/namespaces/{{request.namespace}}
+      name: ignorepolicy
+    match:
       any:
       - resources:
           kinds:
           - Pod
-    context:
-      - name: ignorepolicy
-        apiCall:
-          urlPath: "/api/v1/namespaces/{{request.namespace}}"
-          jmesPath: "metadata.annotations.\"policies.example.ignore-policy/disallow-naked-pods\" || ''"
+    name: validate-naked-pods
     preconditions:
       all:
-      - key: "{{ignorepolicy}}"
+      - key: '{{ignorepolicy}}'
         operator: NotEquals
-        value: "ignore" 
+        value: ignore
     validate:
-      message: "naked pods are not allowed"
       deny:
         conditions:
           any:
           - key: ownerReferences
             operator: AnyNotIn
-            value: "{{request.object.metadata.keys(@)}}"
+            value: '{{request.object.metadata.keys(@)}}'
+      message: naked pods are not allowed
+  validationFailureAction: Audit

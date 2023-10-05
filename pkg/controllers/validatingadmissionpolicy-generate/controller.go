@@ -69,17 +69,17 @@ func NewController(
 
 	// Set up an event handler for when Kyverno policies change
 	if _, err := controllerutils.AddEventHandlersT(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy); err != nil {
-		logger.Error(err, "failed to register even handlers")
+		logger.Error(err, "failed to register event handlers")
 	}
 
 	// Set up an event handler for when validating admission policies change
 	if _, err := controllerutils.AddEventHandlersT(vapInformer.Informer(), c.addVAP, c.updateVAP, c.deleteVAP); err != nil {
-		logger.Error(err, "failed to register even handlers")
+		logger.Error(err, "failed to register event handlers")
 	}
 
 	// Set up an event handler for when validating admission policy bindings change
 	if _, err := controllerutils.AddEventHandlersT(vapbindingInformer.Informer(), c.addVAPbinding, c.updateVAPbinding, c.deleteVAPbinding); err != nil {
-		logger.Error(err, "failed to register even handlers")
+		logger.Error(err, "failed to register event handlers")
 	}
 
 	return c
@@ -240,10 +240,12 @@ func (c *controller) buildValidatingAdmissionPolicy(vap *v1alpha1.ValidatingAdmi
 
 	// set validating admission policy spec
 	vap.Spec = v1alpha1.ValidatingAdmissionPolicySpec{
-		ParamKind:        rule.Validation.CEL.ParamKind,
 		MatchConstraints: &matchResources,
+		ParamKind:        rule.Validation.CEL.ParamKind,
+		Variables:        rule.Validation.CEL.Variables,
 		Validations:      rule.Validation.CEL.Expressions,
 		AuditAnnotations: rule.Validation.CEL.AuditAnnotations,
+		MatchConditions:  rule.CELPreconditions,
 	}
 
 	// set labels

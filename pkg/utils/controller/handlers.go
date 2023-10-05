@@ -25,22 +25,33 @@ type (
 )
 
 func AddEventHandlers(informer cache.SharedInformer, a addFunc, u updateFunc, d deleteFunc) (cache.ResourceEventHandlerRegistration, error) {
+	var onDelete deleteFunc
+	if d != nil {
+		onDelete = func(obj interface{}) {
+			d(kubeutils.GetObjectWithTombstone(obj))
+		}
+	}
 	return informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    a,
 		UpdateFunc: u,
-		DeleteFunc: func(obj interface{}) {
-			d(kubeutils.GetObjectWithTombstone(obj))
-		},
+		DeleteFunc: onDelete,
 	})
 }
 
 func AddEventHandlersT[T any](informer cache.SharedInformer, a addFuncT[T], u updateFuncT[T], d deleteFuncT[T]) (cache.ResourceEventHandlerRegistration, error) {
-	return AddEventHandlers(
-		informer,
-		func(obj interface{}) { a(obj.(T)) },
-		func(old, obj interface{}) { u(old.(T), obj.(T)) },
-		func(obj interface{}) { d(obj.(T)) },
-	)
+	var onAdd addFunc
+	var onUpdate updateFunc
+	var onDelete deleteFunc
+	if a != nil {
+		onAdd = func(obj interface{}) { a(obj.(T)) }
+	}
+	if u != nil {
+		onUpdate = func(old, obj interface{}) { u(old.(T), obj.(T)) }
+	}
+	if d != nil {
+		onDelete = func(obj interface{}) { d(obj.(T)) }
+	}
+	return AddEventHandlers(informer, onAdd, onUpdate, onDelete)
 }
 
 func AddKeyedEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, parseKey keyFunc) (EnqueueFunc, cache.ResourceEventHandlerRegistration, error) {
@@ -122,6 +133,10 @@ func QueueAfter(queue workqueue.RateLimitingInterface, delay time.Duration) Enqu
 		queue.AddAfter(obj, delay)
 		return nil
 	}
+}
+
+func MetaObjectToName(obj metav1.Object) string {
+	return cache.MetaObjectToName(obj).String()
 }
 
 func MetaNamespaceKey(obj interface{}) (interface{}, error) {

@@ -1,0 +1,12 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Values
+policies:
+- name: deny-modify-platform-label
+  rules:
+  - name: deny-modify-platform-role
+    values:
+      request:
+        operation: UPDATE
+        userInfo:
+          groups:
+          - system:masters

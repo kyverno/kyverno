@@ -1,16 +1,21 @@
-name: disallow-host-path-test
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  - disallow-host-path.yaml
+- disallow-host-path.yaml
 resources:
-  - deployments.yaml
+- deployments.yaml
 results:
-  - policy: disallow-host-path
-    resource: deployment-pass
-    isValidatingAdmissionPolicy: true
-    kind: Deployment
-    result: pass
-  - policy: disallow-host-path
-    resource: deployment-fail
-    isValidatingAdmissionPolicy: true
-    kind: Deployment
-    result: fail
+- isValidatingAdmissionPolicy: true
+  kind: Deployment
+  policy: disallow-host-path
+  resources:
+  - deployment-fail
+  result: fail
+- isValidatingAdmissionPolicy: true
+  kind: Deployment
+  policy: disallow-host-path
+  resources:
+  - deployment-pass
+  result: pass

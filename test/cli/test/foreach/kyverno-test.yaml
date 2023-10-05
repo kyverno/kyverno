@@ -1,4 +1,7 @@
-name: test-foreach
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
 - policies.yaml
 resources:
@@ -8,30 +11,21 @@ results:
   policy: validate-empty-dir-mountpath
   resources:
   - test-pod
-  result: pass
-  rule: check-mount-paths
-- kind: Pod
-  policy: validate-empty-dir-mountpath
-  resources:
   - test-pod2
   result: pass
   rule: check-mount-paths
 - kind: Pod
   policy: validate-empty-dir-resources
   resources:
+  - test-pod
   - test-pod-bad-mount
   result: fail
   rule: check-resources
 - kind: Pod
   policy: validate-empty-dir-resources
   resources:
-  - test-pod
-  result: fail
-  rule: check-resources
-- kind: Pod
-  policy: validate-empty-dir-resources
-  resources:
   - test-pod-with-resources
+  - test-pod-with-resources-multiple-ctnrs
   result: pass
   rule: check-resources
 - kind: Pod
@@ -41,20 +35,9 @@ results:
   result: skip
   rule: check-resources
 - kind: Pod
-  policy: validate-empty-dir-resources
-  resources:
-  - test-pod-with-resources-multiple-ctnrs
-  result: pass
-  rule: check-resources
-- kind: Pod
   policy: validate-image-list
   resources:
   - test-pod
-  result: fail
-  rule: check-image
-- kind: Pod
-  policy: validate-image-list
-  resources:
   - test-pod-ghcr
   result: fail
   rule: check-image

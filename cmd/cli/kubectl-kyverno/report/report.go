@@ -8,17 +8,17 @@ import (
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 )
 
 func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineResponse, ruleResponse engineapi.RuleResponse) policyreportv1alpha2.PolicyReportResult {
 	policy := engineResponse.Policy()
-	policyName := policy.GetName()
+	policyName := cache.MetaObjectToName(policy.MetaObject()).String()
 	audit := engineResponse.GetValidationFailureAction().Audit()
 	scored := annotations.Scored(policy.GetAnnotations())
 	category := annotations.Category(policy.GetAnnotations())
 	severity := annotations.Severity(policy.GetAnnotations())
 	result := policyreportv1alpha2.PolicyReportResult{
-		// TODO policy name looks wrong, it should consider the namespace too
 		Policy: policyName,
 		Resources: []corev1.ObjectReference{
 			{
@@ -69,8 +69,7 @@ func ComputePolicyReportResultsPerPolicy(auditWarn bool, engineResponses ...engi
 			// if ruleResponse.RuleType() != engineapi.Validation && ruleResponse.RuleType() != engineapi.ImageVerify {
 			// 	continue
 			// }
-			result := ComputePolicyReportResult(auditWarn, engineResponse, ruleResponse)
-			results[policy] = append(results[policy], result)
+			results[policy] = append(results[policy], ComputePolicyReportResult(auditWarn, engineResponse, ruleResponse))
 		}
 	}
 	if len(results) == 0 {
@@ -112,16 +111,9 @@ func ComputePolicyReports(auditWarn bool, engineResponses ...engineapi.EngineRes
 	return clustered, namespaced
 }
 
-func MergeClusterReports(clustered []policyreportv1alpha2.ClusterPolicyReport, namespaced []policyreportv1alpha2.PolicyReport) policyreportv1alpha2.ClusterPolicyReport {
+func MergeClusterReports(clustered []policyreportv1alpha2.ClusterPolicyReport) policyreportv1alpha2.ClusterPolicyReport {
 	var results []policyreportv1alpha2.PolicyReportResult
 	for _, report := range clustered {
-		results = append(results, report.Results...)
-	}
-	// TODO why this ?
-	for _, report := range namespaced {
-		if report.GetNamespace() != "" {
-			continue
-		}
 		results = append(results, report.Results...)
 	}
 	return policyreportv1alpha2.ClusterPolicyReport{

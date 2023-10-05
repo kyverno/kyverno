@@ -1,21 +1,23 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: validate-default-proc-mount
 spec:
-  validationFailureAction: "audit"
+  admission: true
+  background: true
   rules:
-  - name: validate-default-proc-mount
-    match:
+  - match:
       all:
-          - resources:
-              kinds:
-                - Pod
+      - resources:
+          kinds:
+          - Pod
+    name: validate-default-proc-mount
     validate:
-      message: "Default proc mount should set to Unmasked"
+      message: Default proc mount should set to Unmasked
       pattern:
         spec:
           containers:
           - securityContext:
               procMount: Unmasked
-# used by rootless containers
+  validationFailureAction: Audit

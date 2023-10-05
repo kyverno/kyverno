@@ -1,22 +1,19 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Values
 policies:
 - name: restrict-pod-counts
-  rules:
-    - name: restrict-pod-count
-      values:
-        podcounts: "40"
   resources:
-  # operation is provided by user
   - name: myapp-pod
     values:
       request.operation: CREATE
-  # operation is not provided by user
   - name: test-require-image-tag-pass
-    values:
-  # operation is empty
   - name: test-require-image-tag-fail
     values:
       request.operation: ""
-  # No operation provided
   - name: test-validate-image-tag-ignore
   - name: test-validate-image-tag-fail
   - name: test-validate-image-tag-pass
+  rules:
+  - name: restrict-pod-count
+    values:
+      podcounts: "40"

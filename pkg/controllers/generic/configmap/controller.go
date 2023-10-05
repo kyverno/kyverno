@@ -64,7 +64,7 @@ func NewController(
 		callback:       callback,
 	}
 	if _, _, err := controllerutils.AddDefaultEventHandlers(c.logger, informer.Informer(), c.queue); err != nil {
-		logging.Error(err, "failed to register even handlers")
+		logging.Error(err, "failed to register event handlers")
 	}
 	return &c
 }

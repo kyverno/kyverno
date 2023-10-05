@@ -1,0 +1,42 @@
+apiVersion: kyverno.io/v2alpha1
+kind: PolicyException
+metadata:
+  name: delta-exception
+  namespace: delta
+spec:
+  exceptions:
+  - policyName: disallow-host-namespaces
+    ruleNames:
+    - host-namespaces
+    - autogen-host-namespaces
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+        - Deployment
+        namespaces:
+        - delta
+        names:
+        - important-tool*
+---
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: require-ns-purpose-label
+  namespace: test
+spec:
+  validationFailureAction: Enforce
+  rules:
+  - name: require-ns-purpose-label
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    validate:
+      message: "You must have label 'purpose' with value 'production' set on all new namespaces."
+      pattern:
+        metadata:
+          labels:
+            purpose: production

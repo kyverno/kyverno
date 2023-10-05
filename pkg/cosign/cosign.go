@@ -175,20 +175,24 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 	}
 
 	cosignOpts.IgnoreTlog = opts.IgnoreTlog
-	cosignOpts.RekorClient, err = rekorclient.GetRekorClient(opts.RekorURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Rekor client from URL %s: %w", opts.RekorURL, err)
-	}
+	if !opts.IgnoreTlog {
+		cosignOpts.RekorClient, err = rekorclient.GetRekorClient(opts.RekorURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Rekor client from URL %s: %w", opts.RekorURL, err)
+		}
 
-	cosignOpts.RekorPubKeys, err = getRekorPubs(ctx, opts.RekorPubKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load Rekor public keys: %w", err)
+		cosignOpts.RekorPubKeys, err = getRekorPubs(ctx, opts.RekorPubKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load Rekor public keys: %w", err)
+		}
 	}
 
 	cosignOpts.IgnoreSCT = opts.IgnoreSCT
-	cosignOpts.CTLogPubKeys, err = cosign.GetCTLogPubs(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load Rekor public keys: %w", err)
+	if !opts.IgnoreSCT {
+		cosignOpts.CTLogPubKeys, err = getCTLogPubs(ctx, opts.CTLogsPubKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load CTLogs public keys: %w", err)
+		}
 	}
 
 	if opts.Repository != "" {
@@ -579,7 +583,19 @@ func getRekorPubs(ctx context.Context, rekorPubKey string) (*cosign.TrustedTrans
 
 	publicKeys := cosign.NewTrustedTransparencyLogPubKeys()
 	if err := publicKeys.AddTransparencyLogPubKey([]byte(rekorPubKey), tuf.Active); err != nil {
-		return nil, fmt.Errorf("AddRekorPubKey: %w", err)
+		return nil, fmt.Errorf("failed to get rekor public keys: %w", err)
+	}
+	return &publicKeys, nil
+}
+
+func getCTLogPubs(ctx context.Context, ctlogPubKey string) (*cosign.TrustedTransparencyLogPubKeys, error) {
+	if ctlogPubKey == "" {
+		return cosign.GetCTLogPubs(ctx)
+	}
+
+	publicKeys := cosign.NewTrustedTransparencyLogPubKeys()
+	if err := publicKeys.AddTransparencyLogPubKey([]byte(ctlogPubKey), tuf.Active); err != nil {
+		return nil, fmt.Errorf("failed to get transparency log public keys: %w", err)
 	}
 	return &publicKeys, nil
 }

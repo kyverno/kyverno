@@ -1,29 +1,32 @@
-apiVersion : kyverno.io/v1
+---
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: add-default-resources
 spec:
+  admission: true
   background: false
   rules:
-  - name: add-default-requests
-    match:
+  - match:
       any:
       - resources:
           kinds:
           - Pod
-    preconditions:
-      any:
-      - key: "{{request.operation}}"
-        operator: In
-        value:
-        - CREATE
-        - UPDATE
     mutate:
       patchStrategicMerge:
         spec:
           containers:
-            - (name): "*"
-              resources:
-                requests:
-                  +(memory): "100Mi"
-                  +(cpu): "100m"
+          - (name): '*'
+            resources:
+              requests:
+                +(cpu): 100m
+                +(memory): 100Mi
+    name: add-default-requests
+    preconditions:
+      any:
+      - key: '{{request.operation}}'
+        operator: AllIn
+        value:
+        - CREATE
+        - UPDATE
+  validationFailureAction: Audit

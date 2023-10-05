@@ -10,7 +10,6 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/loaders"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
-	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/toggle"
 )
@@ -47,7 +46,6 @@ func (l *contextLoader) Load(
 	jp jmespath.Interface,
 	client engineapi.RawClient,
 	rclientFactory engineapi.RegistryClientFactory,
-	ivCache imageverifycache.Client,
 	contextEntries []kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
 ) error {

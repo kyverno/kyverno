@@ -1,0 +1,62 @@
+features:
+  tuf:
+    enabled: true
+    root: "$(TUF_MIRROR)/root.json"
+    mirror: "$(TUF_MIRROR)"
+
+admissionController:
+  container:
+    extraEnvVars:
+      - name: TUF_MIRROR
+        valueFrom:
+          configMapKeyRef:
+            name: tufvalues
+            key: TUF_MIRROR
+      - name: FULCIO_URL
+        valueFrom:
+          configMapKeyRef:
+            name: tufvalues
+            key: FULCIO_URL
+      - name: REKOR_URL
+        valueFrom:
+          configMapKeyRef:
+            name: tufvalues
+            key: REKOR_URL
+      - name: CTLOG_URL
+        valueFrom:
+          configMapKeyRef:
+            name: tufvalues
+            key: CTLOG_URL
+      - name: ISSUER_URL
+        valueFrom:
+          configMapKeyRef:
+            name: tufvalues
+            key: ISSUER_URL
+
+reportsController:
+  extraEnvVars:
+    - name: TUF_MIRROR
+      valueFrom:
+        configMapKeyRef:
+          name: tufvalues
+          key: TUF_MIRROR
+    - name: FULCIO_URL
+      valueFrom:
+        configMapKeyRef:
+          name: tufvalues
+          key: FULCIO_URL
+    - name: REKOR_URL
+      valueFrom:
+        configMapKeyRef:
+          name: tufvalues
+          key: REKOR_URL
+    - name: CTLOG_URL
+      valueFrom:
+        configMapKeyRef:
+          name: tufvalues
+          key: CTLOG_URL
+    - name: ISSUER_URL
+      valueFrom:
+        configMapKeyRef:
+          name: tufvalues
+          key: ISSUER_URL

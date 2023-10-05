@@ -33,10 +33,11 @@ type Options struct {
 	AdditionalExtensions map[string]string
 	Annotations          map[string]string
 	Repository           string
+	IgnoreTlog           bool
 	RekorURL             string
 	RekorPubKey          string
 	IgnoreSCT            bool
-	IgnoreTlog           bool
+	CTLogsPubKey         string
 	SignatureAlgorithm   string
 	PredicateType        string
 	Type                 string

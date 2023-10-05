@@ -1,42 +1,45 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: restrict-something
 spec:
-  validationFailureAction: audit
+  admission: true
   background: true
   rules:
-  - name: validate-some-foo
-    match:
-      resources:
-        kinds:
-        - Pod
-        namespaces:
-        - foo
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          namespaces:
+          - foo
+    name: validate-some-foo
     validate:
-      message: "Unknown image registry."
       deny:
         conditions:
-        - key: "{{ images.containers.*.registry }}"
+        - key: '{{ images.containers.*.registry }}'
           operator: NotIn
           value:
-          - "foo.io"
-  - name: validate-some-non-foo
+          - foo.io
+      message: Unknown image registry.
+  - exclude:
+      any:
+      - resources:
+          namespaces:
+          - foo
     match:
       any:
       - resources:
           kinds:
           - Pod
-    exclude:
-      any:
-      - resources:
-          namespaces:
-          - foo
+    name: validate-some-non-foo
     validate:
-      message: "Unknown image registry."
       deny:
         conditions:
-        - key: "{{ images.containers.*.registry }}"
+        - key: '{{ images.containers.*.registry }}'
           operator: NotIn
           value:
-          - "bar.io"
+          - bar.io
+      message: Unknown image registry.
+  validationFailureAction: Audit
