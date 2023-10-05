@@ -252,6 +252,35 @@ var baseline_hostProcess = []testCase{
 		allowed: true,
 	},
 	{
+		name: "baseline_hostProcess_defines_spec_blocked_with_no_exclusion",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24"
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"windowsOptions": {
+						"hostProcess": true
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx:1.2.3"
+					}
+				]
+			}
+		}`),
+		allowed: false,
+	},
+	{
 		name: "baseline_hostProcess_defines_spec_only_violate_false",
 		rawRule: []byte(`
 		{
@@ -313,6 +342,35 @@ var baseline_hostProcess = []testCase{
 			}
 		}`),
 		allowed: true,
+	},
+	{
+		name: "baseline_hostProcess_defines_spec_blocked_with_no_exclusion",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24"
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"windowsOptions": {
+						"hostProcess": true
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx:1.2.3"
+					}
+				]
+			}
+		}`),
+		allowed: false,
 	},
 }
 
@@ -856,6 +914,45 @@ var baseline_capabilities = []testCase{
 		allowed: true,
 	},
 	{
+		name: "baseline_capabilities_foo_defines_container_violate_true",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Capabilities",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"capabilities": {
+								"add": [
+									"FOO", "BAR"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
 		name: "baseline_capabilities_defines_container_none",
 		rawRule: []byte(`
 		{
@@ -1235,6 +1332,44 @@ var baseline_host_ports = []testCase{
 		allowed: true,
 	},
 	{
+		name: "baseline_host_ports_define_different_values",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Host Ports",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"ports": [
+							{
+								"hostPort": 10,
+								"hostPort": 20
+							}
+						]
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
 		name: "baseline_host_ports_undefined",
 		rawRule: []byte(`
 		{
@@ -1349,6 +1484,44 @@ var baseline_appArmor = []testCase{
 				"name": "test",
 				"annotations": {
 					"container.apparmor.security.beta.kubernetes.io/kyverno.test": "runtime/default"
+				}
+			},
+			"spec": {
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_appArmor_defines_multiple_violate_true",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "AppArmor"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test",
+				"annotations": {
+					"container.apparmor.security.beta.kubernetes.io/": "bogus",
+					"container.apparmor.security.beta.kubernetes.io/a": "",
+					"container.apparmor.security.beta.kubernetes.io/b": "runtime/default",
+					"container.apparmor.security.beta.kubernetes.io/c": "localhost/",
+					"container.apparmor.security.beta.kubernetes.io/d": "localhost/foo",
+					"container.apparmor.security.beta.kubernetes.io/e": "unconfined",
+					"container.apparmor.security.beta.kubernetes.io/f": "unknown"
 				}
 			},
 			"spec": {
@@ -1696,6 +1869,40 @@ var baseline_seLinux = []testCase{
 		allowed: true,
 	},
 	{
+		name: "baseline_seLinux_type_defines_bad_spec_violate_false",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "SELinux"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"seLinuxOptions": {
+						"type": "bad"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
 		name: "baseline_seLinux_type_not_match_pass",
 		rawRule: []byte(`
 		{
@@ -1901,6 +2108,74 @@ var baseline_seLinux = []testCase{
 		allowed: true,
 	},
 	{
+		name: "baseline_seLinux_user_defines_bad_spec_violate_true",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "SELinux"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"seLinuxOptions": {
+						"user": "bad"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_seLinux_role_defines_bad_spec_violate_true",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "SELinux"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"seLinuxOptions": {
+						"role": "bad"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
 		name: "baseline_seLinux_role_defines_container_violate_true",
 		rawRule: []byte(`
 		{
@@ -2035,6 +2310,65 @@ var baseline_procMount = []testCase{
 						"image": "nginx",
 						"securityContext": {
 							"procMount": "Default"
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_procMount_defines_multiple_violate_true",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "/proc Mount Type",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": null
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"procMount": "Default"
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"procMount": "Unmasked"
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"procMount": "other"
 						}
 					}
 				]
@@ -2303,6 +2637,77 @@ var baseline_seccompProfile = []testCase{
 						"securityContext": {
 							"seccompProfile": {
 								"type": "RuntimeDefault"
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_seccompProfile_defines_multiple_all_violate_true",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.19",
+			"exclude": [
+				{
+					"controlName": "Seccomp"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"seccompProfile": {
+						"type": "Unconfined"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"seccompProfile": null
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"seccompProfile": {}
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"seccompProfile": {
+								"type": "Unconfined"
+							}
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"seccompProfile": {
+								"type": "RuntimeDefault"
+							}
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"seccompProfile": {
+								"type": "Localhost"
 							}
 						}
 					}
