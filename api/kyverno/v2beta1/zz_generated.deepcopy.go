@@ -535,6 +535,11 @@ func (in *PolicyExceptionSpec) DeepCopyInto(out *PolicyExceptionSpec) {
 		**out = **in
 	}
 	in.Match.DeepCopyInto(&out.Match)
+	if in.Conditions != nil {
+		in, out := &in.Conditions, &out.Conditions
+		*out = new(AnyAllConditions)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Exceptions != nil {
 		in, out := &in.Exceptions, &out.Exceptions
 		*out = make([]Exception, len(*in))

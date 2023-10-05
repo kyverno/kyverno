@@ -5795,6 +5795,21 @@ MatchResources
 </tr>
 <tr>
 <td>
+<code>conditions</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions are used to determine if a resource applies to the exception by evaluating a
+set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>exceptions</code><br/>
 <em>
 <a href="#kyverno.io/v2beta1.Exception">
@@ -6742,6 +6757,21 @@ MatchResources
 </tr>
 <tr>
 <td>
+<code>conditions</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions are used to determine if a resource applies to the exception by evaluating a
+set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>exceptions</code><br/>
 <em>
 <a href="#kyverno.io/v2beta1.Exception">
@@ -6765,6 +6795,7 @@ MatchResources
 (<em>Appears on:</em>
 <a href="#kyverno.io/v2beta1.CleanupPolicySpec">CleanupPolicySpec</a>, 
 <a href="#kyverno.io/v2beta1.Deny">Deny</a>, 
+<a href="#kyverno.io/v2beta1.PolicyExceptionSpec">PolicyExceptionSpec</a>, 
 <a href="#kyverno.io/v2beta1.Rule">Rule</a>)
 </p>
 <p>
@@ -7359,6 +7390,21 @@ MatchResources
 </td>
 <td>
 <p>Match defines match clause used to check if a resource applies to the exception</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions are used to determine if a resource applies to the exception by evaluating a
+set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.</p>
 </td>
 </tr>
 <tr>
