@@ -347,6 +347,60 @@ func TestMatch(t *testing.T) {
 			text:    "my-bucket/mnopqanda",
 			matched: false,
 		},
+		// Test case 53.
+		{
+			pattern: "!my-bucket/abc?",
+			text:    "my-bucket/abcde",
+			matched: true,
+		},
+		// Test case 54.
+		{
+			pattern: "!my-bucket/oo*",
+			text:    "my-bucket/odo",
+			matched: true,
+		},
+		// Test case 55.
+		{
+			pattern: "!*",
+			text:    "s3:GetObject",
+			matched: false,
+		},
+		// Test case 56.
+		{
+			pattern: "!my-bucket/In*",
+			text:    "my-bucket/Karnataka/India/",
+			matched: true,
+		},
+		// Test case 57.
+		{
+			pattern: "!!my-bucket/abc?",
+			text:    "my-bucket/abcde",
+			matched: false,
+		},
+		// Test case 58.
+		{
+			pattern: "!!my-bucket/oo*",
+			text:    "my-bucket/odo",
+			matched: false,
+		},
+		// Test case 59.
+		{
+			pattern: "!!*",
+			text:    "s3:GetObject",
+			matched: true,
+		},
+		// Test case 60.
+		{
+			pattern: "!!my-bucket/In*",
+			text:    "my-bucket/Karnataka/India/",
+			matched: false,
+		},
+		// Test case 61.
+		{
+			pattern: "!!!*",
+			text:    "s3:GetObject",
+			matched: false,
+		},
 	}
 	// Iterating over the test cases, call the function under test and asert the output.
 	for _, testCase := range testCases {
