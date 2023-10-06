@@ -1,6 +1,6 @@
 features:
   tuf:
-    enable: true
+    enabled: true
     root: "$(TUF_MIRROR)/root.json"
     mirror: "$(TUF_MIRROR)"
 

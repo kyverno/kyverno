@@ -133,6 +133,7 @@ func (in *CleanupPolicyStatus) DeepCopyInto(out *CleanupPolicyStatus) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	in.LastExecutionTime.DeepCopyInto(&out.LastExecutionTime)
 	return
 }
 

@@ -2099,6 +2099,9 @@ spec:
                   - type
                   type: object
                 type: array
+              lastExecutionTime:
+                format: date-time
+                type: string
             type: object
         required:
         - spec
@@ -4005,6 +4008,9 @@ spec:
                   - type
                   type: object
                 type: array
+              lastExecutionTime:
+                format: date-time
+                type: string
             type: object
         required:
         - spec
@@ -41426,17 +41432,6 @@ rules:
       - list
       - watch
   - apiGroups:
-      - batch
-    resources:
-      - cronjobs
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - update
-      - watch
-  - apiGroups:
       - ''
       - events.k8s.io
     resources:
@@ -42333,7 +42328,7 @@ spec:
             - --generateValidatingAdmissionPolicy=false
             - --loggingFormat=text
             - --v=2
-            - --enablePolicyException=false
+            - --enablePolicyException=true
             - --protectManagedResources=false
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
@@ -42479,7 +42474,7 @@ spec:
             - --enableDeferredLoading=true
             - --loggingFormat=text
             - --v=2
-            - --enablePolicyException=false
+            - --enablePolicyException=true
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME
             value: kyverno-background-controller
@@ -42716,7 +42711,7 @@ spec:
             - --enableDeferredLoading=true
             - --loggingFormat=text
             - --v=2
-            - --enablePolicyException=false
+            - --enablePolicyException=true
             - --reportsChunkSize=1000
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
