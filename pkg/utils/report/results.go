@@ -94,13 +94,18 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []policyre
 		key, _ := cache.MetaNamespaceKeyFunc(pol.GetPolicy().(kyvernov1.PolicyInterface))
 		for _, ruleResult := range response.PolicyResponse.Rules {
 			annotations := pol.GetAnnotations()
+			var polexName string
+			if ruleResult.Exception() != nil {
+				polexName = ruleResult.Exception().Name
+			}
 			result := policyreportv1alpha2.PolicyReportResult{
-				Source:  kyverno.ValueKyvernoApp,
-				Policy:  key,
-				Rule:    ruleResult.Name(),
-				Message: ruleResult.Message(),
-				Result:  toPolicyResult(ruleResult.Status()),
-				Scored:  annotations[kyverno.AnnotationPolicyScored] != "false",
+				Source:          kyverno.ValueKyvernoApp,
+				Policy:          key,
+				PolicyException: polexName,
+				Rule:            ruleResult.Name(),
+				Message:         ruleResult.Message(),
+				Result:          toPolicyResult(ruleResult.Status()),
+				Scored:          annotations[kyverno.AnnotationPolicyScored] != "false",
 				Timestamp: metav1.Timestamp{
 					Seconds: time.Now().Unix(),
 				},
