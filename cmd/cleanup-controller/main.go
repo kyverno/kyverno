@@ -262,8 +262,8 @@ func main() {
 				cleanup.NewController(
 					setup.KyvernoDynamicClient,
 					setup.KyvernoClient,
-					kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies(),
-					kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies(),
+					kyvernoInformer.Kyverno().V2beta1().ClusterCleanupPolicies(),
+					kyvernoInformer.Kyverno().V2beta1().CleanupPolicies(),
 					nsLister,
 					setup.Configuration,
 					cmResolver,

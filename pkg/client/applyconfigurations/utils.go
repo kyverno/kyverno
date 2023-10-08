@@ -171,10 +171,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		// Group=kyverno.io, Version=v2alpha1
 	case v2alpha1.SchemeGroupVersion.WithKind("CleanupPolicy"):
 		return &kyvernov2alpha1.CleanupPolicyApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("CleanupPolicySpec"):
-		return &kyvernov2alpha1.CleanupPolicySpecApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("CleanupPolicyStatus"):
-		return &kyvernov2alpha1.CleanupPolicyStatusApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("ClusterCleanupPolicy"):
 		return &kyvernov2alpha1.ClusterCleanupPolicyApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("PolicyException"):
@@ -183,6 +179,14 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		// Group=kyverno.io, Version=v2beta1
 	case v2beta1.SchemeGroupVersion.WithKind("AnyAllConditions"):
 		return &kyvernov2beta1.AnyAllConditionsApplyConfiguration{}
+	case v2beta1.SchemeGroupVersion.WithKind("CleanupPolicy"):
+		return &kyvernov2beta1.CleanupPolicyApplyConfiguration{}
+	case v2beta1.SchemeGroupVersion.WithKind("CleanupPolicySpec"):
+		return &kyvernov2beta1.CleanupPolicySpecApplyConfiguration{}
+	case v2beta1.SchemeGroupVersion.WithKind("CleanupPolicyStatus"):
+		return &kyvernov2beta1.CleanupPolicyStatusApplyConfiguration{}
+	case v2beta1.SchemeGroupVersion.WithKind("ClusterCleanupPolicy"):
+		return &kyvernov2beta1.ClusterCleanupPolicyApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("ClusterPolicy"):
 		return &kyvernov2beta1.ClusterPolicyApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("Condition"):

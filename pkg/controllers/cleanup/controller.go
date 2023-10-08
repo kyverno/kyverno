@@ -9,8 +9,8 @@ import (
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
-	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
+	kyvernov2beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2beta1"
+	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
@@ -40,8 +40,8 @@ type controller struct {
 	kyvernoClient versioned.Interface
 
 	// listers
-	cpolLister kyvernov2alpha1listers.ClusterCleanupPolicyLister
-	polLister  kyvernov2alpha1listers.CleanupPolicyLister
+	cpolLister kyvernov2beta1listers.ClusterCleanupPolicyLister
+	polLister  kyvernov2beta1listers.CleanupPolicyLister
 	nsLister   corev1listers.NamespaceLister
 
 	// queue
@@ -70,8 +70,8 @@ const (
 func NewController(
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
-	cpolInformer kyvernov2alpha1informers.ClusterCleanupPolicyInformer,
-	polInformer kyvernov2alpha1informers.CleanupPolicyInformer,
+	cpolInformer kyvernov2beta1informers.ClusterCleanupPolicyInformer,
+	polInformer kyvernov2beta1informers.CleanupPolicyInformer,
 	nsLister corev1listers.NamespaceLister,
 	configuration config.Configuration,
 	cmResolver engineapi.ConfigmapResolver,
