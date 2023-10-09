@@ -1,4 +1,4 @@
-package v2alpha1
+package v2beta1
 
 import (
 	"encoding/json"
@@ -78,7 +78,7 @@ func Test_ClusterCleanupPolicy_Schedule(t *testing.T) {
 	assert.Equal(t, errs[0].Error(), fmt.Sprintf(`spec.schedule: Invalid value: "%s": schedule spec in the cleanupPolicy is not in proper cron format`, subject.Spec.Schedule))
 }
 
-func Test_doesMatchExcludeConflict(t *testing.T) {
+func Test_doesMatchExcludeConflict_CleanupPolicy(t *testing.T) {
 	path := field.NewPath("dummy")
 	testcases := []struct {
 		description string
