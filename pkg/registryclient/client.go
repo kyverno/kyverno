@@ -170,7 +170,7 @@ func WithTracing() Option {
 
 // BuildCosignRemoteOption builds remote.Option for cosign client.
 func (c *client) BuildCosignRemoteOption(ctx context.Context) (remote.Option, error) {
-	gcrRemoteOpts, err := c.BuildGCRRemoteOption(ctx)
+	gcrRemoteOpts, err := c.getGCRRemoteOption(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -180,6 +180,10 @@ func (c *client) BuildCosignRemoteOption(ctx context.Context) (remote.Option, er
 
 // BuildGCRRemoteOption builds []gcrremote.Option based on client.
 func (c *client) BuildGCRRemoteOption(ctx context.Context) ([]gcrremote.Option, error) {
+	return c.getGCRRemoteOption(ctx)
+}
+
+func (c *client) getGCRRemoteOption(ctx context.Context) ([]gcrremote.Option, error) {
 	remoteOpts := []gcrremote.Option{
 		gcrremote.WithAuthFromKeychain(c.keychain),
 		gcrremote.WithTransport(c.transport),
