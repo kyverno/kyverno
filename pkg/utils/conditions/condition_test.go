@@ -1,4 +1,4 @@
-package cleanup
+package conditions
 
 import (
 	"testing"
@@ -9,7 +9,6 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/utils/conditions"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
@@ -49,13 +48,13 @@ func Test_checkCondition(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := conditions.CheckCondition(tt.args.logger, tt.args.ctx, tt.args.condition)
+			got, err := CheckCondition(tt.args.logger, tt.args.ctx, tt.args.condition)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("checkCondition() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("CheckCondition() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("checkCondition() = %v, want %v", got, tt.want)
+				t.Errorf("CheckCondition() = %v, want %v", got, tt.want)
 			}
 		})
 	}

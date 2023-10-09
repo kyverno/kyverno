@@ -66,7 +66,7 @@ func matchesException(
 		// if there's no error it means a match
 		if err == nil {
 			if candidate.Spec.Conditions != nil {
-				passed, err := conditions.CheckAnyAllConditions(logger, policyContext, *candidate.Spec.Conditions)
+				passed, err := conditions.CheckAnyAllConditions(logger, policyContext.JSONContext(), *candidate.Spec.Conditions)
 				if err != nil {
 					return nil, err
 				}
