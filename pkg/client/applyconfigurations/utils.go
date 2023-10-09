@@ -169,10 +169,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov1beta1.UpdateRequestStatusApplyConfiguration{}
 
 		// Group=kyverno.io, Version=v2alpha1
-	case v2alpha1.SchemeGroupVersion.WithKind("CleanupPolicy"):
-		return &kyvernov2alpha1.CleanupPolicyApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("ClusterCleanupPolicy"):
-		return &kyvernov2alpha1.ClusterCleanupPolicyApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("PolicyException"):
 		return &kyvernov2alpha1.PolicyExceptionApplyConfiguration{}
 
