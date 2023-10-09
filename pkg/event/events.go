@@ -53,13 +53,6 @@ func buildPolicyEventMessage(resp engineapi.RuleResponse, resource engineapi.Res
 	return b.String()
 }
 
-func getCleanupPolicyKind(policy kyvernov2alpha1.CleanupPolicyInterface) string {
-	if policy.IsNamespaced() {
-		return "CleanupPolicy"
-	}
-	return "ClusterCleanupPolicy"
-}
-
 func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineResponse) Info {
 	resource := engineResponse.Resource
 	var bldr strings.Builder
@@ -226,7 +219,7 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 func NewCleanupPolicyEvent(policy kyvernov2alpha1.CleanupPolicyInterface, resource unstructured.Unstructured, err error) Info {
 	if err == nil {
 		return Info{
-			Kind:              getCleanupPolicyKind(policy),
+			Kind:              policy.GetKind(),
 			Namespace:         policy.GetNamespace(),
 			Name:              policy.GetName(),
 			RelatedAPIVersion: resource.GetAPIVersion(),
@@ -240,7 +233,7 @@ func NewCleanupPolicyEvent(policy kyvernov2alpha1.CleanupPolicyInterface, resour
 		}
 	} else {
 		return Info{
-			Kind:              getCleanupPolicyKind(policy),
+			Kind:              policy.GetKind(),
 			Namespace:         policy.GetNamespace(),
 			Name:              policy.GetName(),
 			RelatedAPIVersion: resource.GetAPIVersion(),
