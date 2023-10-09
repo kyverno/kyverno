@@ -248,6 +248,34 @@ func NewCleanupPolicyEvent(policy kyvernov2alpha1.CleanupPolicyInterface, resour
 	}
 }
 
+func NewValidatingAdmissionPolicyEvent(policy kyvernov1.PolicyInterface, vapName, vapBindingName string) []Info {
+	vapEvent := Info{
+		Kind:              policy.GetKind(),
+		Namespace:         policy.GetNamespace(),
+		Name:              policy.GetName(),
+		RelatedAPIVersion: "admissionregistration.k8s.io/v1alpha1",
+		RelatedKind:       "ValidatingAdmissionPolicy",
+		RelatedName:       vapName,
+		Source:            GeneratePolicyController,
+		Action:            ResourceGenerated,
+		Reason:            PolicyApplied,
+		Message:           fmt.Sprintf("successfully generated validating admission policy %s from policy %s", vapName, policy.GetName()),
+	}
+	vapBindingEvent := Info{
+		Kind:              policy.GetKind(),
+		Namespace:         policy.GetNamespace(),
+		Name:              policy.GetName(),
+		RelatedAPIVersion: "admissionregistration.k8s.io/v1alpha1",
+		RelatedKind:       "ValidatingAdmissionPolicyBinding",
+		RelatedName:       vapBindingName,
+		Source:            GeneratePolicyController,
+		Action:            ResourceGenerated,
+		Reason:            PolicyApplied,
+		Message:           fmt.Sprintf("successfully generated validating admission policy binding %s from policy %s", vapBindingName, policy.GetName()),
+	}
+	return []Info{vapEvent, vapBindingEvent}
+}
+
 func NewFailedEvent(err error, policy, rule string, source Source, resource kyvernov1.ResourceSpec) Info {
 	return Info{
 		Kind:      resource.GetKind(),
