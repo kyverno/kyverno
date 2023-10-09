@@ -14,14 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v2alpha1
+package v2beta1
 
 import (
 	"time"
 
 	"github.com/aptible/supercronic/cronexpr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"github.com/robfig/cron"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -91,7 +90,7 @@ func (p *CleanupPolicy) Validate(clusterResources sets.Set[string]) (errs field.
 
 // GetKind returns the resource kind
 func (p *CleanupPolicy) GetKind() string {
-	return "CleanupPolicy"
+	return p.Kind
 }
 
 // GetAPIVersion returns the resource kind
@@ -170,7 +169,7 @@ func (p *ClusterCleanupPolicy) GetNextExecutionTime(time time.Time) (*time.Time,
 
 // GetKind returns the resource kind
 func (p *ClusterCleanupPolicy) GetKind() string {
-	return "ClusterCleanupPolicy"
+	return p.Kind
 }
 
 // GetAPIVersion returns the resource kind
@@ -211,20 +210,20 @@ type CleanupPolicySpec struct {
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the user name or role.
 	// At least one kind is required.
-	MatchResources kyvernov2beta1.MatchResources `json:"match,omitempty"`
+	MatchResources MatchResources `json:"match,omitempty"`
 
 	// ExcludeResources defines when cleanuppolicy should not be applied. The exclude
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the name or role.
 	// +optional
-	ExcludeResources *kyvernov2beta1.MatchResources `json:"exclude,omitempty"`
+	ExcludeResources *MatchResources `json:"exclude,omitempty"`
 
 	// The schedule in Cron format
 	Schedule string `json:"schedule"`
 
 	// Conditions defines the conditions used to select the resources which will be cleaned up.
 	// +optional
-	Conditions *kyvernov2beta1.AnyAllConditions `json:"conditions,omitempty"`
+	Conditions *AnyAllConditions `json:"conditions,omitempty"`
 }
 
 // CleanupPolicyStatus stores the status of the policy.
@@ -289,7 +288,7 @@ func (spec *CleanupPolicySpec) ValidateMatchExcludeConflict(path *field.Path) (e
 		}
 		return errs
 	}
-	if datautils.DeepEqual(spec.ExcludeResources, &kyvernov2beta1.MatchResources{}) {
+	if datautils.DeepEqual(spec.ExcludeResources, &MatchResources{}) {
 		return errs
 	}
 	return append(errs, field.Invalid(path, spec, "CleanupPolicy is matching an empty set"))
