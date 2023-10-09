@@ -7,10 +7,10 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernov2beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2beta1"
-	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
+	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
+	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
@@ -40,13 +40,13 @@ type controller struct {
 	kyvernoClient versioned.Interface
 
 	// listers
-	cpolLister kyvernov2beta1listers.ClusterCleanupPolicyLister
-	polLister  kyvernov2beta1listers.CleanupPolicyLister
+	cpolLister kyvernov2alpha1listers.ClusterCleanupPolicyLister
+	polLister  kyvernov2alpha1listers.CleanupPolicyLister
 	nsLister   corev1listers.NamespaceLister
 
 	// queue
 	queue   workqueue.RateLimitingInterface
-	enqueue controllerutils.EnqueueFuncT[kyvernov2beta1.CleanupPolicyInterface]
+	enqueue controllerutils.EnqueueFuncT[kyvernov2alpha1.CleanupPolicyInterface]
 
 	// config
 	configuration config.Configuration
@@ -70,8 +70,8 @@ const (
 func NewController(
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
-	cpolInformer kyvernov2beta1informers.ClusterCleanupPolicyInformer,
-	polInformer kyvernov2beta1informers.CleanupPolicyInformer,
+	cpolInformer kyvernov2alpha1informers.ClusterCleanupPolicyInformer,
+	polInformer kyvernov2alpha1informers.CleanupPolicyInformer,
 	nsLister corev1listers.NamespaceLister,
 	configuration config.Configuration,
 	cmResolver engineapi.ConfigmapResolver,
@@ -79,11 +79,11 @@ func NewController(
 	eventGen event.Interface,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
-	keyFunc := controllerutils.MetaNamespaceKeyT[kyvernov2beta1.CleanupPolicyInterface]
+	keyFunc := controllerutils.MetaNamespaceKeyT[kyvernov2alpha1.CleanupPolicyInterface]
 	baseEnqueueFunc := controllerutils.LogError(logger, controllerutils.Parse(keyFunc, controllerutils.Queue(queue)))
-	enqueueFunc := func(logger logr.Logger, operation, kind string) controllerutils.EnqueueFuncT[kyvernov2beta1.CleanupPolicyInterface] {
+	enqueueFunc := func(logger logr.Logger, operation, kind string) controllerutils.EnqueueFuncT[kyvernov2alpha1.CleanupPolicyInterface] {
 		logger = logger.WithValues("kind", kind, "operation", operation)
-		return func(obj kyvernov2beta1.CleanupPolicyInterface) error {
+		return func(obj kyvernov2alpha1.CleanupPolicyInterface) error {
 			logger = logger.WithValues("name", obj.GetName())
 			if obj.GetNamespace() != "" {
 				logger = logger.WithValues("namespace", obj.GetNamespace())
@@ -155,7 +155,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger.V(3), ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
-func (c *controller) getPolicy(namespace, name string) (kyvernov2beta1.CleanupPolicyInterface, error) {
+func (c *controller) getPolicy(namespace, name string) (kyvernov2alpha1.CleanupPolicyInterface, error) {
 	if namespace == "" {
 		cpolicy, err := c.cpolLister.Get(name)
 		if err != nil {
@@ -171,7 +171,7 @@ func (c *controller) getPolicy(namespace, name string) (kyvernov2beta1.CleanupPo
 	}
 }
 
-func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyvernov2beta1.CleanupPolicyInterface) error {
+func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyvernov2alpha1.CleanupPolicyInterface) error {
 	spec := policy.GetSpec()
 	kinds := sets.New(spec.MatchResources.GetKinds()...)
 	debug := logger.V(4)
@@ -356,19 +356,19 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	return nil
 }
 
-func (c *controller) updateCleanupPolicyStatus(ctx context.Context, policy kyvernov2beta1.CleanupPolicyInterface, namespace string, time time.Time) {
+func (c *controller) updateCleanupPolicyStatus(ctx context.Context, policy kyvernov2alpha1.CleanupPolicyInterface, namespace string, time time.Time) {
 	switch obj := policy.(type) {
-	case *kyvernov2beta1.ClusterCleanupPolicy:
+	case *kyvernov2alpha1.ClusterCleanupPolicy:
 		latest := obj.DeepCopy()
 		latest.Status.LastExecutionTime.Time = time
 
-		new, _ := c.kyvernoClient.KyvernoV2beta1().ClusterCleanupPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
+		new, _ := c.kyvernoClient.KyvernoV2alpha1().ClusterCleanupPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
 		logging.V(3).Info("updated cluster cleanup policy status", "name", policy.GetName(), "status", new.Status)
-	case *kyvernov2beta1.CleanupPolicy:
+	case *kyvernov2alpha1.CleanupPolicy:
 		latest := obj.DeepCopy()
 		latest.Status.LastExecutionTime.Time = time
 
-		new, _ := c.kyvernoClient.KyvernoV2beta1().CleanupPolicies(namespace).UpdateStatus(ctx, latest, metav1.UpdateOptions{})
+		new, _ := c.kyvernoClient.KyvernoV2alpha1().CleanupPolicies(namespace).UpdateStatus(ctx, latest, metav1.UpdateOptions{})
 		logging.V(3).Info("updated cleanup policy status", "name", policy.GetName(), "namespace", policy.GetNamespace(), "status", new.Status)
 	}
 }
