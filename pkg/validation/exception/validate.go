@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 )
 
 const (
@@ -18,7 +18,7 @@ type ValidationOptions struct {
 }
 
 // Validate checks policy exception is valid
-func Validate(ctx context.Context, logger logr.Logger, polex *kyvernov2alpha1.PolicyException, opts ValidationOptions) ([]string, error) {
+func Validate(ctx context.Context, logger logr.Logger, polex *kyvernov2beta1.PolicyException, opts ValidationOptions) ([]string, error) {
 	var warnings []string
 	if !opts.Enabled {
 		warnings = append(warnings, disabledPolex)

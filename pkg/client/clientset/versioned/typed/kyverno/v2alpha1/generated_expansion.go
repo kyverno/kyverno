@@ -21,5 +21,3 @@ package v2alpha1
 type CleanupPolicyExpansion interface{}
 
 type ClusterCleanupPolicyExpansion interface{}
-
-type PolicyExceptionExpansion interface{}
