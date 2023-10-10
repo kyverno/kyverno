@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/sigstore/cosign/v2/pkg/oci/remote"
+	cosignremote "github.com/sigstore/cosign/v2/pkg/oci/remote"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -61,12 +61,13 @@ type KeychainClient interface {
 	Keychain() authn.Keychain
 }
 
-type CosignClient interface {
-	BuildRemoteOption(context.Context) remote.Option
+type RemoteClient interface {
+	BuildCosignRemoteOption(context.Context) (cosignremote.Option, error)
+	BuildGCRRemoteOption(context.Context) ([]gcrremote.Option, error)
 }
 
 type RegistryClient interface {
 	ImageDataClient
 	KeychainClient
-	CosignClient
+	RemoteClient
 }

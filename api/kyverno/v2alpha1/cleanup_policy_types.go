@@ -91,7 +91,7 @@ func (p *CleanupPolicy) Validate(clusterResources sets.Set[string]) (errs field.
 
 // GetKind returns the resource kind
 func (p *CleanupPolicy) GetKind() string {
-	return p.Kind
+	return "CleanupPolicy"
 }
 
 // GetAPIVersion returns the resource kind
@@ -170,7 +170,7 @@ func (p *ClusterCleanupPolicy) GetNextExecutionTime(time time.Time) (*time.Time,
 
 // GetKind returns the resource kind
 func (p *ClusterCleanupPolicy) GetKind() string {
-	return p.Kind
+	return "ClusterCleanupPolicy"
 }
 
 // GetAPIVersion returns the resource kind
