@@ -1675,3 +1675,61 @@ func Test_ImageNormalize(t *testing.T) {
 		})
 	}
 }
+func Test_IsExternalURL(t *testing.T) {
+	testCases := []struct {
+		jmesPath       string
+		expectedResult bool
+	}{
+		{
+			jmesPath:       "is_external_url('http://localhost')",
+			expectedResult: false,
+		}, {
+			jmesPath:       "is_external_url('http://127.0.0.1')",
+			expectedResult: false,
+		}, {
+			jmesPath:       "is_external_url('http://172.16.1.1')",
+			expectedResult: false,
+		}, {
+			jmesPath:       "is_external_url('http://10.1.1.1')",
+			expectedResult: false,
+		}, {
+			jmesPath:       "is_external_url('http://192.168.0.1')",
+			expectedResult: false,
+		}, {
+			jmesPath:       "is_external_url('http://google.com')",
+			expectedResult: true,
+		}, {
+			jmesPath:       "is_external_url('http://8.8.8.8')",
+			expectedResult: true,
+		}, {
+			jmesPath:       "is_external_url('http://245.48.83.160')",
+			expectedResult: true,
+		}, {
+			jmesPath:       "is_external_url('http://[fd12:3456:789a:1::1]')", //192.168.3.6
+			expectedResult: false,
+		}, {
+			jmesPath:       "is_external_url('http://[fdb7:d8fd:c4e4:5561::1]')", //182.61.200.7
+			expectedResult: false,
+		}, {
+			jmesPath:       "is_external_url('http://[::1]')", //ipv6 loopback
+			expectedResult: false,
+		}, {
+			jmesPath:       "is_external_url('http://[2001:db8::ff00:42:8329]')",
+			expectedResult: true,
+		}, {
+			jmesPath:       "is_external_url('http://www.google.com@192.168.1.3')", //url with basic auth
+			expectedResult: false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.jmesPath, func(t *testing.T) {
+			jp, err := newJMESPath(cfg, tc.jmesPath)
+			assert.NilError(t, err)
+			result, err := jp.Search("")
+			assert.NilError(t, err)
+			res, ok := result.(bool)
+			assert.Assert(t, ok)
+			assert.Equal(t, res, tc.expectedResult)
+		})
+	}
+}
