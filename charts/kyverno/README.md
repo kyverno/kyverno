@@ -760,6 +760,7 @@ Kubernetes: `>=1.16.0-0`
 
 | Repository | Name | Version |
 |------------|------|---------|
+|  | crds | 0.0.0 |
 |  | grafana | 0.0.0 |
 
 ## Maintainers

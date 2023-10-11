@@ -569,7 +569,7 @@ codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.crds.annotations }}' \
  		| $(SED) -e '/^  annotations:/i \ \ labels:' \
 		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
- 		> ./charts/kyverno/templates/crds/crds.yaml
+ 		> ./charts/kyverno/charts/crds/templates/crds.yaml
 
 .PHONY: codegen-helm-all
 codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and CRDs
