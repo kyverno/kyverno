@@ -760,6 +760,10 @@ Please see https://kyverno.io/docs/installation/#security-vs-operability for mor
 
 Kubernetes: `>=1.16.0-0`
 
+| Repository | Name | Version |
+|------------|------|---------|
+|  | grafana | 0.0.0 |
+
 ## Maintainers
 
 | Name | Email | Url |
