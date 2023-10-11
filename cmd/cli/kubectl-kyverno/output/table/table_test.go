@@ -185,9 +185,7 @@ func TestTable_Rows(t *testing.T) {
 			},
 			Message: "message2",
 		}},
-	},
-	// TODO: Add test cases.
-	}
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tr := &Table{

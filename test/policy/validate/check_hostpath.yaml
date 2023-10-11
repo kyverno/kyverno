@@ -1,19 +1,24 @@
-apiVersion : kyverno.io/v1
+---
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: check-host-path
 spec:
+  admission: true
+  background: true
   rules:
-  - name: check-host-path
-    match:
-      resources:
-        kinds:
-        - Pod
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: check-host-path
     validate:
-      message: "Host path is not allowed"
+      message: Host path is not allowed
       pattern:
         spec:
           volumes:
-          - name: "*"
-            hostPath:
+          - hostPath:
               path: ""
+            name: '*'
+  validationFailureAction: Audit

@@ -59,7 +59,7 @@ HELM_DOCS_VERSION                  := v1.11.0
 KO                                 := $(TOOLS_DIR)/ko
 KO_VERSION                         := v0.14.1
 KUTTL                              := $(TOOLS_DIR)/kubectl-kuttl
-KUTTL_VERSION                      := v0.0.0-20230829104447-1e404d2e3902
+KUTTL_VERSION                      := v0.0.0-20230914072640-e3af68e47317
 TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(APPLYCONFIGURATION_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(KUTTL)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
@@ -494,6 +494,11 @@ codegen-crds-report: $(CONTROLLER_GEN) ## Generate policy reports CRDs
 	@echo Generate policy reports crds... >&2
 	@$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)
 
+.PHONY: codegen-crds-cli
+codegen-crds-cli: $(CONTROLLER_GEN) ## Generate policy reports CRDs
+	@echo Generate cli crds... >&2
+	@$(CONTROLLER_GEN) crd paths=./cmd/cli/kubectl-kyverno/apis/... crd:crdVersions=v1 output:dir=${PWD}/cmd/cli/kubectl-kyverno/config/crds
+
 .PHONY: codegen-crds-all
 codegen-crds-all: codegen-crds-kyverno codegen-crds-report ## Generate all CRDs
 
@@ -512,14 +517,46 @@ codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API 
 		-template-dir docs/user/template \
 		-out-file docs/user/crd/index.html
 
+.PHONY: codegen-cli-api-docs
+codegen-cli-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate CLI API docs
+	@echo Generate CLI api docs... >&2
+	@rm -rf docs/user/cli/crd && mkdir -p docs/user/cli/crd
+	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 4 \
+		-api-dir $(PACKAGE)/cmd/cli/kubectl-kyverno/apis \
+		-config docs/user/config.json \
+		-template-dir docs/user/template \
+		-out-file docs/user/cli/crd/index.html
+
 .PHONY: codegen-cli-docs
 codegen-cli-docs: $(CLI_BIN) ## Generate CLI docs
 	@echo Generate cli docs... >&2
-	@rm -rf docs/user/cli && mkdir -p docs/user/cli
-	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) docs -o docs/user/cli --autogenTag=false
+	@rm -rf docs/user/cli/commands && mkdir -p docs/user/cli/commands
+	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) docs -o docs/user/cli/commands --autogenTag=false
+
+.PHONY: codegen-cli-crds
+codegen-cli-crds: codegen-crds-kyverno ## Copy generated CRDs to embed in the CLI
+	@echo Copy generated CRDs to embed in the CLI... >&2
+	@rm -rf cmd/cli/kubectl-kyverno/data/crds && mkdir -p cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/kyverno.io_clusterpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/kyverno.io_policies.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/kyverno.io_policyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp cmd/cli/kubectl-kyverno/config/crds/* cmd/cli/kubectl-kyverno/data/crds
 
 .PHONY: codegen-docs-all
 codegen-docs-all: codegen-helm-docs codegen-cli-docs codegen-api-docs  ## Generate all docs
+
+.PHONY: codegen-fix-tests
+codegen-fix-tests: $(CLI_BIN) ## Fix CLI test files
+	@echo Fix CLI test files... >&2
+	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix test . --save --compress --force
+
+.PHONY: codegen-fix-policies
+codegen-fix-policies: $(CLI_BIN) ## Fix CLI policy files
+	@echo Fix CLI policy files... >&2
+	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix policy . --save
+
+.PHONY: codegen-cli-all
+codegen-cli-all: codegen-cli-crds codegen-cli-docs codegen-cli-api-docs codegen-fix-tests ## Generate all CLI related code and docs
 
 .PHONY: codegen-helm-crds
 codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
@@ -649,9 +686,24 @@ verify-manifests: codegen-manifest-all ## Check manifests are up to date
 	@echo 'To correct this, locally run "make codegen-manifest-all", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code ${INSTALL_MANIFEST_PATH}
 
+.PHONY: verify-cli-crds
+verify-cli-crds: codegen-cli-crds ## Check generated CRDs to be embedded in the CLI are up to date
+	@echo Checking generated CRDs to be embedded in the CLI are up to date... >&2
+	@git --no-pager diff cmd/cli/kubectl-kyverno/data/crds
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-cli-crds".' >&2
+	@echo 'To correct this, locally run "make codegen-cli-crds", commit the changes, and re-run tests.' >&2
+	@git diff --quiet --exit-code cmd/cli/kubectl-kyverno/data/crds
+
+.PHONY: verify-cli-tests
+verify-cli-tests: ## Check CLI test files are up to date
+	@echo Checking CLI test files are up to date... >&2
+	@git --no-pager diff test/cli
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-fix-tests".' >&2
+	@echo 'To correct this, locally run "make codegen-fix-tests", commit the changes, and re-run tests.' >&2
+	@git diff --quiet --exit-code test/cli
 
 .PHONY: verify-codegen
-verify-codegen: verify-crds verify-client verify-deepcopy verify-docs verify-helm verify-manifests ## Verify all generated code and docs are up to date
+verify-codegen: verify-crds verify-client verify-deepcopy verify-docs verify-helm verify-manifests verify-cli-crds ## Verify all generated code and docs are up to date
 
 ##############
 # UNIT TESTS #
@@ -703,7 +755,7 @@ test-cli: test-cli-policies test-cli-local ## Run all CLI tests
 .PHONY: test-cli-policies
 test-cli-policies: $(CLI_BIN) ## Run CLI tests against the policies repository
 	@echo Running cli tests against $(TEST_GIT_REPO)/$(TEST_GIT_BRANCH)... >&2
-	@$(CLI_BIN) test https://github.com/eddycharly/policies/test-refactor
+	@$(CLI_BIN) test $(TEST_GIT_REPO)/$(TEST_GIT_BRANCH)
 
 .PHONY: test-cli-local
 test-cli-local: test-cli-local-validate test-cli-local-mutate test-cli-local-generate test-cli-local-registry test-cli-local-scenarios test-cli-local-selector ## Run local CLI tests

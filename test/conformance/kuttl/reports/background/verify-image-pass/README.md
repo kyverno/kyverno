@@ -7,4 +7,4 @@ Note: the pod has to be created first because we don't want the policy to apply 
 
 ## Expected Behavior
 
-The pod is created and a background scan report is generated for it with a pass result.
+The pod is created and a policy report is generated for it with a pass result.

@@ -3,13 +3,13 @@ package variables
 import (
 	"fmt"
 
-	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type Variables struct {
-	values    *valuesapi.Values
+	values    *v1alpha1.ValuesSpec
 	variables map[string]string
 }
 
@@ -29,7 +29,7 @@ func (v Variables) HasPolicyVariables(policy string) bool {
 	return false
 }
 
-func (v Variables) Subresources() []valuesapi.Subresource {
+func (v Variables) Subresources() []v1alpha1.Subresource {
 	if v.values == nil {
 		return nil
 	}

@@ -157,10 +157,10 @@ func NewController(
 		},
 	}
 	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, mwcInformer.Informer(), queue); err != nil {
-		logger.Error(err, "failed to register even handlers")
+		logger.Error(err, "failed to register event handlers")
 	}
 	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, vwcInformer.Informer(), queue); err != nil {
-		logger.Error(err, "failed to register even handlers")
+		logger.Error(err, "failed to register event handlers")
 	}
 	if _, err := controllerutils.AddEventHandlersT(
 		secretInformer.Informer(),
@@ -180,7 +180,7 @@ func NewController(
 			}
 		},
 	); err != nil {
-		logger.Error(err, "failed to register even handlers")
+		logger.Error(err, "failed to register event handlers")
 	}
 	if _, err := controllerutils.AddEventHandlers(
 		cpolInformer.Informer(),
@@ -188,7 +188,7 @@ func NewController(
 		func(interface{}, interface{}) { c.enqueueResourceWebhooks(0) },
 		func(interface{}) { c.enqueueResourceWebhooks(0) },
 	); err != nil {
-		logger.Error(err, "failed to register even handlers")
+		logger.Error(err, "failed to register event handlers")
 	}
 	if _, err := controllerutils.AddEventHandlers(
 		polInformer.Informer(),
@@ -196,7 +196,7 @@ func NewController(
 		func(interface{}, interface{}) { c.enqueueResourceWebhooks(0) },
 		func(interface{}) { c.enqueueResourceWebhooks(0) },
 	); err != nil {
-		logger.Error(err, "failed to register even handlers")
+		logger.Error(err, "failed to register event handlers")
 	}
 	configuration.OnChanged(c.enqueueAll)
 	return &c
@@ -859,7 +859,9 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 		// matching kinds in generate policies need to be added to both webhook
 		if rule.HasGenerate() {
 			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
-			matchedGVK = append(matchedGVK, rule.Generation.ResourceSpec.Kind)
+			if rule.Generation.ResourceSpec.Kind != "" {
+				matchedGVK = append(matchedGVK, rule.Generation.ResourceSpec.Kind)
+			}
 			matchedGVK = append(matchedGVK, rule.Generation.CloneList.Kinds...)
 			continue
 		}

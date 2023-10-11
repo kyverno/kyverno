@@ -1,0 +1,30 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: sync-pull-image-secrets
+  annotations:
+    policies.kyverno.io/title: Sync pull image secrets
+    policies.kyverno.io/category: Secrets
+    policies.kyverno.io/severity: low
+    policies.kyverno.io/subject: secret
+    policies.kyverno.io/minversion: 1.6.0
+    policies.kyverno.io/description: >-
+      Copies the pullSecret ESO resources into all namespaces
+      this will mean we're never missing the secret when we need it.         
+spec:
+  rules:
+  - name: sync-image-pull-secret
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    generate:
+      apiVersion: external-secrets.io/v1beta1
+      kind: ExternalSecret
+      name: devops-docker-pull-image-secret
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      clone:
+        namespace: default
+        name: devops-docker-pull-image-secret

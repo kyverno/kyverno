@@ -1,16 +1,21 @@
-apiVersion : kyverno.io/v1
+---
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: mutate-pod-disable-automoutingapicred
 spec:
+  admission: true
+  background: true
   rules:
-  - name: pod-disable-automoutingapicred
-    match:
-      resources:
-        kinds:
-        - Pod
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
     mutate:
       patchStrategicMerge:
         spec:
-          (serviceAccountName): "*"
+          (serviceAccountName): '*'
           automountServiceAccountToken: false
+    name: pod-disable-automoutingapicred
+  validationFailureAction: Audit

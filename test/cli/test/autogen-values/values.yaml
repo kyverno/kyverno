@@ -1,0 +1,8 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Values
+policies:
+- name: test-policy
+  rules:
+  - name: test-rule
+    values:
+      excludedPolicies: []

@@ -1,50 +1,46 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: add-ns-quota
   annotations:
     policies.kyverno.io/category: Workload Isolation
-    policies.kyverno.io/description: To limit the number of objects, as well as the 
-      total amount of compute that may be consumed by a single namespace, create 
-      a default resource quota for each namespace.
+    policies.kyverno.io/description: To limit the number of objects, as well as the
+      total amount of compute that may be consumed by a single namespace, create a
+      default resource quota for each namespace.
+  name: add-ns-quota
 spec:
+  admission: true
+  background: true
   rules:
-  - name: generate-resourcequota
-    match:
-      resources:
-        kinds:
-        - Namespace
-    exclude:
-      resources:
-        namespaces:
-          - "kube-system"
-          - "default"
-          - "kube-public"
-          - "kyverno"
+  - exclude:
+      any:
+      - resources:
+          namespaces:
+          - kube-system
+          - default
+          - kube-public
+          - kyverno
     generate:
       apiVersion: v1
-      kind: ResourceQuota
-      name: default-resourcequota
-      synchronize : true
-      namespace: "{{request.object.metadata.name}}"
       data:
         spec:
           hard:
-            requests.cpu: '4'
-            requests.memory: '16Gi'
-            limits.cpu: '4'
-            limits.memory: '16Gi'
-  - name: generate-limitrange
+            limits.cpu: "4"
+            limits.memory: 16Gi
+            requests.cpu: "4"
+            requests.memory: 16Gi
+      kind: ResourceQuota
+      name: default-resourcequota
+      namespace: '{{request.object.metadata.name}}'
+      synchronize: true
     match:
-      resources:
-        kinds:
-        - Namespace
-    generate:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    name: generate-resourcequota
+  - generate:
       apiVersion: v1
-      kind: LimitRange
-      name: default-limitrange
-      synchronize : true
-      namespace: "{{request.object.metadata.name}}"
       data:
         spec:
           limits:
@@ -55,3 +51,14 @@ spec:
               cpu: 200m
               memory: 256Mi
             type: Container
+      kind: LimitRange
+      name: default-limitrange
+      namespace: '{{request.object.metadata.name}}'
+      synchronize: true
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    name: generate-limitrange
+  validationFailureAction: Audit

@@ -1,13 +1,15 @@
 package function
 
 import (
+	"cmp"
 	"fmt"
+	"io"
+	"slices"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/spf13/cobra"
-	"golang.org/x/exp/slices"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -19,27 +21,27 @@ func Command() *cobra.Command {
 		Example:      command.FormatExamples(examples...),
 		SilenceUsage: true,
 		Run: func(cmd *cobra.Command, args []string) {
-			printFunctions(args...)
+			printFunctions(cmd.OutOrStdout(), args...)
 		},
 	}
 }
 
-func printFunctions(names ...string) {
+func printFunctions(out io.Writer, names ...string) {
 	functions := jmespath.GetFunctions(config.NewDefaultConfiguration(false))
-	slices.SortFunc(functions, func(a, b jmespath.FunctionEntry) bool {
-		return a.String() < b.String()
+	slices.SortFunc(functions, func(a, b jmespath.FunctionEntry) int {
+		return cmp.Compare(a.String(), b.String())
 	})
 	namesSet := sets.New(names...)
 	for _, function := range functions {
 		if len(namesSet) == 0 || namesSet.Has(function.Name) {
 			note := function.Note
 			function.Note = ""
-			fmt.Println("Name:", function.Name)
-			fmt.Println("  Signature:", function.String())
+			fmt.Fprintln(out, "Name:", function.Name)
+			fmt.Fprintln(out, "  Signature:", function.String())
 			if note != "" {
-				fmt.Println("  Note:     ", note)
+				fmt.Fprintln(out, "  Note:     ", note)
 			}
-			fmt.Println()
+			fmt.Fprintln(out)
 		}
 	}
 }

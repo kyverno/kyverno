@@ -10,16 +10,20 @@ import (
 
 func Command() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "jp",
-		Short:   command.FormatDescription(true, websiteUrl, false, description...),
-		Long:    command.FormatDescription(false, websiteUrl, false, description...),
-		Example: command.FormatExamples(examples...),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Use:          "jp",
+		Short:        command.FormatDescription(true, websiteUrl, false, description...),
+		Long:         command.FormatDescription(false, websiteUrl, false, description...),
+		Example:      command.FormatExamples(examples...),
+		Args:         cobra.NoArgs,
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return cmd.Help()
 		},
 	}
-	cmd.AddCommand(query.Command())
-	cmd.AddCommand(function.Command())
-	cmd.AddCommand(parse.Command())
+	cmd.AddCommand(
+		function.Command(),
+		parse.Command(),
+		query.Command(),
+	)
 	return cmd
 }

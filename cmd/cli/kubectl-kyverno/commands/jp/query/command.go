@@ -27,11 +27,11 @@ func Command() *cobra.Command {
 		Example:      command.FormatExamples(examples...),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			queries, err := loadQueries(args, queries)
+			queries, err := loadQueries(cmd, args, queries)
 			if err != nil {
 				return err
 			}
-			input, err := loadInput(input)
+			input, err := loadInput(cmd, input)
 			if err != nil {
 				return err
 			}
@@ -57,7 +57,7 @@ func Command() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if err := printResult(query, result, unquoted, compact); err != nil {
+				if err := printResult(cmd, query, result, unquoted, compact); err != nil {
 					return err
 				}
 			}
@@ -79,14 +79,14 @@ func readFile(reader io.Reader) ([]byte, error) {
 	return data, nil
 }
 
-func loadFile(file string) ([]byte, error) {
+func loadFile(cmd *cobra.Command, file string) ([]byte, error) {
 	reader, err := os.Open(filepath.Clean(file))
 	if err != nil {
 		return nil, fmt.Errorf("failed open file %s: %v", file, err)
 	}
 	defer func() {
 		if err := reader.Close(); err != nil {
-			fmt.Printf("Error closing file: %s\n", err)
+			fmt.Fprintf(cmd.OutOrStdout(), "Error closing file: %s\n", err)
 		}
 	}()
 	content, err := readFile(reader)
@@ -97,8 +97,8 @@ func loadFile(file string) ([]byte, error) {
 }
 
 func readQuery(cmd *cobra.Command) (string, error) {
-	fmt.Println("Reading from terminal input.")
-	fmt.Println("Enter a jmespath expression and hit Ctrl+D.")
+	fmt.Fprintln(cmd.OutOrStdout(), "Reading from terminal input.")
+	fmt.Fprintln(cmd.OutOrStdout(), "Enter a jmespath expression and hit Ctrl+D.")
 	data, err := readFile(cmd.InOrStdin())
 	if err != nil {
 		return "", err
@@ -106,11 +106,11 @@ func readQuery(cmd *cobra.Command) (string, error) {
 	return string(data), nil
 }
 
-func loadQueries(args []string, files []string) ([]string, error) {
+func loadQueries(cmd *cobra.Command, args []string, files []string) ([]string, error) {
 	var queries []string
 	queries = append(queries, args...)
 	for _, file := range files {
-		query, err := loadFile(file)
+		query, err := loadFile(cmd, file)
 		if err != nil {
 			return nil, err
 		}
@@ -120,8 +120,8 @@ func loadQueries(args []string, files []string) ([]string, error) {
 }
 
 func readInput(cmd *cobra.Command) (interface{}, error) {
-	fmt.Println("Reading from terminal input.")
-	fmt.Println("Enter input object and hit Ctrl+D.")
+	fmt.Fprintln(cmd.OutOrStdout(), "Reading from terminal input.")
+	fmt.Fprintln(cmd.OutOrStdout(), "Enter input object and hit Ctrl+D.")
 	data, err := readFile(cmd.InOrStdin())
 	if err != nil {
 		return nil, err
@@ -133,11 +133,11 @@ func readInput(cmd *cobra.Command) (interface{}, error) {
 	return input, nil
 }
 
-func loadInput(file string) (interface{}, error) {
+func loadInput(cmd *cobra.Command, file string) (interface{}, error) {
 	if file == "" {
 		return nil, nil
 	}
-	data, err := loadFile(file)
+	data, err := loadFile(cmd, file)
 	if err != nil {
 		return nil, err
 	}
@@ -164,11 +164,11 @@ func evaluate(input interface{}, query string) (interface{}, error) {
 	return result, nil
 }
 
-func printResult(query string, result interface{}, unquoted bool, compact bool) error {
+func printResult(cmd *cobra.Command, query string, result interface{}, unquoted bool, compact bool) error {
 	converted, isString := result.(string)
-	fmt.Println("#", query)
+	fmt.Fprintln(cmd.OutOrStdout(), "#", query)
 	if unquoted && isString {
-		fmt.Println(converted)
+		fmt.Fprintln(cmd.OutOrStdout(), converted)
 	} else {
 		var toJSON []byte
 		var err error
@@ -180,7 +180,7 @@ func printResult(query string, result interface{}, unquoted bool, compact bool) 
 		if err != nil {
 			return fmt.Errorf("error marshalling result to JSON: %w", err)
 		}
-		fmt.Println(string(toJSON))
+		fmt.Fprintln(cmd.OutOrStdout(), string(toJSON))
 	}
 	return nil
 }

@@ -68,7 +68,7 @@ func NewController(
 		func(old, obj metav1.Object) { queue.Add(cache.ExplicitKey(reportutils.GetResourceUid(old))) },
 		func(obj metav1.Object) { queue.Add(cache.ExplicitKey(reportutils.GetResourceUid(obj))) },
 	); err != nil {
-		logger.Error(err, "failed to register even handlers")
+		logger.Error(err, "failed to register event handlers")
 	}
 	if _, err := controllerutils.AddEventHandlersT(
 		cadmrInformer.Informer(),
@@ -76,7 +76,7 @@ func NewController(
 		func(old, obj metav1.Object) { queue.Add(cache.ExplicitKey(reportutils.GetResourceUid(old))) },
 		func(obj metav1.Object) { queue.Add(cache.ExplicitKey(reportutils.GetResourceUid(obj))) },
 	); err != nil {
-		logger.Error(err, "failed to register even handlers")
+		logger.Error(err, "failed to register event handlers")
 	}
 	return &c
 }

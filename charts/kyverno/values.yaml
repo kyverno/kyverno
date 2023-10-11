@@ -425,7 +425,7 @@ features:
       # - PolicySkipped
   policyExceptions:
     # -- Enables the feature
-    enabled: false
+    enabled: true
     # -- Restrict policy exceptions to a single namespace
     namespace: ''
   protectManagedResources:
@@ -447,6 +447,13 @@ features:
   ttlController:
     # -- Reconciliation interval for the label based cleanup manager
     reconciliationInterval: 1m
+  tuf:
+    # -- Enables the feature
+    enabled: false
+    # -- (string) Tuf root
+    root: ~
+    # -- (string) Tuf mirror
+    mirror: ~
 
 # Cleanup cronjobs to prevent internal resources from stacking up in the cluster
 cleanupJobs:

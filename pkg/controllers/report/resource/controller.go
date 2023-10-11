@@ -3,6 +3,7 @@ package resource
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 	"time"
 
@@ -16,7 +17,6 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
-	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -106,15 +106,15 @@ func NewController(
 	if vapInformer != nil {
 		c.vapLister = vapInformer.Lister()
 		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, vapInformer.Informer(), c.queue); err != nil {
-			logger.Error(err, "failed to register even handlers")
+			logger.Error(err, "failed to register event handlers")
 		}
 	}
 
 	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue); err != nil {
-		logger.Error(err, "failed to register even handlers")
+		logger.Error(err, "failed to register event handlers")
 	}
 	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue); err != nil {
-		logger.Error(err, "failed to register even handlers")
+		logger.Error(err, "failed to register event handlers")
 	}
 	return &c
 }

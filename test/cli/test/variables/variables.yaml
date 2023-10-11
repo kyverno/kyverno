@@ -1,77 +1,79 @@
-policies:
-  - name: cm-multiple-example
-    rules:
-      - name: example-configmap-lookup
-        values:
-          dictionary.data.env: ''
-          anotherdictionary.data.env: test
-  - name: cm-variable-example
-    rules:
-      - name: example-configmap-lookup
-        values:
-          dictionary:
-            data:
-              env: test
-    resources:
-      - name: test-env-test
-        values:
-          request.object.metadata.name: test-env-test
-      - name: test-env-dev
-        values:
-          request.object.metadata.name: test-env-dev
-  - name: cm-array-example
-    rules:
-      - name: validate-role-annotation
-        values:
-          roles-dictionary.data.allowed-roles: '["app","test"]'
-    resources:
-      - name: test-web
-        values:
-          request.object.metadata.annotations.role: web
-      - name: test-app
-        values:
-          request.object.metadata.annotations.role: app
-  - name: cm-blk-scalar-example
-    rules:
-      - name: validate-blk-role-annotation
-        values:
-          roles-dictionary.data.allowed-roles: '["app", "test"]'
-    resources:
-      - name: test-blk-web
-        values:
-          request.object.metadata.annotations.role: web
-      - name: test-blk-app
-        values:
-          request.object.metadata.annotations.role: app
-  - name: cm-globalval-example
-    resources:
-      - name: test-global-prod
-        values:
-          request.mode: prod
-  - name: images
-    rules:
-      - name: only-allow-trusted-images
-        values:
-          request.operation: CREATE
-    resources:
-      - name: test-pod-with-non-root-user-image
-        values:
-          imageData.registry: "index.docker.io"
-          imageData.configData.config.User: "nginx"
-          element.name: "nginx"
-      - name: test-pod-with-trusted-registry
-        values:
-          element.name: "kyverno"
-          imageData.registry: "ghcr.io"
-          imageData.configData.config.User: ""
-      - name: test-pod-with-non-trusted-registry
-        values:
-          element:
-            name: "not-kyverno"
-          imageData:
-            registry: "gcr.io"
-            configData:
-              config:
-                User: ""
+apiVersion: cli.kyverno.io/v1alpha1
 globalValues:
   request.mode: dev
+kind: Values
+policies:
+- name: cm-multiple-example
+  rules:
+  - name: example-configmap-lookup
+    values:
+      anotherdictionary.data.env: test
+      dictionary.data.env: ""
+- name: cm-variable-example
+  resources:
+  - name: test-env-test
+    values:
+      request.object.metadata.name: test-env-test
+  - name: test-env-dev
+    values:
+      request.object.metadata.name: test-env-dev
+  rules:
+  - name: example-configmap-lookup
+    values:
+      dictionary:
+        data:
+          env: test
+- name: cm-array-example
+  resources:
+  - name: test-web
+    values:
+      request.object.metadata.annotations.role: web
+  - name: test-app
+    values:
+      request.object.metadata.annotations.role: app
+  rules:
+  - name: validate-role-annotation
+    values:
+      roles-dictionary.data.allowed-roles: '["app","test"]'
+- name: cm-blk-scalar-example
+  resources:
+  - name: test-blk-web
+    values:
+      request.object.metadata.annotations.role: web
+  - name: test-blk-app
+    values:
+      request.object.metadata.annotations.role: app
+  rules:
+  - name: validate-blk-role-annotation
+    values:
+      roles-dictionary.data.allowed-roles: '["app", "test"]'
+- name: cm-globalval-example
+  resources:
+  - name: test-global-prod
+    values:
+      request.mode: prod
+- name: images
+  resources:
+  - name: test-pod-with-non-root-user-image
+    values:
+      element.name: nginx
+      imageData.configData.config.User: nginx
+      imageData.registry: index.docker.io
+  - name: test-pod-with-trusted-registry
+    values:
+      element.name: kyverno
+      imageData.configData.config.User: ""
+      imageData.registry: ghcr.io
+  - name: test-pod-with-non-trusted-registry
+    values:
+      element:
+        name: not-kyverno
+      imageData:
+        configData:
+          config:
+            User: ""
+        registry: gcr.io
+  rules:
+  - name: only-allow-trusted-images
+    values:
+      request.operation: CREATE

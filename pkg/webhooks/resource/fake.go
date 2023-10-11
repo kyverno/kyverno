@@ -15,7 +15,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/webhooks"
@@ -40,21 +39,20 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 	dclient := dclient.NewEmptyFakeClient()
 	configuration := config.NewDefaultConfiguration(false)
 	urLister := kyvernoInformers.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace())
-	peLister := kyvernoInformers.Kyverno().V2alpha1().PolicyExceptions().Lister()
+	peLister := kyvernoInformers.Kyverno().V2beta1().PolicyExceptions().Lister()
 	jp := jmespath.New(configuration)
 	rclient := registryclient.NewOrDie()
 
 	return &resourceHandlers{
-		client:         dclient,
-		configuration:  configuration,
-		metricsConfig:  metricsConfig,
-		pCache:         policyCache,
-		nsLister:       informers.Core().V1().Namespaces().Lister(),
-		urLister:       urLister,
-		urGenerator:    updaterequest.NewFake(),
-		eventGen:       event.NewFake(),
-		openApiManager: openapi.NewFake(),
-		pcBuilder:      webhookutils.NewPolicyContextBuilder(configuration, jp),
+		client:        dclient,
+		configuration: configuration,
+		metricsConfig: metricsConfig,
+		pCache:        policyCache,
+		nsLister:      informers.Core().V1().Namespaces().Lister(),
+		urLister:      urLister,
+		urGenerator:   updaterequest.NewFake(),
+		eventGen:      event.NewFake(),
+		pcBuilder:     webhookutils.NewPolicyContextBuilder(configuration, jp),
 		engine: engine.NewEngine(
 			configuration,
 			config.NewDefaultMetricsConfiguration(),

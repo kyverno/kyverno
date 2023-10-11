@@ -17,6 +17,9 @@ limitations under the License.
 package v2alpha1
 
 import (
+	"time"
+
+	"github.com/aptible/supercronic/cronexpr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -58,6 +61,27 @@ func (p *CleanupPolicy) GetStatus() *CleanupPolicyStatus {
 	return &p.Status
 }
 
+// GetExecutionTime returns the execution time of the policy
+func (p *CleanupPolicy) GetExecutionTime() (*time.Time, error) {
+	lastExecutionTime := p.Status.LastExecutionTime.Time
+	if lastExecutionTime.IsZero() {
+		creationTime := p.GetCreationTimestamp().Time
+		return p.GetNextExecutionTime(creationTime)
+	} else {
+		return p.GetNextExecutionTime(lastExecutionTime)
+	}
+}
+
+// GetNextExecutionTime returns the next execution time of the policy
+func (p *CleanupPolicy) GetNextExecutionTime(time time.Time) (*time.Time, error) {
+	cronExpr, err := cronexpr.Parse(p.Spec.Schedule)
+	if err != nil {
+		return nil, err
+	}
+	nextExecutionTime := cronExpr.Next(time)
+	return &nextExecutionTime, nil
+}
+
 // Validate implements programmatic validation
 func (p *CleanupPolicy) Validate(clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, kyvernov1.ValidatePolicyName(field.NewPath("metadata").Child("name"), p.Name)...)
@@ -67,7 +91,7 @@ func (p *CleanupPolicy) Validate(clusterResources sets.Set[string]) (errs field.
 
 // GetKind returns the resource kind
 func (p *CleanupPolicy) GetKind() string {
-	return p.Kind
+	return "CleanupPolicy"
 }
 
 // GetAPIVersion returns the resource kind
@@ -123,9 +147,30 @@ func (p *ClusterCleanupPolicy) GetStatus() *CleanupPolicyStatus {
 	return &p.Status
 }
 
+// GetExecutionTime returns the execution time of the policy
+func (p *ClusterCleanupPolicy) GetExecutionTime() (*time.Time, error) {
+	lastExecutionTime := p.Status.LastExecutionTime.Time
+	if lastExecutionTime.IsZero() {
+		creationTime := p.GetCreationTimestamp().Time
+		return p.GetNextExecutionTime(creationTime)
+	} else {
+		return p.GetNextExecutionTime(lastExecutionTime)
+	}
+}
+
+// GetNextExecutionTime returns the next execution time of the policy
+func (p *ClusterCleanupPolicy) GetNextExecutionTime(time time.Time) (*time.Time, error) {
+	cronExpr, err := cronexpr.Parse(p.Spec.Schedule)
+	if err != nil {
+		return nil, err
+	}
+	nextExecutionTime := cronExpr.Next(time)
+	return &nextExecutionTime, nil
+}
+
 // GetKind returns the resource kind
 func (p *ClusterCleanupPolicy) GetKind() string {
-	return p.Kind
+	return "ClusterCleanupPolicy"
 }
 
 // GetAPIVersion returns the resource kind
@@ -184,7 +229,8 @@ type CleanupPolicySpec struct {
 
 // CleanupPolicyStatus stores the status of the policy.
 type CleanupPolicyStatus struct {
-	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+	Conditions        []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+	LastExecutionTime metav1.Time        `json:"lastExecutionTime,omitempty"`
 }
 
 // Validate implements programmatic validation

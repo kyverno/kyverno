@@ -1,47 +1,56 @@
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: foreach-json-patch
-  annotations:
-    pod-policies.kyverno.io/autogen-controllers: none
-spec:
-  rules:
-    - name: add-security-context
-      match:
-        resources:
-          kinds:
-            - Pod
-      preconditions:
-      - key: "{{ request.operation }}"
-        operator: Equals
-        value: "CREATE"
-      mutate:
-        foreach: 
-        - list: "request.object.spec.containers"
-          patchesJson6902: |-
-            - path: /spec/containers/{{elementIndex}}/securityContext
-              op: add
-              value: {"runAsNonRoot" : true}
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: mutate-images
   annotations:
     pod-policies.kyverno.io/autogen-controllers: none
+  name: foreach-json-patch
 spec:
-  background: false
+  admission: true
+  background: true
   rules:
-  - name: test
-    match:
-      resources:
-        kinds:
-        - Pod
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
     mutate:
       foreach:
-      - list: "request.object.spec.containers"
+      - list: request.object.spec.containers
+        patchesJson6902: |-
+          - path: /spec/containers/{{elementIndex}}/securityContext
+            op: add
+            value: {"runAsNonRoot" : true}
+    name: add-security-context
+    preconditions:
+      all:
+      - key: '{{ request.operation }}'
+        operator: Equals
+        value: CREATE
+  validationFailureAction: Audit
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+  name: mutate-images
+spec:
+  admission: true
+  background: false
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    mutate:
+      foreach:
+      - list: request.object.spec.containers
         patchStrategicMerge:
           spec:
             containers:
-            - name: "{{ element.name }}"
-              image: registry.digitalocean.com/runlevl4/{{ images.containers."{{element.name}}".name}}:{{images.containers."{{element.name}}".tag}}
+            - image: registry.digitalocean.com/runlevl4/{{ images.containers."{{element.name}}".name}}:{{images.containers."{{element.name}}".tag}}
+              name: '{{ element.name }}'
+    name: test
+  validationFailureAction: Audit

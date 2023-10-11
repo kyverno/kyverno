@@ -98,7 +98,7 @@ func NewController(
 		caSecretName:   caSecretName,
 	}
 	if _, _, err := controllerutils.AddDefaultEventHandlers(c.logger, vwcInformer.Informer(), queue); err != nil {
-		c.logger.Error(err, "failed to register even handlers")
+		c.logger.Error(err, "failed to register event handlers")
 	}
 	if _, err := controllerutils.AddEventHandlersT(
 		secretInformer.Informer(),
@@ -118,7 +118,7 @@ func NewController(
 			}
 		},
 	); err != nil {
-		c.logger.Error(err, "failed to register even handlers")
+		c.logger.Error(err, "failed to register event handlers")
 	}
 	configuration.OnChanged(c.enqueue)
 	return &c
