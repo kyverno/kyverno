@@ -1,4 +1,4 @@
-apiVersion: kyverno.io/v2alpha1
+apiVersion: kyverno.io/v2beta1
 kind: CleanupPolicy
 metadata:
   name: cleanuppolicy
