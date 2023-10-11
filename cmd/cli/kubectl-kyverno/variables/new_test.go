@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/go-git/go-billy/v5"
-	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 )
 
 func TestNew(t *testing.T) {
@@ -14,7 +14,7 @@ func TestNew(t *testing.T) {
 		fs           billy.Filesystem
 		resourcePath string
 		path         string
-		vals         *valuesapi.Values
+		vals         *v1alpha1.ValuesSpec
 		vars         []string
 		want         *Variables
 		wantErr      bool
@@ -47,15 +47,15 @@ func TestNew(t *testing.T) {
 		fs:           nil,
 		resourcePath: "",
 		path:         "",
-		vals: &valuesapi.Values{
-			GlobalValues: map[string]string{
+		vals: &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{
 				"bar": "baz",
 			},
 		},
 		vars: nil,
 		want: &Variables{
-			values: &valuesapi.Values{
-				GlobalValues: map[string]string{
+			values: &v1alpha1.ValuesSpec{
+				GlobalValues: map[string]interface{}{
 					"bar": "baz",
 				},
 			},
@@ -66,8 +66,8 @@ func TestNew(t *testing.T) {
 		fs:           nil,
 		resourcePath: "",
 		path:         "",
-		vals: &valuesapi.Values{
-			GlobalValues: map[string]string{
+		vals: &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{
 				"bar": "baz",
 			},
 		},
@@ -75,8 +75,8 @@ func TestNew(t *testing.T) {
 			"foo=bar",
 		},
 		want: &Variables{
-			values: &valuesapi.Values{
-				GlobalValues: map[string]string{
+			values: &v1alpha1.ValuesSpec{
+				GlobalValues: map[string]interface{}{
 					"bar": "baz",
 				},
 			},
@@ -93,16 +93,16 @@ func TestNew(t *testing.T) {
 		vals:         nil,
 		vars:         nil,
 		want: &Variables{
-			values: &valuesapi.Values{
-				NamespaceSelectors: []valuesapi.NamespaceSelector{{
+			values: &v1alpha1.ValuesSpec{
+				NamespaceSelectors: []v1alpha1.NamespaceSelector{{
 					Name: "test1",
 					Labels: map[string]string{
 						"foo.com/managed-state": "managed",
 					},
 				}},
-				Policies: []valuesapi.Policy{{
+				Policies: []v1alpha1.Policy{{
 					Name: "limit-configmap-for-sa",
-					Resources: []valuesapi.Resource{{
+					Resources: []v1alpha1.Resource{{
 						Name: "any-configmap-name-good",
 						Values: map[string]interface{}{
 							"request.operation": "UPDATE",
@@ -127,16 +127,16 @@ func TestNew(t *testing.T) {
 			"foo=bar",
 		},
 		want: &Variables{
-			values: &valuesapi.Values{
-				NamespaceSelectors: []valuesapi.NamespaceSelector{{
+			values: &v1alpha1.ValuesSpec{
+				NamespaceSelectors: []v1alpha1.NamespaceSelector{{
 					Name: "test1",
 					Labels: map[string]string{
 						"foo.com/managed-state": "managed",
 					},
 				}},
-				Policies: []valuesapi.Policy{{
+				Policies: []v1alpha1.Policy{{
 					Name: "limit-configmap-for-sa",
-					Resources: []valuesapi.Resource{{
+					Resources: []v1alpha1.Resource{{
 						Name: "any-configmap-name-good",
 						Values: map[string]interface{}{
 							"request.operation": "UPDATE",
@@ -168,15 +168,15 @@ func TestNew(t *testing.T) {
 		fs:           nil,
 		resourcePath: "",
 		path:         "../_testdata/values/limit-configmap-for-sa.yaml",
-		vals: &valuesapi.Values{
-			GlobalValues: map[string]string{
+		vals: &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{
 				"bar": "baz",
 			},
 		},
 		vars: nil,
 		want: &Variables{
-			values: &valuesapi.Values{
-				GlobalValues: map[string]string{
+			values: &v1alpha1.ValuesSpec{
+				GlobalValues: map[string]interface{}{
 					"bar": "baz",
 				},
 			},

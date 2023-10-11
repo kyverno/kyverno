@@ -135,6 +135,10 @@ func QueueAfter(queue workqueue.RateLimitingInterface, delay time.Duration) Enqu
 	}
 }
 
+func MetaObjectToName(obj metav1.Object) string {
+	return cache.MetaObjectToName(obj).String()
+}
+
 func MetaNamespaceKey(obj interface{}) (interface{}, error) {
 	return cache.MetaNamespaceKeyFunc(obj)
 }

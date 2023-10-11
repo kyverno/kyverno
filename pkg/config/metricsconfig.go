@@ -1,10 +1,10 @@
 package config
 
 import (
+	"slices"
 	"sync"
 	"time"
 
-	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 )
 

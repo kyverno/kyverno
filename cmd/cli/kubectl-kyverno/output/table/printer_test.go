@@ -1,11 +1,12 @@
 package table
 
 import (
+	"os"
 	"testing"
 )
 
 func TestNewTablePrinter(t *testing.T) {
-	if got := NewTablePrinter(); got == nil {
+	if got := NewTablePrinter(os.Stdout); got == nil {
 		t.Errorf("NewTablePrinter() return nill")
 	}
 }

@@ -5,4 +5,4 @@ It then creates a validating admission policy that checks the replicas of the de
 
 ## Expected Behavior
 
-The deployment is created and a background scan report is generated for it with a pass result.
+The deployment is created and a policy report is generated for it with a pass result.

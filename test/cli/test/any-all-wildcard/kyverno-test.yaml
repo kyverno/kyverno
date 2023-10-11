@@ -1,28 +1,16 @@
-name: disallow-protected-namespaces
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
 - policy.yaml
 resources:
 - resource.yaml
 results:
 - kind: Pod
-  namespace: namespace1
   policy: disallow-protected-namespaces
   resources:
-  - test1
+  - namespace2/test2
+  - namespace1/test1
   result: fail
   rule: disallow
-- kind: Pod
-  namespace: namespace2
-  policy: disallow-protected-namespaces
-  resources:
-  - test2
-  result: fail
-  rule: disallow
-# TODO CEB FIX
-# - kind: Pod
-#   namespace: namespace3
-#   policy: disallow-protected-namespaces
-#   resources:
-#   - test3
-#   result: skip
-#   rule: disallow

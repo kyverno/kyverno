@@ -1,35 +1,42 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: tasks-keyless
 spec:
-  validationFailureAction: Enforce
-  webhookTimeoutSeconds: 30
+  admission: true
+  background: true
   rules:
-  - name: verify-images
+  - imageExtractors:
+      Task:
+      - path: /spec/steps/*/image
     match:
       any:
       - resources:
           kinds:
           - tekton.dev/v1beta1/Task
+    name: verify-images
     preconditions:
-    - key: "{{request.operation}}"
-      operator: NotEquals
-      value: DELETE
-    imageExtractors:
-      Task:
-        - path: /spec/steps/*/image
+      all:
+      - key: '{{request.operation}}'
+        operator: NotEquals
+        value: DELETE
     verifyImages:
-    - imageReferences:
-      - "ghcr.io/*"
-      attestors:
+    - attestors:
       - count: 1
         entries:
         - keyless:
-            issuer: "https://token.actions.githubusercontent.com"
-            subject: "https://github.com/*"
-            rekor:
-              url: https://rekor.sigstore.dev
             ctlog:
               ignoreSCT: true
+            issuer: https://token.actions.githubusercontent.com
+            rekor:
+              url: https://rekor.sigstore.dev
+            subject: https://github.com/*
+      imageReferences:
+      - ghcr.io/*
+      mutateDigest: true
       required: true
+      useCache: true
+      verifyDigest: true
+  validationFailureAction: Enforce
+  webhookTimeoutSeconds: 30

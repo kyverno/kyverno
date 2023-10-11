@@ -1,12 +1,15 @@
-name: test-rangeoperators
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  - policy.yaml
+- policy.yaml
 resources:
-  - resources.yaml
+- resources.yaml
 results:
-  - policy: check-value
-    rule: check-value
-    resources:
-      - test-config-fail
-    kind: ConfigMap
-    result: fail
+- kind: ConfigMap
+  policy: check-value
+  resources:
+  - test-config-fail
+  result: fail
+  rule: check-value

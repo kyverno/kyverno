@@ -5,6 +5,7 @@ import (
 	github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2beta1"
 	clusterpolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov2beta1/clusterpolicies"
 	policies "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov2beta1/policies"
+	policyexceptions "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov2beta1/policyexceptions"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"k8s.io/client-go/rest"
 )
@@ -38,6 +39,10 @@ func (c *withMetrics) Policies(namespace string) github_com_kyverno_kyverno_pkg_
 	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "Policy", c.clientType)
 	return policies.WithMetrics(c.inner.Policies(namespace), recorder)
 }
+func (c *withMetrics) PolicyExceptions(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2beta1.PolicyExceptionInterface {
+	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "PolicyException", c.clientType)
+	return policyexceptions.WithMetrics(c.inner.PolicyExceptions(namespace), recorder)
+}
 
 type withTracing struct {
 	inner  github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2beta1.KyvernoV2beta1Interface
@@ -53,6 +58,9 @@ func (c *withTracing) ClusterPolicies() github_com_kyverno_kyverno_pkg_client_cl
 func (c *withTracing) Policies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2beta1.PolicyInterface {
 	return policies.WithTracing(c.inner.Policies(namespace), c.client, "Policy")
 }
+func (c *withTracing) PolicyExceptions(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2beta1.PolicyExceptionInterface {
+	return policyexceptions.WithTracing(c.inner.PolicyExceptions(namespace), c.client, "PolicyException")
+}
 
 type withLogging struct {
 	inner  github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2beta1.KyvernoV2beta1Interface
@@ -67,4 +75,7 @@ func (c *withLogging) ClusterPolicies() github_com_kyverno_kyverno_pkg_client_cl
 }
 func (c *withLogging) Policies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2beta1.PolicyInterface {
 	return policies.WithLogging(c.inner.Policies(namespace), c.logger.WithValues("resource", "Policies").WithValues("namespace", namespace))
+}
+func (c *withLogging) PolicyExceptions(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2beta1.PolicyExceptionInterface {
+	return policyexceptions.WithLogging(c.inner.PolicyExceptions(namespace), c.logger.WithValues("resource", "PolicyExceptions").WithValues("namespace", namespace))
 }

@@ -1,0 +1,28 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-policy
+  annotations:
+    policies.kyverno.io/title: "Lol Security Standards"
+    policies.kyverno.io/category: "Lol Security Standards"
+    policies.kyverno.io/severity: "high"
+    policies.kyverno.io/subject: "Pod"
+spec:
+  background: true
+  failurePolicy: Fail
+  rules:
+    - name: restrict-lol-annotation
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+      validate:
+        message: >-
+          If "lol" annotation is present then
+          its value can be only one of "such lol", "much annotation".
+        pattern:
+          # syntax refdoc: https://kyverno.io/docs/writing-policies/validate/#anchors
+          =(metadata):
+            =(annotations):
+              =(lol): such lol | much annotation

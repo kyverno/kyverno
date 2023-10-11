@@ -1,4 +1,7 @@
-name: pdb-test
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
 - policy.yaml
 resources:
@@ -6,9 +9,8 @@ resources:
 results:
 - generatedResource: generatedResource.yaml
   kind: Deployment
-  namespace: hello-world
   policy: create-default-pdb
   resources:
-  - nginx-deployment
+  - hello-world/nginx-deployment
   result: pass
   rule: create-default-pdb

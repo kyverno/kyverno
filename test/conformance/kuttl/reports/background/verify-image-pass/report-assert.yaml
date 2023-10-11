@@ -1,0 +1,17 @@
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: PolicyReport
+metadata:
+  ownerReferences:
+  - apiVersion: v1
+    kind: Pod
+    name: signed
+scope:
+  apiVersion: v1
+  kind: Pod
+  name: signed
+summary:
+  error: 0
+  fail: 0
+  pass: 1
+  skip: 0
+  warn: 0

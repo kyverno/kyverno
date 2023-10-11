@@ -5,7 +5,7 @@ import (
 	"strings"
 	"text/template"
 
-	valuesapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/values"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/templates"
 	"github.com/spf13/cobra"
@@ -15,16 +15,18 @@ func Command() *cobra.Command {
 	var path string
 	var globalValues, namespaceSelector, rules, resources []string
 	cmd := &cobra.Command{
-		Use:     "values",
-		Short:   command.FormatDescription(true, websiteUrl, false, description...),
-		Long:    command.FormatDescription(false, websiteUrl, false, description...),
-		Example: command.FormatExamples(examples...),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Use:          "values",
+		Short:        command.FormatDescription(true, websiteUrl, false, description...),
+		Long:         command.FormatDescription(false, websiteUrl, false, description...),
+		Example:      command.FormatExamples(examples...),
+		Args:         cobra.NoArgs,
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			tmpl, err := template.New("values").Parse(templates.ValuesTemplate)
 			if err != nil {
 				return err
 			}
-			output := os.Stdout
+			output := cmd.OutOrStdout()
 			if path != "" {
 				file, err := os.Create(path)
 				if err != nil {
@@ -33,9 +35,8 @@ func Command() *cobra.Command {
 				defer file.Close()
 				output = file
 			}
-			values := valuesapi.Values{
-				GlobalValues: map[string]string{},
-			}
+			values := v1alpha1.ValuesSpec{}
+			values.GlobalValues = map[string]interface{}{}
 			for _, result := range namespaceSelector {
 				result := parseNamespaceSelector(result)
 				if result != nil {
@@ -71,12 +72,12 @@ func Command() *cobra.Command {
 	return cmd
 }
 
-func parseNamespaceSelector(in string) *valuesapi.NamespaceSelector {
+func parseNamespaceSelector(in string) *v1alpha1.NamespaceSelector {
 	parts := strings.Split(in, ",")
 	if len(parts) < 2 {
 		return nil
 	}
-	nsSelector := valuesapi.NamespaceSelector{
+	nsSelector := v1alpha1.NamespaceSelector{
 		Name:   parts[0],
 		Labels: map[string]string{},
 	}
@@ -97,12 +98,12 @@ func parseKeyValue(in string) (string, string) {
 	return "", ""
 }
 
-func parseRule(in string) *valuesapi.Policy {
+func parseRule(in string) *v1alpha1.Policy {
 	parts := strings.Split(in, ",")
 	if len(parts) < 2 {
 		return nil
 	}
-	rule := valuesapi.Rule{
+	rule := v1alpha1.Rule{
 		Name:   parts[1],
 		Values: map[string]interface{}{},
 	}
@@ -112,18 +113,18 @@ func parseRule(in string) *valuesapi.Policy {
 			rule.Values[k] = v
 		}
 	}
-	return &valuesapi.Policy{
+	return &v1alpha1.Policy{
 		Name:  parts[0],
-		Rules: []valuesapi.Rule{rule},
+		Rules: []v1alpha1.Rule{rule},
 	}
 }
 
-func parseResource(in string) *valuesapi.Policy {
+func parseResource(in string) *v1alpha1.Policy {
 	parts := strings.Split(in, ",")
 	if len(parts) < 2 {
 		return nil
 	}
-	resource := valuesapi.Resource{
+	resource := v1alpha1.Resource{
 		Name:   parts[1],
 		Values: map[string]interface{}{},
 	}
@@ -133,8 +134,8 @@ func parseResource(in string) *valuesapi.Policy {
 			resource.Values[k] = v
 		}
 	}
-	return &valuesapi.Policy{
+	return &v1alpha1.Policy{
 		Name:      parts[0],
-		Resources: []valuesapi.Resource{resource},
+		Resources: []v1alpha1.Resource{resource},
 	}
 }

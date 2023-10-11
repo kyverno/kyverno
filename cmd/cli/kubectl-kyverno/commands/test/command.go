@@ -2,46 +2,37 @@ package test
 
 import (
 	"fmt"
+	"io"
 	"path/filepath"
 
 	"github.com/go-git/go-billy/v5"
-	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/test"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/filter"
-	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/tools/cache"
 )
 
 func Command() *cobra.Command {
-	var cmd *cobra.Command
 	var testCase string
 	var fileName, gitBranch string
 	var registryAccess, failOnly, removeColor, detailedResults bool
-	cmd = &cobra.Command{
-		Use:     "test [local folder or git repository]...",
-		Args:    cobra.MinimumNArgs(1),
-		Short:   command.FormatDescription(true, websiteUrl, false, description...),
-		Long:    command.FormatDescription(false, websiteUrl, false, description...),
-		Example: command.FormatExamples(examples...),
+	cmd := &cobra.Command{
+		Use:          "test [local folder or git repository]...",
+		Short:        command.FormatDescription(true, websiteUrl, false, description...),
+		Long:         command.FormatDescription(false, websiteUrl, false, description...),
+		Example:      command.FormatExamples(examples...),
+		Args:         cobra.MinimumNArgs(1),
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, dirPath []string) (err error) {
 			color.InitColors(removeColor)
-			defer func() {
-				if err != nil {
-					if !sanitizederror.IsErrorSanitized(err) {
-						log.Log.Error(err, "failed to sanitize")
-						err = fmt.Errorf("internal error")
-					}
-				}
-			}()
 			store.SetRegistryAccess(registryAccess)
-			return testCommandExecute(dirPath, fileName, gitBranch, testCase, failOnly, detailedResults)
+			return testCommandExecute(cmd.OutOrStdout(), dirPath, fileName, gitBranch, testCase, failOnly, detailedResults)
 		},
 	}
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "Test filename")
@@ -61,6 +52,7 @@ type resultCounts struct {
 }
 
 func testCommandExecute(
+	out io.Writer,
 	dirPath []string,
 	fileName string,
 	gitBranch string,
@@ -70,39 +62,34 @@ func testCommandExecute(
 ) (err error) {
 	// check input dir
 	if len(dirPath) == 0 {
-		return sanitizederror.NewWithError("a directory is required", err)
+		return fmt.Errorf("a directory is required")
 	}
 	// parse filter
 	filter, errors := filter.ParseFilter(testCase)
 	if len(errors) > 0 {
-		fmt.Println()
-		fmt.Println("Filter errors:")
+		fmt.Fprintln(out)
+		fmt.Fprintln(out, "Filter errors:")
 		for _, e := range errors {
-			fmt.Println("  Error:", e)
+			fmt.Fprintln(out, "  Error:", e)
 		}
-	}
-	// init openapi manager
-	openApiManager, err := openapi.NewManager(log.Log)
-	if err != nil {
-		return fmt.Errorf("unable to create open api controller, %w", err)
 	}
 	// load tests
 	tests, err := loadTests(dirPath, fileName, gitBranch)
 	if err != nil {
-		fmt.Println()
-		fmt.Println("Error loading tests:", err)
+		fmt.Fprintln(out)
+		fmt.Fprintln(out, "Error loading tests:", err)
 		return err
 	}
 	if len(tests) == 0 {
-		fmt.Println()
-		fmt.Println("No test yamls available")
+		fmt.Fprintln(out)
+		fmt.Fprintln(out, "No test yamls available")
 	}
 	if errs := tests.Errors(); len(errs) > 0 {
-		fmt.Println()
-		fmt.Println("Test errors:")
+		fmt.Fprintln(out)
+		fmt.Fprintln(out, "Test errors:")
 		for _, e := range errs {
-			fmt.Println("  Path:", e.Path)
-			fmt.Println("    Error:", e.Err)
+			fmt.Fprintln(out, "  Path:", e.Path)
+			fmt.Fprintln(out, "    Error:", e.Err)
 		}
 	}
 	if len(tests) == 0 {
@@ -118,7 +105,7 @@ func testCommandExecute(
 	for _, test := range tests {
 		if test.Err == nil {
 			// filter results
-			var filteredResults []testapi.TestResults
+			var filteredResults []v1alpha1.TestResult
 			for _, res := range test.Test.Results {
 				if filter.Apply(res) {
 					filteredResults = append(filteredResults, res)
@@ -128,33 +115,34 @@ func testCommandExecute(
 				continue
 			}
 			resourcePath := filepath.Dir(test.Path)
-			responses, err := runTest(openApiManager, test, false)
+			responses, err := runTest(out, test, false)
 			if err != nil {
-				return sanitizederror.NewWithError("failed to run test", err)
+				return fmt.Errorf("failed to run test (%w)", err)
 			}
-			t, err := printTestResult(filteredResults, responses, rc, failOnly, detailedResults, test.Fs, resourcePath)
+			fmt.Fprintln(out, "  Checking results ...")
+			t, err := printTestResult(out, filteredResults, responses, rc, failOnly, detailedResults, test.Fs, resourcePath)
 			if err != nil {
-				return sanitizederror.NewWithError("failed to print test result:", err)
+				return fmt.Errorf("failed to print test result (%w)", err)
 			}
 			table.AddFailed(t.RawRows...)
 		}
 	}
 	if !failOnly {
-		fmt.Printf("\nTest Summary: %d tests passed and %d tests failed\n", rc.Pass+rc.Skip, rc.Fail)
+		fmt.Fprintf(out, "\nTest Summary: %d tests passed and %d tests failed\n", rc.Pass+rc.Skip, rc.Fail)
 	} else {
-		fmt.Printf("\nTest Summary: %d out of %d tests failed\n", rc.Fail, rc.Pass+rc.Skip+rc.Fail)
+		fmt.Fprintf(out, "\nTest Summary: %d out of %d tests failed\n", rc.Fail, rc.Pass+rc.Skip+rc.Fail)
 	}
-	fmt.Println()
+	fmt.Fprintln(out)
 	if rc.Fail > 0 {
 		if !failOnly {
-			printFailedTestResult(table, detailedResults)
+			printFailedTestResult(out, table, detailedResults)
 		}
 		return fmt.Errorf("%d tests failed", rc.Fail)
 	}
 	return nil
 }
 
-func checkResult(test testapi.TestResults, fs billy.Filesystem, resoucePath string, response engineapi.EngineResponse, rule engineapi.RuleResponse) (bool, string, string) {
+func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath string, response engineapi.EngineResponse, rule engineapi.RuleResponse) (bool, string, string) {
 	expected := test.Result
 	// fallback to the deprecated field
 	if expected == "" {
@@ -186,21 +174,20 @@ func checkResult(test testapi.TestResults, fs billy.Filesystem, resoucePath stri
 	return true, result.Message, "Ok"
 }
 
-func lookupEngineResponses(test testapi.TestResults, resourceName string, responses ...engineapi.EngineResponse) []engineapi.EngineResponse {
+func lookupEngineResponses(test v1alpha1.TestResult, resourceName string, responses ...engineapi.EngineResponse) []engineapi.EngineResponse {
 	var matches []engineapi.EngineResponse
 	for _, response := range responses {
 		policy := response.Policy()
 		resource := response.Resource
-		if policy.GetName() != test.Policy {
-			continue
-		}
+		pName := cache.MetaObjectToName(policy.MetaObject()).String()
+		rName := cache.MetaObjectToName(&resource).String()
 		if test.Kind != resource.GetKind() {
 			continue
 		}
-		if resourceName != "" && resourceName != resource.GetName() {
+		if pName != test.Policy {
 			continue
 		}
-		if test.Namespace != "" && test.Namespace != resource.GetNamespace() {
+		if resourceName != "" && rName != resourceName && resource.GetName() != resourceName {
 			continue
 		}
 		matches = append(matches, response)
@@ -208,7 +195,7 @@ func lookupEngineResponses(test testapi.TestResults, resourceName string, respon
 	return matches
 }
 
-func lookupRuleResponses(test testapi.TestResults, responses ...engineapi.RuleResponse) []engineapi.RuleResponse {
+func lookupRuleResponses(test v1alpha1.TestResult, responses ...engineapi.RuleResponse) []engineapi.RuleResponse {
 	var matches []engineapi.RuleResponse
 	// Since there are no rules in case of validating admission policies, responses are returned without checking rule names.
 	if test.IsValidatingAdmissionPolicy {

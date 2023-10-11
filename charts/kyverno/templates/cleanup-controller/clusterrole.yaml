@@ -54,17 +54,6 @@ rules:
       - list
       - watch
   - apiGroups:
-      - batch
-    resources:
-      - cronjobs
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - update
-      - watch
-  - apiGroups:
       - ''
       - events.k8s.io
     resources:
