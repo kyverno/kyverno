@@ -48,13 +48,13 @@ func Test_checkCondition(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := CheckCondition(tt.args.logger, tt.args.ctx, tt.args.condition)
+			got, err := checkCondition(tt.args.logger, tt.args.ctx, tt.args.condition)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("CheckCondition() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("checkCondition() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("CheckCondition() = %v, want %v", got, tt.want)
+				t.Errorf("checkCondition() = %v, want %v", got, tt.want)
 			}
 		})
 	}
