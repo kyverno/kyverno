@@ -254,6 +254,7 @@ The chart values are organised per component.
 |-----|------|---------|-------------|
 | crds.install | bool | `true` | Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created |
 | crds.annotations | object | `{}` | Additional CRDs annotations |
+| crds.customLabels | object | `{}` | Additional CRDs labels |
 
 ### Config
 
@@ -760,6 +761,7 @@ Kubernetes: `>=1.16.0-0`
 
 | Repository | Name | Version |
 |------------|------|---------|
+|  | crds | 0.0.0 |
 |  | grafana | 0.0.0 |
 
 ## Maintainers
