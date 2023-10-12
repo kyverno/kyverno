@@ -10,3 +10,7 @@ templating:
 annotations: {}
   # argocd.argoproj.io/sync-options: Replace=true
   # strategy.spinnaker.io/replace: 'true'
+
+# -- Additional CRDs labels
+# -- This field can be overwritten by setting crds.labels in the parent chart
+customLabels: {}
