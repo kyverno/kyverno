@@ -1,0 +1,7 @@
+policies:
+  - name: deny-pod-deletion
+    resources:
+      - name: test-pod-deletion
+        values:
+          request.operation: DELETE
+

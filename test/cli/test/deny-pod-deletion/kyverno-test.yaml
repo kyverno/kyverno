@@ -1,0 +1,17 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: deny-pod-deletion-test
+policies:
+  - deny-pod-deletion.yaml
+resources:
+  - resources.yaml
+variables: values.yaml
+results:
+  - kind: Pod
+    namespace: test-namespace
+    policy: deny-pod-deletion
+    rule: deny-pod-deletion
+    resources:
+      - test-pod-deletion
+    result: fail
