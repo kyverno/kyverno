@@ -6,8 +6,7 @@ templating:
   version: ~
   
 # -- Additional CRDs annotations
-annotations: 
-  foo: bar
+annotations: {}
   # argocd.argoproj.io/sync-options: Replace=true
   # strategy.spinnaker.io/replace: 'true'
 
