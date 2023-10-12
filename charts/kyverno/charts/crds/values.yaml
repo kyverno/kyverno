@@ -12,4 +12,4 @@ annotations:
   # strategy.spinnaker.io/replace: 'true'
 
 # -- Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created
-install: false
+install: true
