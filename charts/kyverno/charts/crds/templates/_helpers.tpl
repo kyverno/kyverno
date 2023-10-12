@@ -4,6 +4,7 @@
 {{- template "kyverno.labels.merge" (list
   (include "kyverno.labels.common" .)
   (include "kyverno.crds.matchLabels" .)
+  (toYaml .Values.customLabels)
 ) -}}
 {{- end -}}
 
