@@ -10,7 +10,3 @@ templating:
 annotations: {}
   # argocd.argoproj.io/sync-options: Replace=true
   # strategy.spinnaker.io/replace: 'true'
-
-# -- Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created
-# -- This field can be overwritten by setting crds.install in the parent chart
-install: true

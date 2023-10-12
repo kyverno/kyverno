@@ -562,8 +562,6 @@ codegen-cli-all: codegen-cli-crds codegen-cli-docs codegen-cli-api-docs codegen-
 codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 	@echo Generate helm crds... >&2
 	@cat $(CRDS_PATH)/* \
-		| $(SED) -e '1i{{- if .Values.install }}' \
-		| $(SED) -e '$$a{{- end }}' \
 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
  		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
