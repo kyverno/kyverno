@@ -1200,4 +1200,4 @@ spec:
         - spec
         type: object
     served: true
-    storage: false
+    storage: true
