@@ -6,6 +6,10 @@ templating:
   version: ~
   
 # -- Additional CRDs annotations
-annotations: {}
+annotations: 
+  foo: bar
   # argocd.argoproj.io/sync-options: Replace=true
   # strategy.spinnaker.io/replace: 'true'
+
+# -- Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created
+install: false
