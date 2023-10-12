@@ -119,19 +119,19 @@ func main() {
 	genericloggingcontroller.NewController(
 		setup.Logger.WithName("cleanup-policy"),
 		"CleanupPolicy",
-		kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies(),
+		kyvernoInformer.Kyverno().V2beta1().CleanupPolicies(),
 		genericloggingcontroller.CheckGeneration,
 	)
 	genericloggingcontroller.NewController(
 		setup.Logger.WithName("cluster-cleanup-policy"),
 		"ClusterCleanupPolicy",
-		kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies(),
+		kyvernoInformer.Kyverno().V2beta1().ClusterCleanupPolicies(),
 		genericloggingcontroller.CheckGeneration,
 	)
 	eventGenerator := event.NewEventCleanupGenerator(
 		setup.KyvernoDynamicClient,
-		kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies(),
-		kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies(),
+		kyvernoInformer.Kyverno().V2beta1().ClusterCleanupPolicies(),
+		kyvernoInformer.Kyverno().V2beta1().CleanupPolicies(),
 		maxQueuedEvents,
 		logging.WithName("EventGenerator"),
 	)
@@ -262,8 +262,8 @@ func main() {
 				cleanup.NewController(
 					setup.KyvernoDynamicClient,
 					setup.KyvernoClient,
-					kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies(),
-					kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies(),
+					kyvernoInformer.Kyverno().V2beta1().ClusterCleanupPolicies(),
+					kyvernoInformer.Kyverno().V2beta1().CleanupPolicies(),
 					nsLister,
 					setup.Configuration,
 					cmResolver,
