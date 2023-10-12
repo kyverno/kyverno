@@ -253,7 +253,7 @@ The chart values are organised per component.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | crds.install | bool | `true` | Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created |
-| crds.annotations | object | `{"foo":"baz"}` | Additional CRDs annotations |
+| crds.annotations | object | `{}` | Additional CRDs annotations |
 
 ### Config
 
