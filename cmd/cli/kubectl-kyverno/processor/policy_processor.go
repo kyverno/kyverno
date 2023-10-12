@@ -98,6 +98,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	var responses []engineapi.EngineResponse
 	// mutate
 	for _, policy := range p.Policies {
+		if !policyHasMutate(policy) {
+			continue
+		}
 		policyContext, err := p.makePolicyContext(jp, cfg, resource, policy, namespaceLabels, gvk, subresource)
 		if err != nil {
 			return responses, err
@@ -112,6 +115,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	// verify images
 	for _, policy := range p.Policies {
+		if !policyHasVerifyImages(policy) {
+			continue
+		}
 		policyContext, err := p.makePolicyContext(jp, cfg, resource, policy, namespaceLabels, gvk, subresource)
 		if err != nil {
 			return responses, err
@@ -151,6 +157,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	// validate
 	for _, policy := range p.Policies {
+		if !policyHasValidateOrVerifyImageChecks(policy) {
+			continue
+		}
 		policyContext, err := p.makePolicyContext(jp, cfg, resource, policy, namespaceLabels, gvk, subresource)
 		if err != nil {
 			return responses, err
