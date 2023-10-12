@@ -289,7 +289,7 @@ func (p *PolicyProcessor) makePolicyContext(
 			}
 		}
 	case kyvernov1.Delete:
-		ret, err := policyContext.JSONContext().Query("request.oldObject")
+		ret, err := policyContext.JSONContext().Query("request.object")
 		if err != nil {
 			return nil, err
 		}
