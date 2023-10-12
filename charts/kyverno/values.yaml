@@ -35,6 +35,9 @@ crds:
     # argocd.argoproj.io/sync-options: Replace=true
     # strategy.spinnaker.io/replace: 'true'
 
+  # -- Additional CRDs labels
+  customLabels: {}
+
 # Configuration
 config:
 

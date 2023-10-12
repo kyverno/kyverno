@@ -74,3 +74,6 @@ dependencies:
   - name: grafana
     version: "0.0.0"
     condition: grafana.enabled
+  - name: crds
+    version: "0.0.0"
+    condition: crds.install
