@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ tpl .Values.configMapName . }}
+  namespace: {{ default (include "kyverno.namespace" .) .Values.namespace }}
+  annotations:
+    {{- toYaml .Values.annotations | nindent 4 }}
+  labels:
+    {{- toYaml .Values.labels | nindent 4 }}
+data:
+{{ (.Files.Glob "dashboard/*").AsConfig | indent 2 }}
+---
+{{- if .Values.grafanaDashboard.create -}}
+{{ range $path, $_ := .Files.Glob  "dashboard/*" -}}
+{{ $name := base $path }}
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: {{ tpl $.Values.configMapName $ }}-{{ $name }}
+  namespace: {{ default (include "kyverno.namespace" $ ) $.Values.namespace }}
+spec:
+  instanceSelector:
+    matchLabels:
+      {{- toYaml $.Values.grafanaDashboard.matchLabels | nindent 6 }}
+  configMapRef:
+    name: {{ tpl $.Values.configMapName $ }}
+    key: {{ $name }}
+---
+{{ end -}}
+{{- end -}}
