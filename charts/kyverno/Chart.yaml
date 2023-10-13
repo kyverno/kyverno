@@ -70,3 +70,10 @@ annotations:
       description: missing image pull policy missing in a couple of deployments
     - kind: added
       description: added TUF flags for custom sigstore deployments
+dependencies:
+  - name: grafana
+    version: "0.0.0"
+    condition: grafana.enabled
+  - name: crds
+    version: "0.0.0"
+    condition: crds.install
