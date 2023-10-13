@@ -7,9 +7,9 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
+	kyvernov2beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
+	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	corev1 "k8s.io/api/core/v1"
@@ -34,9 +34,9 @@ type generator struct {
 	// list/get policy
 	pLister kyvernov1listers.PolicyLister
 	// list/get cluster cleanup policy
-	clustercleanuppolLister kyvernov2alpha1listers.ClusterCleanupPolicyLister
+	clustercleanuppolLister kyvernov2beta1listers.ClusterCleanupPolicyLister
 	// list/get cleanup policy
-	cleanuppolLister kyvernov2alpha1listers.CleanupPolicyLister
+	cleanuppolLister kyvernov2beta1listers.CleanupPolicyLister
 	// queue to store event generation requests
 	queue workqueue.RateLimitingInterface
 	// events generated at policy controller
@@ -98,8 +98,8 @@ func NewEventGenerator(
 func NewEventCleanupGenerator(
 	// source Source,
 	client dclient.Interface,
-	clustercleanuppolInformer kyvernov2alpha1informers.ClusterCleanupPolicyInformer,
-	cleanuppolInformer kyvernov2alpha1informers.CleanupPolicyInformer,
+	clustercleanuppolInformer kyvernov2beta1informers.ClusterCleanupPolicyInformer,
+	cleanuppolInformer kyvernov2beta1informers.CleanupPolicyInformer,
 	maxQueuedEvents int,
 	log logr.Logger,
 ) Controller {
