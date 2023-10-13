@@ -15,4 +15,9 @@ spec:
       validate:
         message: |
           Pod cannot be deleted
-        deny: {}
+        deny:
+          conditions:
+            any:
+              - key: "{{request.operation}}"
+                operator: Equals
+                value: DELETE

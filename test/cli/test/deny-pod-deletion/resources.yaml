@@ -1,5 +1,17 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: test-pod-deletion
+  name: test-pod-delete
+  namespace: test-namespace
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-create
+  namespace: test-namespace
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-update
   namespace: test-namespace

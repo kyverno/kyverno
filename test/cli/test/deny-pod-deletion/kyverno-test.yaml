@@ -13,5 +13,13 @@ results:
     policy: deny-pod-deletion
     rule: deny-pod-deletion
     resources:
-      - test-pod-deletion
+      - test-pod-delete
     result: fail
+  - kind: Pod
+    namespace: test-namespace
+    policy: deny-pod-deletion
+    rule: deny-pod-deletion
+    resources:
+      - test-pod-create
+      - test-pod-update
+    result: pass
