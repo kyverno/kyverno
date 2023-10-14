@@ -2,7 +2,7 @@
 
 This is the list of organizations and users that have publicly shared how they are using Kyverno.
 
-💡 **Add your organization by creating a PR or [submitting this form](https://docs.google.com/forms/d/e/1FAIpQLSe1IBSxDFn_iAAq9vd0nQdjKbapvgGyM8j2IX_z4xSCu-OSNg/viewform)**
+💡 **Add your organization by creating a PR or [submitting this form](https://forms.gle/K5CApcBAD5D4H1AG8)**
 
 Note: There are several other organizations and users that are unable to publicly share their stories but are active in the Kyverno community. We appreciate all our users and their contributions to making Kyverno a successful CNCF project.
 
@@ -36,6 +36,8 @@ The list of organizations that have publicly shared the usage of Kyverno:
 | [Hexagon](https://hexagon.com/)                                                                               | We leverage Kyverno to robustly enforce security policies. Additionally, as a Kubernetes swiss-knife, Kyverno fills our gap in our GitOps workflow by allowing us to apply complex configurations and customizations which are beyond the native capabilities of Kubernetes operators. |
 | [Grover Group GmbH](https://www.grover.com)                                                                   | We have been using Kyverno to streamline our K8s security standards and also follow industry best practices for running workloads in K8s using policy enforcements.                                                          |
 | [IITS Consulting](https://iits-consulting.de/)                                                                | Security is a piece of cake with Kyverno. Kyverno helped us to implement proper security for different kind of clients (medical/telecommunication/trading...). It solves problems like security enforcement, container image verification, distribution of imagePullSecrets and many more. |
+| [LinkedIn](https://www.linkedin.com/)                                                                | Policy enforcement on our on-prem Kubernetes clusters. |
+
 
 <!-- append the line below to the table
 | [name](URL) | brief description of how you are using Kyverno | 
