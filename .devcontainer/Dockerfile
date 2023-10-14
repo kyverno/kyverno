@@ -6,9 +6,9 @@ RUN echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME
 
 # Install Golang
-RUN curl -LO https://dl.google.com/go/go1.20.linux-amd64.tar.gz \
-    && tar -C /usr/local -xzf go1.20.linux-amd64.tar.gz \
-    && rm go1.20.linux-amd64.tar.gz \
+RUN curl -LO https://dl.google.com/go/go1.21.3.linux-amd64.tar.gz \
+    && tar -C /usr/local -xzf go1.21.3.linux-amd64.tar.gz  \
+    && rm go1.21.3.linux-amd64.tar.gz  \
     && echo 'export PATH=$PATH:/usr/local/go/bin' >> /etc/profile
 
 # Install Docker
