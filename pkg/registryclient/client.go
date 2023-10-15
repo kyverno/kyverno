@@ -38,7 +38,7 @@ var (
 		ExpectContinueTimeout: 1 * time.Second,
 	}
 
-	userAgent = fmt.Sprintf("cosign/%s (%s; %s)", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH)
+	userAgent = fmt.Sprintf("Kyverno/%s (%s; %s)", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH)
 )
 
 // Client provides registry related objects.
