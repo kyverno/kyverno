@@ -140,12 +140,7 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
 	}
-	authenticator, err := getAuthenticator(ctx, opts.ImageRef, opts.Client)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to parse authenticator: %s", opts.ImageRef)
-	}
-
-	remoteOpts, err := getRemoteOpts(*authenticator)
+	remoteOpts, err := opts.Client.Options(ctx)
 	if err != nil {
 		return nil, err
 	}

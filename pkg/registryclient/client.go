@@ -54,7 +54,7 @@ type Client interface {
 	FetchImageDescriptor(context.Context, string) (*gcrremote.Descriptor, error)
 
 	// Options returns remote.Option configuration for the client.
-	Options(context.Context) []gcrremote.Option
+	Options(context.Context) ([]gcrremote.Option, error)
 }
 
 type client struct {
@@ -165,13 +165,27 @@ func WithTracing() Option {
 }
 
 // Options returns remote.Option config parameters for the client
-func (c *client) Options(ctx context.Context) []gcrremote.Option {
-	return []gcrremote.Option{
+func (c *client) Options(ctx context.Context) ([]gcrremote.Option, error) {
+	opts := []gcrremote.Option{
 		gcrremote.WithAuthFromKeychain(c.keychain),
 		gcrremote.WithTransport(c.transport),
 		gcrremote.WithContext(ctx),
 		gcrremote.WithUserAgent(userAgent),
 	}
+
+	pusher, err := gcrremote.NewPusher(opts...)
+	if err != nil {
+		return nil, err
+	}
+	opts = append(opts, gcrremote.Reuse(pusher))
+
+	puller, err := gcrremote.NewPuller(opts...)
+	if err != nil {
+		return nil, err
+	}
+	opts = append(opts, gcrremote.Reuse(puller))
+
+	return opts, nil
 }
 
 // FetchImageDescriptor fetches Descriptor from registry with given imageRef

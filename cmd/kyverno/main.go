@@ -116,6 +116,7 @@ func createrLeaderControllers(
 	runtime runtimeutils.Runtime,
 	servicePort int32,
 	configuration config.Configuration,
+	eventGenerator event.Interface,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	var leaderControllers []internal.Controller
 
@@ -188,6 +189,7 @@ func createrLeaderControllers(
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
 			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings(),
+			eventGenerator,
 		)
 		leaderControllers = append(leaderControllers, internal.NewController(vapcontroller.ControllerName, vapController, vapcontroller.Workers))
 	}
@@ -409,6 +411,7 @@ func main() {
 				runtime,
 				int32(servicePort),
 				setup.Configuration,
+				eventGenerator,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create leader controllers")

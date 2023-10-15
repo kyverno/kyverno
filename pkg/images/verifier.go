@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
+	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
 type ImageVerifier interface {
@@ -17,7 +17,7 @@ type ImageVerifier interface {
 
 type Client interface {
 	Keychain() authn.Keychain
-	Options(ctx context.Context) []remote.Option
+	Options(context.Context) ([]gcrremote.Option, error)
 }
 
 type Options struct {

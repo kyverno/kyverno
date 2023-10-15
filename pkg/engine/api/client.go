@@ -60,12 +60,12 @@ type KeychainClient interface {
 	Keychain() authn.Keychain
 }
 
-type ClientWithOptions interface {
-	Options(context.Context) []gcrremote.Option
+type RemoteClient interface {
+	Options(context.Context) ([]gcrremote.Option, error)
 }
 
 type RegistryClient interface {
 	ImageDataClient
 	KeychainClient
-	ClientWithOptions
+	RemoteClient
 }
