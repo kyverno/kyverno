@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	"github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/logging"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"gotest.tools/assert"
@@ -27,7 +27,7 @@ func Test_Validate(t *testing.T) {
 					Enabled:   false,
 					Namespace: "kyverno",
 				},
-				resource: []byte(`{"apiVersion":"kyverno.io/v2alpha1","kind":"PolicyException","metadata":{"name":"enforce-label-exception","namespace":"delta"},"spec":{"exceptions":[{"policyName":"enforce-label","ruleNames":["enforce-label"]}],"match":{"any":[{"resources":{"kinds":["Pod"]}}]}}}`),
+				resource: []byte(`{"apiVersion":"kyverno.io/v2beta1","kind":"PolicyException","metadata":{"name":"enforce-label-exception","namespace":"delta"},"spec":{"exceptions":[{"policyName":"enforce-label","ruleNames":["enforce-label"]}],"match":{"any":[{"resources":{"kinds":["Pod"]}}]}}}`),
 			},
 			want: 1,
 		},
@@ -38,7 +38,7 @@ func Test_Validate(t *testing.T) {
 					Enabled:   true,
 					Namespace: "kyverno",
 				},
-				resource: []byte(`{"apiVersion":"kyverno.io/v2alpha1","kind":"PolicyException","metadata":{"name":"enforce-label-exception","namespace":"delta"},"spec":{"exceptions":[{"policyName":"enforce-label","ruleNames":["enforce-label"]}],"match":{"any":[{"resources":{"kinds":["Pod"]}}]}}}`),
+				resource: []byte(`{"apiVersion":"kyverno.io/v2beta1","kind":"PolicyException","metadata":{"name":"enforce-label-exception","namespace":"delta"},"spec":{"exceptions":[{"policyName":"enforce-label","ruleNames":["enforce-label"]}],"match":{"any":[{"resources":{"kinds":["Pod"]}}]}}}`),
 			},
 			want: 1,
 		},
@@ -49,7 +49,7 @@ func Test_Validate(t *testing.T) {
 					Enabled:   true,
 					Namespace: "kyverno",
 				},
-				resource: []byte(`{"apiVersion":"kyverno.io/v2alpha1","kind":"PolicyException","metadata":{"name":"enforce-label-exception","namespace":"kyverno"},"spec":{"exceptions":[{"policyName":"enforce-label","ruleNames":["enforce-label"]}],"match":{"any":[{"resources":{"kinds":["Pod"]}}]}}}`),
+				resource: []byte(`{"apiVersion":"kyverno.io/v2beta1","kind":"PolicyException","metadata":{"name":"enforce-label-exception","namespace":"kyverno"},"spec":{"exceptions":[{"policyName":"enforce-label","ruleNames":["enforce-label"]}],"match":{"any":[{"resources":{"kinds":["Pod"]}}]}}}`),
 			},
 			want: 0,
 		},
@@ -60,7 +60,7 @@ func Test_Validate(t *testing.T) {
 					Enabled:   true,
 					Namespace: "",
 				},
-				resource: []byte(`{"apiVersion":"kyverno.io/v2alpha1","kind":"PolicyException","metadata":{"name":"enforce-label-exception","namespace":"kyverno"},"spec":{"exceptions":[{"policyName":"enforce-label","ruleNames":["enforce-label"]}],"match":{"any":[{"resources":{"kinds":["Pod"]}}]}}}`),
+				resource: []byte(`{"apiVersion":"kyverno.io/v2beta1","kind":"PolicyException","metadata":{"name":"enforce-label-exception","namespace":"kyverno"},"spec":{"exceptions":[{"policyName":"enforce-label","ruleNames":["enforce-label"]}],"match":{"any":[{"resources":{"kinds":["Pod"]}}]}}}`),
 			},
 			want: 0,
 		},
@@ -84,12 +84,12 @@ func Test_ValidateVariables(t *testing.T) {
 	}{
 		{
 			name:     "Variable used.",
-			resource: []byte(`{"apiVersion":"kyverno.io/v2alpha1","kind":"PolicyException","metadata":{"name":"enforce-label-polex"},"spec":{"background":true,"exceptions":[{"policyName":"enforce-label","ruleNames":["enforce-label"]}],"match":{"any":[{"resources":{"kinds":["Pod"],"namespaces":["{{request.object.name}}"],"names":["{{request.userInfo.username}}"]}}]}}}`),
+			resource: []byte(`{"apiVersion":"kyverno.io/v2beta1","kind":"PolicyException","metadata":{"name":"enforce-label-polex"},"spec":{"background":true,"exceptions":[{"policyName":"enforce-label","ruleNames":["enforce-label"]}],"match":{"any":[{"resources":{"kinds":["Pod"],"namespaces":["{{request.object.name}}"],"names":["{{request.userInfo.username}}"]}}]}}}`),
 			error:    true,
 		},
 		{
 			name:     "Variable not used.",
-			resource: []byte(`{"apiVersion":"kyverno.io/v2alpha1","kind":"PolicyException","metadata":{"name":"enforce-label-polex"},"spec":{"background":true,"exceptions":[{"policyName":"enforce-label","ruleNames":["enforce-label"]}],"match":{"any":[{"resources":{"kinds":["Pod"]}}]}}}`),
+			resource: []byte(`{"apiVersion":"kyverno.io/v2beta1","kind":"PolicyException","metadata":{"name":"enforce-label-polex"},"spec":{"background":true,"exceptions":[{"policyName":"enforce-label","ruleNames":["enforce-label"]}],"match":{"any":[{"resources":{"kinds":["Pod"]}}]}}}`),
 			error:    false,
 		},
 	}
@@ -97,7 +97,7 @@ func Test_ValidateVariables(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			polex, err := admissionutils.UnmarshalPolicyException(c.resource)
 			assert.NilError(t, err)
-			err = v2alpha1.ValidateVariables(polex)
+			err = v2beta1.ValidateVariables(polex)
 			if c.error {
 				assert.Assert(t, err != nil)
 			} else {
