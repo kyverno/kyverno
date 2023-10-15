@@ -87,7 +87,6 @@ func (v *cosignVerifier) VerifySignature(ctx context.Context, opts images.Option
 }
 
 func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.CheckOpts, error) {
-	var remoteOpts []remote.Option
 	var err error
 	signatureAlgorithmMap := map[string]crypto.Hash{
 		"":       crypto.SHA256,
@@ -95,10 +94,10 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 		"sha512": crypto.SHA512,
 	}
 
-	remoteOpts = append(remoteOpts, opts.Client.BuildRemoteOption(ctx))
+	remoteOpts := remote.WithRemoteOptions(opts.Client.Options(ctx)...)
 	cosignOpts := &cosign.CheckOpts{
 		Annotations:        map[string]interface{}{},
-		RegistryClientOpts: remoteOpts,
+		RegistryClientOpts: []remote.Option{remoteOpts},
 	}
 
 	if opts.FetchAttestations {

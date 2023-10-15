@@ -14,7 +14,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/tracing"
-	"github.com/sigstore/cosign/v2/pkg/oci/remote"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"k8s.io/apimachinery/pkg/util/sets"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -54,8 +53,8 @@ type Client interface {
 	// and provides access to metadata about remote artifact.
 	FetchImageDescriptor(context.Context, string) (*gcrremote.Descriptor, error)
 
-	// BuildRemoteOption builds remote.Option based on client.
-	BuildRemoteOption(context.Context) remote.Option
+	// Options returns remote.Option configuration for the client.
+	Options(context.Context) []gcrremote.Option
 }
 
 type client struct {
@@ -165,14 +164,14 @@ func WithTracing() Option {
 	}
 }
 
-// BuildRemoteOption builds remote.Option based on client.
-func (c *client) BuildRemoteOption(ctx context.Context) remote.Option {
-	return remote.WithRemoteOptions(
+// Options returns remote.Option config parameters for the client
+func (c *client) Options(ctx context.Context) []gcrremote.Option {
+	return []gcrremote.Option{
 		gcrremote.WithAuthFromKeychain(c.keychain),
 		gcrremote.WithTransport(c.transport),
 		gcrremote.WithContext(ctx),
 		gcrremote.WithUserAgent(userAgent),
-	)
+	}
 }
 
 // FetchImageDescriptor fetches Descriptor from registry with given imageRef
