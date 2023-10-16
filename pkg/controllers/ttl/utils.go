@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/go-openapi/strfmt"
 	"github.com/kyverno/kyverno/api/kyverno"
 	checker "github.com/kyverno/kyverno/pkg/auth/checker"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,7 +52,7 @@ func HasResourcePermissions(logger logr.Logger, resource schema.GroupVersionReso
 }
 
 func parseDeletionTime(metaObj metav1.Object, deletionTime *time.Time, ttlValue string) error {
-	ttlDuration, err := time.ParseDuration(ttlValue)
+	ttlDuration, err := strfmt.ParseDuration(ttlValue)
 	if err == nil {
 		creationTime := metaObj.GetCreationTimestamp().Time
 		*deletionTime = creationTime.Add(ttlDuration)
