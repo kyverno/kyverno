@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -152,9 +153,13 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 		// No 'ttl' label present, no further action needed
 		return nil
 	}
-	var deletionTime time.Time
+	resource, err := kubeutils.ObjToUnstructured(metaObj)
+	if err != nil {
+		logger.Error(err, "failed to convert to unstructured")
+	}
 	// Try parsing ttlValue as duration
-	if err := parseDeletionTime(metaObj, &deletionTime, ttlValue); err != nil {
+	deletionTime, err := ParseDeletionTime(resource, ttlValue)
+	if err != nil {
 		logger.Error(err, "failed to parse label", "value", ttlValue)
 		return nil
 	}

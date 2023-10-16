@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
@@ -15,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
+	ttlcontroller "github.com/kyverno/kyverno/pkg/controllers/ttl"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
@@ -215,6 +217,16 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 				namespace := resource.GetNamespace()
 				name := resource.GetName()
 				debug := debug.WithValues("name", name, "namespace", namespace)
+
+				// check if the resource has TTL label
+				labels := resource.GetLabels()
+				if ttlValue, ok := labels[kyverno.LabelCleanupTtl]; ok {
+					// skip the resource if it has a valid TTL label
+					if _, err := ttlcontroller.ParseDeletionTime(&resource, ttlValue); err == nil {
+						continue
+					}
+				}
+
 				if !controllerutils.IsManagedByKyverno(&resource) {
 					var nsLabels map[string]string
 					if namespace != "" {

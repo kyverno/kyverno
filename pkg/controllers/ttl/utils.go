@@ -7,7 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	checker "github.com/kyverno/kyverno/pkg/auth/checker"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
@@ -51,20 +51,21 @@ func HasResourcePermissions(logger logr.Logger, resource schema.GroupVersionReso
 	return can
 }
 
-func parseDeletionTime(metaObj metav1.Object, deletionTime *time.Time, ttlValue string) error {
+func ParseDeletionTime(resource *unstructured.Unstructured, ttlValue string) (time.Time, error) {
+	var deletionTime time.Time
 	ttlDuration, err := strfmt.ParseDuration(ttlValue)
 	if err == nil {
-		creationTime := metaObj.GetCreationTimestamp().Time
-		*deletionTime = creationTime.Add(ttlDuration)
+		creationTime := resource.GetCreationTimestamp().Time
+		deletionTime = creationTime.Add(ttlDuration)
 	} else {
 		// Try parsing ttlValue as a time in ISO 8601 format
-		*deletionTime, err = time.Parse(kyverno.ValueTtlDateTimeLayout, ttlValue)
+		deletionTime, err = time.Parse(kyverno.ValueTtlDateTimeLayout, ttlValue)
 		if err != nil {
-			*deletionTime, err = time.Parse(kyverno.ValueTtlDateLayout, ttlValue)
+			deletionTime, err = time.Parse(kyverno.ValueTtlDateLayout, ttlValue)
 			if err != nil {
-				return err
+				return deletionTime, err
 			}
 		}
 	}
-	return nil
+	return deletionTime, nil
 }

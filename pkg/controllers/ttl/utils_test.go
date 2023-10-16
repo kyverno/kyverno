@@ -5,11 +5,8 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
-
-type mockMetaObj struct {
-	metav1.ObjectMeta
-}
 
 func TestParseDeletionTime(t *testing.T) {
 	// Test cases
@@ -49,13 +46,9 @@ func TestParseDeletionTime(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		var deletionTime time.Time
-		metaObj := &mockMetaObj{
-			ObjectMeta: metav1.ObjectMeta{
-				CreationTimestamp: metav1.NewTime(test.creationTime),
-			},
-		}
-		err := parseDeletionTime(metaObj, &deletionTime, test.ttlValue)
+		resource := &unstructured.Unstructured{}
+		resource.SetCreationTimestamp(metav1.NewTime(test.creationTime))
+		deletionTime, err := ParseDeletionTime(resource, test.ttlValue)
 		if test.expectError {
 			if err == nil {
 				t.Errorf("Expected an error but got nil for ttlValue: %s", test.ttlValue)
