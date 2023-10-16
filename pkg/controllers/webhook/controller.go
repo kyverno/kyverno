@@ -654,6 +654,8 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 					} else {
 						c.mergeWebhook(fail, p, false)
 					}
+					rules := p.GetSpec().Rules
+					operationStatusMap = computeOperationsForMutatingWebhookConf(rules, operationStatusMap)
 				}
 			}
 			rules := p.GetSpec().Rules
@@ -842,7 +844,6 @@ func computeOperationsForMutatingWebhookConf(rules []kyvernov1.Rule, operationSt
 			operationStatusMap[webhookCreate] = true
 			operationStatusMap[webhookUpdate] = true
 		}
-		operationStatusMap[webhookDelete] = true
 	}
 	return operationStatusMap
 }
