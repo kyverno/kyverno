@@ -214,7 +214,7 @@ require (
 	github.com/go-openapi/loads v0.21.2 // indirect
 	github.com/go-openapi/runtime v0.26.0 // indirect
 	github.com/go-openapi/spec v0.20.9 // indirect
-	github.com/go-openapi/strfmt v0.21.7 // indirect
+	github.com/go-openapi/strfmt v0.21.7
 	github.com/go-openapi/swag v0.22.4 // indirect
 	github.com/go-openapi/validate v0.22.1 // indirect
 	github.com/go-piv/piv-go v1.11.0 // indirect
@@ -400,7 +400,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	inet.af/netaddr v0.0.0-20230525184311-b8eac61e914a // indirect
 	k8s.io/component-base v0.28.2 // indirect
-	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00
+	k8s.io/kube-openapi v0.0.0-20230816210353-14e408962443
 	k8s.io/kubectl v0.28.2 // indirect
 	oras.land/oras-go/v2 v2.3.0 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.1.4 // indirect
