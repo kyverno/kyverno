@@ -23,6 +23,7 @@ rules:
     resources:
       - policies
       - clusterpolicies
+      - policyexceptions
       - updaterequests
       - updaterequests/status
     verbs:

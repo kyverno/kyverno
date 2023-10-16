@@ -28,6 +28,14 @@ type FakeKyvernoV2beta1 struct {
 	*testing.Fake
 }
 
+func (c *FakeKyvernoV2beta1) CleanupPolicies(namespace string) v2beta1.CleanupPolicyInterface {
+	return &FakeCleanupPolicies{c, namespace}
+}
+
+func (c *FakeKyvernoV2beta1) ClusterCleanupPolicies() v2beta1.ClusterCleanupPolicyInterface {
+	return &FakeClusterCleanupPolicies{c}
+}
+
 func (c *FakeKyvernoV2beta1) ClusterPolicies() v2beta1.ClusterPolicyInterface {
 	return &FakeClusterPolicies{c}
 }
