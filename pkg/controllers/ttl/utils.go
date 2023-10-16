@@ -5,13 +5,13 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/go-openapi/strfmt"
 	"github.com/kyverno/kyverno/api/kyverno"
 	checker "github.com/kyverno/kyverno/pkg/auth/checker"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
+	"k8s.io/kube-openapi/pkg/validation/strfmt"
 )
 
 func discoverResources(logger logr.Logger, discoveryClient discovery.DiscoveryInterface) ([]schema.GroupVersionResource, error) {
