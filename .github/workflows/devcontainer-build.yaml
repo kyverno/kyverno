@@ -1,4 +1,4 @@
-name: Build images
+name: Build devcontainer
 
 permissions: {}
 
