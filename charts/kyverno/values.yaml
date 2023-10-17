@@ -314,16 +314,16 @@ webhooksCleanup:
   enabled: true
 
   image:
-      # -- (string) Image registry
-      registry: ~
-      # -- Image repository
-      repository: bitnami/kubectl
-      # -- Image tag
-      # Defaults to `latest` if omitted
-      tag: '1.26.4'
-      # -- (string) Image pull policy
-      # Defaults to image.pullPolicy if omitted
-      pullPolicy: ~
+    # -- (string) Image registry
+    registry: ~
+    # -- Image repository
+    repository: bitnami/kubectl
+    # -- Image tag
+    # Defaults to `latest` if omitted
+    tag: '1.26.4'
+    # -- (string) Image pull policy
+    # Defaults to image.pullPolicy if omitted
+    pullPolicy: ~
 
   # -- Image pull secrets
   imagePullSecrets: []
