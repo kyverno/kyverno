@@ -19,6 +19,7 @@ limitations under the License.
 package v2alpha1
 
 import (
+	v2beta1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v2beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
@@ -29,8 +30,8 @@ import (
 type CleanupPolicyApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",omitempty,inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *CleanupPolicySpecApplyConfiguration   `json:"spec,omitempty"`
-	Status                           *CleanupPolicyStatusApplyConfiguration `json:"status,omitempty"`
+	Spec                             *v2beta1.CleanupPolicySpecApplyConfiguration   `json:"spec,omitempty"`
+	Status                           *v2beta1.CleanupPolicyStatusApplyConfiguration `json:"status,omitempty"`
 }
 
 // CleanupPolicy constructs an declarative configuration of the CleanupPolicy type for use with
@@ -205,7 +206,7 @@ func (b *CleanupPolicyApplyConfiguration) ensureObjectMetaApplyConfigurationExis
 // WithSpec sets the Spec field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Spec field is set to the value of the last call.
-func (b *CleanupPolicyApplyConfiguration) WithSpec(value *CleanupPolicySpecApplyConfiguration) *CleanupPolicyApplyConfiguration {
+func (b *CleanupPolicyApplyConfiguration) WithSpec(value *v2beta1.CleanupPolicySpecApplyConfiguration) *CleanupPolicyApplyConfiguration {
 	b.Spec = value
 	return b
 }
@@ -213,7 +214,7 @@ func (b *CleanupPolicyApplyConfiguration) WithSpec(value *CleanupPolicySpecApply
 // WithStatus sets the Status field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Status field is set to the value of the last call.
-func (b *CleanupPolicyApplyConfiguration) WithStatus(value *CleanupPolicyStatusApplyConfiguration) *CleanupPolicyApplyConfiguration {
+func (b *CleanupPolicyApplyConfiguration) WithStatus(value *v2beta1.CleanupPolicyStatusApplyConfiguration) *CleanupPolicyApplyConfiguration {
 	b.Status = value
 	return b
 }
