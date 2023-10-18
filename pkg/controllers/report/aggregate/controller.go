@@ -383,6 +383,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 		chunkSize = len(results)
 	}
 	for name, results := range splitReports {
+		reportutils.SortReportResults(results)
 		for i := 0; i < len(results); i += chunkSize {
 			end := i + chunkSize
 			if end > len(results) {
