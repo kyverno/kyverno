@@ -19,10 +19,12 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policy"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeinformers "k8s.io/client-go/informers"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
@@ -100,7 +102,6 @@ func main() {
 		internal.WithPolicyExceptions(),
 		internal.WithConfigMapCaching(),
 		internal.WithDeferredLoading(),
-		internal.WithRegistryClient(),
 		internal.WithLeaderElection(),
 		internal.WithKyvernoClient(),
 		internal.WithDynamicClient(),
@@ -156,8 +157,8 @@ func main() {
 		setup.MetricsConfiguration,
 		setup.Jp,
 		setup.KyvernoDynamicClient,
-		setup.RegistryClient,
-		setup.ImageVerifyCacheClient,
+		registryclient.NewOrDie(),
+		imageverifycache.DisabledImageVerifyCache(),
 		setup.KubeClient,
 		setup.KyvernoClient,
 		setup.RegistrySecretLister,
