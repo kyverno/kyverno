@@ -1665,7 +1665,7 @@ func Test_ImageNormalize(t *testing.T) {
 			assert.NilError(t, err)
 			result, err := jp.Search("")
 			if tc.wantErr {
-				assert.Error(t, err, "JMESPath function 'image_normalize': bad image: docker.io/: invalid reference format")
+				assert.Error(t, err, "JMESPath function 'image_normalize': bad image: docker.io/, defaultRegistry: docker.io, enableDefaultRegistryMutation: true: invalid reference format")
 			} else {
 				assert.NilError(t, err)
 				res, ok := result.(string)
