@@ -22,7 +22,7 @@ home: https://kyverno.io/
 sources:
   - https://github.com/kyverno/kyverno
 maintainers:
-  - name: Kyverno Maintainers
+  - name: kyverno-maintainers
     email: cncf-kyverno-maintainers@lists.cncf.io
 kubeVersion: ">=1.25.0-0"
 annotations:
