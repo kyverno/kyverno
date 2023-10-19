@@ -73,7 +73,6 @@ func TestComputeOperationsForMutatingWebhookConf(t *testing.T) {
 			},
 			expectedResult: map[string]bool{
 				"CREATE": true,
-				"DELETE": true,
 			},
 		},
 		{
@@ -91,7 +90,6 @@ func TestComputeOperationsForMutatingWebhookConf(t *testing.T) {
 			expectedResult: map[string]bool{
 				webhookCreate: true,
 				webhookUpdate: true,
-				webhookDelete: true,
 			},
 		},
 	}
