@@ -9,15 +9,22 @@ keywords:
   - kubernetes
   - nirmata
   - policy agent
+  - policy
   - validating webhook
-  - admissions controller
+  - admission controller
+  - mutation
+  - mutate
+  - validate
+  - generate
+  - supply chain
+  - security
 home: https://kyverno.io/
 sources:
   - https://github.com/kyverno/kyverno
 maintainers:
-  - name: Nirmata
-    url: https://kyverno.io/
-kubeVersion: ">=1.16.0-0"
+  - name: Kyverno Maintainers
+    email: cncf-kyverno-maintainers@lists.cncf.io
+kubeVersion: ">=1.25.0-0"
 annotations:
   artifacthub.io/operator: "false"
   artifacthub.io/prerelease: "false"
