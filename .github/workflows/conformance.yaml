@@ -574,7 +574,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@61f0091875fe5ec9cc90ef95adf7463146f38773
+        uses: sigstore/scaffolding/actions/setup@d120ad89e1f5c9d4a0bbd92959c6874be2a2131d
       - name: Create TUF values config map
         run: |
           kubectl create namespace kyverno
