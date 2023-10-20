@@ -583,6 +583,7 @@ jobs:
         uses: sigstore/scaffolding/actions/setup@d120ad89e1f5c9d4a0bbd92959c6874be2a2131d
         with:
           sigstore-only: 'true'
+          knative-version: '1.10.0'
       - name: Create TUF values config map
         run: |
           kubectl create namespace kyverno
