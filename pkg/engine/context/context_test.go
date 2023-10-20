@@ -123,3 +123,58 @@ func Test_addResourceAndUserContext(t *testing.T) {
 		t.Error("expected result does not match")
 	}
 }
+
+func Test_addVariable(t *testing.T) {
+	var err error
+
+	rawResource := `
+	apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: secret-annotation
+spec:
+  validationFailureAction: Enforce
+  rules:
+    - name: remove-annotation
+      preconditions:
+        all:
+          - key: "{{ request.operation }}"
+            operator: Equals
+            value: UPDATE
+          - key: "{{ request.oldObject.metadata.labels.\"com.example/my-label\" || '' }}"
+            operator: Equals
+            value: all
+      match:
+        all:
+          - resources:
+              kinds:
+                - Secret
+              annotations:
+                com.example/my-annotation: ".*"
+              selector:
+                matchExpressions:
+                  - key: com.example/my-label
+                    operator: DoesNotExist
+      mutate:
+        patchesJson6902: |-
+          - op: remove
+            path: "/metadata/annotations/com.example~1my-annotation"
+          `
+	valuesField, err := parseValuesField(rawResource)
+	if err != nil {
+		t.Fatalf("Error parsing policy YAML: %v", err)
+	}
+	expectedValues := map[string]interface{}{
+
+		"key": "{{ request.oldObject.metadata.labels.\"com.example/my-label\" || '' }}",
+	}
+
+	if !reflect.DeepEqual(expectedValues, valuesField) {
+		t.Errorf("Expected values do not match actual values. Expected: %v, Actual: %v", expectedValues, valuesField)
+	}
+
+}
+func parseValuesField(yaml string) (map[string]interface{}, error) {
+
+	return map[string]interface{}{}, nil
+}
