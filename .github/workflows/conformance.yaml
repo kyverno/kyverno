@@ -573,16 +573,11 @@ jobs:
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
-      - name: Create kind cluster
-        shell: bash
-        run: |
-          set -e
-          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
-          make kind-create-cluster
-      - name: Setup Sigstore Scaffolding
+      - name: Create kind cluster and setup Sigstore Scaffolding
         uses: sigstore/scaffolding/actions/setup@d120ad89e1f5c9d4a0bbd92959c6874be2a2131d
         with:
-          sigstore-only: 'true'
+          version: 'v0.5.4'
+          k8s-version: ${{ matrix.k8s-version.name }}.x
           knative-version: '1.10.0'
       - name: Create TUF values config map
         run: |
