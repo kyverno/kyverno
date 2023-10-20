@@ -577,7 +577,7 @@ jobs:
         uses: sigstore/scaffolding/actions/setup@d120ad89e1f5c9d4a0bbd92959c6874be2a2131d
         with:
           version: 'v0.5.4'
-          k8s-version: ${{ matrix.k8s-version.name }}.x
+          k8s-version: 'v1.25.x'
           knative-version: '1.10.0'
       - name: Create TUF values config map
         run: |
