@@ -6,6 +6,7 @@ import (
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/kube-openapi/pkg/validation/strfmt"
 )
 
 func ValidateTtlLabel(_ context.Context, object metav1.Object) error {
@@ -16,7 +17,7 @@ func ValidateTtlLabel(_ context.Context, object metav1.Object) error {
 	if ttl, ok := labels[kyverno.LabelCleanupTtl]; !ok {
 		return nil
 	} else {
-		_, err := time.ParseDuration(ttl)
+		_, err := strfmt.ParseDuration(ttl)
 		if err != nil {
 			// Try parsing ttlValue as a time in ISO 8601 format
 			_, err := time.Parse(kyverno.ValueTtlDateTimeLayout, ttl)
