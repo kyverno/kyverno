@@ -1089,7 +1089,7 @@ spec:
                             providers:
                               description: 'Providers specifies a list of OCI Registry
                                 names, whose authentication providers are provided
-                                It can be of one of these values: AWS, ACR, GCP, GHCR'
+                                It can be of one of these values: default,google,azure,amazon,github'
                               items:
                                 description: ImageRegistryCredentialsProvidersType
                                   provides the list of credential providers required.
@@ -2330,7 +2330,7 @@ spec:
                             providers:
                               description: 'Providers specifies a list of OCI Registry
                                 names, whose authentication providers are provided
-                                It can be of one of these values: AWS, ACR, GCP, GHCR'
+                                It can be of one of these values: default,google,azure,amazon,github'
                               items:
                                 description: ImageRegistryCredentialsProvidersType
                                   provides the list of credential providers required.
@@ -4246,7 +4246,7 @@ spec:
                             providers:
                               description: 'Providers specifies a list of OCI Registry
                                 names, whose authentication providers are provided
-                                It can be of one of these values: AWS, ACR, GCP, GHCR'
+                                It can be of one of these values: default,google,azure,amazon,github'
                               items:
                                 description: ImageRegistryCredentialsProvidersType
                                   provides the list of credential providers required.
@@ -5487,7 +5487,7 @@ spec:
                             providers:
                               description: 'Providers specifies a list of OCI Registry
                                 names, whose authentication providers are provided
-                                It can be of one of these values: AWS, ACR, GCP, GHCR'
+                                It can be of one of these values: default,google,azure,amazon,github'
                               items:
                                 description: ImageRegistryCredentialsProvidersType
                                   provides the list of credential providers required.
@@ -6802,7 +6802,7 @@ spec:
                                     description: 'Providers specifies a list of OCI
                                       Registry names, whose authentication providers
                                       are provided It can be of one of these values:
-                                      AWS, ACR, GCP, GHCR'
+                                      default,google,azure,amazon,github'
                                     items:
                                       description: ImageRegistryCredentialsProvidersType
                                         provides the list of credential providers
@@ -8502,7 +8502,7 @@ spec:
                                                 list of OCI Registry names, whose
                                                 authentication providers are provided
                                                 It can be of one of these values:
-                                                AWS, ACR, GCP, GHCR'
+                                                default,google,azure,amazon,github'
                                               items:
                                                 description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
@@ -8835,7 +8835,7 @@ spec:
                                                 list of OCI Registry names, whose
                                                 authentication providers are provided
                                                 It can be of one of these values:
-                                                AWS, ACR, GCP, GHCR'
+                                                default,google,azure,amazon,github'
                                               items:
                                                 description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
@@ -9390,7 +9390,7 @@ spec:
                                                 list of OCI Registry names, whose
                                                 authentication providers are provided
                                                 It can be of one of these values:
-                                                AWS, ACR, GCP, GHCR'
+                                                default,google,azure,amazon,github'
                                               items:
                                                 description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
@@ -10743,8 +10743,7 @@ spec:
                               providers:
                                 description: 'Providers specifies a list of OCI Registry
                                   names, whose authentication providers are provided
-                                  It can be of one of these values: AWS, ACR, GCP,
-                                  GHCR'
+                                  It can be of one of these values: default,google,azure,amazon,github'
                                 items:
                                   description: ImageRegistryCredentialsProvidersType
                                     provides the list of credential providers required.
@@ -11086,7 +11085,7 @@ spec:
                                         description: 'Providers specifies a list of
                                           OCI Registry names, whose authentication
                                           providers are provided It can be of one
-                                          of these values: AWS, ACR, GCP, GHCR'
+                                          of these values: default,google,azure,amazon,github'
                                         items:
                                           description: ImageRegistryCredentialsProvidersType
                                             provides the list of credential providers
@@ -12863,8 +12862,7 @@ spec:
                                                     a list of OCI Registry names,
                                                     whose authentication providers
                                                     are provided It can be of one
-                                                    of these values: AWS, ACR, GCP,
-                                                    GHCR'
+                                                    of these values: default,google,azure,amazon,github'
                                                   items:
                                                     description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
@@ -13212,8 +13210,7 @@ spec:
                                                     a list of OCI Registry names,
                                                     whose authentication providers
                                                     are provided It can be of one
-                                                    of these values: AWS, ACR, GCP,
-                                                    GHCR'
+                                                    of these values: default,google,azure,amazon,github'
                                                   items:
                                                     description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
@@ -13798,8 +13795,7 @@ spec:
                                                     a list of OCI Registry names,
                                                     whose authentication providers
                                                     are provided It can be of one
-                                                    of these values: AWS, ACR, GCP,
-                                                    GHCR'
+                                                    of these values: default,google,azure,amazon,github'
                                                   items:
                                                     description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
@@ -15213,7 +15209,7 @@ spec:
                                     description: 'Providers specifies a list of OCI
                                       Registry names, whose authentication providers
                                       are provided It can be of one of these values:
-                                      AWS, ACR, GCP, GHCR'
+                                      default,google,azure,amazon,github'
                                     items:
                                       description: ImageRegistryCredentialsProvidersType
                                         provides the list of credential providers
@@ -15668,7 +15664,7 @@ spec:
                                     description: 'Providers specifies a list of OCI
                                       Registry names, whose authentication providers
                                       are provided It can be of one of these values:
-                                      AWS, ACR, GCP, GHCR'
+                                      default,google,azure,amazon,github'
                                     items:
                                       description: ImageRegistryCredentialsProvidersType
                                         provides the list of credential providers
@@ -16942,7 +16938,7 @@ spec:
                                                 list of OCI Registry names, whose
                                                 authentication providers are provided
                                                 It can be of one of these values:
-                                                AWS, ACR, GCP, GHCR'
+                                                default,google,azure,amazon,github'
                                               items:
                                                 description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
@@ -17275,7 +17271,7 @@ spec:
                                                 list of OCI Registry names, whose
                                                 authentication providers are provided
                                                 It can be of one of these values:
-                                                AWS, ACR, GCP, GHCR'
+                                                default,google,azure,amazon,github'
                                               items:
                                                 description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
@@ -18009,7 +18005,7 @@ spec:
                                                 list of OCI Registry names, whose
                                                 authentication providers are provided
                                                 It can be of one of these values:
-                                                AWS, ACR, GCP, GHCR'
+                                                default,google,azure,amazon,github'
                                               items:
                                                 description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
@@ -19348,8 +19344,7 @@ spec:
                               providers:
                                 description: 'Providers specifies a list of OCI Registry
                                   names, whose authentication providers are provided
-                                  It can be of one of these values: AWS, ACR, GCP,
-                                  GHCR'
+                                  It can be of one of these values: default,google,azure,amazon,github'
                                 items:
                                   description: ImageRegistryCredentialsProvidersType
                                     provides the list of credential providers required.
@@ -19679,7 +19674,7 @@ spec:
                                         description: 'Providers specifies a list of
                                           OCI Registry names, whose authentication
                                           providers are provided It can be of one
-                                          of these values: AWS, ACR, GCP, GHCR'
+                                          of these values: default,google,azure,amazon,github'
                                         items:
                                           description: ImageRegistryCredentialsProvidersType
                                             provides the list of credential providers
@@ -21456,8 +21451,7 @@ spec:
                                                     a list of OCI Registry names,
                                                     whose authentication providers
                                                     are provided It can be of one
-                                                    of these values: AWS, ACR, GCP,
-                                                    GHCR'
+                                                    of these values: default,google,azure,amazon,github'
                                                   items:
                                                     description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
@@ -21805,8 +21799,7 @@ spec:
                                                     a list of OCI Registry names,
                                                     whose authentication providers
                                                     are provided It can be of one
-                                                    of these values: AWS, ACR, GCP,
-                                                    GHCR'
+                                                    of these values: default,google,azure,amazon,github'
                                                   items:
                                                     description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
@@ -22391,8 +22384,7 @@ spec:
                                                     a list of OCI Registry names,
                                                     whose authentication providers
                                                     are provided It can be of one
-                                                    of these values: AWS, ACR, GCP,
-                                                    GHCR'
+                                                    of these values: default,google,azure,amazon,github'
                                                   items:
                                                     description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
@@ -23806,7 +23798,7 @@ spec:
                                     description: 'Providers specifies a list of OCI
                                       Registry names, whose authentication providers
                                       are provided It can be of one of these values:
-                                      AWS, ACR, GCP, GHCR'
+                                      default,google,azure,amazon,github'
                                     items:
                                       description: ImageRegistryCredentialsProvidersType
                                         provides the list of credential providers
@@ -24290,7 +24282,7 @@ spec:
                                     description: 'Providers specifies a list of OCI
                                       Registry names, whose authentication providers
                                       are provided It can be of one of these values:
-                                      AWS, ACR, GCP, GHCR'
+                                      default,google,azure,amazon,github'
                                     items:
                                       description: ImageRegistryCredentialsProvidersType
                                         provides the list of credential providers
@@ -25990,7 +25982,7 @@ spec:
                                                 list of OCI Registry names, whose
                                                 authentication providers are provided
                                                 It can be of one of these values:
-                                                AWS, ACR, GCP, GHCR'
+                                                default,google,azure,amazon,github'
                                               items:
                                                 description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
@@ -26323,7 +26315,7 @@ spec:
                                                 list of OCI Registry names, whose
                                                 authentication providers are provided
                                                 It can be of one of these values:
-                                                AWS, ACR, GCP, GHCR'
+                                                default,google,azure,amazon,github'
                                               items:
                                                 description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
@@ -26878,7 +26870,7 @@ spec:
                                                 list of OCI Registry names, whose
                                                 authentication providers are provided
                                                 It can be of one of these values:
-                                                AWS, ACR, GCP, GHCR'
+                                                default,google,azure,amazon,github'
                                               items:
                                                 description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
@@ -28231,8 +28223,7 @@ spec:
                               providers:
                                 description: 'Providers specifies a list of OCI Registry
                                   names, whose authentication providers are provided
-                                  It can be of one of these values: AWS, ACR, GCP,
-                                  GHCR'
+                                  It can be of one of these values: default,google,azure,amazon,github'
                                 items:
                                   description: ImageRegistryCredentialsProvidersType
                                     provides the list of credential providers required.
@@ -28575,7 +28566,7 @@ spec:
                                         description: 'Providers specifies a list of
                                           OCI Registry names, whose authentication
                                           providers are provided It can be of one
-                                          of these values: AWS, ACR, GCP, GHCR'
+                                          of these values: default,google,azure,amazon,github'
                                         items:
                                           description: ImageRegistryCredentialsProvidersType
                                             provides the list of credential providers
@@ -30352,8 +30343,7 @@ spec:
                                                     a list of OCI Registry names,
                                                     whose authentication providers
                                                     are provided It can be of one
-                                                    of these values: AWS, ACR, GCP,
-                                                    GHCR'
+                                                    of these values: default,google,azure,amazon,github'
                                                   items:
                                                     description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
@@ -30701,8 +30691,7 @@ spec:
                                                     a list of OCI Registry names,
                                                     whose authentication providers
                                                     are provided It can be of one
-                                                    of these values: AWS, ACR, GCP,
-                                                    GHCR'
+                                                    of these values: default,google,azure,amazon,github'
                                                   items:
                                                     description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
@@ -31287,8 +31276,7 @@ spec:
                                                     a list of OCI Registry names,
                                                     whose authentication providers
                                                     are provided It can be of one
-                                                    of these values: AWS, ACR, GCP,
-                                                    GHCR'
+                                                    of these values: default,google,azure,amazon,github'
                                                   items:
                                                     description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
@@ -32702,7 +32690,7 @@ spec:
                                     description: 'Providers specifies a list of OCI
                                       Registry names, whose authentication providers
                                       are provided It can be of one of these values:
-                                      AWS, ACR, GCP, GHCR'
+                                      default,google,azure,amazon,github'
                                     items:
                                       description: ImageRegistryCredentialsProvidersType
                                         provides the list of credential providers
@@ -33158,7 +33146,7 @@ spec:
                                     description: 'Providers specifies a list of OCI
                                       Registry names, whose authentication providers
                                       are provided It can be of one of these values:
-                                      AWS, ACR, GCP, GHCR'
+                                      default,google,azure,amazon,github'
                                     items:
                                       description: ImageRegistryCredentialsProvidersType
                                         provides the list of credential providers
@@ -34432,7 +34420,7 @@ spec:
                                                 list of OCI Registry names, whose
                                                 authentication providers are provided
                                                 It can be of one of these values:
-                                                AWS, ACR, GCP, GHCR'
+                                                default,google,azure,amazon,github'
                                               items:
                                                 description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
@@ -34765,7 +34753,7 @@ spec:
                                                 list of OCI Registry names, whose
                                                 authentication providers are provided
                                                 It can be of one of these values:
-                                                AWS, ACR, GCP, GHCR'
+                                                default,google,azure,amazon,github'
                                               items:
                                                 description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
@@ -35499,7 +35487,7 @@ spec:
                                                 list of OCI Registry names, whose
                                                 authentication providers are provided
                                                 It can be of one of these values:
-                                                AWS, ACR, GCP, GHCR'
+                                                default,google,azure,amazon,github'
                                               items:
                                                 description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
@@ -36838,8 +36826,7 @@ spec:
                               providers:
                                 description: 'Providers specifies a list of OCI Registry
                                   names, whose authentication providers are provided
-                                  It can be of one of these values: AWS, ACR, GCP,
-                                  GHCR'
+                                  It can be of one of these values: default,google,azure,amazon,github'
                                 items:
                                   description: ImageRegistryCredentialsProvidersType
                                     provides the list of credential providers required.
@@ -37169,7 +37156,7 @@ spec:
                                         description: 'Providers specifies a list of
                                           OCI Registry names, whose authentication
                                           providers are provided It can be of one
-                                          of these values: AWS, ACR, GCP, GHCR'
+                                          of these values: default,google,azure,amazon,github'
                                         items:
                                           description: ImageRegistryCredentialsProvidersType
                                             provides the list of credential providers
@@ -38946,8 +38933,7 @@ spec:
                                                     a list of OCI Registry names,
                                                     whose authentication providers
                                                     are provided It can be of one
-                                                    of these values: AWS, ACR, GCP,
-                                                    GHCR'
+                                                    of these values: default,google,azure,amazon,github'
                                                   items:
                                                     description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
@@ -39295,8 +39281,7 @@ spec:
                                                     a list of OCI Registry names,
                                                     whose authentication providers
                                                     are provided It can be of one
-                                                    of these values: AWS, ACR, GCP,
-                                                    GHCR'
+                                                    of these values: default,google,azure,amazon,github'
                                                   items:
                                                     description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
@@ -39881,8 +39866,7 @@ spec:
                                                     a list of OCI Registry names,
                                                     whose authentication providers
                                                     are provided It can be of one
-                                                    of these values: AWS, ACR, GCP,
-                                                    GHCR'
+                                                    of these values: default,google,azure,amazon,github'
                                                   items:
                                                     description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
@@ -41296,7 +41280,7 @@ spec:
                                     description: 'Providers specifies a list of OCI
                                       Registry names, whose authentication providers
                                       are provided It can be of one of these values:
-                                      AWS, ACR, GCP, GHCR'
+                                      default,google,azure,amazon,github'
                                     items:
                                       description: ImageRegistryCredentialsProvidersType
                                         provides the list of credential providers
@@ -43806,6 +43790,7 @@ rules:
     resources:
       - policies
       - clusterpolicies
+      - policyexceptions
       - updaterequests
       - updaterequests/status
     verbs:
@@ -43933,6 +43918,13 @@ rules:
     verbs:
       - list
       - watch
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - clustercleanuppolicies/status
+      - cleanuppolicies/status
+    verbs:
+      - update
   - apiGroups:
       - ''
     resources:
