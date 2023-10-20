@@ -299,7 +299,7 @@ type ImageRegistryCredentials struct {
 	AllowInsecureRegistry bool `json:"allowInsecureRegistry,omitempty" yaml:"allowInsecureRegistry,omitempty"`
 
 	// Providers specifies a list of OCI Registry names, whose authentication providers are provided
-	// It can be of one of these values: AWS, ACR, GCP, GHCR
+	// It can be of one of these values: default,google,azure,amazon,github
 	// +kubebuilder:validation:Optional
 	Providers []ImageRegistryCredentialsProvidersType `json:"providers,omitempty" yaml:"providers,omitempty"`
 
