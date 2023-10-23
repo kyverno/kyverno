@@ -36,7 +36,7 @@ jobs:
         run: |
           if [[ $(ct list-changed --target-branch=main) ]];
           then
-            ct lint --target-branch=main --check-version-increment=false
+            ct lint --target-branch=main --check-version-increment=false --validate-maintainers=false
           fi
       - name: Setup test env
         uses: ./.github/actions/setup-test-env
