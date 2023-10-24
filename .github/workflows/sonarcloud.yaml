@@ -17,15 +17,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
       - name: Check secret
         id: checksecret
         uses: ./.github/actions/is-defined
         with:
           value: ${{ secrets.SONAR_TOKEN }}
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
       - name: Setup build env
         if: steps.checksecret.outputs.result == 'true'
         uses: ./.github/actions/setup-build-env
+        timeout-minutes: 10
       - name: SonarCloud Scan
         if: steps.checksecret.outputs.result == 'true'
         uses: sonarsource/sonarcloud-github-action@db501078e936e4b4c8773d1bb949ba9ddb7b6b6a # v1.9

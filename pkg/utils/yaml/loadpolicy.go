@@ -54,9 +54,9 @@ func addPolicy(policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies
 	kind := us.GetKind()
 
 	if strings.Compare(kind, "ValidatingAdmissionPolicy") == 0 {
-		validatingAdmissionPolicy := &v1alpha1.ValidatingAdmissionPolicy{}
+		validatingAdmissionPolicy := v1alpha1.ValidatingAdmissionPolicy{}
 
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(us.Object, validatingAdmissionPolicy); err != nil {
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(us.Object, &validatingAdmissionPolicy, true); err != nil {
 			return policies, nil, fmt.Errorf("failed to decode policy: %v", err)
 		}
 
@@ -65,16 +65,18 @@ func addPolicy(policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies
 			return policies, validatingAdmissionPolicies, nil
 		}
 
-		validatingAdmissionPolicies = append(validatingAdmissionPolicies, *validatingAdmissionPolicy)
+		validatingAdmissionPolicies = append(validatingAdmissionPolicies, validatingAdmissionPolicy)
 	} else {
 		var policy kyvernov1.PolicyInterface
 		if us.GetKind() == "ClusterPolicy" {
 			policy = &kyvernov1.ClusterPolicy{}
-		} else {
+		} else if us.GetKind() == "Policy" {
 			policy = &kyvernov1.Policy{}
+		} else {
+			return policies, validatingAdmissionPolicies, nil
 		}
 
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(us.Object, policy); err != nil {
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(us.Object, policy, true); err != nil {
 			return nil, validatingAdmissionPolicies, fmt.Errorf("failed to decode policy: %v", err)
 		}
 

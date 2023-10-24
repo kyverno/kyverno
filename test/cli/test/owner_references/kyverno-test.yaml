@@ -1,21 +1,15 @@
-name: pod-probes
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
 - policy.yaml
 resources:
 - resource.yaml
 results:
-- policy: require-pod-probes
-  rule: require-pod-probes
-  resource: pod-fail
-  kind: Pod
+- kind: Pod
+  policy: require-pod-probes
+  resources:
+  - pod-fail
   result: fail
-- policy: require-pod-probes
   rule: require-pod-probes
-  resource: deployment-skip
-  kind: Deployment
-  result: skip
-- policy: require-pod-probes
-  rule: require-pod-probes
-  resource: cronjob-skip
-  kind: CronJob
-  result: skip

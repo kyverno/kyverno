@@ -1,16 +1,21 @@
-name: test-image-signature
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  - policies.yaml
+- policies.yaml
 resources:
-  - resources.yaml
+- resources.yaml
 results:
-  - policy: verify-signature
-    rule: check-static-key
-    resource: signed
-    kind: Pod
-    status: pass
-  - policy: verify-signature
-    rule: check-static-key
-    resource: unsigned
-    kind: Pod
-    status: fail
+- kind: Pod
+  policy: verify-signature
+  resources:
+  - unsigned
+  result: fail
+  rule: check-static-key
+- kind: Pod
+  policy: verify-signature
+  resources:
+  - signed
+  result: pass
+  rule: check-static-key

@@ -1,11 +1,15 @@
-name: test-image-enforce-signatures
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  - policies.yaml
+- policies.yaml
 resources:
-  - resources.yaml
+- resources.yaml
 results:
-  - policy: secure-images
-    rule: enforce-signatures
-    resource: tomcat
-    kind: Pod
-    status: fail
+- kind: Pod
+  policy: secure-images
+  resources:
+  - tomcat
+  result: fail
+  rule: enforce-signatures

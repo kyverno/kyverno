@@ -1,12 +1,12 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: check-deployment-replicas
+  name: check-deployment-replicas-01
 spec:
   validationFailureAction: Enforce
   background: false
   rules:
-    - name: deployment-replicas
+    - name: deployment-replicas-01
       match:
         any:
         - resources:
@@ -16,10 +16,10 @@ spec:
         cel:
           paramKind: 
             apiVersion: rules.example.com/v1
-            kind: ReplicaLimit
+            kind: DeploymentReplicaLimit
           paramRef:
             name: "replica-limit"
-            namespace: "testing"
+            namespace: "testing-02"
             parameterNotFoundAction: "Deny"
           expressions:
             - expression: "object.spec.replicas <= params.maxReplicas"

@@ -1,13 +1,16 @@
-name: enforce-replicas-for-scale-subresource
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  - enforce-replicas-for-scale-subresource.yml
+- enforce-replicas-for-scale-subresource.yml
 resources:
-  - resource.yaml
-variables: values.yaml
+- resource.yaml
 results:
-  - policy: enforce-replicas-for-scale-subresource
-    rule: validate-nginx-test
-    resource: nginx-test
-    namespace: default
-    kind: Scale
-    result: fail
+- kind: Scale
+  policy: enforce-replicas-for-scale-subresource
+  resources:
+  - default/nginx-test
+  result: fail
+  rule: validate-nginx-test
+variables: values.yaml

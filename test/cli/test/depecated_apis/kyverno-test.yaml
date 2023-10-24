@@ -1,16 +1,21 @@
-name: test-simple
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  - policy.yaml
+- policy.yaml
 resources:
-  - resources.yaml
+- resources.yaml
 results:
-  - policy: check-deprecated-api
-    rule: validate-v1-25-removal
-    resource: hello
-    kind: CronJob
-    status: skip
-  - policy: check-deprecated-api
-    rule: validate-v1-25-removal
-    resource: hello-fail
-    kind: CronJob
-    status: warn
+- kind: CronJob
+  policy: check-deprecated-api
+  resources:
+  - hello
+  result: skip
+  rule: validate-v1-25-removal
+- kind: CronJob
+  policy: check-deprecated-api
+  resources:
+  - hello-fail
+  result: warn
+  rule: validate-v1-25-removal

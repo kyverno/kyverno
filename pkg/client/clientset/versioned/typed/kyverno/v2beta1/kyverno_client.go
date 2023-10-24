@@ -28,13 +28,24 @@ import (
 
 type KyvernoV2beta1Interface interface {
 	RESTClient() rest.Interface
+	CleanupPoliciesGetter
+	ClusterCleanupPoliciesGetter
 	ClusterPoliciesGetter
 	PoliciesGetter
+	PolicyExceptionsGetter
 }
 
 // KyvernoV2beta1Client is used to interact with features provided by the kyverno.io group.
 type KyvernoV2beta1Client struct {
 	restClient rest.Interface
+}
+
+func (c *KyvernoV2beta1Client) CleanupPolicies(namespace string) CleanupPolicyInterface {
+	return newCleanupPolicies(c, namespace)
+}
+
+func (c *KyvernoV2beta1Client) ClusterCleanupPolicies() ClusterCleanupPolicyInterface {
+	return newClusterCleanupPolicies(c)
 }
 
 func (c *KyvernoV2beta1Client) ClusterPolicies() ClusterPolicyInterface {
@@ -43,6 +54,10 @@ func (c *KyvernoV2beta1Client) ClusterPolicies() ClusterPolicyInterface {
 
 func (c *KyvernoV2beta1Client) Policies(namespace string) PolicyInterface {
 	return newPolicies(c, namespace)
+}
+
+func (c *KyvernoV2beta1Client) PolicyExceptions(namespace string) PolicyExceptionInterface {
+	return newPolicyExceptions(c, namespace)
 }
 
 // NewForConfig creates a new KyvernoV2beta1Client for the given config.

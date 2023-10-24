@@ -24,60 +24,80 @@ type (
 	EnqueueFuncT[T any] func(T) error
 )
 
-func AddEventHandlers(informer cache.SharedInformer, a addFunc, u updateFunc, d deleteFunc) {
-	_, _ = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+func AddEventHandlers(informer cache.SharedInformer, a addFunc, u updateFunc, d deleteFunc) (cache.ResourceEventHandlerRegistration, error) {
+	var onDelete deleteFunc
+	if d != nil {
+		onDelete = func(obj interface{}) {
+			d(kubeutils.GetObjectWithTombstone(obj))
+		}
+	}
+	return informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    a,
 		UpdateFunc: u,
-		DeleteFunc: func(obj interface{}) {
-			d(kubeutils.GetObjectWithTombstone(obj))
-		},
+		DeleteFunc: onDelete,
 	})
 }
 
-func AddEventHandlersT[T any](informer cache.SharedInformer, a addFuncT[T], u updateFuncT[T], d deleteFuncT[T]) {
-	AddEventHandlers(
-		informer,
-		func(obj interface{}) { a(obj.(T)) },
-		func(old, obj interface{}) { u(old.(T), obj.(T)) },
-		func(obj interface{}) { d(obj.(T)) },
-	)
+func AddEventHandlersT[T any](informer cache.SharedInformer, a addFuncT[T], u updateFuncT[T], d deleteFuncT[T]) (cache.ResourceEventHandlerRegistration, error) {
+	var onAdd addFunc
+	var onUpdate updateFunc
+	var onDelete deleteFunc
+	if a != nil {
+		onAdd = func(obj interface{}) { a(obj.(T)) }
+	}
+	if u != nil {
+		onUpdate = func(old, obj interface{}) { u(old.(T), obj.(T)) }
+	}
+	if d != nil {
+		onDelete = func(obj interface{}) { d(obj.(T)) }
+	}
+	return AddEventHandlers(informer, onAdd, onUpdate, onDelete)
 }
 
-func AddKeyedEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, parseKey keyFunc) EnqueueFunc {
+func AddKeyedEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, parseKey keyFunc) (EnqueueFunc, cache.ResourceEventHandlerRegistration, error) {
 	enqueueFunc := LogError(logger, Parse(parseKey, Queue(queue)))
-	AddEventHandlers(informer, AddFunc(logger, enqueueFunc), UpdateFunc(logger, enqueueFunc), DeleteFunc(logger, enqueueFunc))
-	return enqueueFunc
+	if registration, err := AddEventHandlers(informer, AddFunc(logger, enqueueFunc), UpdateFunc(logger, enqueueFunc), DeleteFunc(logger, enqueueFunc)); err != nil {
+		return nil, nil, err
+	} else {
+		return enqueueFunc, registration, nil
+	}
 }
 
-func AddKeyedEventHandlersT[K metav1.Object](logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, parseKey keyFuncT[K, interface{}]) EnqueueFuncT[K] {
+func AddKeyedEventHandlersT[K metav1.Object](logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, parseKey keyFuncT[K, interface{}]) (EnqueueFuncT[K], cache.ResourceEventHandlerRegistration, error) {
 	enqueueFunc := LogError(logger, Parse(parseKey, Queue(queue)))
-	AddEventHandlersT(informer, AddFuncT(logger, enqueueFunc), UpdateFuncT(logger, enqueueFunc), DeleteFuncT(logger, enqueueFunc))
-	return enqueueFunc
+	if registration, err := AddEventHandlersT(informer, AddFuncT(logger, enqueueFunc), UpdateFuncT(logger, enqueueFunc), DeleteFuncT(logger, enqueueFunc)); err != nil {
+		return nil, nil, err
+	} else {
+		return enqueueFunc, registration, nil
+	}
 }
 
-func AddDelayedKeyedEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, delay time.Duration, parseKey keyFunc) EnqueueFunc {
+func AddDelayedKeyedEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, delay time.Duration, parseKey keyFunc) (EnqueueFunc, cache.ResourceEventHandlerRegistration, error) {
 	enqueueFunc := LogError(logger, Parse(parseKey, QueueAfter(queue, delay)))
-	AddEventHandlers(informer, AddFunc(logger, enqueueFunc), UpdateFunc(logger, enqueueFunc), DeleteFunc(logger, enqueueFunc))
-	return enqueueFunc
+	if registration, err := AddEventHandlers(informer, AddFunc(logger, enqueueFunc), UpdateFunc(logger, enqueueFunc), DeleteFunc(logger, enqueueFunc)); err != nil {
+		return nil, nil, err
+	} else {
+		return enqueueFunc, registration, nil
+	}
 }
 
-func AddDefaultEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface) EnqueueFunc {
+func AddDefaultEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface) (EnqueueFunc, cache.ResourceEventHandlerRegistration, error) {
 	return AddKeyedEventHandlers(logger, informer, queue, MetaNamespaceKey)
 }
 
-func AddDefaultEventHandlersT[K metav1.Object](logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface) EnqueueFuncT[K] {
+func AddDefaultEventHandlersT[K metav1.Object](logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface) (EnqueueFuncT[K], cache.ResourceEventHandlerRegistration, error) {
 	return AddKeyedEventHandlersT(logger, informer, queue, MetaNamespaceKeyT[K])
 }
 
-func AddDelayedDefaultEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, delay time.Duration) EnqueueFunc {
+func AddDelayedDefaultEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, delay time.Duration) (EnqueueFunc, cache.ResourceEventHandlerRegistration, error) {
 	return AddDelayedKeyedEventHandlers(logger, informer, queue, delay, MetaNamespaceKey)
 }
 
-func AddExplicitEventHandlers[K any](logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, parseKey func(K) cache.ExplicitKey) EnqueueFunc {
+func AddExplicitEventHandlers[K any](logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, parseKey func(K) cache.ExplicitKey) (EnqueueFunc, cache.ResourceEventHandlerRegistration, error) {
 	return AddKeyedEventHandlers(logger, informer, queue, ExplicitKey(parseKey))
 }
 
-func AddDelayedExplicitEventHandlers[K any](logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, delay time.Duration, parseKey func(K) cache.ExplicitKey) EnqueueFunc {
+func AddDelayedExplicitEventHandlers[K any](logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, delay time.Duration, parseKey func(K) cache.ExplicitKey) (EnqueueFunc, cache.ResourceEventHandlerRegistration, error) {
 	return AddDelayedKeyedEventHandlers(logger, informer, queue, delay, ExplicitKey(parseKey))
 }
 
@@ -113,6 +133,10 @@ func QueueAfter(queue workqueue.RateLimitingInterface, delay time.Duration) Enqu
 		queue.AddAfter(obj, delay)
 		return nil
 	}
+}
+
+func MetaObjectToName(obj metav1.Object) string {
+	return cache.MetaObjectToName(obj).String()
 }
 
 func MetaNamespaceKey(obj interface{}) (interface{}, error) {

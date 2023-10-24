@@ -1,21 +1,27 @@
-name: yaml-verification
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  - policies.yaml
+- policies.yaml
 resources:
-  - resources.yaml
+- resources.yaml
 results:
-  - policy: validate-yaml
-    rule: validate-yaml
-    resource: test-service # no signature
-    kind: Service
-    result: fail
-  - policy: validate-yaml
-    rule: validate-yaml
-    resource: test-service2 # one signature
-    kind: Service
-    result: pass
-  - policy: validate-yaml
-    rule: validate-yaml-multi-sig
-    resource: test-service3 # multi signature
-    kind: Service
-    result: pass
+- kind: Service
+  policy: validate-yaml
+  resources:
+  - test-service
+  result: fail
+  rule: validate-yaml
+- kind: Service
+  policy: validate-yaml
+  resources:
+  - test-service2
+  result: pass
+  rule: validate-yaml
+- kind: Service
+  policy: validate-yaml
+  resources:
+  - test-service3
+  result: pass
+  rule: validate-yaml-multi-sig

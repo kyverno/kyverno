@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	"github.com/sigstore/sigstore/pkg/tuf"
 )
 
 var (
@@ -38,6 +39,9 @@ var (
 	enableConfigMapCaching bool
 	// cosign
 	imageSignatureRepository string
+	enableTUF                bool
+	tufMirror                string
+	tufRoot                  string
 	// registry client
 	imagePullSecrets          string
 	allowInsecureRegistry     bool
@@ -46,7 +50,7 @@ var (
 	leaderElectionRetryPeriod time.Duration
 	// image verify cache
 	imageVerifyCacheEnabled     bool
-	imageVerifyCacheTTLDuration int64
+	imageVerifyCacheTTLDuration time.Duration
 	imageVerifyCacheMaxSize     int64
 )
 
@@ -85,7 +89,7 @@ func initKubeconfigFlags(qps float64, burst int) {
 
 func initPolicyExceptionsFlags() {
 	flag.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions.")
-	flag.BoolVar(&enablePolicyException, "enablePolicyException", false, "Enable PolicyException feature.")
+	flag.BoolVar(&enablePolicyException, "enablePolicyException", true, "Enable PolicyException feature.")
 }
 
 func initConfigMapCachingFlags() {
@@ -98,6 +102,9 @@ func initDeferredLoadingFlags() {
 
 func initCosignFlags() {
 	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "(DEPRECATED, will be removed in 1.12) Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
+	flag.BoolVar(&enableTUF, "enableTuf", false, "enable tuf for private sigstore deployments")
+	flag.StringVar(&tufMirror, "tufMirror", tuf.DefaultRemoteRoot, "Alternate TUF mirror for sigstore. If left blank, public sigstore one is used for cosign verification.")
+	flag.StringVar(&tufRoot, "tufRoot", "", "Alternate TUF root.json for sigstore. If left blank, public sigstore one is used for cosign verification.")
 }
 
 func initRegistryClientFlags() {
@@ -108,8 +115,8 @@ func initRegistryClientFlags() {
 
 func initImageVerifyCacheFlags() {
 	flag.BoolVar(&imageVerifyCacheEnabled, "imageVerifyCacheEnabled", true, "Whether to use a TTL cache for storing verified images.")
-	flag.Int64Var(&imageVerifyCacheMaxSize, "imageVerifyCacheMaxSize", 0, "Max size limit for the TTL cache, 0 means no size limit.")
-	flag.Int64Var(&imageVerifyCacheTTLDuration, "imageVerifyCacheTTLDuration", 0, "Max TTL value for a cache, 0 means no TTL.")
+	flag.Int64Var(&imageVerifyCacheMaxSize, "imageVerifyCacheMaxSize", 1000, "Max size limit for the TTL cache, 0 means default 1000 size limit.")
+	flag.DurationVar(&imageVerifyCacheTTLDuration, "imageVerifyCacheTTLDuration", 60*time.Minute, "Max TTL value for a cache, 0 means default 1 hour TTL.")
 }
 
 func initLeaderElectionFlags() {

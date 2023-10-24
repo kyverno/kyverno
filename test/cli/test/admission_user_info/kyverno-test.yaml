@@ -1,38 +1,26 @@
-name: admission-user-info
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  -  disallow_latest_tag.yaml
+- disallow_latest_tag.yaml
 resources:
-  -  resource.yaml
-userinfo: user_info.yaml
-
+- resource.yaml
 results:
-  - policy: disallow-latest-tag
-    rule: require-image-tag
-    resource: myapp-pod1
-    kind: Pod
-    result: pass
-  - policy: disallow-latest-tag
-    rule: require-image-tag
-    resource: myapp-pod2
-    kind: Pod
-    result: pass
-  - policy: disallow-latest-tag
-    rule: require-image-tag
-    resource: myapp-pod3
-    kind: Pod
-    result: pass
-  - policy: disallow-latest-tag
-    rule: validate-image-tag
-    resource: myapp-pod1
-    kind: Pod
-    result: pass
-  - policy: disallow-latest-tag
-    rule: validate-image-tag
-    resource: myapp-pod2
-    kind: Pod
-    result: pass
-  - policy: disallow-latest-tag
-    rule: validate-image-tag
-    resource: myapp-pod3
-    kind: Pod
-    result: pass
+- kind: Pod
+  policy: disallow-latest-tag
+  resources:
+  - myapp-pod1
+  - myapp-pod2
+  - myapp-pod3
+  result: pass
+  rule: require-image-tag
+- kind: Pod
+  policy: disallow-latest-tag
+  resources:
+  - myapp-pod1
+  - myapp-pod2
+  - myapp-pod3
+  result: pass
+  rule: validate-image-tag
+userinfo: user_info.yaml

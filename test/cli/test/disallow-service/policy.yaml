@@ -1,0 +1,31 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-service
+spec:
+  admission: true
+  background: true
+  failurePolicy: Ignore
+  rules:
+  - match:
+      all:
+      - resources:
+          kinds:
+          - Service
+    name: disallow-service
+    preconditions:
+      any:
+      - key: '{{ request.object.metadata.namespace }}'
+        operator: NotEquals
+        value: ns1
+      - key: '{{ request.object.metadata.name }}'
+        operator: AnyNotIn
+        value:
+        - svc1
+        - svc2
+    validate:
+      anyPattern:
+      - kind: '!Service'
+      message: Can't create a service. Sorry...
+  validationFailureAction: Enforce

@@ -1,23 +1,28 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: disallow-sysctls
   annotations:
     policies.kyverno.io/category: Security
-    policies.kyverno.io/description: The Sysctl interface allows modifications to kernel parameters 
-      at runtime. In a Kubernetes pod these parameters can be specified under `securityContext.sysctls`. 
-      Kernel parameter modifications can be used for exploits and should be restricted.
+    policies.kyverno.io/description: The Sysctl interface allows modifications to
+      kernel parameters at runtime. In a Kubernetes pod these parameters can be specified
+      under `securityContext.sysctls`. Kernel parameter modifications can be used
+      for exploits and should be restricted.
+  name: disallow-sysctls
 spec:
-  validationFailureAction: audit
+  admission: true
+  background: true
   rules:
-  - name: validate-sysctls
-    match:
-      resources:
-        kinds:
-        - Pod
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: validate-sysctls
     validate:
-      message: "Changes to kernel parameters are not allowed"
+      message: Changes to kernel parameters are not allowed
       pattern:
         spec:
           =(securityContext):
             X(sysctls): null
+  validationFailureAction: Audit

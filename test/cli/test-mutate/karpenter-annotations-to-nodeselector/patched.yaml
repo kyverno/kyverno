@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: soft-pod-antiaffinity-1
+  namespace: sample
+  annotations:
+    spot-toleration: 'false'
+  ownerReferences:
+    - controller: true
+      kind: Deployment
+      apiVersion: v1
+      uid: test
+      name: test
+spec:
+  containers:
+    - name: echo-server
+      image: hashicorp/http-echo:0.2.3
+      imagePullPolicy: IfNotPresent
+      args:
+        - -listen=:8080
+        - -text="hello world"
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: karpenter.sh/capacity-type
+                operator: In
+                values:
+                  - on-demand
+              - key: karpenter.sh/capacity-type
+                operator: NotIn
+                values:
+                  - spot
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: test-pod
+            topologyKey: kubernetes.io/hostname
+          weight: 100

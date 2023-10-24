@@ -97,8 +97,10 @@ func NewController(
 		labelSelector:  labelSelector,
 		caSecretName:   caSecretName,
 	}
-	controllerutils.AddDefaultEventHandlers(c.logger, vwcInformer.Informer(), queue)
-	controllerutils.AddEventHandlersT(
+	if _, _, err := controllerutils.AddDefaultEventHandlers(c.logger, vwcInformer.Informer(), queue); err != nil {
+		c.logger.Error(err, "failed to register event handlers")
+	}
+	if _, err := controllerutils.AddEventHandlersT(
 		secretInformer.Informer(),
 		func(obj *corev1.Secret) {
 			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == caSecretName {
@@ -115,7 +117,9 @@ func NewController(
 				c.enqueue()
 			}
 		},
-	)
+	); err != nil {
+		c.logger.Error(err, "failed to register event handlers")
+	}
 	configuration.OnChanged(c.enqueue)
 	return &c
 }

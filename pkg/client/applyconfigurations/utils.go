@@ -105,6 +105,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov1.PolicyApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("PolicyStatus"):
 		return &kyvernov1.PolicyStatusApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("Rekor"):
+		return &kyvernov1.RekorApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("RequestData"):
 		return &kyvernov1.RequestDataApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ResourceDescription"):
@@ -129,6 +131,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov1.TargetResourceSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("UserInfo"):
 		return &kyvernov1.UserInfoApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyStatus"):
+		return &kyvernov1.ValidatingAdmissionPolicyStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("Validation"):
 		return &kyvernov1.ValidationApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ValidationFailureActionOverride"):
@@ -167,34 +171,40 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		// Group=kyverno.io, Version=v2alpha1
 	case v2alpha1.SchemeGroupVersion.WithKind("CleanupPolicy"):
 		return &kyvernov2alpha1.CleanupPolicyApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("CleanupPolicySpec"):
-		return &kyvernov2alpha1.CleanupPolicySpecApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("CleanupPolicyStatus"):
-		return &kyvernov2alpha1.CleanupPolicyStatusApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("ClusterCleanupPolicy"):
 		return &kyvernov2alpha1.ClusterCleanupPolicyApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("Exception"):
-		return &kyvernov2alpha1.ExceptionApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("PolicyException"):
 		return &kyvernov2alpha1.PolicyExceptionApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("PolicyExceptionSpec"):
-		return &kyvernov2alpha1.PolicyExceptionSpecApplyConfiguration{}
 
 		// Group=kyverno.io, Version=v2beta1
 	case v2beta1.SchemeGroupVersion.WithKind("AnyAllConditions"):
 		return &kyvernov2beta1.AnyAllConditionsApplyConfiguration{}
+	case v2beta1.SchemeGroupVersion.WithKind("CleanupPolicy"):
+		return &kyvernov2beta1.CleanupPolicyApplyConfiguration{}
+	case v2beta1.SchemeGroupVersion.WithKind("CleanupPolicySpec"):
+		return &kyvernov2beta1.CleanupPolicySpecApplyConfiguration{}
+	case v2beta1.SchemeGroupVersion.WithKind("CleanupPolicyStatus"):
+		return &kyvernov2beta1.CleanupPolicyStatusApplyConfiguration{}
+	case v2beta1.SchemeGroupVersion.WithKind("ClusterCleanupPolicy"):
+		return &kyvernov2beta1.ClusterCleanupPolicyApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("ClusterPolicy"):
 		return &kyvernov2beta1.ClusterPolicyApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("Condition"):
 		return &kyvernov2beta1.ConditionApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("Deny"):
 		return &kyvernov2beta1.DenyApplyConfiguration{}
+	case v2beta1.SchemeGroupVersion.WithKind("Exception"):
+		return &kyvernov2beta1.ExceptionApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("ImageVerification"):
 		return &kyvernov2beta1.ImageVerificationApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("MatchResources"):
 		return &kyvernov2beta1.MatchResourcesApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("Policy"):
 		return &kyvernov2beta1.PolicyApplyConfiguration{}
+	case v2beta1.SchemeGroupVersion.WithKind("PolicyException"):
+		return &kyvernov2beta1.PolicyExceptionApplyConfiguration{}
+	case v2beta1.SchemeGroupVersion.WithKind("PolicyExceptionSpec"):
+		return &kyvernov2beta1.PolicyExceptionSpecApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("Rule"):
 		return &kyvernov2beta1.RuleApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("Spec"):

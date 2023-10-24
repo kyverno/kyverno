@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -27,7 +28,6 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
-	"golang.org/x/exp/slices"
 	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -99,7 +99,7 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 	trigger, err := c.getTrigger(ur.Spec)
 	if err != nil {
 		logger.V(3).Info("the trigger resource does not exist or is pending creation, re-queueing", "details", err.Error())
-		if err := updateRetryAnnotation(c.kyvernoClient, ur); err != nil {
+		if err := common.UpdateRetryAnnotation(c.kyvernoClient, ur); err != nil {
 			return err
 		}
 	}

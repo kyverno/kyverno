@@ -1,39 +1,42 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: disallow-privileged
   annotations:
     policies.kyverno.io/category: Security
-    policies.kyverno.io/description: Privileged containers are defined as any 
-      container where the container uid 0 is mapped to the host’s uid 0. 
-      A process within a privileged container can get unrestricted host access. 
-      With `securityContext.allowPrivilegeEscalation` enabled, a process can 
-      gain privileges from its parent. 
+    policies.kyverno.io/description: Privileged containers are defined as any container
+      where the container uid 0 is mapped to the host’s uid 0. A process within a
+      privileged container can get unrestricted host access. With `securityContext.allowPrivilegeEscalation`
+      enabled, a process can gain privileges from its parent.
+  name: disallow-privileged
 spec:
-  validationFailureAction: audit
+  admission: true
+  background: true
   rules:
-  - name: validate-privileged
-    match:
-      resources:
-        kinds:
-        - Pod
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: validate-privileged
     validate:
-      message: "Privileged mode is not allowed. Set privileged to false"
+      message: Privileged mode is not allowed. Set privileged to false
       pattern:
         spec:
           containers:
           - =(securityContext):
               =(privileged): false
-  - name: validate-allowPrivilegeEscalation
-    match:
-      resources:
-        kinds:
-        - Pod
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: validate-allowPrivilegeEscalation
     validate:
-      message: "Privileged mode is not allowed. Set allowPrivilegeEscalation to false"
+      message: Privileged mode is not allowed. Set allowPrivilegeEscalation to false
       pattern:
         spec:
           containers:
           - securityContext:
               allowPrivilegeEscalation: false
-
+  validationFailureAction: Audit
