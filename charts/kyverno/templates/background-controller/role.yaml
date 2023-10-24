@@ -44,5 +44,8 @@ rules:
       - get
       - list
       - watch
+    resourceNames:
+      - {{ template "kyverno.admission-controller.serviceName" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-ca
+      - {{ template "kyverno.admission-controller.serviceName" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-pair
 {{- end -}}
 {{- end -}}
