@@ -343,35 +343,6 @@ var baseline_hostProcess = []testCase{
 		}`),
 		allowed: true,
 	},
-	{
-		name: "baseline_hostProcess_defines_spec_blocked_with_no_exclusion",
-		rawRule: []byte(`
-		{
-			"level": "baseline",
-			"version": "v1.24"
-		}`),
-		rawPod: []byte(`
-		{
-			"kind": "Pod",
-			"metadata": {
-				"name": "test"
-			},
-			"spec": {
-				"securityContext": {
-					"windowsOptions": {
-						"hostProcess": true
-					}
-				},
-				"containers": [
-					{
-						"name": "nginx",
-						"image": "nginx:1.2.3"
-					}
-				]
-			}
-		}`),
-		allowed: false,
-	},
 }
 
 var baseline_host_namespaces = []testCase{
@@ -953,6 +924,88 @@ var baseline_capabilities = []testCase{
 		allowed: true,
 	},
 	{
+		name: "baseline_capabilities_foo_defines_container_allow_positive",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Capabilities",
+					"images": [
+						"nginx"
+					],
+					"restrictedField": "spec.containers[*].securityContext.capabilities.add",
+					"values": ["FOO", "BAR"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"capabilities": {
+								"add": [
+									"FOO", "BAR"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_capabilities_foo_defines_container_allow_negative",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Capabilities",
+					"images": [
+						"nginx"
+					],
+					"restrictedField": "spec.containers[*].securityContext.capabilities.add",
+					"values": ["FOO"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"capabilities": {
+								"add": [
+									"FOO", "BAR"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: false,
+	},
+	{
 		name: "baseline_capabilities_defines_container_none",
 		rawRule: []byte(`
 		{
@@ -1370,6 +1423,46 @@ var baseline_host_ports = []testCase{
 		allowed: true,
 	},
 	{
+		name: "baseline_host_ports_define_different_values_allow_negative",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Host Ports",
+					"images": [
+						"nginx"
+					],
+					"restrictedField": "spec.containers[*].ports.hostPort",
+					"values": ["-1"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"ports": [
+							{
+								"hostPort": 10,
+								"hostPort": 20
+							}
+						]
+					}
+				]
+			}
+		}`),
+		allowed: false,
+	},
+	{
 		name: "baseline_host_ports_undefined",
 		rawRule: []byte(`
 		{
@@ -1506,6 +1599,46 @@ var baseline_appArmor = []testCase{
 			"exclude": [
 				{
 					"controlName": "AppArmor"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test",
+				"annotations": {
+					"container.apparmor.security.beta.kubernetes.io/": "bogus",
+					"container.apparmor.security.beta.kubernetes.io/a": "",
+					"container.apparmor.security.beta.kubernetes.io/b": "runtime/default",
+					"container.apparmor.security.beta.kubernetes.io/c": "localhost/",
+					"container.apparmor.security.beta.kubernetes.io/d": "localhost/foo",
+					"container.apparmor.security.beta.kubernetes.io/e": "unconfined",
+					"container.apparmor.security.beta.kubernetes.io/f": "unknown"
+				}
+			},
+			"spec": {
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_appArmor_defines_multiple_allow_positive",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "AppArmor",
+					"restrictedField": "container.apparmor.security.beta.kubernetes.io/*",
+					"values": ["bogus", "unconfined", "unknown"]
 				}
 			]
 		}`),
@@ -1903,6 +2036,42 @@ var baseline_seLinux = []testCase{
 		allowed: true,
 	},
 	{
+		name: "baseline_seLinux_type_defines_bad_spec_allow_positive",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "SELinux",
+					"restrictedField": "spec.securityContext.seLinuxOptions.type",
+					"values": ["bad"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"seLinuxOptions": {
+						"type": "bad"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
 		name: "baseline_seLinux_type_securityContext_nil_violate_false",
 		rawRule: []byte(`
 		{
@@ -1983,6 +2152,198 @@ var baseline_seLinux = []testCase{
 			}
 		}`),
 		allowed: true,
+	},
+	{
+		name: "baseline_seLinux_type_securityContext_nil_allow_positive",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "SELinux",
+					"images": [
+						"nginx"
+					],
+					"restrictedField": "spec.containers[*].securityContext.seLinuxOptions.type",
+					"values": ["bar"]
+				},
+				{
+					"controlName": "SELinux",
+					"images": [
+						"nginx"
+					],
+					"restrictedField": "spec.containers[*].securityContext.seLinuxOptions.user",
+					"values": ["bar"]
+				},
+				{
+					"controlName": "SELinux",
+					"images": [
+						"nginx"
+					],
+					"restrictedField": "spec.containers[*].securityContext.seLinuxOptions.role",
+					"values": ["baz"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"containers": [
+					{
+						"name": "a",
+						"image": "nginx",
+						"securityContext": {
+							"seLinuxOptions": {
+								"type": "container_t"
+							}
+						}
+					},
+					{
+						"name": "b",
+						"image": "nginx",
+						"securityContext": {
+							"seLinuxOptions": {
+								"type": "container_init_t"
+							}
+						}
+					},
+					{
+						"name": "c",
+						"image": "nginx",
+						"securityContext": {
+							"seLinuxOptions": {
+								"type": "container_kvm_t"
+							}
+						}
+					},
+					{
+						"name": "d",
+						"image": "nginx",
+						"securityContext": {
+							"seLinuxOptions": {
+								"type": "bar"
+							}
+						}
+					},
+					{
+						"name": "e",
+						"image": "nginx",
+						"securityContext": {
+							"seLinuxOptions": {
+								"user": "bar"
+							}
+						}
+					},
+					{
+						"name": "f",
+						"image": "nginx",
+						"securityContext": {
+							"seLinuxOptions": {
+								"role": "baz"
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_seLinux_type_securityContext_nil_allow_negative",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "SELinux",
+					"images": [
+						"nginx"
+					],
+					"restrictedField": "spec.containers[*].securityContext.seLinuxOptions.type",
+					"values": ["bar"]
+				},
+				{
+					"controlName": "SELinux",
+					"images": [
+						"nginx"
+					],
+					"restrictedField": "spec.containers[*].securityContext.seLinuxOptions.user",
+					"values": ["bar"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"containers": [
+					{
+						"name": "a",
+						"image": "nginx",
+						"securityContext": {
+							"seLinuxOptions": {
+								"type": "container_t"
+							}
+						}
+					},
+					{
+						"name": "b",
+						"image": "nginx",
+						"securityContext": {
+							"seLinuxOptions": {
+								"type": "container_init_t"
+							}
+						}
+					},
+					{
+						"name": "c",
+						"image": "nginx",
+						"securityContext": {
+							"seLinuxOptions": {
+								"type": "container_kvm_t"
+							}
+						}
+					},
+					{
+						"name": "d",
+						"image": "nginx",
+						"securityContext": {
+							"seLinuxOptions": {
+								"type": "bar"
+							}
+						}
+					},
+					{
+						"name": "e",
+						"image": "nginx",
+						"securityContext": {
+							"seLinuxOptions": {
+								"user": "bar"
+							}
+						}
+					},
+					{
+						"name": "f",
+						"image": "nginx",
+						"securityContext": {
+							"seLinuxOptions": {
+								"role": "baz"
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: false,
 	},
 	{
 		name: "baseline_seLinux_type_not_match_pass",
@@ -2224,6 +2585,42 @@ var baseline_seLinux = []testCase{
 		allowed: true,
 	},
 	{
+		name: "baseline_seLinux_user_defines_bad_spec_allowed_positive",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "SELinux",
+					"restrictedField": "spec.securityContext.seLinuxOptions.user",
+					"values": ["bad"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"seLinuxOptions": {
+						"user": "bad"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
 		name: "baseline_seLinux_role_defines_bad_spec_violate_true",
 		rawRule: []byte(`
 		{
@@ -2232,6 +2629,42 @@ var baseline_seLinux = []testCase{
 			"exclude": [
 				{
 					"controlName": "SELinux"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"seLinuxOptions": {
+						"role": "bad"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_seLinux_role_defines_bad_spec_allowed_positive",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "SELinux",
+					"restrictedField": "spec.securityContext.seLinuxOptions.role",
+					"values": ["bad"]
 				}
 			]
 		}`),
@@ -2457,6 +2890,128 @@ var baseline_procMount = []testCase{
 			}
 		}`),
 		allowed: true,
+	},
+	{
+		name: "baseline_procMount_defines_multiple_allowed_positive",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "/proc Mount Type",
+					"images": [
+						"nginx"
+					],
+					"restrictedField": "spec.containers[*].securityContext.procMount",
+					"values": ["Unmasked", "other"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": null
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"procMount": "Default"
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"procMount": "Unmasked"
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"procMount": "other"
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_procMount_defines_multiple_allowed_negative",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "/proc Mount Type",
+					"images": [
+						"nginx"
+					],
+					"restrictedField": "spec.containers[*].securityContext.procMount",
+					"values": ["Unmasked"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": null
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"procMount": "Default"
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"procMount": "Unmasked"
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"procMount": "other"
+						}
+					}
+				]
+			}
+		}`),
+		allowed: false,
 	},
 	{
 		name: "baseline_procMount_not_match_pass",
@@ -2732,21 +3287,7 @@ var baseline_seccompProfile = []testCase{
 		rawRule: []byte(`
 		{
 			"level": "baseline",
-			"version": "v1.0",
-			"exclude": [
-				{
-					"controlName": "Seccomp",
-					"images": [
-						"nginx"
-					],
-					"metadata": {
-						"name": "test",
-						"annotations": {
-							"seccomp.security.alpha.kubernetes.io/pod": "Unconfined"
-						}
-					}
-				}
-			]
+			"version": "v1.0"
 		}`),
 		rawPod: []byte(`
 		{
@@ -2776,24 +3317,14 @@ var baseline_seccompProfile = []testCase{
 		allowed: true,
 	},
 	{
-		name: "baseline_seccompProfile_metadata_annotations_allow_multiple",
+		name: "baseline_seccompProfile_defines_multiple_all_violate_true",
 		rawRule: []byte(`
 		{
 			"level": "baseline",
-			"version": "v1.0",
+			"version": "v1.19",
 			"exclude": [
 				{
-					"controlName": "Seccomp",
-					"images": [
-						"nginx"
-					],
-					"metadata": {
-						"name": "test",
-						"annotations": {
-							"container.seccomp.security.alpha.kubernetes.io/a": "Unconfined",
-							"container.seccomp.security.alpha.kubernetes.io/b": "unknown"
-						}
-					}
+					"controlName": "Seccomp"
 				}
 			]
 		}`),
@@ -2806,12 +3337,35 @@ var baseline_seccompProfile = []testCase{
 			"spec": {
 				"securityContext": {
 					"seccompProfile": {
-						"type": "RuntimeDefault"
+						"type": "Unconfined"
 					}
 				},
 				"containers": [
 					{
-						"name": "a",
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"seccompProfile": null
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"seccompProfile": {}
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"seccompProfile": {
+								"type": "Unconfined"
+							}
+						}
+					},
+					{
+						"name": "nginx",
 						"image": "nginx",
 						"securityContext": {
 							"seccompProfile": {
@@ -2820,20 +3374,11 @@ var baseline_seccompProfile = []testCase{
 						}
 					},
 					{
-						"name": "b",
+						"name": "nginx",
 						"image": "nginx",
 						"securityContext": {
 							"seccompProfile": {
-								"type": "RuntimeDefault"
-							}
-						}
-					},
-					{
-						"name": "c",
-						"image": "nginx",
-						"securityContext": {
-							"seccompProfile": {
-								"type": "RuntimeDefault"
+								"type": "Localhost"
 							}
 						}
 					}
@@ -2843,14 +3388,16 @@ var baseline_seccompProfile = []testCase{
 		allowed: true,
 	},
 	{
-		name: "baseline_seccompProfile_defines_multiple_all_violate_true",
+		name: "baseline_seccompProfile_defines_multiple_all_allowed_positive",
 		rawRule: []byte(`
 		{
 			"level": "baseline",
 			"version": "v1.19",
 			"exclude": [
 				{
-					"controlName": "Seccomp"
+					"controlName": "Seccomp",
+					"restrictedField": "spec.securityContext.seccompProfile.type",
+					"values": ["Unconfined"]
 				}
 			]
 		}`),
@@ -2951,7 +3498,7 @@ var baseline_seccompProfile = []testCase{
 		allowed: true,
 	},
 	{
-		name: "baseline_seccompProfile_defines_container_violate_false",
+		name: "baseline_seccompProfile_defines_container_allowed_positive",
 		rawRule: []byte(`
 		{
 			"level": "baseline",
@@ -2961,8 +3508,81 @@ var baseline_seccompProfile = []testCase{
 					"controlName": "Seccomp",
 					"images": [
 						"nginx"
-					]
+					],
+					"restrictedField": "spec.containers[*].securityContext.seccompProfile.type",
+					"values": ["fake"]
 				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"seccompProfile": {
+								"type": "fake"
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_seccompProfile_defines_container_allowed_negative",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Seccomp",
+					"images": [
+						"nginx"
+					],
+					"restrictedField": "spec.containers[*].securityContext.seccompProfile.type",
+					"values": ["real"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"seccompProfile": {
+								"type": "fake"
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: false,
+	},
+	{
+		name: "baseline_seccompProfile_defines_container_violate_false",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+
 			]
 		}`),
 		rawPod: []byte(`
@@ -3022,16 +3642,47 @@ var baseline_seccompProfile = []testCase{
 		allowed: true,
 	},
 	{
-		name: "baseline_seccompProfile_defines_spec_violate_false",
+		name: "baseline_seccompProfile_defines_spec_allowed_positive",
 		rawRule: []byte(`
 		{
 			"level": "baseline",
 			"version": "v1.24",
 			"exclude": [
 				{
-					"controlName": "Seccomp"
+					"controlName": "Seccomp",
+					"restrictedField": "spec.securityContext.seccompProfile.type",
+					"values": ["fake"]
 				}
 			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"seccompProfile": {
+						"type": "fake"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_seccompProfile_defines_spec_violate_false",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24"
 		}`),
 		rawPod: []byte(`
 		{
@@ -3124,6 +3775,44 @@ var baseline_sysctls = []testCase{
 		allowed: true,
 	},
 	{
+		name: "baseline_sysctls_defines_allowed_positive",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Sysctls",
+					"restrictedField": "spec.securityContext.sysctls[*].name",
+					"values": ["fake.value"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"sysctls": [
+                		{
+                    		"name": "fake.value"
+                		}
+            		]
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
 		name: "baseline_sysctls_defines_violate_false",
 		rawRule: []byte(`
 		{
@@ -3132,6 +3821,44 @@ var baseline_sysctls = []testCase{
 			"exclude": [
 				{
 					"controlName": "Sysctls"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"sysctls": [
+                		{
+                    		"name": "kernel.shm_rmid_forced"
+                		}
+            		]
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_sysctls_defines_allowed_positive",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Sysctls",
+					"restrictedField": "spec.securityContext.sysctls[*].name",
+					"values": ["kernel.shm_rmid_forced"]
 				}
 			]
 		}`),
@@ -3199,6 +3926,47 @@ var baseline_sysctls = []testCase{
 		allowed: true,
 	},
 	{
+		name: "baseline_sysctls_multiple_sysctls_pass_allowed_positive",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.0",
+			"exclude": [
+				{
+					"controlName": "Sysctls",
+					"restrictedField": "spec.securityContext.sysctls[*].name",
+					"values": ["a", "b"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"sysctls": [
+                		{
+                    		"name": "a"
+                		},
+						{
+							"name": "b"
+						}
+            		]
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
 		name: "baseline_sysctls_new_sysctls_pass",
 		rawRule: []byte(`
 		{
@@ -3207,6 +3975,44 @@ var baseline_sysctls = []testCase{
 			"exclude": [
 				{
 					"controlName": "Sysctls"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"sysctls": [
+                		{
+                    		"name": "net.ipv4.ip_local_reserved_ports"
+                		}
+            		]
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_sysctls_new_sysctls_pass_allowed_positive",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.0",
+			"exclude": [
+				{
+					"controlName": "Sysctls",
+					"restrictedField": "spec.securityContext.sysctls[*].name",
+					"values": ["net.ipv4.ip_local_reserved_ports"]
 				}
 			]
 		}`),
@@ -3274,6 +4080,47 @@ var baseline_sysctls = []testCase{
 		allowed: true,
 	},
 	{
+		name: "baseline_sysctls_multiple_sysctls_pass_v1.27_allowed_positive",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.27",
+			"exclude": [
+				{
+					"controlName": "Sysctls",
+					"restrictedField": "spec.securityContext.sysctls[*].name",
+					"values": ["a", "b"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"sysctls": [
+                		{
+                    		"name": "a"
+                		},
+						{
+							"name": "b"
+						}
+            		]
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
 		name: "baseline_sysctls_not_match_pass",
 		rawRule: []byte(`
 		{
@@ -3310,6 +4157,44 @@ var baseline_sysctls = []testCase{
 		allowed: true,
 	},
 	{
+		name: "baseline_sysctls_not_match_pass_allowed_positive",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Seccomp",
+					"restrictedField": "spec.securityContext.sysctls[*].name",
+					"values": ["kernel.shm_rmid_forced"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"sysctls": [
+                		{
+                    		"name": "kernel.shm_rmid_forced"
+                		}
+            		]
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
 		name: "baseline_sysctls_not_match_block",
 		rawRule: []byte(`
 		{
@@ -3318,6 +4203,44 @@ var baseline_sysctls = []testCase{
 			"exclude": [
 				{
 					"controlName": "Seccomp"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"sysctls": [
+                		{
+                    		"name": "fake.value"
+                		}
+            		]
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: false,
+	},
+	{
+		name: "baseline_sysctls_not_match_block_allowed_positive",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Seccomp",
+					"restrictedField": "spec.securityContext.sysctls[*].name",
+					"values": ["fake.value"]
 				}
 			]
 		}`),
@@ -3774,6 +4697,143 @@ var restricted_volume_types = []testCase{
 		}`),
 		allowed: true,
 	},
+	{
+		name: "restricted_volume_types_defines_allow_positive",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Volume Types"
+				},
+				{
+					"controlName": "HostPath Volumes",
+					"restrictedField": "spec.volumes[*].hostPath",
+					"values": [""]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"runAsNonRoot": true,
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				],
+				"volumes": [
+					{
+						"emptyDir": {}
+					},
+					{
+						"secret": {}
+					},
+					{
+						"persistentVolumeClaim": {}
+					},
+					{
+						"downwardAPI": {}
+					},
+					{
+						"configMap": {}
+					},
+					{
+						"projected": {}
+					},
+					{
+						"csi": {}
+					},
+					{
+						"ephemeral": {}
+					},
+					{
+						"hostPath": {}
+					},
+					{
+						"awsElasticBlockStore": {}
+					},
+					{
+						"gitRepo": {}
+					},
+					{
+						"nfs": {}
+					},
+					{
+						"iscsi": {}
+					},
+					{
+						"glusterfs": {}
+					},
+					{
+						"rbd": {}
+					},
+					{
+						"flexVolume": {}
+					},
+					{
+						"cinder": {}
+					},
+					{
+						"cephfs": {}
+					},
+					{
+						"flocker": {}
+					},
+					{
+						"fc": {}
+					},
+					{
+						"azureFile": {}
+					},
+					{
+						"vsphereVolume": {}
+					},
+					{
+						"quobyte": {}
+					},
+					{
+						"azureDisk": {}
+					},
+					{
+						"photonPersistentDisk": {}
+					},
+					{
+						"portworxVolume": {}
+					},
+					{
+						"scaleIO": {}
+					},
+					{
+						"storageos": {}
+					},
+					{
+						"unknown": {}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
 }
 
 var restricted_privilege_escalation = []testCase{
@@ -4035,6 +5095,81 @@ var restricted_privilege_escalation = []testCase{
 	},
 
 	{
+		name: "restricted_privilege_escalation_defines_container_allow_negative",
+		rawRule: []byte(`
+			{
+				"level": "restricted",
+				"version": "v1.24",
+				"exclude": [
+					{
+						"controlName": "Privilege Escalation",
+						"images": [
+							"nginx"
+						],
+						"restrictedField": "spec.containers[*].securityContext.allowPrivilegeEscalation",
+						"values": [""]
+					}
+				]
+			}`),
+		rawPod: []byte(`
+			{
+				"kind": "Pod",
+				"metadata": {
+					"name": "test"
+				},
+				"spec": {
+					"securityContext": {
+						"seccompProfile": {
+							"type": "RuntimeDefault"
+						}
+					},
+					"containers": [
+						{
+							"name": "nginx",
+							"image": "nginx",
+							"securityContext": {
+								"allowPrivilegeEscalation": null,
+								"runAsNonRoot": true,
+								"capabilities": {
+									"drop": [
+										"ALL"
+									]
+								}
+							}
+						},
+						{
+							"name": "nginx",
+							"image": "nginx",
+							"securityContext": {
+								"allowPrivilegeEscalation": false,
+								"runAsNonRoot": true,
+								"capabilities": {
+									"drop": [
+										"ALL"
+									]
+								}
+							}
+						},
+						{
+							"name": "nginx",
+							"image": "nginx",
+							"securityContext": {
+								"allowPrivilegeEscalation": true,
+								"runAsNonRoot": true,
+								"capabilities": {
+									"drop": [
+										"ALL"
+									]
+								}
+							}
+						}
+					]
+				}
+			}`),
+		allowed: false,
+	},
+
+	{
 		name: "restricted_privilege_escalation_defines_init_container_violate_true",
 		rawRule: []byte(`
 			{
@@ -4266,6 +5401,50 @@ var restricted_runAsNonRoot = []testCase{
 			"exclude": [
 				{
 					"controlName": "Running as Non-root"
+				}
+			]
+		}`),
+		rawPod: []byte(`{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": false,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"runAsNonRoot": true,
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_runAsNonRoot_defines_all_violate_spec_true_container_false_allow_positive",
+		rawRule: []byte(`{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Running as Non-root",
+					"restrictedField": "spec.securityContext.runAsNonRoot",
+					"values": []
 				}
 			]
 		}`),
@@ -5134,6 +6313,51 @@ var restricted_runAsUser = []testCase{
 		allowed: true,
 	},
 	{
+		name: "restricted_runAsUser_defines_all_violate_null_spec_level_allow_positive",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Running as Non-root user",
+					"restrictedField": "spec.securityContext.runAsUser",
+					"values": ["0"]
+				},
+				{
+					"controlName": "Privilege Escalation"
+				},
+				{
+					"controlName": "Capabilities"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsUser": 0,
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": null
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
 		name: "restricted_runAsUser_defines_all_violate_false_multiple_containers",
 		rawRule: []byte(`
 		{
@@ -5145,6 +6369,85 @@ var restricted_runAsUser = []testCase{
 					"images": [
 						"nginx"
 					]
+				},
+				{
+					"controlName": "Privilege Escalation"
+				},
+				{
+					"controlName": "Capabilities"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsUser": 1000,
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": null
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"runAsUser": 0,
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"runAsUser": 1,
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_runAsUser_defines_all_multiple_containers_allow_positive",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Running as Non-root user",
+					"images": [
+						"nginx"
+					],
+					"restrictedField": "spec.containers[*].securityContext.runAsUser",
+					"values": ["0"]
 				},
 				{
 					"controlName": "Privilege Escalation"
@@ -5714,6 +7017,54 @@ var restricted_seccompProfile = []testCase{
 		allowed: true,
 	},
 	{
+		name: "restricted_seccompProfile_defines_container_allow_positive",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Seccomp",
+					"images": [
+						"nginx"
+					],
+					"restrictedField": "spec.containers[*].securityContext.seccompProfile.type",
+					"values": ["fakeValue"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": true
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"seccompProfile": {
+								"type": "fakeValue"
+							},
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
 		name: "restricted_seccompProfile_defines_spec_violate_true",
 		rawRule: []byte(`
 		{
@@ -5992,6 +7343,196 @@ var restricted_seccompProfile = []testCase{
 			}
 		}`),
 		allowed: true,
+	},
+	{
+		name: "restricted_seccompProfile_invalid_multiple_containers_allow_positive",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Privilege Escalation"
+				},
+				{
+					"controlName": "Capabilities"
+				},
+				{
+					"controlName": "Running as Non-root"
+				},
+				{
+					"controlName": "Seccomp",
+					"images": [
+						"nginx1"
+					],
+					"restrictedField": "spec.containers[*].securityContext.seccompProfile.type",
+					"values": ["Unconfined"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": null,
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": null
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx1",
+						"securityContext": {
+							"seccompProfile": {
+								"type": "Unconfined"
+							},
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx1",
+						"securityContext": {
+							"seccompProfile": {
+								"type": "RuntimeDefault"
+							},
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"seccompProfile": {
+								"type": "Localhost"
+							},
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_seccompProfile_invalid_multiple_containers_allow_negative",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Privilege Escalation"
+				},
+				{
+					"controlName": "Capabilities"
+				},
+				{
+					"controlName": "Running as Non-root"
+				},
+				{
+					"controlName": "Seccomp",
+					"images": [
+						"nginx1"
+					],
+					"restrictedField": "spec.containers[*].securityContext.seccompProfile.type",
+					"values": ["unknown"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": null,
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": null
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx1",
+						"securityContext": {
+							"seccompProfile": {
+								"type": "Unconfined"
+							},
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx1",
+						"securityContext": {
+							"seccompProfile": {
+								"type": "RuntimeDefault"
+							},
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"seccompProfile": {
+								"type": "Localhost"
+							},
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: false,
 	},
 	{
 		name: "restricted_seccompProfile_undefined",
@@ -6376,6 +7917,180 @@ var restricted_capabilities = []testCase{
 			}
 		}`),
 		allowed: true,
+	},
+	{
+		name: "restricted_capabilities_drop_defines_multiple_capabilities_allow_positive",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Capabilities",
+					"images": [
+						"nginx"
+					],
+					"restrictedField": "spec.containers[*].securityContext.capabilities.add",
+					"values": ["BAR", "FOO", "BAZ", "CHOWN"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								],
+								"add": [
+									"BAR",
+									"FOO"
+								]
+							}
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL",
+									"BAR",
+									"FOO"
+								],
+								"add": [
+									"BAR",
+									"BAZ"
+								]
+							}
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL",
+									"FOO"
+								],
+								"add": [
+									"NET_BIND_SERVICE",
+									"CHOWN"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_capabilities_drop_defines_multiple_capabilities_allow_negative",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Capabilities",
+					"images": [
+						"nginx"
+					],
+					"restrictedField": "spec.containers[*].securityContext.capabilities.add",
+					"values": ["BAR", "FOO", "BAZ"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								],
+								"add": [
+									"BAR",
+									"FOO"
+								]
+							}
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL",
+									"BAR",
+									"FOO"
+								],
+								"add": [
+									"BAR",
+									"BAZ"
+								]
+							}
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL",
+									"FOO"
+								],
+								"add": [
+									"NET_BIND_SERVICE",
+									"CHOWN"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: false,
 	},
 	{
 		name: "restricted_capabilities_add_undefined_not_match_block",
