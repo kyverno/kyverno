@@ -11,7 +11,6 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	policyhandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/policy"
 	resourcehandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/resource"
-	cleanuphandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/cleanup"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
@@ -111,6 +110,38 @@ func main() {
 		os.Exit(1)
 	}
 	checker := checker.NewSelfChecker(setup.KubeClient.AuthorizationV1().SelfSubjectAccessReviews())
+	// informer factories
+	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod)
+	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+	// listers
+	nsLister := kubeInformer.Core().V1().Namespaces().Lister()
+	// log policy changes
+	genericloggingcontroller.NewController(
+		setup.Logger.WithName("cleanup-policy"),
+		"CleanupPolicy",
+		kyvernoInformer.Kyverno().V2beta1().CleanupPolicies(),
+		genericloggingcontroller.CheckGeneration,
+	)
+	genericloggingcontroller.NewController(
+		setup.Logger.WithName("cluster-cleanup-policy"),
+		"ClusterCleanupPolicy",
+		kyvernoInformer.Kyverno().V2beta1().ClusterCleanupPolicies(),
+		genericloggingcontroller.CheckGeneration,
+	)
+	eventGenerator := event.NewEventCleanupGenerator(
+		setup.KyvernoDynamicClient,
+		kyvernoInformer.Kyverno().V2beta1().ClusterCleanupPolicies(),
+		kyvernoInformer.Kyverno().V2beta1().CleanupPolicies(),
+		maxQueuedEvents,
+		logging.WithName("EventGenerator"),
+	)
+	// start informers and wait for cache sync
+	if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kubeInformer, kyvernoInformer) {
+		os.Exit(1)
+	}
+	// start event generator
+	var wg sync.WaitGroup
+	go eventGenerator.Run(ctx, 3, &wg)
 	// setup leader election
 	le, err := leaderelection.New(
 		setup.Logger.WithName("leader-election"),
@@ -124,6 +155,9 @@ func main() {
 			// informer factories
 			kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod)
 			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+
+			cmResolver := internal.NewConfigMapResolver(ctx, setup.Logger, setup.KubeClient, resyncPeriod)
+
 			// controllers
 			renewer := tls.NewCertRenewer(
 				setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
@@ -226,11 +260,15 @@ func main() {
 			cleanupController := internal.NewController(
 				cleanup.ControllerName,
 				cleanup.NewController(
-					setup.KubeClient,
-					kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies(),
-					kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies(),
-					kubeInformer.Batch().V1().CronJobs(),
-					"https://"+config.KyvernoServiceName()+"."+config.KyvernoNamespace()+".svc",
+					setup.KyvernoDynamicClient,
+					setup.KyvernoClient,
+					kyvernoInformer.Kyverno().V2beta1().ClusterCleanupPolicies(),
+					kyvernoInformer.Kyverno().V2beta1().CleanupPolicies(),
+					nsLister,
+					setup.Configuration,
+					cmResolver,
+					setup.Jp,
+					eventGenerator,
 				),
 				cleanup.Workers,
 			)
@@ -264,54 +302,9 @@ func main() {
 		setup.Logger.Error(err, "failed to initialize leader election")
 		os.Exit(1)
 	}
-	// informer factories
-	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod)
-	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
-	// listers
-	cpolLister := kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies().Lister()
-	polLister := kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies().Lister()
-	nsLister := kubeInformer.Core().V1().Namespaces().Lister()
-	// log policy changes
-	genericloggingcontroller.NewController(
-		setup.Logger.WithName("cleanup-policy"),
-		"CleanupPolicy",
-		kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies(),
-		genericloggingcontroller.CheckGeneration,
-	)
-	genericloggingcontroller.NewController(
-		setup.Logger.WithName("cluster-cleanup-policy"),
-		"ClusterCleanupPolicy",
-		kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies(),
-		genericloggingcontroller.CheckGeneration,
-	)
-	eventGenerator := event.NewEventCleanupGenerator(
-		setup.KyvernoDynamicClient,
-		kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies(),
-		kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies(),
-		maxQueuedEvents,
-		logging.WithName("EventGenerator"),
-	)
-	// start informers and wait for cache sync
-	if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kubeInformer, kyvernoInformer) {
-		os.Exit(1)
-	}
-	// start event generator
-	var wg sync.WaitGroup
-	go eventGenerator.Run(ctx, 3, &wg)
 	// create handlers
 	policyHandlers := policyhandlers.New(setup.KyvernoDynamicClient)
 	resourceHandlers := resourcehandlers.New(checker)
-	cmResolver := internal.NewConfigMapResolver(ctx, setup.Logger, setup.KubeClient, resyncPeriod)
-	cleanupHandlers := cleanuphandlers.New(
-		setup.Logger.WithName("cleanup-handler"),
-		setup.KyvernoDynamicClient,
-		cpolLister,
-		polLister,
-		nsLister,
-		cmResolver,
-		setup.Jp,
-		eventGenerator,
-	)
 	// create server
 	server := NewServer(
 		func() ([]byte, []byte, error) {
@@ -323,7 +316,6 @@ func main() {
 		},
 		policyHandlers.Validate,
 		resourceHandlers.Validate,
-		cleanupHandlers.Cleanup,
 		setup.MetricsManager,
 		webhooks.DebugModeOptions{
 			DumpPayload: dumpPayload,

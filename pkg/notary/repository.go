@@ -87,8 +87,8 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 	manifestDesc := manifest.Layers[0]
 
 	// This check ensures that the size of a layer isn't abnormally large to avoid malicious payloads
-	if manifestDesc.Size > int64(maxPayloadSize) {
-		return nil, ocispec.Descriptor{}, fmt.Errorf("payload size is too large, max size is %d: %+v", maxPayloadSize, manifestDesc)
+	if manifestDesc.Size > maxPayloadSize {
+		return nil, ocispec.Descriptor{}, fmt.Errorf("payload size %d exceeds %d for digest %s", manifestDesc.Size, maxPayloadSize, manifestDesc.Digest)
 	}
 
 	signatureBlobRef, err := name.ParseReference(c.getReferenceFromDescriptor(manifestDesc))
@@ -96,9 +96,19 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 		return nil, ocispec.Descriptor{}, err
 	}
 
-	signatureBlobLayer, err := remote.Layer(signatureBlobRef.Context().Digest(signatureBlobRef.Identifier()), c.remoteOpts...)
+	digest := signatureBlobRef.Identifier()
+	signatureBlobLayer, err := remote.Layer(signatureBlobRef.Context().Digest(digest), c.remoteOpts...)
 	if err != nil {
 		return nil, ocispec.Descriptor{}, err
+	}
+
+	signatureBlobLayerSize, err := signatureBlobLayer.Size()
+	if err != nil {
+		return nil, ocispec.Descriptor{}, err
+	}
+
+	if signatureBlobLayerSize > maxPayloadSize {
+		return nil, ocispec.Descriptor{}, fmt.Errorf("layer size %d exceeds %d for digest %s", signatureBlobLayerSize, maxPayloadSize, digest)
 	}
 
 	io, err := signatureBlobLayer.Uncompressed()

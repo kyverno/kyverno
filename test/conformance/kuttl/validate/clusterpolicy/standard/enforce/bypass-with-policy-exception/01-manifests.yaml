@@ -48,7 +48,7 @@ spec:
         - image: nginx
           name: nginx
 ---
-apiVersion: kyverno.io/v2alpha1
+apiVersion: kyverno.io/v2beta1
 kind: PolicyException
 metadata:
   name: allow-scaling-nginx-test
