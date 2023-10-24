@@ -44422,6 +44422,9 @@ rules:
       - get
       - list
       - watch
+    resourceNames:
+      - kyverno-svc.kyverno.svc.kyverno-tls-ca
+      - kyverno-svc.kyverno.svc.kyverno-tls-pair
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
