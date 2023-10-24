@@ -341,7 +341,10 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		if err != nil {
 			return err
 		}
-		c.updateCleanupPolicyStatus(ctx, policy, namespace, *executionTime)
+		if err := c.updateCleanupPolicyStatus(ctx, policy, namespace, *executionTime); err != nil {
+			logger.Error(err, "failed to update the cleanup policy status")
+			return err
+		}
 		nextExecutionTime, err = policy.GetNextExecutionTime(*executionTime)
 		if err != nil {
 			logger.Error(err, "failed to get the policy next execution time")
@@ -358,19 +361,26 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	return nil
 }
 
-func (c *controller) updateCleanupPolicyStatus(ctx context.Context, policy kyvernov2alpha1.CleanupPolicyInterface, namespace string, time time.Time) {
+func (c *controller) updateCleanupPolicyStatus(ctx context.Context, policy kyvernov2alpha1.CleanupPolicyInterface, namespace string, time time.Time) error {
 	switch obj := policy.(type) {
 	case *kyvernov2beta1.ClusterCleanupPolicy:
 		latest := obj.DeepCopy()
-		latest.Status.LastExecutionTime.Time = time
+		latest.Status.LastExecutionTime = metav1.NewTime(time)
 
-		new, _ := c.kyvernoClient.KyvernoV2beta1().ClusterCleanupPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
+		new, err := c.kyvernoClient.KyvernoV2beta1().ClusterCleanupPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
 		logging.V(3).Info("updated cluster cleanup policy status", "name", policy.GetName(), "status", new.Status)
 	case *kyvernov2beta1.CleanupPolicy:
 		latest := obj.DeepCopy()
-		latest.Status.LastExecutionTime.Time = time
+		latest.Status.LastExecutionTime = metav1.NewTime(time)
 
-		new, _ := c.kyvernoClient.KyvernoV2beta1().CleanupPolicies(namespace).UpdateStatus(ctx, latest, metav1.UpdateOptions{})
+		new, err := c.kyvernoClient.KyvernoV2beta1().CleanupPolicies(namespace).UpdateStatus(ctx, latest, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
 		logging.V(3).Info("updated cleanup policy status", "name", policy.GetName(), "namespace", policy.GetNamespace(), "status", new.Status)
 	}
+	return nil
 }
