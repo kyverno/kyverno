@@ -878,7 +878,7 @@ spec:
                             providers:
                               description: 'Providers specifies a list of OCI Registry
                                 names, whose authentication providers are provided
-                                It can be of one of these values: AWS, ACR, GCP, GHCR'
+                                It can be of one of these values: default,google,azure,amazon,github'
                               items:
                                 description: ImageRegistryCredentialsProvidersType
                                   provides the list of credential providers required.
@@ -2119,7 +2119,7 @@ spec:
                             providers:
                               description: 'Providers specifies a list of OCI Registry
                                 names, whose authentication providers are provided
-                                It can be of one of these values: AWS, ACR, GCP, GHCR'
+                                It can be of one of these values: default,google,azure,amazon,github'
                               items:
                                 description: ImageRegistryCredentialsProvidersType
                                   provides the list of credential providers required.
@@ -4029,7 +4029,7 @@ spec:
                             providers:
                               description: 'Providers specifies a list of OCI Registry
                                 names, whose authentication providers are provided
-                                It can be of one of these values: AWS, ACR, GCP, GHCR'
+                                It can be of one of these values: default,google,azure,amazon,github'
                               items:
                                 description: ImageRegistryCredentialsProvidersType
                                   provides the list of credential providers required.
@@ -5270,7 +5270,7 @@ spec:
                             providers:
                               description: 'Providers specifies a list of OCI Registry
                                 names, whose authentication providers are provided
-                                It can be of one of these values: AWS, ACR, GCP, GHCR'
+                                It can be of one of these values: default,google,azure,amazon,github'
                               items:
                                 description: ImageRegistryCredentialsProvidersType
                                   provides the list of credential providers required.
@@ -6583,7 +6583,7 @@ spec:
                                     description: 'Providers specifies a list of OCI
                                       Registry names, whose authentication providers
                                       are provided It can be of one of these values:
-                                      AWS, ACR, GCP, GHCR'
+                                      default,google,azure,amazon,github'
                                     items:
                                       description: ImageRegistryCredentialsProvidersType
                                         provides the list of credential providers
@@ -8283,7 +8283,7 @@ spec:
                                                 list of OCI Registry names, whose
                                                 authentication providers are provided
                                                 It can be of one of these values:
-                                                AWS, ACR, GCP, GHCR'
+                                                default,google,azure,amazon,github'
                                               items:
                                                 description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
@@ -8616,7 +8616,7 @@ spec:
                                                 list of OCI Registry names, whose
                                                 authentication providers are provided
                                                 It can be of one of these values:
-                                                AWS, ACR, GCP, GHCR'
+                                                default,google,azure,amazon,github'
                                               items:
                                                 description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
@@ -9171,7 +9171,7 @@ spec:
                                                 list of OCI Registry names, whose
                                                 authentication providers are provided
                                                 It can be of one of these values:
-                                                AWS, ACR, GCP, GHCR'
+                                                default,google,azure,amazon,github'
                                               items:
                                                 description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
@@ -10524,8 +10524,7 @@ spec:
                               providers:
                                 description: 'Providers specifies a list of OCI Registry
                                   names, whose authentication providers are provided
-                                  It can be of one of these values: AWS, ACR, GCP,
-                                  GHCR'
+                                  It can be of one of these values: default,google,azure,amazon,github'
                                 items:
                                   description: ImageRegistryCredentialsProvidersType
                                     provides the list of credential providers required.
@@ -10867,7 +10866,7 @@ spec:
                                         description: 'Providers specifies a list of
                                           OCI Registry names, whose authentication
                                           providers are provided It can be of one
-                                          of these values: AWS, ACR, GCP, GHCR'
+                                          of these values: default,google,azure,amazon,github'
                                         items:
                                           description: ImageRegistryCredentialsProvidersType
                                             provides the list of credential providers
@@ -12644,8 +12643,7 @@ spec:
                                                     a list of OCI Registry names,
                                                     whose authentication providers
                                                     are provided It can be of one
-                                                    of these values: AWS, ACR, GCP,
-                                                    GHCR'
+                                                    of these values: default,google,azure,amazon,github'
                                                   items:
                                                     description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
@@ -12993,8 +12991,7 @@ spec:
                                                     a list of OCI Registry names,
                                                     whose authentication providers
                                                     are provided It can be of one
-                                                    of these values: AWS, ACR, GCP,
-                                                    GHCR'
+                                                    of these values: default,google,azure,amazon,github'
                                                   items:
                                                     description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
@@ -13579,8 +13576,7 @@ spec:
                                                     a list of OCI Registry names,
                                                     whose authentication providers
                                                     are provided It can be of one
-                                                    of these values: AWS, ACR, GCP,
-                                                    GHCR'
+                                                    of these values: default,google,azure,amazon,github'
                                                   items:
                                                     description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
@@ -14994,7 +14990,7 @@ spec:
                                     description: 'Providers specifies a list of OCI
                                       Registry names, whose authentication providers
                                       are provided It can be of one of these values:
-                                      AWS, ACR, GCP, GHCR'
+                                      default,google,azure,amazon,github'
                                     items:
                                       description: ImageRegistryCredentialsProvidersType
                                         provides the list of credential providers
@@ -15449,7 +15445,7 @@ spec:
                                     description: 'Providers specifies a list of OCI
                                       Registry names, whose authentication providers
                                       are provided It can be of one of these values:
-                                      AWS, ACR, GCP, GHCR'
+                                      default,google,azure,amazon,github'
                                     items:
                                       description: ImageRegistryCredentialsProvidersType
                                         provides the list of credential providers
@@ -16723,7 +16719,7 @@ spec:
                                                 list of OCI Registry names, whose
                                                 authentication providers are provided
                                                 It can be of one of these values:
-                                                AWS, ACR, GCP, GHCR'
+                                                default,google,azure,amazon,github'
                                               items:
                                                 description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
@@ -17056,7 +17052,7 @@ spec:
                                                 list of OCI Registry names, whose
                                                 authentication providers are provided
                                                 It can be of one of these values:
-                                                AWS, ACR, GCP, GHCR'
+                                                default,google,azure,amazon,github'
                                               items:
                                                 description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
@@ -17790,7 +17786,7 @@ spec:
                                                 list of OCI Registry names, whose
                                                 authentication providers are provided
                                                 It can be of one of these values:
-                                                AWS, ACR, GCP, GHCR'
+                                                default,google,azure,amazon,github'
                                               items:
                                                 description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
@@ -19129,8 +19125,7 @@ spec:
                               providers:
                                 description: 'Providers specifies a list of OCI Registry
                                   names, whose authentication providers are provided
-                                  It can be of one of these values: AWS, ACR, GCP,
-                                  GHCR'
+                                  It can be of one of these values: default,google,azure,amazon,github'
                                 items:
                                   description: ImageRegistryCredentialsProvidersType
                                     provides the list of credential providers required.
@@ -19460,7 +19455,7 @@ spec:
                                         description: 'Providers specifies a list of
                                           OCI Registry names, whose authentication
                                           providers are provided It can be of one
-                                          of these values: AWS, ACR, GCP, GHCR'
+                                          of these values: default,google,azure,amazon,github'
                                         items:
                                           description: ImageRegistryCredentialsProvidersType
                                             provides the list of credential providers
@@ -21237,8 +21232,7 @@ spec:
                                                     a list of OCI Registry names,
                                                     whose authentication providers
                                                     are provided It can be of one
-                                                    of these values: AWS, ACR, GCP,
-                                                    GHCR'
+                                                    of these values: default,google,azure,amazon,github'
                                                   items:
                                                     description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
@@ -21586,8 +21580,7 @@ spec:
                                                     a list of OCI Registry names,
                                                     whose authentication providers
                                                     are provided It can be of one
-                                                    of these values: AWS, ACR, GCP,
-                                                    GHCR'
+                                                    of these values: default,google,azure,amazon,github'
                                                   items:
                                                     description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
@@ -22172,8 +22165,7 @@ spec:
                                                     a list of OCI Registry names,
                                                     whose authentication providers
                                                     are provided It can be of one
-                                                    of these values: AWS, ACR, GCP,
-                                                    GHCR'
+                                                    of these values: default,google,azure,amazon,github'
                                                   items:
                                                     description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
@@ -23587,7 +23579,7 @@ spec:
                                     description: 'Providers specifies a list of OCI
                                       Registry names, whose authentication providers
                                       are provided It can be of one of these values:
-                                      AWS, ACR, GCP, GHCR'
+                                      default,google,azure,amazon,github'
                                     items:
                                       description: ImageRegistryCredentialsProvidersType
                                         provides the list of credential providers
@@ -24069,7 +24061,7 @@ spec:
                                     description: 'Providers specifies a list of OCI
                                       Registry names, whose authentication providers
                                       are provided It can be of one of these values:
-                                      AWS, ACR, GCP, GHCR'
+                                      default,google,azure,amazon,github'
                                     items:
                                       description: ImageRegistryCredentialsProvidersType
                                         provides the list of credential providers
@@ -25769,7 +25761,7 @@ spec:
                                                 list of OCI Registry names, whose
                                                 authentication providers are provided
                                                 It can be of one of these values:
-                                                AWS, ACR, GCP, GHCR'
+                                                default,google,azure,amazon,github'
                                               items:
                                                 description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
@@ -26102,7 +26094,7 @@ spec:
                                                 list of OCI Registry names, whose
                                                 authentication providers are provided
                                                 It can be of one of these values:
-                                                AWS, ACR, GCP, GHCR'
+                                                default,google,azure,amazon,github'
                                               items:
                                                 description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
@@ -26657,7 +26649,7 @@ spec:
                                                 list of OCI Registry names, whose
                                                 authentication providers are provided
                                                 It can be of one of these values:
-                                                AWS, ACR, GCP, GHCR'
+                                                default,google,azure,amazon,github'
                                               items:
                                                 description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
@@ -28010,8 +28002,7 @@ spec:
                               providers:
                                 description: 'Providers specifies a list of OCI Registry
                                   names, whose authentication providers are provided
-                                  It can be of one of these values: AWS, ACR, GCP,
-                                  GHCR'
+                                  It can be of one of these values: default,google,azure,amazon,github'
                                 items:
                                   description: ImageRegistryCredentialsProvidersType
                                     provides the list of credential providers required.
@@ -28354,7 +28345,7 @@ spec:
                                         description: 'Providers specifies a list of
                                           OCI Registry names, whose authentication
                                           providers are provided It can be of one
-                                          of these values: AWS, ACR, GCP, GHCR'
+                                          of these values: default,google,azure,amazon,github'
                                         items:
                                           description: ImageRegistryCredentialsProvidersType
                                             provides the list of credential providers
@@ -30131,8 +30122,7 @@ spec:
                                                     a list of OCI Registry names,
                                                     whose authentication providers
                                                     are provided It can be of one
-                                                    of these values: AWS, ACR, GCP,
-                                                    GHCR'
+                                                    of these values: default,google,azure,amazon,github'
                                                   items:
                                                     description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
@@ -30480,8 +30470,7 @@ spec:
                                                     a list of OCI Registry names,
                                                     whose authentication providers
                                                     are provided It can be of one
-                                                    of these values: AWS, ACR, GCP,
-                                                    GHCR'
+                                                    of these values: default,google,azure,amazon,github'
                                                   items:
                                                     description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
@@ -31066,8 +31055,7 @@ spec:
                                                     a list of OCI Registry names,
                                                     whose authentication providers
                                                     are provided It can be of one
-                                                    of these values: AWS, ACR, GCP,
-                                                    GHCR'
+                                                    of these values: default,google,azure,amazon,github'
                                                   items:
                                                     description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
@@ -32481,7 +32469,7 @@ spec:
                                     description: 'Providers specifies a list of OCI
                                       Registry names, whose authentication providers
                                       are provided It can be of one of these values:
-                                      AWS, ACR, GCP, GHCR'
+                                      default,google,azure,amazon,github'
                                     items:
                                       description: ImageRegistryCredentialsProvidersType
                                         provides the list of credential providers
@@ -32937,7 +32925,7 @@ spec:
                                     description: 'Providers specifies a list of OCI
                                       Registry names, whose authentication providers
                                       are provided It can be of one of these values:
-                                      AWS, ACR, GCP, GHCR'
+                                      default,google,azure,amazon,github'
                                     items:
                                       description: ImageRegistryCredentialsProvidersType
                                         provides the list of credential providers
@@ -34211,7 +34199,7 @@ spec:
                                                 list of OCI Registry names, whose
                                                 authentication providers are provided
                                                 It can be of one of these values:
-                                                AWS, ACR, GCP, GHCR'
+                                                default,google,azure,amazon,github'
                                               items:
                                                 description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
@@ -34544,7 +34532,7 @@ spec:
                                                 list of OCI Registry names, whose
                                                 authentication providers are provided
                                                 It can be of one of these values:
-                                                AWS, ACR, GCP, GHCR'
+                                                default,google,azure,amazon,github'
                                               items:
                                                 description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
@@ -35278,7 +35266,7 @@ spec:
                                                 list of OCI Registry names, whose
                                                 authentication providers are provided
                                                 It can be of one of these values:
-                                                AWS, ACR, GCP, GHCR'
+                                                default,google,azure,amazon,github'
                                               items:
                                                 description: ImageRegistryCredentialsProvidersType
                                                   provides the list of credential
@@ -36617,8 +36605,7 @@ spec:
                               providers:
                                 description: 'Providers specifies a list of OCI Registry
                                   names, whose authentication providers are provided
-                                  It can be of one of these values: AWS, ACR, GCP,
-                                  GHCR'
+                                  It can be of one of these values: default,google,azure,amazon,github'
                                 items:
                                   description: ImageRegistryCredentialsProvidersType
                                     provides the list of credential providers required.
@@ -36948,7 +36935,7 @@ spec:
                                         description: 'Providers specifies a list of
                                           OCI Registry names, whose authentication
                                           providers are provided It can be of one
-                                          of these values: AWS, ACR, GCP, GHCR'
+                                          of these values: default,google,azure,amazon,github'
                                         items:
                                           description: ImageRegistryCredentialsProvidersType
                                             provides the list of credential providers
@@ -38725,8 +38712,7 @@ spec:
                                                     a list of OCI Registry names,
                                                     whose authentication providers
                                                     are provided It can be of one
-                                                    of these values: AWS, ACR, GCP,
-                                                    GHCR'
+                                                    of these values: default,google,azure,amazon,github'
                                                   items:
                                                     description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
@@ -39074,8 +39060,7 @@ spec:
                                                     a list of OCI Registry names,
                                                     whose authentication providers
                                                     are provided It can be of one
-                                                    of these values: AWS, ACR, GCP,
-                                                    GHCR'
+                                                    of these values: default,google,azure,amazon,github'
                                                   items:
                                                     description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
@@ -39660,8 +39645,7 @@ spec:
                                                     a list of OCI Registry names,
                                                     whose authentication providers
                                                     are provided It can be of one
-                                                    of these values: AWS, ACR, GCP,
-                                                    GHCR'
+                                                    of these values: default,google,azure,amazon,github'
                                                   items:
                                                     description: ImageRegistryCredentialsProvidersType
                                                       provides the list of credential
@@ -41075,7 +41059,7 @@ spec:
                                     description: 'Providers specifies a list of OCI
                                       Registry names, whose authentication providers
                                       are provided It can be of one of these values:
-                                      AWS, ACR, GCP, GHCR'
+                                      default,google,azure,amazon,github'
                                     items:
                                       description: ImageRegistryCredentialsProvidersType
                                         provides the list of credential providers
@@ -41326,6 +41310,98 @@ spec:
                   that are only available in the admission review request (e.g. user
                   name).
                 type: boolean
+              conditions:
+                description: Conditions are used to determine if a resource applies
+                  to the exception by evaluating a set of conditions. The declaration
+                  can contain nested `any` or `all` statements.
+                properties:
+                  all:
+                    description: AllConditions enable variable-based conditional rule
+                      execution. This is useful for finer control of when an rule
+                      is applied. A condition can reference object data using JMESPath
+                      notation. Here, all of the conditions need to pass.
+                    items:
+                      properties:
+                        key:
+                          description: Key is the context entry (using JMESPath) for
+                            conditional rule evaluation.
+                          x-kubernetes-preserve-unknown-fields: true
+                        message:
+                          description: Message is an optional display message
+                          type: string
+                        operator:
+                          description: 'Operator is the conditional operation to perform.
+                            Valid operators are: Equals, NotEquals, In, AnyIn, AllIn,
+                            NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals, GreaterThan,
+                            LessThanOrEquals, LessThan, DurationGreaterThanOrEquals,
+                            DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan'
+                          enum:
+                          - Equals
+                          - NotEquals
+                          - AnyIn
+                          - AllIn
+                          - AnyNotIn
+                          - AllNotIn
+                          - GreaterThanOrEquals
+                          - GreaterThan
+                          - LessThanOrEquals
+                          - LessThan
+                          - DurationGreaterThanOrEquals
+                          - DurationGreaterThan
+                          - DurationLessThanOrEquals
+                          - DurationLessThan
+                          type: string
+                        value:
+                          description: Value is the conditional value, or set of values.
+                            The values can be fixed set or can be variables declared
+                            using JMESPath.
+                          x-kubernetes-preserve-unknown-fields: true
+                      type: object
+                    type: array
+                  any:
+                    description: AnyConditions enable variable-based conditional rule
+                      execution. This is useful for finer control of when an rule
+                      is applied. A condition can reference object data using JMESPath
+                      notation. Here, at least one of the conditions need to pass.
+                    items:
+                      properties:
+                        key:
+                          description: Key is the context entry (using JMESPath) for
+                            conditional rule evaluation.
+                          x-kubernetes-preserve-unknown-fields: true
+                        message:
+                          description: Message is an optional display message
+                          type: string
+                        operator:
+                          description: 'Operator is the conditional operation to perform.
+                            Valid operators are: Equals, NotEquals, In, AnyIn, AllIn,
+                            NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals, GreaterThan,
+                            LessThanOrEquals, LessThan, DurationGreaterThanOrEquals,
+                            DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan'
+                          enum:
+                          - Equals
+                          - NotEquals
+                          - AnyIn
+                          - AllIn
+                          - AnyNotIn
+                          - AllNotIn
+                          - GreaterThanOrEquals
+                          - GreaterThan
+                          - LessThanOrEquals
+                          - LessThan
+                          - DurationGreaterThanOrEquals
+                          - DurationGreaterThan
+                          - DurationLessThanOrEquals
+                          - DurationLessThan
+                          type: string
+                        value:
+                          description: Value is the conditional value, or set of values.
+                            The values can be fixed set or can be variables declared
+                            using JMESPath.
+                          x-kubernetes-preserve-unknown-fields: true
+                      type: object
+                    type: array
+                type: object
               exceptions:
                 description: Exceptions is a list policy/rules to be excluded
                 items:
@@ -41825,6 +41901,98 @@ spec:
                   that are only available in the admission review request (e.g. user
                   name).
                 type: boolean
+              conditions:
+                description: Conditions are used to determine if a resource applies
+                  to the exception by evaluating a set of conditions. The declaration
+                  can contain nested `any` or `all` statements.
+                properties:
+                  all:
+                    description: AllConditions enable variable-based conditional rule
+                      execution. This is useful for finer control of when an rule
+                      is applied. A condition can reference object data using JMESPath
+                      notation. Here, all of the conditions need to pass.
+                    items:
+                      properties:
+                        key:
+                          description: Key is the context entry (using JMESPath) for
+                            conditional rule evaluation.
+                          x-kubernetes-preserve-unknown-fields: true
+                        message:
+                          description: Message is an optional display message
+                          type: string
+                        operator:
+                          description: 'Operator is the conditional operation to perform.
+                            Valid operators are: Equals, NotEquals, In, AnyIn, AllIn,
+                            NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals, GreaterThan,
+                            LessThanOrEquals, LessThan, DurationGreaterThanOrEquals,
+                            DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan'
+                          enum:
+                          - Equals
+                          - NotEquals
+                          - AnyIn
+                          - AllIn
+                          - AnyNotIn
+                          - AllNotIn
+                          - GreaterThanOrEquals
+                          - GreaterThan
+                          - LessThanOrEquals
+                          - LessThan
+                          - DurationGreaterThanOrEquals
+                          - DurationGreaterThan
+                          - DurationLessThanOrEquals
+                          - DurationLessThan
+                          type: string
+                        value:
+                          description: Value is the conditional value, or set of values.
+                            The values can be fixed set or can be variables declared
+                            using JMESPath.
+                          x-kubernetes-preserve-unknown-fields: true
+                      type: object
+                    type: array
+                  any:
+                    description: AnyConditions enable variable-based conditional rule
+                      execution. This is useful for finer control of when an rule
+                      is applied. A condition can reference object data using JMESPath
+                      notation. Here, at least one of the conditions need to pass.
+                    items:
+                      properties:
+                        key:
+                          description: Key is the context entry (using JMESPath) for
+                            conditional rule evaluation.
+                          x-kubernetes-preserve-unknown-fields: true
+                        message:
+                          description: Message is an optional display message
+                          type: string
+                        operator:
+                          description: 'Operator is the conditional operation to perform.
+                            Valid operators are: Equals, NotEquals, In, AnyIn, AllIn,
+                            NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals, GreaterThan,
+                            LessThanOrEquals, LessThan, DurationGreaterThanOrEquals,
+                            DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan'
+                          enum:
+                          - Equals
+                          - NotEquals
+                          - AnyIn
+                          - AllIn
+                          - AnyNotIn
+                          - AllNotIn
+                          - GreaterThanOrEquals
+                          - GreaterThan
+                          - LessThanOrEquals
+                          - LessThan
+                          - DurationGreaterThanOrEquals
+                          - DurationGreaterThan
+                          - DurationLessThanOrEquals
+                          - DurationLessThan
+                          type: string
+                        value:
+                          description: Value is the conditional value, or set of values.
+                            The values can be fixed set or can be variables declared
+                            using JMESPath.
+                          x-kubernetes-preserve-unknown-fields: true
+                      type: object
+                    type: array
+                type: object
               exceptions:
                 description: Exceptions is a list policy/rules to be excluded
                 items:
