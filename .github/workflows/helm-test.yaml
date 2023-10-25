@@ -39,7 +39,7 @@ jobs:
       - name: Set reference
         run: echo "REF=${{ github.event.pull_request && github.base_ref || github.ref_name }}" >> $GITHUB_ENV
       - name: Debug
-        run: echo $REF ${{github.github.event.pull_request}} ${{github.ref_name}} ${{github.event.pull_request}} ${{ github.event_name == 'pull_request' }}
+        run: echo $REF ${{github.base_ref }} ${{github.ref_name}} ${{github.event.pull_request}} ${{ github.event_name == 'pull_request' }}
       - name: Run chart-testing (lint)
         run: |
           if [[ $(ct list-changed --target-branch=$REF) ]];
