@@ -160,6 +160,7 @@ func (h *generationHandler) applyGeneration(
 		Kind:       trigger.GetKind(),
 		Namespace:  trigger.GetNamespace(),
 		Name:       trigger.GetName(),
+		UID:        trigger.GetUID(),
 	}
 
 	rules := getAppliedRules(policy, appliedRules)
@@ -196,6 +197,7 @@ func (h *generationHandler) syncTriggerAction(
 		Kind:       trigger.GetKind(),
 		Namespace:  trigger.GetNamespace(),
 		Name:       trigger.GetName(),
+		UID:        trigger.GetUID(),
 	}
 
 	rules := getAppliedRules(policy, failedRules)
