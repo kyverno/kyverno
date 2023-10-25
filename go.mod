@@ -84,7 +84,7 @@ require (
 	sigs.k8s.io/controller-runtime v0.16.2
 	sigs.k8s.io/kubectl-validate v0.0.1
 	sigs.k8s.io/kustomize/api v0.14.0
-	sigs.k8s.io/kustomize/kyaml v0.14.3
+	sigs.k8s.io/kustomize/kyaml v0.15.0
 	sigs.k8s.io/release-utils v0.7.5
 	sigs.k8s.io/structured-merge-diff/v4 v4.3.0
 	sigs.k8s.io/yaml v1.3.0
