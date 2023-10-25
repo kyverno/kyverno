@@ -9,7 +9,7 @@ const (
 	GenerateTriggerKindLabel     = "generate.kyverno.io/trigger-kind"
 	GenerateTriggerVersionLabel  = "generate.kyverno.io/trigger-version"
 	GenerateTriggerGroupLabel    = "generate.kyverno.io/trigger-group"
-	GenerateSourceNameLabel      = "generate.kyverno.io/source-name"
+	GenerateSourceUIDLabel       = "generate.kyverno.io/source-uid"
 	GenerateSourceNSLabel        = "generate.kyverno.io/source-namespace"
 	GenerateSourceKindLabel      = "generate.kyverno.io/source-kind"
 	GenerateSourceVersionLabel   = "generate.kyverno.io/source-version"
