@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	pkglabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -19,6 +20,7 @@ type Object interface {
 	GetNamespace() string
 	GetKind() string
 	GetAPIVersion() string
+	GetUID() types.UID
 }
 
 func ManageLabels(unstr *unstructured.Unstructured, triggerResource unstructured.Unstructured, policy kyvernov1.PolicyInterface, ruleName string) {
@@ -59,7 +61,7 @@ func GenerateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
 	}
 	isNil := trigger == nil || (reflect.ValueOf(trigger).Kind() == reflect.Ptr && reflect.ValueOf(trigger).IsNil())
 	if !isNil {
-		set[kyvernov1beta1.URGenerateResourceNameLabel] = trigger.GetName()
+		set[kyvernov1beta1.URGenerateResourceUIDLabel] = string(trigger.GetUID())
 		set[kyvernov1beta1.URGenerateResourceNSLabel] = trigger.GetNamespace()
 		set[kyvernov1beta1.URGenerateResourceKindLabel] = trigger.GetKind()
 	}
