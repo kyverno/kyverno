@@ -625,8 +625,8 @@ github.com/go-playground/validator/v10 v10.15.5/go.mod h1:9iXMNT7sEkjXb0I+enO7QX
 github.com/go-quicktest/qt v1.100.0 h1:I7iSLgIwNp0E0UnSvKJzs7ig0jg/Iq83zsZjtQNW7jY=
 github.com/go-quicktest/qt v1.100.0/go.mod h1:leyLsQ4jksGmF1KaQEyabnqGIiJTbOU5S46QegToEj4=
 github.com/go-redis/redis v6.15.8+incompatible/go.mod h1:NAIEuMOZ/fxfXJIrKDQDz8wamY7mA7PouImQ2Jvg6kA=
-github.com/go-rod/rod v0.114.3 h1:gAUT2Bc2wy0tQL5KEet05HNDvmndaHAGCjQ01TB2efA=
-github.com/go-rod/rod v0.114.3/go.mod h1:aiedSEFg5DwG/fnNbUOTPMTTWX3MRj6vIs/a684Mthw=
+github.com/go-rod/rod v0.114.4 h1:FpkNFukjCuZLwnoLs+S9aCL95o/EMec6M+41UmvQay8=
+github.com/go-rod/rod v0.114.4/go.mod h1:aiedSEFg5DwG/fnNbUOTPMTTWX3MRj6vIs/a684Mthw=
 github.com/go-sql-driver/mysql v1.4.0/go.mod h1:zAC/RDZ24gD3HViQzih4MyKcchzm+sOG5ZlKdlhCg5w=
 github.com/go-sql-driver/mysql v1.5.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LBy8hT2VhHyBg=
 github.com/go-stack/stack v1.8.0/go.mod h1:v0f6uXyyMGvRgIKkXu+yp6POWl0qKG85gN/melR3HDY=
@@ -1438,8 +1438,8 @@ github.com/sigstore/k8s-manifest-sigstore v0.5.1 h1:jGYuk6LXJm/GzZB/RR2RZ23T84BC
 github.com/sigstore/k8s-manifest-sigstore v0.5.1/go.mod h1:YL1Yf0ta9jDxYimhZP/DGGaiwMG1CrKupOqfOdMk5d8=
 github.com/sigstore/rekor v1.3.2 h1:o0M/hGYpYhleenrYaMQbJha/w8Zj0Z7vEuND2eZq/Zo=
 github.com/sigstore/rekor v1.3.2/go.mod h1:FYtgwFhBzcmvszqQ24yHVRAPweKoq2BXyGNiB3UT6jM=
-github.com/sigstore/sigstore v1.7.3 h1:HVVTfrMezJeLyl2xhJ8edzkrEGBa4KxjQZB4FlQ4JLU=
-github.com/sigstore/sigstore v1.7.3/go.mod h1:cl0c7Dtg3MM3c13L8pqqrfrmBa0eM3POcdtBepjylmw=
+github.com/sigstore/sigstore v1.7.4 h1:Fyqn6OKOVsYnV0Vs6JhG5t+q0u7Gj6R5dJ52kUVteLs=
+github.com/sigstore/sigstore v1.7.4/go.mod h1:5MxR9PrWYGk5I3sXgdnrMUOLbwFPuAUNtWPm3VwOjkc=
 github.com/sigstore/sigstore/pkg/signature/kms/aws v1.7.4 h1:zIqB/IB8qVJBjazd+fjI6XZlE9f8s5HxnOllHAeTTew=
 github.com/sigstore/sigstore/pkg/signature/kms/aws v1.7.4/go.mod h1:eorFqzSo/RDsBfl97Ui/mKXw0YQ9qLDT1RhMYiuvPf8=
 github.com/sigstore/sigstore/pkg/signature/kms/azure v1.7.3 h1:dS0f3vtSfgJClJrIFKzfettFfSfygEWDd/yecLcH1uc=
