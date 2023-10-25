@@ -2454,8 +2454,8 @@ sigs.k8s.io/kubectl-validate v0.0.1 h1:wKIpCBQwJI559/prMMe0j1cIQSf5IkAQF4IjljNz5
 sigs.k8s.io/kubectl-validate v0.0.1/go.mod h1:iEeHEOp73Wpn2QIDFNJcfDqebHyF7Qjilf+88WoKcWw=
 sigs.k8s.io/kustomize/api v0.14.0 h1:6+QLmXXA8X4eDM7ejeaNUyruA1DDB3PVIjbpVhDOJRA=
 sigs.k8s.io/kustomize/api v0.14.0/go.mod h1:vmOXlC8BcmcUJQjiceUbcyQ75JBP6eg8sgoyzc+eLpQ=
-sigs.k8s.io/kustomize/kyaml v0.14.3 h1:WpabVAKZe2YEp/irTSHwD6bfjwZnTtSDewd2BVJGMZs=
-sigs.k8s.io/kustomize/kyaml v0.14.3/go.mod h1:npvh9epWysfQ689Rtt/U+dpOJDTBn8kUnF1O6VzvmZA=
+sigs.k8s.io/kustomize/kyaml v0.15.0 h1:ynlLMAxDhrY9otSg5GYE2TcIz31XkGZ2Pkj7SdolD84=
+sigs.k8s.io/kustomize/kyaml v0.15.0/go.mod h1:+uMkBahdU1KNOj78Uta4rrXH+iH7wvg+nW7+GULvREA=
 sigs.k8s.io/release-utils v0.7.5 h1:0DYUWILqT0rirJ+8Vrp+Fr8jG8Q32ejFnulkahOvEao=
 sigs.k8s.io/release-utils v0.7.5/go.mod h1:GZGWmbINwsLGKsoZKTeWUGp4F+Rbwhq4XDtJ45N+dLw=
 sigs.k8s.io/structured-merge-diff/v4 v4.0.2/go.mod h1:bJZC9H9iH24zzfZ/41RGcq60oK1F7G282QMXDPYydCw=
