@@ -1124,7 +1124,7 @@ spec:
                             Defaults to "false" if not specified.
                           type: boolean
                         uid:
-                          description: Name specifies the resource name.
+                          description: UID specifies the resource uid.
                           type: string
                       type: object
                     imageExtractors:
@@ -2392,7 +2392,7 @@ spec:
                                   be deprecated in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
                                 x-kubernetes-preserve-unknown-fields: true
                               uid:
-                                description: Name specifies the resource name.
+                                description: UID specifies the resource uid.
                                 type: string
                             type: object
                           type: array
@@ -5454,7 +5454,7 @@ spec:
                                 Optional. Defaults to "false" if not specified.
                               type: boolean
                             uid:
-                              description: Name specifies the resource name.
+                              description: UID specifies the resource uid.
                               type: string
                           type: object
                         imageExtractors:
@@ -6778,7 +6778,7 @@ spec:
                                       See: https://kyverno.io/docs/writing-policies/preconditions/'
                                     x-kubernetes-preserve-unknown-fields: true
                                   uid:
-                                    description: Name specifies the resource name.
+                                    description: UID specifies the resource uid.
                                     type: string
                                 type: object
                               type: array
@@ -9785,7 +9785,7 @@ spec:
                             Defaults to "false" if not specified.
                           type: boolean
                         uid:
-                          description: Name specifies the resource name.
+                          description: UID specifies the resource uid.
                           type: string
                       type: object
                     imageExtractors:
@@ -10840,7 +10840,7 @@ spec:
                                   be deprecated in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
                                 x-kubernetes-preserve-unknown-fields: true
                               uid:
-                                description: Name specifies the resource name.
+                                description: UID specifies the resource uid.
                                 type: string
                             type: object
                           type: array
@@ -14055,7 +14055,7 @@ spec:
                                 Optional. Defaults to "false" if not specified.
                               type: boolean
                             uid:
-                              description: Name specifies the resource name.
+                              description: UID specifies the resource uid.
                               type: string
                           type: object
                         imageExtractors:
@@ -15379,7 +15379,7 @@ spec:
                                       See: https://kyverno.io/docs/writing-policies/preconditions/'
                                     x-kubernetes-preserve-unknown-fields: true
                                   uid:
-                                    description: Name specifies the resource name.
+                                    description: UID specifies the resource uid.
                                     type: string
                                 type: object
                               type: array

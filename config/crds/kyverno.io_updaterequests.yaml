@@ -344,7 +344,7 @@ spec:
                     description: Namespace specifies resource namespace.
                     type: string
                   uid:
-                    description: Name specifies the resource name.
+                    description: UID specifies the resource uid.
                     type: string
                 type: object
               rule:
@@ -382,7 +382,7 @@ spec:
                       description: Namespace specifies resource namespace.
                       type: string
                     uid:
-                      description: Name specifies the resource name.
+                      description: UID specifies the resource uid.
                       type: string
                   type: object
                 type: array
