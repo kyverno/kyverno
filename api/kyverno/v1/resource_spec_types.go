@@ -21,7 +21,7 @@ type ResourceSpec struct {
 	// Name specifies the resource name.
 	// +optional
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
-	// Name specifies the resource name.
+	// UID specifies the resource uid.
 	// +optional
 	UID types.UID `json:"uid,omitempty" yaml:"uid,omitempty"`
 }
