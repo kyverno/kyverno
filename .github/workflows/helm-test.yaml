@@ -38,9 +38,9 @@ jobs:
         uses: helm/chart-testing-action@e8788873172cb653a90ca2e819d79d65a66d4e76 # v2.4.0
       - name: Run chart-testing (lint)
         run: |
-          if [[ $(ct list-changed --target-branch=main) ]];
+          if [[ $(ct list-changed --target-branch=${GITHUB_REF##*/}) ]];
           then
-            ct lint --target-branch=main --check-version-increment=false --validate-maintainers=false
+            ct lint --target-branch=${GITHUB_REF##*/} --check-version-increment=false --validate-maintainers=false
           fi
       - name: Setup test env
         uses: ./.github/actions/setup-test-env
