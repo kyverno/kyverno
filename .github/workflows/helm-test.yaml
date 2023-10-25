@@ -36,6 +36,8 @@ jobs:
           python-version: 3.7
       - name: Set up chart-testing
         uses: helm/chart-testing-action@e8788873172cb653a90ca2e819d79d65a66d4e76 # v2.4.0
+      - name: Debug
+        run: echo ${{ github.ref_name }}
       - name: Run chart-testing (lint)
         run: |
           if [[ $(ct list-changed --target-branch=${{ github.ref_name }}) ]];
