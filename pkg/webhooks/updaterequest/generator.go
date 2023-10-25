@@ -2,7 +2,6 @@ package updaterequest
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	backoff "github.com/cenkalti/backoff"
@@ -13,7 +12,6 @@ import (
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
@@ -68,21 +66,7 @@ func (g *generator) tryApplyResource(ctx context.Context, urSpec kyvernov1beta1.
 	if urSpec.GetRequestType() == kyvernov1beta1.Mutate {
 		queryLabels = common.MutateLabelsSet(urSpec.Policy, urSpec.GetResource())
 	} else if urSpec.GetRequestType() == kyvernov1beta1.Generate {
-		resource := &unstructured.Unstructured{}
-		admissionRequest := urSpec.Context.AdmissionRequestInfo.AdmissionRequest
-		if admissionRequest != nil {
-			var err error
-			if admissionRequest.Operation == "DELETE" {
-				err = json.Unmarshal(urSpec.Context.AdmissionRequestInfo.AdmissionRequest.OldObject.Raw, &resource)
-			} else {
-				err = json.Unmarshal(urSpec.Context.AdmissionRequestInfo.AdmissionRequest.Object.Raw, &resource)
-			}
-			if err != nil {
-				logger.Error(err, "failed to unmarshal admission request object")
-				return err
-			}
-		}
-		queryLabels = common.GenerateLabelsSet(urSpec.Policy, urSpec.GetResource(), string(resource.GetUID()))
+		queryLabels = common.GenerateLabelsSet(urSpec.Policy, urSpec.GetResource())
 	}
 
 	l.V(4).Info("creating new UpdateRequest")

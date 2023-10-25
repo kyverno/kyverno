@@ -251,7 +251,7 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 			common.GenerateSourceVersionLabel: old.GroupVersionKind().Version,
 			common.GenerateSourceKindLabel:    old.GetKind(),
 			common.GenerateSourceNSLabel:      old.GetNamespace(),
-			common.GenerateSourceUIDLabel:     string(old.GetUID()),
+			common.GenerateSourceNameLabel:    old.GetName(),
 		}
 		targets, err := generateutils.FindDownstream(h.client, old.GetAPIVersion(), old.GetKind(), targetSelector)
 		if err != nil {
