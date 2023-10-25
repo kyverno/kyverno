@@ -38,8 +38,6 @@ jobs:
         uses: helm/chart-testing-action@e8788873172cb653a90ca2e819d79d65a66d4e76 # v2.4.0
       - name: Set reference
         run: echo "REF=${{ github.event.pull_request && github.base_ref || github.ref_name }}" >> $GITHUB_ENV
-      - name: Debug
-        run: echo $REF ${{github.base_ref }} ${{github.ref_name}} ${{github.event.pull_request}} ${{ github.event_name == 'pull_request' }}
       - name: Run chart-testing (lint)
         run: |
           if [[ $(ct list-changed --target-branch=$REF) ]];
