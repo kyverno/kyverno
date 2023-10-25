@@ -36,13 +36,15 @@ jobs:
           python-version: 3.7
       - name: Set up chart-testing
         uses: helm/chart-testing-action@e8788873172cb653a90ca2e819d79d65a66d4e76 # v2.4.0
+      - name: Set reference
+        run: echo "REF=${{ github.event.pull_request && github.head_ref || github.ref_name }}" >> $GITHUB_ENV
       - name: Debug
-        run: echo ${{ github.ref_name }}
+        run: echo $REF
       - name: Run chart-testing (lint)
         run: |
-          if [[ $(ct list-changed --target-branch=${{ github.ref_name }}) ]];
+          if [[ $(ct list-changed --target-branch=$REF) ]];
           then
-            ct lint --target-branch=${{ github.ref_name }} --check-version-increment=false --validate-maintainers=false
+            ct lint --target-branch=$REF --check-version-increment=false --validate-maintainers=false
           fi
       - name: Setup test env
         uses: ./.github/actions/setup-test-env
