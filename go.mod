@@ -34,7 +34,7 @@ require (
 	github.com/notaryproject/notation-core-go v1.0.0
 	github.com/notaryproject/notation-go v1.0.0
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.28.0
+	github.com/onsi/gomega v1.28.1
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0-rc5
 	github.com/pkg/errors v0.9.1
@@ -71,12 +71,12 @@ require (
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
-	k8s.io/api v0.28.2
+	k8s.io/api v0.28.3
 	k8s.io/apiextensions-apiserver v0.28.1
-	k8s.io/apimachinery v0.28.2
+	k8s.io/apimachinery v0.28.3
 	k8s.io/apiserver v0.28.2
-	k8s.io/cli-runtime v0.28.2
-	k8s.io/client-go v0.28.2
+	k8s.io/cli-runtime v0.28.3
+	k8s.io/client-go v0.28.3
 	k8s.io/klog/v2 v2.100.1
 	k8s.io/kube-aggregator v0.28.2
 	k8s.io/pod-security-admission v0.28.2
@@ -84,7 +84,7 @@ require (
 	sigs.k8s.io/controller-runtime v0.16.2
 	sigs.k8s.io/kubectl-validate v0.0.1
 	sigs.k8s.io/kustomize/api v0.14.0
-	sigs.k8s.io/kustomize/kyaml v0.14.3
+	sigs.k8s.io/kustomize/kyaml v0.15.0
 	sigs.k8s.io/release-utils v0.7.5
 	sigs.k8s.io/structured-merge-diff/v4 v4.3.0
 	sigs.k8s.io/yaml v1.3.0
