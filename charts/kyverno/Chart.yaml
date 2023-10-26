@@ -22,8 +22,8 @@ home: https://kyverno.io/
 sources:
   - https://github.com/kyverno/kyverno
 maintainers:
-  - name: kyverno-maintainers
-    email: cncf-kyverno-maintainers@lists.cncf.io
+  - name: Nirmata
+    url: https://kyverno.io/
 kubeVersion: ">=1.25.0-0"
 annotations:
   artifacthub.io/operator: "false"
