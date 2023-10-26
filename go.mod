@@ -79,7 +79,7 @@ require (
 	k8s.io/client-go v0.28.3
 	k8s.io/klog/v2 v2.100.1
 	k8s.io/kube-aggregator v0.28.2
-	k8s.io/pod-security-admission v0.28.2
+	k8s.io/pod-security-admission v0.28.3
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/controller-runtime v0.16.2
 	sigs.k8s.io/kubectl-validate v0.0.1
