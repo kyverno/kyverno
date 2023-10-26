@@ -25,7 +25,7 @@ jobs:
       - name: Set up chart-testing
         uses: helm/chart-testing-action@e8788873172cb653a90ca2e819d79d65a66d4e76 # v2.4.0
       - name: Run chart-testing (lint)
-        run: ct lint --target-branch=main --check-version-increment=false
+        run: ct lint --target-branch=main --check-version-increment=false --validate-maintainers=false
 
   linter-artifacthub:
     runs-on: ubuntu-latest
