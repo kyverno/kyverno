@@ -7,6 +7,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/utils/conditions"
 	matched "github.com/kyverno/kyverno/pkg/utils/match"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -42,6 +43,7 @@ func matchesException(
 	selector engineapi.PolicyExceptionSelector,
 	policyContext engineapi.PolicyContext,
 	rule kyvernov1.Rule,
+	logger logr.Logger,
 ) (*kyvernov2beta1.PolicyException, error) {
 	candidates, err := findExceptions(selector, policyContext.Policy(), rule.Name)
 	if err != nil {
@@ -63,6 +65,15 @@ func matchesException(
 		)
 		// if there's no error it means a match
 		if err == nil {
+			if candidate.Spec.Conditions != nil {
+				passed, err := conditions.CheckAnyAllConditions(logger, policyContext.JSONContext(), *candidate.Spec.Conditions)
+				if err != nil {
+					return nil, err
+				}
+				if !passed {
+					return nil, fmt.Errorf("conditions did not pass")
+				}
+			}
 			return candidate, nil
 		}
 	}
@@ -78,7 +89,7 @@ func (e *engine) hasPolicyExceptions(
 	rule kyvernov1.Rule,
 ) *engineapi.RuleResponse {
 	// if matches, check if there is a corresponding policy exception
-	exception, err := matchesException(e.exceptionSelector, ctx, rule)
+	exception, err := matchesException(e.exceptionSelector, ctx, rule, logger)
 	if err != nil {
 		logger.Error(err, "failed to match exceptions")
 		return nil

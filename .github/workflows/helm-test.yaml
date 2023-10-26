@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Setup caches
         uses: ./.github/actions/setup-caches
         timeout-minutes: 5
@@ -36,11 +36,13 @@ jobs:
           python-version: 3.7
       - name: Set up chart-testing
         uses: helm/chart-testing-action@e8788873172cb653a90ca2e819d79d65a66d4e76 # v2.4.0
+      - name: Set reference
+        run: echo "REF=${{ github.event.pull_request && github.base_ref || github.ref_name }}" >> $GITHUB_ENV
       - name: Run chart-testing (lint)
         run: |
-          if [[ $(ct list-changed --target-branch=main) ]];
+          if [[ $(ct list-changed --target-branch=$REF) ]];
           then
-            ct lint --target-branch=main --check-version-increment=false
+            ct lint --target-branch=$REF --check-version-increment=false --validate-maintainers=false
           fi
       - name: Setup test env
         uses: ./.github/actions/setup-test-env
@@ -57,7 +59,7 @@ jobs:
       options: --user root
     steps:
       - name: Checkout
-        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Run ah lint
         working-directory: ./charts/
         run: ah lint
