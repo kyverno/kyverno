@@ -1,4 +1,4 @@
-package cleanup
+package conditions
 
 import (
 	"testing"
