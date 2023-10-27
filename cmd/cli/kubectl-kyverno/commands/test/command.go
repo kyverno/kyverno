@@ -30,7 +30,7 @@ func Command() *cobra.Command {
 		Args:         cobra.MinimumNArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, dirPath []string) (err error) {
-			color.InitColors(removeColor)
+			color.Init(removeColor)
 			store.SetRegistryAccess(registryAccess)
 			return testCommandExecute(cmd.OutOrStdout(), dirPath, fileName, gitBranch, testCase, failOnly, detailedResults)
 		},

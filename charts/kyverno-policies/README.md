@@ -92,7 +92,7 @@ Kubernetes: `>=1.16.0-0`
 
 | Name | Email | Url |
 | ---- | ------ | --- |
-| Nirmata |  | <https://kyverno.io/> |
+| kyverno-maintainers | <cncf-kyverno-maintainers@lists.cncf.io> |  |
 
 ## Changes
 
