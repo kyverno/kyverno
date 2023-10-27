@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/kataras/tablewriter"
-
 	"github.com/kyverno/kyverno/ext/output/color"
 )
 
