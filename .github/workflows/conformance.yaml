@@ -237,7 +237,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          go install github.com/kyverno/chainsaw@2eaff824eea1cc44b21d02d1b432fc723c247cce
+          go install github.com/kyverno/chainsaw@92c3a20f39d911bb196298635dde9c1c1d2b2ec0
       - name: Test with Chainsaw
         shell: bash
         env:
