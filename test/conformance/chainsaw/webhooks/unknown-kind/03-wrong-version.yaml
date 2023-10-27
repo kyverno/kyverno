@@ -1,5 +1,8 @@
-apiVersion: kuttl.dev/v1beta1
+apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: TestStep
-apply:
+metadata:
+  name: wrong-version
+spec:
+  apply:
   - file: policy-3.yaml
     shouldFail: true
