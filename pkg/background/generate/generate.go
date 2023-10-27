@@ -236,30 +236,31 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 				kyvernov1beta1.URGenerateResourceKindLabel: engineResponse.Resource.GetKind(),
 				kyvernov1beta1.URGenerateResourceNSLabel:   engineResponse.Resource.GetNamespace(),
 			}))
-			// get update requests that have the resource name label
-			requirement, err := labels.NewRequirement(kyvernov1beta1.URGenerateResourceNameLabel, selection.Equals, []string{engineResponse.Resource.GetName()})
+			// get update requests that have the resource UID label
+			requirement, err := labels.NewRequirement(kyvernov1beta1.URGenerateResourceUIDLabel, selection.Equals, []string{string(engineResponse.Resource.GetUID())})
 			if err != nil {
-				logger.Error(err, "failed to add the resource name label")
+				logger.Error(err, "failed to add the resource UID label")
 			}
-			selectorWithResName := selector.Add(*requirement)
-			urList, err := c.urLister.List(selectorWithResName)
+			selectorWithResUID := selector.Add(*requirement)
+			urList, err := c.urLister.List(selectorWithResUID)
 			if err != nil {
 				logger.Error(err, "failed to get update request for the resource", "kind", engineResponse.Resource.GetKind(), "name", engineResponse.Resource.GetName(), "namespace", engineResponse.Resource.GetNamespace())
 				continue
 			}
 
-			// get update requests that have the resource UID label
-			requirement, err = labels.NewRequirement(kyvernov1beta1.URGenerateResourceUIDLabel, selection.Equals, []string{string(engineResponse.Resource.GetUID())})
-			if err != nil {
-				logger.Error(err, "failed to add the resource UID label")
+			if len(urList) == 0 {
+				// get update requests that have the resource name label
+				requirement, err = labels.NewRequirement(kyvernov1beta1.URGenerateResourceNameLabel, selection.Equals, []string{engineResponse.Resource.GetName()})
+				if err != nil {
+					logger.Error(err, "failed to add the resource name label")
+				}
+				selectorWithResName := selector.Add(*requirement)
+				urList, err = c.urLister.List(selectorWithResName)
+				if err != nil {
+					logger.Error(err, "failed to get update request for the resource", "kind", engineResponse.Resource.GetKind(), "name", engineResponse.Resource.GetName(), "namespace", engineResponse.Resource.GetNamespace())
+					continue
+				}
 			}
-			selectorWithResUID := selector.Add(*requirement)
-			urListWithResUID, err := c.urLister.List(selectorWithResUID)
-			if err != nil {
-				logger.Error(err, "failed to get update request for the resource", "kind", engineResponse.Resource.GetKind(), "name", engineResponse.Resource.GetName(), "namespace", engineResponse.Resource.GetNamespace())
-				continue
-			}
-			urList = append(urList, urListWithResUID...)
 
 			for _, v := range urList {
 				err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
