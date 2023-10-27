@@ -248,14 +248,33 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 			// clone source deletion
 			deleteDownstream = true
 		}
+		// fetch targets that have the source name label
 		targetSelector := map[string]string{
+			common.GenerateSourceGroupLabel:   old.GroupVersionKind().Group,
+			common.GenerateSourceVersionLabel: old.GroupVersionKind().Version,
+			common.GenerateSourceKindLabel:    old.GetKind(),
+			common.GenerateSourceNSLabel:      old.GetNamespace(),
+			common.GenerateSourceNameLabel:    old.GetName(),
+		}
+		targets, err := generateutils.FindDownstream(h.client, old.GetAPIVersion(), old.GetKind(), targetSelector)
+		if err != nil {
+			return fmt.Errorf("failed to list targets resources: %v", err)
+		}
+
+		for i := range targets.Items {
+			l := targets.Items[i].GetLabels()
+			labelsList = append(labelsList, l)
+		}
+
+		// fetch targets that have the source UID label
+		targetSelector = map[string]string{
 			common.GenerateSourceGroupLabel:   old.GroupVersionKind().Group,
 			common.GenerateSourceVersionLabel: old.GroupVersionKind().Version,
 			common.GenerateSourceKindLabel:    old.GetKind(),
 			common.GenerateSourceNSLabel:      old.GetNamespace(),
 			common.GenerateSourceUIDLabel:     string(old.GetUID()),
 		}
-		targets, err := generateutils.FindDownstream(h.client, old.GetAPIVersion(), old.GetKind(), targetSelector)
+		targets, err = generateutils.FindDownstream(h.client, old.GetAPIVersion(), old.GetKind(), targetSelector)
 		if err != nil {
 			return fmt.Errorf("failed to list targets resources: %v", err)
 		}
