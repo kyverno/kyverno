@@ -15,8 +15,8 @@ home: https://kyverno.io/policies/
 sources:
   - https://github.com/kyverno/policies
 maintainers:
-  - name: Nirmata
-    url: https://kyverno.io/
+  - name: kyverno-maintainers
+    email: cncf-kyverno-maintainers@lists.cncf.io
 kubeVersion: ">=1.16.0-0"
 annotations:
   artifacthub.io/operator: "false"
