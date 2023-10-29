@@ -8,9 +8,10 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
-	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
+	kyvernov2beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2beta1"
+	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
@@ -21,6 +22,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	"github.com/kyverno/kyverno/pkg/utils/conditions"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"github.com/kyverno/kyverno/pkg/utils/match"
 	"go.opentelemetry.io/otel"
@@ -40,8 +42,8 @@ type controller struct {
 	kyvernoClient versioned.Interface
 
 	// listers
-	cpolLister kyvernov2alpha1listers.ClusterCleanupPolicyLister
-	polLister  kyvernov2alpha1listers.CleanupPolicyLister
+	cpolLister kyvernov2beta1listers.ClusterCleanupPolicyLister
+	polLister  kyvernov2beta1listers.CleanupPolicyLister
 	nsLister   corev1listers.NamespaceLister
 
 	// queue
@@ -70,8 +72,8 @@ const (
 func NewController(
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
-	cpolInformer kyvernov2alpha1informers.ClusterCleanupPolicyInformer,
-	polInformer kyvernov2alpha1informers.CleanupPolicyInformer,
+	cpolInformer kyvernov2beta1informers.ClusterCleanupPolicyInformer,
+	polInformer kyvernov2beta1informers.CleanupPolicyInformer,
 	nsLister corev1listers.NamespaceLister,
 	configuration config.Configuration,
 	cmResolver engineapi.ConfigmapResolver,
@@ -279,7 +281,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 							errs = append(errs, err)
 							continue
 						}
-						passed, err := checkAnyAllConditions(logger, enginectx, *spec.Conditions)
+						passed, err := conditions.CheckAnyAllConditions(logger, enginectx, *spec.Conditions)
 						if err != nil {
 							debug.Error(err, "failed to check condition")
 							errs = append(errs, err)
@@ -339,7 +341,10 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		if err != nil {
 			return err
 		}
-		c.updateCleanupPolicyStatus(ctx, policy, namespace, *executionTime)
+		if err := c.updateCleanupPolicyStatus(ctx, policy, namespace, *executionTime); err != nil {
+			logger.Error(err, "failed to update the cleanup policy status")
+			return err
+		}
 		nextExecutionTime, err = policy.GetNextExecutionTime(*executionTime)
 		if err != nil {
 			logger.Error(err, "failed to get the policy next execution time")
@@ -356,19 +361,26 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	return nil
 }
 
-func (c *controller) updateCleanupPolicyStatus(ctx context.Context, policy kyvernov2alpha1.CleanupPolicyInterface, namespace string, time time.Time) {
+func (c *controller) updateCleanupPolicyStatus(ctx context.Context, policy kyvernov2alpha1.CleanupPolicyInterface, namespace string, time time.Time) error {
 	switch obj := policy.(type) {
-	case *kyvernov2alpha1.ClusterCleanupPolicy:
+	case *kyvernov2beta1.ClusterCleanupPolicy:
 		latest := obj.DeepCopy()
-		latest.Status.LastExecutionTime.Time = time
+		latest.Status.LastExecutionTime = metav1.NewTime(time)
 
-		new, _ := c.kyvernoClient.KyvernoV2alpha1().ClusterCleanupPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
+		new, err := c.kyvernoClient.KyvernoV2beta1().ClusterCleanupPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
 		logging.V(3).Info("updated cluster cleanup policy status", "name", policy.GetName(), "status", new.Status)
-	case *kyvernov2alpha1.CleanupPolicy:
+	case *kyvernov2beta1.CleanupPolicy:
 		latest := obj.DeepCopy()
-		latest.Status.LastExecutionTime.Time = time
+		latest.Status.LastExecutionTime = metav1.NewTime(time)
 
-		new, _ := c.kyvernoClient.KyvernoV2alpha1().CleanupPolicies(namespace).UpdateStatus(ctx, latest, metav1.UpdateOptions{})
+		new, err := c.kyvernoClient.KyvernoV2beta1().CleanupPolicies(namespace).UpdateStatus(ctx, latest, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
 		logging.V(3).Info("updated cleanup policy status", "name", policy.GetName(), "namespace", policy.GetNamespace(), "status", new.Status)
 	}
+	return nil
 }

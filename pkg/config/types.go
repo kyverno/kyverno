@@ -2,7 +2,9 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -72,6 +74,36 @@ func parseIncludeExcludeNamespacesFromNamespacesConfig(in string) (namespacesCon
 	return namespacesConfigObject, err
 }
 
+type metricExposureConfig struct {
+	Enabled                 *bool     `json:"enabled,omitempty"`
+	DisabledLabelDimensions []string  `json:"disabledLabelDimensions,omitempty"`
+	BucketBoundaries        []float64 `json:"bucketBoundaries,omitempty"`
+}
+
+func parseMetricExposureConfig(in string, defaultBoundaries []float64) (map[string]metricExposureConfig, error) {
+	var metricExposureMap map[string]metricExposureConfig
+	err := json.Unmarshal([]byte(in), &metricExposureMap)
+	if err != nil {
+		return nil, err
+	}
+
+	for key, config := range metricExposureMap {
+		if config.Enabled == nil {
+			b := true
+			config.Enabled = &b
+		}
+		if config.DisabledLabelDimensions == nil {
+			config.DisabledLabelDimensions = []string{}
+		}
+		if config.BucketBoundaries == nil {
+			config.BucketBoundaries = defaultBoundaries
+		}
+		metricExposureMap[key] = config
+	}
+
+	return metricExposureMap, err
+}
+
 type filter struct {
 	Group       string
 	Version     string
@@ -123,4 +155,23 @@ func parseKinds(in string) []filter {
 		resources = append(resources, resource)
 	}
 	return resources
+}
+
+func parseBucketBoundariesConfig(boundariesString string) ([]float64, error) {
+	var boundaries []float64
+	boundariesString = strings.TrimSpace(boundariesString)
+
+	if boundariesString != "" {
+		boundaryStrings := strings.Split(boundariesString, ",")
+		for _, boundaryStr := range boundaryStrings {
+			boundaryStr = strings.TrimSpace(boundaryStr)
+			boundary, err := strconv.ParseFloat(boundaryStr, 64)
+			if err != nil {
+				return nil, fmt.Errorf("invalid boundary value '%s'", boundaryStr)
+			}
+			boundaries = append(boundaries, boundary)
+		}
+	}
+
+	return boundaries, nil
 }

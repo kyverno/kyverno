@@ -17,4 +17,10 @@ data:
   {{- with .Values.metricsConfig.metricsRefreshInterval }}
   metricsRefreshInterval: {{ . }}
   {{- end }}
+  {{- with .Values.metricsConfig.metricsExposure }}
+  metricsExposure: {{ toJson . | quote }}
+  {{- end }}
+  {{- with .Values.metricsConfig.bucketBoundaries }}
+  bucketBoundaries: {{ join ", " . | quote }}
+  {{- end }}
 {{- end -}}

@@ -60,6 +60,7 @@ KO                                 := $(TOOLS_DIR)/ko
 KO_VERSION                         := v0.14.1
 KUTTL                              := $(TOOLS_DIR)/kubectl-kuttl
 KUTTL_VERSION                      := v0.0.0-20230914072640-e3af68e47317
+KUBE_VERSION                       := v1.25.0
 TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(APPLYCONFIGURATION_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(KUTTL)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
@@ -495,12 +496,12 @@ codegen-crds-report: $(CONTROLLER_GEN) ## Generate policy reports CRDs
 	@$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)
 
 .PHONY: codegen-crds-cli
-codegen-crds-cli: $(CONTROLLER_GEN) ## Generate policy reports CRDs
+codegen-crds-cli: $(CONTROLLER_GEN) ## Generate CLI CRDs
 	@echo Generate cli crds... >&2
 	@$(CONTROLLER_GEN) crd paths=./cmd/cli/kubectl-kyverno/apis/... crd:crdVersions=v1 output:dir=${PWD}/cmd/cli/kubectl-kyverno/config/crds
 
 .PHONY: codegen-crds-all
-codegen-crds-all: codegen-crds-kyverno codegen-crds-report ## Generate all CRDs
+codegen-crds-all: codegen-crds-kyverno codegen-crds-report codegen-cli-crds ## Generate all CRDs
 
 .PHONY: codegen-helm-docs
 codegen-helm-docs: ## Generate helm docs
@@ -562,14 +563,12 @@ codegen-cli-all: codegen-cli-crds codegen-cli-docs codegen-cli-api-docs codegen-
 codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 	@echo Generate helm crds... >&2
 	@cat $(CRDS_PATH)/* \
-		| $(SED) -e '1i{{- if .Values.crds.install }}' \
-		| $(SED) -e '$$a{{- end }}' \
 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
  		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
-		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.crds.annotations }}' \
+		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
  		| $(SED) -e '/^  annotations:/i \ \ labels:' \
 		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
- 		> ./charts/kyverno/templates/crds/crds.yaml
+ 		> ./charts/kyverno/charts/crds/templates/crds.yaml
 
 .PHONY: codegen-helm-all
 codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and CRDs
@@ -577,7 +576,7 @@ codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and 
 .PHONY: codegen-manifest-install-latest
 codegen-manifest-install-latest: $(HELM) ## Create install_latest manifest
 	@echo Generate latest install manifest... >&2
-	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
+	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
 		--set templating.version=latest \
 		--set admissionController.container.image.tag=latest \
@@ -592,7 +591,7 @@ codegen-manifest-install-latest: $(HELM) ## Create install_latest manifest
 codegen-manifest-debug: $(HELM) ## Create debug manifest
 	@echo Generate debug manifest... >&2
 	@mkdir -p ./.manifest
-	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
+	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
 		--set templating.version=latest \
 		--set templating.debug=true \
@@ -608,7 +607,7 @@ codegen-manifest-debug: $(HELM) ## Create debug manifest
 codegen-manifest-release: $(HELM) ## Create release manifest
 	@echo Generate release manifest... >&2
 	@mkdir -p ./.manifest
-	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
+	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
 		--set templating.version=$(VERSION) \
 		--set admissionController.container.image.tag=$(VERSION) \
