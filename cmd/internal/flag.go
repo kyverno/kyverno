@@ -114,7 +114,7 @@ func initRegistryClientFlags() {
 }
 
 func initImageVerifyCacheFlags() {
-	flag.BoolVar(&imageVerifyCacheEnabled, "imageVerifyCacheEnabled", true, "Whether to use a TTL cache for storing verified images.")
+	flag.BoolVar(&imageVerifyCacheEnabled, "imageVerifyCacheEnabled", true, "Whether to use a TTL cache for verifying images.")
 	flag.Int64Var(&imageVerifyCacheMaxSize, "imageVerifyCacheMaxSize", 1000, "Maximum number of keys that can be stored in the TTL cache, The default 1000 size limit, 0 sets the value to default.")
 	flag.DurationVar(&imageVerifyCacheTTLDuration, "imageVerifyCacheTTLDuration", 60*time.Minute, "Maximum TTL value for a cache, default is 1 hour, 0 sets the value to default.")
 }
