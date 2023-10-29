@@ -12,7 +12,7 @@ import (
 
 func TestTo(t *testing.T) {
 	{
-		data, err := os.ReadFile("../../_testdata/policies/check-image.yaml")
+		data, err := os.ReadFile("../../../cmd/cli/kubectl-kyverno/_testdata/policies/check-image.yaml")
 		require.NoError(t, err)
 
 		json, err := yaml.YAMLToJSON(data)
@@ -26,7 +26,7 @@ func TestTo(t *testing.T) {
 		require.Error(t, err)
 	}
 	{
-		data, err := os.ReadFile("../../_testdata/resources/namespace.yaml")
+		data, err := os.ReadFile("../../../cmd/cli/kubectl-kyverno/_testdata/resources/namespace.yaml")
 		require.NoError(t, err)
 
 		json, err := yaml.YAMLToJSON(data)
