@@ -34,7 +34,7 @@ require (
 	github.com/notaryproject/notation-core-go v1.0.0
 	github.com/notaryproject/notation-go v1.0.0
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.28.1
+	github.com/onsi/gomega v1.29.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0-rc5
 	github.com/pkg/errors v0.9.1
@@ -47,7 +47,7 @@ require (
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.7.4
 	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.7.4
 	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.7.4
-	github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.7.3
+	github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.7.5
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
 	github.com/zach-klippenstein/goregen v0.0.0-20160303162051-795b5e3961ea
@@ -78,7 +78,7 @@ require (
 	k8s.io/cli-runtime v0.28.3
 	k8s.io/client-go v0.28.3
 	k8s.io/klog/v2 v2.100.1
-	k8s.io/kube-aggregator v0.28.2
+	k8s.io/kube-aggregator v0.28.3
 	k8s.io/pod-security-admission v0.28.3
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/controller-runtime v0.16.2
