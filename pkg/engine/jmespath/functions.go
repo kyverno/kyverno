@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
+	"net/url"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -65,6 +67,7 @@ var (
 	parseYAML              = "parse_yaml"
 	items                  = "items"
 	objectFromLists        = "object_from_lists"
+	isExternalURL          = "is_external_url"
 )
 
 const errorPrefix = "JMESPath function '%s': "
@@ -393,6 +396,16 @@ func GetFunctions() []*FunctionEntry {
 			},
 			ReturnType: []JpType{JpObject},
 			Note:       "converts a pair of lists containing keys and values to an object",
+		}, {
+			Entry: &gojmespath.FunctionEntry{
+				Name: isExternalURL,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpIsExternalURL,
+			},
+			ReturnType: []JpType{JpBool},
+			Note:       "determine if a URL points to an external network address",
 		},
 	}
 
@@ -900,7 +913,32 @@ func ifaceToString(iface interface{}) (string, error) {
 		return "", errors.New("error, undefined type cast")
 	}
 }
-
+func jpIsExternalURL(arguments []interface{}) (interface{}, error) {
+	var err error
+	str, err := validateArg(pathCanonicalize, arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+	parsedURL, err := url.Parse(str.String())
+	if err != nil {
+		return false, err
+	}
+	ip := net.ParseIP(parsedURL.Hostname())
+	if ip != nil {
+		return !(ip.IsLoopback() || ip.IsPrivate()), nil
+	}
+	// If it can't be parsed as an IP, then resolve the domain name
+	ips, err := net.LookupIP(parsedURL.Hostname())
+	if err != nil {
+		return nil, err
+	}
+	for _, ip := range ips {
+		if ip.IsLoopback() || ip.IsPrivate() {
+			return false, nil
+		}
+	}
+	return true, nil
+}
 func validateArg(f string, arguments []interface{}, index int, expectedType reflect.Kind) (reflect.Value, error) {
 	arg := reflect.ValueOf(arguments[index])
 	if arg.Type().Kind() != expectedType {

@@ -1,22 +1,31 @@
 name: PR update
 
+permissions: {}
+
 on:
   push:
     branches:
       - 'main'
       - 'release-*'
+
 jobs:
   autoupdate:
-    permissions:
-      pull-requests: write
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Check secret
+        id: checksecret
+        uses: ./.github/actions/is-defined
+        with:
+          value: ${{ secrets.PR_UPDATE_TOKEN }}
       - name: Automatically update PR
-        uses: adRise/update-pr-branch@437fab6e0ac7d2a668f2c479f64225edd7f303fd # v0.6.0
+        if: steps.checksecret.outputs.result == 'true'
+        uses: adRise/update-pr-branch@cd305ecbd76bf63056c9400ce2c725293fc3e0c0 # v0.7.0
         with:
           token: ${{ secrets.PR_UPDATE_TOKEN }}
-          base: ${{ env.GITHUB_REF_NAME }}
+          base: ${{ github.ref_name }}
           required_approval_count: 1
-          require_passed_checks: true
-          sort: 'updated'
-          direction: 'asc'
+          require_passed_checks: false
+          sort: updated
+          direction: asc

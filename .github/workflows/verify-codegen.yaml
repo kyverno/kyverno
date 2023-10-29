@@ -1,4 +1,4 @@
-name: Codecov
+name: Verify codegen
 
 permissions: {}
 
@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  codecov:
+  verify-codegen:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -26,15 +26,9 @@ jobs:
         timeout-minutes: 5
         continue-on-error: true
         with:
-          build-cache-key: codecov
+          build-cache-key: verify-codegen
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
-      - name: Generate Code Coverage Report
-        run: make code-cov-report
-      - name: Upload Report to Codecov
-        uses: codecov/codecov-action@eaaf4bedf32dbdc6b720b63067d99c4d77d6047d # v3.1.4
-        with:
-          file: ./coverage.out
-          fail_ci_if_error: true
-          verbose: true
+      - name: Verify generated code is up to date
+        run: make verify-codegen

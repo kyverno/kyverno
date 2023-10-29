@@ -1,0 +1,88 @@
+name: Publish image
+
+description: Publishes a docker image, SBOM, scans vulns, and signs the image.
+
+inputs:
+  makefile-target:
+    required: true
+    description: makefile target to invoke for publishing image with ko
+  registry:
+    required: true
+    description: registry to publish image to
+  registry-username:
+    required: true
+    description: registry credentials username
+  registry-password:
+    required: true
+    description: registry credentials password
+  repository:
+    required: true
+    description: repository to publish image to
+  version:
+    required: true
+    description: published image version
+  sign-image:
+    required: true
+    description: sign image
+  sbom-name:
+    required: true
+    description: name of the cyclonedx sbom
+  sbom-repository:
+    required: true
+    description: sbom repository
+  signature-repository:
+    required: true
+    description: signature repository
+  main-path:
+    required: true
+    description: path to main go entry point
+
+outputs:
+  digest:
+    value: ${{ steps.digest.outputs.digest }}
+    description: published image digest
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      id: ko-publish
+      env:
+        REGISTRY: ${{ inputs.registry }}
+        REPO: ${{ inputs.repository }}
+        REGISTRY_PASSWORD: ${{ inputs.registry-password }}
+        COSIGN_REPOSITORY: ${{ inputs.sbom-repository }}
+      run: |
+        set -e
+        echo "digest=$(VERSION=${{ inputs.version }} make ${{ inputs.makefile-target }})" >> $GITHUB_OUTPUT
+    - uses: CycloneDX/gh-gomod-generate-sbom@d4aee0cf5133055dbd98899978246c10c18c440f # v1.1.0
+      with:
+        version: v1
+        args: app -licenses -json -output ${{ inputs.sbom-name }}-bom.cdx.json -main ${{ inputs.main-path }}
+    - uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+      with:
+        name: ${{ inputs.sbom-name }}-bom-cdx
+        path: ${{ inputs.sbom-name }}-bom.cdx.json
+    - shell: bash
+      if: ${{ inputs.sign-image == 'true' }}
+      env:
+        COSIGN_REPOSITORY: ${{ inputs.signature-repository }}
+      run: |
+        set -e
+        cosign sign --yes \
+          -a "repo=${{ github.repository }}" \
+          -a "workflow=${{ github.workflow }}" \
+          -a "ref=${{ github.sha }}" \
+          ${{ steps.ko-publish.outputs.digest }}
+    - shell: bash
+      env:
+        COSIGN_REPOSITORY: ${{ inputs.sbom-repository }}
+      run: |
+        cosign attach sbom --sbom ./${{ inputs.sbom-name }}-bom.cdx.json --type cyclonedx ${{ steps.ko-publish.outputs.digest }}
+    - shell: bash
+      id: digest
+      run: |
+        echo "The image generated is: ${{ steps.ko-publish.outputs.digest }}"
+        DIGEST=$(echo ${{ steps.ko-publish.outputs.digest }} | cut -d '@' -f2)
+        echo "Digest from image is: $DIGEST"
+        echo "digest=$DIGEST" >> $GITHUB_OUTPUT

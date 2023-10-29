@@ -1,43 +1,74 @@
 name: helm-release
+
+permissions: {}
+
 on:
   push:
     tags:
       - 'kyverno-chart-v*'
       - 'kyverno-policies-chart-v*'
+      - 'kyverno-chart-*'
+      - 'kyverno-policies-chart-*'
 
 jobs:
   helm-tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
-
-      - name: Unshallow
-        run: git fetch --prune --unshallow
-
-      - uses: actions/setup-python@f38219332975fe8f9c04cca981d674bf22aea1d3 # v2.3.1
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        timeout-minutes: 10
+      - uses: actions/setup-python@65d7f2d534ac1bc67fcd62888c5f4f3d2cb2b236 # v4.7.1
         with:
           python-version: 3.7
-
       - name: Set up chart-testing
-        uses: helm/chart-testing-action@b0d4458c71155b54fcf33e11dd465dc923550009 # v2.0.1
-
+        uses: helm/chart-testing-action@e8788873172cb653a90ca2e819d79d65a66d4e76 # v2.4.0
       - name: Run chart-testing (lint)
-        run: ct lint --target-branch=main --check-version-increment=false
+        run: ct lint --target-branch=main --check-version-increment=false --validate-maintainers=false
+
+  linter-artifacthub:
+    runs-on: ubuntu-latest
+    container:
+      image: artifacthub/ah
+      options: --user root
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Run ah lint
+        working-directory: ./charts/
+        run: ah lint
 
   create-release:
     runs-on: ubuntu-latest
     needs: helm-tests
+    permissions:
+      contents: write
+      packages: write
+      id-token: write 
+      pages: write
     steps:
       - name: Checkout
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
-        with:
-          fetch-depth: 0
-          
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        timeout-minutes: 10
+
       - name: Install Helm
-        uses: azure/setup-helm@18bc76811624f360dbd7f18c2d4ecb32c7b87bab # v1.1
+        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
         with:
-          version: v3.4.1
+          version: v3.10.3
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@11086d25041f77fe8fe7b9ea4e48e3b9192b8f19 # v3.1.2
 
       - name: Set version
         run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
@@ -51,10 +82,31 @@ jobs:
           if [[ "$RELEASE_VERSION" = "kyverno-chart-v"* ]]; then
             cp -a charts/kyverno charts-tmp/kyverno
           fi
+          if [[ "$RELEASE_VERSION" = "kyverno-policies-chart-"* ]]; then
+            cp -a charts/kyverno-policies charts-tmp/kyverno-policies
+          fi
+          if [[ "$RELEASE_VERSION" = "kyverno-chart-"* ]]; then
+            cp -a charts/kyverno charts-tmp/kyverno
+          fi
 
       - name: Run chart-releaser
-        uses: stefanprodan/helm-gh-pages@b43a8719cc63fdb3aa943cc57359ab19118eab3f #v1.5.0
+        uses: stefanprodan/helm-gh-pages@0ad2bb377311d61ac04ad9eb6f252fb68e207260 #v1.7.0
         with:
           token: "${{ secrets.GITHUB_TOKEN }}"
           linting: off
           charts_dir: charts-tmp
+
+      - name: Login to GitHub Container Registry
+        run: |
+          helm registry login --username ${GITHUB_ACTOR} --password ${{ secrets.GITHUB_TOKEN }} ghcr.io
+      
+      - name: Publish OCI Charts
+        run: |
+          for dir in `find charts-tmp -maxdepth 1 -mindepth 1 -type d -print`; do
+            chart=${dir##*/}
+            echo "Found chart: ${chart}"
+            helm package charts-tmp/${chart} --destination .dist
+            helm push .dist/${chart}-*.tgz oci://ghcr.io/${{ github.repository_owner }}/charts |& tee .digest
+            cosign login --username ${GITHUB_ACTOR} --password ${{ secrets.GITHUB_TOKEN }} ghcr.io
+            cosign sign --yes ghcr.io/${{ github.repository_owner }}/charts/${chart}@$(cat .digest | awk -F "[, ]+" '/Digest/{print $NF}')
+          done

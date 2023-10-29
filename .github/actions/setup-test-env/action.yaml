@@ -1,0 +1,29 @@
+name: Setup test env
+
+description: Create kind cluster, deploy kyverno, and wait pods are ready.
+
+inputs:
+  version:
+    description: kubernetes version
+    default: v1.26.0
+  free-disk-space:
+    description: free disk space
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - uses: jlumbroso/free-disk-space@76866dbe54312617f00798d1762df7f43def6e5c # v1.2.0
+      if: ${{ inputs.free-disk-space == 'true' }}
+      with:
+        tool-cache: true
+        android: true
+        dotnet: true
+        haskell: true
+        large-packages: false
+        swap-storage: false
+    - shell: bash
+      run: |
+        export KIND_IMAGE=kindest/node:${{ inputs.version }}
+        make kind-create-cluster kind-deploy-kyverno
+    - uses: ./.github/actions/kyverno-wait-ready

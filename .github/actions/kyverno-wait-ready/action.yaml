@@ -1,0 +1,10 @@
+name: Kyverno pods ready
+
+description: Wait kyverno pods are ready
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        kubectl wait --namespace kyverno --for=condition=ready pod --selector '!job-name' --timeout=60s

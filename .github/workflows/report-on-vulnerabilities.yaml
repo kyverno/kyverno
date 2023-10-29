@@ -1,0 +1,72 @@
+name: report-on-vulnerabilities
+
+permissions: {}
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '23 2 * * *' # Every day at 02:23
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    outputs:
+      results: ${{ steps.parse-results.outputs.results }}
+    steps:
+    - name: Scan for vulnerabilities
+      uses: aquasecurity/trivy-action@b77b85c0254bba6789e787844f0585cde1e56320 # v0.8.0 (Trivy v0.34.0)
+      with: 
+        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        format: json
+        ignore-unfixed: false
+        severity: HIGH,CRITICAL
+        output: scan.json
+
+    - name: Parse scan results
+      id: parse-results
+      continue-on-error: true
+      run: |
+        VULNS=$(cat scan.json | jq '.Results[] | select(.Target=="ko-app/kyverno") | length')
+        if [[ $VULNS -eq 0 ]]
+        then
+          echo "No vulnerabilities found, halting"
+          echo "results=nothing" >> $GITHUB_OUTPUT
+        else
+          echo "Vulnerabilities found, creating issue"
+          echo "results=found" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Upload vulnerability scan report
+      uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
+      if: steps.parse-results.outputs.results == 'found'
+      with:
+        name: scan.json
+        path: scan.json
+        if-no-files-found: error
+
+  open-issue:
+    runs-on: ubuntu-latest
+    if: needs.scan.outputs.results == 'found'
+    needs: scan
+    permissions:
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Download scan
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: scan.json
+      - name: Set scan output
+        id: set-scan-output
+        run: echo "results=$(cat scan.json | jq -c)" >> $GITHUB_OUTPUT
+      - uses: JasonEtco/create-an-issue@e27dddc79c92bc6e4562f268fffa5ed752639abd # v2.9.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RESULTS: ${{ steps.set-scan-output.outputs.results }}
+        with:
+          filename: .github/ISSUE_TEMPLATE/VULN-TEMPLATE.md

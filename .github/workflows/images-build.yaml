@@ -1,4 +1,4 @@
-name: Codecov
+name: Build images
 
 permissions: {}
 
@@ -6,17 +6,13 @@ on:
   push:
     branches:
       - '*'
-  pull_request:
-    branches:
-      - 'main'
-      - 'release*'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  codecov:
+  build-images:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -26,15 +22,17 @@ jobs:
         timeout-minutes: 5
         continue-on-error: true
         with:
-          build-cache-key: codecov
+          build-cache-key: build-images
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
-      - name: Generate Code Coverage Report
-        run: make code-cov-report
-      - name: Upload Report to Codecov
-        uses: codecov/codecov-action@eaaf4bedf32dbdc6b720b63067d99c4d77d6047d # v3.1.4
+      - name: ko build
+        run: VERSION=${{ github.ref_name }} make ko-build-all
+      - name: Trivy Scan Image
+        uses: aquasecurity/trivy-action@b77b85c0254bba6789e787844f0585cde1e56320 # v0.13.0
         with:
-          file: ./coverage.out
-          fail_ci_if_error: true
-          verbose: true
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'

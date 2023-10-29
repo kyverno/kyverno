@@ -1,4 +1,4 @@
-name: Codecov
+name: Lint
 
 permissions: {}
 
@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  codecov:
+  tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -26,15 +26,20 @@ jobs:
         timeout-minutes: 5
         continue-on-error: true
         with:
-          build-cache-key: codecov
+          build-cache-key: lint
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
-      - name: Generate Code Coverage Report
-        run: make code-cov-report
-      - name: Upload Report to Codecov
-        uses: codecov/codecov-action@eaaf4bedf32dbdc6b720b63067d99c4d77d6047d # v3.1.4
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@3a919529898de77ec3da873e3063ca4b10e7f5cc # v3.7.0
         with:
-          file: ./coverage.out
-          fail_ci_if_error: true
-          verbose: true
+          version: v1.54.2
+          skip-cache: true
+      - name: go fmt check
+        run: make fmt-check
+      - name: goimports check
+        run: make imports-check
+      - name: Checking unused pkgs using go mod tidy
+        run: make unused-package-check
+      - name: Go vet
+        run: make vet

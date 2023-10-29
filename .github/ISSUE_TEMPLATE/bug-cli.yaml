@@ -14,12 +14,33 @@ body:
       description: >-
         What version of the Kyverno CLI are you running (`kyverno version`)?
       options:
-        - 1.4.x
-        - 1.5.x
         - 1.6.0
         - 1.6.1
         - 1.6.2
+        - 1.6.3
         - 1.7.0
+        - 1.7.1
+        - 1.7.2
+        - 1.7.3
+        - 1.7.4
+        - 1.7.5
+        - 1.8.0
+        - 1.8.1
+        - 1.8.2
+        - 1.8.3
+        - 1.8.4
+        - 1.8.5
+        - 1.9.0
+        - 1.9.1
+        - 1.9.2
+        - 1.9.3
+        - 1.9.4
+        - 1.9.5
+        - 1.10.0
+        - 1.10.1
+        - 1.10.2
+        - 1.10.3
+        - 1.11.0
     validations:
       required: true
   - type: textarea
@@ -71,7 +92,7 @@ body:
       description: >-
         Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
         Kyverno CLI logs may be found by passing the -v flag to any command.
-      render: shell
+      render: Shell
   - type: input
     id: slack
     attributes:

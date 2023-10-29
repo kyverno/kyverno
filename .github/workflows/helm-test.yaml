@@ -1,4 +1,7 @@
 name: helm-test
+
+permissions: {}
+
 on:
   pull_request:
     branches:
@@ -8,24 +11,53 @@ on:
       - charts/**
       - .github/workflows/helm-test.yaml
 
-permissions: read-all
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   helm-tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
-
-      - name: Unshallow
-        run: git fetch --prune --unshallow
-
-      - uses: actions/setup-python@f38219332975fe8f9c04cca981d674bf22aea1d3 # v2.3.1
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
+        with:
+          build-cache-key: helm-tests
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        timeout-minutes: 10
+      - name: Setup python
+        uses: actions/setup-python@65d7f2d534ac1bc67fcd62888c5f4f3d2cb2b236 # v4.7.1
         with:
           python-version: 3.7
-
       - name: Set up chart-testing
-        uses: helm/chart-testing-action@b0d4458c71155b54fcf33e11dd465dc923550009 # v2.0.1
-
+        uses: helm/chart-testing-action@e8788873172cb653a90ca2e819d79d65a66d4e76 # v2.4.0
       - name: Run chart-testing (lint)
-        run: ct lint --target-branch=main --check-version-increment=false
+        run: |
+          if [[ $(ct list-changed --target-branch=main) ]];
+          then
+            ct lint --target-branch=main --check-version-increment=false --validate-maintainers=false
+          fi
+      - name: Setup test env
+        uses: ./.github/actions/setup-test-env
+      - name: Helm test
+        run: make helm-test
+      - name: Debug failure
+        if: failure()
+        uses: ./.github/actions/kyverno-logs
+
+  linter-artifacthub:
+    runs-on: ubuntu-latest
+    container:
+      image: artifacthub/ah
+      options: --user root
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Run ah lint
+        working-directory: ./charts/
+        run: ah lint

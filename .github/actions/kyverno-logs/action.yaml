@@ -1,0 +1,28 @@
+name: Kyverno logs
+
+description: Show kyverno pods logs
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        kubectl get mutatingwebhookconfigurations
+        kubectl get validatingwebhookconfigurations
+        kubectl auth can-i --list --as system:serviceaccount:kyverno:kyverno-background-controller 
+    - shell: bash
+      run: |
+        kubectl -n kyverno get pod
+        kubectl -n kyverno describe pod | grep -i events -A10
+    - shell: bash
+      run: |
+        kubectl -n kyverno logs deploy/kyverno-admission-controller --all-containers -p || true
+        kubectl -n kyverno logs deploy/kyverno-reports-controller --all-containers -p || true
+        kubectl -n kyverno logs deploy/kyverno-cleanup-controller --all-containers -p || true
+        kubectl -n kyverno logs deploy/kyverno-background-controller --all-containers -p || true
+    - shell: bash
+      run: |
+        kubectl -n kyverno logs deploy/kyverno-admission-controller --all-containers
+        kubectl -n kyverno logs deploy/kyverno-reports-controller --all-containers
+        kubectl -n kyverno logs deploy/kyverno-cleanup-controller --all-containers
+        kubectl -n kyverno logs deploy/kyverno-background-controller --all-containers

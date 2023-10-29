@@ -1,0 +1,37 @@
+name: Setup build env
+
+description: Clone repo, unshallow, setup go, cache and install tools.
+
+inputs:
+  unshallow:
+    description: git unshallow
+    default: 'true'
+  free-disk-space:
+    description: free disk space
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - uses: jlumbroso/free-disk-space@76866dbe54312617f00798d1762df7f43def6e5c # v1.2.0
+      if: ${{ inputs.free-disk-space == 'true' }}
+      with:
+        tool-cache: true
+        android: true
+        dotnet: true
+        haskell: true
+        large-packages: false
+        swap-storage: false
+    - shell: bash
+      if: ${{ inputs.unshallow == 'true' }}
+      run: |
+        git fetch --prune --unshallow
+    - uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
+      with:
+        go-version: ~1.21.3
+    - shell: bash
+      run: |
+        go mod download
+    - shell: bash
+      run: |
+        GOCACHE=~/.cache/kyverno/tools make install-tools

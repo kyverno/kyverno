@@ -1,58 +1,84 @@
 name: cli
+
+permissions: {}
+
 on:
   push:
     branches:
       - 'main'
       - 'release*'
-    paths-ignore:
-      - 'README.md'
-      - 'docs/**'
-      - '.github/config.yml'
   pull_request:
     branches:
       - 'main'
       - 'release*'
-    paths-ignore:
-      - 'README.md'
-      - 'docs/**'
-      - '.github/config.yml'
 
-permissions: read-all
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   cli-test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
-
-      - name: Unshallow
-        run: git fetch --prune --unshallow
-
-      - name: Set up Go 
-        uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # v2.1.5
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
         with:
-          go-version: 1.18
-
-      - name: Cache Go modules
-        uses: actions/cache@d9747005de0f7240e5d35a68dca96b3f41b8b340 # v1.2.0
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      - name: Test Policy
+          build-cache-key: cli-test
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        timeout-minutes: 10
+      - name: Setup TEST_GIT_BRANCH
         run: |
           if [[ ${{ github.event_name }} == "push" ]]
           then
-            export TEST_GIT_BRANCH=${GITHUB_REF##*/}
+            echo "TEST_GIT_BRANCH=${GITHUB_REF##*/}" >> $GITHUB_ENV
           elif [[ ${{ github.event_name }} == "pull_request" ]]
           then
-            export TEST_GIT_BRANCH=${{ github.event.pull_request.base.ref }}
+            echo "TEST_GIT_BRANCH=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
           fi
-          make -j4 test-cli
-          CLI_PATH=$PWD/cmd/cli/kubectl-kyverno/kyverno
+      - name: Test CLI
+        run: |
+          VERSION=${{ github.ref_name }} make test-cli
+      - name: Test CLI (failures)
+        run: |
+          CLI_PATH=$PWD/cmd/cli/kubectl-kyverno/kubectl-kyverno
           $CLI_PATH test ./test/cli/test-fail/missing-policy && exit 1 || exit 0
           $CLI_PATH test ./test/cli/test-fail/missing-rule && exit 1 || exit 0
           $CLI_PATH test ./test/cli/test-fail/missing-resource && exit 1 || exit 0
+
+  kubectl-validate-cli-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
+        with:
+          build-cache-key: cli-test
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        timeout-minutes: 10
+      - name: Setup TEST_GIT_BRANCH
+        run: |
+          if [[ ${{ github.event_name }} == "push" ]]
+          then
+            echo "TEST_GIT_BRANCH=${GITHUB_REF##*/}" >> $GITHUB_ENV
+          elif [[ ${{ github.event_name }} == "pull_request" ]]
+          then
+            echo "TEST_GIT_BRANCH=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
+          fi
+      - name: Test CLI
+        run: |
+          KYVERNO_KUBECTL_VALIDATE=true VERSION=${{ github.ref_name }} make test-cli
+      - name: Test CLI (failures)
+        run: |
+          CLI_PATH=$PWD/cmd/cli/kubectl-kyverno/kubectl-kyverno
+          KYVERNO_KUBECTL_VALIDATE=true $CLI_PATH test ./test/cli/test-fail/missing-policy && exit 1 || exit 0
+          KYVERNO_KUBECTL_VALIDATE=true $CLI_PATH test ./test/cli/test-fail/missing-rule && exit 1 || exit 0
+          KYVERNO_KUBECTL_VALIDATE=true $CLI_PATH test ./test/cli/test-fail/missing-resource && exit 1 || exit 0
