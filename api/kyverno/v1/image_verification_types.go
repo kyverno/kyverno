@@ -199,11 +199,11 @@ type SecretReference struct {
 type CertificateAttestor struct {
 	// Cert is an optional PEM-encoded public certificate.
 	// +kubebuilder:validation:Optional
-	Cert string `json:"cert,omitempty" yaml:"cert,omitempty"`
+	Certificate string `json:"cert,omitempty" yaml:"cert,omitempty"`
 
 	// CertChain is an optional PEM encoded set of certificates used to verify.
 	// +kubebuilder:validation:Optional
-	CertChain string `json:"certChain,omitempty" yaml:"certChain,omitempty"`
+	CertificateChain string `json:"certChain,omitempty" yaml:"certChain,omitempty"`
 
 	// Rekor provides configuration for the Rekor transparency log service. If an empty object
 	// is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
@@ -457,7 +457,7 @@ func (ska *StaticKeyAttestor) Validate(path *field.Path) (errs field.ErrorList) 
 }
 
 func (ca *CertificateAttestor) Validate(path *field.Path) (errs field.ErrorList) {
-	if ca.Cert == "" && ca.CertChain == "" {
+	if ca.Certificate == "" && ca.CertificateChain == "" {
 		errs = append(errs, field.Invalid(path, ca, "cert or certChain required"))
 	}
 

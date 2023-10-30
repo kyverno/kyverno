@@ -21,10 +21,10 @@ package v1
 // CertificateAttestorApplyConfiguration represents an declarative configuration of the CertificateAttestor type for use
 // with apply.
 type CertificateAttestorApplyConfiguration struct {
-	Cert      *string                  `json:"cert,omitempty"`
-	CertChain *string                  `json:"certChain,omitempty"`
-	Rekor     *RekorApplyConfiguration `json:"rekor,omitempty"`
-	CTLog     *CTLogApplyConfiguration `json:"ctlog,omitempty"`
+	Certificate      *string                  `json:"cert,omitempty"`
+	CertificateChain *string                  `json:"certChain,omitempty"`
+	Rekor            *RekorApplyConfiguration `json:"rekor,omitempty"`
+	CTLog            *CTLogApplyConfiguration `json:"ctlog,omitempty"`
 }
 
 // CertificateAttestorApplyConfiguration constructs an declarative configuration of the CertificateAttestor type for use with
@@ -33,19 +33,19 @@ func CertificateAttestor() *CertificateAttestorApplyConfiguration {
 	return &CertificateAttestorApplyConfiguration{}
 }
 
-// WithCert sets the Cert field in the declarative configuration to the given value
+// WithCertificate sets the Certificate field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the Cert field is set to the value of the last call.
-func (b *CertificateAttestorApplyConfiguration) WithCert(value string) *CertificateAttestorApplyConfiguration {
-	b.Cert = &value
+// If called multiple times, the Certificate field is set to the value of the last call.
+func (b *CertificateAttestorApplyConfiguration) WithCertificate(value string) *CertificateAttestorApplyConfiguration {
+	b.Certificate = &value
 	return b
 }
 
-// WithCertChain sets the CertChain field in the declarative configuration to the given value
+// WithCertificateChain sets the CertificateChain field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the CertChain field is set to the value of the last call.
-func (b *CertificateAttestorApplyConfiguration) WithCertChain(value string) *CertificateAttestorApplyConfiguration {
-	b.CertChain = &value
+// If called multiple times, the CertificateChain field is set to the value of the last call.
+func (b *CertificateAttestorApplyConfiguration) WithCertificateChain(value string) *CertificateAttestorApplyConfiguration {
+	b.CertificateChain = &value
 	return b
 }
 

@@ -574,8 +574,8 @@ func (iv *ImageVerifier) buildCosignVerifier(
 		opts.SignatureAlgorithm = attestor.Keys.SignatureAlgorithm
 	} else if attestor.Certificates != nil {
 		path = path + ".certificates"
-		opts.Cert = attestor.Certificates.Cert
-		opts.CertChain = attestor.Certificates.CertChain
+		opts.Cert = attestor.Certificates.Certificate
+		opts.CertChain = attestor.Certificates.CertificateChain
 		if attestor.Certificates.Rekor != nil {
 			opts.RekorURL = attestor.Certificates.Rekor.URL
 		}
@@ -623,8 +623,8 @@ func (iv *ImageVerifier) buildNotaryVerifier(
 	path := ""
 	opts := &images.Options{
 		ImageRef:  image,
-		Cert:      attestor.Certificates.Cert,
-		CertChain: attestor.Certificates.CertChain,
+		Cert:      attestor.Certificates.Certificate,
+		CertChain: attestor.Certificates.CertificateChain,
 		Client:    iv.rclient,
 	}
 
