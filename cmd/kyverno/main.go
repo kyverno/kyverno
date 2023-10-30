@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/cmd/internal"
+	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -58,6 +59,16 @@ var (
 	caSecretName  string
 	tlsSecretName string
 )
+
+// hasRequiredPermissions check if the admission controller has the required permissions to generate both
+// validating admission policies and their bindings.
+func hasRequiredPermissions(resource schema.GroupVersionResource, s checker.AuthChecker) bool {
+	can, err := checker.Check(context.TODO(), s, resource.Group, resource.Version, resource.Resource, "", "", "create", "update", "list", "delete")
+	if err != nil {
+		return false
+	}
+	return can
+}
 
 func showWarnings(ctx context.Context, logger logr.Logger) {
 	logger = logger.WithName("warnings")
@@ -117,6 +128,7 @@ func createrLeaderControllers(
 	servicePort int32,
 	configuration config.Configuration,
 	eventGenerator event.Interface,
+	checker checker.AuthChecker,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	var leaderControllers []internal.Controller
 
@@ -181,6 +193,14 @@ func createrLeaderControllers(
 	leaderControllers = append(leaderControllers, internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1))
 
 	if generateVAPs {
+		// check if the controller has the required permissions to generate validating admission policies.
+		gvr := schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1alpha1", Resource: "validatingadmissionpolicies"}
+		vapPermissions := hasRequiredPermissions(gvr, checker)
+
+		// check if the controller has the required permissions to generate validating admission policy bindings.
+		gvr = schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1alpha1", Resource: "validatingadmissionpolicybindings"}
+		vapbindingPermissions := hasRequiredPermissions(gvr, checker)
+
 		vapController := vapcontroller.NewController(
 			kubeClient,
 			kyvernoClient,
@@ -190,6 +210,8 @@ func createrLeaderControllers(
 			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
 			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings(),
 			eventGenerator,
+			vapPermissions,
+			vapbindingPermissions,
 		)
 		leaderControllers = append(leaderControllers, internal.NewController(vapcontroller.ControllerName, vapController, vapcontroller.Workers))
 	}
@@ -392,6 +414,7 @@ func main() {
 			// create leader factories
 			kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
 			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+			checker := checker.NewSelfChecker(setup.KubeClient.AuthorizationV1().SelfSubjectAccessReviews())
 			// create leader controllers
 			leaderControllers, warmup, err := createrLeaderControllers(
 				generateValidatingAdmissionPolicy,
@@ -412,6 +435,7 @@ func main() {
 				int32(servicePort),
 				setup.Configuration,
 				eventGenerator,
+				checker,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create leader controllers")

@@ -47,7 +47,9 @@ type controller struct {
 	// queue
 	queue workqueue.RateLimitingInterface
 
-	eventGen event.Interface
+	eventGen              event.Interface
+	vapPermissions        bool
+	vapbindingPermissions bool
 }
 
 func NewController(
@@ -59,17 +61,21 @@ func NewController(
 	vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer,
 	vapbindingInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyBindingInformer,
 	eventGen event.Interface,
+	vapPermissions bool,
+	vapbindingPermissions bool,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := &controller{
-		client:           client,
-		kyvernoClient:    kyvernoClient,
-		discoveryClient:  discoveryClient,
-		cpolLister:       cpolInformer.Lister(),
-		vapLister:        vapInformer.Lister(),
-		vapbindingLister: vapbindingInformer.Lister(),
-		queue:            queue,
-		eventGen:         eventGen,
+		client:                client,
+		kyvernoClient:         kyvernoClient,
+		discoveryClient:       discoveryClient,
+		cpolLister:            cpolInformer.Lister(),
+		vapLister:             vapInformer.Lister(),
+		vapbindingLister:      vapbindingInformer.Lister(),
+		queue:                 queue,
+		eventGen:              eventGen,
+		vapPermissions:        vapPermissions,
+		vapbindingPermissions: vapbindingPermissions,
 	}
 
 	// Set up an event handler for when Kyverno policies change
@@ -304,6 +310,17 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 
 	spec := policy.GetSpec()
 	if !spec.HasValidate() {
+		return nil
+	}
+
+	if !c.vapPermissions {
+		logger.Info("doesn't have required permissions for generating validating admission policies")
+		c.updateClusterPolicyStatus(ctx, *policy, false, "doesn't have required permissions for generating validating admission policies")
+		return nil
+	}
+	if !c.vapbindingPermissions {
+		logger.Info("doesn't have required permissions for generating validating admission policy bindings")
+		c.updateClusterPolicyStatus(ctx, *policy, false, "doesn't have required permissions for generating validating admission policy bindings")
 		return nil
 	}
 
