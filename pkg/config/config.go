@@ -7,8 +7,8 @@ import (
 	"sync"
 
 	valid "github.com/asaskevich/govalidator"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	osutils "github.com/kyverno/kyverno/pkg/utils/os"
-	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"

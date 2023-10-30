@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/engine/context"
-	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 )
 
 // NewInHandler returns handler to manage In operations
