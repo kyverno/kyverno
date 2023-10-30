@@ -65,24 +65,21 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 		res = fmt.Sprintf("%s %s", resource.GetKind(), resource.GetName())
 	}
 
-	pol := engineResponse.Policy().GetPolicy().(kyvernov1.PolicyInterface)
-	hasValidate := pol.GetSpec().HasValidate()
-	hasVerifyImages := pol.GetSpec().HasVerifyImages()
-	hasMutate := pol.GetSpec().HasMutate()
-
-	var action Action
-	if hasValidate || hasVerifyImages {
-		fmt.Fprintf(&bldr, "%s: pass", res)
-		action = ResourcePassed
-	} else if hasMutate {
-		fmt.Fprintf(&bldr, "%s is successfully mutated", res)
-		action = ResourceMutated
+	action := ResourcePassed
+	policy := engineResponse.Policy()
+	if policy.GetType() == engineapi.KyvernoPolicyType {
+		pol := engineResponse.Policy().GetPolicy().(kyvernov1.PolicyInterface)
+		hasMutate := pol.GetSpec().HasMutate()
+		if hasMutate {
+			fmt.Fprintf(&bldr, "%s is successfully mutated", res)
+			action = ResourceMutated
+		}
 	}
 
 	return Info{
-		Kind:              pol.GetKind(),
-		Name:              pol.GetName(),
-		Namespace:         pol.GetNamespace(),
+		Kind:              policy.GetKind(),
+		Name:              policy.GetName(),
+		Namespace:         policy.GetNamespace(),
 		RelatedAPIVersion: resource.GetAPIVersion(),
 		RelatedKind:       resource.GetKind(),
 		RelatedName:       resource.GetName(),
