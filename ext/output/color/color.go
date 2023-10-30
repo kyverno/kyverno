@@ -4,17 +4,22 @@ import (
 	"github.com/fatih/color"
 )
 
+// Color is an alias to color.Color
+type Color = color.Color
+
 var (
-	BoldGreen  *color.Color
-	BoldRed    *color.Color
-	BoldYellow *color.Color
-	BoldFgCyan *color.Color
+	BoldGreen  *Color
+	BoldRed    *Color
+	BoldYellow *Color
+	BoldFgCyan *Color
 )
 
-func Init(noColor bool) {
-	toggleColor := func(c *color.Color) *color.Color {
+func Init(noColor bool, force bool) {
+	toggleColor := func(c *Color) *Color {
 		if noColor {
 			c.DisableColor()
+		} else if force {
+			c.EnableColor()
 		}
 		return c
 	}

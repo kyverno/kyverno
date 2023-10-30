@@ -1,8 +1,8 @@
 package resource
 
 import (
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource/convert"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource/loader"
+	"github.com/kyverno/kyverno/ext/resource/convert"
 )
 
 func Load[T any](l loader.Loader, content []byte) (*T, error) {
