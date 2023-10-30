@@ -27,8 +27,6 @@ The following components have been installed in your cluster:
 ⚠️  WARNING: Setting the admission controller replica count below 3 means Kyverno is not running in high availability mode.
 {{- end }}
 
-💡 Note: There is a trade-off when deciding which approach to take regarding Namespace exclusions. Please see the documentation at https://kyverno.io/docs/installation/#security-vs-operability to understand the risks.
-
 {{- if semverCompare "<1.21.0" .Capabilities.KubeVersion.Version }}
 ⚠️  WARNING: The minimal Kubernetes version officially supported by Kyverno is 1.21. Earlier versions are untested and Kyverno is not guaranteed to work with Kubernetes {{ .Capabilities.KubeVersion.Version }}.
 {{- end }}
@@ -44,3 +42,5 @@ The following components have been installed in your cluster:
 {{- with .Values.features.validatingAdmissionPolicyReports.enabled }}
 ⚠️  WARNING: Validating admission policy reports require a Kubernetes 1.26+ cluster with `ValidatingAdmissionPolicy` feature gate and `admissionregistration.k8s.io` API group enabled.
 {{- end }}
+
+💡 Note: There is a trade-off when deciding which approach to take regarding Namespace exclusions. Please see the documentation at https://kyverno.io/docs/installation/#security-vs-operability to understand the risks.
