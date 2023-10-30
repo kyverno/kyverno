@@ -316,8 +316,8 @@ func buildVerifyResourceOptionsAndPath(a kyvernov1.Attestor, vo *k8smanifest.Ver
 		}
 	} else if a.Certificates != nil {
 		subPath = subPath + ".certificates"
-		if a.Certificates.Certificate != "" {
-			Cert := a.Certificates.Certificate
+		if a.Certificates.Cert != "" {
+			Cert := a.Certificates.Cert
 			n, _ := rand.Int(rand.Reader, big.NewInt(int64(math.MaxInt64)))
 			certEnv := fmt.Sprintf("_CERT_%s_%d_%d", uid, i, n)
 			err := os.Setenv(certEnv, Cert)
@@ -329,8 +329,8 @@ func buildVerifyResourceOptionsAndPath(a kyvernov1.Attestor, vo *k8smanifest.Ver
 				vo.Certificate = certPath
 			}
 		}
-		if a.Certificates.CertificateChain != "" {
-			CertChain := a.Certificates.CertificateChain
+		if a.Certificates.CertChain != "" {
+			CertChain := a.Certificates.CertChain
 			n, _ := rand.Int(rand.Reader, big.NewInt(int64(math.MaxInt64)))
 			certChainEnv := fmt.Sprintf("_CC_%s_%d_%d", uid, i, n)
 			err := os.Setenv(certChainEnv, CertChain)
