@@ -7,7 +7,7 @@ import (
 func checkResources(resource kyvernov1.ResourceDescription) (bool, string) {
 	var msg string
 	if len(resource.Namespaces) != 0 || len(resource.Annotations) != 0 {
-		msg = "skip generating validating admission policy: Namespaces / Annotations in resource description isn't applicable."
+		msg = "skip generating ValidatingAdmissionPolicy: Namespaces / Annotations in resource description isn't applicable."
 		return false, msg
 	}
 	return true, msg
@@ -16,7 +16,7 @@ func checkResources(resource kyvernov1.ResourceDescription) (bool, string) {
 func checkUserInfo(info kyvernov1.UserInfo) (bool, string) {
 	var msg string
 	if !info.IsEmpty() {
-		msg = "skip generating validating admission policy: Roles / ClusterRoles / Subjects in `any/all` isn't applicable."
+		msg = "skip generating ValidatingAdmissionPolicy: Roles / ClusterRoles / Subjects in `any/all` isn't applicable."
 		return false, msg
 	}
 	return true, msg
@@ -25,30 +25,30 @@ func checkUserInfo(info kyvernov1.UserInfo) (bool, string) {
 func canGenerateVAP(spec *kyvernov1.Spec) (bool, string) {
 	var msg string
 	if len(spec.Rules) > 1 {
-		msg = "skip generating validating admission policy: multiple rules aren't applicable."
+		msg = "skip generating ValidatingAdmissionPolicy: multiple rules aren't applicable."
 		return false, msg
 	}
 
 	rule := spec.Rules[0]
 	if !rule.HasValidateCEL() {
-		msg = "skip generating validating admission policy for non CEL rules."
+		msg = "skip generating ValidatingAdmissionPolicy for non CEL rules."
 		return false, msg
 	}
 
 	if len(spec.ValidationFailureActionOverrides) > 1 {
-		msg = "skip generating validating admission policy: multiple validationFailureActionOverrides aren't applicable."
+		msg = "skip generating ValidatingAdmissionPolicy: multiple validationFailureActionOverrides aren't applicable."
 		return false, msg
 	}
 
 	if len(spec.ValidationFailureActionOverrides) != 0 && len(spec.ValidationFailureActionOverrides[0].Namespaces) != 0 {
-		msg = "skip generating validating admission policy: Namespaces in validationFailureActionOverrides isn't applicable."
+		msg = "skip generating ValidatingAdmissionPolicy: Namespaces in validationFailureActionOverrides isn't applicable."
 		return false, msg
 	}
 
 	// check the matched/excluded resources of the CEL rule.
 	match, exclude := rule.MatchResources, rule.ExcludeResources
 	if !exclude.UserInfo.IsEmpty() || !exclude.ResourceDescription.IsEmpty() || exclude.All != nil || exclude.Any != nil {
-		msg = "skip generating validating admission policy: Exclude isn't applicable."
+		msg = "skip generating ValidatingAdmissionPolicy: Exclude isn't applicable."
 		return false, msg
 	}
 	if ok, msg := checkUserInfo(match.UserInfo); !ok {
@@ -63,7 +63,7 @@ func canGenerateVAP(spec *kyvernov1.Spec) (bool, string) {
 		containsObjectSelector    = false
 	)
 
-	// since 'any' specify resources which will be ORed, it can be converted into multiple NamedRuleWithOperations in validating admission policy
+	// since 'any' specify resources which will be ORed, it can be converted into multiple NamedRuleWithOperations in ValidatingAdmissionPolicy
 	for _, value := range match.Any {
 		if ok, msg := checkUserInfo(value.UserInfo); !ok {
 			return false, msg
@@ -72,18 +72,18 @@ func canGenerateVAP(spec *kyvernov1.Spec) (bool, string) {
 			return false, msg
 		}
 
-		// since namespace/object selectors are applied to all NamedRuleWithOperations in validating admission policy, then
+		// since namespace/object selectors are applied to all NamedRuleWithOperations in ValidatingAdmissionPolicy, then
 		// multiple namespace/object selectors aren't applicable across the `any` clause.
 		if value.NamespaceSelector != nil {
 			if containsNamespaceSelector {
-				msg = "skip generating validating admission policy: multiple NamespaceSelector across 'any' aren't applicable."
+				msg = "skip generating ValidatingAdmissionPolicy: multiple NamespaceSelector across 'any' aren't applicable."
 				return false, msg
 			}
 			containsNamespaceSelector = true
 		}
 		if value.Selector != nil {
 			if containsObjectSelector {
-				msg = "skip generating validating admission policy: multiple ObjectSelector across 'any' aren't applicable."
+				msg = "skip generating ValidatingAdmissionPolicy: multiple ObjectSelector across 'any' aren't applicable."
 				return false, msg
 			}
 			containsObjectSelector = true
@@ -92,7 +92,7 @@ func canGenerateVAP(spec *kyvernov1.Spec) (bool, string) {
 	// since 'all' specify resources which will be ANDed, we can't have more than one resource.
 	if match.All != nil {
 		if len(match.All) > 1 {
-			msg = "skip generating validating admission policy: multiple 'all' isn't applicable."
+			msg = "skip generating ValidatingAdmissionPolicy: multiple 'all' isn't applicable."
 			return false, msg
 		} else {
 			if ok, msg := checkUserInfo(match.All[0].UserInfo); !ok {
@@ -104,7 +104,7 @@ func canGenerateVAP(spec *kyvernov1.Spec) (bool, string) {
 		}
 	}
 
-	// since 'any' specify resources which will be ORed, it can be converted into multiple NamedRuleWithOperations in validating admission policy
+	// since 'any' specify resources which will be ORed, it can be converted into multiple NamedRuleWithOperations in ValidatingAdmissionPolicy
 	for _, value := range exclude.Any {
 		if ok, msg := checkUserInfo(value.UserInfo); !ok {
 			return false, msg
@@ -113,18 +113,18 @@ func canGenerateVAP(spec *kyvernov1.Spec) (bool, string) {
 			return false, msg
 		}
 
-		// since namespace/object selectors are applied to all NamedRuleWithOperations in validating admission policy, then
+		// since namespace/object selectors are applied to all NamedRuleWithOperations in ValidatingAdmissionPolicy, then
 		// multiple namespace/object selectors aren't applicable across the `any` clause.
 		if value.NamespaceSelector != nil {
 			if containsNamespaceSelector {
-				msg = "skip generating validating admission policy: multiple NamespaceSelector across 'any' aren't applicable."
+				msg = "skip generating ValidatingAdmissionPolicy: multiple NamespaceSelector across 'any' aren't applicable."
 				return false, msg
 			}
 			containsNamespaceSelector = true
 		}
 		if value.Selector != nil {
 			if containsObjectSelector {
-				msg = "skip generating validating admission policy: multiple ObjectSelector across 'any' aren't applicable."
+				msg = "skip generating ValidatingAdmissionPolicy: multiple ObjectSelector across 'any' aren't applicable."
 				return false, msg
 			}
 			containsObjectSelector = true
@@ -133,7 +133,7 @@ func canGenerateVAP(spec *kyvernov1.Spec) (bool, string) {
 	// since 'all' specify resources which will be ANDed, we can't have more than one resource.
 	if exclude.All != nil {
 		if len(exclude.All) > 1 {
-			msg = "skip generating validating admission policy: multiple 'all' isn't applicable."
+			msg = "skip generating ValidatingAdmissionPolicy: multiple 'all' isn't applicable."
 			return false, msg
 		} else {
 			if ok, msg := checkUserInfo(exclude.All[0].UserInfo); !ok {
