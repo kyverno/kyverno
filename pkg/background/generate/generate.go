@@ -253,6 +253,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 				requirement, err = labels.NewRequirement(kyvernov1beta1.URGenerateResourceNameLabel, selection.Equals, []string{engineResponse.Resource.GetName()})
 				if err != nil {
 					logger.Error(err, "failed to add the resource name label")
+					continue
 				}
 				selectorWithResName := selector.Add(*requirement)
 				urList, err = c.urLister.List(selectorWithResName)
