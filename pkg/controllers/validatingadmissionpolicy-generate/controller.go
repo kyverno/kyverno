@@ -314,13 +314,13 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	}
 
 	if !c.vapPermissions {
-		logger.Info("doesn't have required permissions for generating validating admission policies")
-		c.updateClusterPolicyStatus(ctx, *policy, false, "doesn't have required permissions for generating validating admission policies")
+		logger.Info("doesn't have required permissions for generating ValidatingAdmissionPolicies")
+		c.updateClusterPolicyStatus(ctx, *policy, false, "doesn't have required permissions for generating ValidatingAdmissionPolicies")
 		return nil
 	}
 	if !c.vapbindingPermissions {
-		logger.Info("doesn't have required permissions for generating validating admission policy bindings")
-		c.updateClusterPolicyStatus(ctx, *policy, false, "doesn't have required permissions for generating validating admission policy bindings")
+		logger.Info("doesn't have required permissions for generating ValidatingAdmissionPolicyBindings")
+		c.updateClusterPolicyStatus(ctx, *policy, false, "doesn't have required permissions for generating ValidatingAdmissionPolicyBindings")
 		return nil
 	}
 

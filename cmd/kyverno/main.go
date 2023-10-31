@@ -222,17 +222,16 @@ func main() {
 	var (
 		// TODO: this has been added to backward support command line arguments
 		// will be removed in future and the configuration will be set only via configmaps
-		serverIP                          string
-		webhookTimeout                    int
-		maxQueuedEvents                   int
-		omitEvents                        string
-		autoUpdateWebhooks                bool
-		webhookRegistrationTimeout        time.Duration
-		admissionReports                  bool
-		dumpPayload                       bool
-		servicePort                       int
-		backgroundServiceAccountName      string
-		generateValidatingAdmissionPolicy bool
+		serverIP                     string
+		webhookTimeout               int
+		maxQueuedEvents              int
+		omitEvents                   string
+		autoUpdateWebhooks           bool
+		webhookRegistrationTimeout   time.Duration
+		admissionReports             bool
+		dumpPayload                  bool
+		servicePort                  int
+		backgroundServiceAccountName string
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -244,8 +243,8 @@ func main() {
 	flagset.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	flagset.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	flagset.Func(toggle.ForceFailurePolicyIgnoreFlagName, toggle.ForceFailurePolicyIgnoreDescription, toggle.ForceFailurePolicyIgnore.Parse)
+	flagset.Func(toggle.GenerateValidatingAdmissionPolicyFlagName, toggle.GenerateValidatingAdmissionPolicyDescription, toggle.GenerateValidatingAdmissionPolicy.Parse)
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
-	flagset.BoolVar(&generateValidatingAdmissionPolicy, "generateValidatingAdmissionPolicy", false, "Set this flag 'true' to generate validating admission policies.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
 	flagset.StringVar(&backgroundServiceAccountName, "backgroundServiceAccountName", "", "Background service account name.")
 	flagset.StringVar(&caSecretName, "caSecretName", "", "Name of the secret containing CA.")
@@ -283,6 +282,7 @@ func main() {
 		os.Exit(1)
 	}
 	// check if validating admission policies are registered in the API server
+	generateValidatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
 	if generateValidatingAdmissionPolicy {
 		groupVersion := schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"}
 		if _, err := setup.KyvernoDynamicClient.GetKubeClient().Discovery().ServerResourcesForGroupVersion(groupVersion.String()); err != nil {
