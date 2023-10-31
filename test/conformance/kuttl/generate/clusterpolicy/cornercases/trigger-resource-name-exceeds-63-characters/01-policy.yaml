@@ -15,7 +15,7 @@ spec:
       kind: NetworkPolicy
       name: default-deny
       namespace: "{{request.object.metadata.namespace}}"
-      synchronize: false
+      synchronize: true
       data:
         spec:
           podSelector: {}
