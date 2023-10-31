@@ -3,4 +3,4 @@ kind: TestStep
 apply:
 - deployment.yaml
 assert:
-- deployment-pass.yaml
+- deployment-assert.yaml
