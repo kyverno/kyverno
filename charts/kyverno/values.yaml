@@ -5,6 +5,12 @@ templating:
   debug: false
   version: ~
 
+global:
+  image:
+    # -- (string) Global value that allows to set a single image registry across all deployments.
+    # When set, it will override any values set under `.image.registry` across the chart.
+    registry: ~
+
 # -- (string) Override the name of the chart
 nameOverride: ~
 
@@ -322,8 +328,17 @@ webhooksCleanup:
   # -- Create a helm pre-delete hook to cleanup webhooks.
   enabled: true
 
-  # -- `kubectl` image to run commands for deleting webhooks.
-  image: bitnami/kubectl:latest
+  image:
+    # -- (string) Image registry
+    registry: ~
+    # -- Image repository
+    repository: bitnami/kubectl
+    # -- Image tag
+    # Defaults to `latest` if omitted
+    tag: '1.26.4'
+    # -- (string) Image pull policy
+    # Defaults to image.pullPolicy if omitted
+    pullPolicy: ~
 
   # -- Image pull secrets
   imagePullSecrets: []
@@ -485,7 +500,7 @@ cleanupJobs:
       repository: bitnami/kubectl
       # -- Image tag
       # Defaults to `latest` if omitted
-      tag: '1.26.4'
+      tag: '1.26.10'
       # -- (string) Image pull policy
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~
@@ -781,6 +796,9 @@ admissionController:
   podSecurityContext: {}
 
   podDisruptionBudget:
+    # -- Enable PodDisruptionBudget.
+    # Will always be enabled if replicas > 1. This non-declarative behavior should ideally be avoided, but changing it now would be breaking.
+    enabled: false
     # -- Configures the minimum available pods for disruptions.
     # Cannot be used if `maxUnavailable` is set.
     minAvailable: 1
@@ -1161,6 +1179,9 @@ backgroundController:
       type: RuntimeDefault
 
   podDisruptionBudget:
+    # -- Enable PodDisruptionBudget.
+    # Will always be enabled if replicas > 1. This non-declarative behavior should ideally be avoided, but changing it now would be breaking.
+    enabled: false
     # -- Configures the minimum available pods for disruptions.
     # Cannot be used if `maxUnavailable` is set.
     minAvailable: 1
@@ -1426,6 +1447,9 @@ cleanupController:
       type: RuntimeDefault
 
   podDisruptionBudget:
+    # -- Enable PodDisruptionBudget.
+    # Will always be enabled if replicas > 1. This non-declarative behavior should ideally be avoided, but changing it now would be breaking.
+    enabled: false
     # -- Configures the minimum available pods for disruptions.
     # Cannot be used if `maxUnavailable` is set.
     minAvailable: 1
@@ -1669,6 +1693,9 @@ reportsController:
       type: RuntimeDefault
 
   podDisruptionBudget:
+    # -- Enable PodDisruptionBudget.
+    # Will always be enabled if replicas > 1. This non-declarative behavior should ideally be avoided, but changing it now would be breaking.
+    enabled: false
     # -- Configures the minimum available pods for disruptions.
     # Cannot be used if `maxUnavailable` is set.
     minAvailable: 1
