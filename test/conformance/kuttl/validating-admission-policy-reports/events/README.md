@@ -5,4 +5,9 @@ It then generates policy violation events for scanning validating admission poli
 
 ## Expected Behavior
 
-The events is generated with the correct values.
+
+This test creates a deployment with 3 replicas that violates the policy. It verifies policy violation events generation for the ValidatingAdmissionPolicy and the Deployment.
+
+## Reference Issues
+
+https://github.com/kyverno/kyverno/issues/8781
