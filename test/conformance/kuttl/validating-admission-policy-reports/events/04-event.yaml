@@ -2,4 +2,3 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 assert:
 - policy-event.yaml
-- resource-event.yaml

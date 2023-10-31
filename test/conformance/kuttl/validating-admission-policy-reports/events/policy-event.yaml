@@ -5,7 +5,7 @@ metadata:
 involvedObject:
   kind: ValidatingAdmissionPolicy
   name: check-deployment-replicas-vap
-type: Warning
 reason: PolicyViolation
 action: Resource Passed
 reportingComponent: kyverno-scan
+type: Warning
