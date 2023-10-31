@@ -8,10 +8,10 @@ spec:
   rules:
     - name: deny-pod-deletion
       match:
-       any:
-      - resources:
-          kinds:
-            - Pod
+        any:
+        - resources:
+            kinds:
+              - Pod
       validate:
         message: Pod cannot be deleted
         deny:
