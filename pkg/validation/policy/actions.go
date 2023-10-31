@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/policy/mutate"
 	"github.com/kyverno/kyverno/pkg/policy/validate"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	"github.com/kyverno/kyverno/pkg/utils/validatingadmissionpolicy"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -51,14 +52,14 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 			authCheck := authChecker.NewSelfChecker(client.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews())
 			// check if the controller has the required permissions to generate validating admission policies.
 			gvr := schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1alpha1", Resource: "validatingadmissionpolicies"}
-			vapPermissions := hasRequiredPermissions(gvr, authCheck)
+			vapPermissions := validatingadmissionpolicy.HasRequiredPermissions(gvr, authCheck)
 			if !vapPermissions {
 				return "doesn't have required permissions for generating ValidatingAdmissionPolicies", nil
 			}
 
 			// check if the controller has the required permissions to generate validating admission policy bindings.
 			gvr = schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1alpha1", Resource: "validatingadmissionpolicybindings"}
-			vapbindingPermissions := hasRequiredPermissions(gvr, authCheck)
+			vapbindingPermissions := validatingadmissionpolicy.HasRequiredPermissions(gvr, authCheck)
 			if !vapbindingPermissions {
 				return "doesn't have required permissions for generating ValidatingAdmissionPolicyBindings", nil
 			}
@@ -88,14 +89,4 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 	}
 
 	return "", nil
-}
-
-// hasRequiredPermissions check if the admission controller has the required permissions to generate both
-// validating admission policies and their bindings.
-func hasRequiredPermissions(resource schema.GroupVersionResource, s authChecker.AuthChecker) bool {
-	can, err := authChecker.Check(context.TODO(), s, resource.Group, resource.Version, resource.Resource, "", "", "create", "update", "list", "delete")
-	if err != nil {
-		return false
-	}
-	return can
 }

@@ -34,6 +34,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/toggle"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
+	"github.com/kyverno/kyverno/pkg/utils/validatingadmissionpolicy"
 	"github.com/kyverno/kyverno/pkg/validation/exception"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	webhooksexception "github.com/kyverno/kyverno/pkg/webhooks/exception"
@@ -59,16 +60,6 @@ var (
 	caSecretName  string
 	tlsSecretName string
 )
-
-// hasRequiredPermissions check if the admission controller has the required permissions to generate both
-// validating admission policies and their bindings.
-func hasRequiredPermissions(resource schema.GroupVersionResource, s checker.AuthChecker) bool {
-	can, err := checker.Check(context.TODO(), s, resource.Group, resource.Version, resource.Resource, "", "", "create", "update", "list", "delete")
-	if err != nil {
-		return false
-	}
-	return can
-}
 
 func showWarnings(ctx context.Context, logger logr.Logger) {
 	logger = logger.WithName("warnings")
@@ -195,11 +186,11 @@ func createrLeaderControllers(
 	if generateVAPs {
 		// check if the controller has the required permissions to generate validating admission policies.
 		gvr := schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1alpha1", Resource: "validatingadmissionpolicies"}
-		vapPermissions := hasRequiredPermissions(gvr, checker)
+		vapPermissions := validatingadmissionpolicy.HasRequiredPermissions(gvr, checker)
 
 		// check if the controller has the required permissions to generate validating admission policy bindings.
 		gvr = schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1alpha1", Resource: "validatingadmissionpolicybindings"}
-		vapbindingPermissions := hasRequiredPermissions(gvr, checker)
+		vapbindingPermissions := validatingadmissionpolicy.HasRequiredPermissions(gvr, checker)
 
 		vapController := vapcontroller.NewController(
 			kubeClient,
