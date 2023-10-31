@@ -9,9 +9,9 @@ spec:
     - name: deny-pod-deletion
       match:
        any:
-          - resources:
-              kinds:
-                - Pod
+      - resources:
+          kinds:
+            - Pod
       validate:
         message: |
           Pod cannot be deleted
