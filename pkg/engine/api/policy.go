@@ -106,7 +106,7 @@ func (p *ValidatingAdmissionPolicy) GetNamespace() string {
 }
 
 func (p *ValidatingAdmissionPolicy) GetKind() string {
-	return p.policy.Kind
+	return "ValidatingAdmissionPolicy"
 }
 
 func (p *ValidatingAdmissionPolicy) GetResourceVersion() string {
