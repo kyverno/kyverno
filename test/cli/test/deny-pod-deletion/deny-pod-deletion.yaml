@@ -13,8 +13,7 @@ spec:
           kinds:
             - Pod
       validate:
-        message: |
-          Pod cannot be deleted
+        message: Pod cannot be deleted
         deny:
           conditions:
             any:
