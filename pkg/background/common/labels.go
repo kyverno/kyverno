@@ -96,16 +96,9 @@ func TriggerInfo(labels map[string]string, obj unstructured.Unstructured) {
 	labels[GenerateTriggerGroupLabel] = obj.GroupVersionKind().Group
 	labels[GenerateTriggerKindLabel] = obj.GetKind()
 	labels[GenerateTriggerNSLabel] = obj.GetNamespace()
-	labels[GenerateTriggerNameLabel] = trimByLength(obj.GetName(), 63)
+	labels[GenerateTriggerUIDLabel] = string(obj.GetUID())
 }
 
 func TagSource(labels map[string]string, obj Object) {
 	labels[GenerateTypeCloneSourceLabel] = ""
-}
-
-func trimByLength(value string, character int) string {
-	if len(value) > character {
-		return value[0:character]
-	}
-	return value
 }
