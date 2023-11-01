@@ -51,6 +51,7 @@ func ResourceSpecFromUnstructured(obj unstructured.Unstructured) kyvernov1.Resou
 		Kind:       obj.GetKind(),
 		Namespace:  obj.GetNamespace(),
 		Name:       obj.GetName(),
+		UID:        obj.GetUID(),
 	}
 }
 

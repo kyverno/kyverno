@@ -45,6 +45,7 @@ func newUR(policy kyvernov1.PolicyInterface, trigger kyvernov1.ResourceSpec, rul
 				Namespace:  trigger.GetNamespace(),
 				Name:       trigger.GetName(),
 				APIVersion: trigger.GetAPIVersion(),
+				UID:        trigger.GetUID(),
 			},
 			DeleteDownstream: deleteDownstream,
 		},
