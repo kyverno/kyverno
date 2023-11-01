@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/policy/validate"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils/validatingadmissionpolicy"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // Validation provides methods to validate a rule
@@ -51,16 +50,12 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 		if toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy() {
 			authCheck := authChecker.NewSelfChecker(client.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews())
 			// check if the controller has the required permissions to generate validating admission policies.
-			gvr := schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1alpha1", Resource: "validatingadmissionpolicies"}
-			vapPermissions := validatingadmissionpolicy.HasRequiredPermissions(gvr, authCheck)
-			if !vapPermissions {
+			if !validatingadmissionpolicy.HasValidatingAdmissionPolicyPermission(authCheck) {
 				return "doesn't have required permissions for generating ValidatingAdmissionPolicies", nil
 			}
 
 			// check if the controller has the required permissions to generate validating admission policy bindings.
-			gvr = schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1alpha1", Resource: "validatingadmissionpolicybindings"}
-			vapbindingPermissions := validatingadmissionpolicy.HasRequiredPermissions(gvr, authCheck)
-			if !vapbindingPermissions {
+			if !validatingadmissionpolicy.HasValidatingAdmissionPolicyBindingPermission(authCheck) {
 				return "doesn't have required permissions for generating ValidatingAdmissionPolicyBindings", nil
 			}
 		}

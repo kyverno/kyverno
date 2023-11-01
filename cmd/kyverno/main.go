@@ -34,7 +34,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/toggle"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
-	"github.com/kyverno/kyverno/pkg/utils/validatingadmissionpolicy"
 	"github.com/kyverno/kyverno/pkg/validation/exception"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	webhooksexception "github.com/kyverno/kyverno/pkg/webhooks/exception"
@@ -119,7 +118,6 @@ func createrLeaderControllers(
 	servicePort int32,
 	configuration config.Configuration,
 	eventGenerator event.Interface,
-	checker checker.AuthChecker,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	var leaderControllers []internal.Controller
 
@@ -184,14 +182,7 @@ func createrLeaderControllers(
 	leaderControllers = append(leaderControllers, internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1))
 
 	if generateVAPs {
-		// check if the controller has the required permissions to generate validating admission policies.
-		gvr := schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1alpha1", Resource: "validatingadmissionpolicies"}
-		vapPermissions := validatingadmissionpolicy.HasRequiredPermissions(gvr, checker)
-
-		// check if the controller has the required permissions to generate validating admission policy bindings.
-		gvr = schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1alpha1", Resource: "validatingadmissionpolicybindings"}
-		vapbindingPermissions := validatingadmissionpolicy.HasRequiredPermissions(gvr, checker)
-
+		checker := checker.NewSelfChecker(kubeClient.AuthorizationV1().SelfSubjectAccessReviews())
 		vapController := vapcontroller.NewController(
 			kubeClient,
 			kyvernoClient,
@@ -201,8 +192,7 @@ func createrLeaderControllers(
 			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
 			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings(),
 			eventGenerator,
-			vapPermissions,
-			vapbindingPermissions,
+			checker,
 		)
 		leaderControllers = append(leaderControllers, internal.NewController(vapcontroller.ControllerName, vapController, vapcontroller.Workers))
 	}
@@ -405,7 +395,6 @@ func main() {
 			// create leader factories
 			kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
 			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
-			checker := checker.NewSelfChecker(setup.KubeClient.AuthorizationV1().SelfSubjectAccessReviews())
 			// create leader controllers
 			leaderControllers, warmup, err := createrLeaderControllers(
 				generateValidatingAdmissionPolicy,
@@ -426,7 +415,6 @@ func main() {
 				int32(servicePort),
 				setup.Configuration,
 				eventGenerator,
-				checker,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create leader controllers")
