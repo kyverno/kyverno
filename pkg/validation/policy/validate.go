@@ -299,8 +299,13 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			}
 		}
 
-		if err := validateActions(i, &rules[i], client, mock, username); err != nil {
+		msg, err := validateActions(i, &rules[i], client, mock, username)
+		if err != nil {
 			return warnings, err
+		} else {
+			if len(msg) != 0 {
+				warnings = append(warnings, msg)
+			}
 		}
 
 		if rule.HasVerifyImages() {
