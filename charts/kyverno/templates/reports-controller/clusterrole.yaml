@@ -58,6 +58,16 @@ rules:
       - update
       - watch
       - deletecollection
+{{- if .Values.features.validatingAdmissionPolicyReports.enabled }}
+  - apiGroups:
+      - admissionregistration.k8s.io
+    resources:
+      - validatingadmissionpolicies
+      - validatingadmissionpolicybindings
+    verbs:
+      - get
+      - list
+{{- end }}
   - apiGroups:
       - ''
       - events.k8s.io
