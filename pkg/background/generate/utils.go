@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func newResourceSpec(genAPIVersion, genKind, genNamespace, genName string) kyvernov1.ResourceSpec {
@@ -29,6 +30,7 @@ func TriggerFromLabels(labels map[string]string) kyvernov1.ResourceSpec {
 		Kind:       labels[common.GenerateTriggerKindLabel],
 		Namespace:  labels[common.GenerateTriggerNSLabel],
 		Name:       labels[common.GenerateTriggerNameLabel],
+		UID:        types.UID(labels[common.GenerateTriggerUIDLabel]),
 		APIVersion: apiVersion.String(),
 	}
 }
