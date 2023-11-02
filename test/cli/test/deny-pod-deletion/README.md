@@ -1,6 +1,6 @@
 ## Description
 
-This test checks to ensure that a pod cannot be deleted, but can be created or updated
+This test checks to ensure that a pod cannot be deleted, but can be created or updated. The test ensures that deletion operations can be specified in `validate.deny` expressions and not just `operations[]` under a `match` block.
 
 ## Expected Behavior
 
