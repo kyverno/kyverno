@@ -3,6 +3,6 @@ kind: Values
 policies:
 - name: deny-pod-delete
   resources:
-  - name: test-pod-delete
+  - name: test-delete
     values:
       request.operation: DELETE

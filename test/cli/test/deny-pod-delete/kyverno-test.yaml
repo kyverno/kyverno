@@ -10,7 +10,7 @@ results:
 - kind: Pod
   policy: deny-pod-delete
   resources:
-  - test-pod-delete
+  - test-delete
   result: fail
   rule: deny-pod-delete
 variables: values.yaml
