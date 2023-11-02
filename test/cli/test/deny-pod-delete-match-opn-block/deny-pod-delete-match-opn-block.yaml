@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: deny-pod-delete-match-opn-block
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: deny-pod-delete-match-opn-block
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+            operations:
+              - DELETE
+      validate:
+        message: Pod cannot be deleted
+        deny: {}
+
