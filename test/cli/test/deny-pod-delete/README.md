@@ -1,6 +1,6 @@
 ## Description
 
-This test checks to ensure that a pod cannot be deleted, but can be created or updated when the operation is specified in the match block
+This test checks to ensure that a pod cannot be deleted when the operation is specified in the match block.
 
 ## Expected Behavior
 
