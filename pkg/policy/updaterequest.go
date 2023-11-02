@@ -61,6 +61,7 @@ func newURStatus(downstream unstructured.Unstructured) kyvernov1beta1.UpdateRequ
 				Kind:       downstream.GetKind(),
 				Namespace:  downstream.GetNamespace(),
 				Name:       downstream.GetName(),
+				UID:        downstream.GetUID(),
 			},
 		},
 	}
