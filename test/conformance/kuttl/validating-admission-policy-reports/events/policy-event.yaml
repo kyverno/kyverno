@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Event
+metadata:
+  namespace: default
+involvedObject:
+  kind: ValidatingAdmissionPolicy
+  name: check-deployment-replicas-vap
+reason: PolicyViolation
+action: Resource Passed
+reportingComponent: kyverno-scan
+type: Warning
