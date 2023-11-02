@@ -193,8 +193,14 @@ func NewPolicyContext(
 	configuration config.Configuration,
 ) (*PolicyContext, error) {
 	enginectx := enginectx.NewContext(jp)
-	if err := enginectx.AddResource(resource.Object); err != nil {
-		return nil, err
+	if operation != kyvernov1.Delete {
+		if err := enginectx.AddResource(resource.Object); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := enginectx.AddOldResource(resource.Object); err != nil {
+			return nil, err
+		}
 	}
 	if err := enginectx.AddNamespace(resource.GetNamespace()); err != nil {
 		return nil, err
