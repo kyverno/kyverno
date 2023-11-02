@@ -129,7 +129,7 @@ func Test_loader_Load(t *testing.T) {
 	}, {
 		name:     "unknown GVK",
 		loader:   newLoader(openapiclient.NewLocalCRDFiles(data.Crds(), "crds")),
-		document: loadFile("../../_testdata/resources/namespace.yaml"),
+		document: loadFile("../../../cmd/cli/kubectl-kyverno/_testdata/resources/namespace.yaml"),
 		wantErr:  true,
 	}, {
 		name:   "bad schema",
@@ -146,8 +146,8 @@ func Test_loader_Load(t *testing.T) {
 	}, {
 		name:     "ok",
 		loader:   newLoader(openapiclient.NewHardcodedBuiltins("1.27")),
-		document: loadFile("../../_testdata/resources/namespace.yaml"),
-		want:     toUnstructured(loadFile("../../_testdata/resources/namespace.yaml")),
+		document: loadFile("../../../cmd/cli/kubectl-kyverno/_testdata/resources/namespace.yaml"),
+		want:     toUnstructured(loadFile("../../../cmd/cli/kubectl-kyverno/_testdata/resources/namespace.yaml")),
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

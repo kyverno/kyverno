@@ -16,7 +16,7 @@ limitations under the License.
 package v2beta1
 
 import (
-	"github.com/kyverno/kyverno/pkg/utils/wildcard"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
