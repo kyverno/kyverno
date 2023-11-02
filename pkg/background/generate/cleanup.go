@@ -101,14 +101,31 @@ func (c *GenerateController) getDownstreams(rule kyvernov1.Rule, selector map[st
 		return nil, err
 	}
 
-	selector[common.GenerateTriggerNameLabel] = ur.Spec.GetResource().GetName()
+	selector[common.GenerateTriggerUIDLabel] = string(ur.Spec.GetResource().GetUID())
 	selector[common.GenerateTriggerNSLabel] = ur.Spec.GetResource().GetNamespace()
 	selector[common.GenerateTriggerKindLabel] = ur.Spec.GetResource().GetKind()
 	selector[common.GenerateTriggerGroupLabel] = gv.Group
 	selector[common.GenerateTriggerVersionLabel] = gv.Version
 	if rule.Generation.GetKind() != "" {
+		// Fetch downstream resources using trigger uid label
 		c.log.V(4).Info("fetching downstream resources", "APIVersion", rule.Generation.GetAPIVersion(), "kind", rule.Generation.GetKind(), "selector", selector)
-		return FindDownstream(c.client, rule.Generation.GetAPIVersion(), rule.Generation.GetKind(), selector)
+		downstreamList, err := FindDownstream(c.client, rule.Generation.GetAPIVersion(), rule.Generation.GetKind(), selector)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(downstreamList.Items) == 0 {
+			// Fetch downstream resources using the trigger name label
+			delete(selector, common.GenerateTriggerUIDLabel)
+			selector[common.GenerateTriggerNameLabel] = ur.Spec.GetResource().GetName()
+			dsList, err := FindDownstream(c.client, rule.Generation.GetAPIVersion(), rule.Generation.GetKind(), selector)
+			if err != nil {
+				return nil, err
+			}
+			downstreamList.Items = append(downstreamList.Items, dsList.Items...)
+		}
+
+		return downstreamList, err
 	}
 
 	dsList := &unstructured.UnstructuredList{}
