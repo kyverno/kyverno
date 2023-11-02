@@ -1,7 +1,7 @@
 apiVersion: cli.kyverno.io/v1alpha1
 kind: Values
 policies:
-- name: deny-pod-deletion
+- name: deny-pod-delete-validate-deny
   resources:
   - name: test-pod-delete
     values:
