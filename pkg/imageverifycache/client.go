@@ -11,7 +11,7 @@ import (
 
 const (
 	defaultTTL     = 1 * time.Hour
-	deafultMaxSize = 1000
+	defaultMaxSize = 1000
 )
 
 type cache struct {
@@ -70,7 +70,7 @@ func WithCacheEnableFlag(b bool) Option {
 func WithMaxSize(s int64) Option {
 	return func(c *cache) error {
 		if s == 0 {
-			s = deafultMaxSize
+			s = defaultMaxSize
 		}
 		c.maxSize = s
 		return nil
