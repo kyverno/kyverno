@@ -16,12 +16,14 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	utils "github.com/kyverno/kyverno/pkg/utils/engine"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -122,6 +124,12 @@ func (h *generationHandler) handleTrigger(
 			}
 		}
 
+		if request.Operation != admissionv1.Delete {
+			if err := h.labelTrigger(context.Background(), policyContext); err != nil {
+				h.log.Error(err, "failed to label trigger resource")
+				return
+			}
+		}
 		h.applyGeneration(ctx, request, policy, appliedRules, policyContext)
 		h.syncTriggerAction(ctx, request, policy, failedRules, policyContext)
 	}
@@ -256,7 +264,7 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 			common.GenerateSourceNSLabel:      old.GetNamespace(),
 			common.GenerateSourceNameLabel:    old.GetName(),
 		}
-		targets, err := generateutils.FindDownstream(h.client, old.GetAPIVersion(), old.GetKind(), targetSelector)
+		targets, err := common.FindDownstream(h.client, old.GetAPIVersion(), old.GetKind(), targetSelector)
 		if err != nil {
 			return fmt.Errorf("failed to list targets resources: %v", err)
 		}
@@ -274,7 +282,7 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 			common.GenerateSourceNSLabel:      old.GetNamespace(),
 			common.GenerateSourceUIDLabel:     string(old.GetUID()),
 		}
-		targets, err = generateutils.FindDownstream(h.client, old.GetAPIVersion(), old.GetKind(), targetSelector)
+		targets, err = common.FindDownstream(h.client, old.GetAPIVersion(), old.GetKind(), targetSelector)
 		if err != nil {
 			return fmt.Errorf("failed to list targets resources: %v", err)
 		}
@@ -331,4 +339,26 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 		}
 	}
 	return nil
+}
+
+func (h *generationHandler) labelTrigger(ctx context.Context, policyContext *policycontext.PolicyContext) error {
+	resource := policyContext.NewResource()
+	resourceCopy := resource.DeepCopy()
+	addSourceLabels(resourceCopy)
+	_, err := h.client.UpdateResource(ctx, resource.GetAPIVersion(), resource.GetKind(), resource.GetNamespace(), resourceCopy, false)
+	return err
+}
+
+func addSourceLabels(trigger *unstructured.Unstructured) {
+	labels := trigger.GetLabels()
+	if labels == nil {
+		labels = make(map[string]string, 4)
+	}
+
+	labels[common.GenerateSourceGroupLabel] = trigger.GroupVersionKind().Group
+	labels[common.GenerateSourceVersionLabel] = trigger.GroupVersionKind().Version
+	labels[common.GenerateSourceKindLabel] = trigger.GetKind()
+	labels[common.GenerateSourceNSLabel] = trigger.GetNamespace()
+	labels[common.GenerateTriggerUIDLabel] = string(trigger.GetUID())
+	trigger.SetLabels(labels)
 }
