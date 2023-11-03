@@ -116,6 +116,7 @@ func createrLeaderControllers(
 	certRenewer tls.CertRenewer,
 	runtime runtimeutils.Runtime,
 	servicePort int32,
+	webhookServerPort int32,
 	configuration config.Configuration,
 	eventGenerator event.Interface,
 ) ([]internal.Controller, func(context.Context) error, error) {
@@ -145,6 +146,7 @@ func createrLeaderControllers(
 		serverIP,
 		int32(webhookTimeout),
 		servicePort,
+		webhookServerPort,
 		autoUpdateWebhooks,
 		admissionReports,
 		runtime,
@@ -160,6 +162,7 @@ func createrLeaderControllers(
 		config.ExceptionValidatingWebhookServicePath,
 		serverIP,
 		servicePort,
+		webhookServerPort,
 		nil,
 		[]admissionregistrationv1.RuleWithOperations{{
 			Rule: admissionregistrationv1.Rule{
@@ -212,6 +215,7 @@ func main() {
 		admissionReports             bool
 		dumpPayload                  bool
 		servicePort                  int
+		webhookServerPort            int
 		backgroundServiceAccountName string
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
@@ -227,6 +231,7 @@ func main() {
 	flagset.Func(toggle.GenerateValidatingAdmissionPolicyFlagName, toggle.GenerateValidatingAdmissionPolicyDescription, toggle.GenerateValidatingAdmissionPolicy.Parse)
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
+	flagset.IntVar(&webhookServerPort, "webhookServerPort", 9443, "Port used by the webhook server.")
 	flagset.StringVar(&backgroundServiceAccountName, "backgroundServiceAccountName", "", "Background service account name.")
 	flagset.StringVar(&caSecretName, "caSecretName", "", "Name of the secret containing CA.")
 	flagset.StringVar(&tlsSecretName, "tlsSecretName", "", "Name of the secret containing TLS pair.")
@@ -413,6 +418,7 @@ func main() {
 				certRenewer,
 				runtime,
 				int32(servicePort),
+				int32(webhookServerPort),
 				setup.Configuration,
 				eventGenerator,
 			)
@@ -512,6 +518,7 @@ func main() {
 		kubeInformer.Rbac().V1().RoleBindings().Lister(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
 		setup.KyvernoDynamicClient.Discovery(),
+		int32(webhookServerPort),
 	)
 	// start informers and wait for cache sync
 	// we need to call start again because we potentially registered new informers
