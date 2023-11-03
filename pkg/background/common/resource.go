@@ -18,7 +18,7 @@ import (
 func GetResource(client dclient.Interface, urSpec kyvernov1beta1.UpdateRequestSpec, log logr.Logger) (*unstructured.Unstructured, error) {
 	resourceSpec := urSpec.GetResource()
 
-	get := func() (*unstructured.Unstructured, error) {
+	getByName := func() (*unstructured.Unstructured, error) {
 		if resourceSpec.Kind == "Namespace" {
 			resourceSpec.Namespace = ""
 		}
@@ -35,10 +35,39 @@ func GetResource(client dclient.Interface, urSpec kyvernov1beta1.UpdateRequestSp
 		return resource, nil
 	}
 
+	getByUID := func() (*unstructured.Unstructured, error) {
+		gv, err := resourceSpec.GetGroupVersion()
+		if err != nil {
+			return nil, err
+		}
+
+		// fetch targets that have the source UID label
+		triggerSelector := map[string]string{
+			GenerateTriggerGroupLabel:   gv.Group,
+			GenerateTriggerVersionLabel: gv.Version,
+			GenerateTriggerKindLabel:    resourceSpec.GetKind(),
+			GenerateTriggerNSLabel:      resourceSpec.GetNamespace(),
+			GenerateTriggerUIDLabel:     string(resourceSpec.GetUID()),
+		}
+		triggers, err := FindDownstream(client, resourceSpec.GetAPIVersion(), resourceSpec.GetKind(), triggerSelector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list trigger resources: %v", err)
+		}
+
+		if len(triggers.Items) == 0 {
+			return nil, fmt.Errorf("no trigger resource found for %s", resourceSpec.String())
+		}
+		return &triggers.Items[0], nil
+	}
+
 	var resource *unstructured.Unstructured
 	var err error
 	retry := func(_ context.Context) error {
-		resource, err = get()
+		if resourceSpec.GetUID() != "" {
+			resource, err = getByUID()
+		} else {
+			resource, err = getByName()
+		}
 		return err
 	}
 
