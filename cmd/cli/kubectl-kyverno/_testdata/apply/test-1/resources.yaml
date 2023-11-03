@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: lol
+  name: i-will-fail-the-policy-check
+spec:
+  selector:
+    matchLabels:
+      app: lol
+  template:
+    metadata:
+      labels:
+        app: lol
+      annotations: {}
+    spec:
+      containers:
+      - image: woot
+        name: woot
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: lol
+  name: no-annotations-pass
+spec:
+  selector:
+    matchLabels:
+      app: lol
+  template:
+    metadata:
+      labels:
+        app: lol
+#      annotations:
+    spec:
+      containers:
+      - image: woot
+        name: woot
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: lol
+  name: empty-object-pass
+spec:
+  selector:
+    matchLabels:
+      app: lol
+  template:
+    metadata:
+      labels:
+        app: lol
+      annotations: {}
+    spec:
+      containers:
+      - image: woot
+        name: woot
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: lol
+  name: correct-lol-annotation-pass
+spec:
+  selector:
+    matchLabels:
+      app: lol
+  template:
+    metadata:
+      labels:
+        app: lol
+      annotations:
+        lol: much annotation
+    spec:
+      containers:
+      - image: woot
+        name: woot
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: lol
+  name: unrelated-annotation-pass
+spec:
+  selector:
+    matchLabels:
+      app: lol
+  template:
+    metadata:
+      labels:
+        app: lol
+      annotations:
+        much: unrelated
+    spec:
+      containers:
+      - image: woot
+        name: woot

@@ -1,101 +1,107 @@
-# Below there are both type of policies: ClusterPolicy and Policy(Namespaced-Policy)
-
-#ClusterPolicy
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: add-label
   annotations:
-    policies.kyverno.io/title: Add nodeSelector
     policies.kyverno.io/category: Sample
+    policies.kyverno.io/description: Labels are used as an important source of metadata
+      describing objects in various ways or triggering other functionality. Labels
+      are also a very basic concept and should be used throughout Kubernetes. This
+      policy performs a simple mutation which adds a label `color=orange` to Pods,
+      Services, ConfigMaps, and Secrets.
     policies.kyverno.io/subject: Pod
-    policies.kyverno.io/description: >-
-      Labels are used as an important source of metadata describing objects in various ways
-      or triggering other functionality. Labels are also a very basic concept and should be
-      used throughout Kubernetes. This policy performs a simple mutation which adds a label
-      `color=orange` to Pods, Services, ConfigMaps, and Secrets.
+    policies.kyverno.io/title: Add nodeSelector
+  name: add-label
 spec:
+  admission: true
   background: false
-  validationFailureAction:
   rules:
-  - name: add-label
-    match:
-      resources:
-        kinds:
-        - Pod
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
     mutate:
       patchStrategicMerge:
         metadata:
           labels:
             color: orange
-  - name: "impossible-rule"
-    match:
-      resources:
-        kinds:
+    name: add-label
+  - match:
+      any:
+      - resources:
+          kinds:
           - Pod
-    preconditions:
-      all:
-        - key: "not-the-name" # This precondition should always fail!
-          operator: In
-          value: "{{ request.object.metadata.labels | keys(@) }}"
     mutate:
       patchStrategicMerge:
         metadata:
           labels:
-            something: "something"
-
+            something: something
+    name: impossible-rule
+    preconditions:
+      all:
+      - key: not-the-name
+        operator: AllIn
+        value: '{{ request.object.metadata.labels | keys(@) }}'
+  validationFailureAction: Audit
 ---
-
-# Policy ( In testing namespace )
 apiVersion: kyverno.io/v1
 kind: Policy
 metadata:
+  annotations:
+    policies.kyverno.io/category: Sample
+    policies.kyverno.io/description: The ndots value controls where DNS lookups are
+      first performed in a cluster and needs to be set to a lower value than the default
+      of 5 in some cases. This policy mutates all Pods to add the ndots option with
+      a value of 1.
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/title: Add ndots
   name: add-ndots
   namespace: testing
-  annotations:
-    policies.kyverno.io/title: Add ndots
-    policies.kyverno.io/category: Sample
-    policies.kyverno.io/subject: Pod
-    policies.kyverno.io/description: >-
-      The ndots value controls where DNS lookups are first performed in a cluster
-      and needs to be set to a lower value than the default of 5 in some cases.
-      This policy mutates all Pods to add the ndots option with a value of 1.
 spec:
+  admission: true
   background: false
   rules:
-  - name: add-ndots
-    match:
-      resources:
-        kinds:
-        - Pod
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
     mutate:
       patchStrategicMerge:
         spec:
           dnsConfig:
             options:
-              - name: ndots
-                value: "1"
+            - name: ndots
+              value: "1"
+    name: add-ndots
+  validationFailureAction: Audit
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: example
 spec:
+  admission: true
+  background: true
   rules:
-  - name: object_from_lists
-    context:
-      - name: annotations
-        variable:
-          jmesPath: items(request.object.metadata.annotations, 'key', 'value')[?starts_with(key, 'key')]
-      - name: annotations
-        variable:
-          jmesPath: object_from_lists(annotations[].key, annotations[].value)
+  - context:
+    - name: annotations
+      variable:
+        jmesPath: items(request.object.metadata.annotations, 'key', 'value')[?starts_with(key,
+          'key')]
+    - name: annotations
+      variable:
+        jmesPath: object_from_lists(annotations[].key, annotations[].value)
     match:
-      resources:
-        kinds:
-        - Pod
+      any:
+      - resources:
+          kinds:
+          - Pod
     mutate:
       patchesJson6902: |-
         - path: "/metadata/annotations"
           op: replace
           value: {{ annotations }}
+    name: object_from_lists
+  validationFailureAction: Audit

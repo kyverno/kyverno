@@ -62,18 +62,22 @@ func NewController(
 		cadmrLister: cadmrInformer.Lister(),
 		queue:       queue,
 	}
-	controllerutils.AddEventHandlersT(
+	if _, err := controllerutils.AddEventHandlersT(
 		admrInformer.Informer(),
 		func(obj metav1.Object) { queue.Add(cache.ExplicitKey(reportutils.GetResourceUid(obj))) },
 		func(old, obj metav1.Object) { queue.Add(cache.ExplicitKey(reportutils.GetResourceUid(old))) },
 		func(obj metav1.Object) { queue.Add(cache.ExplicitKey(reportutils.GetResourceUid(obj))) },
-	)
-	controllerutils.AddEventHandlersT(
+	); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+	if _, err := controllerutils.AddEventHandlersT(
 		cadmrInformer.Informer(),
 		func(obj metav1.Object) { queue.Add(cache.ExplicitKey(reportutils.GetResourceUid(obj))) },
 		func(old, obj metav1.Object) { queue.Add(cache.ExplicitKey(reportutils.GetResourceUid(old))) },
 		func(obj metav1.Object) { queue.Add(cache.ExplicitKey(reportutils.GetResourceUid(obj))) },
-	)
+	); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
 	return &c
 }
 

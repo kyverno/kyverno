@@ -25,7 +25,6 @@ import (
 
 // UpdateRequestStatus defines the observed state of UpdateRequest
 type UpdateRequestStatus struct {
-	// Handler represents the instance ID that handles the UR
 	// Deprecated
 	Handler string `json:"handler,omitempty" yaml:"handler,omitempty"`
 
@@ -113,12 +112,12 @@ type RequestInfo struct {
 	// Roles is a list of possible role send the request.
 	// +nullable
 	// +optional
-	Roles []string `json:"roles" yaml:"roles"`
+	Roles []string `json:"roles,omitempty" yaml:"roles,omitempty"`
 
 	// ClusterRoles is a list of possible clusterRoles send the request.
 	// +nullable
 	// +optional
-	ClusterRoles []string `json:"clusterRoles" yaml:"clusterRoles"`
+	ClusterRoles []string `json:"clusterRoles,omitempty" yaml:"clusterRoles,omitempty"`
 
 	// UserInfo is the userInfo carried in the admission request.
 	// +optional

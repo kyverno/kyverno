@@ -2,11 +2,16 @@ package imageverifycache
 
 import (
 	"context"
-	"sync"
 	"time"
 
+	"github.com/dgraph-io/ristretto"
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+)
+
+const (
+	defaultTTL     = 1 * time.Hour
+	defaultMaxSize = 1000
 )
 
 type cache struct {
@@ -14,7 +19,7 @@ type cache struct {
 	isCacheEnabled bool
 	maxSize        int64
 	ttl            time.Duration
-	lock           sync.Mutex
+	cache          *ristretto.Cache
 }
 
 type Option = func(*cache) error
@@ -26,7 +31,16 @@ func New(options ...Option) (Client, error) {
 			return nil, err
 		}
 	}
-
+	config := ristretto.Config{
+		MaxCost:     cache.maxSize,
+		NumCounters: 10 * cache.maxSize,
+		BufferItems: 64,
+	}
+	rcache, err := ristretto.NewCache(&config)
+	if err != nil {
+		return nil, err
+	}
+	cache.cache = rcache
 	return cache, nil
 }
 
@@ -55,6 +69,9 @@ func WithCacheEnableFlag(b bool) Option {
 
 func WithMaxSize(s int64) Option {
 	return func(c *cache) error {
+		if s == 0 {
+			s = defaultMaxSize
+		}
 		c.maxSize = s
 		return nil
 	}
@@ -62,32 +79,40 @@ func WithMaxSize(s int64) Option {
 
 func WithTTLDuration(t time.Duration) Option {
 	return func(c *cache) error {
+		if t == 0 {
+			t = defaultTTL
+		}
 		c.ttl = t
 		return nil
 	}
 }
 
-func (c *cache) Set(ctx context.Context, policy kyvernov1.PolicyInterface, ruleName string, imageRef string) (bool, error) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
+func generateKey(policy kyvernov1.PolicyInterface, ruleName string, imageRef string) string {
+	return string(policy.GetUID()) + ";" + policy.GetResourceVersion() + ";" + ruleName + ";" + imageRef
+}
 
-	c.logger.Info("Setting cache", "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
+func (c *cache) Set(ctx context.Context, policy kyvernov1.PolicyInterface, ruleName string, imageRef string) (bool, error) {
 	if !c.isCacheEnabled {
 		return false, nil
 	}
-	c.logger.Info("Successfully set cache", "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
+	key := generateKey(policy, ruleName, imageRef)
+
+	stored := c.cache.SetWithTTL(key, nil, 1, c.ttl)
+	c.cache.Wait()
+	if stored {
+		return true, nil
+	}
 	return false, nil
 }
 
 func (c *cache) Get(ctx context.Context, policy kyvernov1.PolicyInterface, ruleName string, imageRef string) (bool, error) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	c.logger.Info("Searching in cache", "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
 	if !c.isCacheEnabled {
 		return false, nil
 	}
-	c.logger.Info("Cache entry not found", "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
-	c.logger.Info("Cache entry found", "policy", policy.GetName(), "ruleName", ruleName, "imageRef", imageRef)
+	key := generateKey(policy, ruleName, imageRef)
+	_, found := c.cache.Get(key)
+	if found {
+		return true, nil
+	}
 	return false, nil
 }

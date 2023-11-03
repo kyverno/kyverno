@@ -1,0 +1,28 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validate-volumes-whitelist
+spec:
+  admission: true
+  background: true
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: validate-volumes-whitelist
+    validate:
+      anyPattern:
+      - spec:
+          volumes:
+          - hostPath: '*'
+      - spec:
+          volumes:
+          - emptyDir: '*'
+      - spec:
+          volumes:
+          - configMap: '*'
+      message: Volume type is not of type hostPath, emptyDir, or configMap.
+  validationFailureAction: Audit

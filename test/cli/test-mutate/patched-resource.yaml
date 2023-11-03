@@ -5,3 +5,5 @@ metadata:
   annotations:
     key1: "1"
     key2: "1"
+  labels:
+    color: orange

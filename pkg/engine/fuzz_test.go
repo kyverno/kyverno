@@ -1,22 +1,23 @@
 package engine
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
+	"sync"
 	"testing"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	kyvFuzz "github.com/kyverno/kyverno/pkg/utils/fuzz"
 
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	corev1 "k8s.io/api/core/v1"
+
+	fuzz "github.com/AdaLogics/go-fuzz-headers"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
@@ -24,13 +25,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-
-	fuzz "github.com/AdaLogics/go-fuzz-headers"
 )
 
-/*
-VerifyAndPatchImage
-*/
 var (
 	fuzzCfg        = config.NewDefaultConfiguration(false)
 	fuzzMetricsCfg = config.NewDefaultMetricsConfiguration()
@@ -49,16 +45,22 @@ var (
 		nil,
 		"",
 	)
+	initter sync.Once
 )
 
-func buildFuzzContext(policy, resource, oldResource []byte) (*PolicyContext, error) {
-	var cpol kyverno.ClusterPolicy
-	err := json.Unmarshal([]byte(policy), &cpol)
+func buildFuzzContext(ff *fuzz.ConsumeFuzzer) (*PolicyContext, error) {
+	cpSpec, err := kyvFuzz.CreatePolicySpec(ff)
 	if err != nil {
 		return nil, err
 	}
+	cpol := &kyverno.ClusterPolicy{}
+	cpol.Spec = cpSpec
 
-	resourceUnstructured, err := kubeutils.BytesToUnstructured(resource)
+	if len(autogen.ComputeRules(cpol)) == 0 {
+		return nil, fmt.Errorf("No rules created")
+	}
+
+	resourceUnstructured, err := kyvFuzz.CreateUnstructuredObject(ff, "")
 	if err != nil {
 		return nil, err
 	}
@@ -75,13 +77,23 @@ func buildFuzzContext(policy, resource, oldResource []byte) (*PolicyContext, err
 	}
 
 	policyContext = policyContext.
-		WithPolicy(&cpol).
+		WithPolicy(cpol).
 		WithNewResource(*resourceUnstructured)
 
-	if !bytes.Equal(oldResource, []byte("")) {
-		oldResourceUnstructured, err := kubeutils.BytesToUnstructured(oldResource)
+	addOldResource, err := ff.GetBool()
+	if err != nil {
+		return nil, err
+	}
+
+	if addOldResource {
+		oldResourceUnstructured, err := kyvFuzz.CreateUnstructuredObject(ff, "")
 		if err != nil {
 			return nil, err
+		}
+
+		oldResource, err := json.Marshal(oldResourceUnstructured)
+		if err != nil {
+			return policyContext, nil
 		}
 
 		err = enginecontext.AddOldResource(policyContext.JSONContext(), oldResource)
@@ -95,9 +107,13 @@ func buildFuzzContext(policy, resource, oldResource []byte) (*PolicyContext, err
 	return policyContext, nil
 }
 
+/*
+VerifyAndPatchImage
+*/
 func FuzzVerifyImageAndPatchTest(f *testing.F) {
-	f.Fuzz(func(t *testing.T, policy, resource, oldResource []byte) {
-		pc, err := buildFuzzContext(policy, resource, oldResource)
+	f.Fuzz(func(t *testing.T, data []byte) {
+		ff := fuzz.NewConsumer(data)
+		pc, err := buildFuzzContext(ff)
 		if err != nil {
 			return
 		}
@@ -121,233 +137,10 @@ func FuzzVerifyImageAndPatchTest(f *testing.F) {
 	})
 }
 
-/*
-Validate
-*/
-func createPolicySpec(ff *fuzz.ConsumeFuzzer) (kyverno.Spec, error) {
-	spec := &kyverno.Spec{}
-	rules := createRules(ff)
-	if len(rules) == 0 {
-		return *spec, fmt.Errorf("no rules")
-	}
-	spec.Rules = rules
-
-	applyAll, err := ff.GetBool()
-	if err != nil {
-		return *spec, err
-	}
-	if applyAll {
-		aa := kyverno.ApplyAll
-		spec.ApplyRules = &aa
-	} else {
-		ao := kyverno.ApplyOne
-		spec.ApplyRules = &ao
-	}
-
-	failPolicy, err := ff.GetBool()
-	if err != nil {
-		return *spec, err
-	}
-	if failPolicy {
-		fa := kyverno.Fail
-		spec.FailurePolicy = &fa
-	} else {
-		ig := kyverno.Ignore
-		spec.FailurePolicy = &ig
-	}
-
-	setValidationFailureAction, err := ff.GetBool()
-	if err != nil {
-		return *spec, err
-	}
-	if setValidationFailureAction {
-		audit, err := ff.GetBool()
-		if err != nil {
-			return *spec, err
-		}
-		if audit {
-			spec.ValidationFailureAction = "Audit"
-		} else {
-			spec.ValidationFailureAction = "Enforce"
-		}
-	}
-
-	setValidationFailureActionOverrides, err := ff.GetBool()
-	if err != nil {
-		return *spec, err
-	}
-	if setValidationFailureActionOverrides {
-		vfao := make([]kyverno.ValidationFailureActionOverride, 0)
-		ff.CreateSlice(&vfao)
-		if len(vfao) != 0 {
-			spec.ValidationFailureActionOverrides = vfao
-		}
-	}
-
-	admission, err := ff.GetBool()
-	if err != nil {
-		return *spec, err
-	}
-	spec.Admission = &admission
-
-	background, err := ff.GetBool()
-	if err != nil {
-		return *spec, err
-	}
-	spec.Background = &background
-
-	schemaValidation, err := ff.GetBool()
-	if err != nil {
-		return *spec, err
-	}
-	spec.SchemaValidation = &schemaValidation
-
-	mutateExistingOnPolicyUpdate, err := ff.GetBool()
-	if err != nil {
-		return *spec, err
-	}
-	spec.MutateExistingOnPolicyUpdate = mutateExistingOnPolicyUpdate
-
-	generateExistingOnPolicyUpdate, err := ff.GetBool()
-	if err != nil {
-		return *spec, err
-	}
-	spec.GenerateExistingOnPolicyUpdate = &generateExistingOnPolicyUpdate
-
-	generateExisting, err := ff.GetBool()
-	if err != nil {
-		return *spec, err
-	}
-	spec.GenerateExisting = generateExisting
-
-	return *spec, nil
-}
-
-// Creates a slice of Rules
-func createRules(ff *fuzz.ConsumeFuzzer) []kyverno.Rule {
-	rules := make([]kyverno.Rule, 0)
-	noOfRules, err := ff.GetInt()
-	if err != nil {
-		return rules
-	}
-	for i := 0; i < noOfRules%100; i++ {
-		rule, err := createRule(ff)
-		if err != nil {
-			return rules
-		}
-
-		rules = append(rules, *rule)
-	}
-	return rules
-}
-
-// Creates a single rule
-func createRule(f *fuzz.ConsumeFuzzer) (*kyverno.Rule, error) {
-	rule := &kyverno.Rule{}
-	name, err := f.GetString()
-	if err != nil {
-		return rule, err
-	}
-	rule.Name = name
-
-	setContext, err := f.GetBool()
-	if err != nil {
-		return rule, err
-	}
-	if setContext {
-		c := make([]kyverno.ContextEntry, 0)
-		f.CreateSlice(&c)
-		if len(c) != 0 {
-			rule.Context = c
-		}
-	}
-
-	mr := &kyverno.MatchResources{}
-	f.GenerateStruct(mr)
-	rule.MatchResources = *mr
-
-	setExcludeResources, err := f.GetBool()
-	if err != nil {
-		return rule, err
-	}
-	if setExcludeResources {
-		er := &kyverno.MatchResources{}
-		f.GenerateStruct(mr)
-		rule.ExcludeResources = *er
-	}
-
-	setRawAnyAllConditions, err := f.GetBool()
-	if err != nil {
-		return rule, err
-	}
-	if setRawAnyAllConditions {
-		raac := &apiextv1.JSON{}
-		f.GenerateStruct(raac)
-		rule.RawAnyAllConditions = raac
-	}
-
-	setCELPreconditions, err := f.GetBool()
-	if err != nil {
-		return rule, err
-	}
-	if setCELPreconditions {
-		celp := make([]admissionregistrationv1.MatchCondition, 0)
-		f.CreateSlice(&celp)
-		if len(celp) != 0 {
-			rule.CELPreconditions = celp
-		}
-	}
-
-	setMutation, err := f.GetBool()
-	if err != nil {
-		return rule, err
-	}
-	if setMutation {
-		m := &kyverno.Mutation{}
-		f.GenerateStruct(m)
-		rule.Mutation = *m
-	}
-
-	setValidation, err := f.GetBool()
-	if err != nil {
-		return rule, err
-	}
-	if setValidation {
-		v := &kyverno.Validation{}
-		f.GenerateStruct(v)
-		rule.Validation = *v
-	}
-
-	setGeneration, err := f.GetBool()
-	if err != nil {
-		return rule, err
-	}
-	if setGeneration {
-		g := &kyverno.Generation{}
-		f.GenerateStruct(g)
-		rule.Generation = *g
-	}
-
-	setVerifyImages, err := f.GetBool()
-	if err != nil {
-		return rule, err
-	}
-	if setVerifyImages {
-		iv := make([]kyverno.ImageVerification, 0)
-		f.CreateSlice(&iv)
-		if len(iv) != 0 {
-			rule.VerifyImages = iv
-		}
-	}
-
-	return rule, nil
-}
-
 func FuzzEngineValidateTest(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte) {
 		ff := fuzz.NewConsumer(data)
-		//ff.GenerateStruct(policy)
-		cpSpec, err := createPolicySpec(ff)
+		cpSpec, err := kyvFuzz.CreatePolicySpec(ff)
 		if err != nil {
 			return
 		}
@@ -358,14 +151,14 @@ func FuzzEngineValidateTest(f *testing.F) {
 			return
 		}
 
-		resourceUnstructured, err := createUnstructuredObject(ff)
+		resourceUnstructured, err := kyvFuzz.CreateUnstructuredObject(ff, "")
 		if err != nil {
 			return
 		}
 
 		pc, err := NewPolicyContext(fuzzJp, *resourceUnstructured, kyverno.Create, nil, fuzzCfg)
 		if err != nil {
-			t.Skip()
+			return
 		}
 
 		validateEngine.Validate(
@@ -375,61 +168,87 @@ func FuzzEngineValidateTest(f *testing.F) {
 	})
 }
 
-// Creates an unstructured k8s object
-func createUnstructuredObject(f *fuzz.ConsumeFuzzer) (*unstructured.Unstructured, error) {
-	var sb strings.Builder
-
-	sb.WriteString("{ \"apiVersion\": \"apps/v1\", \"kind\": \"Deployment\", \"metadata\": { \"creationTimestamp\": \"2020-09-21T12:56:35Z\", \"name\": \"fuzz\", \"labels\": { \"test\": \"qos\" } }, \"spec\": { ")
-
-	for i := 0; i < 1000; i++ {
-		typeToAdd, err := f.GetInt()
-		if err != nil {
-			return kubeutils.BytesToUnstructured([]byte(sb.String()))
-		}
-		switch typeToAdd % 11 {
-		case 0:
-			sb.WriteString("\"")
-		case 1:
-			s, err := f.GetString()
-			if err != nil {
-				return kubeutils.BytesToUnstructured([]byte(sb.String()))
-			}
-			sb.WriteString(s)
-		case 2:
-			sb.WriteString("{")
-		case 3:
-			sb.WriteString("}")
-		case 4:
-			sb.WriteString("[")
-		case 5:
-			sb.WriteString("]")
-		case 6:
-			sb.WriteString(":")
-		case 7:
-			sb.WriteString(",")
-		case 8:
-			sb.WriteString(" ")
-		case 9:
-			sb.WriteString("\t")
-		case 10:
-			sb.WriteString("\n")
-		}
-	}
-	return kubeutils.BytesToUnstructured([]byte(sb.String()))
+func getPod(ff *fuzz.ConsumeFuzzer) (*corev1.Pod, error) {
+	pod := &corev1.Pod{}
+	err := ff.GenerateStruct(pod)
+	pod.Kind = "Pod"
+	pod.APIVersion = "v1"
+	return pod, err
 }
 
-/*
-Mutate
-*/
-func FuzzMutateTest(f *testing.F) {
-	f.Fuzz(func(t *testing.T, resourceRaw, policyRaw []byte) {
-		var policy kyverno.ClusterPolicy
-		err := json.Unmarshal(policyRaw, &policy)
+func FuzzPodBypass(f *testing.F) {
+	f.Fuzz(func(t *testing.T, data []byte) {
+		initter.Do(kyvFuzz.InitFuzz)
+
+		ff := fuzz.NewConsumer(data)
+		policyToCheck, err := ff.GetInt()
 		if err != nil {
 			return
 		}
-		var resource unstructured.Unstructured
-		err = resource.UnmarshalJSON(resourceRaw)
+		testPolicy := kyvFuzz.Policies[policyToCheck%11]
+
+		pod, err := getPod(ff)
+		if err != nil {
+			return
+		}
+
+		shouldBlock, err := testPolicy.ShouldBlock(pod)
+		if err != nil {
+			return
+		}
+
+		resource, err := json.MarshalIndent(pod, "", "  ")
+		if err != nil {
+			return
+		}
+
+		resourceUnstructured, err := kubeutils.BytesToUnstructured(resource)
+		if err != nil {
+			return
+		}
+
+		pc, err := NewPolicyContext(fuzzJp, *resourceUnstructured, kyverno.Create, nil, fuzzCfg)
+		if err != nil {
+			return
+		}
+		er := validateEngine.Validate(
+			validateContext,
+			pc.WithPolicy(testPolicy.ClusterPolicy),
+		)
+		failurePolicy := kyverno.Fail
+		blocked := blockRequest([]engineapi.EngineResponse{er}, failurePolicy)
+		if blocked != shouldBlock {
+			panic(fmt.Sprintf("\nDid not block a resource that should be blocked:\n%s\n should have been blocked by \n%+v\n\nshouldBlock was %t\nblocked was %t\n", string(resource), testPolicy.ClusterPolicy, shouldBlock, blocked))
+		}
+	})
+}
+
+func blockRequest(engineResponses []engineapi.EngineResponse, failurePolicy kyverno.FailurePolicyType) bool {
+	for _, er := range engineResponses {
+		if er.IsFailed() {
+			return true
+		}
+	}
+	return false
+}
+
+func FuzzMutateTest(f *testing.F) {
+	f.Fuzz(func(t *testing.T, data []byte) {
+
+		ff := fuzz.NewConsumer(data)
+		//ff.GenerateStruct(policy)
+		cpSpec, err := kyvFuzz.CreatePolicySpec(ff)
+		if err != nil {
+			return
+		}
+		policy := &kyverno.ClusterPolicy{}
+		policy.Spec = cpSpec
+
+		if len(autogen.ComputeRules(policy)) == 0 {
+			return
+		}
+
+		resource, err := kyvFuzz.CreateUnstructuredObject(ff, "")
 		if err != nil {
 			return
 		}
@@ -437,7 +256,7 @@ func FuzzMutateTest(f *testing.F) {
 		// create policy context
 		pc, err := NewPolicyContext(
 			fuzzJp,
-			resource,
+			*resource,
 			kyverno.Create,
 			nil,
 			fuzzCfg,
@@ -445,11 +264,12 @@ func FuzzMutateTest(f *testing.F) {
 		if err != nil {
 			t.Skip()
 		}
+		fuzzInterface := kyvFuzz.FuzzInterface{FF: ff}
 		e := NewEngine(
 			fuzzCfg,
 			config.NewDefaultMetricsConfiguration(),
 			fuzzJp,
-			adapters.Client(nil),
+			adapters.Client(fuzzInterface),
 			factories.DefaultRegistryClientFactory(adapters.RegistryClient(nil), nil),
 			imageverifycache.DisabledImageVerifyCache(),
 			factories.DefaultContextLoaderFactory(nil),
@@ -458,8 +278,7 @@ func FuzzMutateTest(f *testing.F) {
 		)
 		e.Mutate(
 			context.Background(),
-			pc.WithPolicy(&policy),
+			pc.WithPolicy(policy),
 		)
-		panic("Here")
 	})
 }

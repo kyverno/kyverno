@@ -1,0 +1,56 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+kubeadmConfigPatches:
+  - |-
+    kind: ClusterConfiguration
+    apiServer:
+      extraVolumes:
+        - name: tracing-configuration
+          hostPath: /opt/kube-apiserver/tracing-configuration.yaml
+          mountPath: /opt/kube-apiserver/tracing-configuration.yaml
+          readOnly: true
+          pathType: File
+      extraArgs:
+        tracing-config-file: /opt/kube-apiserver/tracing-configuration.yaml
+    controllerManager:
+      extraArgs:
+        bind-address: 0.0.0.0
+    etcd:
+      local:
+        extraArgs:
+          listen-metrics-urls: http://0.0.0.0:2382
+    scheduler:
+      extraArgs:
+        bind-address: 0.0.0.0
+  - |-
+    kind: KubeProxyConfiguration
+    metricsBindAddress: 0.0.0.0
+  - |-
+    kind: KubeletConfiguration
+    featureGates:
+      KubeletTracing: true
+    tracing:
+      endpoint: localhost:4317
+      samplingRatePerMillion: 1000000
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |-
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraMounts:
+      - hostPath: ./scripts/config/kube-apiserver/tracing-configuration.yaml
+        containerPath: /opt/kube-apiserver/tracing-configuration.yaml
+        readOnly: true
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 443
+        protocol: TCP
+  - role: worker
+  - role: worker
+  - role: worker

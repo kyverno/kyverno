@@ -1,6 +1,0 @@
-apiVersion: rules.example.com/v1
-kind: ReplicaLimit
-metadata:
-  name: "replica-limit-test.example.com"
-  namespace: test-params
-maxReplicas: 3

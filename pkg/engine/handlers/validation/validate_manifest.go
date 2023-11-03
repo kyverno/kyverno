@@ -171,7 +171,8 @@ func (h validateManifestHandler) verifyManifest(
 }
 
 func (h validateManifestHandler) checkDryRunPermission(ctx context.Context, kind, namespace string) (bool, error) {
-	return h.client.CanI(ctx, kind, namespace, "create", "", config.KyvernoServiceAccountName())
+	ok, _, err := h.client.CanI(ctx, kind, namespace, "create", "", config.KyvernoServiceAccountName())
+	return ok, err
 }
 
 func verifyManifestAttestorSet(resource unstructured.Unstructured, attestorSet kyvernov1.AttestorSet, vo *k8smanifest.VerifyResourceOption, path string, uid string, logger logr.Logger) (bool, string, error) {

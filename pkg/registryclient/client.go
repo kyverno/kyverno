@@ -4,18 +4,14 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"runtime"
 	"time"
 
-	"github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
-	"github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/authn/github"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/google"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/sigstore/cosign/v2/pkg/oci/remote"
@@ -58,8 +54,11 @@ type Client interface {
 	// and provides access to metadata about remote artifact.
 	FetchImageDescriptor(context.Context, string) (*gcrremote.Descriptor, error)
 
-	// BuildRemoteOption builds remote.Option based on client.
-	BuildRemoteOption(context.Context) remote.Option
+	// BuildCosignRemoteOption builds remote.Option for cosign client.
+	BuildCosignRemoteOption(context.Context) (remote.Option, error)
+
+	// BuildGCRRemoteOption builds []gcrremote.option based on client.
+	BuildGCRRemoteOption(ctx context.Context) ([]gcrremote.Option, error)
 }
 
 type client struct {
@@ -129,13 +128,13 @@ func WithCredentialProviders(credentialProviders ...string) Option {
 			chains = append(chains, authn.DefaultKeychain)
 		}
 		if helpers.Has("google") {
-			chains = append(chains, google.Keychain)
+			chains = append(chains, GCPKeychain)
 		}
 		if helpers.Has("amazon") {
-			chains = append(chains, authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard))))
+			chains = append(chains, AWSKeychain)
 		}
 		if helpers.Has("azure") {
-			chains = append(chains, authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()))
+			chains = append(chains, AzureKeychain)
 		}
 		if helpers.Has("github") {
 			chains = append(chains, github.Keychain)
@@ -169,14 +168,40 @@ func WithTracing() Option {
 	}
 }
 
-// BuildRemoteOption builds remote.Option based on client.
-func (c *client) BuildRemoteOption(ctx context.Context) remote.Option {
-	return remote.WithRemoteOptions(
+// BuildCosignRemoteOption builds remote.Option for cosign client.
+func (c *client) BuildCosignRemoteOption(ctx context.Context) (remote.Option, error) {
+	gcrRemoteOpts, err := c.getGCRRemoteOption(ctx)
+	if err != nil {
+		return nil, err
+	}
+	gcrRemoteOpts = append(gcrRemoteOpts, gcrremote.WithUserAgent(userAgent))
+	return remote.WithRemoteOptions(gcrRemoteOpts...), nil
+}
+
+// BuildGCRRemoteOption builds []gcrremote.Option based on client.
+func (c *client) BuildGCRRemoteOption(ctx context.Context) ([]gcrremote.Option, error) {
+	return c.getGCRRemoteOption(ctx)
+}
+
+func (c *client) getGCRRemoteOption(ctx context.Context) ([]gcrremote.Option, error) {
+	remoteOpts := []gcrremote.Option{
 		gcrremote.WithAuthFromKeychain(c.keychain),
 		gcrremote.WithTransport(c.transport),
 		gcrremote.WithContext(ctx),
-		gcrremote.WithUserAgent(userAgent),
-	)
+	}
+
+	pusher, err := gcrremote.NewPusher(remoteOpts...)
+	if err != nil {
+		return nil, err
+	}
+	remoteOpts = append(remoteOpts, gcrremote.Reuse(pusher))
+
+	puller, err := gcrremote.NewPuller(remoteOpts...)
+	if err != nil {
+		return nil, err
+	}
+	remoteOpts = append(remoteOpts, gcrremote.Reuse(puller))
+	return remoteOpts, nil
 }
 
 // FetchImageDescriptor fetches Descriptor from registry with given imageRef
@@ -189,6 +214,9 @@ func (c *client) FetchImageDescriptor(ctx context.Context, imageRef string) (*gc
 	desc, err := gcrremote.Get(parsedRef, gcrremote.WithAuthFromKeychain(c.keychain), gcrremote.WithContext(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch image reference: %s, error: %v", imageRef, err)
+	}
+	if _, ok := parsedRef.(name.Digest); ok && parsedRef.Identifier() != desc.Digest.String() {
+		return nil, fmt.Errorf("digest mismatch, expected: %s, received: %s", parsedRef.Identifier(), desc.Digest.String())
 	}
 	return desc, nil
 }

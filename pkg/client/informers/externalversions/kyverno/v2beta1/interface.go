@@ -24,10 +24,16 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
+	// CleanupPolicies returns a CleanupPolicyInformer.
+	CleanupPolicies() CleanupPolicyInformer
+	// ClusterCleanupPolicies returns a ClusterCleanupPolicyInformer.
+	ClusterCleanupPolicies() ClusterCleanupPolicyInformer
 	// ClusterPolicies returns a ClusterPolicyInformer.
 	ClusterPolicies() ClusterPolicyInformer
 	// Policies returns a PolicyInformer.
 	Policies() PolicyInformer
+	// PolicyExceptions returns a PolicyExceptionInformer.
+	PolicyExceptions() PolicyExceptionInformer
 }
 
 type version struct {
@@ -41,6 +47,16 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
+// CleanupPolicies returns a CleanupPolicyInformer.
+func (v *version) CleanupPolicies() CleanupPolicyInformer {
+	return &cleanupPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// ClusterCleanupPolicies returns a ClusterCleanupPolicyInformer.
+func (v *version) ClusterCleanupPolicies() ClusterCleanupPolicyInformer {
+	return &clusterCleanupPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 // ClusterPolicies returns a ClusterPolicyInformer.
 func (v *version) ClusterPolicies() ClusterPolicyInformer {
 	return &clusterPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
@@ -49,4 +65,9 @@ func (v *version) ClusterPolicies() ClusterPolicyInformer {
 // Policies returns a PolicyInformer.
 func (v *version) Policies() PolicyInformer {
 	return &policyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// PolicyExceptions returns a PolicyExceptionInformer.
+func (v *version) PolicyExceptions() PolicyExceptionInformer {
+	return &policyExceptionInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

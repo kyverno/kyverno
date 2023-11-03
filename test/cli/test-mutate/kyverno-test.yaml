@@ -1,90 +1,58 @@
-name: add-nodeselector
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  - policy.yaml
+- policy.yaml
 resources:
-  - resource.yaml
+- resource.yaml
 results:
-  - policy: add-label
-    rule: add-label
-    resource: resource-equal-to-patch-res-for-cp
-    patchedResource: patchedResource1.yaml
-    kind: Pod
-    namespace: practice
-    result: skip
-  - policy: add-label
-    rule: add-label
-    resource: same-name-but-diff-namespace
-    patchedResource: patchedResource2.yaml
-    kind: Pod
-    namespace: testing
-    result: pass
-  - policy: add-label
-    rule: add-label
-    resource: same-name-but-diff-namespace
-    patchedResource: patchedResource3.yaml
-    kind: Pod
-    namespace: production
-    result: pass
-  - policy: add-label
-    rule: add-label
-    resource: mydeploy
-    patchedResource: patchedResource4.yaml
-    kind: Deployment
-    result: pass
-  - policy: add-label
-    rule: add-label
-    resource: same-name-but-diff-kind
-    patchedResource: patchedResource5.yaml
-    kind: Service
-    result: skip
-  - policy: add-label
-    rule: add-label
-    resource: same-name-but-diff-kind
-    patchedResource: patchedResource6.yaml
-    kind: Pod
-    result: pass
-  - policy: add-ndots
-    rule: add-ndots
-    resource: resource-equal-to-patch-res-for-cp
-    namespace: practice
-    patchedResource: patchedResource7.yaml
-    kind: Pod
-    result: skip
-  - policy: add-ndots
-    rule: add-ndots
-    resource: same-name-but-diff-namespace
-    patchedResource: patchedResource8.yaml
-    namespace: testing
-    kind: Pod
-    result: pass
-  - policy: add-ndots
-    rule: add-ndots
-    resource: same-name-but-diff-namespace
-    patchedResource: patchedResource9.yaml
-    kind: Pod
-    namespace: production
-    result: skip
-  - policy: add-ndots
-    rule: add-ndots
-    resource: mydeploy
-    patchedResource: patchedResource10.yaml
-    kind: Deployment
-    result: skip
-  - policy: add-ndots
-    rule: add-ndots
-    resource: same-name-but-diff-kind
-    patchedResource: patchedResource5.yaml
-    kind: Service
-    result: skip
-  - policy: add-ndots
-    rule: add-ndots
-    resource: same-name-but-diff-kind
-    patchedResource: patchedResource11.yaml
-    kind: Pod
-    result: skip
-  - policy: example
-    rule: object_from_lists
-    resource: example
-    patchedResource: patched-resource.yaml
-    kind: Pod
-    result: pass
+- kind: Deployment
+  patchedResource: patchedResource4.yaml
+  policy: add-label
+  resources:
+  - mydeploy
+  result: pass
+  rule: add-label
+- kind: Pod
+  patchedResource: patchedResource2.yaml
+  policy: add-label
+  resources:
+  - testing/same-name-but-diff-namespace
+  result: pass
+  rule: add-label
+- kind: Pod
+  patchedResource: patchedResource3.yaml
+  policy: add-label
+  resources:
+  - production/same-name-but-diff-namespace
+  result: pass
+  rule: add-label
+- kind: Pod
+  patchedResource: patchedResource6.yaml
+  policy: add-label
+  resources:
+  - same-name-but-diff-kind
+  result: pass
+  rule: add-label
+- kind: Pod
+  patchedResource: patchedResource1.yaml
+  policy: add-label
+  resources:
+  - practice/resource-equal-to-patch-res-for-cp
+  result: skip
+  rule: add-label
+- kind: Pod
+  patchedResource: patched-resource.yaml
+  policy: example
+  resources:
+  - example
+  result: pass
+  rule: object_from_lists
+- kind: Pod
+  patchedResource: patchedResource8.yaml
+  policy: testing/add-ndots
+  resources:
+  - same-name-but-diff-namespace
+  result: pass
+  rule: add-ndots

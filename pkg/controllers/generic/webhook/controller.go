@@ -59,6 +59,7 @@ type controller struct {
 	sideEffects    *admissionregistrationv1.SideEffectClass
 	configuration  config.Configuration
 	labelSelector  *metav1.LabelSelector
+	caSecretName   string
 }
 
 func NewController(
@@ -75,6 +76,7 @@ func NewController(
 	failurePolicy *admissionregistrationv1.FailurePolicyType,
 	sideEffects *admissionregistrationv1.SideEffectClass,
 	configuration config.Configuration,
+	caSecretName string,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 	c := controller{
@@ -93,26 +95,31 @@ func NewController(
 		sideEffects:    sideEffects,
 		configuration:  configuration,
 		labelSelector:  labelSelector,
+		caSecretName:   caSecretName,
 	}
-	controllerutils.AddDefaultEventHandlers(c.logger, vwcInformer.Informer(), queue)
-	controllerutils.AddEventHandlersT(
+	if _, _, err := controllerutils.AddDefaultEventHandlers(c.logger, vwcInformer.Informer(), queue); err != nil {
+		c.logger.Error(err, "failed to register event handlers")
+	}
+	if _, err := controllerutils.AddEventHandlersT(
 		secretInformer.Informer(),
 		func(obj *corev1.Secret) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == tls.GenerateRootCASecretName() {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == caSecretName {
 				c.enqueue()
 			}
 		},
 		func(_, obj *corev1.Secret) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == tls.GenerateRootCASecretName() {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == caSecretName {
 				c.enqueue()
 			}
 		},
 		func(obj *corev1.Secret) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == tls.GenerateRootCASecretName() {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == caSecretName {
 				c.enqueue()
 			}
 		},
-	)
+	); err != nil {
+		c.logger.Error(err, "failed to register event handlers")
+	}
 	configuration.OnChanged(c.enqueue)
 	return &c
 }
@@ -130,7 +137,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	if key != c.webhookName {
 		return nil
 	}
-	caData, err := tls.ReadRootCASecret(c.secretLister)
+	caData, err := tls.ReadRootCASecret(c.caSecretName, config.KyvernoNamespace(), c.secretLister)
 	if err != nil {
 		return err
 	}

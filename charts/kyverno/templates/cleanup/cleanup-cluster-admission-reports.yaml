@@ -31,7 +31,7 @@ spec:
           {{- end }}
           containers:
           - name: cleanup
-            image: {{ (include "kyverno.image" .Values.cleanupJobs.clusterAdmissionReports) | quote }}
+            image: {{ (include "kyverno.image" (dict "globalRegistry" ((.Values.global).image).registry "image" .Values.cleanupJobs.clusterAdmissionReports.image)) | quote }}
             imagePullPolicy: {{ .Values.cleanupJobs.clusterAdmissionReports.image.pullPolicy }}
             command:
             - /bin/sh

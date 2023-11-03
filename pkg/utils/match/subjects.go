@@ -1,16 +1,13 @@
 package match
 
 import (
-	"github.com/kyverno/kyverno/pkg/utils/wildcard"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 // CheckSubjects return true if one of ruleSubjects exist in userInfo
-func CheckSubjects(
-	ruleSubjects []rbacv1.Subject,
-	userInfo authenticationv1.UserInfo,
-) bool {
+func CheckSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.UserInfo) bool {
 	for _, subject := range ruleSubjects {
 		switch subject.Kind {
 		case rbacv1.ServiceAccountKind:

@@ -76,7 +76,7 @@ spec:
       serviceAccountName: {{ template "kyverno.cleanup-controller.serviceAccountName" . }}
       containers:
         - name: controller
-          image: {{ include "kyverno.cleanup-controller.image" (dict "image" .Values.cleanupController.image "defaultTag" .Chart.AppVersion) | quote }}
+          image: {{ include "kyverno.cleanup-controller.image" (dict "globalRegistry" ((.Values.global).image).registry "image" .Values.cleanupController.image "defaultTag" .Chart.AppVersion) | quote }}
           imagePullPolicy: {{ .Values.cleanupController.image.pullPolicy }}
           ports:
           - containerPort: 9443
@@ -86,6 +86,8 @@ spec:
             name: metrics
             protocol: TCP
           args:
+            - --caSecretName={{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-ca
+            - --tlsSecretName={{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-pair
             - --servicePort={{ .Values.cleanupController.service.port }}
             {{- if .Values.cleanupController.tracing.enabled }}
             - --enableTracing
