@@ -6,7 +6,6 @@ const (
 	GenerateRuleLabel            = "generate.kyverno.io/rule-name"
 	GenerateTriggerNameLabel     = "generate.kyverno.io/trigger-name"
 	GenerateTriggerUIDLabel      = "generate.kyverno.io/trigger-uid"
-	GenerateTriggerLabel         = "generate.kyverno.io/trigger"
 	GenerateTriggerNSLabel       = "generate.kyverno.io/trigger-namespace"
 	GenerateTriggerKindLabel     = "generate.kyverno.io/trigger-kind"
 	GenerateTriggerVersionLabel  = "generate.kyverno.io/trigger-version"
