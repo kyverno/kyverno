@@ -1187,8 +1187,8 @@ github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLA
 github.com/nishanths/exhaustive v0.1.0/go.mod h1:S1j9110vxV1ECdCudXRkeMnFQ/DQk9ajLT0Uf2MYZQQ=
 github.com/nishanths/predeclared v0.0.0-20190419143655-18a43bb90ffc/go.mod h1:62PewwiQTlm/7Rj+cxVYqZvDIUc+JjZq6GHAC1fsObQ=
 github.com/nishanths/predeclared v0.2.1/go.mod h1:HvkGJcA3naj4lOwnFXFDkFxVtSqQMB9sbB1usJ+xjQE=
-github.com/notaryproject/notation-core-go v1.0.0 h1:FgOAihtFW4XU9JYyTzItg1xW3OaN4eCasw5Bp00Ydu4=
-github.com/notaryproject/notation-core-go v1.0.0/go.mod h1:eoHFJ2e6b31GZO9hckCms5kfXvHLTySvJ1QwRLB9ZCk=
+github.com/notaryproject/notation-core-go v1.0.1 h1:01doxjDERbd0vocLQrlJdusKrRLNNn50OJzp0c5I4Cw=
+github.com/notaryproject/notation-core-go v1.0.1/go.mod h1:rayl8WlKgS4YxOZgDO0iGGB4Ef515ZFZUFaZDmsPXgE=
 github.com/notaryproject/notation-go v1.0.0 h1:pH+0NVmZu1IhE8zUhK9Oxna3OlHNdy+crNntnuCiThs=
 github.com/notaryproject/notation-go v1.0.0/go.mod h1:NpfUnDt94vLSCJ8fAWplgTbf3fmq3JLSEnjDFl7j16U=
 github.com/nozzle/throttler v0.0.0-20180817012639-2ea982251481 h1:Up6+btDp321ZG5/zdSLo48H9Iaq0UQGthrhWC6pCxzE=
