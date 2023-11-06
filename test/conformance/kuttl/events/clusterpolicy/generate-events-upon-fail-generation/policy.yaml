@@ -23,3 +23,5 @@ spec:
         - resources:
             kinds:
             - Namespace
+            names:
+            - ns-2

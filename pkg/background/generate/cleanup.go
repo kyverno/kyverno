@@ -101,25 +101,51 @@ func (c *GenerateController) getDownstreams(rule kyvernov1.Rule, selector map[st
 		return nil, err
 	}
 
-	selector[common.GenerateTriggerNameLabel] = ur.Spec.GetResource().GetName()
+	selector[common.GenerateTriggerUIDLabel] = string(ur.Spec.GetResource().GetUID())
 	selector[common.GenerateTriggerNSLabel] = ur.Spec.GetResource().GetNamespace()
 	selector[common.GenerateTriggerKindLabel] = ur.Spec.GetResource().GetKind()
 	selector[common.GenerateTriggerGroupLabel] = gv.Group
 	selector[common.GenerateTriggerVersionLabel] = gv.Version
 	if rule.Generation.GetKind() != "" {
-		c.log.V(4).Info("fetching downstream resources", "APIVersion", rule.Generation.GetAPIVersion(), "kind", rule.Generation.GetKind(), "selector", selector)
-		return FindDownstream(c.client, rule.Generation.GetAPIVersion(), rule.Generation.GetKind(), selector)
+		// Fetch downstream resources using trigger uid label
+		c.log.V(4).Info("fetching downstream resource by the UID", "APIVersion", rule.Generation.GetAPIVersion(), "kind", rule.Generation.GetKind(), "selector", selector)
+		downstreamList, err := common.FindDownstream(c.client, rule.Generation.GetAPIVersion(), rule.Generation.GetKind(), selector)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(downstreamList.Items) == 0 {
+			// Fetch downstream resources using the trigger name label
+			delete(selector, common.GenerateTriggerUIDLabel)
+			selector[common.GenerateTriggerNameLabel] = ur.Spec.GetResource().GetName()
+			c.log.V(4).Info("fetching downstream resource by the name", "APIVersion", rule.Generation.GetAPIVersion(), "kind", rule.Generation.GetKind(), "selector", selector)
+			dsList, err := common.FindDownstream(c.client, rule.Generation.GetAPIVersion(), rule.Generation.GetKind(), selector)
+			if err != nil {
+				return nil, err
+			}
+			downstreamList.Items = append(downstreamList.Items, dsList.Items...)
+		}
+
+		return downstreamList, err
 	}
 
 	dsList := &unstructured.UnstructuredList{}
 	for _, kind := range rule.Generation.CloneList.Kinds {
 		apiVersion, kind := kubeutils.GetKindFromGVK(kind)
-		c.log.V(4).Info("fetching downstream resources", "APIVersion", apiVersion, "kind", kind, "selector", selector)
-		dsList, err = FindDownstream(c.client, apiVersion, kind, selector)
+		c.log.V(4).Info("fetching downstream cloneList resources by the UID", "APIVersion", apiVersion, "kind", kind, "selector", selector)
+		dsList, err = common.FindDownstream(c.client, apiVersion, kind, selector)
 		if err != nil {
 			return nil, err
-		} else {
-			dsList.Items = append(dsList.Items, dsList.Items...)
+		}
+
+		if len(dsList.Items) == 0 {
+			delete(selector, common.GenerateTriggerUIDLabel)
+			selector[common.GenerateTriggerNameLabel] = ur.Spec.GetResource().GetName()
+			c.log.V(4).Info("fetching downstream resource by the name", "APIVersion", rule.Generation.GetAPIVersion(), "kind", rule.Generation.GetKind(), "selector", selector)
+			dsList, err = common.FindDownstream(c.client, rule.Generation.GetAPIVersion(), rule.Generation.GetKind(), selector)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	return dsList, nil
