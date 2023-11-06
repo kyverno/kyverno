@@ -24,6 +24,8 @@ spec:
       - resources:
           kinds:
           - ConfigMap
+          names:
+          - test-org
     generate:
       apiVersion: v1
       kind: Secret
