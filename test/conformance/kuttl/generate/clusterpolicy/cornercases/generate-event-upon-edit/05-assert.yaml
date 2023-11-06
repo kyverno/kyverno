@@ -14,7 +14,6 @@ metadata:
     generate.kyverno.io/trigger-version: v1
     generate.kyverno.io/trigger-group: ""
     generate.kyverno.io/trigger-kind: ConfigMap
-    generate.kyverno.io/trigger-name: generate-event-on-edit-configmap
     generate.kyverno.io/trigger-namespace: generate-event-on-edit-ns
   namespace: generate-event-on-edit-ns
 source:
