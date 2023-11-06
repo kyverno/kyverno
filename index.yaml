@@ -53,6 +53,97 @@ entries:
       artifacthub.io/operator: "false"
       artifacthub.io/prerelease: "false"
     apiVersion: v2
+    appVersion: v1.11.0-rc.6
+    created: "2023-11-06T12:33:27.798626847Z"
+    dependencies:
+    - condition: grafana.enabled
+      name: grafana
+      repository: ""
+      version: 0.0.0
+    - condition: crds.install
+      name: crds
+      repository: ""
+      version: 3.1.0-rc.6
+    description: Kubernetes Native Policy Management
+    digest: 46158f030534c76b19166e2b7789298517b80143055d760831eb7986f3252d25
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - policy
+    - validating webhook
+    - admission controller
+    - mutation
+    - mutate
+    - validate
+    - generate
+    - supply chain
+    - security
+    kubeVersion: '>=1.25.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-3.1.0-rc.6.tgz
+    version: 3.1.0-rc.6
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: added
+          description: support for GrafanaDashboard custom resource
+        - kind: changed
+          description: only create ServiceMonitor if cluster supports it
+        - kind: fixed
+          description: rbac templating issues
+        - kind: added
+          description: make sigstore volume configurable
+        - kind: changed
+          description: no deployments can run with 0 replicas
+        - kind: changed
+          description: change dashboard title of kyverno grafana dashboard
+        - kind: added
+          description: view aggregated cluster role support
+        - kind: added
+          description: support for webhook annotations in config map
+        - kind: added
+          description: allow overriding PDB api version
+        - kind: fixed
+          description: missing image pull secrets in helm hooks
+        - kind: added
+          description: support `excludeRoles` and `excludeClusterRoles` in config
+        - kind: added
+          description: define resources for cleanupJobs
+        - kind: changed
+          description: change to enable webhook cleanup hook by default
+        - kind: added
+          description: allow pod labels for cleanup jobs
+        - kind: added
+          description: allow nodeSelector for cleanup jobs
+        - kind: added
+          description: allow nodeSelector, tolerations and affinity settings for webhooksCleanup
+        - kind: added
+          description: allow affinity settings for cleanup jobs
+        - kind: added
+          description: Add helper to handle the labels for cleanup jobs, add component label
+        - kind: added
+          description: allow podSecurityContext and securityContext for webhooksCleanup
+        - kind: added
+          description: match conditions support in webhooks
+        - kind: fixed
+          description: missing image pull policy missing in a couple of deployments
+        - kind: added
+          description: added TUF flags for custom sigstore deployments
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://kyverno.io/docs
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
     appVersion: v1.11.0-rc.5
     created: "2023-11-03T04:10:14.247930461Z"
     dependencies:
@@ -8653,4 +8744,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2023-11-06T12:31:39.858160285Z"
+generated: "2023-11-06T12:33:27.786084023Z"
