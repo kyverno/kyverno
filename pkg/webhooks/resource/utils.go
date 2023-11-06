@@ -88,6 +88,7 @@ func transform(admissionRequestInfo kyvernov1beta1.AdmissionRequestInfoObject, u
 				Namespace:  er.Resource.GetNamespace(),
 				Name:       er.Resource.GetName(),
 				APIVersion: er.Resource.GetAPIVersion(),
+				UID:        er.Resource.GetUID(),
 			},
 			Context: kyvernov1beta1.UpdateRequestSpecContext{
 				UserRequestInfo:      userRequestInfo,
