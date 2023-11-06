@@ -771,7 +771,7 @@ Kubernetes: `>=1.25.0-0`
 
 | Repository | Name | Version |
 |------------|------|---------|
-|  | crds | 3.1.0-rc.6 |
+|  | crds | 3.1.0-rc.7 |
 |  | grafana | 0.0.0 |
 
 ## Maintainers
