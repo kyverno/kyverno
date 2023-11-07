@@ -17,14 +17,25 @@ jobs:
     outputs:
       results: ${{ steps.parse-results.outputs.results }}
     steps:
-    - name: Scan for vulnerabilities
+    - name: Scan for vulnerabilities latest version
       uses: aquasecurity/trivy-action@f78e9ecf42a1271402d4f484518b9313235990e1 # v0.8.0 (Trivy v0.34.0)
-      with: 
+      with:
         image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         format: json
         ignore-unfixed: false
         severity: HIGH,CRITICAL
         output: scan.json
+
+    - name: Scan for vulnerabilities current version
+      uses: aquasecurity/trivy-action@f78e9ecf42a1271402d4f484518b9313235990e1
+      with:
+        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+        format: json
+        ignore-unfixed: false
+        severity: HIGH,CRITICAL
+        output: scan.json
+
+    # TODO: scan for for vulnerabilities previous version
 
     - name: Parse scan results
       id: parse-results
