@@ -20,6 +20,7 @@ package v1
 
 import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	types "k8s.io/apimachinery/pkg/types"
 )
 
 // GenerationApplyConfiguration represents an declarative configuration of the Generation type for use
@@ -71,6 +72,15 @@ func (b *GenerationApplyConfiguration) WithNamespace(value string) *GenerationAp
 func (b *GenerationApplyConfiguration) WithName(value string) *GenerationApplyConfiguration {
 	b.ensureResourceSpecApplyConfigurationExists()
 	b.Name = &value
+	return b
+}
+
+// WithUID sets the UID field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the UID field is set to the value of the last call.
+func (b *GenerationApplyConfiguration) WithUID(value types.UID) *GenerationApplyConfiguration {
+	b.ensureResourceSpecApplyConfigurationExists()
+	b.UID = &value
 	return b
 }
 

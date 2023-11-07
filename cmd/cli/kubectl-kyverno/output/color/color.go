@@ -13,7 +13,7 @@ var (
 )
 
 func Init(noColor bool) {
-	color.Init(noColor)
+	color.Init(noColor, false)
 	if !noColor {
 		HeaderBgColor = tablewriter.BgBlackColor
 		HeaderFgColor = tablewriter.FgGreenColor
