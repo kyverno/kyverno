@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+delete:
+- apiVersion: v1
+  kind: ConfigMap
+  name: my-configmapmy-configmapmy-configmapmy-configmapmy-configmapmy-configmap
+  namespace: trigger-resource-name-exceeds-63-characters-ns
