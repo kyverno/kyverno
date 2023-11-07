@@ -6,4 +6,5 @@ involvedObject:
   apiVersion: kyverno.io/v1
   kind: ClusterPolicy
   name: rbac-policy
+reason: PolicyError
 reportingComponent: kyverno-generate
