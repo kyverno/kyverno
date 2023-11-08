@@ -1023,3 +1023,23 @@ dev-lab-kwok: ## Deploy kwok
 .PHONY: help
 help: ## Shows the available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-40s\033[0m %s\n", $$1, $$2}'
+
+#####################
+# Bump new versions #
+#####################
+
+RELEASE_VERSION := 3.1.0-rc.7
+RELEASE_APP_VERSION := v1.11.0-rc.7
+RELEASE_KUBE_VERSION := ">=1.25.0-0"
+
+update-versions:
+    @echo "Updating versions..."
+    sed -i.bak '4s/.*/version: $(RELEASE_VERSION)/' kyverno/charts/kyverno-policies/Chart.yaml
+    sed -i.bak '5s/.*/appVersion: $(RELEASE_APP_VERSION)/' kyverno/charts/kyverno-policies/Chart.yaml
+    sed -i.bak '4s/.*/version: $(RELEASE_VERSION)/' kyverno/charts/kyverno/Chart.yaml
+    sed -i.bak '5s/.*/appVersion: $(RELEASE_APP_VERSION)/' kyverno/charts/kyverno/Chart.yaml
+    sed -i.bak '27s/.*/kubeVersion: $(RELEASE_KUBE_VERSION)/' kyverno/charts/kyverno/Chart.yaml
+    sed -i.bak '85s/.*/version: "$(RELEASE_VERSION)"/' kyverno/charts/kyverno/Chart.yaml
+    sed -i.bak '3s/.*/version: $(RELEASE_VERSION)/' kyverno/charts/kyverno/charts/crds/Chart.yaml
+    @echo "Versions updated to $(RELEASE_VERSION), $(RELEASE_APP_VERSION), and $(RELEASE_KUBE_VERSION)"
+
