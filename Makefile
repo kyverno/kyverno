@@ -1037,10 +1037,10 @@ release:
 	@echo "Updating Chart.yaml files..."
 	sed -i 's/version: .*/version: $(POLICIES_CHART_VERSION)/' charts/kyverno-policies/Chart.yaml
 	sed -i 's/appVersion: .*/appVersion: $(APP_VERSION)/' charts/kyverno-policies/Chart.yaml
-	sed -i 's/version: .*/version: $(KYVERNO_CHART_VERSION )/' charts/kyverno/Chart.yaml
+	sed -i 's/version: .*/version: $(KYVERNO_CHART_VERSION)/' charts/kyverno/Chart.yaml
 	sed -i 's/appVersion: .*/appVersion: $(APP_VERSION)/' charts/kyverno/Chart.yaml
 	sed -i 's/kubeVersion: .*/kubeVersion: $(KUBE_VERSION)/' charts/kyverno/Chart.yaml
-	sed -i 's/version: .*/version: $(KYVERNO_CHART_VERSION )/' charts/kyverno/charts/crds/Chart.yaml
-	@echo "Release version $(RELEASE_VERSION) created."
+	sed -i 's/version: .*/version: $(KYVERNO_CHART_VERSION)/' charts/kyverno/charts/crds/Chart.yaml
+	@echo "Release version bumped."
 
 
