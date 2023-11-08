@@ -23,14 +23,5 @@ spec:
       capabilities:
         add:
         - FOWNER
-  # ephemeralContainers:
-  # - name: nginx3
-  #   image: nginx
-  #   args:
-  #   - sleep
-  #   - 1d
-  #   securityContext:
-  #     capabilities:
-  #       add:
-  #       - MKNOD
+
 

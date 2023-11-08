@@ -12,3 +12,11 @@ spec:
     - 1d
     securityContext:
       privileged: true
+  initContainers:
+  - name: nginx2
+    image: nginx
+    args:
+    - sleep
+    - 1d
+    securityContext:
+      privileged: true

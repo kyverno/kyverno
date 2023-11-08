@@ -29,11 +29,5 @@ spec:
           restrictedField: "spec.initContainers[*].securityContext.capabilities.add"
           values:
           - "baz"
-        - controlName: "Capabilities"
-          images:
-          - nginx
-          restrictedField: "spec.ephemeralContainers[*].securityContext.capabilities.add"
-          values:
-          - "foo"
-          - "baz"
+
 

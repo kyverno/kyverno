@@ -23,5 +23,11 @@ spec:
           restrictedField: "spec.containers[*].securityContext.privileged"
           values:
           - "true"
+        - controlName: "Privileged Containers"
+          images:
+          - nginx
+          restrictedField: "spec.initContainers[*].securityContext.privileged"
+          values:
+          - "true"
 
 

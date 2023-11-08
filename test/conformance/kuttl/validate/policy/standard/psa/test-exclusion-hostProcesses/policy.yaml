@@ -37,10 +37,5 @@ spec:
           restrictedField: "spec.initContainers[*].securityContext.windowsOptions.hostProcess"
           values:
           - "true"
-        # - controlName: "HostProcess"
-        #   images:
-        #   - nginx
-        #   restrictedField: "spec.ephemeralContainers[*].securityContext.windowsOptions.hostProcess"
-        #   values:
-        #   - "true"
+
 

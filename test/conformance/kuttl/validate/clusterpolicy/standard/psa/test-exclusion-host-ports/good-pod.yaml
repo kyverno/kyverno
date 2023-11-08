@@ -12,3 +12,12 @@ spec:
     ports:
     - hostPort: 0
       containerPort: 80
+    initContainers:
+  - name: nginx2
+    image: nginx
+    args:
+    - sleep
+    - 1d
+    ports:
+    - hostPort: 0
+      containerPort: 80

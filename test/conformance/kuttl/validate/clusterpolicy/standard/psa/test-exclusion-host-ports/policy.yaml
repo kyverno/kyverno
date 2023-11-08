@@ -23,4 +23,10 @@ spec:
           restrictedField: "spec.containers[*].ports[*].hostPort"
           values:
           - "10"
+        - controlName: "Host Ports"
+          images:
+          - nginx
+          restrictedField: "spec.initContainers[*].ports[*].hostPort"
+          values:
+          - "20"
 

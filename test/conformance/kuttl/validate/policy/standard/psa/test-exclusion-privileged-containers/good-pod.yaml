@@ -12,23 +12,13 @@ spec:
     - 1d
     securityContext:
       privileged: false
-  # initContainers:
-  # - name: nginx2
-  #   image: nginx
-  #   args:
-  #   - sleep
-  #   - 1d
-  #   securityContext:
-  #     windowsOptions:
-  #       hostProcess: false
-  # ephemeralContainers:
-  # - name: nginx3
-  #   image: nginx
-  #   args:
-  #   - sleep
-  #   - 1d
-  #   securityContext:
-  #     capabilities:
-  #       add:
-  #       - foo
-  #       - baz
+  initContainers:
+  - name: nginx2
+    image: nginx
+    args:
+    - sleep
+    - 1d
+    securityContext:
+      windowsOptions:
+        hostProcess: false
+
