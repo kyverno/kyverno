@@ -667,7 +667,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@9eb31e2f96b290a7c13ef653767c60dd4bc1f481
+        uses: sigstore/scaffolding/actions/setup@838c26c783a08cf497dfff29d95ca90c6eeba3df
         with:
           version: 'v0.6.8'
           k8s-version: ${{ matrix.k8s-version.version }}
@@ -695,7 +695,7 @@ jobs:
       - name: Install crane
         uses: imjasonh/setup-crane@00c9e93efa4e1138c9a7a5c594acd6c75a2fbf0c
       - name: Install Cosign
-        uses: sigstore/cosign-installer@11086d25041f77fe8fe7b9ea4e48e3b9192b8f19
+        uses: sigstore/cosign-installer@1fc5bd396d372bee37d608f955b336615edf79c8
       - name: Create test image
         shell: bash
         run: |

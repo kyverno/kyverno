@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -16,6 +17,7 @@ import (
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/kyverno/pkg/utils/validatingadmissionpolicy"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,6 +50,7 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 
 	eventGen event.Interface
+	checker  checker.AuthChecker
 }
 
 func NewController(
@@ -59,6 +62,7 @@ func NewController(
 	vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer,
 	vapbindingInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyBindingInformer,
 	eventGen event.Interface,
+	checker checker.AuthChecker,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := &controller{
@@ -70,6 +74,7 @@ func NewController(
 		vapbindingLister: vapbindingInformer.Lister(),
 		queue:            queue,
 		eventGen:         eventGen,
+		checker:          checker,
 	}
 
 	// Set up an event handler for when Kyverno policies change
@@ -304,6 +309,20 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 
 	spec := policy.GetSpec()
 	if !spec.HasValidate() {
+		return nil
+	}
+
+	// check if the controller has the required permissions to generate validating admission policies.
+	if !validatingadmissionpolicy.HasValidatingAdmissionPolicyPermission(c.checker) {
+		logger.Info("doesn't have required permissions for generating ValidatingAdmissionPolicies")
+		c.updateClusterPolicyStatus(ctx, *policy, false, "doesn't have required permissions for generating ValidatingAdmissionPolicies")
+		return nil
+	}
+
+	// check if the controller has the required permissions to generate validating admission policy bindings.
+	if !validatingadmissionpolicy.HasValidatingAdmissionPolicyBindingPermission(c.checker) {
+		logger.Info("doesn't have required permissions for generating ValidatingAdmissionPolicyBindings")
+		c.updateClusterPolicyStatus(ctx, *policy, false, "doesn't have required permissions for generating ValidatingAdmissionPolicyBindings")
 		return nil
 	}
 

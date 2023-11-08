@@ -101,7 +101,7 @@ func (pc *policyController) syncDataRulechanges(policy kyvernov1.PolicyInterface
 		kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
 	}
 
-	downstreams, err := generateutils.FindDownstream(pc.client, rule.Generation.GetAPIVersion(), rule.Generation.GetKind(), labels)
+	downstreams, err := common.FindDownstream(pc.client, rule.Generation.GetAPIVersion(), rule.Generation.GetKind(), labels)
 	if err != nil {
 		return err
 	}

@@ -19,7 +19,7 @@ require (
 	github.com/fluxcd/pkg/oci v0.32.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-git/go-billy/v5 v5.5.0
-	github.com/go-git/go-git/v5 v5.9.0
+	github.com/go-git/go-git/v5 v5.10.0
 	github.com/go-logr/logr v1.2.4
 	github.com/go-logr/zapr v1.2.4
 	github.com/google/gnostic-models v0.6.8
@@ -31,8 +31,8 @@ require (
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23
 	github.com/kyverno/go-jmespath v0.4.1-0.20230705123211-d067dc3d6613
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
-	github.com/notaryproject/notation-core-go v1.0.0
-	github.com/notaryproject/notation-go v1.0.0
+	github.com/notaryproject/notation-core-go v1.0.1
+	github.com/notaryproject/notation-go v1.0.1
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.29.0
 	github.com/opencontainers/go-digest v1.0.0
@@ -43,7 +43,7 @@ require (
 	github.com/sigstore/cosign/v2 v2.2.0
 	github.com/sigstore/k8s-manifest-sigstore v0.5.1
 	github.com/sigstore/rekor v1.3.2
-	github.com/sigstore/sigstore v1.7.4
+	github.com/sigstore/sigstore v1.7.5
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.7.5
 	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.7.4
 	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.7.4
@@ -65,7 +65,7 @@ require (
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.26.0
 	golang.org/x/crypto v0.14.0
-	golang.org/x/text v0.13.0
+	golang.org/x/text v0.14.0
 	gomodules.xyz/jsonpatch/v2 v2.4.0
 	google.golang.org/grpc v1.59.0
 	gopkg.in/inf.v0 v0.9.1
@@ -83,10 +83,10 @@ require (
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/controller-runtime v0.16.2
 	sigs.k8s.io/kubectl-validate v0.0.1
-	sigs.k8s.io/kustomize/api v0.14.0
+	sigs.k8s.io/kustomize/api v0.15.0
 	sigs.k8s.io/kustomize/kyaml v0.15.0
-	sigs.k8s.io/release-utils v0.7.5
-	sigs.k8s.io/structured-merge-diff/v4 v4.3.0
+	sigs.k8s.io/release-utils v0.7.6
+	sigs.k8s.io/structured-merge-diff/v4 v4.4.1
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -94,6 +94,7 @@ require (
 	github.com/sagikazarmark/locafero v0.3.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
+	gopkg.in/evanphx/json-patch.v5 v5.6.0 // indirect
 )
 
 require (
@@ -179,7 +180,7 @@ require (
 	github.com/cockroachdb/apd/v3 v3.2.1 // indirect
 	github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.14.3 // indirect
-	github.com/coreos/go-oidc/v3 v3.6.0 // indirect
+	github.com/coreos/go-oidc/v3 v3.7.0 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
@@ -192,7 +193,7 @@ require (
 	github.com/djherbis/times v1.5.0 // indirect
 	github.com/docker/cli v24.0.6+incompatible // indirect
 	github.com/docker/distribution v2.8.2+incompatible // indirect
-	github.com/docker/docker v24.0.6+incompatible // indirect
+	github.com/docker/docker v24.0.7+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.8.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/ebitengine/purego v0.6.0-alpha // indirect
@@ -407,7 +408,7 @@ require (
 	k8s.io/component-base v0.28.3 // indirect
 	k8s.io/kube-openapi v0.0.0-20230816210353-14e408962443
 	k8s.io/kubectl v0.28.2 // indirect
-	oras.land/oras-go/v2 v2.3.0 // indirect
+	oras.land/oras-go/v2 v2.3.1 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.1.4 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 )
