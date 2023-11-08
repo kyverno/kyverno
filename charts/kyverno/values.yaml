@@ -1254,6 +1254,14 @@ backgroundController:
     # -- Otel collector credentials
     creds: ''
 
+crds:
+  backgroundController:
+    enabled: true
+  reportsController:
+    enabled: true
+  cleanupController:
+    enabled: true
+
 # Cleanup controller configuration
 cleanupController:
 
