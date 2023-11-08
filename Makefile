@@ -1028,18 +1028,19 @@ help: ## Shows the available commands
 # Bump new versions #
 #####################
 
-RELEASE_VERSION ?= 3.1.0-rc.7
+KYVERNO_CHART_VERSION ?= 3.1.0-rc.7
+POLICIES_CHART_VERSION ?= 3.1.0-rc.7
 APP_VERSION ?= v1.11.0-rc.7
 KUBE_VERSION ?= ">=1.25.0-0"
 
 release:
 	@echo "Updating Chart.yaml files..."
-	sed -i 's/version: .*/version: $(RELEASE_VERSION)/' charts/kyverno-policies/Chart.yaml
+	sed -i 's/version: .*/version: $(POLICIES_CHART_VERSION)/' charts/kyverno-policies/Chart.yaml
 	sed -i 's/appVersion: .*/appVersion: $(APP_VERSION)/' charts/kyverno-policies/Chart.yaml
-	sed -i 's/version: .*/version: $(RELEASE_VERSION)/' charts/kyverno/Chart.yaml
+	sed -i 's/version: .*/version: $(KYVERNO_CHART_VERSION )/' charts/kyverno/Chart.yaml
 	sed -i 's/appVersion: .*/appVersion: $(APP_VERSION)/' charts/kyverno/Chart.yaml
 	sed -i 's/kubeVersion: .*/kubeVersion: $(KUBE_VERSION)/' charts/kyverno/Chart.yaml
-	sed -i 's/version: .*/version: $(RELEASE_VERSION)/' charts/kyverno/charts/crds/Chart.yaml
+	sed -i 's/version: .*/version: $(KYVERNO_CHART_VERSION )/' charts/kyverno/charts/crds/Chart.yaml
 	@echo "Release version $(RELEASE_VERSION) created."
 
 
