@@ -1028,18 +1028,18 @@ help: ## Shows the available commands
 # Bump new versions #
 #####################
 
-RELEASE_VERSION := 3.1.0-rc.7
-RELEASE_APP_VERSION := v1.11.0-rc.7
-RELEASE_KUBE_VERSION := ">=1.25.0-0"
+RELEASE_VERSION ?= 3.1.0-rc.7
+APP_VERSION ?= v1.11.0-rc.7
+KUBE_VERSION ?= ">=1.25.0-0"
 
-update-versions:
-    @echo "Updating versions..."
-    sed -i.bak '4s/.*/version: $(RELEASE_VERSION)/' kyverno/charts/kyverno-policies/Chart.yaml
-    sed -i.bak '5s/.*/appVersion: $(RELEASE_APP_VERSION)/' kyverno/charts/kyverno-policies/Chart.yaml
-    sed -i.bak '4s/.*/version: $(RELEASE_VERSION)/' kyverno/charts/kyverno/Chart.yaml
-    sed -i.bak '5s/.*/appVersion: $(RELEASE_APP_VERSION)/' kyverno/charts/kyverno/Chart.yaml
-    sed -i.bak '27s/.*/kubeVersion: $(RELEASE_KUBE_VERSION)/' kyverno/charts/kyverno/Chart.yaml
-    sed -i.bak '85s/.*/version: "$(RELEASE_VERSION)"/' kyverno/charts/kyverno/Chart.yaml
-    sed -i.bak '3s/.*/version: $(RELEASE_VERSION)/' kyverno/charts/kyverno/charts/crds/Chart.yaml
-    @echo "Versions updated to $(RELEASE_VERSION), $(RELEASE_APP_VERSION), and $(RELEASE_KUBE_VERSION)"
+release:
+	@echo "Updating Chart.yaml files..."
+	sed -i 's/version: .*/version: $(RELEASE_VERSION)/' charts/kyverno-policies/Chart.yaml
+	sed -i 's/appVersion: .*/appVersion: $(APP_VERSION)/' charts/kyverno-policies/Chart.yaml
+	sed -i 's/version: .*/version: $(RELEASE_VERSION)/' charts/kyverno/Chart.yaml
+	sed -i 's/appVersion: .*/appVersion: $(APP_VERSION)/' charts/kyverno/Chart.yaml
+	sed -i 's/kubeVersion: .*/kubeVersion: $(KUBE_VERSION)/' charts/kyverno/Chart.yaml
+	sed -i 's/version: .*/version: $(RELEASE_VERSION)/' charts/kyverno/charts/crds/Chart.yaml
+	@echo "Release version $(RELEASE_VERSION) created."
+
 
