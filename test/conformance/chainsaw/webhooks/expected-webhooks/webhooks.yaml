@@ -1,0 +1,34 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  labels:
+    webhook.kyverno.io/managed-by: kyverno
+  name: kyverno-policy-validating-webhook-cfg
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  labels:
+    webhook.kyverno.io/managed-by: kyverno
+  name: kyverno-resource-validating-webhook-cfg
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  labels:
+    webhook.kyverno.io/managed-by: kyverno
+  name: kyverno-policy-mutating-webhook-cfg
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  labels:
+    webhook.kyverno.io/managed-by: kyverno
+  name: kyverno-resource-mutating-webhook-cfg
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  labels:
+    webhook.kyverno.io/managed-by: kyverno
+  name: kyverno-verify-mutating-webhook-cfg
