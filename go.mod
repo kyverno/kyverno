@@ -43,7 +43,7 @@ require (
 	github.com/sigstore/cosign/v2 v2.2.0
 	github.com/sigstore/k8s-manifest-sigstore v0.5.1
 	github.com/sigstore/rekor v1.3.2
-	github.com/sigstore/sigstore v1.7.4
+	github.com/sigstore/sigstore v1.7.5
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.7.5
 	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.7.4
 	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.7.4
@@ -65,7 +65,7 @@ require (
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.26.0
 	golang.org/x/crypto v0.14.0
-	golang.org/x/text v0.13.0
+	golang.org/x/text v0.14.0
 	gomodules.xyz/jsonpatch/v2 v2.4.0
 	google.golang.org/grpc v1.59.0
 	gopkg.in/inf.v0 v0.9.1
@@ -86,7 +86,7 @@ require (
 	sigs.k8s.io/kustomize/api v0.15.0
 	sigs.k8s.io/kustomize/kyaml v0.15.0
 	sigs.k8s.io/release-utils v0.7.6
-	sigs.k8s.io/structured-merge-diff/v4 v4.3.0
+	sigs.k8s.io/structured-merge-diff/v4 v4.4.1
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -180,7 +180,7 @@ require (
 	github.com/cockroachdb/apd/v3 v3.2.1 // indirect
 	github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.14.3 // indirect
-	github.com/coreos/go-oidc/v3 v3.6.0 // indirect
+	github.com/coreos/go-oidc/v3 v3.7.0 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
