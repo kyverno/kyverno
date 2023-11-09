@@ -226,12 +226,12 @@ spec:
                           properties:
                             allowInsecureRegistry:
                               description: AllowInsecureRegistry allows insecure access
-                                to a registry
+                                to a registry.
                               type: boolean
                             providers:
                               description: 'Providers specifies a list of OCI Registry
-                                names, whose authentication providers are provided
-                                It can be of one of these values: AWS, ACR, GCP, GHCR'
+                                names, whose authentication providers are provided.
+                                It can be of one of these values: default,google,azure,amazon,github.'
                               items:
                                 description: ImageRegistryCredentialsProvidersType
                                   provides the list of credential providers required.
@@ -245,8 +245,8 @@ spec:
                               type: array
                             secrets:
                               description: Secrets specifies a list of secrets that
-                                are provided for credentials Secrets must live in
-                                the Kyverno namespace
+                                are provided for credentials. Secrets must live in
+                                the Kyverno namespace.
                               items:
                                 type: string
                               type: array
@@ -1467,12 +1467,12 @@ spec:
                           properties:
                             allowInsecureRegistry:
                               description: AllowInsecureRegistry allows insecure access
-                                to a registry
+                                to a registry.
                               type: boolean
                             providers:
                               description: 'Providers specifies a list of OCI Registry
-                                names, whose authentication providers are provided
-                                It can be of one of these values: AWS, ACR, GCP, GHCR'
+                                names, whose authentication providers are provided.
+                                It can be of one of these values: default,google,azure,amazon,github.'
                               items:
                                 description: ImageRegistryCredentialsProvidersType
                                   provides the list of credential providers required.
@@ -1486,8 +1486,8 @@ spec:
                               type: array
                             secrets:
                               description: Secrets specifies a list of secrets that
-                                are provided for credentials Secrets must live in
-                                the Kyverno namespace
+                                are provided for credentials. Secrets must live in
+                                the Kyverno namespace.
                               items:
                                 type: string
                               type: array
