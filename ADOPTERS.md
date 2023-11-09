@@ -37,7 +37,7 @@ The list of organizations that have publicly shared the usage of Kyverno:
 | [Grover Group GmbH](https://www.grover.com)                                                                   | We have been using Kyverno to streamline our K8s security standards and also follow industry best practices for running workloads in K8s using policy enforcements.                                                          |
 | [IITS Consulting](https://iits-consulting.de/)                                                                | Security is a piece of cake with Kyverno. Kyverno helped us to implement proper security for different kind of clients (medical/telecommunication/trading...). It solves problems like security enforcement, container image verification, distribution of imagePullSecrets and many more. |
 | [LinkedIn](https://www.linkedin.com/)                                                                | Policy enforcement on our on-prem Kubernetes clusters. |
-
+| [Groww](https://groww.in/) | We have implemented Kyverno as a part of Auto compliance. We put policies to satisfy CIS Compliance for GKE as well as block anomalies detected by the Red Team. |
 
 <!-- append the line below to the table
 | [name](URL) | brief description of how you are using Kyverno | 
