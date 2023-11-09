@@ -654,8 +654,6 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 					} else {
 						c.mergeWebhook(fail, p, false)
 					}
-					rules := p.GetSpec().Rules
-					operationStatusMap = computeOperationsForMutatingWebhookConf(rules, operationStatusMap)
 				}
 			}
 			rules := p.GetSpec().Rules
