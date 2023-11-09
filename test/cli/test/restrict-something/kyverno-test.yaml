@@ -1,0 +1,21 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- kind: Pod
+  policy: restrict-something
+  resources:
+  - nginx-foo
+  result: pass
+  rule: validate-some-foo
+- kind: Pod
+  policy: restrict-something
+  resources:
+  - nginx-too
+  result: fail
+  rule: validate-some-non-foo

@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	gojmespath "github.com/jmespath/go-jmespath"
+	gojmespath "github.com/kyverno/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
@@ -220,7 +220,7 @@ func (v *validator) loadContext(ctx context.Context) error {
 
 func (v *validator) validateDeny() *engineapi.RuleResponse {
 	if deny, msg, err := internal.CheckDenyPreconditions(v.log, v.policyContext.JSONContext(), v.deny.GetAnyAllConditions()); err != nil {
-		return engineapi.RuleError(v.rule.Name, engineapi.Validation, "failed to check deny preconditions", err)
+		return engineapi.RuleError(v.rule.Name, engineapi.Validation, "failed to check deny conditions", err)
 	} else {
 		if deny {
 			return engineapi.RuleFail(v.rule.Name, engineapi.Validation, v.getDenyMessage(deny, msg))

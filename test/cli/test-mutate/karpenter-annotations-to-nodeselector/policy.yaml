@@ -1,0 +1,79 @@
+# https://github.com/kyverno/kyverno/issues/6816
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: karpenter-annotations-to-nodeselector
+spec:
+  rules:
+    - name: nodeselector-lifecycle-on-demand
+      preconditions:
+        all:
+          - key: "{{ request.operation }}"
+            operator: Equals
+            value: CREATE
+          - key: "{{ request.object.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution || '' }}" 
+            operator: Equals
+            value: ''
+          - key: "{{ request.object.spec.affinity.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution || '' }}"
+            operator: Equals
+            value: ''
+      exclude:
+        any:
+          - resources:
+              annotations:
+                reserved-nodes: "*"
+          - resources:
+              annotations:
+                special-hardware: "*"
+      match:
+        all:
+          - resources:
+              kinds:
+                - Pod 
+              annotations:
+                spot-toleration: "false"
+      mutate:
+        patchesJson6902: |-
+          - op: add
+            path: "/spec/affinity/nodeAffinity"
+            value:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: karpenter.sh/capacity-type
+                        operator: In
+                        values:
+                          - on-demand
+    - name: hard-nodeselector-lifecycle-on-demand
+      preconditions:
+        all:
+          - key: "{{ request.operation }}"
+            operator: Equals
+            value: CREATE
+          - key: "{{ request.object.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution || '' }}"
+            operator: NotEquals
+            value: ''
+      exclude:
+        any:
+          - resources:
+              annotations:
+                reserved-nodes: "*"
+          - resources:
+              annotations:
+                special-hardware: "*"
+      match:
+        all:
+          - resources:
+              kinds:
+                - Pod
+              annotations:
+                spot-toleration: "false"
+      mutate:
+        patchesJson6902: |-
+          - op: add
+            path: "/spec/affinity/nodeAffinity/requiredDuringSchedulingIgnoredDuringExecution/nodeSelectorTerms/0/matchExpressions/-"
+            value:
+              key: karpenter.sh/capacity-type
+              operator: NotIn
+              values:
+                - spot

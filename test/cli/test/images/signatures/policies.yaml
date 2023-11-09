@@ -2,26 +2,38 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: verify-signature
   annotations:
     pod-policies.kyverno.io/autogen-controllers: none
+  name: verify-signature
 spec:
+  admission: true
   background: false
-  validationFailureAction: enforce
   rules:
-    - name: check-static-key
-      match:
-        resources:
+  - match:
+      any:
+      - resources:
           kinds:
           - Pod
-      verifyImages:
-        - imageReferences:
-          - "ghcr.io/kyverno/test-verify-image:*"
-          attestors:
-          - entries:
-            - keys:
-                publicKeys: |-
-                  -----BEGIN PUBLIC KEY-----
-                  MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM
-                  5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
-                  -----END PUBLIC KEY-----
+    name: check-static-key
+    verifyImages:
+    - attestors:
+      - entries:
+        - keys:
+            ctlog:
+              ignoreSCT: true
+            publicKeys: |-
+              -----BEGIN PUBLIC KEY-----
+              MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM
+              5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
+              -----END PUBLIC KEY-----
+            rekor:
+              ignoreTlog: true
+              url: https://rekor.sigstore.dev
+            signatureAlgorithm: sha256
+      imageReferences:
+      - ghcr.io/kyverno/test-verify-image:*
+      mutateDigest: true
+      required: true
+      useCache: true
+      verifyDigest: true
+  validationFailureAction: Enforce

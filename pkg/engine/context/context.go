@@ -1,6 +1,7 @@
 package context
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -20,6 +21,7 @@ import (
 var logger = logging.WithName("context")
 
 // EvalInterface is used to query and inspect context data
+// TODO: move to contextapi to prevent circular dependencies
 type EvalInterface interface {
 	// Query accepts a JMESPath expression and returns matching data
 	Query(query string) (interface{}, error)
@@ -32,6 +34,7 @@ type EvalInterface interface {
 }
 
 // Interface to manage context operations
+// TODO: move to contextapi to prevent circular dependencies
 type Interface interface {
 	// AddRequest marshals and adds the admission request to the context
 	AddRequest(request admissionv1.AdmissionRequest) error
@@ -76,7 +79,8 @@ type Interface interface {
 	AddImageInfos(resource *unstructured.Unstructured, cfg config.Configuration) error
 
 	// AddDeferredLoader adds a loader that is executed on first use (query)
-	AddDeferredLoader(name string, loader DeferredLoader)
+	// If deferred loading is disabled the loader is immediately executed.
+	AddDeferredLoader(loader DeferredLoader) error
 
 	// ImageInfo returns image infos present in the context
 	ImageInfo() map[string]map[string]apiutils.ImageInfo
@@ -100,9 +104,6 @@ type Interface interface {
 	addJSON(dataRaw []byte) error
 }
 
-// DeferredLoader loads the context data on first use (query)
-type DeferredLoader func() error
-
 // Context stores the data resources as JSON
 type context struct {
 	jp                 jmespath.Interface
@@ -110,12 +111,7 @@ type context struct {
 	jsonRaw            []byte
 	jsonRawCheckpoints [][]byte
 	images             map[string]map[string]apiutils.ImageInfo
-	deferred           deferredLoaders
-}
-
-type deferredLoaders struct {
-	mutex   sync.Mutex
-	loaders map[string]DeferredLoader
+	deferred           DeferredLoaders
 }
 
 // NewContext returns a new context
@@ -129,9 +125,7 @@ func NewContextFromRaw(jp jmespath.Interface, raw []byte) Interface {
 		jp:                 jp,
 		jsonRaw:            raw,
 		jsonRawCheckpoints: make([][]byte, 0),
-		deferred: deferredLoaders{
-			loaders: make(map[string]DeferredLoader),
-		},
+		deferred:           NewDeferredLoaders(),
 	}
 }
 
@@ -153,7 +147,13 @@ func (ctx *context) AddRequest(request admissionv1.AdmissionRequest) error {
 }
 
 func (ctx *context) AddVariable(key string, value interface{}) error {
-	return addToContext(ctx, value, strings.Split(key, ".")...)
+	reader := csv.NewReader(strings.NewReader(key))
+	reader.Comma = '.'
+	if fields, err := reader.Read(); err != nil {
+		return err
+	} else {
+		return addToContext(ctx, value, fields...)
+	}
 }
 
 func (ctx *context) AddContextEntry(name string, dataRaw []byte) error {
@@ -338,23 +338,32 @@ func (ctx *context) Reset() {
 	ctx.reset(false)
 }
 
-func (ctx *context) reset(remove bool) {
+func (ctx *context) reset(restore bool) {
+	if ctx.resetCheckpoint(restore) {
+		ctx.deferred.Reset(restore, len(ctx.jsonRawCheckpoints))
+	}
+}
+
+func (ctx *context) resetCheckpoint(removeCheckpoint bool) bool {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
+
 	if len(ctx.jsonRawCheckpoints) == 0 {
-		return
+		return false
 	}
+
 	n := len(ctx.jsonRawCheckpoints) - 1
 	jsonRawCheckpoint := ctx.jsonRawCheckpoints[n]
 	ctx.jsonRaw = make([]byte, len(jsonRawCheckpoint))
 	copy(ctx.jsonRaw, jsonRawCheckpoint)
-	if remove {
+	if removeCheckpoint {
 		ctx.jsonRawCheckpoints = ctx.jsonRawCheckpoints[:n]
 	}
+
+	return true
 }
 
-func (ctx *context) AddDeferredLoader(name string, loader DeferredLoader) {
-	ctx.deferred.mutex.Lock()
-	defer ctx.deferred.mutex.Unlock()
-	ctx.deferred.loaders[name] = loader
+func (ctx *context) AddDeferredLoader(dl DeferredLoader) error {
+	ctx.deferred.Add(dl, len(ctx.jsonRawCheckpoints))
+	return nil
 }

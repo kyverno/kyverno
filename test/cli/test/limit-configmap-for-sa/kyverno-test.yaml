@@ -1,19 +1,22 @@
-name: limit-configmap-for-sa
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  - limit_configmap_for_sa.yaml
+- limit_configmap_for_sa.yaml
 resources:
-  - resource.yaml
-variables: variables.yaml
-userinfo: user_info.yaml
+- resource.yaml
 results:
-  - policy: limit-configmap-for-sa
-    rule: limit-configmap-for-sa-developer
-    resource: any-configmap-name-good
-    kind: ConfigMap
-    namespace: any-namespace
-    result: fail
-  - policy: limit-configmap-for-sa
-    rule: limit-configmap-for-sa-developer
-    resource: any-configmap-name-bad
-    kind: ConfigMap
-    result: skip
+- kind: ConfigMap
+  policy: limit-configmap-for-sa
+  resources:
+  - any-namespace/any-configmap-name-good
+  result: fail
+  rule: limit-configmap-for-sa-developer
+- kind: ConfigMap
+  policy: limit-configmap-for-sa
+  resources:
+  - any-namespace/any-configmap-name-bad
+  result: skip
+  rule: limit-configmap-for-sa-developer
+variables: variables.yaml

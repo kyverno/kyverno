@@ -2,10 +2,13 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -52,6 +55,14 @@ func parseWebhookAnnotations(in string) (map[string]string, error) {
 	return out, nil
 }
 
+func parseMatchConditions(in string) ([]admissionregistrationv1.MatchCondition, error) {
+	var out []admissionregistrationv1.MatchCondition
+	if err := json.Unmarshal([]byte(in), &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 type namespacesConfig struct {
 	IncludeNamespaces []string `json:"include,omitempty"`
 	ExcludeNamespaces []string `json:"exclude,omitempty"`
@@ -61,6 +72,36 @@ func parseIncludeExcludeNamespacesFromNamespacesConfig(in string) (namespacesCon
 	var namespacesConfigObject namespacesConfig
 	err := json.Unmarshal([]byte(in), &namespacesConfigObject)
 	return namespacesConfigObject, err
+}
+
+type metricExposureConfig struct {
+	Enabled                 *bool     `json:"enabled,omitempty"`
+	DisabledLabelDimensions []string  `json:"disabledLabelDimensions,omitempty"`
+	BucketBoundaries        []float64 `json:"bucketBoundaries,omitempty"`
+}
+
+func parseMetricExposureConfig(in string, defaultBoundaries []float64) (map[string]metricExposureConfig, error) {
+	var metricExposureMap map[string]metricExposureConfig
+	err := json.Unmarshal([]byte(in), &metricExposureMap)
+	if err != nil {
+		return nil, err
+	}
+
+	for key, config := range metricExposureMap {
+		if config.Enabled == nil {
+			b := true
+			config.Enabled = &b
+		}
+		if config.DisabledLabelDimensions == nil {
+			config.DisabledLabelDimensions = []string{}
+		}
+		if config.BucketBoundaries == nil {
+			config.BucketBoundaries = defaultBoundaries
+		}
+		metricExposureMap[key] = config
+	}
+
+	return metricExposureMap, err
 }
 
 type filter struct {
@@ -87,13 +128,14 @@ func newFilter(kind, namespace, name string) filter {
 	}
 }
 
+var submatchallRegex = regexp.MustCompile(`\[([^\[\]]*)\]`)
+
 // ParseKinds parses the kinds if a single string contains comma separated kinds
 // {"1,2,3","4","5"} => {"1","2","3","4","5"}
 func parseKinds(in string) []filter {
 	resources := []filter{}
 	var resource filter
-	re := regexp.MustCompile(`\[([^\[\]]*)\]`)
-	submatchall := re.FindAllString(in, -1)
+	submatchall := submatchallRegex.FindAllString(in, -1)
 	for _, element := range submatchall {
 		element = strings.Trim(element, "[")
 		element = strings.Trim(element, "]")
@@ -113,4 +155,23 @@ func parseKinds(in string) []filter {
 		resources = append(resources, resource)
 	}
 	return resources
+}
+
+func parseBucketBoundariesConfig(boundariesString string) ([]float64, error) {
+	var boundaries []float64
+	boundariesString = strings.TrimSpace(boundariesString)
+
+	if boundariesString != "" {
+		boundaryStrings := strings.Split(boundariesString, ",")
+		for _, boundaryStr := range boundaryStrings {
+			boundaryStr = strings.TrimSpace(boundaryStr)
+			boundary, err := strconv.ParseFloat(boundaryStr, 64)
+			if err != nil {
+				return nil, fmt.Errorf("invalid boundary value '%s'", boundaryStr)
+			}
+			boundaries = append(boundaries, boundary)
+		}
+	}
+
+	return boundaries, nil
 }

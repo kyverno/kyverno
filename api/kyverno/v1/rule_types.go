@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -47,7 +47,7 @@ type ImageExtractorConfig struct {
 type Rule struct {
 	// Name is a label to identify the rule, It must be unique within the policy.
 	// +kubebuilder:validation:MaxLength=63
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+	Name string `json:"name" yaml:"name"`
 
 	// Context defines variables and data sources that can be used during rule execution.
 	// +optional
@@ -81,7 +81,7 @@ type Rule struct {
 	// CELPreconditions are used to determine if a policy rule should be applied by evaluating a
 	// set of CEL conditions. It can only be used with the validate.cel subrule
 	// +optional
-	CELPreconditions []admissionregistrationv1.MatchCondition `json:"celPreconditions,omitempty" yaml:"celPreconditions,omitempty"`
+	CELPreconditions []admissionregistrationv1alpha1.MatchCondition `json:"celPreconditions,omitempty" yaml:"celPreconditions,omitempty"`
 
 	// Mutation is used to modify matching resources.
 	// +optional
@@ -404,12 +404,12 @@ func (r *Rule) ValidatePSaControlNames(path *field.Path) (errs field.ErrorList) 
 	return errs
 }
 
-func (r *Rule) ValidateGenerate(path *field.Path, clusterResources sets.Set[string]) (errs field.ErrorList) {
+func (r *Rule) ValidateGenerate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if !r.HasGenerate() {
 		return nil
 	}
 
-	return r.Generation.Validate(path, clusterResources)
+	return r.Generation.Validate(path, namespaced, policyNamespace, clusterResources)
 }
 
 // Validate implements programmatic validation
@@ -420,6 +420,6 @@ func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace strin
 	errs = append(errs, r.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
 	errs = append(errs, r.ValidateMutationRuleTargetNamespace(path, namespaced, policyNamespace)...)
 	errs = append(errs, r.ValidatePSaControlNames(path)...)
-	errs = append(errs, r.ValidateGenerate(path, clusterResources)...)
+	errs = append(errs, r.ValidateGenerate(path, namespaced, policyNamespace, clusterResources)...)
 	return errs
 }

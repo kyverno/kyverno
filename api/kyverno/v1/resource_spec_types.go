@@ -5,6 +5,8 @@ import (
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 type ResourceSpec struct {
@@ -19,12 +21,19 @@ type ResourceSpec struct {
 	// Name specifies the resource name.
 	// +optional
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+	// UID specifies the resource uid.
+	// +optional
+	UID types.UID `json:"uid,omitempty" yaml:"uid,omitempty"`
 }
 
 func (s ResourceSpec) GetName() string       { return s.Name }
 func (s ResourceSpec) GetNamespace() string  { return s.Namespace }
 func (s ResourceSpec) GetKind() string       { return s.Kind }
 func (s ResourceSpec) GetAPIVersion() string { return s.APIVersion }
+func (s ResourceSpec) GetUID() types.UID     { return s.UID }
+func (s ResourceSpec) GetGroupVersion() (schema.GroupVersion, error) {
+	return schema.ParseGroupVersion(s.APIVersion)
+}
 
 func (s ResourceSpec) String() string {
 	return strings.Join([]string{s.APIVersion, s.Kind, s.Namespace, s.Name}, "/")

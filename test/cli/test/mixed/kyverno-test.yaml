@@ -1,32 +1,28 @@
-name: ondemand
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  - policy.yaml
+- policy.yaml
 resources:
-  - resource.yaml
+- resource.yaml
 results:
-  - policy: ondemand
-    rule: ondemand-nodeselector
-    resource: nodeselector-with-labels-on-mutation
-    patchedResource: patched-resource.yaml
-    namespace: user-space
-    kind: Pod
-    result: pass
-  - policy: ondemand
-    rule: ondemand-managed_by
-    resource: nodeselector-with-labels-on-mutation
-    namespace: user-space
-    kind: Pod
-    result: pass
-  - policy: ondemand
-    rule: ondemand-nodeselector
-    resource: nodeselector-without-labels-on-mutation
-    patchedResource: patched-resource1.yaml
-    namespace: user-foo
-    kind: Pod
-    result: skip
-  - policy: ondemand
-    rule: ondemand-managed_by
-    resource: nodeselector-without-labels-on-mutation
-    namespace: user-foo
-    kind: Pod
-    result: fail
+- kind: Pod
+  policy: ondemand
+  resources:
+  - user-foo/nodeselector-without-labels-on-mutation
+  result: fail
+  rule: ondemand-managed_by
+- kind: Pod
+  policy: ondemand
+  resources:
+  - user-space/nodeselector-with-labels-on-mutation
+  result: pass
+  rule: ondemand-managed_by
+- kind: Pod
+  patchedResource: patched-resource.yaml
+  policy: ondemand
+  resources:
+  - user-space/nodeselector-with-labels-on-mutation
+  result: pass
+  rule: ondemand-nodeselector

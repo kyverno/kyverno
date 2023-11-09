@@ -118,6 +118,10 @@ type ImageRegistry struct {
 	// the image reference.
 	// +optional
 	JMESPath string `json:"jmesPath,omitempty" yaml:"jmesPath,omitempty"`
+
+	// ImageRegistryCredentials provides credentials that will be used for authentication with registry
+	// +kubebuilder:validation:Optional
+	ImageRegistryCredentials *ImageRegistryCredentials `json:"imageRegistryCredentials,omitempty" yaml:"imageRegistryCredentials,omitempty"`
 }
 
 // ConfigMapReference refers to a ConfigMap
@@ -452,6 +456,12 @@ type CEL struct {
 	// AuditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the API request.
 	// +optional
 	AuditAnnotations []v1alpha1.AuditAnnotation `json:"auditAnnotations,omitempty" yaml:"auditAnnotations,omitempty"`
+
+	// Variables contain definitions of variables that can be used in composition of other expressions.
+	// Each variable is defined as a named CEL expression.
+	// The variables defined here will be available under `variables` in other expressions of the policy.
+	// +optional
+	Variables []v1alpha1.Variable `json:"variables,omitempty" yaml:"variables,omitempty"`
 }
 
 func (c *CEL) HasParam() bool {
@@ -629,9 +639,23 @@ type CloneList struct {
 	Selector *metav1.LabelSelector `json:"selector,omitempty" yaml:"selector,omitempty"`
 }
 
-func (g *Generation) Validate(path *field.Path, clusterResources sets.Set[string]) (errs field.ErrorList) {
-	if err := g.validateTargetsScope(clusterResources); err != nil {
-		errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
+func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+	if namespaced {
+		if err := g.validateNamespacedTargetsScope(clusterResources, policyNamespace); err != nil {
+			errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
+		}
+	}
+
+	if g.GetKind() != "" {
+		if !clusterResources.Has(g.GetAPIVersion() + "/" + g.GetKind()) {
+			if g.GetNamespace() == "" {
+				errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), "target namespace must be set for a namespaced resource"))
+			}
+		} else {
+			if g.GetNamespace() != "" {
+				errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), "target namespace must not be set for a cluster-wide resource"))
+			}
+		}
 	}
 
 	generateType, _ := g.GetTypeAndSync()
@@ -652,6 +676,53 @@ func (g *Generation) Validate(path *field.Path, clusterResources sets.Set[string
 		errs = append(errs, field.Forbidden(path.Child("generate").Child("clone/cloneList"), "Generation Rule Clone/CloneList should not have variables"))
 	}
 
+	if len(g.CloneList.Kinds) == 0 {
+		if g.Kind == "" {
+			errs = append(errs, field.Forbidden(path.Child("generate").Child("kind"), "kind can not be empty"))
+		}
+		if g.Name == "" {
+			errs = append(errs, field.Forbidden(path.Child("generate").Child("name"), "name can not be empty"))
+		}
+	}
+
+	errs = append(errs, g.ValidateCloneList(path.Child("generate"), namespaced, policyNamespace, clusterResources)...)
+	return errs
+}
+
+func (g *Generation) ValidateCloneList(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+	if len(g.CloneList.Kinds) == 0 {
+		return nil
+	}
+
+	if namespaced {
+		for _, kind := range g.CloneList.Kinds {
+			if clusterResources.Has(kind) {
+				errs = append(errs, field.Forbidden(path.Child("cloneList").Child("kinds"), fmt.Sprintf("the source in cloneList must be a namespaced resource: %v", kind)))
+			}
+			if g.CloneList.Namespace != policyNamespace {
+				errs = append(errs, field.Forbidden(path.Child("cloneList").Child("namespace"), fmt.Sprintf("a namespaced policy cannot clone resources from other namespace, expected: %v, received: %v", policyNamespace, g.CloneList.Namespace)))
+			}
+		}
+	}
+
+	clusterScope := clusterResources.Has(g.CloneList.Kinds[0])
+	for _, gvk := range g.CloneList.Kinds[1:] {
+		if clusterScope != clusterResources.Has(gvk) {
+			errs = append(errs, field.Forbidden(path.Child("cloneList").Child("kinds"), "mixed scope of target resources is forbidden"))
+			break
+		}
+		clusterScope = clusterScope && clusterResources.Has(gvk)
+	}
+
+	if !clusterScope {
+		if g.CloneList.Namespace == "" {
+			errs = append(errs, field.Forbidden(path.Child("cloneList").Child("namespace"), "namespace is required for namespaced target resources"))
+		}
+	} else if clusterScope && !namespaced {
+		if g.CloneList.Namespace != "" {
+			errs = append(errs, field.Forbidden(path.Child("cloneList").Child("namespace"), "namespace is forbidden for cluster-wide target resources"))
+		}
+	}
 	return errs
 }
 
@@ -663,18 +734,21 @@ func (g *Generation) SetData(in apiextensions.JSON) {
 	g.RawData = ToJSON(in)
 }
 
-func (g *Generation) validateTargetsScope(clusterResources sets.Set[string]) error {
+func (g *Generation) validateNamespacedTargetsScope(clusterResources sets.Set[string], policyNamespace string) error {
 	target := g.ResourceSpec
-	if clusterResources.Has(target.GetKind()) {
-		if target.GetNamespace() != "" {
-			return fmt.Errorf("the target namespace must not be set for cluster-wide resource: %v", target.GetKind())
-		}
-	} else {
-		if target.GetNamespace() == "" {
-			return fmt.Errorf("the target namespace must be set for namespaced resource: %v", target.GetKind())
-		}
+	if clusterResources.Has(target.GetAPIVersion() + "/" + target.GetKind()) {
+		return fmt.Errorf("the target must be a namespaced resource: %v/%v", target.GetAPIVersion(), target.GetKind())
 	}
 
+	if g.GetNamespace() != policyNamespace {
+		return fmt.Errorf("a namespaced policy cannot generate resources in other namespaces, expected: %v, received: %v", policyNamespace, g.GetNamespace())
+	}
+
+	if g.Clone.Name != "" {
+		if g.Clone.Namespace != policyNamespace {
+			return fmt.Errorf("a namespaced policy cannot clone resources from other namespaces, expected: %v, received: %v", policyNamespace, g.Clone.Namespace)
+		}
+	}
 	return nil
 }
 

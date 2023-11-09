@@ -1,5 +1,5 @@
 {{- if .Values.cleanupController.enabled -}}
-{{- if .Values.cleanupController.serviceMonitor.enabled -}}
+{{- if and .Values.cleanupController.serviceMonitor.enabled (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") -}}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -29,6 +29,14 @@ spec:
     scheme: https
     tlsConfig:
       {{- toYaml .Values.cleanupController.serviceMonitor.tlsConfig | nindent 8 }}
+    {{- end }}
+    {{- with .Values.cleanupController.serviceMonitor.relabelings }}
+    relabelings:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.cleanupController.serviceMonitor.metricRelabelings }}
+    metricRelabelings:
+      {{- toYaml . | nindent 6 }}
     {{- end }}
 {{- end -}}
 {{- end -}}

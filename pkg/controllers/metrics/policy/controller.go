@@ -11,9 +11,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/metric/global"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -36,7 +36,7 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	waitGroup *sync.WaitGroup,
 ) {
-	meterProvider := global.MeterProvider()
+	meterProvider := otel.GetMeterProvider()
 	meter := meterProvider.Meter(metrics.MeterName)
 	policyRuleInfoMetric, err := meter.Float64ObservableGauge(
 		"kyverno_policy_rule_info_total",
@@ -52,8 +52,12 @@ func NewController(
 		polLister:     polInformer.Lister(),
 		waitGroup:     waitGroup,
 	}
-	controllerutils.AddEventHandlers(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
-	controllerutils.AddEventHandlers(polInformer.Informer(), c.addNsPolicy, c.updateNsPolicy, c.deleteNsPolicy)
+	if _, err := controllerutils.AddEventHandlers(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+	if _, err := controllerutils.AddEventHandlers(polInformer.Informer(), c.addNsPolicy, c.updateNsPolicy, c.deleteNsPolicy); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
 	if c.ruleInfo != nil {
 		_, err := meter.RegisterCallback(c.report, c.ruleInfo)
 		if err != nil {

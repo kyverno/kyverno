@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+delete:
+- apiVersion: apps/v1
+  kind: Deployment
+  name: test-dpl1
+  namespace: reza-dev

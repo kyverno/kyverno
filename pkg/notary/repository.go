@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -17,20 +16,22 @@ import (
 
 type repositoryClient struct {
 	ref        name.Reference
-	craneOpts  crane.Option
 	remoteOpts []remote.Option
 }
 
-func NewRepository(craneOpts crane.Option, remoteOpts []remote.Option, ref name.Reference) notationregistry.Repository {
+func NewRepository(remoteOpts []remote.Option, ref name.Reference) notationregistry.Repository {
 	return &repositoryClient{
-		craneOpts:  craneOpts,
 		remoteOpts: remoteOpts,
 		ref:        ref,
 	}
 }
 
 func (c *repositoryClient) Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error) {
-	head, err := crane.Head(reference)
+	nameRef, err := name.ParseReference(c.getReferenceFromDigest(reference))
+	if err != nil {
+		return ocispec.Descriptor{}, nil
+	}
+	head, err := remote.Head(nameRef, c.remoteOpts...)
 	if err != nil {
 		return ocispec.Descriptor{}, nil
 	}
@@ -49,6 +50,11 @@ func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Desc
 		return err
 	}
 
+	// This check ensures that the manifest does not have an abnormal amount of referrers attached to it to protect against compromised images
+	if len(referrersDescs.Manifests) > maxReferrersCount {
+		return fmt.Errorf("failed to fetch referrers: to many referrers found, max limit is %d", maxReferrersCount)
+	}
+
 	descList := []ocispec.Descriptor{}
 	for _, d := range referrersDescs.Manifests {
 		if d.ArtifactType == notationregistry.ArtifactTypeNotation {
@@ -60,9 +66,16 @@ func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Desc
 }
 
 func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.Descriptor) ([]byte, ocispec.Descriptor, error) {
-	manifestRef := c.getReferenceFromDescriptor(desc)
+	manifestRef, err := name.ParseReference(c.getReferenceFromDescriptor(desc))
+	if err != nil {
+		return nil, ocispec.Descriptor{}, err
+	}
 
-	manifestBytes, err := crane.Manifest(manifestRef)
+	remoteDesc, err := remote.Get(manifestRef, c.remoteOpts...)
+	if err != nil {
+		return nil, ocispec.Descriptor{}, err
+	}
+	manifestBytes, err := remoteDesc.RawManifest()
 	if err != nil {
 		return nil, ocispec.Descriptor{}, err
 	}
@@ -73,22 +86,40 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 	}
 	manifestDesc := manifest.Layers[0]
 
-	signatureBlobRef := c.getReferenceFromDescriptor(manifestDesc)
+	// This check ensures that the size of a layer isn't abnormally large to avoid malicious payloads
+	if manifestDesc.Size > maxPayloadSize {
+		return nil, ocispec.Descriptor{}, fmt.Errorf("payload size %d exceeds %d for digest %s", manifestDesc.Size, maxPayloadSize, manifestDesc.Digest)
+	}
 
-	signatureBlobLayer, err := crane.PullLayer(signatureBlobRef)
+	signatureBlobRef, err := name.ParseReference(c.getReferenceFromDescriptor(manifestDesc))
 	if err != nil {
-		panic(err)
+		return nil, ocispec.Descriptor{}, err
+	}
+
+	digest := signatureBlobRef.Identifier()
+	signatureBlobLayer, err := remote.Layer(signatureBlobRef.Context().Digest(digest), c.remoteOpts...)
+	if err != nil {
+		return nil, ocispec.Descriptor{}, err
+	}
+
+	signatureBlobLayerSize, err := signatureBlobLayer.Size()
+	if err != nil {
+		return nil, ocispec.Descriptor{}, err
+	}
+
+	if signatureBlobLayerSize > maxPayloadSize {
+		return nil, ocispec.Descriptor{}, fmt.Errorf("layer size %d exceeds %d for digest %s", signatureBlobLayerSize, maxPayloadSize, digest)
 	}
 
 	io, err := signatureBlobLayer.Uncompressed()
 	if err != nil {
-		panic(err)
+		return nil, ocispec.Descriptor{}, err
 	}
 	SigBlobBuf := new(bytes.Buffer)
 
 	_, err = SigBlobBuf.ReadFrom(io)
 	if err != nil {
-		panic(err)
+		return nil, ocispec.Descriptor{}, err
 	}
 	return SigBlobBuf.Bytes(), manifestDesc, nil
 }
@@ -120,6 +151,10 @@ func v1ToOciSpecDescriptor(v1desc v1.Descriptor) ocispec.Descriptor {
 
 func (c *repositoryClient) getReferenceFromDescriptor(desc ocispec.Descriptor) string {
 	return GetReferenceFromDescriptor(desc, c.ref)
+}
+
+func (c *repositoryClient) getReferenceFromDigest(digest string) string {
+	return c.ref.Context().RegistryStr() + "/" + c.ref.Context().RepositoryStr() + "@" + digest
 }
 
 func GetReferenceFromDescriptor(desc ocispec.Descriptor, ref name.Reference) string {

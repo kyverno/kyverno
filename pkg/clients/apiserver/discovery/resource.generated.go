@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	github_com_google_gnostic_openapiv2 "github.com/google/gnostic/openapiv2"
+	github_com_google_gnostic_models_openapiv2 "github.com/google/gnostic-models/openapiv2"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"go.uber.org/multierr"
 	k8s_io_apimachinery_pkg_apis_meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,7 +31,7 @@ type withLogging struct {
 	logger logr.Logger
 }
 
-func (c *withLogging) OpenAPISchema() (*github_com_google_gnostic_openapiv2.Document, error) {
+func (c *withLogging) OpenAPISchema() (*github_com_google_gnostic_models_openapiv2.Document, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "OpenAPISchema")
 	ret0, ret1 := c.inner.OpenAPISchema()
@@ -135,7 +135,7 @@ type withMetrics struct {
 	recorder metrics.Recorder
 }
 
-func (c *withMetrics) OpenAPISchema() (*github_com_google_gnostic_openapiv2.Document, error) {
+func (c *withMetrics) OpenAPISchema() (*github_com_google_gnostic_models_openapiv2.Document, error) {
 	defer c.recorder.Record("open_api_schema")
 	return c.inner.OpenAPISchema()
 }
@@ -182,7 +182,7 @@ type withTracing struct {
 	kind   string
 }
 
-func (c *withTracing) OpenAPISchema() (*github_com_google_gnostic_openapiv2.Document, error) {
+func (c *withTracing) OpenAPISchema() (*github_com_google_gnostic_models_openapiv2.Document, error) {
 	return c.inner.OpenAPISchema()
 }
 func (c *withTracing) OpenAPIV3() k8s_io_client_go_openapi.Client {

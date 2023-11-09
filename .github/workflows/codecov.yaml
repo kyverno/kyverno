@@ -1,5 +1,7 @@
 name: Codecov
 
+permissions: {}
+
 on:
   push:
     branches:
@@ -13,19 +15,21 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-
 jobs:
   codecov:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
         with:
           build-cache-key: codecov
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        timeout-minutes: 10
       - name: Generate Code Coverage Report
         run: make code-cov-report
       - name: Upload Report to Codecov

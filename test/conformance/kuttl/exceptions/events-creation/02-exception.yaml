@@ -3,7 +3,7 @@ kind: Namespace
 metadata:
   name: policy-exception-events-creation-polex-ns
 ---
-apiVersion: kyverno.io/v2alpha1
+apiVersion: kyverno.io/v2beta1
 kind: PolicyException
 metadata:
   name: policy-exception-allow-latest

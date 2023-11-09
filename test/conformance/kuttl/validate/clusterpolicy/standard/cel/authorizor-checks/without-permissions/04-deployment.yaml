@@ -1,0 +1,12 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+- script: |
+    if kubectl apply -f ./deployment.yaml --as=system:serviceaccount:default:test-account-1
+    then
+      echo "Test failed. Deployment shouldn't be created."
+      exit 1
+    else 
+      echo "Test succeeded. Deployment isn't created as expected."
+      exit 0
+    fi

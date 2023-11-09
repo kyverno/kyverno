@@ -3,7 +3,6 @@ package generation
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/engine"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -36,19 +35,4 @@ func matchDeleteOperation(rule kyvernov1.Rule) bool {
 	}
 
 	return datautils.SliceContains(ops, string(admissionv1.Delete))
-}
-
-func compareLabels(new, old map[string]string) bool {
-	if new == nil {
-		return true
-	}
-	if new[common.GeneratePolicyLabel] != old[common.GeneratePolicyLabel] ||
-		new[common.GeneratePolicyNamespaceLabel] != old[common.GeneratePolicyNamespaceLabel] ||
-		new[common.GenerateRuleLabel] != old[common.GenerateRuleLabel] ||
-		new[common.GenerateTriggerNameLabel] != old[common.GenerateTriggerNameLabel] ||
-		new[common.GenerateTriggerNSLabel] != old[common.GenerateTriggerNSLabel] ||
-		new[common.GenerateTriggerKindLabel] != old[common.GenerateTriggerKindLabel] {
-		return false
-	}
-	return true
 }

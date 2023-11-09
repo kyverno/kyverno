@@ -12,21 +12,21 @@ func NewFakeAuth() *FakeAuth {
 }
 
 // CanICreate returns 'true'
-func (a *FakeAuth) CanICreate(_ context.Context, kind, namespace string) (bool, error) {
+func (a *FakeAuth) CanICreate(_ context.Context, kind, namespace, sub string) (bool, error) {
 	return true, nil
 }
 
 // CanIUpdate returns 'true'
-func (a *FakeAuth) CanIUpdate(_ context.Context, kind, namespace string) (bool, error) {
+func (a *FakeAuth) CanIUpdate(_ context.Context, kind, namespace, sub string) (bool, error) {
 	return true, nil
 }
 
 // CanIDelete returns 'true'
-func (a *FakeAuth) CanIDelete(_ context.Context, kind, namespace string) (bool, error) {
+func (a *FakeAuth) CanIDelete(_ context.Context, kind, namespace, sub string) (bool, error) {
 	return true, nil
 }
 
 // CanIGet returns 'true'
-func (a *FakeAuth) CanIGet(_ context.Context, kind, namespace string) (bool, error) {
+func (a *FakeAuth) CanIGet(_ context.Context, kind, namespace, sub string) (bool, error) {
 	return true, nil
 }

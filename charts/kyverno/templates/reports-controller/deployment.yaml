@@ -76,7 +76,8 @@ spec:
       serviceAccountName: {{ template "kyverno.reports-controller.serviceAccountName" . }}
       containers:
         - name: controller
-          image: {{ include "kyverno.reports-controller.image" (dict "image" .Values.reportsController.image "defaultTag" .Chart.AppVersion) | quote }}
+          image: {{ include "kyverno.reports-controller.image" (dict "globalRegistry" ((.Values.global).image).registry "image" .Values.reportsController.image "defaultTag" .Chart.AppVersion) | quote }}
+          imagePullPolicy: {{ .Values.reportsController.image.pullPolicy }}
           ports:
           - containerPort: 9443
             name: https
@@ -109,13 +110,18 @@ spec:
             {{- end }}
             {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.reportsController.featuresOverride)
               "admissionReports"
+              "aggregateReports"
+              "policyReports"
+              "validatingAdmissionPolicyReports"
               "backgroundScan"
               "configMapCaching"
+              "deferredLoading"
               "logging"
               "omitEvents"
               "policyExceptions"
               "reports"
               "registryClient"
+              "tuf"
             ) | nindent 12 }}
             {{- range $key, $value := .Values.reportsController.extraArgs }}
             {{- if $value }}
@@ -123,6 +129,10 @@ spec:
             {{- end }}
             {{- end }}
           env:
+          - name: KYVERNO_SERVICEACCOUNT_NAME
+            value: {{ template "kyverno.reports-controller.serviceAccountName" . }}
+          - name: KYVERNO_DEPLOYMENT
+            value: {{ template "kyverno.reports-controller.name" . }}
           - name: INIT_CONFIG
             value: {{ template "kyverno.config.configMapName" . }}
           - name: METRICS_CONFIG

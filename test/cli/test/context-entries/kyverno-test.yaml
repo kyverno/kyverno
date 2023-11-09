@@ -1,61 +1,75 @@
-name: test-variables
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  - policies.yaml
+- policies.yaml
 resources:
-  - resources.yaml
+- resources.yaml
 results:
-  - policy: example
-    rule:  defined-value
-    resource: example
-    kind: Pod
-    result: pass
-  - policy: example
-    rule:  defined-jmespath
-    resource: example
-    kind: Pod
-    result: pass
-  - policy: example
-    rule:  defined-jmespath-with-default
-    resource: example
-    kind: Pod
-    result: pass
-  - policy: example
-    rule:  defined-value-with-variable
-    resource: example
-    kind: Pod
-    result: pass
-  - policy: example
-    rule:  defined-jmespath-with-default-variable
-    resource: example
-    kind: Pod
-    result: pass
-  - policy: example
-    rule:  defined-value-jmespath
-    resource: example
-    kind: Pod
-    result: pass
-  - policy: example
-    rule:  defined-value-jmespath-variable
-    resource: example
-    kind: Pod
-    result: pass
-  - policy: example
-    rule:  value-override
-    resource: example
-    kind: Pod
-    result: pass
-  - policy: example
-    rule:  wildcard-match
-    resource: example
-    kind: Pod
-    result: pass
-  - policy: example
-    rule:  items
-    resource: example
-    kind: Pod
-    result: pass
-  - policy: example
-    rule:  unused-var
-    resource: example
-    kind: Pod
-    result: pass
+- kind: Pod
+  policy: example
+  resources:
+  - example
+  result: pass
+  rule: defined-jmespath
+- kind: Pod
+  policy: example
+  resources:
+  - example
+  result: pass
+  rule: defined-jmespath-with-default
+- kind: Pod
+  policy: example
+  resources:
+  - example
+  result: pass
+  rule: defined-jmespath-with-default-variable
+- kind: Pod
+  policy: example
+  resources:
+  - example
+  result: pass
+  rule: defined-value
+- kind: Pod
+  policy: example
+  resources:
+  - example
+  result: pass
+  rule: defined-value-jmespath
+- kind: Pod
+  policy: example
+  resources:
+  - example
+  result: pass
+  rule: defined-value-jmespath-variable
+- kind: Pod
+  policy: example
+  resources:
+  - example
+  result: pass
+  rule: defined-value-with-variable
+- kind: Pod
+  policy: example
+  resources:
+  - example
+  result: pass
+  rule: items
+- kind: Pod
+  policy: example
+  resources:
+  - example
+  result: pass
+  rule: unused-var
+- kind: Pod
+  policy: example
+  resources:
+  - example
+  result: pass
+  rule: value-override
+- kind: Pod
+  policy: example
+  resources:
+  - example
+  result: pass
+  rule: wildcard-match

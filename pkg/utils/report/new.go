@@ -6,6 +6,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	admissionv1 "k8s.io/api/admission/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -48,12 +49,16 @@ func NewBackgroundScanReport(namespace, name string, gvk schema.GroupVersionKind
 	return report
 }
 
-func NewPolicyReport(namespace, name string, results ...policyreportv1alpha2.PolicyReportResult) kyvernov1alpha2.ReportInterface {
+func NewPolicyReport(namespace, name string, scope *corev1.ObjectReference, results ...policyreportv1alpha2.PolicyReportResult) kyvernov1alpha2.ReportInterface {
 	var report kyvernov1alpha2.ReportInterface
 	if namespace == "" {
-		report = &policyreportv1alpha2.ClusterPolicyReport{}
+		report = &policyreportv1alpha2.ClusterPolicyReport{
+			Scope: scope,
+		}
 	} else {
-		report = &policyreportv1alpha2.PolicyReport{}
+		report = &policyreportv1alpha2.PolicyReport{
+			Scope: scope,
+		}
 	}
 	report.SetName(name)
 	report.SetNamespace(namespace)

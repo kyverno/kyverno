@@ -43,9 +43,26 @@ spec:
       exclude:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with index .Values "policyPreconditions" $name }}
+      {{- $preconditions := index .Values "policyPreconditions" $name }}
+      {{- if $preconditions }}
+      {{- with $preconditions }}
       preconditions:
-        {{- toYaml . | nindent 8 }}
+        {{- if .all }}
+        all:
+        - key: "{{`{{ request.operation || 'BACKGROUND' }}`}}"
+          operator: NotEquals
+          value: DELETE
+        {{- toYaml .all | nindent 8 }}
+        {{- else }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+      {{- else }}
+      preconditions:
+        all:
+        - key: "{{`{{ request.operation || 'BACKGROUND' }}`}}"
+          operator: NotEquals
+          value: DELETE
       {{- end }}
       validate:
         message: >-

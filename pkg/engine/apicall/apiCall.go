@@ -13,7 +13,6 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
@@ -26,7 +25,11 @@ type apiCall struct {
 	jp      jmespath.Interface
 	entry   kyvernov1.ContextEntry
 	jsonCtx enginecontext.Interface
-	client  dclient.Interface
+	client  ClientInterface
+}
+
+type ClientInterface interface {
+	RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error)
 }
 
 func New(
@@ -34,7 +37,7 @@ func New(
 	jp jmespath.Interface,
 	entry kyvernov1.ContextEntry,
 	jsonCtx enginecontext.Interface,
-	client dclient.Interface,
+	client ClientInterface,
 ) (*apiCall, error) {
 	if entry.APICall == nil {
 		return nil, fmt.Errorf("missing APICall in context entry %v", entry)
@@ -48,23 +51,38 @@ func New(
 	}, nil
 }
 
-func (a *apiCall) Execute(ctx context.Context) ([]byte, error) {
+func (a *apiCall) FetchAndLoad(ctx context.Context) ([]byte, error) {
+	data, err := a.Fetch(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	results, err := a.Store(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return results, nil
+}
+
+func (a *apiCall) Fetch(ctx context.Context) ([]byte, error) {
 	call, err := variables.SubstituteAllInType(a.logger, a.jsonCtx, a.entry.APICall)
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", a.entry.Name, a.entry.APICall.URLPath, err)
 	}
-
 	data, err := a.execute(ctx, call)
 	if err != nil {
 		return nil, err
 	}
+	return data, nil
+}
 
-	result, err := a.transformAndStore(data)
+func (a *apiCall) Store(data []byte) ([]byte, error) {
+	results, err := a.transformAndStore(data)
 	if err != nil {
 		return nil, err
 	}
-
-	return result, nil
+	return results, nil
 }
 
 func (a *apiCall) execute(ctx context.Context, call *kyvernov1.APICall) ([]byte, error) {

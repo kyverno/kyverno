@@ -6,8 +6,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/metric/global"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"k8s.io/client-go/kubernetes"
 )
@@ -15,7 +15,7 @@ import (
 func InitMetrics(
 	ctx context.Context,
 	disableMetricsExport bool,
-	otel string,
+	otelProvider string,
 	metricsAddr string,
 	otelCollector string,
 	metricsConfiguration config.MetricsConfiguration,
@@ -27,7 +27,7 @@ func InitMetrics(
 	var metricsServerMux *http.ServeMux
 	if !disableMetricsExport {
 		var meterProvider metric.MeterProvider
-		if otel == "grpc" {
+		if otelProvider == "grpc" {
 			endpoint := otelCollector + metricsAddr
 			meterProvider, err = NewOTLPGRPCConfig(
 				ctx,
@@ -35,25 +35,26 @@ func InitMetrics(
 				transportCreds,
 				kubeClient,
 				logger,
+				metricsConfiguration,
 			)
 			if err != nil {
 				return nil, nil, nil, err
 			}
-		} else if otel == "prometheus" {
-			meterProvider, metricsServerMux, err = NewPrometheusConfig(ctx, logger)
+		} else if otelProvider == "prometheus" {
+			meterProvider, metricsServerMux, err = NewPrometheusConfig(ctx, logger, metricsConfiguration)
 			if err != nil {
 				return nil, nil, nil, err
 			}
 		}
 		if meterProvider != nil {
-			global.SetMeterProvider(meterProvider)
+			otel.SetMeterProvider(meterProvider)
 		}
 	}
 	metricsConfig := MetricsConfig{
 		Log:    logger,
 		config: metricsConfiguration,
 	}
-	err = metricsConfig.initializeMetrics(global.MeterProvider())
+	err = metricsConfig.initializeMetrics(otel.GetMeterProvider())
 	if err != nil {
 		logger.Error(err, "Failed initializing metrics")
 		return nil, nil, nil, err

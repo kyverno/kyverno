@@ -88,7 +88,7 @@ func applyPatches(name string, mergePatch apiextensions.JSON, jsonPatch string, 
 	if err != nil {
 		return resource, err
 	}
-	resourceBytes, _, err = patcher.Patch(logger, resourceBytes)
+	resourceBytes, err = patcher.Patch(logger, resourceBytes)
 	if err != nil {
 		return resource, err
 	}

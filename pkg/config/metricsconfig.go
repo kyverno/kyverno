@@ -1,10 +1,12 @@
 package config
 
 import (
+	"slices"
 	"sync"
 	"time"
 
-	"golang.org/x/exp/slices"
+	"go.opentelemetry.io/otel/attribute"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -18,6 +20,10 @@ type MetricsConfiguration interface {
 	GetMetricsRefreshInterval() time.Duration
 	// CheckNamespace returns `true` if the namespace has to be considered
 	CheckNamespace(string) bool
+	// GetBucketBoundaries returns the bucket boundaries for Histogram metrics
+	GetBucketBoundaries() []float64
+	// BuildMeterProviderViews returns OTL view removing attributes which were disabled in the config
+	BuildMeterProviderViews() []sdkmetric.View
 	// Load loads configuration from a configmap
 	Load(*corev1.ConfigMap)
 	// OnChanged adds a callback to be invoked when the configuration is reloaded
@@ -28,19 +34,17 @@ type MetricsConfiguration interface {
 type metricsConfig struct {
 	namespaces             namespacesConfig
 	metricsRefreshInterval time.Duration
+	bucketBoundaries       []float64
+	metricsExposure        map[string]metricExposureConfig
 	mux                    sync.RWMutex
 	callbacks              []func()
 }
 
 // NewDefaultMetricsConfiguration ...
 func NewDefaultMetricsConfiguration() *metricsConfig {
-	return &metricsConfig{
-		metricsRefreshInterval: 0,
-		namespaces: namespacesConfig{
-			IncludeNamespaces: []string{},
-			ExcludeNamespaces: []string{},
-		},
-	}
+	config := metricsConfig{}
+	config.reset()
+	return &config
 }
 
 func (cd *metricsConfig) OnChanged(callback func()) {
@@ -61,6 +65,43 @@ func (mcd *metricsConfig) GetIncludeNamespaces() []string {
 	mcd.mux.RLock()
 	defer mcd.mux.RUnlock()
 	return mcd.namespaces.IncludeNamespaces
+}
+
+// GetBucketBoundaries returns the bucket boundaries for Histogram metrics
+func (mcd *metricsConfig) GetBucketBoundaries() []float64 {
+	mcd.mux.RLock()
+	defer mcd.mux.RUnlock()
+	return mcd.bucketBoundaries
+}
+
+func (mcd *metricsConfig) BuildMeterProviderViews() []sdkmetric.View {
+	mcd.mux.RLock()
+	defer mcd.mux.RUnlock()
+	var views []sdkmetric.View
+	for key, value := range mcd.metricsExposure {
+		if *value.Enabled {
+			views = append(views, sdkmetric.NewView(
+				sdkmetric.Instrument{Name: key},
+				sdkmetric.Stream{
+					AttributeFilter: func(kv attribute.KeyValue) bool {
+						return !slices.Contains(value.DisabledLabelDimensions, string(kv.Key))
+					},
+					Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
+						Boundaries: value.BucketBoundaries,
+						NoMinMax:   false,
+					},
+				},
+			))
+		} else if !*value.Enabled {
+			views = append(views, sdkmetric.NewView(
+				sdkmetric.Instrument{Name: key},
+				sdkmetric.Stream{
+					Aggregation: sdkmetric.AggregationDrop{},
+				},
+			))
+		}
+	}
+	return views
 }
 
 // GetMetricsRefreshInterval returns the refresh interval for the metrics
@@ -105,11 +146,7 @@ func (cd *metricsConfig) load(cm *corev1.ConfigMap) {
 		data = map[string]string{}
 	}
 	// reset
-	cd.metricsRefreshInterval = 0
-	cd.namespaces = namespacesConfig{
-		IncludeNamespaces: []string{},
-		ExcludeNamespaces: []string{},
-	}
+	cd.reset()
 	// load metricsRefreshInterval
 	metricsRefreshInterval, ok := data["metricsRefreshInterval"]
 	if !ok {
@@ -138,17 +175,67 @@ func (cd *metricsConfig) load(cm *corev1.ConfigMap) {
 			logger.Info("namespaces configured")
 		}
 	}
+	// load bucket boundaries
+	bucketBoundariesString, ok := data["bucketBoundaries"]
+	if !ok {
+		logger.Info("bucketBoundaries not set")
+	} else {
+		logger := logger.WithValues("bucketBoundaries", bucketBoundariesString)
+		bucketBoundaries, err := parseBucketBoundariesConfig(bucketBoundariesString)
+		if err != nil {
+			logger.Error(err, "failed to parse bucketBoundariesString")
+		} else {
+			cd.bucketBoundaries = bucketBoundaries
+			logger.Info("bucketBoundaries configured")
+		}
+	}
+	// load include resource details
+	metricsExposureString, ok := data["metricsExposure"]
+	if !ok {
+		logger.Info("metricsExposure not set")
+	} else {
+		logger := logger.WithValues("metricsExposure", metricsExposureString)
+		metricsExposure, err := parseMetricExposureConfig(metricsExposureString, cd.bucketBoundaries)
+		if err != nil {
+			logger.Error(err, "failed to parse metricsExposure")
+		} else {
+			cd.metricsExposure = metricsExposure
+			logger.Info("metricsExposure configured")
+		}
+	}
 }
 
 func (mcd *metricsConfig) unload() {
 	mcd.mux.Lock()
 	defer mcd.mux.Unlock()
 	defer mcd.notify()
+	mcd.reset()
+}
+
+func (mcd *metricsConfig) reset() {
 	mcd.metricsRefreshInterval = 0
 	mcd.namespaces = namespacesConfig{
 		IncludeNamespaces: []string{},
 		ExcludeNamespaces: []string{},
 	}
+	mcd.bucketBoundaries = []float64{
+		0.005,
+		0.01,
+		0.025,
+		0.05,
+		0.1,
+		0.25,
+		0.5,
+		1,
+		2.5,
+		5,
+		10,
+		15,
+		20,
+		25,
+		30,
+	}
+	mcd.metricsExposure = map[string]metricExposureConfig{}
 }
 
 func (mcd *metricsConfig) notify() {

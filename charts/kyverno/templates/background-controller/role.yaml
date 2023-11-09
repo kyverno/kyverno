@@ -25,9 +25,24 @@ rules:
       - leases
     verbs:
       - create
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
       - delete
       - get
       - patch
       - update
+    resourceNames:
+      - kyverno-background-controller
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
 {{- end -}}
 {{- end -}}

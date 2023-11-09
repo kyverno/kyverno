@@ -1,10 +1,10 @@
 package patch
 
 import (
-	"strings"
+	"fmt"
 
-	"github.com/kyverno/kyverno/pkg/utils/wildcard"
-	"github.com/mattbaird/jsonpatch"
+	"gomodules.xyz/jsonpatch/v2"
+	"sigs.k8s.io/yaml"
 )
 
 func ConvertPatches(in ...jsonpatch.JsonPatchOperation) [][]byte {
@@ -17,49 +17,26 @@ func ConvertPatches(in ...jsonpatch.JsonPatchOperation) [][]byte {
 	return out
 }
 
+func convertPatchesToJSON(patchesJSON6902 string) ([]byte, error) {
+	if len(patchesJSON6902) == 0 {
+		return []byte(patchesJSON6902), nil
+	}
+	if patchesJSON6902[0] != '[' {
+		// If the patch doesn't look like a JSON6902 patch, we
+		// try to parse it to json.
+		op, err := yaml.YAMLToJSON([]byte(patchesJSON6902))
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert patchesJSON6902 to JSON: %v", err)
+		}
+		return op, nil
+	}
+	return []byte(patchesJSON6902), nil
+}
+
 func generatePatches(src, dst []byte) ([]jsonpatch.JsonPatchOperation, error) {
-	if pp, err := jsonpatch.CreatePatch(src, dst); err != nil {
+	pp, err := jsonpatch.CreatePatch(src, dst)
+	if err != nil {
 		return nil, err
-	} else {
-		return filterInvalidPatches(pp), err
 	}
-}
-
-// filterInvalidPatches filters out patch with the following path:
-// - not */metadata/name, */metadata/namespace, */metadata/labels, */metadata/annotations
-// - /status
-func filterInvalidPatches(patches []jsonpatch.JsonPatchOperation) []jsonpatch.JsonPatchOperation {
-	res := []jsonpatch.JsonPatchOperation{}
-	for _, patch := range patches {
-		if ignorePatch(patch.Path) {
-			continue
-		}
-
-		res = append(res, patch)
-	}
-	return res
-}
-
-func ignorePatch(path string) bool {
-	if wildcard.Match("/spec/triggers/*/metadata/*", path) {
-		return false
-	}
-
-	if wildcard.Match("*/metadata", path) {
-		return false
-	}
-
-	if strings.Contains(path, "/metadata") {
-		if !strings.Contains(path, "/metadata/name") &&
-			!strings.Contains(path, "/metadata/namespace") &&
-			!strings.Contains(path, "/metadata/annotations") &&
-			!strings.Contains(path, "/metadata/labels") &&
-			!strings.Contains(path, "/metadata/ownerReferences") &&
-			!strings.Contains(path, "/metadata/generateName") &&
-			!strings.Contains(path, "/metadata/finalizers") {
-			return true
-		}
-	}
-
-	return false
+	return pp, nil
 }

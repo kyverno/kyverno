@@ -1,0 +1,53 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: sync-controller-data
+  annotations:
+    policies.kyverno.io/title: Sync Controller Data
+    policies.kyverno.io/category: RightSizing
+    policies.kyverno.io/subject: io
+    policies.kyverno.io/description: >-
+      Sync Secret and Configmap from kube-system namespace
+spec:
+  failurePolicy: Ignore
+  generateExistingOnPolicyUpdate: true
+  rules:
+  - name: sync-controller-secret
+    match:
+      all:
+      - resources:
+          kinds:
+          - Deployment
+          namespaces:
+          - kube-system
+          names:
+          - kubernetes-cluster-controller
+    generate:
+      apiVersion: v1
+      kind: Secret
+      name: kubernetes-cluster-controller
+      namespace: services-system
+      synchronize: true
+      clone:
+        namespace: kube-system
+        name: kubernetes-cluster-controller
+
+  - name: sync-controller-configmap
+    match:
+      all:
+      - resources:
+          kinds:
+          - Deployment
+          namespaces:
+          - kube-system
+          names:
+          - kubernetes-cluster-controller  
+    generate:
+      apiVersion: v1
+      kind: ConfigMap
+      name: kubernetes-cluster-controller-config
+      namespace: services-system
+      synchronize: true
+      clone:
+        namespace: kube-system
+        name: kubernetes-cluster-controller-config

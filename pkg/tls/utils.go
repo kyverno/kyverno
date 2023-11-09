@@ -6,8 +6,7 @@ import (
 	"encoding/pem"
 	"time"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/api/kyverno"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -47,8 +46,6 @@ func pemToCertificates(raw []byte) []*x509.Certificate {
 		cert, err := x509.ParseCertificate(certPemBlock.Bytes)
 		if err == nil {
 			certs = append(certs, cert)
-		} else {
-			logger.Error(err, "failed to parse cert")
 		}
 	}
 }
@@ -89,22 +86,9 @@ func isSecretManagedByKyverno(secret *corev1.Secret) bool {
 		if labels == nil {
 			return false
 		}
-		if labels[managedByLabel] != kyvernov1.ValueKyvernoApp {
+		if labels[kyverno.LabelCertManagedBy] != kyverno.ValueKyvernoApp {
 			return false
 		}
 	}
 	return true
-}
-
-// inClusterServiceName The generated service name should be the common name for TLS certificate
-func inClusterServiceName() string {
-	return config.KyvernoServiceName() + "." + config.KyvernoNamespace() + ".svc"
-}
-
-func GenerateTLSPairSecretName() string {
-	return inClusterServiceName() + ".kyverno-tls-pair"
-}
-
-func GenerateRootCASecretName() string {
-	return inClusterServiceName() + ".kyverno-tls-ca"
 }

@@ -1,5 +1,7 @@
 name: helm-test
 
+permissions: {}
+
 on:
   pull_request:
     branches:
@@ -18,22 +20,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
         with:
           build-cache-key: helm-tests
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        timeout-minutes: 10
       - name: Setup python
-        uses: actions/setup-python@bd6b4b6205c4dbad673328db7b31b7fab9e241c0 # v4.6.1
+        uses: actions/setup-python@65d7f2d534ac1bc67fcd62888c5f4f3d2cb2b236 # v4.7.1
         with:
           python-version: 3.7
       - name: Set up chart-testing
-        uses: helm/chart-testing-action@e8788873172cb653a90ca2e819d79d65a66d4e76 # v2.4.0
+        uses: helm/chart-testing-action@e6669bcd63d7cb57cb4380c33043eebe5d111992 # v2.6.1
       - name: Run chart-testing (lint)
         run: |
           if [[ $(ct list-changed --target-branch=main) ]];
           then
-            ct lint --target-branch=main --check-version-increment=false
+            ct lint --target-branch=main --check-version-increment=false --validate-maintainers=false
           fi
       - name: Setup test env
         uses: ./.github/actions/setup-test-env
@@ -50,7 +57,7 @@ jobs:
       options: --user root
     steps:
       - name: Checkout
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Run ah lint
         working-directory: ./charts/
         run: ah lint

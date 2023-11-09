@@ -7,13 +7,11 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/controllers"
+	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/logging"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -21,8 +19,6 @@ import (
 )
 
 const (
-	// Workers is the number of workers for this controller
-	Workers    = 1
 	maxRetries = 10
 )
 
@@ -57,27 +53,19 @@ func NewController(
 	name string,
 	callback callback,
 ) Controller {
-	indexers := cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}
-	options := func(lo *metav1.ListOptions) {
-		lo.FieldSelector = fields.OneTermEqualSelector(metav1.ObjectNameField, name).String()
-	}
-	informer := corev1informers.NewFilteredConfigMapInformer(
-		client,
-		namespace,
-		resyncPeriod,
-		indexers,
-		options,
-	)
+	informer := informers.NewConfigMapInformer(client, namespace, name, resyncPeriod)
 	c := controller{
-		informer:       informer,
-		lister:         corev1listers.NewConfigMapLister(informer.GetIndexer()).ConfigMaps(namespace),
+		informer:       informer.Informer(),
+		lister:         informer.Lister().ConfigMaps(namespace),
 		controllerName: controllerName,
 		queue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 		logger:         logging.ControllerLogger(controllerName),
 		name:           name,
 		callback:       callback,
 	}
-	controllerutils.AddDefaultEventHandlers(c.logger, informer, c.queue)
+	if _, _, err := controllerutils.AddDefaultEventHandlers(c.logger, informer.Informer(), c.queue); err != nil {
+		logging.Error(err, "failed to register event handlers")
+	}
 	return &c
 }
 

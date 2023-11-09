@@ -1,16 +1,21 @@
-name: psp-check-supplemental-groups
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  - check-supplemental-groups.yaml
+- check-supplemental-groups.yaml
 resources:
-  - resource.yaml
+- resource.yaml
 results:
-  - policy: psp-check-supplemental-groups
-    rule: supplementalgroup-ranges
-    resource: badpod01
-    kind: Pod
-    result: fail
-  - policy: psp-check-supplemental-groups
-    rule: supplementalgroup-ranges
-    resource: goodpod01
-    kind: Pod
-    result: pass
+- kind: Pod
+  policy: psp-check-supplemental-groups
+  resources:
+  - badpod01
+  result: fail
+  rule: supplementalgroup-ranges
+- kind: Pod
+  policy: psp-check-supplemental-groups
+  resources:
+  - goodpod01
+  result: pass
+  rule: supplementalgroup-ranges

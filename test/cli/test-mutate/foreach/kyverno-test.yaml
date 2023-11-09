@@ -1,19 +1,24 @@
-name: foreach-mutate
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  - policies.yaml
+- policies.yaml
 resources:
-  - resources.yaml
-variables: values.yaml
+- resources.yaml
 results:
-  - policy: foreach-json-patch
-    rule: add-security-context
-    resource: nginx
-    patchedResource: patched-resource.yaml
-    kind: Pod
-    result: pass
-  - policy: mutate-images
-    rule: test
-    resource: mypod
-    patchedResource: pod-updated-image.yaml
-    kind: Pod
-    result: pass
+- kind: Pod
+  patchedResource: patched-resource.yaml
+  policy: foreach-json-patch
+  resources:
+  - nginx
+  result: pass
+  rule: add-security-context
+- kind: Pod
+  patchedResource: pod-updated-image.yaml
+  policy: mutate-images
+  resources:
+  - mypod
+  result: pass
+  rule: test
+variables: values.yaml

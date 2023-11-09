@@ -1,0 +1,7 @@
+# Specifying the kind as `TestStep` performs certain behaviors like this delete operation.
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+delete:
+- apiVersion: kyverno.io/v1
+  kind: ClusterPolicy
+  name: cpol-clone-sync-reinstall-policy

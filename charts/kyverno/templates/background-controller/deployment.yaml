@@ -76,7 +76,8 @@ spec:
       serviceAccountName: {{ template "kyverno.background-controller.serviceAccountName" . }}
       containers:
         - name: controller
-          image: {{ include "kyverno.background-controller.image" (dict "image" .Values.backgroundController.image "defaultTag" .Chart.AppVersion) | quote }}
+          image: {{ include "kyverno.background-controller.image" (dict "globalRegistry" ((.Values.global).image).registry "image" .Values.backgroundController.image "defaultTag" .Chart.AppVersion) | quote }}
+          imagePullPolicy: {{ .Values.backgroundController.image.pullPolicy }}
           ports:
           - containerPort: 9443
             name: https
@@ -109,6 +110,7 @@ spec:
             {{- end }}
             {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.backgroundController.featuresOverride)
               "configMapCaching"
+              "deferredLoading"
               "logging"
               "omitEvents"
               "policyExceptions"
@@ -119,6 +121,10 @@ spec:
             {{- end }}
             {{- end }}
           env:
+          - name: KYVERNO_SERVICEACCOUNT_NAME
+            value: {{ template "kyverno.background-controller.serviceAccountName" . }}
+          - name: KYVERNO_DEPLOYMENT
+            value: {{ template "kyverno.background-controller.name" . }}
           - name: INIT_CONFIG
             value: {{ template "kyverno.config.configMapName" . }}
           - name: METRICS_CONFIG

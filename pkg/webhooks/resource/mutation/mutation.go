@@ -12,14 +12,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/tracing"
-	"github.com/kyverno/kyverno/pkg/utils"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
-	"github.com/mattbaird/jsonpatch"
 	"go.opentelemetry.io/otel/trace"
+	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -35,27 +33,24 @@ func NewMutationHandler(
 	log logr.Logger,
 	engine engineapi.Engine,
 	eventGen event.Interface,
-	openApiManager openapi.ValidateInterface,
 	nsLister corev1listers.NamespaceLister,
 	metrics metrics.MetricsConfigManager,
 ) MutationHandler {
 	return &mutationHandler{
-		log:            log,
-		engine:         engine,
-		eventGen:       eventGen,
-		openApiManager: openApiManager,
-		nsLister:       nsLister,
-		metrics:        metrics,
+		log:      log,
+		engine:   engine,
+		eventGen: eventGen,
+		nsLister: nsLister,
+		metrics:  metrics,
 	}
 }
 
 type mutationHandler struct {
-	log            logr.Logger
-	engine         engineapi.Engine
-	eventGen       event.Interface
-	openApiManager openapi.ValidateInterface
-	nsLister       corev1listers.NamespaceLister
-	metrics        metrics.MetricsConfigManager
+	log      logr.Logger
+	engine   engineapi.Engine
+	eventGen event.Interface
+	nsLister corev1listers.NamespaceLister
+	metrics  metrics.MetricsConfigManager
 }
 
 func (h *mutationHandler) HandleMutation(
@@ -127,11 +122,6 @@ func (v *mutationHandler) applyMutations(
 		}
 	}
 
-	// generate annotations
-	if annPatches := utils.GenerateAnnotationPatches(engineResponses, v.log); annPatches != nil {
-		patches = append(patches, annPatches...)
-	}
-
 	events := webhookutils.GenerateEvents(engineResponses, false)
 	v.eventGen.Add(events...)
 
@@ -151,13 +141,6 @@ func (h *mutationHandler) applyMutation(ctx context.Context, request admissionv1
 
 	if !engineResponse.IsSuccessful() {
 		return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy().GetName(), engineResponse.GetFailedRulesWithErrors())
-	}
-
-	if policyContext.Policy().ValidateSchema() && engineResponse.PatchedResource.GetKind() != "*" {
-		err := h.openApiManager.ValidateResource(*engineResponse.PatchedResource.DeepCopy(), engineResponse.PatchedResource.GetAPIVersion(), engineResponse.PatchedResource.GetKind())
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to validate resource mutated by policy %s: %w", policyContext.Policy().GetName(), err)
-		}
 	}
 
 	return &engineResponse, policyPatches, nil
