@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/distribution/distribution/reference"
+	"github.com/distribution/reference"
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/jmoiron/jsonq"
 	"github.com/kyverno/go-jmespath"
