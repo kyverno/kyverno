@@ -667,7 +667,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@838c26c783a08cf497dfff29d95ca90c6eeba3df
+        uses: sigstore/scaffolding/actions/setup@46eb35c1c415d976c7f9d3ee4c936e65c35e8e3e
         with:
           version: 'v0.6.8'
           k8s-version: ${{ matrix.k8s-version.version }}
