@@ -24,6 +24,7 @@ import (
 	v2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -34,9 +35,9 @@ type FakeClusterPolicies struct {
 	Fake *FakeKyvernoV2beta1
 }
 
-var clusterpoliciesResource = v2beta1.SchemeGroupVersion.WithResource("clusterpolicies")
+var clusterpoliciesResource = schema.GroupVersionResource{Group: "kyverno.io", Version: "v2beta1", Resource: "clusterpolicies"}
 
-var clusterpoliciesKind = v2beta1.SchemeGroupVersion.WithKind("ClusterPolicy")
+var clusterpoliciesKind = schema.GroupVersionKind{Group: "kyverno.io", Version: "v2beta1", Kind: "ClusterPolicy"}
 
 // Get takes name of the clusterPolicy, and returns the corresponding clusterPolicy object, and an error if there is any.
 func (c *FakeClusterPolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2beta1.ClusterPolicy, err error) {
