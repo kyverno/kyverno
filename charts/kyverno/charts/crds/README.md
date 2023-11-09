@@ -1,6 +1,6 @@
 # crds
 
-![Version: 3.1.0-rc.7](https://img.shields.io/badge/Version-3.1.0--rc.7-informational?style=flat-square)
+![Version: 3.1.0-rc.8](https://img.shields.io/badge/Version-3.1.0--rc.8-informational?style=flat-square)
 
 ## Values
 
