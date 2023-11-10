@@ -5,7 +5,6 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/sigstore/cosign/v2/pkg/oci/remote"
 )
 
 type ImageVerifier interface {
@@ -18,8 +17,7 @@ type ImageVerifier interface {
 
 type Client interface {
 	Keychain() authn.Keychain
-	BuildCosignRemoteOption(context.Context) (remote.Option, error)
-	BuildGCRRemoteOption(context.Context) ([]gcrremote.Option, error)
+	Options(context.Context) ([]gcrremote.Option, error)
 }
 
 type Options struct {
