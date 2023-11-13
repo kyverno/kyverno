@@ -96,11 +96,11 @@ func ForEach(name string, foreach kyvernov1.ForEachMutation, policyContext engin
 	}
 	if err := resource.UnmarshalJSON(patchedBytes); err != nil {
 		return NewErrorResponse("failed to unmarshal patched resource", err)
-	} else if err := ctx.AddResource(resource.Object); err != nil {
-		return NewErrorResponse("failed to update patched resource in the JSON context", err)
-	} else {
-		return NewResponse(engineapi.RuleStatusPass, resource, "resource patched")
 	}
+	if err := ctx.AddResource(resource.Object); err != nil {
+		return NewErrorResponse("failed to update patched resource in the JSON context", err)
+	}
+	return NewResponse(engineapi.RuleStatusPass, resource, "resource patched")
 }
 
 func substituteAllInForEach(fe kyvernov1.ForEachMutation, ctx context.Interface, logger logr.Logger) (*kyvernov1.ForEachMutation, error) {

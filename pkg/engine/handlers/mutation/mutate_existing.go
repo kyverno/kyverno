@@ -77,7 +77,7 @@ func (h mutateExistingHandler) Process(
 				rule:          rule,
 				foreach:       rule.Mutation.ForEachMutation,
 				policyContext: policyContext,
-				resource:      target.resourceInfo,
+				resource:      *target.resourceInfo.deepCopy(),
 				logger:        logger,
 				contextLoader: contextLoader,
 				nesting:       0,

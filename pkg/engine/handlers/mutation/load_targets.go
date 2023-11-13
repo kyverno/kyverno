@@ -24,6 +24,14 @@ type resourceInfo struct {
 	parentResourceGVR metav1.GroupVersionResource
 }
 
+func (r *resourceInfo) deepCopy() *resourceInfo {
+	return &resourceInfo{
+		unstructured:      *r.unstructured.DeepCopy(),
+		subresource:       r.subresource,
+		parentResourceGVR: *r.parentResourceGVR.DeepCopy(),
+	}
+}
+
 type target struct {
 	resourceInfo
 	context       []kyvernov1.ContextEntry
