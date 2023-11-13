@@ -127,6 +127,7 @@ func (a *apiCall) executeServiceCall(ctx context.Context, apiCall *kyvernov1.API
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute HTTP request for APICall %s: %w", a.entry.Name, err)
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		b, err := io.ReadAll(resp.Body)
@@ -137,7 +138,6 @@ func (a *apiCall) executeServiceCall(ctx context.Context, apiCall *kyvernov1.API
 		return nil, fmt.Errorf("HTTP %s", resp.Status)
 	}
 
-	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read data from APICall %s: %w", a.entry.Name, err)
