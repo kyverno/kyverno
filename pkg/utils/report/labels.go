@@ -19,16 +19,17 @@ import (
 const (
 	LabelDomain = "kyverno.io"
 	//	resource labels
-	LabelResourceHash      = "audit.kyverno.io/resource.hash"
-	LabelResourceUid       = "audit.kyverno.io/resource.uid"
-	LabelResourceGVR       = "audit.kyverno.io/resource.gvr"
-	LabelResourceNamespace = "audit.kyverno.io/resource.namespace"
-	LabelResourceName      = "audit.kyverno.io/resource.name"
+	LabelResourceHash           = "audit.kyverno.io/resource.hash"
+	LabelResourceUid            = "audit.kyverno.io/resource.uid"
+	LabelResourceGVR            = "audit.kyverno.io/resource.gvr"
+	AnnotationResourceNamespace = "audit.kyverno.io/resource.namespace"
+	AnnotationResourceName      = "audit.kyverno.io/resource.name"
 	//	policy labels
-	LabelDomainClusterPolicy = "cpol.kyverno.io"
-	LabelDomainPolicy        = "pol.kyverno.io"
-	LabelPrefixClusterPolicy = LabelDomainClusterPolicy + "/"
-	LabelPrefixPolicy        = LabelDomainPolicy + "/"
+	LabelDomainClusterPolicy             = "cpol.kyverno.io"
+	LabelDomainPolicy                    = "pol.kyverno.io"
+	LabelPrefixClusterPolicy             = LabelDomainClusterPolicy + "/"
+	LabelPrefixPolicy                    = LabelDomainPolicy + "/"
+	LabelPrefixValidatingAdmissionPolicy = "validatingadmissionpolicy.apiserver.io/"
 	//	aggregated admission report label
 	LabelAggregatedReport = "audit.kyverno.io/report.aggregate"
 )
@@ -93,8 +94,8 @@ func SetResourceGVR(report kyvernov1alpha2.ReportInterface, gvr schema.GroupVers
 }
 
 func SetResourceNamespaceAndName(report kyvernov1alpha2.ReportInterface, namespace, name string) {
-	controllerutils.SetLabel(report, LabelResourceNamespace, namespace)
-	controllerutils.SetLabel(report, LabelResourceName, name)
+	controllerutils.SetAnnotation(report, AnnotationResourceNamespace, namespace)
+	controllerutils.SetAnnotation(report, AnnotationResourceName, name)
 }
 
 func CalculateResourceHash(resource unstructured.Unstructured) string {
@@ -146,7 +147,7 @@ func GetResourceGVR(report metav1.Object) schema.GroupVersionResource {
 }
 
 func GetResourceNamespaceAndName(report kyvernov1alpha2.ReportInterface) (string, string) {
-	return controllerutils.GetLabel(report, LabelResourceNamespace), controllerutils.GetLabel(report, LabelResourceName)
+	return controllerutils.GetAnnotation(report, AnnotationResourceNamespace), controllerutils.GetAnnotation(report, AnnotationResourceName)
 }
 
 func GetResourceHash(report metav1.Object) string {
