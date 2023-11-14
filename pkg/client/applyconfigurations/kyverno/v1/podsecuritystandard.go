@@ -21,8 +21,10 @@ package v1
 // PodSecurityStandardApplyConfiguration represents an declarative configuration of the PodSecurityStandard type for use
 // with apply.
 type PodSecurityStandardApplyConfiguration struct {
-	ControlName *string  `json:"controlName,omitempty"`
-	Images      []string `json:"images,omitempty"`
+	ControlName     *string  `json:"controlName,omitempty"`
+	Images          []string `json:"images,omitempty"`
+	RestrictedField *string  `json:"restrictedField,omitempty"`
+	Values          []string `json:"values,omitempty"`
 }
 
 // PodSecurityStandardApplyConfiguration constructs an declarative configuration of the PodSecurityStandard type for use with
@@ -45,6 +47,24 @@ func (b *PodSecurityStandardApplyConfiguration) WithControlName(value string) *P
 func (b *PodSecurityStandardApplyConfiguration) WithImages(values ...string) *PodSecurityStandardApplyConfiguration {
 	for i := range values {
 		b.Images = append(b.Images, values[i])
+	}
+	return b
+}
+
+// WithRestrictedField sets the RestrictedField field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the RestrictedField field is set to the value of the last call.
+func (b *PodSecurityStandardApplyConfiguration) WithRestrictedField(value string) *PodSecurityStandardApplyConfiguration {
+	b.RestrictedField = &value
+	return b
+}
+
+// WithValues adds the given value to the Values field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Values field.
+func (b *PodSecurityStandardApplyConfiguration) WithValues(values ...string) *PodSecurityStandardApplyConfiguration {
+	for i := range values {
+		b.Values = append(b.Values, values[i])
 	}
 	return b
 }
