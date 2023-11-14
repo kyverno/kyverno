@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -53,7 +52,7 @@ func testValidate(
 func newPolicyContext(
 	t *testing.T,
 	resource unstructured.Unstructured,
-	operation kyverno.AdmissionOperation,
+	operation kyvernov1.AdmissionOperation,
 	admissionInfo *kyvernov1beta1.RequestInfo,
 ) *PolicyContext {
 	t.Helper()
@@ -2145,7 +2144,7 @@ func executeTest(t *testing.T, test testCase) {
 		t.Fatal(err)
 	}
 
-	pc := newPolicyContext(t, newR, kyverno.AdmissionOperation(request.Operation), &userInfo).
+	pc := newPolicyContext(t, newR, kyvernov1.AdmissionOperation(request.Operation), &userInfo).
 		WithPolicy(&policy).
 		WithOldResource(oldR)
 
