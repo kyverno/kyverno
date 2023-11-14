@@ -86,7 +86,7 @@ require (
 	sigs.k8s.io/kustomize/api v0.15.0
 	sigs.k8s.io/kustomize/kyaml v0.15.0
 	sigs.k8s.io/release-utils v0.7.6
-	sigs.k8s.io/structured-merge-diff/v4 v4.3.0
+	sigs.k8s.io/structured-merge-diff/v4 v4.4.1
 	sigs.k8s.io/yaml v1.4.0
 )
 
