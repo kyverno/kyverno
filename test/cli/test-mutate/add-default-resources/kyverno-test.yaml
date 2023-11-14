@@ -14,17 +14,17 @@ results:
   - nginx-demo1
   result: pass
   rule: add-default-requests
-# - kind: Pod
-#   patchedResource: patchedResource3.yaml
-#   policy: add-default-resources
-#   resources:
-#   - nginx-demo3
-#   result: pass
-#   rule: add-default-requests
-# - kind: Pod
-#   patchedResource: patchedResource2.yaml
-#   policy: add-default-resources
-#   resources:
-#   - nginx-demo2
-#   result: skip
-#   rule: add-default-requests
+- kind: Pod
+  patchedResource: patchedResource3.yaml
+  policy: add-default-resources
+  resources:
+  - nginx-demo3
+  result: pass
+  rule: add-default-requests
+- kind: Pod
+  patchedResource: patchedResource2.yaml
+  policy: add-default-resources
+  resources:
+  - nginx-demo2
+  result: skip
+  rule: add-default-requests
