@@ -7429,6 +7429,9 @@ spec:
                             resource specified in the Clone declaration. Optional.
                             Defaults to "false" if not specified.
                           type: boolean
+                        uid:
+                          description: UID specifies the resource uid.
+                          type: string
                       type: object
                     imageExtractors:
                       additionalProperties:
@@ -8694,6 +8697,9 @@ spec:
                                   is supported for backwards compatibility but will
                                   be deprecated in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
                                 x-kubernetes-preserve-unknown-fields: true
+                              uid:
+                                description: UID specifies the resource uid.
+                                type: string
                             type: object
                           type: array
                       type: object
@@ -11801,6 +11807,9 @@ spec:
                                 Data or the resource specified in the Clone declaration.
                                 Optional. Defaults to "false" if not specified.
                               type: boolean
+                            uid:
+                              description: UID specifies the resource uid.
+                              type: string
                           type: object
                         imageExtractors:
                           additionalProperties:
@@ -13122,6 +13131,9 @@ spec:
                                       will be deprecated in the next major release.
                                       See: https://kyverno.io/docs/writing-policies/preconditions/'
                                     x-kubernetes-preserve-unknown-fields: true
+                                  uid:
+                                    description: UID specifies the resource uid.
+                                    type: string
                                 type: object
                               type: array
                           type: object
@@ -16193,6 +16205,9 @@ spec:
                             resource specified in the Clone declaration. Optional.
                             Defaults to "false" if not specified.
                           type: boolean
+                        uid:
+                          description: UID specifies the resource uid.
+                          type: string
                       type: object
                     imageExtractors:
                       additionalProperties:
@@ -17245,6 +17260,9 @@ spec:
                                   is supported for backwards compatibility but will
                                   be deprecated in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
                                 x-kubernetes-preserve-unknown-fields: true
+                              uid:
+                                description: UID specifies the resource uid.
+                                type: string
                             type: object
                           type: array
                       type: object
@@ -20505,6 +20523,9 @@ spec:
                                 Data or the resource specified in the Clone declaration.
                                 Optional. Defaults to "false" if not specified.
                               type: boolean
+                            uid:
+                              description: UID specifies the resource uid.
+                              type: string
                           type: object
                         imageExtractors:
                           additionalProperties:
@@ -21826,6 +21847,9 @@ spec:
                                       will be deprecated in the next major release.
                                       See: https://kyverno.io/docs/writing-policies/preconditions/'
                                     x-kubernetes-preserve-unknown-fields: true
+                                  uid:
+                                    description: UID specifies the resource uid.
+                                    type: string
                                 type: object
                               type: array
                           type: object
@@ -25137,6 +25161,9 @@ spec:
                             resource specified in the Clone declaration. Optional.
                             Defaults to "false" if not specified.
                           type: boolean
+                        uid:
+                          description: UID specifies the resource uid.
+                          type: string
                       type: object
                     imageExtractors:
                       additionalProperties:
@@ -26402,6 +26429,9 @@ spec:
                                   is supported for backwards compatibility but will
                                   be deprecated in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
                                 x-kubernetes-preserve-unknown-fields: true
+                              uid:
+                                description: UID specifies the resource uid.
+                                type: string
                             type: object
                           type: array
                       type: object
@@ -29510,6 +29540,9 @@ spec:
                                 Data or the resource specified in the Clone declaration.
                                 Optional. Defaults to "false" if not specified.
                               type: boolean
+                            uid:
+                              description: UID specifies the resource uid.
+                              type: string
                           type: object
                         imageExtractors:
                           additionalProperties:
@@ -30831,6 +30864,9 @@ spec:
                                       will be deprecated in the next major release.
                                       See: https://kyverno.io/docs/writing-policies/preconditions/'
                                     x-kubernetes-preserve-unknown-fields: true
+                                  uid:
+                                    description: UID specifies the resource uid.
+                                    type: string
                                 type: object
                               type: array
                           type: object
@@ -33903,6 +33939,9 @@ spec:
                             resource specified in the Clone declaration. Optional.
                             Defaults to "false" if not specified.
                           type: boolean
+                        uid:
+                          description: UID specifies the resource uid.
+                          type: string
                       type: object
                     imageExtractors:
                       additionalProperties:
@@ -34955,6 +34994,9 @@ spec:
                                   is supported for backwards compatibility but will
                                   be deprecated in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
                                 x-kubernetes-preserve-unknown-fields: true
+                              uid:
+                                description: UID specifies the resource uid.
+                                type: string
                             type: object
                           type: array
                       type: object
@@ -38215,6 +38257,9 @@ spec:
                                 Data or the resource specified in the Clone declaration.
                                 Optional. Defaults to "false" if not specified.
                               type: boolean
+                            uid:
+                              description: UID specifies the resource uid.
+                              type: string
                           type: object
                         imageExtractors:
                           additionalProperties:
@@ -39536,6 +39581,9 @@ spec:
                                       will be deprecated in the next major release.
                                       See: https://kyverno.io/docs/writing-policies/preconditions/'
                                     x-kubernetes-preserve-unknown-fields: true
+                                  uid:
+                                    description: UID specifies the resource uid.
+                                    type: string
                                 type: object
                               type: array
                           type: object
@@ -43274,6 +43322,9 @@ spec:
                   namespace:
                     description: Namespace specifies resource namespace.
                     type: string
+                  uid:
+                    description: UID specifies the resource uid.
+                    type: string
                 type: object
               rule:
                 description: Rule is the associate rule name of the current UR.
@@ -43308,6 +43359,9 @@ spec:
                       type: string
                     namespace:
                       description: Namespace specifies resource namespace.
+                      type: string
+                    uid:
+                      description: UID specifies the resource uid.
                       type: string
                   type: object
                 type: array
