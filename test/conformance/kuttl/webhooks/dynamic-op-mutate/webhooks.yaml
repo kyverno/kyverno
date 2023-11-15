@@ -3,15 +3,16 @@ kind: MutatingWebhookConfiguration
 metadata:
   labels:
     webhook.kyverno.io/managed-by: kyverno
-  name: kyverno-resource-mutasting-webhook-cfg
+  name: kyverno-resource-mutating-webhook-cfg
 webhooks:
 - rules:
   - apiGroups:
-    - '*'
+    - ''
     apiVersions:
-    - '*'
+    - 'v1'
     operations:
     - CREATE
     resources:
-    - '*/scale'
+    - 'pods'
     scope: '*'
+
