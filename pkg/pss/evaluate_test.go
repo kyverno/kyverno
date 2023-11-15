@@ -2649,6 +2649,44 @@ var baseline_seLinux = []testCase{
 		allowed: true,
 	},
 	{
+		name: "baseline_seLinux_type_defines_spec",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "SELinux",
+					"restrictedField": "spec.securityContext.seLinuxOptions.type",
+					"values": [
+						"fake_value"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"seLinuxOptions": {
+						"type": "fake_value"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
 		name: "baseline_seLinux_type_defines_spec_violate_false",
 		rawRule: []byte(`
 		{
