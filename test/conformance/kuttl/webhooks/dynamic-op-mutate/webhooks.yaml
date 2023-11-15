@@ -7,12 +7,12 @@ metadata:
 webhooks:
 - rules:
   - apiGroups:
-    - ''
+    - '*'
     apiVersions:
-    - 'v1'
+    - '*'
     operations:
     - CREATE
     resources:
-    - 'pods'
+    - '*/scale'
     scope: '*'
 
