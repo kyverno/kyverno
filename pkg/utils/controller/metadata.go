@@ -24,6 +24,14 @@ func CheckLabel(obj metav1.Object, key, value string) bool {
 	return labels[key] == value
 }
 
+func GetAnnotation(obj metav1.Object, key string) string {
+	annotations := obj.GetAnnotations()
+	if annotations == nil {
+		return ""
+	}
+	return annotations[key]
+}
+
 func GetLabel(obj metav1.Object, key string) string {
 	labels := obj.GetLabels()
 	if labels == nil {
