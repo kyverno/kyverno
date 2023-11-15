@@ -25,9 +25,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/tls"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
 )
@@ -100,6 +102,10 @@ func main() {
 	}
 	if tlsSecretName == "" {
 		setup.Logger.Error(errors.New("exiting... tlsSecretName is a required flag"), "exiting... tlsSecretName is a required flag")
+		os.Exit(1)
+	}
+	if err := sanityChecks(setup.ApiServerClient); err != nil {
+		setup.Logger.Error(err, "sanity checks failed")
 		os.Exit(1)
 	}
 	// certificates informers
@@ -327,4 +333,9 @@ func main() {
 	server.Run(ctx.Done())
 	// start leader election
 	le.Run(ctx)
+}
+
+// sanity checks for cleanup-controller
+func sanityChecks(apiserverClient apiserver.Interface) error {
+	return kubeutils.CRDsForCleanupControllerInstalled(apiserverClient)
 }

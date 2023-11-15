@@ -23,6 +23,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policy"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeinformers "k8s.io/client-go/informers"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
@@ -127,6 +129,11 @@ func main() {
 	// THIS IS AN UGLY FIX
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
+	if err := sanityChecks(setup.ApiServerClient); err != nil {
+		setup.Logger.Error(err, "sanity checks failed")
+		os.Exit(1)
+	}
+
 	// informer factories
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 	emitEventsValues := strings.Split(omitEvents, ",")
@@ -222,4 +229,9 @@ func main() {
 	// start leader election
 	le.Run(signalCtx)
 	wg.Wait()
+}
+
+// add sanity checks for background-controller
+func sanityChecks(apiserverClient apiserver.Interface) error {
+	return kubeutils.CRDsForBackgroundControllerInstalled(apiserverClient)
 }
