@@ -34,6 +34,8 @@ annotations:
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
     - kind: added
+      description: allow overriding revisionHistoryLimit
+    - kind: added
       description: support for GrafanaDashboard custom resource
     - kind: changed
       description: only create ServiceMonitor if cluster supports it

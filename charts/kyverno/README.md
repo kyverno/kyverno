@@ -333,6 +333,7 @@ The chart values are organised per component.
 | admissionController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | admissionController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
 | admissionController.replicas | int | `nil` | Desired number of pods |
+| admissionController.revisionHistoryLimit | int | `10` | The number of revisions to keep |
 | admissionController.podLabels | object | `{}` | Additional labels to add to each pod |
 | admissionController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | admissionController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
@@ -425,6 +426,7 @@ The chart values are organised per component.
 | backgroundController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | backgroundController.imagePullSecrets | list | `[]` | Image pull secrets |
 | backgroundController.replicas | int | `nil` | Desired number of pods |
+| backgroundController.revisionHistoryLimit | int | `10` | The number of revisions to keep |
 | backgroundController.podLabels | object | `{}` | Additional labels to add to each pod |
 | backgroundController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | backgroundController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
@@ -490,6 +492,7 @@ The chart values are organised per component.
 | cleanupController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | cleanupController.imagePullSecrets | list | `[]` | Image pull secrets |
 | cleanupController.replicas | int | `nil` | Desired number of pods |
+| cleanupController.revisionHistoryLimit | int | `10` | The number of revisions to keep |
 | cleanupController.podLabels | object | `{}` | Additional labels to add to each pod |
 | cleanupController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | cleanupController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
@@ -561,6 +564,7 @@ The chart values are organised per component.
 | reportsController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | reportsController.imagePullSecrets | list | `[]` | Image pull secrets |
 | reportsController.replicas | int | `nil` | Desired number of pods |
+| reportsController.revisionHistoryLimit | int | `10` | The number of revisions to keep |
 | reportsController.podLabels | object | `{}` | Additional labels to add to each pod |
 | reportsController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | reportsController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
