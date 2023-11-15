@@ -7,7 +7,6 @@ import (
 	"text/template"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/templates"
@@ -18,7 +17,7 @@ type options struct {
 	Name       string
 	Namespace  string
 	Background bool
-	Exceptions []v2alpha1.Exception
+	Exceptions []v2beta1.Exception
 	Match      v2beta1.MatchResources
 }
 
@@ -81,12 +80,12 @@ func Command() *cobra.Command {
 	return cmd
 }
 
-func parseRule(in string) *v2alpha1.Exception {
+func parseRule(in string) *v2beta1.Exception {
 	parts := strings.Split(in, ",")
 	if len(parts) < 2 {
 		return nil
 	}
-	return &v2alpha1.Exception{
+	return &v2beta1.Exception{
 		PolicyName: parts[0],
 		RuleNames:  parts[1:],
 	}
