@@ -1,5 +1,5 @@
 {{- if .Values.backgroundController.enabled -}}
-{{- if and .Values.backgroundController.serviceMonitor.enabled (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") -}}
+{{- if .Values.backgroundController.serviceMonitor.enabled -}}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
