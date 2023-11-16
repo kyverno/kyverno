@@ -390,7 +390,7 @@ Please consult the [values.yaml](./values.yaml) file before overriding `config.r
 
 Running a highly-available Kyverno installation is crucial in a production environment.
 
-In order to run Kyverno in high availability mode, you should set `replicaCount` to `3` or more.
+In order to run Kyverno in high availability mode, you should set `replicas` to `3` or more for desired components.
 You should also pay attention to anti affinity rules, spreading pods across nodes and availability zones.
 
 Please see https://kyverno.io/docs/installation/#security-vs-operability for more informations.
