@@ -1035,6 +1035,8 @@ github.com/kyverno/go-jmespath v0.4.1-0.20230705123211-d067dc3d6613 h1:M0uOLuCAZ
 github.com/kyverno/go-jmespath v0.4.1-0.20230705123211-d067dc3d6613/go.mod h1:yzDHaKovQy16rjN4kFnjF+IdNoN4p1ndw+va6+B8zUU=
 github.com/kyverno/go-jmespath/internal/testify v1.5.2-0.20230630133209-945021c749d9 h1:lL311dF3a2aeNibJj8v+uhFU3XkvRHZmCtAdSPOrQYY=
 github.com/kyverno/go-jmespath/internal/testify v1.5.2-0.20230630133209-945021c749d9/go.mod h1:XRxUGHIiCy1WYma1CdfdO1WOhIe8dLPTENaZr5D1ex4=
+github.com/kyverno/kubectl-validate v0.0.0-20231116142848-59e4e6124b70 h1:/ThsDBrhi0ayXXevlRt2MRh0DOkcXiSTJNMIFiV8dE0=
+github.com/kyverno/kubectl-validate v0.0.0-20231116142848-59e4e6124b70/go.mod h1:uo2AjjJaC8pmYqhF95caNvqzyQQaiXUpajPjwOy7Ylk=
 github.com/ldez/gomoddirectives v0.2.1/go.mod h1:sGicqkRgBOg//JfpXwkB9Hj0X5RyJ7mlACM5B9f6Me4=
 github.com/ldez/tagliatelle v0.2.0/go.mod h1:8s6WJQwEYHbKZDsp/LjArytKOG8qaMrKQQ3mFukHs88=
 github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7 h1:k/1ku0yehLCPqERCHkIHMDqDg1R02AcCScRuHbamU3s=
@@ -1372,8 +1374,6 @@ github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a/go.mod h1:bCqn
 github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 h1:N/ElC8H3+5XpJzTSTfLsJV/mx9Q9g7kxmchpfZyxgzM=
 github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
-github.com/realshuting/kubectl-validate v0.0.0-20231116131453-89b8a1016e43 h1:SE8OdhvX50q+Zo6CSXZ90Ivc/0tflT40D8Q8j/vxK2g=
-github.com/realshuting/kubectl-validate v0.0.0-20231116131453-89b8a1016e43/go.mod h1:uo2AjjJaC8pmYqhF95caNvqzyQQaiXUpajPjwOy7Ylk=
 github.com/richardartoul/molecule v1.0.1-0.20221107223329-32cfee06a052 h1:Qp27Idfgi6ACvFQat5+VJvlYToylpM/hcyLBI3WaKPA=
 github.com/richardartoul/molecule v1.0.1-0.20221107223329-32cfee06a052/go.mod h1:uvX/8buq8uVeiZiFht+0lqSLBHF+uGV8BrTv8W/SIwk=
 github.com/rivo/uniseg v0.2.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=
