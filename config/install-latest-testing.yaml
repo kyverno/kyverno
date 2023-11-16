@@ -45440,6 +45440,7 @@ metadata:
     app.kubernetes.io/version: latest
 spec:
   replicas: 
+  revisionHistoryLimit: 10
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -45631,6 +45632,7 @@ metadata:
     app.kubernetes.io/version: latest
 spec:
   replicas: 
+  revisionHistoryLimit: 10
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -45729,6 +45731,7 @@ metadata:
     app.kubernetes.io/version: latest
 spec:
   replicas: 
+  revisionHistoryLimit: 10
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -45860,6 +45863,7 @@ metadata:
     app.kubernetes.io/version: latest
 spec:
   replicas: 
+  revisionHistoryLimit: 10
   strategy:
     rollingUpdate:
       maxSurge: 1

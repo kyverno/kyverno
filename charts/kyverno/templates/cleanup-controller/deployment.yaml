@@ -9,6 +9,7 @@ metadata:
     {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
 spec:
   replicas: {{ template "kyverno.deployment.replicas" .Values.cleanupController.replicas }}
+  revisionHistoryLimit: {{ .Values.cleanupController.revisionHistoryLimit }}
   {{- with .Values.cleanupController.updateStrategy }}
   strategy:
     {{- toYaml . | nindent 4 }}

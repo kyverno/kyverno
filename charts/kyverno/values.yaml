@@ -667,6 +667,9 @@ admissionController:
   # -- (int) Desired number of pods
   replicas: ~
 
+  # -- The number of revisions to keep
+  revisionHistoryLimit: 10
+
   # -- Additional labels to add to each pod
   podLabels: {}
     # example.com/label: foo
@@ -1084,6 +1087,9 @@ backgroundController:
   # -- (int) Desired number of pods
   replicas: ~
 
+  # -- The number of revisions to keep
+  revisionHistoryLimit: 10
+
   # -- Additional labels to add to each pod
   podLabels: {}
   # example.com/label: foo
@@ -1308,6 +1314,9 @@ cleanupController:
 
   # -- (int) Desired number of pods
   replicas: ~
+
+  # -- The number of revisions to keep
+  revisionHistoryLimit: 10
 
   # -- Additional labels to add to each pod
   podLabels: {}
@@ -1579,6 +1588,9 @@ reportsController:
 
   # -- (int) Desired number of pods
   replicas: ~
+
+  # -- The number of revisions to keep
+  revisionHistoryLimit: 10
 
   # -- Additional labels to add to each pod
   podLabels: {}

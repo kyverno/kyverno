@@ -9,6 +9,7 @@ metadata:
     {{- include "kyverno.background-controller.labels" . | nindent 4 }}
 spec:
   replicas: {{ template "kyverno.deployment.replicas" .Values.backgroundController.replicas }}
+  revisionHistoryLimit: {{ .Values.backgroundController.revisionHistoryLimit }}
   {{- with .Values.backgroundController.updateStrategy }}
   strategy:
     {{- toYaml . | nindent 4 }}
