@@ -37,8 +37,6 @@ annotations:
       description: allow overriding revisionHistoryLimit
     - kind: added
       description: support for GrafanaDashboard custom resource
-    - kind: changed
-      description: only create ServiceMonitor if cluster supports it
     - kind: fixed
       description: rbac templating issues
     - kind: added
