@@ -9,6 +9,7 @@ metadata:
     {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
 spec:
   replicas: {{ template "kyverno.deployment.replicas" .Values.reportsController.replicas }}
+  revisionHistoryLimit: {{ .Values.reportsController.revisionHistoryLimit }}
   {{- with .Values.reportsController.updateStrategy }}
   strategy:
     {{- toYaml . | nindent 4 }}
