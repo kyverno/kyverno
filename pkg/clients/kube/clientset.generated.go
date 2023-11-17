@@ -31,7 +31,7 @@ import (
 	eventsv1 "github.com/kyverno/kyverno/pkg/clients/kube/eventsv1"
 	eventsv1beta1 "github.com/kyverno/kyverno/pkg/clients/kube/eventsv1beta1"
 	extensionsv1beta1 "github.com/kyverno/kyverno/pkg/clients/kube/extensionsv1beta1"
-	flowcontrolv1alpha1 "github.com/kyverno/kyverno/pkg/clients/kube/flowcontrolv1alpha1"
+	flowcontrolv1 "github.com/kyverno/kyverno/pkg/clients/kube/flowcontrolv1"
 	flowcontrolv1beta1 "github.com/kyverno/kyverno/pkg/clients/kube/flowcontrolv1beta1"
 	flowcontrolv1beta2 "github.com/kyverno/kyverno/pkg/clients/kube/flowcontrolv1beta2"
 	flowcontrolv1beta3 "github.com/kyverno/kyverno/pkg/clients/kube/flowcontrolv1beta3"
@@ -86,7 +86,7 @@ import (
 	k8s_io_client_go_kubernetes_typed_events_v1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	k8s_io_client_go_kubernetes_typed_events_v1beta1 "k8s.io/client-go/kubernetes/typed/events/v1beta1"
 	k8s_io_client_go_kubernetes_typed_extensions_v1beta1 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
-	k8s_io_client_go_kubernetes_typed_flowcontrol_v1alpha1 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1alpha1"
+	k8s_io_client_go_kubernetes_typed_flowcontrol_v1 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1"
 	k8s_io_client_go_kubernetes_typed_flowcontrol_v1beta1 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta1"
 	k8s_io_client_go_kubernetes_typed_flowcontrol_v1beta2 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta2"
 	k8s_io_client_go_kubernetes_typed_flowcontrol_v1beta3 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta3"
@@ -140,7 +140,7 @@ type clientset struct {
 	eventsv1                      k8s_io_client_go_kubernetes_typed_events_v1.EventsV1Interface
 	eventsv1beta1                 k8s_io_client_go_kubernetes_typed_events_v1beta1.EventsV1beta1Interface
 	extensionsv1beta1             k8s_io_client_go_kubernetes_typed_extensions_v1beta1.ExtensionsV1beta1Interface
-	flowcontrolv1alpha1           k8s_io_client_go_kubernetes_typed_flowcontrol_v1alpha1.FlowcontrolV1alpha1Interface
+	flowcontrolv1                 k8s_io_client_go_kubernetes_typed_flowcontrol_v1.FlowcontrolV1Interface
 	flowcontrolv1beta1            k8s_io_client_go_kubernetes_typed_flowcontrol_v1beta1.FlowcontrolV1beta1Interface
 	flowcontrolv1beta2            k8s_io_client_go_kubernetes_typed_flowcontrol_v1beta2.FlowcontrolV1beta2Interface
 	flowcontrolv1beta3            k8s_io_client_go_kubernetes_typed_flowcontrol_v1beta3.FlowcontrolV1beta3Interface
@@ -252,8 +252,8 @@ func (c *clientset) EventsV1beta1() k8s_io_client_go_kubernetes_typed_events_v1b
 func (c *clientset) ExtensionsV1beta1() k8s_io_client_go_kubernetes_typed_extensions_v1beta1.ExtensionsV1beta1Interface {
 	return c.extensionsv1beta1
 }
-func (c *clientset) FlowcontrolV1alpha1() k8s_io_client_go_kubernetes_typed_flowcontrol_v1alpha1.FlowcontrolV1alpha1Interface {
-	return c.flowcontrolv1alpha1
+func (c *clientset) FlowcontrolV1() k8s_io_client_go_kubernetes_typed_flowcontrol_v1.FlowcontrolV1Interface {
+	return c.flowcontrolv1
 }
 func (c *clientset) FlowcontrolV1beta1() k8s_io_client_go_kubernetes_typed_flowcontrol_v1beta1.FlowcontrolV1beta1Interface {
 	return c.flowcontrolv1beta1
@@ -353,7 +353,7 @@ func WrapWithMetrics(inner k8s_io_client_go_kubernetes.Interface, m metrics.Metr
 		eventsv1:                      eventsv1.WithMetrics(inner.EventsV1(), m, clientType),
 		eventsv1beta1:                 eventsv1beta1.WithMetrics(inner.EventsV1beta1(), m, clientType),
 		extensionsv1beta1:             extensionsv1beta1.WithMetrics(inner.ExtensionsV1beta1(), m, clientType),
-		flowcontrolv1alpha1:           flowcontrolv1alpha1.WithMetrics(inner.FlowcontrolV1alpha1(), m, clientType),
+		flowcontrolv1:                 flowcontrolv1.WithMetrics(inner.FlowcontrolV1(), m, clientType),
 		flowcontrolv1beta1:            flowcontrolv1beta1.WithMetrics(inner.FlowcontrolV1beta1(), m, clientType),
 		flowcontrolv1beta2:            flowcontrolv1beta2.WithMetrics(inner.FlowcontrolV1beta2(), m, clientType),
 		flowcontrolv1beta3:            flowcontrolv1beta3.WithMetrics(inner.FlowcontrolV1beta3(), m, clientType),
@@ -410,7 +410,7 @@ func WrapWithTracing(inner k8s_io_client_go_kubernetes.Interface) k8s_io_client_
 		eventsv1:                      eventsv1.WithTracing(inner.EventsV1(), "EventsV1"),
 		eventsv1beta1:                 eventsv1beta1.WithTracing(inner.EventsV1beta1(), "EventsV1beta1"),
 		extensionsv1beta1:             extensionsv1beta1.WithTracing(inner.ExtensionsV1beta1(), "ExtensionsV1beta1"),
-		flowcontrolv1alpha1:           flowcontrolv1alpha1.WithTracing(inner.FlowcontrolV1alpha1(), "FlowcontrolV1alpha1"),
+		flowcontrolv1:                 flowcontrolv1.WithTracing(inner.FlowcontrolV1(), "FlowcontrolV1"),
 		flowcontrolv1beta1:            flowcontrolv1beta1.WithTracing(inner.FlowcontrolV1beta1(), "FlowcontrolV1beta1"),
 		flowcontrolv1beta2:            flowcontrolv1beta2.WithTracing(inner.FlowcontrolV1beta2(), "FlowcontrolV1beta2"),
 		flowcontrolv1beta3:            flowcontrolv1beta3.WithTracing(inner.FlowcontrolV1beta3(), "FlowcontrolV1beta3"),
@@ -467,7 +467,7 @@ func WrapWithLogging(inner k8s_io_client_go_kubernetes.Interface, logger logr.Lo
 		eventsv1:                      eventsv1.WithLogging(inner.EventsV1(), logger.WithValues("group", "EventsV1")),
 		eventsv1beta1:                 eventsv1beta1.WithLogging(inner.EventsV1beta1(), logger.WithValues("group", "EventsV1beta1")),
 		extensionsv1beta1:             extensionsv1beta1.WithLogging(inner.ExtensionsV1beta1(), logger.WithValues("group", "ExtensionsV1beta1")),
-		flowcontrolv1alpha1:           flowcontrolv1alpha1.WithLogging(inner.FlowcontrolV1alpha1(), logger.WithValues("group", "FlowcontrolV1alpha1")),
+		flowcontrolv1:                 flowcontrolv1.WithLogging(inner.FlowcontrolV1(), logger.WithValues("group", "FlowcontrolV1")),
 		flowcontrolv1beta1:            flowcontrolv1beta1.WithLogging(inner.FlowcontrolV1beta1(), logger.WithValues("group", "FlowcontrolV1beta1")),
 		flowcontrolv1beta2:            flowcontrolv1beta2.WithLogging(inner.FlowcontrolV1beta2(), logger.WithValues("group", "FlowcontrolV1beta2")),
 		flowcontrolv1beta3:            flowcontrolv1beta3.WithLogging(inner.FlowcontrolV1beta3(), logger.WithValues("group", "FlowcontrolV1beta3")),
