@@ -1,0 +1,24 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: allowed-annotations
+spec:
+  background: true
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: allowed-fluxcd-annotations
+    validate:
+      deny:
+        conditions:
+          all:
+          - key: '{{ request.object.metadata.annotations.keys(@)[?contains(@, ''fluxcd.io/'')] }}'
+            operator: AnyNotIn
+            value:
+            - fluxcd.io/cow
+            - fluxcd.io/dog
+      message: The only approved FluxCD annotations are `fluxcd.io/cow` and `fluxcd.io/dog`.
+  validationFailureAction: Enforce

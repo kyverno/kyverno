@@ -177,7 +177,7 @@ jobs:
           - name: v1.28
             version: v1.28.0
         tests:
-          # - autogen
+          - autogen
           - background-only
           # - cleanup
           # - deferred
