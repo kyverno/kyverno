@@ -197,6 +197,7 @@ jobs:
           # - verifyImages
           - webhooks
           - background-only
+          - autogen
     needs: prepare-images
     name: chainsaw - ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
