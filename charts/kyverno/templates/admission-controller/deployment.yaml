@@ -8,6 +8,7 @@ metadata:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 spec:
   replicas: {{ template "kyverno.deployment.replicas" .Values.admissionController.replicas }}
+  revisionHistoryLimit: {{ .Values.admissionController.revisionHistoryLimit }}
   {{- with .Values.admissionController.updateStrategy }}
   strategy:
     {{- toYaml . | nindent 4 }}
