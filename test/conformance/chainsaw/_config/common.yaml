@@ -4,7 +4,6 @@ metadata:
   name: congiguration
 spec:
   parallel: 1
-  timeout: 1m30s
   fullName: true
   failFast: true
   excludeTestRegex: '_.+'

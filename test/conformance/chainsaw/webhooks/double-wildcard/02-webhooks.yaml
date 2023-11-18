@@ -1,9 +1,8 @@
----
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: TestStep
 metadata:
-  creationTimestamp: null
   name: webhooks
 spec:
-  assert:
-  - file: webhooks.yaml
+  try:
+  - assert:
+      file: webhooks.yaml
