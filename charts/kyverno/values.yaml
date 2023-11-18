@@ -713,6 +713,11 @@ admissionController:
   # Update the `dnsPolicy` accordingly as well to suit the host network mode.
   hostNetwork: false
 
+  # -- admissionController webhook server port
+  # in case you are using hostNetwork: true, you might want to change the port the webhookServer is listening to
+  webhookServer:
+    port: 9443
+
   # -- `dnsPolicy` determines the manner in which DNS resolution happens in the cluster.
   # In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`.
   # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy.
@@ -1342,6 +1347,15 @@ cleanupController:
   # Useful for situations like when you end up dealing with a custom CNI over Amazon EKS.
   # Update the `dnsPolicy` accordingly as well to suit the host network mode.
   hostNetwork: false
+
+  # -- cleanupController server port
+  # in case you are using hostNetwork: true, you might want to change the port the cleanupController is listening to
+  server:
+    port: 9443
+  # -- cleanupController webhook server port
+  # in case you are using hostNetwork: true, you might want to change the port the webhookServer is listening to
+  webhookServer:
+    port: 9443
 
   # -- `dnsPolicy` determines the manner in which DNS resolution happens in the cluster.
   # In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`.

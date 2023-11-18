@@ -15,7 +15,7 @@ require (
 	github.com/dgraph-io/ristretto v0.1.1
 	github.com/distribution/reference v0.5.0
 	github.com/evanphx/json-patch/v5 v5.6.0
-	github.com/fatih/color v1.15.0
+	github.com/fatih/color v1.16.0
 	github.com/fluxcd/pkg/oci v0.32.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-git/go-billy/v5 v5.5.0
