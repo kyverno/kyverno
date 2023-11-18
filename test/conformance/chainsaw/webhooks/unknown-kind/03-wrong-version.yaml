@@ -3,6 +3,8 @@ kind: TestStep
 metadata:
   name: wrong-version
 spec:
-  apply:
-  - file: policy-3.yaml
-    shouldFail: true
+  try:
+  - apply:
+      file: policy-3.yaml
+      check:
+        (error == null): false
