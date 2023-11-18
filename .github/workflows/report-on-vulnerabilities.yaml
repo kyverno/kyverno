@@ -19,7 +19,6 @@ jobs:
     steps:    
     - name: Get Branches Name
       id: get-branches
-      shell: bash
       run: |
         all_branches=$(curl -s https://api.github.com/repos/${{ env.IMAGE_NAME }}/branches | jq -r '.[].name | select(startswith("release-"))' | sort -rV | head -n 2)
         releasebranch1=$(echo "$all_branches" | sed -n 1p)
