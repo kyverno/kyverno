@@ -196,6 +196,7 @@ jobs:
           # - verify-manifests
           # - verifyImages
           - webhooks
+          - background-only
     needs: prepare-images
     name: chainsaw - ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
