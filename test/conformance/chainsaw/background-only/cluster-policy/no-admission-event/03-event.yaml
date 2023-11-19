@@ -8,3 +8,5 @@ spec:
       file: background-event.yaml
   - error:
       file: admission-event.yaml
+  catch:
+  - events: {}
