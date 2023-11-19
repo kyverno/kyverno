@@ -1,0 +1,10 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  name: event
+spec:
+  try:
+  - assert:
+      file: background-event.yaml
+  - error:
+      file: admission-event.yaml
