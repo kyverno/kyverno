@@ -12,7 +12,7 @@ The CLI can be used as a standalone tool or as a kubectl plugin.
 
 👉 **[Installation](https://kyverno.io/docs/kyverno-cli/#cli-commands)**
 
-👉 **[Reference docs](../../../docs/user/cli/kyverno.md)**
+👉 **[Reference docs](../../../docs/user/cli/commands/kyverno.md)**
 
 ## 🔧 GitHub Action
 
