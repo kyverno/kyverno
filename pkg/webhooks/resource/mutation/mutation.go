@@ -144,8 +144,12 @@ func (h *mutationHandler) applyMutation(ctx context.Context, request admissionv1
 	engineResponse := h.engine.Mutate(ctx, policyContext)
 	policyPatches := engineResponse.GetPatches()
 
-	if !engineResponse.IsSuccessful() && webhookutils.BlockRequest([]engineapi.EngineResponse{engineResponse}, failurePolicy, h.log) {
-		return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy().GetName(), engineResponse.GetFailedRulesWithErrors())
+	if !engineResponse.IsSuccessful() {
+		if webhookutils.BlockRequest([]engineapi.EngineResponse{engineResponse}, failurePolicy, h.log) {
+			return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy().GetName(), engineResponse.GetFailedRulesWithErrors())
+		} else {
+			return &engineResponse, nil, nil
+		}
 	}
 
 	return &engineResponse, policyPatches, nil
