@@ -64,11 +64,7 @@ func NewExceptionSelector(
 	if enablePolicyException {
 		factory := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
 		lister := factory.Kyverno().V2beta1().PolicyExceptions().Lister()
-		if exceptionNamespace != "" {
-			exceptionsLister = lister.PolicyExceptions(exceptionNamespace)
-		} else {
-			exceptionsLister = lister
-		}
+		exceptionsLister = lister
 		// start informers and wait for cache sync
 		if !StartInformersAndWaitForCacheSync(ctx, logger, factory) {
 			checkError(logger, errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
