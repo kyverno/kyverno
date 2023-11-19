@@ -181,7 +181,7 @@ jobs:
           - background-only
           # - cleanup
           # - deferred
-          # - events
+          - events
           # - exceptions
           # - filter
           # - generate/clusterpolicy
