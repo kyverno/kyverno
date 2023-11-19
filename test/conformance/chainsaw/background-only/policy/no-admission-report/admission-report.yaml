@@ -1,0 +1,7 @@
+apiVersion: kyverno.io/v1alpha2
+kind: AdmissionReport
+metadata:
+  ownerReferences:
+  - apiVersion: v1
+    kind: Pod
+    name: pod
