@@ -4,5 +4,6 @@ metadata:
   creationTimestamp: null
   name: resource
 spec:
-  apply:
-  - file: resource.yaml
+  try:
+  - apply:
+      file: resource.yaml
