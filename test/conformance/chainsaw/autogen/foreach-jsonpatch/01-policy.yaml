@@ -4,9 +4,10 @@ metadata:
   creationTimestamp: null
   name: policy
 spec:
-  apply:
-  - file: policy.yaml
-  assert:
-  - file: policy-assert.yaml
-  error:
-  - file: policy-error.yaml
+  try:
+  - apply:
+      file: policy.yaml
+  - assert:
+      file: policy-assert.yaml
+  - error:
+      file: policy-error.yaml
