@@ -3,6 +3,9 @@ kind: Configuration
 metadata:
   name: congiguration
 spec:
+  timeout:
+    assert: 90s
+    error: 90s
   parallel: 1
   fullName: true
   failFast: true
