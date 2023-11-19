@@ -3,7 +3,7 @@ kind: Configuration
 metadata:
   name: congiguration
 spec:
-  timeout:
+  timeouts:
     assert: 90s
     error: 90s
   parallel: 1
