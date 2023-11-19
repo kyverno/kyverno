@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: propagate-cost-labels-from-namespace
 spec:
-  failurePolicy: Ignore
+  failurePolicy: Fail
   rules:
   - name: add-cost-labels
     context:
