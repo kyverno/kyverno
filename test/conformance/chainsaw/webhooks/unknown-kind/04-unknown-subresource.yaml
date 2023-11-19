@@ -3,6 +3,8 @@ kind: TestStep
 metadata:
   name: unknown-subresource
 spec:
-  apply:
-  - file: policy-4.yaml
-    shouldFail: true
+  try:
+  - apply:
+      file: policy-4.yaml
+      check:
+        (error == null): false
