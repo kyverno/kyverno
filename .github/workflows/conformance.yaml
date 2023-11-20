@@ -178,7 +178,6 @@ jobs:
             version: v1.28.0
         tests:
           # - autogen
-          # - background-only
           # - cleanup
           # - deferred
           # - events
@@ -190,7 +189,6 @@ jobs:
           # - mutate
           # - policy-validation
           # - rangeoperators
-          # - rbac
           # - reports
           # - validate
           # - verify-manifests
@@ -198,6 +196,7 @@ jobs:
           - autogen
           - webhooks
           - background-only
+          - rbac
     needs: prepare-images
     name: chainsaw - ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
