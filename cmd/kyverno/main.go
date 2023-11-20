@@ -218,7 +218,6 @@ func main() {
 		servicePort                  int
 		webhookServerPort            int
 		backgroundServiceAccountName string
-		disableAPICallSizeProtection bool
 		maxAPICallResponseLength     int64
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
@@ -238,7 +237,6 @@ func main() {
 	flagset.StringVar(&backgroundServiceAccountName, "backgroundServiceAccountName", "", "Background service account name.")
 	flagset.StringVar(&caSecretName, "caSecretName", "", "Name of the secret containing CA.")
 	flagset.StringVar(&tlsSecretName, "tlsSecretName", "", "Name of the secret containing TLS pair.")
-	flagset.BoolVar(&disableAPICallSizeProtection, "disableAPICallSizeProtection", false, "If true [NOT RECOMMENDED], API call max size won't be checked, this exposes the controller to memory exhaustion attack")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 10*1000*1000, "Configure the value of maximum allowed GET response size from API Calls")
 	// config
 	appConfig := internal.NewConfiguration(
@@ -366,7 +364,7 @@ func main() {
 		setup.KubeClient,
 		setup.KyvernoClient,
 		setup.RegistrySecretLister,
-		apicall.NewAPICallConfiguration(disableAPICallSizeProtection, maxAPICallResponseLength),
+		apicall.NewAPICallConfiguration(maxAPICallResponseLength),
 	)
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(

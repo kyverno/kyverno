@@ -34,10 +34,9 @@ type APICallConfiguration struct {
 	maxAPICallResponseLength     int64
 }
 
-func NewAPICallConfiguration(disableProtection bool, maxLen int64) APICallConfiguration {
+func NewAPICallConfiguration(maxLen int64) APICallConfiguration {
 	return APICallConfiguration{
-		disableAPICallSizeProtection: disableProtection,
-		maxAPICallResponseLength:     maxLen,
+		maxAPICallResponseLength: maxLen,
 	}
 }
 
@@ -144,8 +143,8 @@ func (a *apiCall) executeServiceCall(ctx context.Context, apiCall *kyvernov1.API
 	}
 	defer resp.Body.Close()
 
-	if !a.config.disableAPICallSizeProtection {
-		if resp.ContentLength < 0 {
+	if a.config.maxAPICallResponseLength != 0 {
+		if resp.ContentLength <= 0 {
 			return nil, fmt.Errorf("content length header must be present.")
 		}
 		if resp.ContentLength > a.config.maxAPICallResponseLength {
@@ -153,7 +152,7 @@ func (a *apiCall) executeServiceCall(ctx context.Context, apiCall *kyvernov1.API
 		}
 	}
 
-	reader := io.LimitReader(resp.Body, a.config.maxAPICallResponseLength)
+	reader := io.LimitReader(resp.Body, max(a.config.maxAPICallResponseLength, resp.ContentLength))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		b, err := io.ReadAll(reader)
 		if err == nil {

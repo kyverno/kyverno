@@ -19,8 +19,7 @@ import (
 var (
 	jp        = jmespath.New(config.NewDefaultConfiguration(false))
 	apiConfig = APICallConfiguration{
-		disableAPICallSizeProtection: false,
-		maxAPICallResponseLength:     1 * 1000 * 1000,
+		maxAPICallResponseLength: 1 * 1000 * 1000,
 	}
 )
 
