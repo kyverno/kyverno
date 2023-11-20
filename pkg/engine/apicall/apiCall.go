@@ -26,6 +26,19 @@ type apiCall struct {
 	entry   kyvernov1.ContextEntry
 	jsonCtx enginecontext.Interface
 	client  ClientInterface
+	config  APICallConfiguration
+}
+
+type APICallConfiguration struct {
+	disableAPICallSizeProtection bool
+	maxAPICallResponseLength     int64
+}
+
+func NewAPICallConfiguration(disableProtection bool, maxLen int64) APICallConfiguration {
+	return APICallConfiguration{
+		disableAPICallSizeProtection: disableProtection,
+		maxAPICallResponseLength:     maxLen,
+	}
 }
 
 type ClientInterface interface {
@@ -38,6 +51,7 @@ func New(
 	entry kyvernov1.ContextEntry,
 	jsonCtx enginecontext.Interface,
 	client ClientInterface,
+	apiCallConfig APICallConfiguration,
 ) (*apiCall, error) {
 	if entry.APICall == nil {
 		return nil, fmt.Errorf("missing APICall in context entry %v", entry)
@@ -48,6 +62,7 @@ func New(
 		entry:   entry,
 		jsonCtx: jsonCtx,
 		client:  client,
+		config:  apiCallConfig,
 	}, nil
 }
 
@@ -129,8 +144,18 @@ func (a *apiCall) executeServiceCall(ctx context.Context, apiCall *kyvernov1.API
 	}
 	defer resp.Body.Close()
 
+	if !a.config.disableAPICallSizeProtection {
+		if resp.ContentLength < 0 {
+			return nil, fmt.Errorf("content length header must be present.")
+		}
+		if resp.ContentLength > a.config.maxAPICallResponseLength {
+			return nil, fmt.Errorf("content length must be less than max response length of %d.", a.config.maxAPICallResponseLength)
+		}
+	}
+
+	reader := io.LimitReader(resp.Body, a.config.maxAPICallResponseLength)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		b, err := io.ReadAll(resp.Body)
+		b, err := io.ReadAll(reader)
 		if err == nil {
 			return nil, fmt.Errorf("HTTP %s: %s", resp.Status, string(b))
 		}
@@ -138,7 +163,7 @@ func (a *apiCall) executeServiceCall(ctx context.Context, apiCall *kyvernov1.API
 		return nil, fmt.Errorf("HTTP %s", resp.Status)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read data from APICall %s: %w", a.entry.Name, err)
 	}

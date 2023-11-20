@@ -19,6 +19,7 @@ import (
 	backgroundscancontroller "github.com/kyverno/kyverno/pkg/controllers/report/background"
 	resourcereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
@@ -191,6 +192,8 @@ func main() {
 		maxQueuedEvents                  int
 		omitEvents                       string
 		skipResourceFilters              bool
+		disableAPICallSizeProtection     bool
+		maxAPICallResponseLength         int64
 	)
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
 	flagset.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable background scan.")
@@ -204,6 +207,8 @@ func main() {
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&omitEvents, "omit-events", "", "Set this flag to a comma separated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omit-events=PolicyApplied,PolicyViolation")
 	flagset.BoolVar(&skipResourceFilters, "skipResourceFilters", true, "If true, resource filters wont be considered.")
+	flagset.BoolVar(&disableAPICallSizeProtection, "disableAPICallSizeProtection", false, "If true [NOT RECOMMENDED], API call max size won't be checked, this exposes the controller to memory exhaustion attack")
+	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 10*1000*1000, "Configure the value of maximum allowed GET response size from API Calls")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -271,6 +276,7 @@ func main() {
 		setup.KubeClient,
 		setup.KyvernoClient,
 		setup.RegistrySecretLister,
+		apicall.NewAPICallConfiguration(disableAPICallSizeProtection, maxAPICallResponseLength),
 	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kyvernoInformer) {

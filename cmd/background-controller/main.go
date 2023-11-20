@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
@@ -82,14 +83,18 @@ func createrLeaderControllers(
 
 func main() {
 	var (
-		genWorkers      int
-		maxQueuedEvents int
-		omitEvents      string
+		genWorkers                   int
+		maxQueuedEvents              int
+		omitEvents                   string
+		disableAPICallSizeProtection bool
+		maxAPICallResponseLength     int64
 	)
 	flagset := flag.NewFlagSet("updaterequest-controller", flag.ExitOnError)
 	flagset.IntVar(&genWorkers, "genWorkers", 10, "Workers for the background controller.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&omitEvents, "omit-events", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omit-events=PolicyApplied,PolicyViolation")
+	flagset.BoolVar(&disableAPICallSizeProtection, "disableAPICallSizeProtection", false, "If true [NOT RECOMMENDED], API call max size won't be checked, this exposes the controller to memory exhaustion attack")
+	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 10*1000*1000, "Configure the value of maximum allowed GET response size from API Calls")
 
 	// config
 	appConfig := internal.NewConfiguration(
@@ -161,6 +166,7 @@ func main() {
 		setup.KubeClient,
 		setup.KyvernoClient,
 		setup.RegistrySecretLister,
+		apicall.NewAPICallConfiguration(disableAPICallSizeProtection, maxAPICallResponseLength),
 	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer) {
