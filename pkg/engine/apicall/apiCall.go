@@ -30,8 +30,7 @@ type apiCall struct {
 }
 
 type APICallConfiguration struct {
-	disableAPICallSizeProtection bool
-	maxAPICallResponseLength     int64
+	maxAPICallResponseLength int64
 }
 
 func NewAPICallConfiguration(maxLen int64) APICallConfiguration {
