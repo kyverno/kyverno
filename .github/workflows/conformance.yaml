@@ -178,7 +178,6 @@ jobs:
             version: v1.28.0
         tests:
           # - autogen
-          # - background-only
           # - cleanup
           # - deferred
           # - events
@@ -190,12 +189,13 @@ jobs:
           # - mutate
           # - policy-validation
           # - rangeoperators
-          # - rbac
           # - reports
           # - validate
           # - verify-manifests
           # - verifyImages
           - webhooks
+          - background-only
+          - rbac
     needs: prepare-images
     name: chainsaw - ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
@@ -234,10 +234,9 @@ jobs:
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Install Chainsaw
-        shell: bash
-        run: |
-          set -e
-          go install github.com/kyverno/chainsaw@ffa5508c1d0fbba24d70a3a51ef777392a9b32b6
+        uses: kyverno/chainsaw/.github/actions/install@704abd5ea8fd74189e1192733a879a00a7d527f5 # main
+        with:
+          release: v0.0.6-alpha.1
       - name: Test with Chainsaw
         shell: bash
         env:
@@ -667,7 +666,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@55c9f48de0c1c77f08b1d14a8c340195599982f6
+        uses: sigstore/scaffolding/actions/setup@126e381beb1580df23067f9f49854293d04895ee
         with:
           version: 'v0.6.8'
           k8s-version: ${{ matrix.k8s-version.version }}
