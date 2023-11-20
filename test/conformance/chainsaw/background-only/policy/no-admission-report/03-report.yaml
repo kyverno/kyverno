@@ -1,0 +1,8 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  name: report
+spec:
+  try:
+  - error:
+      file: admission-report.yaml
