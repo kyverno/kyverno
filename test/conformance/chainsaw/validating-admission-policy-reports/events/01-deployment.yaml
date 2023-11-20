@@ -1,0 +1,10 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  name: deployment
+spec:
+  try:
+  - apply:
+      file: deployment.yaml
+  - assert:
+      file: deployment-assert.yaml
