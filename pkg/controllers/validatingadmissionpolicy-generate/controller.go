@@ -297,6 +297,10 @@ func (c *controller) buildValidatingAdmissionPolicyBinding(vapbinding *admission
 	return nil
 }
 
+func constructVapBindingName(vapName string) string {
+	return vapName + "-binding"
+}
+
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
 	policy, err := c.getClusterPolicy(name)
 	if err != nil {
@@ -327,7 +331,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	}
 
 	vapName := policy.GetName()
-	vapBindingName := vapName + "-binding"
+	vapBindingName := constructVapBindingName(vapName)
 
 	observedVAP, vapErr := c.getValidatingAdmissionPolicy(vapName)
 	observedVAPbinding, vapBindingErr := c.getValidatingAdmissionPolicyBinding(vapBindingName)
