@@ -40,6 +40,11 @@ func (p *PolicyException) Contains(policy string, rule string) bool {
 	return p.Spec.Contains(policy, rule)
 }
 
+// HasPodSecurity checks if podSecurity controls is specified
+func (p *PolicyException) HasPodSecurity() bool {
+	return len(p.Spec.PodSecurity) > 0
+}
+
 // Exception stores infos about a policy and rules
 type Exception = kyvernov2beta1.Exception
 

@@ -35,9 +35,13 @@ func (h validatePssHandler) Process(
 	_ engineapi.EngineContextLoader,
 	exceptions []kyvernov2beta1.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
+	if resource.Object == nil {
+		resource = policyContext.OldResource()
+	}
+
 	// check if there is a policy exception matches the incoming resource
 	exception := engineutils.MatchesException(exceptions, policyContext, logger)
-	if exception != nil {
+	if exception != nil && !exception.HasPodSecurity() {
 		key, err := cache.MetaNamespaceKeyFunc(exception)
 		if err != nil {
 			logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
@@ -52,9 +56,6 @@ func (h validatePssHandler) Process(
 
 	// Marshal pod metadata and spec
 	podSecurity := rule.Validation.PodSecurity
-	if resource.Object == nil {
-		resource = policyContext.OldResource()
-	}
 	podSpec, metadata, err := getSpec(resource)
 	if err != nil {
 		return resource, handlers.WithError(rule, engineapi.Validation, "Error while getting new resource", err)
@@ -63,10 +64,11 @@ func (h validatePssHandler) Process(
 		Spec:       *podSpec,
 		ObjectMeta: *metadata,
 	}
-	allowed, pssChecks, err := pss.EvaluatePod(podSecurity, pod)
+	levelVersion, err := pss.ParseVersion(podSecurity.Level, podSecurity.Version)
 	if err != nil {
 		return resource, handlers.WithError(rule, engineapi.Validation, "failed to parse pod security api version", err)
 	}
+	allowed, pssChecks := pss.EvaluatePod(levelVersion, podSecurity.Exclude, pod)
 	podSecurityChecks := engineapi.PodSecurityChecks{
 		Level:   podSecurity.Level,
 		Version: podSecurity.Version,
@@ -78,6 +80,23 @@ func (h validatePssHandler) Process(
 			engineapi.RulePass(rule.Name, engineapi.Validation, msg).WithPodSecurityChecks(podSecurityChecks),
 		)
 	} else {
+		// apply pod security exceptions if exist
+		if exception != nil && exception.HasPodSecurity() {
+			pssChecks = pss.ApplyPodSecurityExclusion(levelVersion, exception.Spec.PodSecurity, pssChecks, pod)
+			if len(pssChecks) == 0 {
+				key, err := cache.MetaNamespaceKeyFunc(exception)
+				if err != nil {
+					logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
+					return resource, handlers.WithError(rule, engineapi.Validation, "failed to compute exception key", err)
+				} else {
+					podSecurityChecks.Checks = pssChecks
+					logger.V(3).Info("policy rule skipped due to policy exception", "exception", key)
+					return resource, handlers.WithResponses(
+						engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule skipped due to policy exception "+key).WithException(exception).WithPodSecurityChecks(podSecurityChecks),
+					)
+				}
+			}
+		}
 		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, rule.Name, podSecurity.Level, podSecurity.Version, pss.FormatChecksPrint(pssChecks))
 		return resource, handlers.WithResponses(
 			engineapi.RuleFail(rule.Name, engineapi.Validation, msg).WithPodSecurityChecks(podSecurityChecks),
@@ -130,7 +149,7 @@ func getSpec(resource unstructured.Unstructured) (podSpec *corev1.PodSpec, metad
 		metadata = &pod.ObjectMeta
 		return podSpec, metadata, nil
 	} else {
-		return nil, nil, fmt.Errorf("Could not find correct resource type")
+		return nil, nil, fmt.Errorf("could not find correct resource type")
 	}
 	if err != nil {
 		return nil, nil, err

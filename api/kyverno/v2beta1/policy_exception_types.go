@@ -16,6 +16,7 @@ limitations under the License.
 package v2beta1
 
 import (
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -47,6 +48,11 @@ func (p *PolicyException) Contains(policy string, rule string) bool {
 	return p.Spec.Contains(policy, rule)
 }
 
+// HasPodSecurity checks if podSecurity controls is specified
+func (p *PolicyException) HasPodSecurity() bool {
+	return len(p.Spec.PodSecurity) > 0
+}
+
 // PolicyExceptionSpec stores policy exception spec
 type PolicyExceptionSpec struct {
 	// Background controls if exceptions are applied to existing policies during a background scan.
@@ -64,6 +70,11 @@ type PolicyExceptionSpec struct {
 
 	// Exceptions is a list policy/rules to be excluded
 	Exceptions []Exception `json:"exceptions" yaml:"exceptions"`
+
+	// PodSecurity specifies the Pod Security Standard controls to be excluded.
+	// Applicable only to policies that have validate.podSecurity subrule.
+	// +optional
+	PodSecurity []kyvernov1.PodSecurityStandard `json:"podSecurity,omitempty" yaml:"podSecurity,omitempty"`
 }
 
 func (p *PolicyExceptionSpec) BackgroundProcessingEnabled() bool {
