@@ -9,7 +9,8 @@ spec:
     context:
     - name: val
       apiCall:
-        urlPath: "https://www.google.com/404"
+        service:
+          url: "https://www.google.com/404"
     match:
       any:
       - resources:
