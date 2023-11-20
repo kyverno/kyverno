@@ -71,6 +71,7 @@ func NewController(
 	path string,
 	server string,
 	servicePort int32,
+	webhookServerPort int32,
 	labelSelector *metav1.LabelSelector,
 	rules []admissionregistrationv1.RuleWithOperations,
 	failurePolicy *admissionregistrationv1.FailurePolicyType,

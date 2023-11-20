@@ -1109,7 +1109,8 @@ func Test_EscpReferenceSubstitution(t *testing.T) {
 			  "test1": "$(../../../../spec/namespace)",
 			  "test2": "\\$(ENV_VAR)",
 			  "test3": "\\${ENV_VAR}",
-			  "test4": "\\\\\\${ENV_VAR}"
+			  "test4": "\\\\\\${ENV_VAR}",
+			  "test5": "\\$(NODE_NAME)/postgres/\\$(POD_NAME)"
             }
 		},
 		"(spec)": {
@@ -1127,7 +1128,8 @@ func Test_EscpReferenceSubstitution(t *testing.T) {
 			  "test1": "n1",
 			  "test2": "$(ENV_VAR)",
 			  "test3": "\\${ENV_VAR}",
-			  "test4": "\\\\\\${ENV_VAR}"
+			  "test4": "\\\\\\${ENV_VAR}",
+			  "test5": "$(NODE_NAME)/postgres/$(POD_NAME)"
             }
 		},
 		"(spec)": {

@@ -3,6 +3,8 @@ kind: TestStep
 metadata:
   name: unknown-kind
 spec:
-  apply:
-  - file: policy-1.yaml
-    shouldFail: true
+  try:
+  - apply:
+      file: policy-1.yaml
+      check:
+        (error == null): false

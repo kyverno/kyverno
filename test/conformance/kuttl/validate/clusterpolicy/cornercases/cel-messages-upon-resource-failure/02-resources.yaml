@@ -1,0 +1,14 @@
+## Checks that there is a message displayed when the resource is blocked.
+
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+- script: |
+    if kubectl apply -f pod-fail.yaml 2>&1 | grep -q 'host-port-pods: hostPort must either be unset or set to 0' 
+    then 
+        echo "Test succeeded. The message is displayed."
+        exit 0
+    else 
+        echo "Test failed. The message isn't found."
+        exit 1
+    fi
