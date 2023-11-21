@@ -3,6 +3,7 @@ package validation
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -78,38 +79,64 @@ func (v *validationHandler) HandleValidation(
 	resourceName := admissionutils.GetResourceName(request.AdmissionRequest)
 	logger := v.log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind)
 
+	var wg sync.WaitGroup
+
 	var engineResponses []engineapi.EngineResponse
+	var mu sync.Mutex
+	var abortFlag bool
 	failurePolicy := kyvernov1.Ignore
 	for _, policy := range policies {
-		tracing.ChildSpan(
-			ctx,
-			"pkg/webhooks/resource/validate",
-			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
-			func(ctx context.Context, span trace.Span) {
-				policyContext := policyContext.WithPolicy(policy)
-				if policy.GetSpec().GetFailurePolicy(ctx) == kyvernov1.Fail {
-					failurePolicy = kyvernov1.Fail
-				}
+		wg.Add(1)
+		go func(policy kyvernov1.PolicyInterface) {
+			defer wg.Done()
+			tracing.ChildSpan(
+				ctx,
+				"pkg/webhooks/resource/validate",
+				fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
+				func(ctx context.Context, span trace.Span) {
+					policyContext := policyContext.WithPolicy(policy)
 
-				engineResponse := v.engine.Validate(ctx, policyContext)
-				if engineResponse.IsNil() {
-					// we get an empty response if old and new resources created the same response
-					// allow updates if resource update doesnt change the policy evaluation
-					return
-				}
+					// select {
+					// case <-ctx.Done():
+					// 	return
+					// default:
+					// }
 
-				engineResponses = append(engineResponses, engineResponse)
-				if !engineResponse.IsSuccessful() {
-					logger.V(2).Info("validation failed", "action", policy.GetSpec().ValidationFailureAction, "policy", policy.GetName(), "failed rules", engineResponse.GetFailedRules())
-					return
-				}
+					mu.Lock()
+					if abortFlag {
+						mu.Unlock()
+						return
+					}
+					if policy.GetSpec().GetFailurePolicy(ctx) == kyvernov1.Fail {
+						failurePolicy = kyvernov1.Fail
+					}
+					mu.Unlock()
 
-				if len(engineResponse.GetSuccessRules()) > 0 {
-					logger.V(2).Info("validation passed", "policy", policy.GetName())
-				}
-			},
-		)
+					engineResponse := v.engine.Validate(ctx, policyContext)
+					if engineResponse.IsNil() {
+						// we get an empty response if old and new resources created the same response
+						// allow updates if resource update doesnt change the policy evaluation
+						return
+					}
+
+					mu.Lock()
+					engineResponses = append(engineResponses, engineResponse)
+					if !engineResponse.IsSuccessful() {
+						logger.V(2).Info("validation failed", "action", policy.GetSpec().ValidationFailureAction, "policy", policy.GetName(), "failed rules", engineResponse.GetFailedRules())
+						abortFlag = true
+						return
+					}
+					mu.Unlock()
+
+					if len(engineResponse.GetSuccessRules()) > 0 {
+						logger.V(2).Info("validation passed", "policy", policy.GetName())
+					}
+				},
+			)
+		}(policy)
 	}
+
+	wg.Wait()
 
 	blocked := webhookutils.BlockRequest(engineResponses, failurePolicy, logger)
 	events := webhookutils.GenerateEvents(engineResponses, blocked)
