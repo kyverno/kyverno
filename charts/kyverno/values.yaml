@@ -667,6 +667,9 @@ admissionController:
   # -- (int) Desired number of pods
   replicas: ~
 
+  # -- The number of revisions to keep
+  revisionHistoryLimit: 10
+
   # -- Additional labels to add to each pod
   podLabels: {}
     # example.com/label: foo
@@ -709,6 +712,11 @@ admissionController:
   # Useful for situations like when you end up dealing with a custom CNI over Amazon EKS.
   # Update the `dnsPolicy` accordingly as well to suit the host network mode.
   hostNetwork: false
+
+  # -- admissionController webhook server port
+  # in case you are using hostNetwork: true, you might want to change the port the webhookServer is listening to
+  webhookServer:
+    port: 9443
 
   # -- `dnsPolicy` determines the manner in which DNS resolution happens in the cluster.
   # In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`.
@@ -1084,6 +1092,9 @@ backgroundController:
   # -- (int) Desired number of pods
   replicas: ~
 
+  # -- The number of revisions to keep
+  revisionHistoryLimit: 10
+
   # -- Additional labels to add to each pod
   podLabels: {}
   # example.com/label: foo
@@ -1309,6 +1320,9 @@ cleanupController:
   # -- (int) Desired number of pods
   replicas: ~
 
+  # -- The number of revisions to keep
+  revisionHistoryLimit: 10
+
   # -- Additional labels to add to each pod
   podLabels: {}
   # example.com/label: foo
@@ -1333,6 +1347,15 @@ cleanupController:
   # Useful for situations like when you end up dealing with a custom CNI over Amazon EKS.
   # Update the `dnsPolicy` accordingly as well to suit the host network mode.
   hostNetwork: false
+
+  # -- cleanupController server port
+  # in case you are using hostNetwork: true, you might want to change the port the cleanupController is listening to
+  server:
+    port: 9443
+  # -- cleanupController webhook server port
+  # in case you are using hostNetwork: true, you might want to change the port the webhookServer is listening to
+  webhookServer:
+    port: 9443
 
   # -- `dnsPolicy` determines the manner in which DNS resolution happens in the cluster.
   # In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`.
@@ -1579,6 +1602,9 @@ reportsController:
 
   # -- (int) Desired number of pods
   replicas: ~
+
+  # -- The number of revisions to keep
+  revisionHistoryLimit: 10
 
   # -- Additional labels to add to each pod
   podLabels: {}

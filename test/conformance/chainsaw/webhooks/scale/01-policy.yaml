@@ -3,6 +3,8 @@ kind: TestStep
 metadata:
   name: policy
 spec:
-  apply:
-  - file: policy.yaml
-    shouldFail: true
+  try:
+  - apply:
+      file: policy.yaml
+      check:
+        (error == null): false
