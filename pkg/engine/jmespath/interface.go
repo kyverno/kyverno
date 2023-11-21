@@ -15,7 +15,7 @@ type Interface interface {
 }
 
 type implementation struct {
-	interpreter gojmespath.Interpreter
+	functionCaller *gojmespath.FunctionCaller
 }
 
 func New(configuration config.Configuration) Interface {
@@ -23,9 +23,9 @@ func New(configuration config.Configuration) Interface {
 }
 
 func (i implementation) Query(query string) (Query, error) {
-	return newJMESPath(i.interpreter, query)
+	return newJMESPath(i.functionCaller, query)
 }
 
 func (i implementation) Search(query string, data interface{}) (interface{}, error) {
-	return newExecution(i.interpreter, query, data)
+	return newExecution(i.functionCaller, query, data)
 }

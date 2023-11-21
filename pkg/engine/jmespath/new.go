@@ -5,34 +5,38 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 )
 
-func newJMESPath(intr gojmespath.Interpreter, query string) (*gojmespath.JMESPath, error) {
+func newJMESPath(fCall *gojmespath.FunctionCaller, query string) (*gojmespath.JMESPath, error) {
 	parser := gojmespath.NewParser()
 	ast, err := parser.Parse(query)
 	if err != nil {
 		return nil, err
 	}
+
+	intr := gojmespath.NewInterpreterFromFunctionCaller(fCall)
 
 	return gojmespath.NewJMESPath(ast, intr), nil
 }
 
 func newImplementation(configuration config.Configuration) Interface {
-	i := gojmespath.NewInterpreter()
+	functionCaller := gojmespath.NewFunctionCaller()
 	functions := GetFunctions(configuration)
 	for _, f := range functions {
-		i.Register(f.FunctionEntry)
+		functionCaller.Register(f.FunctionEntry)
 	}
 
 	return implementation{
-		interpreter: i,
+		functionCaller,
 	}
 }
 
-func newExecution(intr gojmespath.Interpreter, query string, data interface{}) (interface{}, error) {
+func newExecution(fCall *gojmespath.FunctionCaller, query string, data interface{}) (interface{}, error) {
 	parser := gojmespath.NewParser()
 	ast, err := parser.Parse(query)
 	if err != nil {
 		return nil, err
 	}
+
+	intr := gojmespath.NewInterpreterFromFunctionCaller(fCall)
 
 	return intr.Execute(ast, data)
 }
