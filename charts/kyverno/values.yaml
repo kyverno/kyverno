@@ -243,6 +243,10 @@ config:
   # Namespaces to exclude from the default resourceFilters
   resourceFiltersExcludeNamespaces: []
 
+  # -- resourceFilters exclude list
+  # Items to exclude from config.resourceFilters
+  resourceFiltersExclude: []
+
 # Metrics configuration
 metricsConfig:
 

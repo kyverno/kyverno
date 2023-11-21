@@ -81,6 +81,8 @@ annotations:
       description: allow setting admission controller replica count to 2
     - kind: added
       description: Allow overriding the ca-certificate bundle for deployments
+    - kind: added
+      description: allow excluding resourceFilters via config.resourceFiltersExclude
 dependencies:
   - name: grafana
     version: "0.0.0"
