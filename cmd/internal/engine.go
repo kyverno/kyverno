@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
@@ -29,6 +30,7 @@ func NewEngine(
 	rclient registryclient.Client,
 	kubeClient kubernetes.Interface,
 	kyvernoClient versioned.Interface,
+	apiCallConfig apicall.APICallConfiguration,
 ) engineapi.Engine {
 	configMapResolver := NewConfigMapResolver(ctx, logger, kubeClient, 15*time.Minute)
 	exceptionsSelector := NewExceptionSelector(ctx, logger, kyvernoClient, 15*time.Minute)
@@ -40,7 +42,7 @@ func NewEngine(
 		jp,
 		client,
 		rclient,
-		factories.DefaultContextLoaderFactory(configMapResolver),
+		factories.DefaultContextLoaderFactory(configMapResolver, factories.WithAPICallConfig(apiCallConfig)),
 		exceptionsSelector,
 	)
 }
