@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: disallow-annotations-example
+  namespace: default
+  annotations:
+    kyverno-policies-test/key: disallowed
+spec:
+  containers:
+  - name: example
+    image: busybox
+    args: ["sleep", "infinity"]
