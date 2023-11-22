@@ -9,6 +9,7 @@ metadata:
     {{- include "kyverno.background-controller.labels" . | nindent 4 }}
 spec:
   replicas: {{ template "kyverno.deployment.replicas" .Values.backgroundController.replicas }}
+  revisionHistoryLimit: {{ .Values.backgroundController.revisionHistoryLimit }}
   {{- with .Values.backgroundController.updateStrategy }}
   strategy:
     {{- toYaml . | nindent 4 }}
@@ -148,5 +149,29 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          {{- if or .Values.backgroundController.caCertificates.data .Values.global.caCertificates.data .Values.backgroundController.caCertificates.volume .Values.global.caCertificates.volume }}
+          volumeMounts:
+            - name: ca-certificates
+              mountPath: /etc/ssl/certs/ca-certificates.crt
+              {{- if or .Values.backgroundController.caCertificates.data .Values.global.caCertificates.data }}
+              subPath: ca-certificates.crt
+              {{- end }}
+          {{- end }}
+      {{- if or .Values.backgroundController.caCertificates.data .Values.global.caCertificates.data .Values.backgroundController.caCertificates.volume .Values.global.caCertificates.volume }}
+      volumes:
+      {{- if or .Values.backgroundController.caCertificates.data .Values.global.caCertificates.data }}
+      - name: ca-certificates
+        configMap:
+          name: {{ include "kyverno.background-controller.caCertificatesConfigMapName" . }}
+          items:
+          - key: ca-certificates
+            path: ca-certificates.crt
+      {{- else if or .Values.backgroundController.caCertificates.volume .Values.global.caCertificates.volume }}
+      {{- with (.Values.backgroundController.caCertificates.volume | default .Values.global.caCertificates.volume) }}
+      - name: ca-certificates
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
+      {{- end }}
 {{- end -}}
 {{- end -}}

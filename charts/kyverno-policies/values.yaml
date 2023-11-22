@@ -1,3 +1,7 @@
+# -- Policy kind (`ClusterPolicy`, `Policy`)
+# Set to `Policy` if you need namespaced policies and not cluster policies
+policyKind: ClusterPolicy
+
 # -- Pod Security Standard profile (`baseline`, `restricted`, `privileged`, `custom`).
 # For more info https://kyverno.io/policies/pod-security.
 podSecurityStandard: baseline
