@@ -138,6 +138,7 @@ func (a *apiCall) executeServiceCall(ctx context.Context, apiCall *kyvernov1.API
 	}
 
 	defer resp.Body.Close()
+	var reader io.Reader = resp.Body
 	if a.config.maxAPICallResponseLength != 0 {
 		if resp.ContentLength <= 0 {
 			return nil, fmt.Errorf("content length header must be present")
@@ -145,9 +146,9 @@ func (a *apiCall) executeServiceCall(ctx context.Context, apiCall *kyvernov1.API
 		if resp.ContentLength > a.config.maxAPICallResponseLength {
 			return nil, fmt.Errorf("content length must be less than max response length of %d", a.config.maxAPICallResponseLength)
 		}
+		reader = io.LimitReader(resp.Body, a.config.maxAPICallResponseLength)
 	}
 
-	reader := io.LimitReader(resp.Body, max(a.config.maxAPICallResponseLength, resp.ContentLength))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		b, err := io.ReadAll(reader)
 		if err == nil {
