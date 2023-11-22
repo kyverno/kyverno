@@ -236,7 +236,7 @@ jobs:
       - name: Install Chainsaw
         uses: kyverno/chainsaw/.github/actions/install@f8cd497926b60e53f722732d33ec71e875bf213c # main
         with:
-          release: main
+          release: v0.0.6-alpha.3
       - name: Test with Chainsaw
         shell: bash
         env:
