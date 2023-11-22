@@ -38,6 +38,28 @@ func addToContext(ctx *context, data interface{}, tags ...string) error {
 	}
 }
 
+func clearLeafValue(data map[string]interface{}, tags ...string) bool {
+	if len(tags) == 0 {
+		return false
+	}
+
+	for i := 0; i < len(tags); i++ {
+		k := tags[i]
+		if i == len(tags)-1 {
+			delete(data, k)
+			return true
+		}
+
+		if nextMap, ok := data[k].(map[string]interface{}); ok {
+			data = nextMap
+		} else {
+			return false
+		}
+	}
+
+	return false
+}
+
 // convertStructs converts structs, and pointers-to-structs, to map[string]interface{}
 func convertStructs(value interface{}) (interface{}, error) {
 	if value != nil {

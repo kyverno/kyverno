@@ -105,3 +105,40 @@ func TestStructToUntypedMap(t *testing.T) {
 	assert.Equal(t, "user1", result["name"])
 	assert.Equal(t, int64(12345), result["identifier"])
 }
+
+func TestClearLeaf(t *testing.T) {
+	request := map[string]interface{}{
+		"request": map[string]interface{}{
+			"object": map[string]interface{}{
+				"key1": "val1",
+				"key2": "val2",
+			},
+		},
+	}
+
+	result := clearLeafValue(request, "request", "object", "key1")
+	assert.True(t, result)
+
+	r := request["request"].(map[string]interface{})
+	o := r["object"].(map[string]interface{})
+	_, exists := o["key1"]
+	assert.Equal(t, false, exists)
+
+	_, exists = o["key2"]
+	assert.Equal(t, true, exists)
+
+	result = clearLeafValue(request, "request", "object", "key3")
+	assert.True(t, result)
+
+	_, exists = o["key3"]
+	assert.Equal(t, false, exists)
+
+	result = clearLeafValue(request, "request", "object-bad", "key3")
+	assert.Equal(t, false, result)
+
+	result = clearLeafValue(request, "request", "object")
+	assert.True(t, result)
+
+	_, exists = r["object"]
+	assert.Equal(t, false, exists)
+}

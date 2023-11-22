@@ -165,6 +165,7 @@ func (ctx *context) AddRequest(request admissionv1.AdmissionRequest) error {
 	if err != nil {
 		return err
 	}
+
 	if err := addToContext(ctx, mapObj, "request"); err != nil {
 		return err
 	}
@@ -208,20 +209,19 @@ func (ctx *context) ReplaceContextEntry(name string, dataRaw []byte) error {
 
 // AddResource data at path: request.object
 func (ctx *context) AddResource(data map[string]interface{}) error {
+	clearLeafValue(ctx.jsonRaw, "request", "object")
 	return addToContext(ctx, data, "request", "object")
 }
 
 // AddOldResource data at path: request.oldObject
 func (ctx *context) AddOldResource(data map[string]interface{}) error {
+	clearLeafValue(ctx.jsonRaw, "request", "oldObject")
 	return addToContext(ctx, data, "request", "oldObject")
 }
 
 // AddTargetResource adds data at path: target
 func (ctx *context) SetTargetResource(data map[string]interface{}) error {
-	if err := addToContext(ctx, nil, "target"); err != nil {
-		logger.Error(err, "unable to replace target resource")
-		return err
-	}
+	clearLeafValue(ctx.jsonRaw, "target")
 	return addToContext(ctx, data, "target")
 }
 
