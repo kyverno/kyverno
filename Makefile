@@ -14,6 +14,7 @@ GOOS                 ?= $(shell go env GOOS)
 GOARCH               ?= $(shell go env GOARCH)
 KOCACHE              ?= /tmp/ko-cache
 BUILD_WITH           ?= ko
+BASE_IMAGE           ?= gcr.io/distroless/static:latest
 KYVERNOPRE_IMAGE     := kyvernopre
 KYVERNO_IMAGE        := kyverno
 CLI_IMAGE            := kyverno-cli
@@ -282,37 +283,37 @@ KO_BACKGROUND_REPO  := $(PACKAGE)/$(BACKGROUND_DIR)
 .PHONY: ko-build-kyverno-init
 ko-build-kyverno-init: $(KO) ## Build kyvernopre local image (with ko)
 	@echo Build kyvernopre local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DEFAULTBASEIMAGE=$(BASE_IMAGE) KO_DOCKER_REPO=$(KO_REGISTRY) \
 		$(KO) build ./$(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-kyverno
 ko-build-kyverno: $(KO) ## Build kyverno local image (with ko)
 	@echo Build kyverno local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DEFAULTBASEIMAGE=$(BASE_IMAGE) KO_DOCKER_REPO=$(KO_REGISTRY) \
 		$(KO) build ./$(KYVERNO_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-cli
 ko-build-cli: $(KO) ## Build cli local image (with ko)
 	@echo Build cli local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DEFAULTBASEIMAGE=$(BASE_IMAGE) KO_DOCKER_REPO=$(KO_REGISTRY) \
 		$(KO) build ./$(CLI_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-cleanup-controller
 ko-build-cleanup-controller: $(KO) ## Build cleanup controller local image (with ko)
 	@echo Build cleanup controller local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DEFAULTBASEIMAGE=$(BASE_IMAGE) KO_DOCKER_REPO=$(KO_REGISTRY) \
 		$(KO) build ./$(CLEANUP_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-reports-controller
 ko-build-reports-controller: $(KO) ## Build reports controller local image (with ko)
 	@echo Build reports controller local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DEFAULTBASEIMAGE=$(BASE_IMAGE) KO_DOCKER_REPO=$(KO_REGISTRY) \
 		$(KO) build ./$(REPORTS_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-background-controller
 ko-build-background-controller: $(KO) ## Build background controller local image (with ko)
 	@echo Build background controller local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DEFAULTBASEIMAGE=$(BASE_IMAGE) KO_DOCKER_REPO=$(KO_REGISTRY) \
 		$(KO) build ./$(BACKGROUND_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-all
@@ -331,32 +332,32 @@ ko-login: $(KO)
 
 .PHONY: ko-publish-kyverno-init
 ko-publish-kyverno-init: ko-login ## Build and publish kyvernopre image (with ko)
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) \
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DEFAULTBASEIMAGE=$(BASE_IMAGE) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) \
 		$(KO) build ./$(KYVERNOPRE_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-kyverno
 ko-publish-kyverno: ko-login ## Build and publish kyverno image (with ko)
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_KYVERNO) \
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DEFAULTBASEIMAGE=$(BASE_IMAGE) KO_DOCKER_REPO=$(REPO_KYVERNO) \
 		$(KO) build ./$(KYVERNO_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-cli
 ko-publish-cli: ko-login ## Build and publish cli image (with ko)
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_CLI) \
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DEFAULTBASEIMAGE=$(BASE_IMAGE) KO_DOCKER_REPO=$(REPO_CLI) \
 		$(KO) build ./$(CLI_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-cleanup-controller
 ko-publish-cleanup-controller: ko-login ## Build and publish cleanup controller image (with ko)
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_CLEANUP) \
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DEFAULTBASEIMAGE=$(BASE_IMAGE) KO_DOCKER_REPO=$(REPO_CLEANUP) \
 		$(KO) build ./$(CLEANUP_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-reports-controller
 ko-publish-reports-controller: ko-login ## Build and publish reports controller image (with ko)
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_REPORTS) \
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DEFAULTBASEIMAGE=$(BASE_IMAGE) KO_DOCKER_REPO=$(REPO_REPORTS) \
 		$(KO) build ./$(REPORTS_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-background-controller
 ko-publish-background-controller: ko-login ## Build and publish background controller image (with ko)
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_BACKGROUND) \
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DEFAULTBASEIMAGE=$(BASE_IMAGE) KO_DOCKER_REPO=$(REPO_BACKGROUND) \
 		$(KO) build ./$(BACKGROUND_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-all
