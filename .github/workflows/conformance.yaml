@@ -236,6 +236,222 @@ jobs:
       - name: Install Chainsaw
         uses: kyverno/chainsaw/.github/actions/install@704abd5ea8fd74189e1192733a879a00a7d527f5 # main
         with:
+          release: v0.0.6-alpha.2
+      - name: Test with Chainsaw
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          chainsaw test  --config ./test/conformance/chainsaw/_config/common.yaml --test-dir ./test/conformance/chainsaw/${{ matrix.tests }} --no-color=false
+      - name: Debug failure
+        if: failure()
+        uses: ./.github/actions/kyverno-logs
+  
+  chainsaw-validatingadmissionpolicies-v1alpha1:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - name: validating-admission-policies
+            values:
+              - standard
+              - generate-validating-admission-policy
+        k8s-version:
+          - name: v1.27
+            version: v1.27.3
+        tests:
+          - generate-validating-admission-policy
+    needs: prepare-images
+    name: chainsaw - ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
+        with:
+          build-cache-key: run-conformance
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        timeout-minutes: 10
+      - name: Create kind cluster
+        shell: bash
+        run: |
+          set -e
+          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
+          export KIND_CONFIG=vap-v1alpha1
+          make kind-create-cluster
+      - name: Download kyverno images archive
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: kyverno.tar
+      - name: Load kyverno images archive in kind cluster
+        shell: bash
+        run: |
+          set -e
+          make kind-load-image-archive
+      - name: Install kyverno
+        shell: bash
+        run: |
+          set -e
+          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+          make kind-install-kyverno
+      - name: Wait for kyverno ready
+        uses: ./.github/actions/kyverno-wait-ready
+      - name: Install Chainsaw
+        uses: kyverno/chainsaw/.github/actions/install@704abd5ea8fd74189e1192733a879a00a7d527f5 # main
+        with:
+          release: v0.0.6-alpha.1
+      - name: Test with Chainsaw
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          chainsaw test  --config ./test/conformance/chainsaw/_config/common.yaml --test-dir ./test/conformance/chainsaw/${{ matrix.tests }} --no-color=false
+      - name: Debug failure
+        if: failure()
+        uses: ./.github/actions/kyverno-logs
+
+  chainsaw-validatingadmissionpolicies-v1beta1:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - name: validating-admission-policies
+            values:
+              - standard
+              - generate-validating-admission-policy
+        k8s-version:
+          - name: v1.28
+            version: v1.28.0
+        tests:
+          - generate-validating-admission-policy
+    needs: prepare-images
+    name: chainsaw - ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
+        with:
+          build-cache-key: run-conformance
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        timeout-minutes: 10
+      - name: Create kind cluster
+        shell: bash
+        run: |
+          set -e
+          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
+          export KIND_CONFIG=vap-v1beta1
+          make kind-create-cluster
+      - name: Download kyverno images archive
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: kyverno.tar
+      - name: Load kyverno images archive in kind cluster
+        shell: bash
+        run: |
+          set -e
+          make kind-load-image-archive
+      - name: Install kyverno
+        shell: bash
+        run: |
+          set -e
+          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+          make kind-install-kyverno
+      - name: Wait for kyverno ready
+        uses: ./.github/actions/kyverno-wait-ready
+      - name: Install Chainsaw
+        uses: kyverno/chainsaw/.github/actions/install@704abd5ea8fd74189e1192733a879a00a7d527f5 # main
+        with:
+          release: v0.0.6-alpha.1
+      - name: Test with Chainsaw
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          chainsaw test  --config ./test/conformance/chainsaw/_config/common.yaml --test-dir ./test/conformance/chainsaw/${{ matrix.tests }} --no-color=false
+      - name: Debug failure
+        if: failure()
+        uses: ./.github/actions/kyverno-logs
+
+  chainsaw-force-failure-policy-ignore:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - name: force-failure-policy-ignore
+            values:
+              - standard
+              - force-failure-policy-ignore
+        k8s-version:
+          - name: v1.25
+            version: v1.25.11
+          - name: v1.26
+            version: v1.26.6
+          - name: v1.27
+            version: v1.27.3
+          - name: v1.28
+            version: v1.28.0
+        tests:
+          - force-failure-policy-ignore
+          - rbac
+    needs: prepare-images
+    name: chainsaw - ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
+        with:
+          build-cache-key: run-conformance
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        timeout-minutes: 10
+      - name: Create kind cluster
+        shell: bash
+        run: |
+          set -e
+          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
+          make kind-create-cluster
+      - name: Download kyverno images archive
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: kyverno.tar
+      - name: Load kyverno images archive in kind cluster
+        shell: bash
+        run: |
+          set -e
+          make kind-load-image-archive
+      - name: Install kyverno
+        shell: bash
+        run: |
+          set -e
+          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+          make kind-install-kyverno
+      - name: Wait for kyverno ready
+        uses: ./.github/actions/kyverno-wait-ready
+      - name: Install Chainsaw
+        uses: kyverno/chainsaw/.github/actions/install@704abd5ea8fd74189e1192733a879a00a7d527f5 # main
+        with:
           release: v0.0.6-alpha.1
       - name: Test with Chainsaw
         shell: bash
@@ -666,7 +882,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@126e381beb1580df23067f9f49854293d04895ee
+        uses: sigstore/scaffolding/actions/setup@5683815091d32e0148a02d5e1146d4e7c3a6f112
         with:
           version: 'v0.6.8'
           k8s-version: ${{ matrix.k8s-version.version }}

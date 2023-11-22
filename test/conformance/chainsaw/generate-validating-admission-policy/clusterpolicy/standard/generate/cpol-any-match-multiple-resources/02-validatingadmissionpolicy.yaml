@@ -1,0 +1,10 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  name: validatingadmissionpolicy
+spec:
+  try:
+  - assert:
+      file: validatingadmissionpolicy.yaml
+  - assert:
+      file: validatingadmissionpolicybinding.yaml
