@@ -149,7 +149,7 @@ func (h *mutationHandler) applyMutation(ctx context.Context, request admissionv1
 			h.log.Info("failed to apply policy, blocking request", "policy", policyContext.Policy().GetName(), "rules", engineResponse.GetFailedRulesWithErrors())
 			return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy().GetName(), engineResponse.GetFailedRulesWithErrors())
 		} else {
-			h.log.Info("ignoring unsuccessfull engine responses", "policy", policyContext.Policy().GetName(), "rules", engineResponse.GetFailedRulesWithErrors())
+			h.log.Info("ignoring unsuccessful engine responses", "policy", policyContext.Policy().GetName(), "rules", engineResponse.GetFailedRulesWithErrors())
 			return &engineResponse, nil, nil
 		}
 	}
