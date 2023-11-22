@@ -180,26 +180,28 @@ func exemptContainerLevelExclusion(defaultCheckResults, excludeCheckResults []ps
 						}
 						if flag {
 							defaultCheckResult := defaultCheckResultsMap[checkID]
-							for idx, defaultFieldErr := range *defaultCheckResult.CheckResult.ErrList {
-								defaultField, defaultIndexes, defaultContainerType, isContainerLevelField := parseField(defaultFieldErr.Field)
-								var defaultContainer corev1.Container
-								if isContainerLevelField {
-									defaultContainer = getContainerInfo(pod, defaultIndexes[0], defaultContainerType)
-									if excludeField == defaultField && excludeContainer.Name == defaultContainer.Name {
-										remove(defaultCheckResult.CheckResult.ErrList, idx)
-										break
-									}
-								} else {
-									if excludeField == defaultField {
-										remove(defaultCheckResult.CheckResult.ErrList, idx)
-										break
+							if defaultCheckResult.CheckResult.ErrList != nil {
+								for idx, defaultFieldErr := range *defaultCheckResult.CheckResult.ErrList {
+									defaultField, defaultIndexes, defaultContainerType, isContainerLevelField := parseField(defaultFieldErr.Field)
+									var defaultContainer corev1.Container
+									if isContainerLevelField {
+										defaultContainer = getContainerInfo(pod, defaultIndexes[0], defaultContainerType)
+										if excludeField == defaultField && excludeContainer.Name == defaultContainer.Name {
+											remove(defaultCheckResult.CheckResult.ErrList, idx)
+											break
+										}
+									} else {
+										if excludeField == defaultField {
+											remove(defaultCheckResult.CheckResult.ErrList, idx)
+											break
+										}
 									}
 								}
-							}
-							if len(*defaultCheckResult.CheckResult.ErrList) == 0 {
-								delete(defaultCheckResultsMap, checkID)
-							} else {
-								defaultCheckResultsMap[checkID] = defaultCheckResult
+								if len(*defaultCheckResult.CheckResult.ErrList) == 0 {
+									delete(defaultCheckResultsMap, checkID)
+								} else {
+									defaultCheckResultsMap[checkID] = defaultCheckResult
+								}
 							}
 						}
 					}
