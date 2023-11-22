@@ -325,8 +325,9 @@ func convertImagesToUntyped(images map[string]map[string]apiutils.ImageInfo) (ma
 	results := map[string]interface{}{}
 	for containerType, v := range images {
 		imgMap := map[string]interface{}{}
-		for containerName, imageInfo := range v {
-			img, err := toUnstructured(&imageInfo.ImageInfo)
+		for containerName := range v {
+			imageInfo := v[containerName]
+			img, err := toUnstructured(&imageInfo)
 			if err != nil {
 				return nil, err
 			}
