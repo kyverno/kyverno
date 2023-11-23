@@ -1,10 +1,19 @@
-apiVersion: kuttl.dev/v1beta1
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: TestStep
-apply:
-- file: exception-allowed.yaml
-- file: exception-rejected.yaml
-  shouldFail: true
-assert:
-- exception-allowed.yaml
-error:
-- exception-rejected.yaml
+metadata:
+  creationTimestamp: null
+  name: exception
+spec:
+  timeouts: {}
+  try:
+  - apply:
+      file: exception-allowed.yaml
+  - apply:
+      check:
+        (error != null): true
+      file: exception-rejected.yaml
+  - assert:
+      file: exception-allowed.yaml
+  - error:
+      file: exception-rejected.yaml

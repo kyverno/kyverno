@@ -1,4 +1,11 @@
-apiVersion: kuttl.dev/v1beta1
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: TestStep
-apply:
-- policy.yaml
+metadata:
+  creationTimestamp: null
+  name: policy
+spec:
+  timeouts: {}
+  try:
+  - apply:
+      file: policy.yaml

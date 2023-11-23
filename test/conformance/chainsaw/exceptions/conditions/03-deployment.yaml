@@ -1,7 +1,15 @@
-apiVersion: kuttl.dev/v1beta1
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: TestStep
-apply:
-- file: good-deployment.yaml
-  shouldFail: false
-- file: bad-deployment.yaml
-  shouldFail: true
+metadata:
+  creationTimestamp: null
+  name: deployment
+spec:
+  timeouts: {}
+  try:
+  - apply:
+      file: good-deployment.yaml
+  - apply:
+      check:
+        (error != null): true
+      file: bad-deployment.yaml

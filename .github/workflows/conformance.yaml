@@ -182,7 +182,7 @@ jobs:
           - cleanup
           - deferred
           - events
-          # - exceptions
+          - exceptions
           # - filter
           # - generate/clusterpolicy
           # - generate/policy

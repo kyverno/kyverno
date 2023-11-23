@@ -1,5 +1,13 @@
-apiVersion: kuttl.dev/v1beta1
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: TestStep
-apply:
-- file: configmap.yaml
-  shouldFail: true
+metadata:
+  creationTimestamp: null
+  name: configmap
+spec:
+  timeouts: {}
+  try:
+  - apply:
+      check:
+        (error != null): true
+      file: configmap.yaml

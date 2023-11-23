@@ -1,4 +1,11 @@
-apiVersion: kuttl.dev/v1beta1
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: TestStep
-apply:
-- namespace.yaml
+metadata:
+  creationTimestamp: null
+  name: namespace
+spec:
+  timeouts: {}
+  try:
+  - apply:
+      file: namespace.yaml
