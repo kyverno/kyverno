@@ -73,7 +73,7 @@ require (
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.29.0-alpha.3
 	k8s.io/apiextensions-apiserver v0.29.0-alpha.3
-	k8s.io/apimachinery v0.29.0-alpha.3
+	k8s.io/apimachinery v0.30.0-alpha.0
 	k8s.io/apiserver v0.29.0-alpha.3
 	k8s.io/cli-runtime v0.29.0-alpha.3
 	k8s.io/client-go v0.29.0-alpha.3
