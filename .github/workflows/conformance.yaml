@@ -179,7 +179,7 @@ jobs:
         tests:
           - autogen
           - background-only
-          # - cleanup
+          - cleanup
           - deferred
           - events
           # - exceptions

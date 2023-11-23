@@ -1,0 +1,14 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: sleep
+spec:
+  timeouts: {}
+  try:
+  - command:
+      args:
+      - "65"
+      check: null
+      entrypoint: sleep
