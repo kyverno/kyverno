@@ -183,7 +183,7 @@ jobs:
           - deferred
           - events
           - exceptions
-          # - filter
+          - filter
           # - generate/clusterpolicy
           # - generate/policy
           # - generate/validation
