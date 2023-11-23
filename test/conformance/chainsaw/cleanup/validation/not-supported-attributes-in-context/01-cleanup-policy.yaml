@@ -1,15 +1,14 @@
----
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: TestStep
 metadata:
-  creationTimestamp: null
   name: cleanup-policy
 spec:
-  timeouts: {}
   try:
   - apply:
-      check: null
       file: cleanuppolicy-with-image-registry.yaml
+      check:
+        (error == null): false
   - apply:
-      check: null
       file: cleanuppolicy-with-configmap.yaml
+      check:
+        (error == null): false
