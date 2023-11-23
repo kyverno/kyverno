@@ -327,12 +327,14 @@ func convertImagesToUntyped(images map[string]map[string]apiutils.ImageInfo) (ma
 		imgMap := map[string]interface{}{}
 		for containerName := range v {
 			imageInfo := v[containerName]
-			img, err := toUnstructured(&imageInfo)
+			img, err := toUnstructured(&imageInfo.ImageInfo)
 			if err != nil {
 				return nil, err
 			}
 
-			img["jsonPointer"] = imageInfo.Pointer
+			var pointer interface{} = imageInfo.Pointer
+			img["jsonPointer"] = pointer
+
 			imgMap[containerName] = img
 		}
 

@@ -90,7 +90,7 @@
             "cwd": "${workspaceFolder}",
             "args": [
                 "test",
-                "./test/cli/",
+                "/Users/jimbugwadia/go/src/github.com/jimbugwadia/kyverno-policies/other/rec-req/remove-serviceaccount-token/",
             ],
         }
     ]
