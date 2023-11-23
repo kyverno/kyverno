@@ -413,7 +413,7 @@ The chart values are organised per component.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | backgroundController.featuresOverride | object | `{}` | Overrides features defined at the root level |
-| backgroundController.enabled | bool | `true` | Enable background controller. |
+| global.backgroundController.enabled | bool | `true` | Enable background controller. |
 | backgroundController.rbac.create | bool | `true` | Create RBAC resources |
 | backgroundController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | backgroundController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
@@ -478,7 +478,7 @@ The chart values are organised per component.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | cleanupController.featuresOverride | object | `{}` | Overrides features defined at the root level |
-| cleanupController.enabled | bool | `true` | Enable cleanup controller. |
+| global.cleanupController.enabled | bool | `true` | Enable cleanup controller. |
 | cleanupController.rbac.create | bool | `true` | Create RBAC resources |
 | cleanupController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | cleanupController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
@@ -550,7 +550,7 @@ The chart values are organised per component.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | reportsController.featuresOverride | object | `{}` | Overrides features defined at the root level |
-| reportsController.enabled | bool | `true` | Enable reports controller. |
+| global.reportsController.enabled | bool | `true` | Enable reports controller. |
 | reportsController.rbac.create | bool | `true` | Create RBAC resources |
 | reportsController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | reportsController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |

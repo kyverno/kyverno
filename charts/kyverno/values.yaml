@@ -6,6 +6,19 @@ templating:
   version: ~
 
 global:
+
+    # -- Enable background controller.
+  backgroundController:
+    enabled: true
+  
+    # -- Enable background controller.
+  cleanupController:
+    enabled: true
+
+    # -- Enable background controller.
+  reportsController:
+    enabled: true
+
   image:
     # -- (string) Global value that allows to set a single image registry across all deployments.
     # When set, it will override any values set under `.image.registry` across the chart.
@@ -32,6 +45,18 @@ apiVersionOverride:
 
 # CRDs configuration
 crds:
+
+  backgroundscanreports: true
+
+  cleanuppolicies: true
+
+  clusterbackgroundscanreports: true
+
+  clustercleanuppolicies: true
+
+  clusterpolicyreports: true
+
+  policyreports: true
 
   # -- Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created
   install: true
@@ -991,9 +1016,6 @@ backgroundController:
   # -- Overrides features defined at the root level
   featuresOverride: {}
 
-  # -- Enable background controller.
-  enabled: true
-
   rbac:
     # -- Create RBAC resources
     create: true
@@ -1254,22 +1276,11 @@ backgroundController:
     # -- Otel collector credentials
     creds: ''
 
-crds:
-  backgroundController:
-    enabled: true
-  reportsController:
-    enabled: true
-  cleanupController:
-    enabled: true
-
 # Cleanup controller configuration
 cleanupController:
 
   # -- Overrides features defined at the root level
   featuresOverride: {}
-
-  # -- Enable cleanup controller.
-  enabled: true
 
   rbac:
     # -- Create RBAC resources
@@ -1546,9 +1557,6 @@ reportsController:
 
   # -- Overrides features defined at the root level
   featuresOverride: {}
-
-  # -- Enable reports controller.
-  enabled: true
 
   rbac:
     # -- Create RBAC resources

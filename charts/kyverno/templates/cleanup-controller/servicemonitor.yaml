@@ -1,4 +1,4 @@
-{{- if .Values.cleanupController.enabled -}}
+{{- if .Values.global.cleanupController.enabled -}}
 {{- if and .Values.cleanupController.serviceMonitor.enabled (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") -}}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
