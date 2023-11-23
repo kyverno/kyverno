@@ -1,0 +1,49 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: allowed-annotations
+spec: {}
+status:
+  autogen:
+    rules:
+    - match:
+        any:
+        - resources:
+            kinds:
+            - DaemonSet
+            - Deployment
+            - Job
+            - StatefulSet
+            - ReplicaSet
+            - ReplicationController
+      name: autogen-allowed-fluxcd-annotations
+      validate:
+        deny:
+          conditions:
+            all:
+            - key: '{{ request.object.spec.template.metadata.annotations.keys(@)[?contains(@, ''fluxcd.io/'')] }}'
+              operator: AnyNotIn
+              value:
+              - fluxcd.io/cow
+              - fluxcd.io/dog
+        message: The only approved FluxCD annotations are `fluxcd.io/cow` and `fluxcd.io/dog`.
+    - match:
+        any:
+        - resources:
+            kinds:
+            - CronJob
+      name: autogen-cronjob-allowed-fluxcd-annotations
+      validate:
+        deny:
+          conditions:
+            all:
+            - key: '{{ request.object.spec.jobTemplate.spec.template.metadata.annotations.keys(@)[?contains(@, ''fluxcd.io/'')] }}'
+              operator: AnyNotIn
+              value:
+              - fluxcd.io/cow
+              - fluxcd.io/dog
+        message: The only approved FluxCD annotations are `fluxcd.io/cow` and `fluxcd.io/dog`.
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready
