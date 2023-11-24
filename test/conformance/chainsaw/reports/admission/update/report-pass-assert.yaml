@@ -1,0 +1,23 @@
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: PolicyReport
+metadata:
+  ownerReferences:
+  - apiVersion: apps/v1
+    kind: Deployment
+    name: test-dpl-1
+scope:
+  apiVersion: apps/v1
+  kind: Deployment
+  name: test-dpl-1
+results:
+- message: validation rule 'autogen-validate-image-tag-pod' passed.
+  policy: disallow-latest-tag
+  result: pass
+  rule: autogen-validate-image-tag-pod
+  source: kyverno
+summary:
+  error: 0
+  fail: 0
+  pass: 1
+  skip: 0
+  warn: 0

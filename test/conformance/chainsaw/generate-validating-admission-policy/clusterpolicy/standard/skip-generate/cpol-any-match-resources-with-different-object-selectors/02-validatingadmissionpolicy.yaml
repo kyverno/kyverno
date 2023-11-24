@@ -1,0 +1,13 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: validatingadmissionpolicy
+spec:
+  timeouts: {}
+  try:
+  - error:
+      file: validatingadmissionpolicy.yaml
+  - error:
+      file: validatingadmissionpolicybinding.yaml

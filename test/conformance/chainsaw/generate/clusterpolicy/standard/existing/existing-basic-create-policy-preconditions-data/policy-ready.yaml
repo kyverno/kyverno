@@ -1,0 +1,9 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: existing-basic-create-policy-preconditions-data
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready

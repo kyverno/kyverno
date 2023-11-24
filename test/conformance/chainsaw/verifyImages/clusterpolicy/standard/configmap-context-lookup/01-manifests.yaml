@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: default
+  name: keys
+data:
+  org: |-
+    -----BEGIN PUBLIC KEY-----
+    MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEkooBXoWI+9fAJWeWoB26K539sTp/
+    50J9t2brN73cxQURl1TCbUvw+3T/XmOCwVrkP6stjHJN2SatnhLmx6736A==
+    -----END PUBLIC KEY-----    
+  org1:
+    -----BEGIN PUBLIC KEY-----
+    MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEkooBXoWI+9fAJWeWoB26K539sTp/
+    50J9t2brN73cxQURl1TCbUvw+3T/XmOCwVrkP6stjHJN2SatnhLmx6736A==
+    -----END PUBLIC KEY-----
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-image-with-multi-keys
+  annotations:
+    policies.kyverno.io/title: Verify Image with Multiple Keys
+    policies.kyverno.io/category: Sample
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/minversion: 1.7.0
+    kyverno.io/kyverno-version: 1.7.2
+    kyverno.io/kubernetes-version: "1.23"
+    policies.kyverno.io/description: >-
+      There may be multiple keys used to sign images based on
+      the parties involved in the creation process. This image
+      verification policy requires the named image be signed by
+      two separate keys. It will search for a global "production"
+      key in a ConfigMap called `key` in the `default` Namespace
+      and also a Namespace key in the same ConfigMap.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-image-with-two-keys
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      context:
+      - name: keys
+        configMap:
+          name: keys
+          namespace: default
+      verifyImages:
+        - image: "*"
+          key: "{{ keys.data.org }}"

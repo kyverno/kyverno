@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: policy-exception-events-creation-polex-ns
+---
+apiVersion: kyverno.io/v2beta1
+kind: PolicyException
+metadata:
+  name: policy-exception-allow-latest
+  namespace: policy-exception-events-creation-polex-ns
+spec:
+  exceptions:
+    - policyName: disallow-latest-tag-events-creation
+      ruleNames:
+        - validate-image-tag
+  match:
+    any:
+      - resources:
+          namespaces:
+            - policy-exception-events-creation-ns

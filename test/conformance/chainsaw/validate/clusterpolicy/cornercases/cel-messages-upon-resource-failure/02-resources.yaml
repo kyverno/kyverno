@@ -1,0 +1,14 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: resources
+spec:
+  timeouts: {}
+  try:
+  - script:
+      content: "if kubectl apply -f pod-fail.yaml 2>&1 | grep -q 'host-port-pods:
+        hostPort must either be unset or set to 0' \nthen \n    echo \"Test succeeded.
+        The message is displayed.\"\n    exit 0\nelse \n    echo \"Test failed. The
+        message isn't found.\"\n    exit 1\nfi\n"

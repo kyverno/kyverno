@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-b
+  namespace: default
+  labels:
+    policy-applied: 'true'
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-c
+  namespace: default
+  labels:
+    policy-applied: 'true'

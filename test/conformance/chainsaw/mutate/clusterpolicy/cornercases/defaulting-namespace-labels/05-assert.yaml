@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: webserver
+  labels:
+    cost.starfleet.evtech/project: empty
+    cost.starfleet.evtech/application: empty

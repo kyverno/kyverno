@@ -1,0 +1,35 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: one
+spec:
+  validationFailureAction: Enforce
+  rules:
+  - name: one
+    match:
+      all:
+      - resources:
+          kinds:
+          - v1/ConfigMap
+    context:
+    - name: var
+      variable:
+        value: test
+    mutate:
+      foreach:
+      - list: "['dummy']"
+        patchStrategicMerge:
+          data:
+            one: "{{ to_string(var) }}"
+  - name: two
+    match:
+      all:
+      - resources:
+          kinds:
+          - v1/ConfigMap
+    mutate:
+      foreach:
+      - list: "['dummy']"
+        patchStrategicMerge:
+          data:
+            two: "{{ to_string(var) }}"

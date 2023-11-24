@@ -1,0 +1,27 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-post-mutation-create-policy
+spec:
+  mutateExistingOnPolicyUpdate: true
+  rules:
+    - name: mutate-secret-on-policy-create
+      match:
+        any:
+        - resources:
+            kinds:
+            - ConfigMap
+            names:
+            - dictionary-3
+            namespaces:
+            - staging-3
+      mutate:
+        targets:
+        - apiVersion: v1
+          kind: Secret
+          name: test-secret-3
+          namespace: "{{ request.object.metadata.namespace }}"
+        patchStrategicMerge:
+          metadata:
+            labels:
+              foo: "{{ request.object.metadata.name }}"

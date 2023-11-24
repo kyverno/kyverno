@@ -44,17 +44,16 @@ apiVersion: kyverno.io/v2beta1
 kind: PolicyException
 metadata:
   name: test
-  namespace: 
+  namespace: default
 spec:
   background: true
   match:
     any:
-      -
-        kinds:
-          - Pod
-          - Deployment
-        names:
-          - test-*
+    - kinds:
+        - Pod
+        - Deployment
+      names:
+        - test-*
   exceptions:
     - policyName: policy
       ruleNames:
@@ -77,21 +76,20 @@ apiVersion: kyverno.io/v2beta1
 kind: PolicyException
 metadata:
   name: test
-  namespace: 
+  namespace: default
 spec:
   background: true
   match:
     all:
-      -
-        kinds:
-          - Pod
-          - Deployment
-        names:
-          - test-*
-        namespaces:
-          - test
-        operations:
-          - UPDATE
+    - kinds:
+        - Pod
+        - Deployment
+      names:
+        - test-*
+      namespaces:
+        - test
+      operations:
+        - UPDATE
   exceptions:
     - policyName: policy
       ruleNames:

@@ -1,0 +1,32 @@
+apiVersion: kyverno.io/v2beta1
+kind: ClusterPolicy
+metadata:
+  name: operator-anyin-boolean-cpol
+  # annotations:
+  #   pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: check-commands
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      preconditions:
+        all:
+        - key: "{{ length(request.object.spec.containers[].livenessProbe.exec.command[] || `[]`) }}"
+          operator: GreaterThan
+          value: 0
+        - key: "{{ request.operation }}"
+          operator: NotEquals
+          value: DELETE
+      validate:
+        message: Cannot use commands `jcmd`, `ps`, or `ls` in liveness probes.
+        deny:
+          conditions:
+            any:
+            - key: true
+              operator: AnyIn
+              value: "{{ request.object.spec.containers[].livenessProbe.exec.command[].regex_match('\\bjcmd\\b',@) }}"

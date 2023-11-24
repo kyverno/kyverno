@@ -1,0 +1,6 @@
+apiVersion: rules.example.com/v1
+kind: StatefulSetReplicaLimit
+metadata:
+  name: "replica-limit-test.example.com"
+  namespace: test-params
+maxReplicas: 3

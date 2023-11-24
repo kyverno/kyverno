@@ -1,0 +1,480 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cpol-validate-psa-test-deletion-request
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app.kubernetes.io/component: agent
+    app.kubernetes.io/instance: datadog-operator
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: datadog-operator
+    app.kubernetes.io/version: "7"
+    helm.sh/chart: datadog-3.25.1
+  name: test-deletion-request-datadog-operator
+  namespace: cpol-validate-psa-test-deletion-request
+spec:
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: datadog-operator
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: datadog-operator
+        app.kubernetes.io/component: agent
+        app.kubernetes.io/instance: datadog-operator
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: datadog-operator
+      name: datadog-operator
+    spec:
+      affinity: {}
+      automountServiceAccountToken: true
+      containers:
+      - command:
+        - agent
+        - run
+        env:
+        - name: GODEBUG
+          value: x509ignoreCN=0
+        - name: DD_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: api-key
+              name: datadog-operator
+        - name: DD_AUTH_TOKEN_FILE_PATH
+          value: /etc/datadog-agent/auth/token
+        - name: DD_CLUSTER_NAME
+          value: cluster
+        - name: KUBERNETES
+          value: "yes"
+        - name: DD_KUBERNETES_KUBELET_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: DD_ENV
+          value: cluster
+        - name: DD_PROPAGATION_STYLE_INJECT
+          value: Datadog B3
+        - name: DD_EC2_PREFER_IMDSV2
+          value: "true"
+        - name: DD_PROXY_HTTP
+          value: http://proxy.config.pcp.local:3128
+        - name: DD_PROXY_HTTPS
+          value: http://proxy.config.pcp.local:3128
+        - name: DD_PROXY_NO_PROXY
+          value: localhost 127.0.0.1 10.100.0.0/16 172.31.0.0/16 172.16.0.0/12
+        - name: DD_LOG_LEVEL
+          value: INFO
+        - name: DD_DOGSTATSD_PORT
+          value: "8125"
+        - name: DD_DOGSTATSD_NON_LOCAL_TRAFFIC
+          value: "true"
+        - name: DD_CLUSTER_AGENT_ENABLED
+          value: "true"
+        - name: DD_CLUSTER_AGENT_KUBERNETES_SERVICE_NAME
+          value: datadog-operator-cluster-agent
+        - name: DD_CLUSTER_AGENT_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: token
+              name: datadog-operator-cluster-agent
+        - name: DD_APM_ENABLED
+          value: "false"
+        - name: DD_LOGS_ENABLED
+          value: "false"
+        - name: DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL
+          value: "false"
+        - name: DD_LOGS_CONFIG_K8S_CONTAINER_USE_FILE
+          value: "true"
+        - name: DD_LOGS_CONFIG_AUTO_MULTI_LINE_DETECTION
+          value: "false"
+        - name: DD_HEALTH_PORT
+          value: "5555"
+        - name: DD_DOGSTATSD_SOCKET
+          value: /var/run/datadog/dsd.socket
+        - name: DD_IGNORE_AUTOCONF
+          value: kubernetes_state
+        - name: DD_EXPVAR_PORT
+          value: "6000"
+        image: datadog/agent:7.36.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 6
+          httpGet:
+            path: /live
+            port: 5555
+            scheme: HTTP
+          initialDelaySeconds: 15
+          periodSeconds: 15
+          successThreshold: 1
+          timeoutSeconds: 5
+        name: agent
+        ports:
+        - containerPort: 8125
+          hostPort: 8125
+          name: dogstatsdport
+          protocol: UDP
+        readinessProbe:
+          failureThreshold: 6
+          httpGet:
+            path: /ready
+            port: 5555
+            scheme: HTTP
+          initialDelaySeconds: 15
+          periodSeconds: 15
+          successThreshold: 1
+          timeoutSeconds: 5
+        resources: {}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+        - mountPath: /etc/datadog-agent/install_info
+          name: installinfo
+          readOnly: true
+          subPath: install_info
+        - mountPath: /var/log/datadog
+          name: logdatadog
+          readOnly: false
+        - mountPath: /tmp
+          name: tmpdir
+          readOnly: false
+        - mountPath: /host/etc/os-release
+          mountPropagation: None
+          name: os-release-file
+          readOnly: true
+        - mountPath: /etc/datadog-agent
+          name: config
+          readOnly: false
+        - mountPath: /etc/datadog-agent/auth
+          name: auth-token
+          readOnly: false
+        - mountPath: /host/var/run
+          mountPropagation: None
+          name: runtimesocketdir
+          readOnly: true
+        - mountPath: /var/run/datadog
+          name: dsdsocket
+          readOnly: false
+        - mountPath: /host/proc
+          mountPropagation: None
+          name: procdir
+          readOnly: true
+        - mountPath: /host/sys/fs/cgroup
+          mountPropagation: None
+          name: cgroups
+          readOnly: true
+      - command:
+        - trace-agent
+        - -config=/etc/datadog-agent/datadog.yaml
+        env:
+        - name: GODEBUG
+          value: x509ignoreCN=0
+        - name: DD_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: api-key
+              name: datadog-operator
+        - name: DD_AUTH_TOKEN_FILE_PATH
+          value: /etc/datadog-agent/auth/token
+        - name: DD_CLUSTER_NAME
+          value: cluster
+        - name: KUBERNETES
+          value: "yes"
+        - name: DD_KUBERNETES_KUBELET_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: DD_ENV
+          value: cluster
+        - name: DD_PROPAGATION_STYLE_INJECT
+          value: Datadog B3
+        - name: DD_EC2_PREFER_IMDSV2
+          value: "true"
+        - name: DD_PROXY_HTTP
+          value: http://proxy.config.pcp.local:3128
+        - name: DD_PROXY_HTTPS
+          value: http://proxy.config.pcp.local:3128
+        - name: DD_PROXY_NO_PROXY
+          value: localhost 127.0.0.1 10.100.0.0/16 172.31.0.0/16 172.16.0.0/12
+        - name: DD_CLUSTER_AGENT_ENABLED
+          value: "true"
+        - name: DD_CLUSTER_AGENT_KUBERNETES_SERVICE_NAME
+          value: datadog-operator-cluster-agent
+        - name: DD_CLUSTER_AGENT_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: token
+              name: datadog-operator-cluster-agent
+        - name: DD_LOG_LEVEL
+          value: INFO
+        - name: DD_APM_ENABLED
+          value: "true"
+        - name: DD_APM_NON_LOCAL_TRAFFIC
+          value: "true"
+        - name: DD_APM_RECEIVER_PORT
+          value: "8126"
+        - name: DD_APM_RECEIVER_SOCKET
+          value: /var/run/datadog/apm.socket
+        - name: DD_DOGSTATSD_SOCKET
+          value: /var/run/datadog/dsd.socket
+        image: datadog/agent:7.36.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          initialDelaySeconds: 15
+          periodSeconds: 15
+          tcpSocket:
+            port: 8126
+          timeoutSeconds: 5
+        name: trace-agent
+        ports:
+        - containerPort: 8126
+          hostPort: 8126
+          name: traceport
+          protocol: TCP
+        resources: {}
+        volumeMounts:
+        - mountPath: /etc/datadog-agent
+          name: config
+          readOnly: true
+        - mountPath: /etc/datadog-agent/auth
+          name: auth-token
+          readOnly: true
+        - mountPath: /host/proc
+          mountPropagation: None
+          name: procdir
+          readOnly: true
+        - mountPath: /host/sys/fs/cgroup
+          mountPropagation: None
+          name: cgroups
+          readOnly: true
+        - mountPath: /var/log/datadog
+          name: logdatadog
+          readOnly: false
+        - mountPath: /tmp
+          name: tmpdir
+          readOnly: false
+        - mountPath: /var/run/datadog
+          name: dsdsocket
+          readOnly: false
+        - mountPath: /host/var/run
+          mountPropagation: None
+          name: runtimesocketdir
+          readOnly: true
+      - command:
+        - process-agent
+        - --cfgpath=/etc/datadog-agent/datadog.yaml
+        env:
+        - name: GODEBUG
+          value: x509ignoreCN=0
+        - name: DD_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: api-key
+              name: datadog-operator
+        - name: DD_AUTH_TOKEN_FILE_PATH
+          value: /etc/datadog-agent/auth/token
+        - name: DD_CLUSTER_NAME
+          value: cluster
+        - name: KUBERNETES
+          value: "yes"
+        - name: DD_KUBERNETES_KUBELET_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: DD_ENV
+          value: cluster
+        - name: DD_PROPAGATION_STYLE_INJECT
+          value: Datadog B3
+        - name: DD_EC2_PREFER_IMDSV2
+          value: "true"
+        - name: DD_PROXY_HTTP
+          value: http://proxy.config.pcp.local:3128
+        - name: DD_PROXY_HTTPS
+          value: http://proxy.config.pcp.local:3128
+        - name: DD_PROXY_NO_PROXY
+          value: localhost 127.0.0.1 10.100.0.0/16 172.31.0.0/16 172.16.0.0/12
+        - name: DD_CLUSTER_AGENT_ENABLED
+          value: "true"
+        - name: DD_CLUSTER_AGENT_KUBERNETES_SERVICE_NAME
+          value: datadog-operator-cluster-agent
+        - name: DD_CLUSTER_AGENT_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: token
+              name: datadog-operator-cluster-agent
+        - name: DD_PROCESS_AGENT_ENABLED
+          value: "true"
+        - name: DD_PROCESS_AGENT_DISCOVERY_ENABLED
+          value: "true"
+        - name: DD_LOG_LEVEL
+          value: INFO
+        - name: DD_SYSTEM_PROBE_ENABLED
+          value: "false"
+        - name: DD_DOGSTATSD_SOCKET
+          value: /var/run/datadog/dsd.socket
+        - name: DD_ORCHESTRATOR_EXPLORER_ENABLED
+          value: "true"
+        image: datadog/agent:7.36.0
+        imagePullPolicy: IfNotPresent
+        name: process-agent
+        resources: {}
+        volumeMounts:
+        - mountPath: /etc/datadog-agent
+          name: config
+          readOnly: true
+        - mountPath: /etc/datadog-agent/auth
+          name: auth-token
+          readOnly: true
+        - mountPath: /var/run/datadog
+          name: dsdsocket
+          readOnly: false
+        - mountPath: /var/log/datadog
+          name: logdatadog
+          readOnly: false
+        - mountPath: /tmp
+          name: tmpdir
+          readOnly: false
+        - mountPath: /host/etc/os-release
+          mountPropagation: None
+          name: os-release-file
+          readOnly: true
+        - mountPath: /host/var/run
+          mountPropagation: None
+          name: runtimesocketdir
+          readOnly: true
+        - mountPath: /host/sys/fs/cgroup
+          mountPropagation: None
+          name: cgroups
+          readOnly: true
+        - mountPath: /etc/passwd
+          name: passwd
+          readOnly: true
+        - mountPath: /host/proc
+          mountPropagation: None
+          name: procdir
+          readOnly: true
+      hostPID: true
+      initContainers:
+      - args:
+        - cp -r /etc/datadog-agent /opt
+        command:
+        - bash
+        - -c
+        image: datadog/agent:7.36.0
+        imagePullPolicy: IfNotPresent
+        name: init-volume
+        resources: {}
+        volumeMounts:
+        - mountPath: /opt/datadog-agent
+          name: config
+          readOnly: false
+      - args:
+        - for script in $(find /etc/cont-init.d/ -type f -name '*.sh' | sort) ; do
+          bash $script ; done
+        command:
+        - bash
+        - -c
+        env:
+        - name: GODEBUG
+          value: x509ignoreCN=0
+        - name: DD_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: api-key
+              name: datadog-operator
+        - name: DD_AUTH_TOKEN_FILE_PATH
+          value: /etc/datadog-agent/auth/token
+        - name: DD_CLUSTER_NAME
+          value: cluster
+        - name: KUBERNETES
+          value: "yes"
+        - name: DD_KUBERNETES_KUBELET_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: DD_ENV
+          value: cluster
+        - name: DD_PROPAGATION_STYLE_INJECT
+          value: Datadog B3
+        - name: DD_EC2_PREFER_IMDSV2
+          value: "true"
+        image: datadog/agent:7.36.0
+        imagePullPolicy: IfNotPresent
+        name: init-config
+        resources: {}
+        volumeMounts:
+        - mountPath: /var/log/datadog
+          name: logdatadog
+          readOnly: false
+        - mountPath: /etc/datadog-agent
+          name: config
+          readOnly: false
+        - mountPath: /host/proc
+          mountPropagation: None
+          name: procdir
+          readOnly: true
+        - mountPath: /host/var/run
+          mountPropagation: None
+          name: runtimesocketdir
+          readOnly: true
+      nodeSelector:
+        kubernetes.io/os: linux
+      securityContext:
+        runAsNonRoot: false
+        runAsUser: 101
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: datadog-operator
+      tolerations:
+      - effect: NoSchedule
+        operator: Exists
+      volumes:
+      - emptyDir: {}
+        name: auth-token
+      - configMap:
+          name: datadog-operator-installinfo
+        name: installinfo
+      - emptyDir: {}
+        name: config
+      - emptyDir: {}
+        name: logdatadog
+      - emptyDir: {}
+        name: tmpdir
+      - hostPath:
+          path: /proc
+        name: procdir
+      - hostPath:
+          path: /sys/fs/cgroup
+        name: cgroups
+      - hostPath:
+          path: /etc/os-release
+        name: os-release-file
+      - hostPath:
+          path: /var/run/datadog/
+          type: DirectoryOrCreate
+        name: dsdsocket
+      - hostPath:
+          path: /var/run/datadog/
+          type: DirectoryOrCreate
+        name: apmsocket
+      - emptyDir: {}
+        name: s6-run
+      - hostPath:
+          path: /etc/passwd
+        name: passwd
+      - hostPath:
+          path: /var/run
+        name: runtimesocketdir
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 10%
+    type: RollingUpdate

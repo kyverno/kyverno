@@ -1,0 +1,16 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: deny
+spec:
+  validationFailureAction: Audit
+  webhookTimeoutSeconds: -1
+  rules:
+    - name: deny
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      validate:
+        deny: {}

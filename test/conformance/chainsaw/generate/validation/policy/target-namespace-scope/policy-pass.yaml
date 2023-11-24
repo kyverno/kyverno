@@ -1,0 +1,30 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: user-per-namespace-pass
+  namespace: default
+spec:
+  generateExistingOnPolicyUpdate: true
+  rules:
+    - generate:
+        apiVersion: rbac.authorization.k8s.io/v1
+        data:
+          rules:
+            - verbs:
+                - "*"
+              apiGroups:
+                - "*"
+              resources:
+                - "*"
+        kind: Role
+        name: superuser
+        namespace: default
+        synchronize: true
+      match:
+        any:
+          - resources:
+              kinds:
+                - Secret
+              names:
+                - dev-*
+      name: role-per-namespace

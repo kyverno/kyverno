@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: non-match-trigger-namespace-ns
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: non-match-trigger-namespace-ns-2
+---
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  labels:
+    example.com/sm-sync: "true"
+  name: regcred
+  namespace: non-match-trigger-namespace-ns-2
+type: Opaque
+---
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: non-match-trigger-namespace
+  namespace: non-match-trigger-namespace-ns
+spec:
+  generateExisting: true
+  rules:
+    - name: get-synced-secrets
+      match:
+        resources:
+          kinds:
+            - Secret
+          selector:
+            matchLabels:
+              example.com/sm-sync: "true"
+      generate:
+        apiVersion: v1
+        kind: ConfigMap
+        name: "{{request.object.metadata.name}}-modify"
+        namespace: non-match-trigger-namespace-ns
+        synchronize: true
+        data:
+          data:
+            modify: Zm9v
