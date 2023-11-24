@@ -184,17 +184,17 @@ jobs:
           - events
           - exceptions
           - filter
-          # - generate/clusterpolicy
-          # - generate/policy
-          # - generate/validation
-          # - mutate
-          # - policy-validation
+          - generate/clusterpolicy
+          - generate/policy
+          - generate/validation
+          - mutate
+          - policy-validation
           - rangeoperators
           - rbac
-          # - reports
-          # - validate
-          # - verify-manifests
-          # - verifyImages
+          - reports
+          - validate
+          - verify-manifests
+          - verifyImages
           - webhooks
     needs: prepare-images
     name: chainsaw - ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
@@ -236,7 +236,7 @@ jobs:
       - name: Install Chainsaw
         uses: kyverno/chainsaw/.github/actions/install@c08ae80bc45546987edff33212bf33161c84ce59 # v0.0.6
         with:
-          release: v0.0.6
+          release: v0.0.7-alpha.2
       - name: Test with Chainsaw
         shell: bash
         env:

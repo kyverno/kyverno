@@ -6,7 +6,7 @@ spec:
   containers:
   - name: busybox-1
     image: busybox:1.35
-    env: null
+    (env != null): true
   - name: busybox-2
     image: busybox:1.35
-    env: null
+    (env != null): true
