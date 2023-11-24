@@ -5,16 +5,24 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 )
 
-func newJMESPath(fCall *gojmespath.FunctionCaller, query string) (*gojmespath.JMESPath, error) {
-	parser := gojmespath.NewParser()
-	ast, err := parser.Parse(query)
+type QueryProxy struct {
+	jmesPath       *gojmespath.JMESPath
+	functionCaller *gojmespath.FunctionCaller
+}
+
+func (q *QueryProxy) Search(data interface{}) (interface{}, error) {
+	return q.jmesPath.Search(data, gojmespath.WithFunctionCaller(q.functionCaller))
+}
+
+func newJMESPath(query string, functionCaller *gojmespath.FunctionCaller) (*QueryProxy, error) {
+	jmesPath, err := gojmespath.Compile(query)
 	if err != nil {
 		return nil, err
 	}
-
-	intr := gojmespath.NewInterpreterFromFunctionCaller(fCall)
-
-	return gojmespath.NewJMESPath(ast, intr), nil
+	return &QueryProxy{
+		jmesPath,
+		functionCaller,
+	}, nil
 }
 
 func newImplementation(configuration config.Configuration) Interface {
@@ -30,13 +38,5 @@ func newImplementation(configuration config.Configuration) Interface {
 }
 
 func newExecution(fCall *gojmespath.FunctionCaller, query string, data interface{}) (interface{}, error) {
-	parser := gojmespath.NewParser()
-	ast, err := parser.Parse(query)
-	if err != nil {
-		return nil, err
-	}
-
-	intr := gojmespath.NewInterpreterFromFunctionCaller(fCall)
-
-	return intr.Execute(ast, data)
+	return gojmespath.Search(query, data, gojmespath.WithFunctionCaller(fCall))
 }
