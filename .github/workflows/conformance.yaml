@@ -184,7 +184,7 @@ jobs:
           - events
           - exceptions
           - filter
-          # - generate/clusterpolicy
+          - generate/clusterpolicy
           # - generate/policy
           # - generate/validation
           # - mutate

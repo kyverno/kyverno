@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cpol-create-on-trigger-deletion-ns
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-org
+  namespace: cpol-create-on-trigger-deletion-ns
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-create-on-trigger-deletion
+spec:
+  rules:
+  - name: default-deny
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+          operations:
+          - DELETE
+    generate:
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      name: default-deny
+      namespace: "{{request.object.metadata.namespace}}"
+      synchronize: false
+      data:
+        spec:
+          podSelector: {}
+          policyTypes:
+          - Ingress
+          - Egress

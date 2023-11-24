@@ -1,0 +1,61 @@
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: default
+  name: ns-role
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "watch", "list", "delete", "create"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: ns-role-binding
+  namespace: default
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: User
+    name: minikube-userclone
+roleRef:
+  kind: Role
+  name: ns-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: gen-clone-role-policy
+spec:
+  background: false
+  rules:
+  - name: gen-role
+    match:
+      any:
+      - resources:
+          kinds:
+            - Namespace
+    generate:
+        kind: Role
+        name: ns-role
+        apiVersion: rbac.authorization.k8s.io/v1
+        namespace: "{{request.object.metadata.name}}"
+        synchronize: true
+        clone:
+          name: ns-role
+          namespace: default
+  - name: gen-role-binding
+    match:
+      any:
+      - resources:
+          kinds:
+            - Namespace
+    generate:
+        kind: RoleBinding
+        name: ns-role-binding
+        apiVersion: rbac.authorization.k8s.io/v1
+        namespace: "{{request.object.metadata.name}}"
+        synchronize: true
+        clone:
+            name: ns-role-binding
+            namespace: default
