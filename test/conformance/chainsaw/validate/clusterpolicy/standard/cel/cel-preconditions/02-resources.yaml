@@ -13,3 +13,6 @@ spec:
       check:
         (error != null): true
       file: pod-fail.yaml
+  finally:
+  - script:
+      content: sleep 5

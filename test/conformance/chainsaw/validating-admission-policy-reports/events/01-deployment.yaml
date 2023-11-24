@@ -11,3 +11,6 @@ spec:
       file: deployment.yaml
   - assert:
       file: deployment-assert.yaml
+  finally:
+  - script:
+      content: sleep 5
