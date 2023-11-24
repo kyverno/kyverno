@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: unsigned
+spec:
+  containers:
+  - image: ghcr.io/kyverno/test-verify-image:unsigned
+    name: test-secret
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: signed-by-someone-else
+spec:
+  containers:
+  - image: ghcr.io/kyverno/test-verify-image:signed-by-someone-else
+    name: test-secret

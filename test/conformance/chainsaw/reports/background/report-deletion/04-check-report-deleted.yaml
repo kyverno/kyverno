@@ -1,0 +1,8 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  name: check-report-deleted
+spec:
+  try:
+  - error:
+      file: report-error.yaml

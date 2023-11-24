@@ -191,7 +191,7 @@ jobs:
           # - policy-validation
           - rangeoperators
           - rbac
-          # - reports
+          - reports
           # - validate
           # - verify-manifests
           # - verifyImages

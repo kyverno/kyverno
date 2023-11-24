@@ -1,0 +1,15 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  name: cleanup
+spec:
+  try:
+  - command:
+      args:
+      - delete
+      - -f
+      - 01-manifests.yaml,02-ns.yaml
+      - --force
+      - --wait=true
+      - --ignore-not-found=true
+      entrypoint: kubectl

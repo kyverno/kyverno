@@ -1,0 +1,8 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  name: exception
+spec:
+  try:
+  - apply:
+      file: exception.yaml

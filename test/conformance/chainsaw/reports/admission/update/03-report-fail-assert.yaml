@@ -1,0 +1,8 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  name: report-fail-assert
+spec:
+  try:
+  - assert:
+      file: report-fail-assert.yaml
