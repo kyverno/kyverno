@@ -193,7 +193,7 @@ jobs:
           - rbac
           # - reports
           # - validate
-          # - verify-manifests
+          - verify-manifests
           # - verifyImages
           - webhooks
     needs: prepare-images
