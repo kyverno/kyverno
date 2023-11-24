@@ -1,10 +1,13 @@
+---
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: TestStep
 metadata:
+  creationTimestamp: null
   name: testcase
 spec:
+  timeouts: {}
   try:
   - apply:
-      file: deploy.yaml
       check:
-        (error == null): false
+        (error != null): true
+      file: deploy.yaml

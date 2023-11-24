@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: staging-4
+  labels:
+    app-type: corp
+  annotations:
+    cloud.platformzero.com/serviceClass: "xl2"
+---
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: test-secret-4
+  namespace: staging-4
+type: Opaque
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-post-mutation
+spec:
+  mutateExistingOnPolicyUpdate: false
+  rules:
+    - name: mutate-secret-on-configmap-update
+      match:
+        any:
+        - resources:
+            kinds:
+            - ConfigMap
+            names:
+            - dictionary-4
+            namespaces:
+            - staging-4
+      mutate:
+        targets:
+        - apiVersion: v1
+          kind: Secret
+          name: test-secret-4
+          namespace: "{{ request.object.metadata.namespace }}"
+        patchesJson6902: |-
+          - op: add
+            path: "/metadata/labels/env"
+            value: "{{ request.object.metadata.namespace }}"  

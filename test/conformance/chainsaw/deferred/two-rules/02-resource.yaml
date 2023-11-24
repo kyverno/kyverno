@@ -8,7 +8,6 @@ spec:
   timeouts: {}
   try:
   - apply:
-      check: null
       file: resource.yaml
   - assert:
       file: resource-assert.yaml

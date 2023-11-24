@@ -8,7 +8,6 @@ spec:
   timeouts: {}
   try:
   - apply:
-      check: null
       file: clusterpolicy.yaml
   - assert:
       file: clusterpolicy.yaml

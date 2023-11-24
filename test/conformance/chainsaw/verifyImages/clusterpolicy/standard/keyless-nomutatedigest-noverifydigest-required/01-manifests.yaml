@@ -1,0 +1,29 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: keyless-nomutatedigest-noverifydigest-required
+spec:
+  validationFailureAction: Enforce
+  webhookTimeoutSeconds: 30
+  rules:
+    - name: check-builder-id-keyless
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      verifyImages:
+      - imageReferences:
+        - "ghcr.io/chipzoller/zulu*"
+        mutateDigest: false
+        verifyDigest: false
+        required: true
+        attestors:
+        - entries:
+          - keyless:
+              subject: "https://github.com/chipzoller/zulu/.github/workflows/slsa-generic-keyless.yaml@refs/tags/v*"
+              issuer: "https://token.actions.githubusercontent.com"
+              rekor:
+                url: https://rekor.sigstore.dev
+              ctlog:
+                ignoreSCT: true

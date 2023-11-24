@@ -1,0 +1,25 @@
+---
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: target-scope-validation-fail-2
+  namespace: target-scope-validation-fail-ns
+spec:
+  rules:
+  - name: clone-multiple-basic-create-policy-rule
+    match:
+      any:
+      - resources:
+          kinds:
+          - ServiceAccount
+    generate:
+      namespace: target-scope-validation-fail-ns
+      synchronize: true
+      cloneList:
+        namespace: target-scope-validation-fail-ns
+        kinds:
+        # namespace policy cannot generate cluster scoped resources
+          - rbac.authorization.k8s.io/v1/ClusterRole
+        selector:
+          matchLabels:
+            allowedToBeCloned: "true"

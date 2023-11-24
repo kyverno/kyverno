@@ -8,7 +8,6 @@ spec:
   timeouts: {}
   try:
   - apply:
-      check: null
       file: cm.yaml
   - assert:
       file: cm-assert.yaml

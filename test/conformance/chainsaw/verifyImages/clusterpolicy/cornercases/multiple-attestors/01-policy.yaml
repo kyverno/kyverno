@@ -1,0 +1,63 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validate-signatures
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  validationFailureAction: Enforce
+  webhookTimeoutSeconds: 30
+  background: false
+  rules:
+    - name: check-1
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      verifyImages:
+      - attestors:
+        - count: 1
+          entries:
+          - keys:
+              publicKeys: |-
+                -----BEGIN PUBLIC KEY-----
+                MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM
+                5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
+                -----END PUBLIC KEY-----
+              rekor:
+                url: https://rekor.sigstore.dev
+                ignoreTlog: true
+              ctlog:
+                ignoreSCT: true
+        imageReferences:
+        - ghcr.io/kyverno/test-verify-image:*
+        mutateDigest: true
+        required: true
+        verifyDigest: true
+    - name: check-2
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      verifyImages:
+      - attestors:
+        - count: 1
+          entries:
+          - keys:
+              publicKeys: |-
+                -----BEGIN PUBLIC KEY-----
+                MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEOUD2uzRHLnx1oH6XAnF+8haL73BF
+                zh9pMI1x1/c4Nj/w+rsrgMCDyV/S8hmsXEbizhYD3QndVtV1piBDfDIb8w==
+                -----END PUBLIC KEY-----
+              rekor:
+                url: https://rekor.sigstore.dev
+                ignoreTlog: true
+              ctlog:
+                ignoreSCT: true
+        imageReferences:
+        - my.local.repo/*
+        mutateDigest: false
+        required: true
+        verifyDigest: false

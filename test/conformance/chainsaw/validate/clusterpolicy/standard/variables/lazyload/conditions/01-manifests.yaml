@@ -1,0 +1,35 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: preconditions
+spec:
+  admission: true
+  background: false
+  rules:
+  - context:
+    - apiCall:
+        method: GET
+        urlPath: /api/v1/namespaces/missing/configmaps/nothere
+      name: nothere
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: test
+    preconditions:
+      any:
+      - key: '{{ request.name }}'
+        message: this pod is not allowed
+        operator: Equals
+        value: test
+      - key: '{{ nothere }}'
+        message: value mismatch
+        operator: Equals
+        value: hello
+    validate:
+      pattern:
+        metadata:
+          name: '*'
+  validationFailureAction: Enforce

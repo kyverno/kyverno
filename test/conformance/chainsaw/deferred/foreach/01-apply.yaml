@@ -8,7 +8,6 @@ spec:
   timeouts: {}
   try:
   - apply:
-      check: null
       file: manifests.yaml
   - assert:
       file: policy-assert.yaml

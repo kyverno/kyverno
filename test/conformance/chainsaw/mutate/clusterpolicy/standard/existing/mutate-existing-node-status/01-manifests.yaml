@@ -1,0 +1,42 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: advertise-resource
+spec:
+  background: false
+  rules:
+    - name: advertise-resource
+      match:
+        resources:
+          kinds:
+            - Node
+      mutate:
+        targets:
+          - apiVersion: v1
+            kind: Node/status
+            name: kind-control-plane
+            namespace: ""
+        patchStrategicMerge:
+          status:
+            capacity:
+              example.com/dongle: "41"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+  name: kyverno:modify-nodes
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+      - nodes/status
+    verbs:
+      - create
+      - update
+      - patch
+      - delete

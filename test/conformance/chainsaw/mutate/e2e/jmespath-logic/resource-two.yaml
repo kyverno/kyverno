@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: targettwo
+  namespace: mutate-jmespath
+  labels:
+    kyverno.key/copy-from: source
+data:
+  data.yaml: |
+    some: data

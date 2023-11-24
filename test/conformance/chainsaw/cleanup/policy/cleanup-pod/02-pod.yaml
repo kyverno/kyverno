@@ -8,7 +8,6 @@ spec:
   timeouts: {}
   try:
   - apply:
-      check: null
       file: pod.yaml
   - assert:
       file: pod-assert.yaml

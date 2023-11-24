@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pol-clone-nosync-modify-downstream-ns
+---
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: regcred
+  namespace: pol-clone-nosync-modify-downstream-ns
+type: Opaque
+---
+apiVersion: kyverno.io/v2beta1
+kind: Policy
+metadata:
+  name: pol-clone-nosync-modify-downstream
+  namespace: pol-clone-nosync-modify-downstream-ns
+spec:
+  rules:
+  - name: pol-clone-nosync-modify-downstream-rule
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    generate:
+      apiVersion: v1
+      kind: Secret
+      name: newsecret
+      namespace: pol-clone-nosync-modify-downstream-ns
+      synchronize: false
+      clone:
+        name: regcred
+        namespace: pol-clone-nosync-modify-downstream-ns

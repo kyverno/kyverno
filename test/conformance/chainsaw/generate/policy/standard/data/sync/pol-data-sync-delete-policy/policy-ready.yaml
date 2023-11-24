@@ -1,0 +1,10 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: pol-data-sync-delete-policy-policy
+  namespace: manasis
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready

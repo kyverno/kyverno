@@ -1,0 +1,10 @@
+apiVersion: kyverno.io/v2beta1
+kind: Policy
+metadata:
+  name: pol-sync-clone-delete-downstream
+  namespace: pol-sync-clone-delete-downstream
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready

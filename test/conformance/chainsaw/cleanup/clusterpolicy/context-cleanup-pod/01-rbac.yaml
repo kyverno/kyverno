@@ -8,5 +8,4 @@ spec:
   timeouts: {}
   try:
   - apply:
-      check: null
       file: rbac.yaml
