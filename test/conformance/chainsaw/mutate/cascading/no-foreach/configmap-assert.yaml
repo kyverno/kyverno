@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cm
+  annotations:
+    mutation1: '1'
+    mutation2: 'found mutation1: 1'

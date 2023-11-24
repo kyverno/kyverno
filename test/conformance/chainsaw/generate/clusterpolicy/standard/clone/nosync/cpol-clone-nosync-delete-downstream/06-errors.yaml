@@ -1,0 +1,6 @@
+### If this resource is found, create an error which fails the test. Since there is no timeout for this step, it will adopt the global defined in the TestSuite.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: regcred
+  namespace: cpol-clone-nosync-delete-downstream-ns

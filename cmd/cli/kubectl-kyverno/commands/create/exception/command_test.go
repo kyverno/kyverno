@@ -44,7 +44,7 @@ apiVersion: kyverno.io/v2beta1
 kind: PolicyException
 metadata:
   name: test
-  namespace: 
+  namespace: default
 spec:
   background: true
   match:
@@ -76,7 +76,7 @@ apiVersion: kyverno.io/v2beta1
 kind: PolicyException
 metadata:
   name: test
-  namespace: 
+  namespace: default
 spec:
   background: true
   match:

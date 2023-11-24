@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kube-state-metrics-crds
+  namespace: kube-state-metrics
+data:
+  foo: bm90LWJhcg==

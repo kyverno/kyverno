@@ -1,0 +1,44 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-slsa-attestations-fail-2
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  validationFailureAction: Enforce
+  webhookTimeoutSeconds: 30
+  background: false
+  rules:
+    - name: check-builder-id-keyless
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      verifyImages:
+      - imageReferences:
+        - "ghcr.io/chipzoller/zulu*"
+        attestations:
+        - predicateType: https://slsa.dev/provenance/v0.2
+          attestors: 
+          - entries:
+            - keyless:
+                subject: "https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@refs/heads/main"
+                issuer: "https://token.actions.githubusercontent.com"
+                rekor:
+                  url: https://rekor.sigstore.dev
+                ctlog:
+                  ignoreSCT: true
+            - keyless:
+                subject: "https://github.com/chipzoller/zulu/.github/workflows/vulnerability-scan.yaml@refs/heads/main"
+                issuer: "https://token.actions.githubusercontent.com"
+                rekor:
+                  url: https://rekor.sigstore.dev
+                ctlog:
+                  ignoreSCT: true
+            count: 2
+          conditions:
+          - all:
+            - key: "{{ regex_match('^https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@refs/heads/main','{{ builder.id}}') }}"
+              operator: Equals
+              value: true

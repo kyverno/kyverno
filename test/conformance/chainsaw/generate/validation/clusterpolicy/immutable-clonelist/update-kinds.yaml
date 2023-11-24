@@ -1,0 +1,31 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-update-clonelist
+spec:
+  generateExisting: false
+  rules:
+  - name: sync-secret
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    exclude:
+      any:
+      - resources:
+          namespaces:
+          - kube-system
+          - default
+          - kube-public
+          - kyverno
+    generate:
+      namespace: "{{request.object.metadata.name}}"
+      synchronize : true
+      cloneList:
+        namespace: default
+        kinds:
+          - v1/Secret
+        selector:
+          matchLabels:
+            allowedToBeCloned: "true"

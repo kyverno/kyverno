@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mycm
+  namespace: pol-clone-sync-create-source-after-policy-ns
+data:
+  food: cheese
+  day: monday
+  color: red

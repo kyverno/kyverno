@@ -1,0 +1,36 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-slsa-attestations-pass-2
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  validationFailureAction: Enforce
+  webhookTimeoutSeconds: 30
+  background: false
+  rules:
+    - name: check-builder-id-keyless
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      verifyImages:
+      - imageReferences:
+        - "ghcr.io/chipzoller/zulu*"
+        attestations:
+        - predicateType: cosign.sigstore.dev/attestation/vuln/v1
+          attestors: 
+          - entries:
+            - keyless:
+                subject: "https://github.com/chipzoller/zulu/.github/workflows/vulnerability-scan.yaml@refs/heads/main"
+                issuer: "https://token.actions.githubusercontent.com"
+                rekor:
+                  url: https://rekor.sigstore.dev
+                ctlog:
+                  ignoreSCT: true
+          conditions:
+          - all:
+            - key: "{{ regex_match('^pkg:github/aquasecurity/trivy@0.34.0','{{ scanner.uri }}') }}"
+              operator: Equals
+              value: true

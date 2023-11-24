@@ -1,0 +1,11 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: resources-error
+spec:
+  timeouts: {}
+  try:
+  - error:
+      file: resources-error.yaml

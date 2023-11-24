@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-owner
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+  - name: check-owner
+    match:
+      any:
+      - resources:
+          kinds:
+            - Namespace
+    validate:
+      message: The `owner` label is required for all Namespaces.
+      pattern:
+        metadata:
+          labels:
+            owner: "?*"

@@ -1,0 +1,36 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  annotations:
+    policies.kyverno.io/category: Workload Management
+    policies.kyverno.io/description: By default, Kubernetes allows communications
+      across all pods within a cluster. Network policies and, a CNI that supports
+      network policies, must be used to restrict communinications. A default NetworkPolicy
+      should be configured for each namespace to default deny all ingress traffic
+      to the pods in the namespace. Application teams can then configure additional
+      NetworkPolicy resources to allow desired traffic to application pods from select
+      sources.
+  name: cpol-data-sync-remove-list-element-cpol
+spec:
+  admission: true
+  background: true
+  rules:
+  - generate:
+      apiVersion: networking.k8s.io/v1
+      data:
+        spec:
+          podSelector: {}
+          policyTypes:
+          - Ingress
+      kind: NetworkPolicy
+      name: default-netpol
+      namespace: '{{request.object.metadata.name}}'
+      synchronize: true
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    name: cpol-data-sync-remove-list-element-rule
+  validationFailureAction: Audit

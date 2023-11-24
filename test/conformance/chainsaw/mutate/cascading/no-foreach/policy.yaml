@@ -1,0 +1,31 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-chain
+spec:
+  background: false
+  validationFailureAction: Enforce
+  rules:
+    - name: mutation1
+      match:
+        all:
+          - resources:
+              kinds:
+                - v1/ConfigMap
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            annotations:
+              # value is a counter in case K8s decides for multiple mutation rounds
+              mutation1: "{{ not_null(request.object.metadata.annotations.mutation1, '0') | add(@, '1') }}"
+    - name: mutation2
+      match:
+        all:
+          - resources:
+              kinds:
+                - v1/ConfigMap
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            annotations:
+              mutation2: "found mutation1: {{ request.object.metadata.annotations.mutation1 || '<nothing>' }}"

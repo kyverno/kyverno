@@ -1,0 +1,8 @@
+apiVersion: v1
+data:
+  foo: dGhpc2hhc2JlZW5tb2RpZmllZA==
+kind: Secret
+metadata:
+  name: newsecret
+  namespace: pol-clone-nosync-modify-downstream-ns
+type: Opaque
