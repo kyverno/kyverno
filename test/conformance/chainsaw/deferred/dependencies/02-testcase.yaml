@@ -1,0 +1,10 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  name: testcase
+spec:
+  try:
+  - apply:
+      file: deploy.yaml
+      check:
+        (error == null): false

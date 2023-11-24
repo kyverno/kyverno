@@ -179,11 +179,11 @@ jobs:
         tests:
           - autogen
           - background-only
-          # - cleanup
-          # - deferred
+          - cleanup
+          - deferred
           - events
-          # - exceptions
-          # - filter
+          - exceptions
+          - filter
           # - generate/clusterpolicy
           # - generate/policy
           # - generate/validation

@@ -1,0 +1,14 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  name: cleanup-policy
+spec:
+  try:
+  - apply:
+      file: cleanuppolicy-with-image-registry.yaml
+      check:
+        (error == null): false
+  - apply:
+      file: cleanuppolicy-with-configmap.yaml
+      check:
+        (error == null): false

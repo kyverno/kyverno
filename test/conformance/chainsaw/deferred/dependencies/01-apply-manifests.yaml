@@ -1,0 +1,14 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: apply-manifests
+spec:
+  timeouts: {}
+  try:
+  - apply:
+      check: null
+      file: manifests.yaml
+  - assert:
+      file: policy-assert.yaml
