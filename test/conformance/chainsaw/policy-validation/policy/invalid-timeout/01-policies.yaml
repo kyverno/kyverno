@@ -1,0 +1,14 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  name: policies
+spec:
+  try:
+  - apply:
+      check:
+        (error != null): true
+      file: policy-1.yaml
+  - apply:
+      check:
+        (error != null): true
+      file: policy-2.yaml

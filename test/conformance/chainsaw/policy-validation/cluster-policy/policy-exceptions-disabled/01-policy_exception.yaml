@@ -1,0 +1,8 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  name: policy_exception
+spec:
+  try:
+  - apply:
+      file: policy_exception.yaml

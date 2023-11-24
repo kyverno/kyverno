@@ -188,7 +188,7 @@ jobs:
           # - generate/policy
           # - generate/validation
           # - mutate
-          # - policy-validation
+          - policy-validation
           - rangeoperators
           - rbac
           # - reports

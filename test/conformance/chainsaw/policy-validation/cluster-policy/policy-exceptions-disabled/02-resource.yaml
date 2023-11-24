@@ -1,0 +1,10 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  name: resource
+spec:
+  try:
+  - apply:
+      check:
+        (error != null): true
+      file: resource.yaml

@@ -1,0 +1,20 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  name: policy
+spec:
+  try:
+  - apply:
+      file: policy-validate.yaml
+  - apply:
+      check:
+        (error != null): true
+      file: policy-mutate.yaml
+  - apply:
+      check:
+        (error != null): true
+      file: policy-generate.yaml
+  - apply:
+      check:
+        (error != null): true
+      file: policy-verify-image.yaml
