@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v2beta1
+kind: ClusterPolicy
+metadata:
+  name: generate-update-clone
+spec:
+  rules:
+  - name: clone-secret
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    generate:
+      apiVersion: v1
+      kind: Secret
+      name: regcred
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      clone:
+        namespace: default
+        name: regcred

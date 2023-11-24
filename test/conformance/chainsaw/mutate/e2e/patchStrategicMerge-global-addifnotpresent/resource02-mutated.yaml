@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-hostpath
+  namespace: default
+  annotations:
+    cluster-autoscaler.kubernetes.io/safe-to-evict: "true"

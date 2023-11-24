@@ -1,0 +1,31 @@
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: regcred
+  namespace: default
+type: Opaque
+---
+apiVersion: kyverno.io/v2beta1
+kind: Policy
+metadata:
+  name: pol-clone-nosync-modify-source
+  namespace: default
+spec:
+  rules:
+  - name: pol-clone-nosync-modify-source-rule
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    generate:
+      apiVersion: v1
+      kind: Secret
+      name: pol-clone-nosync-modify-source-newsecret
+      namespace: default
+      synchronize: false
+      clone:
+        name: regcred
+        namespace: default

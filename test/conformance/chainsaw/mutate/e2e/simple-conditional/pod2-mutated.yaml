@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: foo
+  name: footwo
+  namespace: default
+spec:
+  containers:
+  - image: abc:1.28
+    name: busybox
+    securityContext:
+      runAsNonRoot: true
+  initContainers:
+  - image: bcd:1.29
+    name: nginx
+    securityContext:
+      runAsNonRoot: true
+  securityContext:
+    runAsNonRoot: true

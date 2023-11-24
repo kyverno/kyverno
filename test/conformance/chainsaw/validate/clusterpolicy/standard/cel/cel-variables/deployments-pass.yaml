@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-pass-01
+  namespace: production-ns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app
+  template:
+    metadata:
+      labels:
+        app: app
+    spec:
+      containers:
+      - name: container2
+        image: prod.example.com/nginx
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-pass-02
+  namespace: staging-ns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app
+  template:
+    metadata:
+      labels:
+        app: app
+    spec:
+      containers:
+      - name: container2
+        image: staging.example.com/nginx
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-pass-03
+  namespace: staging-ns
+  labels:
+    exempt: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app
+  template:
+    metadata:
+      labels:
+        app: app
+    spec:
+      containers:
+      - name: container2
+        image: example.com/nginx

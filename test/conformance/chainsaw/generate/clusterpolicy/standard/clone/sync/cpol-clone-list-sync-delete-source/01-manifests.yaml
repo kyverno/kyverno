@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cpol-clone-list-sync-delete-source-existing-ns
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    location: europe
+    allowedToBeCloned: "true"
+  name: mysecret-1
+  namespace: cpol-clone-list-sync-delete-source-existing-ns
+type: Opaque
+data:
+  foo: YmFy
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    location: europe
+    allowedToBeCloned: "true"
+  name: mysecret-2
+  namespace: cpol-clone-list-sync-delete-source-existing-ns
+type: Opaque
+data:
+  foo: YmFy
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-clone-list-sync-delete-source-cpol
+spec:
+  rules:
+  - name: sync-secret
+    match:
+      all:
+      - resources:
+          kinds:
+          - Namespace
+    generate:
+      namespace: '{{ request.object.metadata.name }}'
+      synchronize: true
+      cloneList:
+        namespace: cpol-clone-list-sync-delete-source-existing-ns
+        kinds:
+          - v1/Secret
+        selector:
+          matchLabels:
+            allowedToBeCloned: "true"

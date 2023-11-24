@@ -10,5 +10,4 @@ spec:
   - command:
       args:
       - "65"
-      check: null
       entrypoint: sleep

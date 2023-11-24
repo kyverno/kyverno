@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Event
+metadata: {}
+involvedObject:
+  apiVersion: kyverno.io/v1
+  kind: Policy
+  name: require-labels
+type: Normal
+reason: PolicyApplied
+source:
+  component: kyverno-admission

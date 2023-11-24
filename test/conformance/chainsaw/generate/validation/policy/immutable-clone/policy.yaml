@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v2beta1
+kind: Policy
+metadata:
+  name: generate-update-clone
+  namespace: default
+spec:
+  rules:
+  - name: clone-secret
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    generate:
+      apiVersion: v1
+      kind: Secret
+      name: newregcred
+      namespace: default
+      synchronize: true
+      clone:
+        namespace: default
+        name: regcred

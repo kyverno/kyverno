@@ -1,0 +1,35 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata: 
+  name: add-safe-to-evict
+spec: 
+  rules: 
+  - name: annotate-empty-dir
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          annotations:
+            +(cluster-autoscaler.kubernetes.io/safe-to-evict): "true"
+        spec:          
+          volumes: 
+          - <(emptyDir): {}
+  - name: annotate-host-path
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          annotations:
+            +(cluster-autoscaler.kubernetes.io/safe-to-evict): "true"
+        spec:          
+          volumes: 
+          - hostPath:
+              <(path): "*"

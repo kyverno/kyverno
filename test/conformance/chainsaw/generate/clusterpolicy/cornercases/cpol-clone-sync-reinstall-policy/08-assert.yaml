@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: regcred
+  namespace: cpol-clone-sync-single-source-multiple-targets-trigger-ns-1
+type: Opaque
+data:
+  foo: aGVyZWlzY2hhbmdlZGRhdGE=
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: regcred
+  namespace: cpol-clone-sync-single-source-multiple-targets-trigger-ns-2
+type: Opaque
+data:
+  foo: aGVyZWlzY2hhbmdlZGRhdGE=
