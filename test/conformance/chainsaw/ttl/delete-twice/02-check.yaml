@@ -1,0 +1,8 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  name: check
+spec:
+  try:
+  - error:
+      file: pod-assert.yaml
