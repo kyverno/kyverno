@@ -4,9 +4,9 @@ metadata:
   name: cleanup
 spec:
   try:
-  - apply:
-      file: policy-2.yaml
   - delete:
       apiVersion: v1
       kind: Pod
       name: test
+  - apply:
+      file: policy-2.yaml
