@@ -308,11 +308,16 @@ func (ctx *context) AddImageInfos(resource *unstructured.Unstructured, cfg confi
 	if err != nil {
 		return err
 	}
+
+	return ctx.addImageInfos(images)
+}
+
+func (ctx *context) addImageInfos(images map[string]map[string]apiutils.ImageInfo) error {
 	if len(images) == 0 {
 		return nil
 	}
 	ctx.images = images
-	utm, err := convertImagesToUntyped(images)
+	utm, err := convertImagesToUnstructured(images)
 	if err != nil {
 		return err
 	}
@@ -321,7 +326,7 @@ func (ctx *context) AddImageInfos(resource *unstructured.Unstructured, cfg confi
 	return addToContext(ctx, utm, "images")
 }
 
-func convertImagesToUntyped(images map[string]map[string]apiutils.ImageInfo) (map[string]interface{}, error) {
+func convertImagesToUnstructured(images map[string]map[string]apiutils.ImageInfo) (map[string]interface{}, error) {
 	results := map[string]interface{}{}
 	for containerType, v := range images {
 		imgMap := map[string]interface{}{}
@@ -350,12 +355,11 @@ func (ctx *context) GenerateCustomImageInfo(resource *unstructured.Unstructured,
 		return nil, fmt.Errorf("failed to extract images: %w", err)
 	}
 
-	if len(images) == 0 {
-		logger.V(4).Info("no images found", "extractor", imageExtractorConfigs)
-		return nil, nil
+	if err := ctx.addImageInfos(images); err != nil {
+		return nil, fmt.Errorf("failed to add images to context: %w", err)
 	}
 
-	return images, addToContext(ctx, images, "images")
+	return images, nil
 }
 
 func (ctx *context) ImageInfo() map[string]map[string]apiutils.ImageInfo {
