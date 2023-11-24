@@ -12,3 +12,4 @@ spec:
   finally:
   - script:
       content: sleep 5
+    timeout: 10s
