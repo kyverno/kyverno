@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    policy.lan/remove-flag: 'true'
+  name: nginx-a
+  namespace: ns-multiple-rules-match-exclude
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    policy.lan/remove-flag: 'true'
+  name: nginx-b
+  namespace: ns-multiple-rules-match-exclude

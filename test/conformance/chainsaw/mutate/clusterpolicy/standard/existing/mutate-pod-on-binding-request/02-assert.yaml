@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    foo: empty
+  name: nginx-pod
+  namespace: test-ns

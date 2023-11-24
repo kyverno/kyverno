@@ -1,0 +1,25 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: set-runasnonroot-true
+spec:
+  rules:
+    - name: set-runasnonroot-true
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+      mutate:
+        patchStrategicMerge:
+          spec:
+            securityContext:
+              runAsNonRoot: true
+            initContainers:
+              - (name): "*"
+                securityContext:
+                  runAsNonRoot: true
+            containers:
+              - (name): "*"
+                securityContext:
+                  runAsNonRoot: true

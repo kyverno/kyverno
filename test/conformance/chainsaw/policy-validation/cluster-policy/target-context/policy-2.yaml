@@ -1,0 +1,39 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: update-targets
+spec:
+  background: false
+  rules:
+  - name: update-targets
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    context:
+    - name: triggerContent
+      variable:
+        jmesPath: request.object.data.content
+    preconditions:
+      all:
+      - key: "{{ request.object.metadata.name }}"
+        operator: Equals
+        value: trigger
+      - key: "{{ target.data.content }}"
+        operator: Equals
+        value: target
+    mutate:
+      targets:
+        - apiVersion: v1
+          kind: ConfigMap
+          namespace: "{{ request.object.metadata.namespace }}"
+          name: target*
+          context:
+          - name: targetContent
+            variable:
+              jmesPath: target.data.content
+      patchStrategicMerge:
+        data:
+          content: "{{ triggerContent }}"
+          targetContent: "{{ targetContent }}"

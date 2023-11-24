@@ -1,0 +1,29 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: multiple-gens
+  namespace: pol-data-sync-delete-rule
+spec:
+  generateExisting: false
+  rules:
+  - name: super-configmap
+    match:
+      any:
+      - resources:
+          kinds:
+          - Secret
+          names:
+          - trigger-secret
+    generate:
+      synchronize: true
+      apiVersion: v1
+      kind: ConfigMap
+      name: superconfigmap
+      namespace: pol-data-sync-delete-rule
+      data:
+        kind: ConfigMap
+        metadata:
+          labels:
+            somekey: somevalue
+        data:
+          key: superconfigmap

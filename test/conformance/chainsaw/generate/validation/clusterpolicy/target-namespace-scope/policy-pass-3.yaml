@@ -1,0 +1,48 @@
+apiVersion: kyverno.io/v2beta1
+kind: ClusterPolicy
+metadata:
+  name: expiration-for-policyexceptions
+  annotations:
+    policies.kyverno.io/title: Expiration for PolicyExceptions
+    policies.kyverno.io/category: Other
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: PolicyException
+    kyverno.io/kyverno-version: 1.9.0
+    policies.kyverno.io/minversion: 1.9.0
+    kyverno.io/kubernetes-version: "1.24"
+    policies.kyverno.io/description: >-
+      In situations where Ops/Platform teams want to allow exceptions on a
+      temporary basis, there must be a way to remove the PolicyException once the
+      expiration time has been reached. After the exception is removed, the rule(s)
+      for which the exception is granted go back into full effect. This policy generates
+      a ClusterCleanupPolicy with a four hour expiration time after which the PolicyException
+      is deleted. It may be necessary to grant both the Kyverno as well as cleanup controller
+      ServiceAccounts additional permissions to operate this policy.
+spec:
+  rules:
+  - name: expire-four-hours
+    match:
+      any:
+      - resources:
+          kinds:
+          - PolicyException
+    generate:
+      apiVersion: kyverno.io/v2beta1
+      kind: ClusterCleanupPolicy
+      name: polex-{{ request.namespace }}-{{ request.object.metadata.name }}-{{ random('[0-9a-z]{8}') }}
+      synchronize: false
+      data:
+        metadata:
+          labels:
+            kyverno.io/automated: "true"
+        spec:
+          schedule: "{{ time_add('{{ time_now_utc() }}','4h') | time_to_cron(@) }}"
+          match:
+            any:
+            - resources:
+                kinds:
+                  - PolicyException
+                namespaces:
+                - "{{ request.namespace }}"
+                names:
+                - "{{ request.object.metadata.name }}"

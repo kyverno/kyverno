@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: busybox
+spec:
+  containers:
+  - name: busybox
+    image: busybox:1.35
+  volumes:
+  - name: socket
+    hostPath:
+      path: "/var/run/foo"
+  - name: vault-secret
+    emptyDir:
+      medium: Memory
+  - name: bar
+    hostPath:
+      path: "/var/run/bar"

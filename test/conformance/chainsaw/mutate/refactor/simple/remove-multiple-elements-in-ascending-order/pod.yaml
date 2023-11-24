@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: busybox
+spec:
+  containers:
+  - name: busybox
+    image: busybox:1.35
+  volumes:
+  - name: volume-1
+    hostPath:
+      path: "/var/run/foo-1"
+  - name: volume-2
+    hostPath:
+      path: "/var/run/foo-2"
+  - name: volume-3
+    hostPath:
+      path: "/var/run/foo-3"

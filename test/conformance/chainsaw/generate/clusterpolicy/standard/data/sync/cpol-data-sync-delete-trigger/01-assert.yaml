@@ -1,0 +1,15 @@
+apiVersion: kyverno.io/v2beta1
+kind: ClusterPolicy
+metadata:
+  name: cpol-data-sync-delete-trigger
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-org
+  namespace: cpol-data-sync-delete-trigger-ns

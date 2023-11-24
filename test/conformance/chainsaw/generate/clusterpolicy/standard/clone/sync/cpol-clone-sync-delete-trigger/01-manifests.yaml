@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cpol-clone-sync-delete-trigger-ns
+---
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: source-secret
+  namespace: cpol-clone-sync-delete-trigger-ns
+type: Opaque
+---
+apiVersion: kyverno.io/v2beta1
+kind: ClusterPolicy
+metadata:
+  name: cpol-clone-sync-delete-trigger-policy
+spec:
+  rules:
+  - name: clone-secret
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+          names:
+          - test-org
+    generate:
+      apiVersion: v1
+      kind: Secret
+      name: downstream-secret
+      namespace: "{{request.object.metadata.namespace}}"
+      synchronize: true
+      clone:
+        namespace: cpol-clone-sync-delete-trigger-ns
+        name: source-secret

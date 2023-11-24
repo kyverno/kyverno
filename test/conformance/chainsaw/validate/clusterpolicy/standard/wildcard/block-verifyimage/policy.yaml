@@ -1,0 +1,31 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-image     
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: verify-image
+      match:
+        any:
+        - resources:
+            kinds:
+              - "*"
+      verifyImages:
+      - imageReferences:
+        - "ghcr.io/kyverno/test-verify-image:*"
+        mutateDigest: true
+        attestors:
+        - entries:
+          - keys:
+              publicKeys: |
+                -----BEGIN PUBLIC KEY-----
+                MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM
+                5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
+                -----END PUBLIC KEY-----                
+              rekor:
+                url: https://rekor.sigstore.dev
+                ignoreTlog: true
+              ctlog:
+                ignoreSCT: true

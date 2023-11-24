@@ -8,7 +8,6 @@ spec:
   timeouts: {}
   try:
   - apply:
-      check: null
       file: policy.yaml
   - assert:
       file: policy.yaml

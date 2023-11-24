@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    backup-needed: "yes"
+    type: database
+  name: cassandra
+  namespace: default
+spec:
+  containers:
+  - image: cassandra:latest
+    imagePullPolicy: Always
+    name: cassandra

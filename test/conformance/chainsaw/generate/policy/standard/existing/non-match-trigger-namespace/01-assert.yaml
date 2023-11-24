@@ -1,0 +1,10 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: non-match-trigger-namespace
+  namespace: non-match-trigger-namespace-ns
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready

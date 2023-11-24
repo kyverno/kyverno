@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: blue-ns
+  labels:
+    color: blue
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: yellow-ns
+  labels:
+    color: yellow
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: summer-ns
+  labels:
+    season: summer

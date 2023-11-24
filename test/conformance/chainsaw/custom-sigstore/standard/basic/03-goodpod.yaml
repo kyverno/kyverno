@@ -1,0 +1,17 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: goodpod
+spec:
+  timeouts: {}
+  try:
+  - command:
+      args:
+      - -n
+      - test-custom-sigstore
+      - run
+      - test-sigstore
+      - --image=$TEST_IMAGE_URL
+      entrypoint: kubectl
