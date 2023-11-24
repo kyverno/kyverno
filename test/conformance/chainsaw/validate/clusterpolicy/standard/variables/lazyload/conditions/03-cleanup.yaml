@@ -8,5 +8,6 @@ spec:
       apiVersion: v1
       kind: Pod
       name: test
+    timeout: 1m
   - apply:
       file: policy-2.yaml

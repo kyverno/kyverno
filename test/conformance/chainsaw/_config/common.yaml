@@ -10,5 +10,5 @@ spec:
     exec: 150s
   parallel: 1
   fullName: true
-  failFast: true
+  failFast: false
   excludeTestRegex: '_.+'
