@@ -5,6 +5,7 @@ metadata:
 spec:
   timeouts:
     assert: 90s
+    cleanup: 150s
     error: 90s
     exec: 90s
   parallel: 1
