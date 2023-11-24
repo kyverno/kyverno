@@ -1,0 +1,10 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  name: invalidpolicy
+spec:
+  try:
+  - apply:
+      file: invalidpolicy.yaml
+      check:
+        (error == null): false
