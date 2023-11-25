@@ -65,7 +65,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 	f.policyContext.JSONContext().Checkpoint()
 	defer f.policyContext.JSONContext().Restore()
 
-	patchedResource := f.resource.deepCopy()
+	patchedResource := f.resource
 
 	reverse := false
 	// if it's a patch strategic merge, reverse by default
@@ -118,7 +118,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 			m := &forEachMutator{
 				rule:          f.rule,
 				policyContext: f.policyContext,
-				resource:      *patchedResource,
+				resource:      patchedResource,
 				logger:        f.logger,
 				foreach:       nestedForEach,
 				nesting:       f.nesting + 1,

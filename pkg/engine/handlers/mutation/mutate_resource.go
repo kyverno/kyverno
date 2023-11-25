@@ -63,7 +63,7 @@ func (h mutateResourceHandler) Process(
 			rule:          rule,
 			foreach:       rule.Mutation.ForEachMutation,
 			policyContext: policyContext,
-			resource:      *resourceInfo.deepCopy(),
+			resource:      resourceInfo,
 			logger:        logger,
 			contextLoader: contextLoader,
 			nesting:       0,
