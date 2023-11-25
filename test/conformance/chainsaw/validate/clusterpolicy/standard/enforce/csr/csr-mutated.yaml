@@ -1,0 +1,6 @@
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  name: myuser
+  labels:
+    name: angela

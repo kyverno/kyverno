@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-verify-images
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: secret-in-keys
+spec:
+  validationFailureAction: Enforce
+  background: false
+  webhookTimeoutSeconds: 30
+  failurePolicy: Fail
+  rules:
+  - name: check-secret-in-keys
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    verifyImages:
+    - imageReferences:
+      - "ghcr.io/kyverno/test-verify-image:*"
+      attestors:
+      - entries:
+        - keys:
+            secret:
+              name: testsecret
+              namespace: test-verify-images
+            rekor:
+              url: https://rekor.sigstore.dev
+              ignoreTlog: true
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: testsecret
+  namespace: test-verify-images
+data:
+  cosign.pub: LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUZrd0V3WUhLb1pJemowQ0FRWUlLb1pJemowREFRY0RRZ0FFOG5YUmg5NTBJWmJSajhSYS9OOXNicU9QWnJmTQo1L0tBUU4wL0tqSGNvcm0vSjV5Y3RWZDdpRWNuZXNzUlFqVTkxN2htS082SldWR0hwRGd1SXlha1pBPT0KLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0t
+type: Opaque

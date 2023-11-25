@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: otter
+---
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: pol-data-nosync-delete-rule-policy
+  namespace: otter
+spec:
+  generateExisting: false
+  rules:
+  - name: pol-data-nosync-delete-rule-policy-ruleone
+    match:
+      any:
+      - resources:
+          kinds:
+          - Secret
+    generate:
+      synchronize: false
+      apiVersion: v1
+      kind: ConfigMap
+      name: zk-kafka-address
+      namespace: otter
+      data:
+        kind: ConfigMap
+        metadata:
+          labels:
+            somekey: somevalue
+        data:
+          ZK_ADDRESS: "192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181"
+          KAFKA_ADDRESS: "192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092"
+  - name: pol-data-nosync-delete-rule-policy-ruletwo
+    match:
+      any:
+      - resources:
+          kinds:
+          - Service
+    generate:
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      name: default-deny
+      namespace: otter
+      synchronize: false
+      data:
+        spec:
+          podSelector: {}
+          policyTypes:
+          - Ingress
+          - Egress

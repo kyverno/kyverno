@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    downstream: "cpol-clone-create-on-trigger-deletion-manifest-ns"
+  name: cpol-clone-create-on-trigger-deletion-trigger-ns
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cpol-clone-create-on-trigger-deletion-manifest-ns
+---
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: regcred
+  namespace: cpol-clone-create-on-trigger-deletion-manifest-ns
+type: Opaque
+---
+apiVersion: kyverno.io/v2beta1
+kind: ClusterPolicy
+metadata:
+  name: cpol-clone-create-on-trigger-deletion
+spec:
+  rules:
+  - name: clone-secret
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+          operations:
+          - DELETE
+    generate:
+      apiVersion: v1
+      kind: Secret
+      name: cpol-clone-create-on-trigger-deletion-secret
+      namespace: "{{request.object.metadata.labels.downstream}}"
+      synchronize: true
+      clone:
+        namespace: cpol-clone-create-on-trigger-deletion-manifest-ns
+        name: regcred

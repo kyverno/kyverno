@@ -1,0 +1,16 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: ingress-unique-host
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app-ingress
+  namespace: test-ingress

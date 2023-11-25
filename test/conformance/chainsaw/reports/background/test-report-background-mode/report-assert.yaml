@@ -1,0 +1,33 @@
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: PolicyReport
+metadata:
+  namespace: default
+  ownerReferences:
+  - apiVersion: v1
+    kind: Pod
+    name: badpod01
+scope:
+  apiVersion: v1
+  kind: Pod
+  name: badpod01
+  namespace: default
+results:
+- category: Pod Security
+  message: |
+    Validation rule 'restricted' failed. It violates PodSecurity "restricted:latest": ({Allowed:false ForbiddenReason:unrestricted capabilities ForbiddenDetail:container "container01" must set securityContext.capabilities.drop=["ALL"]})
+  policy: podsecurity-subrule-restricted
+  properties:
+    controls: capabilities_restricted
+    standard: restricted
+    version: latest
+  result: fail
+  rule: restricted
+  scored: true
+  severity: medium
+  source: kyverno
+summary:
+  error: 0
+  fail: 1
+  pass: 0
+  skip: 0
+  warn: 0

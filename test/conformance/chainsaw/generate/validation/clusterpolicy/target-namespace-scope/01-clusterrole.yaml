@@ -1,0 +1,29 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:background-controller:manage-ns-crossplane-role
+  labels:
+    app.kubernetes.io/component: background-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+rules:
+- apiGroups:
+  - ""
+  - "iam.aws.crossplane.io"
+  resources:
+  - namespaces
+  - roles
+  verbs:
+  - create
+  - update
+  - delete
+  - get
+- apiGroups:
+  - "kyverno.io"
+  resources:
+  - clustercleanuppolicies
+  verbs:
+  - create
+  - update
+  - delete
+  - get

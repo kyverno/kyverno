@@ -1,0 +1,15 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: check
+spec:
+  timeouts: {}
+  try:
+  - error:
+      file: pod-assert.yaml
+  - command:
+      args:
+      - "5"
+      entrypoint: sleep

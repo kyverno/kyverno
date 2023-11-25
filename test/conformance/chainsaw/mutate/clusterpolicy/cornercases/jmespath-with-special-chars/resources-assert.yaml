@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: busybox
+  labels:
+    deploy-zone: FRANKFURT
+    corp.com/retention: days_30

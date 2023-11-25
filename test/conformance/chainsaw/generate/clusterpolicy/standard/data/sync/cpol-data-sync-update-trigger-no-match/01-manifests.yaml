@@ -1,0 +1,27 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-data-sync-update-trigger-no-match
+spec:
+  rules:
+  - name: default-deny
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+          selector:
+            matchLabels:
+              create-netpol: "true"
+    generate:
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      name: default-deny
+      namespace: "{{request.object.metadata.namespace}}"
+      synchronize: true
+      data:
+        spec:
+          podSelector: {}
+          policyTypes:
+          - Ingress
+          - Egress

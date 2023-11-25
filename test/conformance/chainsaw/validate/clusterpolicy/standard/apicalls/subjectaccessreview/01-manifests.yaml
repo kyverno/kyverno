@@ -1,0 +1,81 @@
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+  name: kyverno:subjectaccessreviews
+rules:
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+  name: kyverno:namespace-delete
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - delete
+  resourceNames: 
+  - test-sar
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-sar
+---
+apiVersion: kyverno.io/v2beta1
+kind: ClusterPolicy
+metadata:
+  name: check-subjectaccessreview
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+  - name: check-sar
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    context:
+      - name: subjectaccessreview
+        apiCall:
+          urlPath: /apis/authorization.k8s.io/v1/subjectaccessreviews
+          method: POST
+          data:
+          - key: kind
+            value: SubjectAccessReview
+          - key: apiVersion
+            value: authorization.k8s.io/v1
+          - key: spec
+            value:
+              resourceAttributes:
+                resource: namespaces
+                name: "{{ request.namespace }}"
+                verb: "delete"
+                group: ""
+              #user: "{{ request.userInfo.username }}"
+              user: "system:serviceaccount:kyverno:kyverno-admission-controller"
+    validate:
+      message: "User is not authorized."
+      deny:
+        conditions:
+          any:
+          - key: "{{ subjectaccessreview.status.allowed }}"
+            operator: NotEquals
+            value:  true

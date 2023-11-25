@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: structured-logs-sidecar
+spec:
+  background: false
+  rules:
+    - name: add-annotations
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+          annotations:
+            structured-logs: "true"
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            annotations:
+              "fluentbit.io/exclude-{{request.object.spec.template.spec.containers[0].name}}": "true"

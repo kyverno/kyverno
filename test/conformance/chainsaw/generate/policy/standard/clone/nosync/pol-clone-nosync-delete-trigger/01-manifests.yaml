@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pol-clone-nosync-delete-trigger-ns
+---
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: source-secret
+  namespace: pol-clone-nosync-delete-trigger-ns
+type: Opaque
+---
+apiVersion: kyverno.io/v2beta1
+kind: Policy
+metadata:
+  name: pol-clone-nosync-delete-trigger-policy
+  namespace: pol-clone-nosync-delete-trigger-ns
+spec:
+  rules:
+  - name: clone-secret
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    generate:
+      apiVersion: v1
+      kind: Secret
+      name: downstream-secret
+      namespace: pol-clone-nosync-delete-trigger-ns
+      synchronize: false
+      clone:
+        namespace: pol-clone-nosync-delete-trigger-ns
+        name: source-secret
