@@ -9,7 +9,7 @@ spec:
   try:
   - error:
       file: pod-assert.yaml
-  - command:
-      args:
-      - "5"
-      entrypoint: sleep
+  finally:
+  - script:
+      content: sleep 5
+    timeout: 10s
