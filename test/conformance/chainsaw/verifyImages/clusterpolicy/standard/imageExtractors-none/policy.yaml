@@ -1,0 +1,32 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: tasks-no-extractor
+spec:
+  admission: true
+  background: true
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - tekton.dev/v1beta1/Task
+    name: verify-images
+    preconditions:
+      all:
+      - key: '{{request.operation}}'
+        operator: NotEquals
+        value: DELETE
+    verifyImages:
+    - image: '*'
+      key: |-
+        -----BEGIN PUBLIC KEY-----
+        MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM
+        5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
+        -----END PUBLIC KEY-----
+      mutateDigest: true
+      required: true
+      useCache: true
+      verifyDigest: true
+  validationFailureAction: Enforce

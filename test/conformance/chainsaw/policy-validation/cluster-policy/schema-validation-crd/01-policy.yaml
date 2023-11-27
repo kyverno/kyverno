@@ -1,0 +1,42 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  annotations:
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/description: 'This policy mutates any namespace-scoped Custom
+      Resource Definition created by the subjects in the xteam Azure AD group and
+      adds the label "createdByXteam: true".'
+    policies.kyverno.io/subject: RBAC
+    policies.kyverno.io/title: Mutate Namespace-Scoped CRDs for xteam aad group
+    policy.reporter.kyverno.io/minimal: minimal
+  labels:
+    aws.cdk.eks/prune-c8b5941ff5f4fe911c5ee96472fda3d1f9866734a7: ""
+  name: mutate-xteam-namespace-scoped-crds
+spec:
+  admission: true
+  background: false
+  rules:
+  - match:
+      all:
+      - resources:
+          kinds:
+          - CustomResourceDefinition
+        subjects:
+        - kind: Group
+          name: aad:9b9had99-6k66-2222-9999-8aadb888e888
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            createdByXteam: "true"
+    name: mutate-xteams-crd-creation
+    preconditions:
+      all:
+      - key: '{{request.operation}}'
+        operator: Equals
+        value: CREATE
+      - key: '{{ request.object.spec.scope }}'
+        operator: Equals
+        value: Namespaced
+  validationFailureAction: Audit

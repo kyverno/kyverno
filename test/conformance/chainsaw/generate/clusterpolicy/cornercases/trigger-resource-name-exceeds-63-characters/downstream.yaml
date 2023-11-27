@@ -1,0 +1,9 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: trigger-resource-name-exceeds-63-characters-ns
+spec:
+  policyTypes:
+  - Ingress
+  - Egress

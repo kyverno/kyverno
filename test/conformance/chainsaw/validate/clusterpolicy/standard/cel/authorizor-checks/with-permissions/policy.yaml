@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-host-port
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: host-port
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      validate:
+        cel:
+          expressions:
+            - expression: "authorizer.serviceAccount('default', 'test-account').group('').resource('pods').namespace('default').check('delete').allowed()"
+              message: "The user isn't allowed to delete pods in the 'default' namespace."
+            - expression: "object.spec.containers.all(container, !has(container.ports) || container.ports.all(port, !has(port.hostPort) || port.hostPort == 0))"
+              message: "The fields spec.containers[*].ports[*].hostPort must either be unset or set to `0`"
+

@@ -1,0 +1,13 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: create-pod-with-configmap
+spec:
+  timeouts: {}
+  try:
+  - apply:
+      file: pod-with-configmap.yaml
+  - assert:
+      file: pod-with-configmap-ready.yaml

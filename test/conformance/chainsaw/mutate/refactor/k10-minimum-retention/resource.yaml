@@ -1,0 +1,35 @@
+apiVersion: config.kio.kasten.io/v1alpha1
+kind: Policy
+metadata:
+  name: hourly-policy
+  namespace: k10-minimum-retention
+  labels:
+    appPriority: Mission-Critical
+spec:
+  comment: My sample custom backup policy
+  frequency: '@hourly' # change this to @daily to test the 'audit_mission_critical_RPO' policy
+  subFrequency:
+    minutes: [30]
+    hours: [22,7]
+    weekdays: [5]
+    days: [15]
+  retention:
+    daily: 14
+    weekly: 4
+    monthly: 6
+  actions:
+  - action: backup
+  - action: export  # comment this line out to test 'enforce_3-2-1' policy
+    exportParameters:
+      frequency: '@monthly'
+      profile:
+        name: my-profile
+        namespace: kasten-io
+      exportData:
+        enabled: true
+    retention:
+      monthly: 12
+      yearly: 5
+  selector:
+    matchLabels:
+      k10.kasten.io/appNamespace: sampleApp

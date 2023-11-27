@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: staging-3
+  labels:
+    app-type: corp
+  annotations:
+    cloud.platformzero.com/serviceClass: "xl2"
+---
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: test-secret-3
+  namespace: staging-3
+type: Opaque
+---
+apiVersion: v1
+data:
+  foo: bar
+kind: ConfigMap
+metadata:
+  name: dictionary-3
+  namespace: staging-3

@@ -1,0 +1,37 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: nginx-test-scaling-policy
+status:
+  conditions:
+    - reason: Succeeded
+      status: "True"
+      type: Ready
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx-test
+  name: nginx-test
+  namespace: test-validate
+status:
+  replicas: 2
+---
+apiVersion: kyverno.io/v2beta1
+kind: PolicyException
+metadata:
+  name: allow-scaling-nginx-test
+  namespace: test-validate
+spec:
+  exceptions:
+    - policyName: nginx-test-scaling-policy
+      ruleNames:
+        - validate-nginx-test
+  match:
+    any:
+      - resources:
+          kinds:
+            - Deployment/scale
+          names:
+            - nginx-test

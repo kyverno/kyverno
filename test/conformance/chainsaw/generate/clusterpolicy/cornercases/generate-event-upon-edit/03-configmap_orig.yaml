@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: generate-event-on-edit-ns
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: generate-event-on-edit-configmap
+  namespace: generate-event-on-edit-ns
+data:
+  food: cheese
+  day: monday
+  color: red
