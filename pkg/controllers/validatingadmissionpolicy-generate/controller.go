@@ -297,6 +297,10 @@ func (c *controller) buildValidatingAdmissionPolicyBinding(vapbinding *admission
 	return nil
 }
 
+func constructVapBindingName(vapName string) string {
+	return vapName + "-binding"
+}
+
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
 	policy, err := c.getClusterPolicy(name)
 	if err != nil {
@@ -326,34 +330,50 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		return nil
 	}
 
+	vapName := policy.GetName()
+	vapBindingName := constructVapBindingName(vapName)
+
+	observedVAP, vapErr := c.getValidatingAdmissionPolicy(vapName)
+	observedVAPbinding, vapBindingErr := c.getValidatingAdmissionPolicyBinding(vapBindingName)
 	if ok, msg := canGenerateVAP(spec); !ok {
+		// delete the ValidatingAdmissionPolicy if exist
+		if vapErr == nil {
+			err = c.client.AdmissionregistrationV1alpha1().ValidatingAdmissionPolicies().Delete(ctx, vapName, metav1.DeleteOptions{})
+			if err != nil {
+				return err
+			}
+		}
+		// delete the ValidatingAdmissionPolicyBinding if exist
+		if vapBindingErr == nil {
+			err = c.client.AdmissionregistrationV1alpha1().ValidatingAdmissionPolicyBindings().Delete(ctx, vapBindingName, metav1.DeleteOptions{})
+			if err != nil {
+				return err
+			}
+		}
 		c.updateClusterPolicyStatus(ctx, *policy, false, msg)
 		return nil
 	}
 
-	polName := policy.GetName()
-	observedVAP, err := c.getValidatingAdmissionPolicy(polName)
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			c.updateClusterPolicyStatus(ctx, *policy, false, err.Error())
-			return err
+	if vapErr != nil {
+		if !apierrors.IsNotFound(vapErr) {
+			c.updateClusterPolicyStatus(ctx, *policy, false, vapErr.Error())
+			return vapErr
 		}
 		observedVAP = &admissionregistrationv1alpha1.ValidatingAdmissionPolicy{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: polName,
+				Name: vapName,
 			},
 		}
 	}
 
-	observedVAPbinding, err := c.getValidatingAdmissionPolicyBinding(polName + "-binding")
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			c.updateClusterPolicyStatus(ctx, *policy, false, err.Error())
-			return err
+	if vapBindingErr != nil {
+		if !apierrors.IsNotFound(vapBindingErr) {
+			c.updateClusterPolicyStatus(ctx, *policy, false, vapBindingErr.Error())
+			return vapBindingErr
 		}
 		observedVAPbinding = &admissionregistrationv1alpha1.ValidatingAdmissionPolicyBinding{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: polName + "-binding",
+				Name: vapBindingName,
 			},
 		}
 	}
