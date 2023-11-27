@@ -14,7 +14,7 @@ func New(fs billy.Filesystem, resourcePath string, path string, vals *v1alpha1.V
 	if vals == nil && path != "" {
 		v, err := values.Load(fs, filepath.Join(resourcePath, path))
 		if err != nil {
-			return nil, fmt.Errorf("Unable to load variable file: %s (%w)", path, err)
+			return nil, fmt.Errorf("unable to load variable file: %s (%w)", path, err)
 		}
 		vals = &v.ValuesSpec
 	}

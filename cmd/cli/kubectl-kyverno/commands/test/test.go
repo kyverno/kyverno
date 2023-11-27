@@ -120,18 +120,6 @@ func runTest(out io.Writer, testCase test.TestCase, auditWarn bool) ([]engineapi
 			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
 			continue
 		}
-		matches, err := policy.ExtractVariables(pol)
-		if err != nil {
-			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
-			continue
-		}
-		if !vars.HasVariables() && variables.NeedsVariables(matches...) {
-			// check policy in variable file
-			if !vars.HasPolicyVariables(pol.GetName()) {
-				fmt.Fprintln(out, "    test skipped for policy", pol.GetName(), "(as required variables are not provided by the users)")
-				// continue
-			}
-		}
 		validPolicies = append(validPolicies, pol)
 	}
 	// execute engine
