@@ -13,6 +13,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -53,12 +54,19 @@ type PolicyContext struct {
 
 	// admissionOperation represents if the caller is from the webhook server
 	admissionOperation bool
+
+	// old policy context is the policy context for the old resource, only exists for update operations
+	oldPolicyContext engineapi.PolicyContext
 }
 
 // engineapi.PolicyContext interface
 
 func (c *PolicyContext) Policy() kyvernov1.PolicyInterface {
 	return c.policy
+}
+
+func (c *PolicyContext) OldPolicyContext() engineapi.PolicyContext {
+	return c.oldPolicyContext
 }
 
 func (c *PolicyContext) NewResource() unstructured.Unstructured {
@@ -228,6 +236,7 @@ func NewPolicyContext(
 	if admissionInfo != nil {
 		policyContext = policyContext.WithAdmissionInfo(*admissionInfo)
 	}
+	policyContext.oldPolicyContext = policyContext
 	return policyContext, nil
 }
 
@@ -256,6 +265,14 @@ func NewPolicyContextFromAdmissionRequest(
 		WithAdmissionOperation(true).
 		WithResourceKind(gvk, request.SubResource).
 		WithRequestResource(request.Resource)
+
+	if policyContext.Operation() == kyvernov1.Update {
+		policyContext.oldPolicyContext, err = getOldPolicyContext(jp, request, oldResource, admissionInfo, gvk, configuration)
+		if err := engineCtx.AddImageInfos(&newResource, configuration); err != nil {
+			return nil, fmt.Errorf("failed to add old policy rule context: %w", err)
+		}
+	}
+
 	return policyContext, nil
 }
 
@@ -275,4 +292,35 @@ func newJsonContext(
 		return nil, fmt.Errorf("failed to load service account in context: %w", err)
 	}
 	return engineCtx, nil
+}
+
+func getOldPolicyContext(
+	jp jmespath.Interface,
+	request admissionv1.AdmissionRequest,
+	oldResource unstructured.Unstructured,
+	admissionInfo kyvernov1beta1.RequestInfo,
+	gvk schema.GroupVersionKind,
+	configuration config.Configuration,
+) (*PolicyContext, error) {
+	oldReq := request.DeepCopy()
+	oldReq.Object = oldReq.OldObject
+	oldReq.OldObject = runtime.RawExtension{}
+
+	oldEngineCtx, err := newJsonContext(jp, *oldReq, &admissionInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create old policy rule context: %w", err)
+	}
+	if err := oldEngineCtx.AddImageInfos(&oldResource, configuration); err != nil {
+		return nil, fmt.Errorf("failed to add image information to the old policy rule context: %w", err)
+	}
+
+	oldPolicyContext := newPolicyContextWithJsonContext(kyvernov1.AdmissionOperation(request.Operation), oldEngineCtx).
+		WithNewResource(oldResource).
+		WithAdmissionInfo(admissionInfo).
+		WithAdmissionOperation(true).
+		WithResourceKind(gvk, request.SubResource).
+		WithRequestResource(request.Resource)
+
+	oldPolicyContext.oldPolicyContext = oldPolicyContext
+	return oldPolicyContext, nil
 }

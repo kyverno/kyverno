@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
+	"github.com/pkg/errors"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/cache"
@@ -138,6 +139,19 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 		}
 
 		ruleResponse := v.validateResourceWithRule()
+
+		if engineutils.IsUpdateRequest(v.policyContext) {
+			priorResp, err := v.validateOldObject(ctx)
+			if err != nil {
+				return engineapi.RuleError(v.rule.Name, engineapi.Validation, "failed to validate old object", err)
+			}
+
+			if engineutils.IsSameRuleResponse(ruleResponse, priorResp) {
+				v.log.V(3).Info("skipping modified resource as validation results have not changed")
+				return nil
+			}
+		}
+
 		return ruleResponse
 	}
 
@@ -148,6 +162,19 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 
 	v.log.V(2).Info("invalid validation rule: podSecurity, cel, patterns, or deny expected")
 	return nil
+}
+
+func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleResponse, error) {
+	pc := v.policyContext
+	if v.policyContext.OldPolicyContext() == nil {
+		return nil, errors.New("old context does not exist")
+	}
+
+	v.policyContext = v.policyContext.OldPolicyContext()
+	resp := v.validate(ctx)
+	v.policyContext = pc
+
+	return resp, nil
 }
 
 func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse {
