@@ -2,7 +2,7 @@ apiVersion: kyverno.io/v2alpha1
 kind: PolicyException
 metadata:
   name: {{ .Name }}
-  namespace: {{ .Namespace }}
+  namespace: {{ or .Namespace "default" }}
 spec:
   background: {{ .Background }}
   match:
