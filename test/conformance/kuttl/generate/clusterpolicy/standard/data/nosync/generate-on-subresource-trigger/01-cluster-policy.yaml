@@ -1,8 +1,0 @@
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-apply:
-- policy.yaml
-- namespace.yaml
-assert:
-- policy-ready.yaml
-- namespace-ready.yaml
