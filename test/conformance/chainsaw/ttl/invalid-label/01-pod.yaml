@@ -11,3 +11,7 @@ spec:
       file: pod.yaml
   - assert:
       file: pod-assert.yaml
+  finally:
+  - script:
+      content: sleep 5
+    timeout: 10s

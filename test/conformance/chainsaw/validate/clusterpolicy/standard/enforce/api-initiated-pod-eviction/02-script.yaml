@@ -9,3 +9,4 @@ spec:
   try:
   - script:
       content: ./api-initiated-eviction.sh
+    timeout: 30s
