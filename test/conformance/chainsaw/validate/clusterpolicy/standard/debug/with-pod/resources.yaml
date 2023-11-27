@@ -4,6 +4,7 @@ metadata:
   name: foo
   namespace: default
 spec:
+  terminationGracePeriodSeconds: 10
   containers:
     - name: nginx
       image: nginx:1.14.2

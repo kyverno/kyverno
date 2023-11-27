@@ -3,6 +3,7 @@ kind: Pod
 metadata:
   name: 'bad-box'
 spec:
+  terminationGracePeriodSeconds: 10
   automountServiceAccountToken: false
   containers:
   - name: busybox

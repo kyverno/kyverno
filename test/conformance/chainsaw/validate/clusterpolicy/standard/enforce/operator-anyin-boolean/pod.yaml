@@ -3,6 +3,7 @@ kind: Pod
 metadata:
   name: operator-anyin-boolean-pod
 spec:
+  terminationGracePeriodSeconds: 10
   containers:
   - name: container01
     image: czjunkfoo

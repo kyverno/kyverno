@@ -4,6 +4,7 @@ metadata:
   name: mypod
   namespace: default
 spec:
+  terminationGracePeriodSeconds: 10
   containers:
   - image: bar.io/busybox:1.35
     name: busybox

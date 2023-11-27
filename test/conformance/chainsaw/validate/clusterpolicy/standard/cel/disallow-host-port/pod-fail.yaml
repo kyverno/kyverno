@@ -3,9 +3,9 @@ kind: Pod
 metadata:
   name: webserver
 spec:
+  terminationGracePeriodSeconds: 10
   containers:
   - name: webserver
     image: nginx:latest
     ports:
     - hostPort: 80
-      

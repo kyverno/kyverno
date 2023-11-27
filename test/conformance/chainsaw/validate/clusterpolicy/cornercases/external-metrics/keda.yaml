@@ -621,6 +621,7 @@ spec:
         app: keda-metrics-apiserver
       name: keda-metrics-apiserver
     spec:
+      terminationGracePeriodSeconds: 10
       containers:
       - args:
         - /usr/local/bin/keda-adapter
@@ -699,6 +700,7 @@ spec:
         name: keda-operator
       name: keda-operator
     spec:
+      terminationGracePeriodSeconds: 5
       containers:
       - args:
         - --leader-elect
@@ -747,7 +749,6 @@ spec:
       securityContext:
         runAsNonRoot: true
       serviceAccountName: keda-operator
-      terminationGracePeriodSeconds: 10
 ---
 apiVersion: apiregistration.k8s.io/v1
 kind: APIService

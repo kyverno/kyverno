@@ -6,6 +6,7 @@ metadata:
   labels:
     app: foo
 spec:
+  terminationGracePeriodSeconds: 10
   containers:
   - image: abc:1.28
     name: busybox

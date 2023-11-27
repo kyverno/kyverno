@@ -4,6 +4,7 @@ metadata:
   name: pod-with-nginx-allowed-registry
   namespace: default
 spec:
+  terminationGracePeriodSeconds: 10
   containers:
   - name: nginx
     image: someimagename

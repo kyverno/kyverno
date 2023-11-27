@@ -6,6 +6,7 @@ metadata:
   annotations:
     policy.lan/value: foo
 spec:
+  terminationGracePeriodSeconds: 10
   containers:
     - name: nginx
       image: nginx
@@ -16,6 +17,7 @@ metadata:
   name: nginx-b
   namespace: default
 spec:
+  terminationGracePeriodSeconds: 10
   containers:
     - name: nginx
       image: nginx
@@ -28,6 +30,7 @@ metadata:
   annotations:
     policy.lan/value: bar
 spec:
+  terminationGracePeriodSeconds: 10
   containers:
     - name: nginx
       image: nginx

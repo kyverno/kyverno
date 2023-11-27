@@ -6,6 +6,7 @@ metadata:
     deploy-zone: frankfurt
     corp.com/retention: days_37
 spec:
+  terminationGracePeriodSeconds: 10
   containers:
     - name: busybox
       image: busybox:stable

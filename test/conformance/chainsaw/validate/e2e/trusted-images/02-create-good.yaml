@@ -4,6 +4,7 @@ metadata:
   name: root-pod-from-trusted-registry
   # namespace: default
 spec:
+  terminationGracePeriodSeconds: 10
   containers:
   - name: kyverno
     image: ghcr.io/kyverno/test-verify-image:unsigned

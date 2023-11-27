@@ -4,6 +4,7 @@ metadata:
   name: foreach-patchstrategicmerge-context-pod
   namespace: foreach-patchstrategicmerge-context-ns
 spec:
+  terminationGracePeriodSeconds: 10
   containers:
   - image: busybox
     name: foreach-patchstrategicmerge-context-container

@@ -54,6 +54,7 @@ metadata:
     exec: "false"
   namespace: test-validate
 spec:
+  terminationGracePeriodSeconds: 10
   containers:
     - name: nginx
       image: nginx
