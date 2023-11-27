@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: Pod
-metadata:
-  name: foreach-patchstrategicmerge-context-pod
-  namespace: foreach-patchstrategicmerge-context-ns
-spec:
-  containers:
-  - image: nginx
-    name: foreach-patchstrategicmerge-context-container
