@@ -49,12 +49,11 @@ spec:
   background: true
   match:
     any:
-      -
-        kinds:
-          - Pod
-          - Deployment
-        names:
-          - test-*
+    - kinds:
+        - Pod
+        - Deployment
+      names:
+        - test-*
   exceptions:
     - policyName: policy
       ruleNames:
@@ -82,16 +81,15 @@ spec:
   background: true
   match:
     all:
-      -
-        kinds:
-          - Pod
-          - Deployment
-        names:
-          - test-*
-        namespaces:
-          - test
-        operations:
-          - UPDATE
+    - kinds:
+        - Pod
+        - Deployment
+      names:
+        - test-*
+      namespaces:
+        - test
+      operations:
+        - UPDATE
   exceptions:
     - policyName: policy
       ruleNames:
