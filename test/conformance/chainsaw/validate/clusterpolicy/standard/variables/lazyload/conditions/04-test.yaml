@@ -9,7 +9,7 @@ spec:
   try:
   - apply:
       check:
-        (error != null): true
+        ($error != null): true
       file: pod-good.yaml
   - apply:
       file: pod-bad.yaml

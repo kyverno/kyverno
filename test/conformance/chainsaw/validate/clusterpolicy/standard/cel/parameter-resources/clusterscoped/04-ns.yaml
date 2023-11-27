@@ -11,5 +11,5 @@ spec:
       file: ns-pass.yaml
   - apply:
       check:
-        (error != null): true
+        ($error != null): true
       file: ns-fail.yaml

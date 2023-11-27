@@ -11,17 +11,17 @@ spec:
       file: policy-pass.yaml
   - apply:
       check:
-        (error != null): true
+        ($error != null): true
       file: policy-fail-0.yaml
   - apply:
       check:
-        (error != null): true
+        ($error != null): true
       file: policy-fail-1.yaml
   - apply:
       check:
-        (error != null): true
+        ($error != null): true
       file: policy-fail-2.yaml
   - apply:
       check:
-        (error != null): true
+        ($error != null): true
       file: policy-fail-3.yaml

@@ -9,13 +9,13 @@ spec:
   try:
   - apply:
       check:
-        (error != null): true
+        ($error != null): true
       file: cleanuppolicy-with-subjects.yaml
   - apply:
       check:
-        (error != null): true
+        ($error != null): true
       file: cleanuppolicy-with-roles.yaml
   - apply:
       check:
-        (error != null): true
+        ($error != null): true
       file: cleanuppolicy-with-clusterroles.yaml

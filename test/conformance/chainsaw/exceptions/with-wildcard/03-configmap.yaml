@@ -11,7 +11,7 @@ spec:
       file: configmap-allowed.yaml
   - apply:
       check:
-        (error != null): true
+        ($error != null): true
       file: configmap-rejected.yaml
   - assert:
       file: configmap-allowed.yaml

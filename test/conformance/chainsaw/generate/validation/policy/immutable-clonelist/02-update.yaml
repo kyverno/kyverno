@@ -9,13 +9,13 @@ spec:
   try:
   - apply:
       check:
-        (error != null): true
+        ($error != null): true
       file: update-ns.yaml
   - apply:
       check:
-        (error != null): true
+        ($error != null): true
       file: update-kinds.yaml
   - apply:
       check:
-        (error != null): true
+        ($error != null): true
       file: update-selector.yaml

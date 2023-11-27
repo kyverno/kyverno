@@ -9,7 +9,7 @@ spec:
   try:
   - apply:
       check:
-        (error != null): true
+        ($error != null): true
       file: pod-unsigned.yaml
   - apply:
       file: pod-signed.yaml

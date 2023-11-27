@@ -11,5 +11,5 @@ spec:
       file: deployments-pass.yaml
   - apply:
       check:
-        (error != null): true
+        ($error != null): true
       file: deployments-fail.yaml

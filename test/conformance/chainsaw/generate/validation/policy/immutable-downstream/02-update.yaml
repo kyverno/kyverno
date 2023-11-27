@@ -9,17 +9,17 @@ spec:
   try:
   - apply:
       check:
-        (error != null): true
+        ($error != null): true
       file: update-name.yaml
   - apply:
       check:
-        (error != null): true
+        ($error != null): true
       file: update-apiversion.yaml
   - apply:
       check:
-        (error != null): true
+        ($error != null): true
       file: update-namespace.yaml
   - apply:
       check:
-        (error != null): true
+        ($error != null): true
       file: update-kind.yaml

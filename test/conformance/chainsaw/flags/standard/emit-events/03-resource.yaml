@@ -11,5 +11,5 @@ spec:
       file: resource.yaml
   - apply:
       check:
-        (error != null): true
+        ($error != null): true
       file: resource-fail.yaml

@@ -11,13 +11,13 @@ spec:
       file: policy-validate.yaml
   - apply:
       check:
-        (error != null): true
+        ($error != null): true
       file: policy-mutate.yaml
   - apply:
       check:
-        (error != null): true
+        ($error != null): true
       file: policy-generate.yaml
   - apply:
       check:
-        (error != null): true
+        ($error != null): true
       file: policy-verify-image.yaml

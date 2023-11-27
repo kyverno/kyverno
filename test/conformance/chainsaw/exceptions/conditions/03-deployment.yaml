@@ -11,5 +11,5 @@ spec:
       file: good-deployment.yaml
   - apply:
       check:
-        (error != null): true
+        ($error != null): true
       file: bad-deployment.yaml
