@@ -8,8 +8,9 @@ spec:
   timeouts: {}
   try:
   - apply:
-      check:
-        ($error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: pod-fail.yaml
   - apply:
       file: pod-pass.yaml

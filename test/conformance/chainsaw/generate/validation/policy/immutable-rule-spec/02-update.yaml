@@ -8,20 +8,24 @@ spec:
   timeouts: {}
   try:
   - apply:
-      check:
-        ($error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: update-rule-name.yaml
   - apply:
-      check:
-        ($error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: update-rule-match.yaml
   - apply:
-      check:
-        ($error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: update-rule-exclude.yaml
   - apply:
-      check:
-        ($error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: update-rule-preconditions.yaml
   - apply:
       file: update-rule-generate-synchronize.yaml

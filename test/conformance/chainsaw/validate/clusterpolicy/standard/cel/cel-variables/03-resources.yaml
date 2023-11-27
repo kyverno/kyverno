@@ -10,6 +10,7 @@ spec:
   - apply:
       file: deployments-pass.yaml
   - apply:
-      check:
-        ($error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: deployments-fail.yaml

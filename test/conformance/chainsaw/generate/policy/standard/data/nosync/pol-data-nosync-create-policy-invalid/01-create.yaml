@@ -10,6 +10,7 @@ spec:
   - apply:
       file: ns.yaml
   - apply:
-      check:
-        ($error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: policy.yaml

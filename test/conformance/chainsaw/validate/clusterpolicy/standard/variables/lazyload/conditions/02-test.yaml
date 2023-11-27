@@ -8,6 +8,7 @@ spec:
   - apply:
       file: pod-good.yaml
   - apply:
-      check:
-        ($error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: pod-bad.yaml

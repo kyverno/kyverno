@@ -12,10 +12,12 @@ spec:
   - apply:
       file: policy-1-subresource.yaml
   - apply:
-      check:
-        ($error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: policy-2.yaml
   - apply:
-      check:
-        ($error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: policy-2-subresource.yaml

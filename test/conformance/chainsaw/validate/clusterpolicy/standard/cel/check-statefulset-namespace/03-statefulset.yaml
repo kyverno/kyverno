@@ -10,8 +10,9 @@ spec:
   - apply:
       file: statefulset-pass.yaml
   - apply:
-      check:
-        ($error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: statefulset-fail.yaml
   finally:
   - script:

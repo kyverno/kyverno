@@ -10,6 +10,7 @@ spec:
   - apply:
       file: good-deployment.yaml
   - apply:
-      check:
-        ($error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: bad-deployment.yaml

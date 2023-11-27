@@ -8,14 +8,17 @@ spec:
   timeouts: {}
   try:
   - apply:
-      check:
-        ($error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: cleanuppolicy-with-subjects.yaml
   - apply:
-      check:
-        ($error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: cleanuppolicy-with-roles.yaml
   - apply:
-      check:
-        ($error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: cleanuppolicy-with-clusterroles.yaml

@@ -10,8 +10,9 @@ spec:
   - apply:
       file: exception-allowed.yaml
   - apply:
-      check:
-        ($error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: exception-rejected.yaml
   - assert:
       file: exception-allowed.yaml

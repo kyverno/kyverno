@@ -8,12 +8,14 @@ spec:
   timeouts: {}
   try:
   - apply:
-      check:
-        ($error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: policy-fail-1-no-ns-namespaced-target.yaml
   - apply:
-      check:
-        ($error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: policy-fail-2-ns-cluster-target.yaml
   - apply:
       file: policy-pass-1-ns-namespaced-target.yaml

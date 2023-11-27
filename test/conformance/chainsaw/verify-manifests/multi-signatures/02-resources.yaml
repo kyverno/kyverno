@@ -8,16 +8,19 @@ spec:
   timeouts: {}
   try:
   - apply:
-      check:
-        ($error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: resource-no-signature.yaml
   - apply:
-      check:
-        ($error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: resource-one-signature.yaml
   - apply:
       file: resource-two-signatures.yaml
   - apply:
-      check:
-        ($error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: resource-bad-signatures.yaml

@@ -10,6 +10,7 @@ spec:
   - apply:
       file: ns-pass.yaml
   - apply:
-      check:
-        ($error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: ns-fail.yaml
