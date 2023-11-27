@@ -269,6 +269,9 @@ func NewPolicyContextFromAdmissionRequest(
 	if policyContext.Operation() == kyvernov1.Update {
 		policyContext.oldPolicyContext, err = getOldPolicyContext(jp, request, oldResource, admissionInfo, gvk, configuration)
 		if err := engineCtx.AddImageInfos(&newResource, configuration); err != nil {
+			return nil, fmt.Errorf("failed to add image info to old policy rule context: %w", err)
+		}
+		if err := engineCtx.AddImageInfos(&newResource, configuration); err != nil {
 			return nil, fmt.Errorf("failed to add old policy rule context: %w", err)
 		}
 	}
