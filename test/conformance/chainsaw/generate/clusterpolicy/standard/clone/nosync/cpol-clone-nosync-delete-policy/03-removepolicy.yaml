@@ -10,6 +10,7 @@ spec:
   - assert:
       file: check.yaml
   - delete:
-      apiVersion: kyverno.io/v2beta1
-      kind: ClusterPolicy
-      name: cpol-nosync-clone-delete-policy
+      ref:
+        apiVersion: kyverno.io/v2beta1
+        kind: ClusterPolicy
+        name: cpol-nosync-clone-delete-policy

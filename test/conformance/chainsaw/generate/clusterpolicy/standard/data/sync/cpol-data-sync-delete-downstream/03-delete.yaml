@@ -8,7 +8,8 @@ spec:
   timeouts: {}
   try:
   - delete:
-      apiVersion: v1
-      kind: ConfigMap
-      name: zk-kafka-address
-      namespace: cpol-data-sync-delete-downstream-ns
+      ref:
+        apiVersion: v1
+        kind: ConfigMap
+        name: zk-kafka-address
+        namespace: cpol-data-sync-delete-downstream-ns

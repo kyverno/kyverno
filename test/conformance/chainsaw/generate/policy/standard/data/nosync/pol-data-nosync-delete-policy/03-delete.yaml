@@ -8,7 +8,8 @@ spec:
   timeouts: {}
   try:
   - delete:
-      apiVersion: kyverno.io/v1
-      kind: Policy
-      name: pol-data-nosync-delete-policy-policy
-      namespace: manta
+      ref:
+        apiVersion: kyverno.io/v1
+        kind: Policy
+        name: pol-data-nosync-delete-policy-policy
+        namespace: manta
