@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: Pod
-metadata:
-  name: testpod
-  namespace: default
-spec:
-  containers:
-  - image: ghcr.io/kyverno/test-verify-image:signed-keyless
-    name: container01

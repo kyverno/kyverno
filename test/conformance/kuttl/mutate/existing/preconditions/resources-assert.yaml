@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: Pod
-metadata:
-  name: nginx-a
-  namespace: default
-  labels:
-    policy-applied: 'true'
-  annotations:
-    policy.lan/value: foo
