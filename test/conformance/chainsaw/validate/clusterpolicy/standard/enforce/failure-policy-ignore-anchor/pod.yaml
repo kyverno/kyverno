@@ -6,7 +6,6 @@ metadata:
   annotations:
     kyverno-policies-test/key: disallowed
 spec:
-  terminationGracePeriodSeconds: 10
   containers:
   - name: example
     image: busybox

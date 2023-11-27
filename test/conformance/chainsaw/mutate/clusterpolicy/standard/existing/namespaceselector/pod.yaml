@@ -4,7 +4,6 @@ metadata:
   name: test-org
   namespace: org-label-inheritance-existing-standard-ns
 spec:
-  terminationGracePeriodSeconds: 10
   containers:
   - image: nginx:latest
     name: test-org

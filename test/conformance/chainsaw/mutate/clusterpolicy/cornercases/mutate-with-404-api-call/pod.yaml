@@ -4,7 +4,6 @@ metadata:
   name: mutate-404-api-call-example
   namespace: default
 spec:
-  terminationGracePeriodSeconds: 10
   containers:
   - name: example
     image: busybox

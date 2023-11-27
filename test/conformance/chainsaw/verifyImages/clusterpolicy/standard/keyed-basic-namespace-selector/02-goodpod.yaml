@@ -4,7 +4,6 @@ metadata:
   name: test-signed-pod
   namespace: test-verify-images
 spec:
-  terminationGracePeriodSeconds: 10
   containers:
   - image: ghcr.io/kyverno/test-verify-image:signed
     name: test-secret

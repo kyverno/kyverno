@@ -6,7 +6,6 @@ metadata:
   name: mypod
   namespace: default
 spec:
-  terminationGracePeriodSeconds: 10
   automountServiceAccountToken: false
   containers:
   - name: busybox

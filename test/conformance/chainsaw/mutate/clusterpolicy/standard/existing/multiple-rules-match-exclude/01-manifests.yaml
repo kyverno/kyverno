@@ -27,7 +27,6 @@ metadata:
   name: nginx-a
   namespace: ns-multiple-rules-match-exclude
 spec:
-  terminationGracePeriodSeconds: 10
   containers:
     - name: nginx
       image: nginx
@@ -38,7 +37,6 @@ metadata:
   name: nginx-b
   namespace: ns-multiple-rules-match-exclude
 spec:
-  terminationGracePeriodSeconds: 10
   containers:
     - name: nginx
       image: nginx

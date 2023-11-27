@@ -3,7 +3,6 @@ kind: Pod
 metadata:
   name: webserver
 spec:
-  terminationGracePeriodSeconds: 10
   containers:
   - name: webserver
     image: nginx:latest

@@ -3,7 +3,6 @@ kind: Pod
 metadata:
   name: test
 spec:
-  terminationGracePeriodSeconds: 10
   containers:
   - image: ghcr.io/kyverno/test-verify-image:unsigned
     name: test

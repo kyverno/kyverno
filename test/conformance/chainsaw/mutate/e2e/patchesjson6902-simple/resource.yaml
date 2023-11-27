@@ -4,7 +4,6 @@ metadata:
   name: foo-patchesjson6902-simple
   namespace: default
 spec:
-  terminationGracePeriodSeconds: 10
   containers:
   - command:
     - sleep infinity

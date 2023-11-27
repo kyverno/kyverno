@@ -16,7 +16,6 @@ spec:
         app: my-app
         color: blue
     spec:
-      terminationGracePeriodSeconds: 10
       containers:
         - name: nginx-container
           image: nginx:latest

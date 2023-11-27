@@ -6,7 +6,6 @@ metadata:
   name: nginx-pass
   namespace: default
 spec:
-  terminationGracePeriodSeconds: 10
   containers:
   - image: nginx
     name: test

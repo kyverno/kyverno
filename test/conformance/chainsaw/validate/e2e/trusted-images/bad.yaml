@@ -4,7 +4,6 @@ metadata:
   name: pod-with-root-user-dockerhub
   # namespace: default
 spec:
-  terminationGracePeriodSeconds: 10
   containers:
   - name: ubuntu
     image: ubuntu:bionic

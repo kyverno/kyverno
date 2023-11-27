@@ -19,7 +19,6 @@ metadata:
   name: mypod
   namespace: foo
 spec:
-  terminationGracePeriodSeconds: 10
   containers:
   - name: busybox
     image: busybox:1.35
@@ -38,7 +37,6 @@ metadata:
   name: unwatched
   namespace: foo
 spec:
-  terminationGracePeriodSeconds: 10
   containers:
   - name: busybox
     image: busybox:1.35

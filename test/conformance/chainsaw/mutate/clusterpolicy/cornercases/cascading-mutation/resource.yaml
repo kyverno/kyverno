@@ -4,7 +4,6 @@ metadata:
   name: cassandra
   namespace: default
 spec:
-  terminationGracePeriodSeconds: 10
   containers:
   - image: cassandra:latest
     imagePullPolicy: Always

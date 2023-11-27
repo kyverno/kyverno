@@ -6,7 +6,6 @@ metadata:
   labels:
     foo: bar
 spec:
-  terminationGracePeriodSeconds: 10
   containers:
   - image: nginx
     name: test-cm-lookup

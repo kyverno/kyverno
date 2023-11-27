@@ -3,7 +3,6 @@ kind: Pod
 metadata:
   name: pod-with-restricted-seccomp-profile-3
 spec:
-  terminationGracePeriodSeconds: 10
   containers:
   - name: busybox
     image: busybox:1.35
