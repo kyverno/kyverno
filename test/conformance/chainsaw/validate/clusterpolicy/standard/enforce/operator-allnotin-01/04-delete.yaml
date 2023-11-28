@@ -7,6 +7,9 @@ metadata:
 spec:
   timeouts: {}
   try:
+  - script:
+      content: sleep 5
+    timeout: 10s
   - delete:
       ref:
         apiVersion: apps/v1
