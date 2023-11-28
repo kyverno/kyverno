@@ -54,12 +54,6 @@ type PolicyContext struct {
 
 	// admissionOperation represents if the caller is from the webhook server
 	admissionOperation bool
-
-	jp jmespath.Interface
-
-	request admissionv1.AdmissionRequest
-
-	configuration config.Configuration
 }
 
 // engineapi.PolicyContext interface
@@ -77,7 +71,7 @@ func (c *PolicyContext) OldPolicyContext() (engineapi.PolicyContext, error) {
 	copy.oldResource = unstructured.Unstructured{}
 	copy.newResource = c.oldResource
 
-	if err := oldJsonContext.AddResource(copy.NewResource().Object); err != nil {
+	if err := oldJsonContext.AddResource(nil); err != nil {
 		return nil, errors.Wrapf(err, "failed to replace object in the JSON context")
 	}
 	if err := oldJsonContext.AddOldResource(copy.OldResource().Object); err != nil {
@@ -256,8 +250,6 @@ func NewPolicyContext(
 		policyContext = policyContext.WithAdmissionInfo(*admissionInfo)
 	}
 
-	policyContext.jp = jp
-	policyContext.configuration = configuration
 	return policyContext, nil
 }
 
@@ -286,9 +278,6 @@ func NewPolicyContextFromAdmissionRequest(
 		WithAdmissionOperation(true).
 		WithResourceKind(gvk, request.SubResource).
 		WithRequestResource(request.Resource)
-	policyContext.jp = jp
-	policyContext.configuration = configuration
-	policyContext.request = request
 
 	return policyContext, nil
 }
