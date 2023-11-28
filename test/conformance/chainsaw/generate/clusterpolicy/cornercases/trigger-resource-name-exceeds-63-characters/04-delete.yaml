@@ -8,7 +8,8 @@ spec:
   timeouts: {}
   try:
   - delete:
-      apiVersion: v1
-      kind: ConfigMap
-      name: my-configmapmy-configmapmy-configmapmy-configmapmy-configmapmy-configmap
-      namespace: trigger-resource-name-exceeds-63-characters-ns
+      ref:
+        apiVersion: v1
+        kind: ConfigMap
+        name: my-configmapmy-configmapmy-configmapmy-configmapmy-configmapmy-configmap
+        namespace: trigger-resource-name-exceeds-63-characters-ns
