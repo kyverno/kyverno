@@ -2,6 +2,8 @@ package processor
 
 import (
 	"fmt"
+	"github.com/kyverno/kyverno/pkg/autogen"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"io"
 	"strings"
 
@@ -43,7 +45,35 @@ func handleGeneratePolicy(out io.Writer, generateResponse *engineapi.EngineRespo
 		}
 	}
 
-	c, err := initializeMockController(out, objects)
+	listKinds := map[schema.GroupVersionResource]string{}
+
+	// Collect items in a potential cloneList to provide list kinds to the fake dynamic client.
+	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
+		if !rule.HasGenerate() || len(rule.Generation.CloneList.Kinds) == 0 {
+			continue
+		}
+
+		for _, kind := range rule.Generation.CloneList.Kinds {
+			apiVersion, kind := kubeutils.GetKindFromGVK(kind)
+
+			if apiVersion == "" || kind == "" {
+				continue
+			}
+
+			gv, err := schema.ParseGroupVersion(apiVersion)
+			if err != nil {
+				continue
+			}
+
+			listKinds[schema.GroupVersionResource{
+				Group:    gv.Group,
+				Version:  gv.Version,
+				Resource: strings.ToLower(kind) + "s",
+			}] = kind + "List"
+		}
+	}
+
+	c, err := initializeMockController(out, listKinds, objects)
 	if err != nil {
 		fmt.Fprintln(out, "error at controller")
 		return nil, err
@@ -82,8 +112,8 @@ func handleGeneratePolicy(out io.Writer, generateResponse *engineapi.EngineRespo
 	return newRuleResponse, nil
 }
 
-func initializeMockController(out io.Writer, objects []runtime.Object) (*generate.GenerateController, error) {
-	client, err := dclient.NewFakeClient(runtime.NewScheme(), nil, objects...)
+func initializeMockController(out io.Writer, gvrToListKind map[schema.GroupVersionResource]string, objects []runtime.Object) (*generate.GenerateController, error) {
+	client, err := dclient.NewFakeClient(runtime.NewScheme(), gvrToListKind, objects...)
 	if err != nil {
 		fmt.Fprintf(out, "Failed to mock dynamic client")
 		return nil, err
