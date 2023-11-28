@@ -10,8 +10,9 @@ spec:
   - apply:
       file: pod-pass.yaml
   - apply:
-      check:
-        (error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: pod-fail.yaml
   finally:
   - script:

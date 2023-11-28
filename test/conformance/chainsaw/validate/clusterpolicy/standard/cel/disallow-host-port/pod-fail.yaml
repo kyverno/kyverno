@@ -8,4 +8,3 @@ spec:
     image: nginx:latest
     ports:
     - hostPort: 80
-      

@@ -12,3 +12,7 @@ spec:
         into Pods protected with the label 'exec=false' is forbidden\" \nthen \n  echo
         \"Tested failed. Exec Request was not blocked.\"\n  exit 1 \nelse \n  echo
         \"Test succeeded. Exec Request was blocked.\"\n  exit 0\nfi\n"
+  finally:
+  - script:
+      content: sleep 5
+    timeout: 10s

@@ -10,6 +10,7 @@ spec:
   - apply:
       file: resource.yaml
   - apply:
-      check:
-        (error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: resource-fail.yaml
