@@ -169,11 +169,12 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 
 func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleResponse, error) {
 	pc := v.policyContext
-	if v.policyContext.OldPolicyContext() == nil {
-		return nil, errors.New("old context does not exist")
+	oldPc, err := v.policyContext.OldPolicyContext()
+	if err != nil {
+		return nil, errors.Wrapf(err, "cannot get old policy context")
 	}
 
-	v.policyContext = v.policyContext.OldPolicyContext()
+	v.policyContext = oldPc
 	resp := v.validate(ctx)
 	v.policyContext = pc
 

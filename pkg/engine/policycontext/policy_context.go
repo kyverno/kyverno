@@ -10,6 +10,7 @@ import (
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -55,8 +56,11 @@ type PolicyContext struct {
 	// admissionOperation represents if the caller is from the webhook server
 	admissionOperation bool
 
-	// old policy context is the policy context for the old resource, only exists for update operations
-	oldPolicyContext engineapi.PolicyContext
+	jp jmespath.Interface
+
+	request admissionv1.AdmissionRequest
+
+	configuration config.Configuration
 }
 
 // engineapi.PolicyContext interface
@@ -65,8 +69,12 @@ func (c *PolicyContext) Policy() kyvernov1.PolicyInterface {
 	return c.policy
 }
 
-func (c *PolicyContext) OldPolicyContext() engineapi.PolicyContext {
-	return c.oldPolicyContext
+func (c *PolicyContext) OldPolicyContext() (engineapi.PolicyContext, error) {
+	if c.Operation() != kyvernov1.Update {
+		return nil, errors.New("cannot create old policy context")
+	}
+	old, err := getOldPolicyContext(c.jp, c.request, c.oldResource, c.admissionInfo, c.gvk, c.configuration)
+	return old, err
 }
 
 func (c *PolicyContext) NewResource() unstructured.Unstructured {
@@ -236,7 +244,9 @@ func NewPolicyContext(
 	if admissionInfo != nil {
 		policyContext = policyContext.WithAdmissionInfo(*admissionInfo)
 	}
-	policyContext.oldPolicyContext = policyContext
+
+	policyContext.jp = jp
+	policyContext.configuration = configuration
 	return policyContext, nil
 }
 
@@ -265,16 +275,9 @@ func NewPolicyContextFromAdmissionRequest(
 		WithAdmissionOperation(true).
 		WithResourceKind(gvk, request.SubResource).
 		WithRequestResource(request.Resource)
-
-	if policyContext.Operation() == kyvernov1.Update {
-		policyContext.oldPolicyContext, err = getOldPolicyContext(jp, request, oldResource, admissionInfo, gvk, configuration)
-		if err != nil {
-			return nil, fmt.Errorf("failed to add image info to old policy rule context: %w", err)
-		}
-		if err := engineCtx.AddImageInfos(&newResource, configuration); err != nil {
-			return nil, fmt.Errorf("failed to add old policy rule context: %w", err)
-		}
-	}
+	policyContext.jp = jp
+	policyContext.configuration = configuration
+	policyContext.request = request
 
 	return policyContext, nil
 }
@@ -324,6 +327,9 @@ func getOldPolicyContext(
 		WithResourceKind(gvk, request.SubResource).
 		WithRequestResource(request.Resource)
 
-	oldPolicyContext.oldPolicyContext = oldPolicyContext
+	oldPolicyContext.jp = jp
+	oldPolicyContext.configuration = configuration
+	oldPolicyContext.request = request
+
 	return oldPolicyContext, nil
 }
