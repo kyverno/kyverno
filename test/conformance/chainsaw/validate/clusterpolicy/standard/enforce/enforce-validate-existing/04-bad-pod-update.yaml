@@ -7,7 +7,7 @@ metadata:
 spec:
   timeouts: {}
   try:
-  - apply:
-      file: bad-pod-update.yaml
-  - assert:
-      file: bad-pod-ready.yaml
+  - script:
+      content: ./bad-pod-update-test.sh
+    timeout: 30s
+
