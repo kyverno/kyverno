@@ -1,0 +1,35 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: script
+spec:
+  timeouts: {}
+  try:
+  - command:
+      args:
+      - run
+      - nginx
+      - --image=nginx
+      - -n
+      - test-generate-exec
+      entrypoint: kubectl
+  - command:
+      args:
+      - wait
+      - --for=condition=Ready
+      - pod/nginx
+      - -n
+      - test-generate-exec
+      entrypoint: kubectl
+  - command:
+      args:
+      - exec
+      - -n
+      - test-generate-exec
+      - nginx
+      - -it
+      - --
+      - ls
+      entrypoint: kubectl

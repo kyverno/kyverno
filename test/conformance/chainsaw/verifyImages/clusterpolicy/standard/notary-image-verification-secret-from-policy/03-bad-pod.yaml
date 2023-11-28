@@ -1,0 +1,13 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: bad-pod
+spec:
+  timeouts: {}
+  try:
+  - script:
+      content: "if kubectl apply -f 06-pod.yaml\nthen \n  echo \"Tested failed. Pod
+        was created when it shouldn't have been.\"\n  exit 1 \nelse \n  echo \"Test
+        succeeded. Pod was not created as intended.\"\n  exit 0\nfi\n"

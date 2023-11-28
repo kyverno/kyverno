@@ -40,21 +40,20 @@ func TestCommandWithAny(t *testing.T) {
 	out, err := io.ReadAll(b)
 	assert.NoError(t, err)
 	expected := `
-apiVersion: kyverno.io/v2alpha1
+apiVersion: kyverno.io/v2beta1
 kind: PolicyException
 metadata:
   name: test
-  namespace: 
+  namespace: default
 spec:
   background: true
   match:
     any:
-      -
-        kinds:
-          - Pod
-          - Deployment
-        names:
-          - test-*
+    - kinds:
+        - Pod
+        - Deployment
+      names:
+        - test-*
   exceptions:
     - policyName: policy
       ruleNames:
@@ -73,25 +72,24 @@ func TestCommandWithAll(t *testing.T) {
 	out, err := io.ReadAll(b)
 	assert.NoError(t, err)
 	expected := `
-apiVersion: kyverno.io/v2alpha1
+apiVersion: kyverno.io/v2beta1
 kind: PolicyException
 metadata:
   name: test
-  namespace: 
+  namespace: default
 spec:
   background: true
   match:
     all:
-      -
-        kinds:
-          - Pod
-          - Deployment
-        names:
-          - test-*
-        namespaces:
-          - test
-        operations:
-          - UPDATE
+    - kinds:
+        - Pod
+        - Deployment
+      names:
+        - test-*
+      namespaces:
+        - test
+      operations:
+        - UPDATE
   exceptions:
     - policyName: policy
       ruleNames:

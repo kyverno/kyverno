@@ -122,6 +122,7 @@ func NewController(
 	server string,
 	defaultTimeout int32,
 	servicePort int32,
+	webhookServerPort int32,
 	autoUpdateWebhooks bool,
 	admissionReports bool,
 	runtime runtimeutils.Runtime,

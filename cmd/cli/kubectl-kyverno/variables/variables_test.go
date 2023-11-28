@@ -10,43 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func TestVariables_HasVariables(t *testing.T) {
-	tests := []struct {
-		name      string
-		values    *v1alpha1.ValuesSpec
-		variables map[string]string
-		want      bool
-	}{{
-		name:      "nil",
-		values:    nil,
-		variables: nil,
-		want:      false,
-	}, {
-		name:      "empty",
-		values:    nil,
-		variables: map[string]string{},
-		want:      false,
-	}, {
-		name:   "not empty",
-		values: nil,
-		variables: map[string]string{
-			"foo": "bar",
-		},
-		want: true,
-	}}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v := Variables{
-				values:    tt.values,
-				variables: tt.variables,
-			}
-			if got := v.HasVariables(); got != tt.want {
-				t.Errorf("Variables.HasVariables() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestVariables_Subresources(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -173,65 +136,6 @@ func TestVariables_SetInStore(t *testing.T) {
 				variables: tt.variables,
 			}
 			v.SetInStore()
-		})
-	}
-}
-
-func TestVariables_HasPolicyVariables(t *testing.T) {
-	vals, err := values.Load(nil, "../_testdata/values/limit-configmap-for-sa.yaml")
-	assert.NoError(t, err)
-	vals.ValuesSpec.Policies = append(vals.ValuesSpec.Policies, v1alpha1.Policy{
-		Name: "limit-configmap-for-sa",
-		Rules: []v1alpha1.Rule{{
-			Name: "rule",
-			Values: map[string]interface{}{
-				"foo": "bar",
-			},
-			ForeachValues: map[string][]interface{}{
-				"baz": nil,
-			},
-		}},
-	})
-	tests := []struct {
-		name      string
-		values    *v1alpha1.ValuesSpec
-		variables map[string]string
-		policy    string
-		want      bool
-	}{{
-		name:      "nil",
-		values:    nil,
-		variables: nil,
-		policy:    "test",
-		want:      false,
-	}, {
-		name:      "empty",
-		values:    &v1alpha1.ValuesSpec{},
-		variables: nil,
-		policy:    "test",
-		want:      false,
-	}, {
-		name:      "values - test",
-		values:    &vals.ValuesSpec,
-		variables: nil,
-		policy:    "test",
-		want:      false,
-	}, {
-		name:      "values - limit-configmap-for-sa",
-		values:    &vals.ValuesSpec,
-		variables: nil,
-		policy:    "limit-configmap-for-sa",
-		want:      true,
-	}}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v := Variables{
-				values:    tt.values,
-				variables: tt.variables,
-			}
-			if got := v.HasPolicyVariables(tt.policy); got != tt.want {
-				t.Errorf("Variables.HasPolicyVariables() = %v, want %v", got, tt.want)
-			}
 		})
 	}
 }

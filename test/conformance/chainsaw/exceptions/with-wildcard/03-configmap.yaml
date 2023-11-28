@@ -1,0 +1,20 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: configmap
+spec:
+  timeouts: {}
+  try:
+  - apply:
+      file: configmap-allowed.yaml
+  - apply:
+      expect:
+      - check:
+          ($error != null): true
+      file: configmap-rejected.yaml
+  - assert:
+      file: configmap-allowed.yaml
+  - error:
+      file: configmap-rejected.yaml

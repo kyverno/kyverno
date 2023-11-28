@@ -1,0 +1,13 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: checks
+spec:
+  timeouts: {}
+  try:
+  - assert:
+      file: generated-resources.yaml
+  - error:
+      file: fail-generated-resources.yaml

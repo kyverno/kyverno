@@ -1,0 +1,13 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: deployment-fail
+spec:
+  timeouts: {}
+  try:
+  - apply:
+      file: deployment-fail.yaml
+  - assert:
+      file: deployment-fail-assert.yaml

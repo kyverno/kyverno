@@ -1,0 +1,23 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: check
+spec:
+  timeouts: {}
+  try:
+  - apply:
+      file: policy-1.yaml
+  - apply:
+      file: policy-1-subresource.yaml
+  - apply:
+      expect:
+      - check:
+          ($error != null): true
+      file: policy-2.yaml
+  - apply:
+      expect:
+      - check:
+          ($error != null): true
+      file: policy-2-subresource.yaml
