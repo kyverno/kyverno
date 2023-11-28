@@ -14,7 +14,6 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -73,8 +72,20 @@ func (c *PolicyContext) OldPolicyContext() (engineapi.PolicyContext, error) {
 	if c.Operation() != kyvernov1.Update {
 		return nil, errors.New("cannot create old policy context")
 	}
-	old, err := getOldPolicyContext(c.jp, c.request, c.oldResource, c.admissionInfo, c.gvk, c.configuration)
-	return old, err
+	copy := c.copy()
+	oldJsonContext := copy.jsonContext
+	copy.oldResource = unstructured.Unstructured{}
+	copy.newResource = c.oldResource
+
+	if err := oldJsonContext.AddResource(copy.NewResource().Object); err != nil {
+		return nil, errors.Wrapf(err, "failed to replace object in the JSON context")
+	}
+	if err := oldJsonContext.AddOldResource(copy.OldResource().Object); err != nil {
+		return nil, errors.Wrapf(err, "failed to replace old object in the JSON context")
+	}
+
+	copy.jsonContext = oldJsonContext
+	return copy, nil
 }
 
 func (c *PolicyContext) NewResource() unstructured.Unstructured {
@@ -298,38 +309,4 @@ func newJsonContext(
 		return nil, fmt.Errorf("failed to load service account in context: %w", err)
 	}
 	return engineCtx, nil
-}
-
-func getOldPolicyContext(
-	jp jmespath.Interface,
-	request admissionv1.AdmissionRequest,
-	oldResource unstructured.Unstructured,
-	admissionInfo kyvernov1beta1.RequestInfo,
-	gvk schema.GroupVersionKind,
-	configuration config.Configuration,
-) (*PolicyContext, error) {
-	oldReq := request.DeepCopy()
-	oldReq.Object = oldReq.OldObject
-	oldReq.OldObject = runtime.RawExtension{}
-
-	oldEngineCtx, err := newJsonContext(jp, *oldReq, &admissionInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create old policy rule context: %w", err)
-	}
-	if err := oldEngineCtx.AddImageInfos(&oldResource, configuration); err != nil {
-		return nil, fmt.Errorf("failed to add image information to the old policy rule context: %w", err)
-	}
-
-	oldPolicyContext := newPolicyContextWithJsonContext(kyvernov1.AdmissionOperation(request.Operation), oldEngineCtx).
-		WithNewResource(oldResource).
-		WithAdmissionInfo(admissionInfo).
-		WithAdmissionOperation(true).
-		WithResourceKind(gvk, request.SubResource).
-		WithRequestResource(request.Resource)
-
-	oldPolicyContext.jp = jp
-	oldPolicyContext.configuration = configuration
-	oldPolicyContext.request = request
-
-	return oldPolicyContext, nil
 }
