@@ -1723,7 +1723,7 @@ func Test_IsExternalURL(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
-			jp, err := newJMESPath(cfg, tc.jmesPath)
+			jp, err := jmespathInterface.Query(tc.jmesPath)
 			assert.NilError(t, err)
 			result, err := jp.Search("")
 			assert.NilError(t, err)
