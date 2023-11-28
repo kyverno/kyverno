@@ -101,7 +101,13 @@ func (eh equalityHandler) Handle(handler resourceElementHandler, resourceMap map
 		// validate the values of the pattern
 		returnPath, err := handler(logging.GlobalLogger(), value, eh.pattern, originPattern, currentPath, ac)
 		if err != nil {
-			return returnPath, err
+			switch value.(type) {
+			case string, float64, int, int64, bool, nil:
+				ac.AnchorError = newEqualityAnchorError(equalityAnchorErrMsg)
+				return returnPath, ac.AnchorError
+			default:
+				return returnPath, err
+			}
 		}
 		return "", nil
 	}

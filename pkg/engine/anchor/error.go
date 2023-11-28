@@ -15,6 +15,8 @@ const (
 	globalAnchorErr
 	// negationAnchorErr refers to negation violation
 	negationAnchorErr
+	// equalityAnchorErr refers to equality violation
+	equalityAnchorErr
 )
 
 const (
@@ -24,6 +26,8 @@ const (
 	conditionalAnchorErrMsg = "conditional anchor mismatch"
 	// globalAnchorErrMsg - the error message for global anchor error
 	globalAnchorErrMsg = "global anchor mismatch"
+	// globalAnchorErrMsg - the error message for equality anchor error
+	equalityAnchorErrMsg = "equality anchor mismatch"
 )
 
 // validateAnchorError represents the error type of validation anchors
@@ -60,6 +64,11 @@ func newGlobalAnchorError(msg string) validateAnchorError {
 	return newValidateAnchorError(globalAnchorErr, globalAnchorErrMsg, msg)
 }
 
+// newGlobalAnchorError returns a new instance of EqualityAnchorError
+func newEqualityAnchorError(msg string) validateAnchorError {
+	return newValidateAnchorError(equalityAnchorErr, equalityAnchorErrMsg, msg)
+}
+
 // isError checks if error matches the given error type
 func isError(err error, code anchorError, msg string) bool {
 	if err != nil {
@@ -86,4 +95,9 @@ func IsConditionalAnchorError(err error) bool {
 // IsGlobalAnchorError checks if error is a global global anchor error
 func IsGlobalAnchorError(err error) bool {
 	return isError(err, globalAnchorErr, globalAnchorErrMsg)
+}
+
+// IsEqualityAnchorError checks if error is a global global anchor error
+func IsEqualityAnchorError(err error) bool {
+	return isError(err, equalityAnchorErr, equalityAnchorErrMsg)
 }

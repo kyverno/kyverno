@@ -43,6 +43,11 @@ func MatchPattern(logger logr.Logger, resource, pattern interface{}) error {
 			return &PatternError{err, elemPath, false}
 		}
 
+		if succeed(err) {
+			logger.V(2).Info("rule applied successfuly", "msg", ac.AnchorError.Error())
+			return nil
+		}
+
 		// check if an anchor defined in the policy rule is missing in the resource
 		if ac.KeysAreMissing() {
 			logger.V(3).Info("missing anchor in resource")
@@ -63,6 +68,11 @@ func skip(err error) bool {
 func fail(err error) bool {
 	// if negation anchors report errors, the rule will fail
 	return anchor.IsNegationAnchorError(err)
+}
+
+func succeed(err error) bool {
+	// if equality anchors report errors, the rule will succeed
+	return anchor.IsEqualityAnchorError(err)
 }
 
 // validateResourceElement detects the element type (map, array, nil, string, int, bool, float)
