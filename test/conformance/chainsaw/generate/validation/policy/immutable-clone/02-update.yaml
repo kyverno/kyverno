@@ -8,10 +8,12 @@ spec:
   timeouts: {}
   try:
   - apply:
-      check:
-        (error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: update-namespace.yaml
   - apply:
-      check:
-        (error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: update-name.yaml

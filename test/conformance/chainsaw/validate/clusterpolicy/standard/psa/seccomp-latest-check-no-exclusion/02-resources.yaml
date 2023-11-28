@@ -8,12 +8,14 @@ spec:
   timeouts: {}
   try:
   - apply:
-      check:
-        (error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: bad-pod-1.yaml
   - apply:
-      check:
-        (error != null): true
+      expect:
+      - check:
+          ($error != null): true
       file: bad-pod-2.yaml
   - apply:
       file: good-pod.yaml

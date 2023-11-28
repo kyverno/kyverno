@@ -8,5 +8,12 @@ spec:
   timeouts: {}
   try:
   - script:
+      content: sleep 5
+    timeout: 10s
+  - script:
       content: ./api-initiated-eviction.sh
     timeout: 30s
+  finally:
+  - script:
+      content: sleep 5
+    timeout: 10s

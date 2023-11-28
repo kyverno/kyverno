@@ -8,7 +8,8 @@ spec:
   timeouts: {}
   try:
   - delete:
-      apiVersion: v1
-      kind: Secret
-      name: mysecret
-      namespace: clone-sync-same-trigger-source-trigger-ns
+      ref:
+        apiVersion: v1
+        kind: Secret
+        name: mysecret
+        namespace: clone-sync-same-trigger-source-trigger-ns
