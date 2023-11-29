@@ -19,14 +19,10 @@ func CRDsInstalled(apiserverClient apiserver.Interface) error {
 		"policyexceptions.kyverno.io",
 		"updaterequests.kyverno.io",
 	}
-	var errs []error
-	for _, crd := range kyvernoCRDs {
-		err := isCRDInstalled(apiserverClient, crd)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to check CRD %s is installed: %s", crd, err))
-		}
-	}
-	return multierr.Combine(errs...)
+
+	err := getErrorsForAbsentCRDs(apiserverClient, kyvernoCRDs)
+	return err
+
 }
 
 func isCRDInstalled(apiserverClient apiserver.Interface, kind string) error {
@@ -38,14 +34,8 @@ func CRDsForBackgroundControllerInstalled(apiserverClient apiserver.Interface) e
 	kyvernoCRDs := []string{
 		"updaterequests.kyverno.io",
 	}
-	var errs []error
-	for _, crd := range kyvernoCRDs {
-		err := isCRDInstalled(apiserverClient, crd)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to check CRD %s is installed: %s", crd, err))
-		}
-	}
-	return multierr.Combine(errs...)
+	err := getErrorsForAbsentCRDs(apiserverClient, kyvernoCRDs)
+	return err
 }
 
 func CRDsForCleanupControllerInstalled(apiserverClient apiserver.Interface) error {
@@ -54,14 +44,8 @@ func CRDsForCleanupControllerInstalled(apiserverClient apiserver.Interface) erro
 		"clustercleanuppolicies.kyverno.io",
 	}
 
-	var errs []error
-	for _, crd := range kyvernoCRDs {
-		err := isCRDInstalled(apiserverClient, crd)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to check CRD %s is installed: %s", crd, err))
-		}
-	}
-	return multierr.Combine(errs...)
+	err := getErrorsForAbsentCRDs(apiserverClient, kyvernoCRDs)
+	return err
 }
 
 func CRDsForReportsControllerInstalled(apiserverClient apiserver.Interface) error {
@@ -71,6 +55,17 @@ func CRDsForReportsControllerInstalled(apiserverClient apiserver.Interface) erro
 		"clusterbackgroundscanreports.kyverno.io",
 		"backgroundscanreports.kyverno.io",
 	}
+	var errs []error
+	for _, crd := range kyvernoCRDs {
+		err := isCRDInstalled(apiserverClient, crd)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to check CRD %s is installed: %s", crd, err))
+		}
+	}
+	return multierr.Combine(errs...)
+}
+
+func getErrorsForAbsentCRDs(apiserverClient apiserver.Interface, kyvernoCRDs []string) error {
 	var errs []error
 	for _, crd := range kyvernoCRDs {
 		err := isCRDInstalled(apiserverClient, crd)
