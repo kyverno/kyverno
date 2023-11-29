@@ -8,6 +8,9 @@ import (
 	"sync"
 	"time"
 
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+
 	admissionhandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission"
 	cleanuphandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/cleanup"
 	"github.com/kyverno/kyverno/cmd/internal"
@@ -219,4 +222,9 @@ func main() {
 	server.Run(ctx.Done())
 	// start leader election
 	le.Run(ctx)
+}
+
+// sanity checks for cleanup-controller
+func sanityChecks(apiserverClient apiserver.Interface) error {
+	return kubeutils.CRDsForCleanupControllerInstalled(apiserverClient)
 }

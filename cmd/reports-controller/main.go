@@ -9,6 +9,9 @@ import (
 	"sync"
 	"time"
 
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
@@ -318,4 +321,9 @@ func main() {
 	le.Run(ctx)
 	sdown()
 	wg.Wait()
+}
+
+// sanity checks for reports-controller
+func sanityChecks(apiserverClient apiserver.Interface) error {
+	return kubeutils.CRDsForReportsControllerInstalled(apiserverClient)
 }

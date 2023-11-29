@@ -9,6 +9,9 @@ import (
 	"sync"
 	"time"
 
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/background"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -223,4 +226,9 @@ func main() {
 	// start leader election
 	le.Run(signalCtx)
 	wg.Wait()
+}
+
+// add sanity checks for background-controller
+func sanityChecks(apiserverClient apiserver.Interface) error {
+	return kubeutils.CRDsForBackgroundControllerInstalled(apiserverClient)
 }
