@@ -8,6 +8,7 @@ spec:
   timeouts: {}
   try:
   - delete:
-      apiVersion: v1
-      kind: Namespace
-      name: cpol-clone-list-sync-delete-source-trigger-ns-1
+      ref:
+        apiVersion: v1
+        kind: Namespace
+        name: cpol-clone-list-sync-delete-source-trigger-ns-1

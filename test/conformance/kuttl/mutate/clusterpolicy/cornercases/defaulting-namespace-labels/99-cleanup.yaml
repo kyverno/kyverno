@@ -1,4 +1,0 @@
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: kubectl delete -f 01-manifests.yaml,resource.yaml,05-pod.yaml --force --wait=true --ignore-not-found=true

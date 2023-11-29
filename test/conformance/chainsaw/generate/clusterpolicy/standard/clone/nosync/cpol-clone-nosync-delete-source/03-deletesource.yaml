@@ -8,6 +8,7 @@ spec:
   timeouts: {}
   try:
   - delete:
-      apiVersion: v1
-      kind: Secret
-      name: regcred
+      ref:
+        apiVersion: v1
+        kind: Secret
+        name: regcred
