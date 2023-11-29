@@ -69,6 +69,7 @@ func main() {
 		internal.WithKyvernoDynamicClient(),
 		internal.WithConfigMapCaching(),
 		internal.WithDeferredLoading(),
+		internal.WithApiServerClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -78,7 +79,7 @@ func main() {
 	defer sdown()
 	if err := sanityChecksCleanupController(setup.ApiServerClient); err != nil {
 		setup.Logger.Error(err, "sanity checks failed")
-		// os.Exit(1)
+		os.Exit(1)
 	}
 	// setup leader election
 	le, err := leaderelection.New(

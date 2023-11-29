@@ -201,6 +201,7 @@ func main() {
 		internal.WithKyvernoClient(),
 		internal.WithDynamicClient(),
 		internal.WithMetadataClient(),
+		internal.WithApiServerClient(),
 		internal.WithKyvernoDynamicClient(),
 		internal.WithFlagSets(flagset),
 	)
@@ -219,7 +220,7 @@ func main() {
 	setup.Logger.Info("background scan interval", "duration", backgroundScanInterval.String())
 	if err := sanityChecksReportsController(setup.ApiServerClient); err != nil {
 		setup.Logger.Error(err, "sanity checks failed")
-		// os.Exit(1)
+		os.Exit(1)
 	}
 	// informer factories
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)

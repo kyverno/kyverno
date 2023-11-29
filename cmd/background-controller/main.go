@@ -109,6 +109,7 @@ func main() {
 		internal.WithKyvernoClient(),
 		internal.WithDynamicClient(),
 		internal.WithKyvernoDynamicClient(),
+		internal.WithApiServerClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -119,7 +120,7 @@ func main() {
 
 	if err := sanityChecksBackgroundController(setup.ApiServerClient); err != nil {
 		setup.Logger.Error(err, "sanity checks failed")
-		// os.Exit(1)
+		os.Exit(1)
 	}
 	var err error
 	bgscanInterval := time.Hour
