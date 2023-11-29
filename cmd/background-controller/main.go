@@ -9,9 +9,6 @@ import (
 	"sync"
 	"time"
 
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/background"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -27,6 +24,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeinformers "k8s.io/client-go/informers"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
@@ -118,6 +117,10 @@ func main() {
 	signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-background-controller", false)
 	defer sdown()
 
+	if err := sanityChecksBackgroundController(setup.ApiServerClient); err != nil {
+		setup.Logger.Error(err, "sanity checks failed")
+		// os.Exit(1)
+	}
 	var err error
 	bgscanInterval := time.Hour
 	val := os.Getenv("BACKGROUND_SCAN_INTERVAL")
@@ -132,10 +135,6 @@ func main() {
 	// THIS IS AN UGLY FIX
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
-	if err := sanityChecksBackgroundController(setup.ApiServerClient); err != nil {
-		setup.Logger.Error(err, "sanity checks failed")
-		// os.Exit(1)
-	}
 	// informer factories
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 	emitEventsValues := strings.Split(omitEvents, ",")

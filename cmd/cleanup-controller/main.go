@@ -8,9 +8,6 @@ import (
 	"sync"
 	"time"
 
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-
 	admissionhandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission"
 	cleanuphandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/cleanup"
 	"github.com/kyverno/kyverno/cmd/internal"
@@ -22,9 +19,11 @@ import (
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/tls"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeinformers "k8s.io/client-go/informers"
 )
 
@@ -77,6 +76,10 @@ func main() {
 	// setup
 	ctx, setup, sdown := internal.Setup(appConfig, "kyverno-cleanup-controller", false)
 	defer sdown()
+	if err := sanityChecksCleanupController(setup.ApiServerClient); err != nil {
+		setup.Logger.Error(err, "sanity checks failed")
+		// os.Exit(1)
+	}
 	// setup leader election
 	le, err := leaderelection.New(
 		setup.Logger.WithName("leader-election"),
@@ -170,10 +173,6 @@ func main() {
 	if err != nil {
 		setup.Logger.Error(err, "failed to initialize leader election")
 		os.Exit(1)
-	}
-	if err := sanityChecksCleanupController(setup.ApiServerClient); err != nil {
-		setup.Logger.Error(err, "sanity checks failed")
-		// os.Exit(1)
 	}
 	// informer factories
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod)
