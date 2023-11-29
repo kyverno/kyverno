@@ -24,6 +24,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeinformers "k8s.io/client-go/informers"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
@@ -199,6 +201,7 @@ func main() {
 		internal.WithKyvernoClient(),
 		internal.WithDynamicClient(),
 		internal.WithMetadataClient(),
+		internal.WithApiServerClient(),
 		internal.WithKyvernoDynamicClient(),
 		internal.WithFlagSets(flagset),
 	)
@@ -215,6 +218,10 @@ func main() {
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
 	setup.Logger.Info("background scan interval", "duration", backgroundScanInterval.String())
+	if err := sanityChecksReportsController(setup.ApiServerClient); err != nil {
+		setup.Logger.Error(err, "sanity checks failed")
+		os.Exit(1)
+	}
 	// informer factories
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 	omitEventsValues := strings.Split(omitEvents, ",")
@@ -318,4 +325,9 @@ func main() {
 	le.Run(ctx)
 	sdown()
 	wg.Wait()
+}
+
+// sanity checks for reports-controller
+func sanityChecksReportsController(apiserverClient apiserver.Interface) error {
+	return kubeutils.CRDsForReportsControllerInstalled(apiserverClient)
 }

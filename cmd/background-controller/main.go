@@ -24,6 +24,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeinformers "k8s.io/client-go/informers"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
@@ -107,6 +109,7 @@ func main() {
 		internal.WithKyvernoClient(),
 		internal.WithDynamicClient(),
 		internal.WithKyvernoDynamicClient(),
+		internal.WithApiServerClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -115,6 +118,10 @@ func main() {
 	signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-background-controller", false)
 	defer sdown()
 
+	if err := sanityChecksBackgroundController(setup.ApiServerClient); err != nil {
+		setup.Logger.Error(err, "sanity checks failed")
+		os.Exit(1)
+	}
 	var err error
 	bgscanInterval := time.Hour
 	val := os.Getenv("BACKGROUND_SCAN_INTERVAL")
@@ -223,4 +230,9 @@ func main() {
 	// start leader election
 	le.Run(signalCtx)
 	wg.Wait()
+}
+
+// add sanity checks for background-controller
+func sanityChecksBackgroundController(apiserverClient apiserver.Interface) error {
+	return kubeutils.CRDsForBackgroundControllerInstalled(apiserverClient)
 }
