@@ -13,26 +13,12 @@ import (
 func CRDsInstalled(apiserverClient apiserver.Interface) error {
 	kyvernoCRDs := []string{
 		"admissionreports.kyverno.io",
-		"backgroundscanreports.kyverno.io",
-		"cleanuppolicies.kyverno.io",
 		"clusteradmissionreports.kyverno.io",
-		"clusterbackgroundscanreports.kyverno.io",
-		"clustercleanuppolicies.kyverno.io",
 		"clusterpolicies.kyverno.io",
-		"clusterpolicyreports.wgpolicyk8s.io",
 		"policies.kyverno.io",
 		"policyexceptions.kyverno.io",
-		"policyreports.wgpolicyk8s.io",
 		"updaterequests.kyverno.io",
 	}
-	// kyvernoCRDs := []string{
-	// 	"admissionreports.kyverno.io",
-	// 	"clusteradmissionreports.kyverno.io",
-	// 	"clusterpolicies.kyverno.io",
-	// 	"policies.kyverno.io",
-	// 	"policyexceptions.kyverno.io",
-	// 	"updaterequests.kyverno.io",
-	// }
 	var errs []error
 	for _, crd := range kyvernoCRDs {
 		err := isCRDInstalled(apiserverClient, crd)
