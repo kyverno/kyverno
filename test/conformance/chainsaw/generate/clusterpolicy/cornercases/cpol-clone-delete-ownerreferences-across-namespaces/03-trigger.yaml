@@ -1,0 +1,13 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: trigger
+spec:
+  timeouts: {}
+  try:
+  - apply:
+      file: trigger.yaml
+  - assert:
+      file: created-secret.yaml

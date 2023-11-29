@@ -1,0 +1,16 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: policy
+spec:
+  timeouts: {}
+  try:
+  - apply:
+      expect:
+      - check:
+          ($error != null): true
+      file: policy-bad.yaml
+  - apply:
+      file: policy-good.yaml

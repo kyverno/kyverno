@@ -1,0 +1,16 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: resources
+spec:
+  timeouts: {}
+  try:
+  - apply:
+      file: pod-create.yaml
+  - apply:
+      expect:
+      - check:
+          ($error != null): true
+      file: pod-update.yaml

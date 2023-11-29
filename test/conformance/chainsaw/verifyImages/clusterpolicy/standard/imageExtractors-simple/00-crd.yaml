@@ -1,0 +1,13 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: crd
+spec:
+  timeouts: {}
+  try:
+  - apply:
+      file: crd.yaml
+  - assert:
+      file: crd-ready.yaml

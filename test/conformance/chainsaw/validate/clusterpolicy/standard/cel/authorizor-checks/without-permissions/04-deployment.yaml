@@ -1,0 +1,13 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: deployment
+spec:
+  timeouts: {}
+  try:
+  - script:
+      content: "if kubectl apply -f ./deployment.yaml --as=system:serviceaccount:default:test-account-1\nthen\n
+        \ echo \"Test failed. Deployment shouldn't be created.\"\n  exit 1\nelse \n
+        \ echo \"Test succeeded. Deployment isn't created as expected.\"\n  exit 0\nfi\n"
