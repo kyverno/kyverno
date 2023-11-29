@@ -30,6 +30,6 @@ jobs:
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
       - name: WriteGoList
-        run: go list -json -m all > go.list
+        run: go list -json -deps ./... > go.list
       - name: Nancy SAST Scan
         uses: sonatype-nexus-community/nancy-github-action@726e338312e68ecdd4b4195765f174d3b3ce1533 # v1.0.3
