@@ -22,7 +22,6 @@ func CRDsInstalled(apiserverClient apiserver.Interface) error {
 
 	err := getErrorsForAbsentCRDs(apiserverClient, kyvernoCRDs)
 	return err
-
 }
 
 func isCRDInstalled(apiserverClient apiserver.Interface, kind string) error {
