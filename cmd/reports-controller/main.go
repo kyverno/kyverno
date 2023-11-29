@@ -218,6 +218,10 @@ func main() {
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
 	setup.Logger.Info("background scan interval", "duration", backgroundScanInterval.String())
+	if err := sanityChecksReportsController(setup.ApiServerClient); err != nil {
+		setup.Logger.Error(err, "sanity checks failed")
+		// os.Exit(1)
+	}
 	// informer factories
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 	omitEventsValues := strings.Split(omitEvents, ",")
@@ -324,6 +328,6 @@ func main() {
 }
 
 // sanity checks for reports-controller
-func sanityChecks(apiserverClient apiserver.Interface) error {
+func sanityChecksReportsController(apiserverClient apiserver.Interface) error {
 	return kubeutils.CRDsForReportsControllerInstalled(apiserverClient)
 }

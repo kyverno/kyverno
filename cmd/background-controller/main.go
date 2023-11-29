@@ -132,6 +132,10 @@ func main() {
 	// THIS IS AN UGLY FIX
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
+	if err := sanityChecksBackgroundController(setup.ApiServerClient); err != nil {
+		setup.Logger.Error(err, "sanity checks failed")
+		// os.Exit(1)
+	}
 	// informer factories
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 	emitEventsValues := strings.Split(omitEvents, ",")
@@ -229,6 +233,6 @@ func main() {
 }
 
 // add sanity checks for background-controller
-func sanityChecks(apiserverClient apiserver.Interface) error {
+func sanityChecksBackgroundController(apiserverClient apiserver.Interface) error {
 	return kubeutils.CRDsForBackgroundControllerInstalled(apiserverClient)
 }

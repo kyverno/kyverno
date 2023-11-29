@@ -171,6 +171,10 @@ func main() {
 		setup.Logger.Error(err, "failed to initialize leader election")
 		os.Exit(1)
 	}
+	if err := sanityChecksCleanupController(setup.ApiServerClient); err != nil {
+		setup.Logger.Error(err, "sanity checks failed")
+		// os.Exit(1)
+	}
 	// informer factories
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
@@ -225,6 +229,6 @@ func main() {
 }
 
 // sanity checks for cleanup-controller
-func sanityChecks(apiserverClient apiserver.Interface) error {
+func sanityChecksCleanupController(apiserverClient apiserver.Interface) error {
 	return kubeutils.CRDsForCleanupControllerInstalled(apiserverClient)
 }
