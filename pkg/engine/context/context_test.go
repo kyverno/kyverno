@@ -7,6 +7,7 @@ import (
 	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/stretchr/testify/assert"
 	authenticationv1 "k8s.io/api/authentication/v1"
 )
 
@@ -121,5 +122,81 @@ func Test_addResourceAndUserContext(t *testing.T) {
 	t.Log(result)
 	if !reflect.DeepEqual(expectedResult, result) {
 		t.Error("expected result does not match")
+	}
+}
+
+func TestAddVariable(t *testing.T) {
+	conf := config.NewDefaultConfiguration(false)
+	jp := jmespath.New(conf)
+	ctx := NewContext(jp)
+
+	tests := []struct {
+		name     string
+		key      string
+		value    interface{}
+		wantErr  bool
+		expected interface{}
+	}{
+		{
+			name:    "Simple variable",
+			key:     "simpleKey",
+			value:   "simpleValue",
+			wantErr: false,
+		},
+		{
+			name:    "Nested variable",
+			key:     "nested.key",
+			value:   123,
+			wantErr: false,
+		},
+		{
+			name:    "Invalid key format",
+			key:     "invalid,key",
+			value:   "someValue",
+			wantErr: false,
+		},
+		{
+			name:    "Complex nested variable",
+			key:     "complex.nested.key",
+			value:   map[string]interface{}{"innerKey": "innerValue"},
+			wantErr: false,
+		},
+		{
+			name:    "Array value",
+			key:     "arrayKey",
+			value:   []int{1, 2, 3},
+			wantErr: false,
+		},
+		{
+			name:    "Boolean value",
+			key:     "boolKey",
+			value:   true,
+			wantErr: false,
+		},
+		{
+			name:    "Empty key",
+			key:     "",
+			value:   "someValue",
+			wantErr: true,
+		},
+		{
+			name:    "Nil value",
+			key:     "nilKey",
+			value:   nil,
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ctx.AddVariable(tt.key, tt.value)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				result, err := ctx.Query(tt.key)
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected, result)
+			}
+		})
 	}
 }
