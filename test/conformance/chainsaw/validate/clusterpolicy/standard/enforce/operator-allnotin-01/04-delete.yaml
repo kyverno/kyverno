@@ -7,8 +7,12 @@ metadata:
 spec:
   timeouts: {}
   try:
+  - script:
+      content: sleep 5
+    timeout: 10s
   - delete:
-      apiVersion: apps/v1
-      kind: Deployment
-      name: nginx
-      namespace: default
+      ref:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: nginx
+        namespace: default

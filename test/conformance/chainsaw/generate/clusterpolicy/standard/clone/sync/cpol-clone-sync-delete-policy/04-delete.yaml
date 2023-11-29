@@ -8,6 +8,7 @@ spec:
   timeouts: {}
   try:
   - delete:
-      apiVersion: kyverno.io/v2beta1
-      kind: ClusterPolicy
-      name: cpol-clone-sync-delete-policy
+      ref:
+        apiVersion: kyverno.io/v2beta1
+        kind: ClusterPolicy
+        name: cpol-clone-sync-delete-policy

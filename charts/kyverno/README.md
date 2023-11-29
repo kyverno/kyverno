@@ -731,6 +731,13 @@ The chart values are organised per component.
 | imagePullSecrets | object | `{}` | Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | customLabels | object | `{}` | Additional labels |
+| policyReportsCleanup.enabled | bool | `true` | Create a helm post-upgrade hook to cleanup the old policy reports. |
+| policyReportsCleanup.image.registry | string | `nil` | Image registry |
+| policyReportsCleanup.image.repository | string | `"bitnami/kubectl"` | Image repository |
+| policyReportsCleanup.image.tag | string | `"1.28.4"` | Image tag Defaults to `latest` if omitted |
+| policyReportsCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
+| policyReportsCleanup.podSecurityContext | object | `{}` | Security context for the pod |
+| policyReportsCleanup.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
 
 ## TLS Configuration
 

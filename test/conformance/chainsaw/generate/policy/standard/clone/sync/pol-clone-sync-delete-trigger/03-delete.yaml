@@ -8,7 +8,8 @@ spec:
   timeouts: {}
   try:
   - delete:
-      apiVersion: v1
-      kind: ConfigMap
-      name: test-org
-      namespace: pol-clone-sync-delete-trigger-ns
+      ref:
+        apiVersion: v1
+        kind: ConfigMap
+        name: test-org
+        namespace: pol-clone-sync-delete-trigger-ns

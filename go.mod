@@ -19,7 +19,7 @@ require (
 	github.com/fluxcd/pkg/oci v0.32.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-git/go-billy/v5 v5.5.0
-	github.com/go-git/go-git/v5 v5.10.0
+	github.com/go-git/go-git/v5 v5.10.1
 	github.com/go-logr/logr v1.3.0
 	github.com/go-logr/zapr v1.3.0
 	github.com/google/gnostic-models v0.6.9-0.20230804172637-c7be7c783f49
@@ -64,7 +64,7 @@ require (
 	go.uber.org/automaxprocs v1.5.3
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.26.0
-	golang.org/x/crypto v0.15.0
+	golang.org/x/crypto v0.16.0
 	golang.org/x/text v0.14.0
 	gomodules.xyz/jsonpatch/v2 v2.4.0
 	google.golang.org/grpc v1.59.0
@@ -130,7 +130,6 @@ require (
 	github.com/OneOfOne/xxhash v1.2.8 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20230923063757-afb1ddc0824c // indirect
 	github.com/ThalesIgnite/crypto11 v1.2.5 // indirect
-	github.com/acomagu/bufpipe v1.0.4 // indirect
 	github.com/agnivade/levenshtein v1.1.1 // indirect
 	github.com/alibabacloud-go/alibabacloud-gateway-spi v0.0.4 // indirect
 	github.com/alibabacloud-go/cr-20160607 v1.0.1 // indirect
@@ -144,7 +143,7 @@ require (
 	github.com/alibabacloud-go/tea-xml v1.1.3 // indirect
 	github.com/aliyun/credentials-go v1.3.2 // indirect
 	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230305170008-8188dc5388df // indirect
-	github.com/aptible/supercronic v0.2.27
+	github.com/aptible/supercronic v0.2.28
 	github.com/aws/aws-sdk-go-v2 v1.23.1 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.25.5 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.16.4 // indirect
@@ -385,8 +384,8 @@ require (
 	golang.org/x/net v0.18.0 // indirect
 	golang.org/x/oauth2 v0.14.0 // indirect
 	golang.org/x/sync v0.5.0 // indirect
-	golang.org/x/sys v0.14.0 // indirect
-	golang.org/x/term v0.14.0 // indirect
+	golang.org/x/sys v0.15.0 // indirect
+	golang.org/x/term v0.15.0 // indirect
 	golang.org/x/time v0.4.0 // indirect
 	golang.org/x/tools v0.15.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
