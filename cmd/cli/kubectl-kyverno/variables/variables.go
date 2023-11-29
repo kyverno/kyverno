@@ -13,22 +13,6 @@ type Variables struct {
 	variables map[string]string
 }
 
-func (v Variables) HasVariables() bool {
-	return len(v.variables) != 0
-}
-
-func (v Variables) HasPolicyVariables(policy string) bool {
-	if v.values == nil {
-		return false
-	}
-	for _, pol := range v.values.Policies {
-		if pol.Name == policy {
-			return true
-		}
-	}
-	return false
-}
-
 func (v Variables) Subresources() []v1alpha1.Subresource {
 	if v.values == nil {
 		return nil

@@ -8,7 +8,8 @@ spec:
   timeouts: {}
   try:
   - delete:
-      apiVersion: networking.k8s.io/v1
-      kind: Ingress
-      name: my-app-ingress
-      namespace: test-ingress
+      ref:
+        apiVersion: networking.k8s.io/v1
+        kind: Ingress
+        name: my-app-ingress
+        namespace: test-ingress

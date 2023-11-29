@@ -8,7 +8,8 @@ spec:
   timeouts: {}
   try:
   - delete:
-      apiVersion: apps/v1
-      kind: DaemonSet
-      name: test-deletion-request-datadog-operator
-      namespace: cpol-validate-psa-test-deletion-request
+      ref:
+        apiVersion: apps/v1
+        kind: DaemonSet
+        name: test-deletion-request-datadog-operator
+        namespace: cpol-validate-psa-test-deletion-request

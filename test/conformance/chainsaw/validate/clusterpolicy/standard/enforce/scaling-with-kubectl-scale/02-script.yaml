@@ -12,3 +12,7 @@ spec:
         2>&1 | grep -q 'validation error: nginx-test needs to have 2 replicas' \nthen
         \n  echo \"Test succeeded. Resource was blocked from scaling.\"\n  exit 0\nelse
         \n  echo \"Tested failed. Resource was allowed to scale.\"\n  exit 1 \nfi\n"
+  finally:
+  - script:
+      content: sleep 5
+    timeout: 10s
