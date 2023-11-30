@@ -1,0 +1,20 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: pod
+spec:
+  timeouts: {}
+  try:
+    - apply:
+        file: pod-allowed-1.yaml
+    - apply:
+        file: pod-allowed-2.yaml
+    - apply:
+        file: pod-allowed-3.yaml
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+        file: pod-rejected.yaml
