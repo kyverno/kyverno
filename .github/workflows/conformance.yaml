@@ -145,7 +145,7 @@ jobs:
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Install Chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@c08ae80bc45546987edff33212bf33161c84ce59 # v0.0.6
+        uses: kyverno/chainsaw/.github/actions/install@5ca138ff5ad87bfb2c41e52cde8c00154756e4c5 # v0.0.7
         with:
           release: v0.0.7
       - name: Test with Chainsaw
@@ -215,7 +215,7 @@ jobs:
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Install Chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@c08ae80bc45546987edff33212bf33161c84ce59 # v0.0.6
+        uses: kyverno/chainsaw/.github/actions/install@5ca138ff5ad87bfb2c41e52cde8c00154756e4c5 # v0.0.7
         with:
           release: v0.0.7
       - name: Test with Chainsaw
@@ -285,7 +285,7 @@ jobs:
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Install Chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@c08ae80bc45546987edff33212bf33161c84ce59 # v0.0.6
+        uses: kyverno/chainsaw/.github/actions/install@5ca138ff5ad87bfb2c41e52cde8c00154756e4c5 # v0.0.7
         with:
           release: v0.0.7
       - name: Test with Chainsaw
@@ -357,7 +357,7 @@ jobs:
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Install Chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@c08ae80bc45546987edff33212bf33161c84ce59 # v0.0.6
+        uses: kyverno/chainsaw/.github/actions/install@5ca138ff5ad87bfb2c41e52cde8c00154756e4c5 # v0.0.7
         with:
           release: v0.0.7
       - name: Test with Chainsaw
@@ -427,7 +427,7 @@ jobs:
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Install Chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@c08ae80bc45546987edff33212bf33161c84ce59 # v0.0.6
+        uses: kyverno/chainsaw/.github/actions/install@5ca138ff5ad87bfb2c41e52cde8c00154756e4c5 # v0.0.7
         with:
           release: v0.0.7
       - name: Test with Chainsaw
@@ -503,7 +503,7 @@ jobs:
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Install Chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@c08ae80bc45546987edff33212bf33161c84ce59 # v0.0.6
+        uses: kyverno/chainsaw/.github/actions/install@5ca138ff5ad87bfb2c41e52cde8c00154756e4c5 # v0.0.7
         with:
           release: v0.0.7
       - name: Test with Chainsaw
@@ -578,7 +578,7 @@ jobs:
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Install Chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@c08ae80bc45546987edff33212bf33161c84ce59 # v0.0.6
+        uses: kyverno/chainsaw/.github/actions/install@5ca138ff5ad87bfb2c41e52cde8c00154756e4c5 # v0.0.7
         with:
           release: v0.0.7
       - name: Test with Chainsaw
@@ -672,7 +672,7 @@ jobs:
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Install Chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@c08ae80bc45546987edff33212bf33161c84ce59 # v0.0.6
+        uses: kyverno/chainsaw/.github/actions/install@5ca138ff5ad87bfb2c41e52cde8c00154756e4c5 # v0.0.7
         with:
           release: v0.0.7
       - name: Test with Chainsaw
@@ -746,7 +746,7 @@ jobs:
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Install Chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@c08ae80bc45546987edff33212bf33161c84ce59 # v0.0.6
+        uses: kyverno/chainsaw/.github/actions/install@5ca138ff5ad87bfb2c41e52cde8c00154756e4c5 # v0.0.7
         with:
           release: v0.0.7
       - name: Test with Chainsaw
