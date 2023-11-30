@@ -767,8 +767,8 @@ github.com/google/go-cmp v0.5.6/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/
 github.com/google/go-cmp v0.5.9/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
 github.com/google/go-cmp v0.6.0 h1:ofyhxvXcZhMsU5ulbFiLKl/XBFqE1GSq7atu8tAmTRI=
 github.com/google/go-cmp v0.6.0/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
-github.com/google/go-containerregistry v0.16.1 h1:rUEt426sR6nyrL3gt+18ibRcvYpKYdpsa5ZW7MA08dQ=
-github.com/google/go-containerregistry v0.16.1/go.mod h1:u0qB2l7mvtWVR5kNcbFIhFY1hLbf8eeGapA+vbFDCtQ=
+github.com/google/go-containerregistry v0.17.0 h1:5p+zYs/R4VGHkhyvgWurWrpJ2hW4Vv9fQI+GzdcwXLk=
+github.com/google/go-containerregistry v0.17.0/go.mod h1:u0qB2l7mvtWVR5kNcbFIhFY1hLbf8eeGapA+vbFDCtQ=
 github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20231110134716-5a53a12f09d0 h1:+Ab1qik7PpVulkV5Hpxy31NhVTJNZPXA8gNC/o3NNts=
 github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20231110134716-5a53a12f09d0/go.mod h1:5sSbf/SbGGvjWIlMlt2bkEqOq+ufOIBYrBevLuxbfSs=
 github.com/google/go-github/v55 v55.0.0 h1:4pp/1tNMB9X/LuAhs5i0KQAE40NmiR/y6prLNb9x9cg=
@@ -1030,8 +1030,10 @@ github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+
 github.com/kyoh86/exportloopref v0.1.8/go.mod h1:1tUcJeiioIs7VWe5gcOObrux3lb66+sBqGZrRkMwPgg=
 github.com/kyverno/cosign/v2 v2.0.0-20231109090756-51fd41540436 h1:PvxtUeaEvHgnVwnksc2LDBjWM7wsyIzZhZzS+RW+BEE=
 github.com/kyverno/cosign/v2 v2.0.0-20231109090756-51fd41540436/go.mod h1:QuAzDDmES0ROCdTPf97GzjidUmn5lpQq84ESET3NAi8=
-github.com/kyverno/go-jmespath v0.4.1-0.20230705123211-d067dc3d6613 h1:M0uOLuCAZydi/vZy7uvNhwaIge0HFMdfqQYOKw7kgnQ=
-github.com/kyverno/go-jmespath v0.4.1-0.20230705123211-d067dc3d6613/go.mod h1:yzDHaKovQy16rjN4kFnjF+IdNoN4p1ndw+va6+B8zUU=
+github.com/kyverno/go-jmespath v0.4.1-0.20230906134905-62fa64b71f91 h1:n63aowZk61f65e6OJxuql8BS/hCv8LZxz/eCO4+2NfM=
+github.com/kyverno/go-jmespath v0.4.1-0.20230906134905-62fa64b71f91/go.mod h1:yzDHaKovQy16rjN4kFnjF+IdNoN4p1ndw+va6+B8zUU=
+github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877 h1:XOLJNGX/q6MVpI8p8MKvk6jGBMvO4CrdwrizMMSsaRU=
+github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877/go.mod h1:yzDHaKovQy16rjN4kFnjF+IdNoN4p1ndw+va6+B8zUU=
 github.com/kyverno/go-jmespath/internal/testify v1.5.2-0.20230630133209-945021c749d9 h1:lL311dF3a2aeNibJj8v+uhFU3XkvRHZmCtAdSPOrQYY=
 github.com/kyverno/go-jmespath/internal/testify v1.5.2-0.20230630133209-945021c749d9/go.mod h1:XRxUGHIiCy1WYma1CdfdO1WOhIe8dLPTENaZr5D1ex4=
 github.com/kyverno/kubectl-validate v0.0.0-20231116142848-59e4e6124b70 h1:/ThsDBrhi0ayXXevlRt2MRh0DOkcXiSTJNMIFiV8dE0=
