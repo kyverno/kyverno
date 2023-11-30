@@ -1031,6 +1031,28 @@ dev-lab-policy-reporter: $(HELM) ## Deploy policy-reporter helm chart
 dev-lab-kwok: ## Deploy kwok
 	@kubectl apply -k ./scripts/config/kwok
 
+#####################
+# Bump new versions #
+#####################
+
+KYVERNO_CHART_VERSION ?= latest #3.1.0-rc.7 #latest
+POLICIES_CHART_VERSION ?= latest #3.1.0-rc.7 #latest
+APP_VERSION ?= latest #v1.11.0-rc.7 #latest act code
+KUBE_VERSION_N ?= ">=1.25.0-0"
+
+# sed -i 's/version: .*/version: $(KYVERNO_CHART_VERSION)/' charts/kyverno/Chart.yaml
+
+
+release:
+	@echo "Updating Chart.yaml files..."
+	sed -i 's/version: .*/version: $(POLICIES_CHART_VERSION)/' charts/kyverno-policies/Chart.yaml
+	sed -i 's/appVersion: .*/appVersion: $(APP_VERSION)/' charts/kyverno-policies/Chart.yaml
+	sed -i "/name: kyverno/ {n; s/^version:.*/version: $(KYVERNO_CHART_VERSION)/}" charts/kyverno/Chart.yaml
+	sed -i 's/appVersion: .*/appVersion: $(APP_VERSION)/' charts/kyverno/Chart.yaml
+	sed -i 's/kubeVersion: .*/kubeVersion: $(KUBE_VERSION_N)/' charts/kyverno/Chart.yaml
+	@echo "old Releases bumped."
+
+
 ########
 # HELP #
 ########
