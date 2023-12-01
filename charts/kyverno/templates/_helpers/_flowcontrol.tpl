@@ -1,6 +1,8 @@
 {{/* vim: set filetype=mustache: */}}
 
 {{- define "kyverno.flowcontrol.apiVersion" -}}
+{{- if .Values.apiVersionOverride.flowControl -}}
+  {{- .Values.apiVersionOverride.flowControl -}}
 {{- if .Capabilities.APIVersions.Has "flowcontrol.apiserver.k8s.io/v1beta3" -}}
   flowcontrol.apiserver.k8s.io/v1beta3
 {{- else if .Capabilities.APIVersions.Has "flowcontrol.apiserver.k8s.io/v1beta2" -}}
