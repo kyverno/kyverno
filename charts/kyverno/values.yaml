@@ -42,6 +42,9 @@ apiVersionOverride:
   # When not specified the chart will check if `policy/v1/PodDisruptionBudget` is available to
   # determine the api version automatically.
   podDisruptionBudget: ~
+  # -- (string) Override api version used to create FlowControl resources.
+  # When not specified the chart will determine the api version automatically.
+  flowControl: ~
 
 # CRDs configuration
 crds:
