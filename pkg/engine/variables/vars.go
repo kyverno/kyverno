@@ -394,7 +394,7 @@ func isDeleteRequest(ctx context.EvalInterface) bool {
 	}
 
 	if op := ctx.QueryOperation(); op != "" {
-		return ctx.QueryOperation() == "DELETE"
+		return op == "DELETE"
 	}
 
 	operation, err := ctx.Query("request.operation")

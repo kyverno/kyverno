@@ -71,7 +71,7 @@ func TestMergeMaps(t *testing.T) {
 	r2 := ctxMap["request"].(map[string]interface{})
 	o2 := r2["object"].(map[string]interface{})
 	assert.Equal(t, "bar2", o2["foo"])
-	assert.Equal(t, "bar2", o2["foo"])
+	assert.Equal(t, "bar2", o2["foo2"])
 
 	request3 := map[string]interface{}{
 		"request": map[string]interface{}{
@@ -84,7 +84,7 @@ func TestMergeMaps(t *testing.T) {
 	o3 := r3["object"].(map[string]interface{})
 	assert.NotNil(t, o3)
 	assert.Equal(t, "bar2", o2["foo"])
-	assert.Equal(t, "bar2", o2["foo"])
+	assert.Equal(t, "bar2", o2["foo2"])
 	assert.Equal(t, "user1", r3["userInfo"])
 }
 
