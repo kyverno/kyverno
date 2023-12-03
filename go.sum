@@ -1032,8 +1032,6 @@ github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+
 github.com/kyoh86/exportloopref v0.1.8/go.mod h1:1tUcJeiioIs7VWe5gcOObrux3lb66+sBqGZrRkMwPgg=
 github.com/kyverno/cosign/v2 v2.0.0-20231109090756-51fd41540436 h1:PvxtUeaEvHgnVwnksc2LDBjWM7wsyIzZhZzS+RW+BEE=
 github.com/kyverno/cosign/v2 v2.0.0-20231109090756-51fd41540436/go.mod h1:QuAzDDmES0ROCdTPf97GzjidUmn5lpQq84ESET3NAi8=
-github.com/kyverno/go-jmespath v0.4.1-0.20230906134905-62fa64b71f91 h1:n63aowZk61f65e6OJxuql8BS/hCv8LZxz/eCO4+2NfM=
-github.com/kyverno/go-jmespath v0.4.1-0.20230906134905-62fa64b71f91/go.mod h1:yzDHaKovQy16rjN4kFnjF+IdNoN4p1ndw+va6+B8zUU=
 github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877 h1:XOLJNGX/q6MVpI8p8MKvk6jGBMvO4CrdwrizMMSsaRU=
 github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877/go.mod h1:yzDHaKovQy16rjN4kFnjF+IdNoN4p1ndw+va6+B8zUU=
 github.com/kyverno/go-jmespath/internal/testify v1.5.2-0.20230630133209-945021c749d9 h1:lL311dF3a2aeNibJj8v+uhFU3XkvRHZmCtAdSPOrQYY=
