@@ -9,7 +9,7 @@ spec:
   try:
   - apply:
       file: resource-v1.yaml
-    timeout: 90s
+      timeout: 90s
   - apply:
       file: resource-v2.yaml
-    timeout: 90s
+      timeout: 90s

@@ -16,7 +16,7 @@ spec:
       - --wait=true
       - --ignore-not-found=true
       entrypoint: kubectl
-    timeout: 30s
+      timeout: 30s
   - command:
       args:
       - delete
@@ -27,7 +27,7 @@ spec:
       - --wait=true
       - --ignore-not-found=true
       entrypoint: kubectl
-    timeout: 30s
+      timeout: 30s
   - command:
       args:
       - delete
@@ -38,7 +38,7 @@ spec:
       - --wait=true
       - --ignore-not-found=true
       entrypoint: kubectl
-    timeout: 30s
+      timeout: 30s
   - command:
       args:
       - delete
@@ -47,4 +47,4 @@ spec:
       - --wait=true
       - --ignore-not-found=true
       entrypoint: kubectl
-    timeout: 30s
+      timeout: 30s

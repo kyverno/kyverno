@@ -7,7 +7,5 @@ metadata:
 spec:
   timeouts: {}
   try:
-  - command:
-      args:
-      - "3"
-      entrypoint: sleep
+  - sleep:
+      duration: 3s
