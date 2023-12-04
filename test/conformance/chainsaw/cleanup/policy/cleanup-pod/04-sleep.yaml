@@ -11,4 +11,4 @@ spec:
       args:
       - "65"
       entrypoint: sleep
-    timeout: 90s
+      timeout: 90s

@@ -9,4 +9,4 @@ spec:
   try:
   - script:
       content: sleep 15
-    timeout: 20s
+      timeout: 20s
