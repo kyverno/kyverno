@@ -170,7 +170,8 @@ func generateRules(spec *kyvernov1.Spec, controllers string) []kyvernov1.Rule {
 	var rules []kyvernov1.Rule
 	for i := range spec.Rules {
 		// handle all other controllers other than CronJob
-		if genRule := createRule(generateRuleForControllers(&spec.Rules[i], stripCronJob(controllers))); genRule != nil {
+		kinds := spec.Rules[i].MatchResources.GetKinds()
+		if genRule := createRule(generateRuleForControllers(&spec.Rules[i], stripCronJob(controllers))); isKindOtherthanPod(kinds) && genRule != nil {
 			if convRule, err := convertRule(*genRule, "Pod"); err == nil {
 				rules = append(rules, *convRule)
 			} else {
@@ -178,7 +179,7 @@ func generateRules(spec *kyvernov1.Spec, controllers string) []kyvernov1.Rule {
 			}
 		}
 		// handle CronJob, it appends an additional rule
-		if genRule := createRule(generateCronJobRule(&spec.Rules[i], controllers)); genRule != nil {
+		if genRule := createRule(generateCronJobRule(&spec.Rules[i], controllers)); isKindOtherthanPod(kinds) && genRule != nil {
 			if convRule, err := convertRule(*genRule, "Cronjob"); err == nil {
 				rules = append(rules, *convRule)
 			} else {
