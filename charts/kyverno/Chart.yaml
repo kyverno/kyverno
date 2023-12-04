@@ -75,6 +75,8 @@ annotations:
       description: missing image pull policy missing in a couple of deployments
     - kind: added
       description: added TUF flags for custom sigstore deployments
+    - kind: fixed
+      description: Fix Helm chart to not error when replicas defined
 dependencies:
   - name: grafana
     version: "0.0.0"
