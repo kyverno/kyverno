@@ -16,5 +16,5 @@ spec:
     - assert:
         file: pod-assert.yaml
     finally:
-    - script:
-        content: sleep 3
+    - sleep:
+        duration: 3s
