@@ -20,7 +20,7 @@ spec:
       content: ./modify-resource-filters.sh addNode
   - script:
       content: ./clear-modified-node-status.sh
-    timeout: 20s
+      timeout: 20s
   - command:
       args:
       - label

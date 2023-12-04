@@ -9,7 +9,7 @@ spec:
   try:
   - script:
       content: ./modify-resource-filters.sh removeNode
-    timeout: 30s
+      timeout: 30s
   - command:
       args:
       - label
