@@ -17,7 +17,7 @@ spec:
       - --force
       - --wait=true
       entrypoint: kubectl
-    timeout: 30s
+      timeout: 30s
   - command:
       args:
       - delete
@@ -26,6 +26,6 @@ spec:
       - --force
       - --wait=true
       entrypoint: kubectl
-    timeout: 30s
+      timeout: 30s
   - script:
       content: ./modify-resource-filters.sh addBinding
