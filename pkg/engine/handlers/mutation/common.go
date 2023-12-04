@@ -66,6 +66,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 	defer f.policyContext.JSONContext().Restore()
 
 	patchedResource := f.resource
+
 	reverse := false
 	// if it's a patch strategic merge, reverse by default
 	if foreach.RawPatchStrategicMerge != nil {
