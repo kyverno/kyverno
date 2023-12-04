@@ -15,6 +15,5 @@ spec:
           ($error != null): true
       file: bad-deployment.yaml
   finally:
-  - script:
-      content: sleep 5
-      timeout: 10s
+  - sleep:
+      duration: 5s

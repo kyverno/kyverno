@@ -7,6 +7,5 @@ metadata:
 spec:
   timeouts: {}
   try:
-  - script:
-      content: sleep 15
-      timeout: 20s
+  - sleep:
+      duration: 15s
