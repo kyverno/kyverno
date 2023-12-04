@@ -147,7 +147,7 @@ jobs:
       - name: Install Chainsaw
         uses: kyverno/chainsaw/.github/actions/install@5ca138ff5ad87bfb2c41e52cde8c00154756e4c5 # v0.0.7
         with:
-          release: v0.0.7
+          release: v0.0.8-alpha.1
       - name: Test with Chainsaw
         shell: bash
         env:
@@ -217,7 +217,7 @@ jobs:
       - name: Install Chainsaw
         uses: kyverno/chainsaw/.github/actions/install@5ca138ff5ad87bfb2c41e52cde8c00154756e4c5 # v0.0.7
         with:
-          release: v0.0.7
+          release: v0.0.8-alpha.1
       - name: Test with Chainsaw
         shell: bash
         env:
@@ -287,7 +287,7 @@ jobs:
       - name: Install Chainsaw
         uses: kyverno/chainsaw/.github/actions/install@5ca138ff5ad87bfb2c41e52cde8c00154756e4c5 # v0.0.7
         with:
-          release: v0.0.7
+          release: v0.0.8-alpha.1
       - name: Test with Chainsaw
         shell: bash
         env:
@@ -359,7 +359,7 @@ jobs:
       - name: Install Chainsaw
         uses: kyverno/chainsaw/.github/actions/install@5ca138ff5ad87bfb2c41e52cde8c00154756e4c5 # v0.0.7
         with:
-          release: v0.0.7
+          release: v0.0.8-alpha.1
       - name: Test with Chainsaw
         shell: bash
         env:
@@ -429,7 +429,7 @@ jobs:
       - name: Install Chainsaw
         uses: kyverno/chainsaw/.github/actions/install@5ca138ff5ad87bfb2c41e52cde8c00154756e4c5 # v0.0.7
         with:
-          release: v0.0.7
+          release: v0.0.8-alpha.1
       - name: Test with Chainsaw
         shell: bash
         env:
@@ -505,7 +505,7 @@ jobs:
       - name: Install Chainsaw
         uses: kyverno/chainsaw/.github/actions/install@5ca138ff5ad87bfb2c41e52cde8c00154756e4c5 # v0.0.7
         with:
-          release: v0.0.7
+          release: v0.0.8-alpha.1
       - name: Test with Chainsaw
         shell: bash
         env:
@@ -580,7 +580,7 @@ jobs:
       - name: Install Chainsaw
         uses: kyverno/chainsaw/.github/actions/install@5ca138ff5ad87bfb2c41e52cde8c00154756e4c5 # v0.0.7
         with:
-          release: v0.0.7
+          release: v0.0.8-alpha.1
       - name: Test with Chainsaw
         shell: bash
         env:
@@ -674,7 +674,7 @@ jobs:
       - name: Install Chainsaw
         uses: kyverno/chainsaw/.github/actions/install@5ca138ff5ad87bfb2c41e52cde8c00154756e4c5 # v0.0.7
         with:
-          release: v0.0.7
+          release: v0.0.8-alpha.1
       - name: Test with Chainsaw
         shell: bash
         env:
@@ -748,7 +748,7 @@ jobs:
       - name: Install Chainsaw
         uses: kyverno/chainsaw/.github/actions/install@5ca138ff5ad87bfb2c41e52cde8c00154756e4c5 # v0.0.7
         with:
-          release: v0.0.7
+          release: v0.0.8-alpha.1
       - name: Test with Chainsaw
         shell: bash
         env:
