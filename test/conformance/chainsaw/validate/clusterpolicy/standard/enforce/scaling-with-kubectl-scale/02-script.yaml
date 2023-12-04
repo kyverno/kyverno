@@ -13,6 +13,5 @@ spec:
         \n  echo \"Test succeeded. Resource was blocked from scaling.\"\n  exit 0\nelse
         \n  echo \"Tested failed. Resource was allowed to scale.\"\n  exit 1 \nfi\n"
   finally:
-  - script:
-      content: sleep 5
-      timeout: 10s
+  - sleep:
+      duration: 5s

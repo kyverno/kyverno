@@ -14,6 +14,5 @@ spec:
       content: ./api-initiated-eviction.sh
       timeout: 30s
   finally:
-  - script:
-      content: sleep 5
-      timeout: 10s
+  - sleep:
+      duration: 5s
