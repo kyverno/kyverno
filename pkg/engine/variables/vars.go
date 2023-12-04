@@ -397,8 +397,7 @@ func isDeleteRequest(ctx context.EvalInterface) bool {
 		return op == "DELETE"
 	}
 
-	operation, err := ctx.Query("request.operation")
-	return err == nil && operation == "DELETE"
+	return false
 }
 
 func substituteVarInPattern(prefix, pattern, variable string, value interface{}) (string, error) {
