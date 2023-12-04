@@ -394,6 +394,9 @@ policyReportsCleanup:
   # -- Security context for the pod
   podSecurityContext: {}
 
+  # -- Node labels for pod assignment
+  nodeSelector: {}
+
   # -- Security context for the hook containers
   securityContext:
     runAsUser: 65534
