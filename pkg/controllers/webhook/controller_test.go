@@ -64,6 +64,9 @@ func TestComputeOperationsForMutatingWebhookConf(t *testing.T) {
 			name: "Test Case 1",
 			rules: []kyvernov1.Rule{
 				{
+					Mutation: kyvernov1.Mutation{
+						PatchesJSON6902: "add",
+					},
 					MatchResources: kyvernov1.MatchResources{
 						ResourceDescription: kyvernov1.ResourceDescription{
 							Operations: []v1.AdmissionOperation{"CREATE"},
@@ -79,10 +82,16 @@ func TestComputeOperationsForMutatingWebhookConf(t *testing.T) {
 			name: "Test Case 2",
 			rules: []kyvernov1.Rule{
 				{
+					Mutation: kyvernov1.Mutation{
+						PatchesJSON6902: "add",
+					},
 					MatchResources:   kyvernov1.MatchResources{},
 					ExcludeResources: kyvernov1.MatchResources{},
 				},
 				{
+					Mutation: kyvernov1.Mutation{
+						PatchesJSON6902: "add",
+					},
 					MatchResources:   kyvernov1.MatchResources{},
 					ExcludeResources: kyvernov1.MatchResources{},
 				},
