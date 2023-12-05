@@ -1,0 +1,20 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: create-as-chip
+spec:
+  timeouts: {}
+  try:
+  - command:
+      args:
+      - -n
+      - qa
+      - create
+      - cm
+      - foo
+      - --from-literal=foo=bar
+      - --kubeconfig
+      - chip-kubeconfig
+      entrypoint: kubectl

@@ -1,0 +1,14 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: delete
+spec:
+  timeouts: {}
+  try:
+  - delete:
+      ref:
+        apiVersion: kyverno.io/v1
+        kind: ClusterPolicy
+        name: cpol-validate-create-sa-permission

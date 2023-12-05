@@ -1,0 +1,12 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: check-no-ownerreference
+spec:
+  timeouts: {}
+  try:
+  - script:
+      content: |
+        kubectl --namespace cpol-clone-delete-ownerreferences-across-namespaces-target-ns get secret cpol-clone-delete-ownerreferences-across-namespaces -o json | jq -e '.metadata.ownerReferences == null'

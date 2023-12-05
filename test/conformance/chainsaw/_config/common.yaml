@@ -3,8 +3,11 @@ kind: Configuration
 metadata:
   name: congiguration
 spec:
+  timeouts:
+    assert: 90s
+    error: 90s
   parallel: 1
-  timeout: 1m30s
   fullName: true
-  failFast: true
+  failFast: false
   excludeTestRegex: '_.+'
+  forceTerminationGracePeriod: 5s

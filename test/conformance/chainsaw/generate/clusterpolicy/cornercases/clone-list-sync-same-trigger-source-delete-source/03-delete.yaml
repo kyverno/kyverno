@@ -1,0 +1,15 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: delete
+spec:
+  timeouts: {}
+  try:
+  - delete:
+      ref:
+        apiVersion: v1
+        kind: Secret
+        name: mysecret
+        namespace: clone-list-sync-same-trigger-source-trigger-ns

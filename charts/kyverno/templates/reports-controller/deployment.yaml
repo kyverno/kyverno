@@ -9,6 +9,7 @@ metadata:
     {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
 spec:
   replicas: {{ template "kyverno.deployment.replicas" .Values.reportsController.replicas }}
+  revisionHistoryLimit: {{ .Values.reportsController.revisionHistoryLimit }}
   {{- with .Values.reportsController.updateStrategy }}
   strategy:
     {{- toYaml . | nindent 4 }}
@@ -161,8 +162,28 @@ spec:
           volumeMounts:
             - mountPath: {{ .Values.reportsController.tufRootMountPath }}
               name: sigstore
+            {{- if or .Values.reportsController.caCertificates.data .Values.global.caCertificates.data .Values.reportsController.caCertificates.volume .Values.global.caCertificates.volume }}
+            - name: ca-certificates
+              mountPath: /etc/ssl/certs/ca-certificates.crt
+              {{- if or .Values.reportsController.caCertificates.data .Values.global.caCertificates.data }}
+              subPath: ca-certificates.crt
+              {{- end }}
+            {{- end }}
       volumes:
       - name: sigstore
         {{- toYaml (required "A valid .Values.reportsController.sigstoreVolume entry is required" .Values.reportsController.sigstoreVolume) | nindent 8 }}
+      {{- if or .Values.reportsController.caCertificates.data .Values.global.caCertificates.data }}
+      - name: ca-certificates
+        configMap:
+          name: {{ include "kyverno.reports-controller.caCertificatesConfigMapName" . }}
+          items:
+          - key: ca-certificates
+            path: ca-certificates.crt
+      {{- else if or .Values.reportsController.caCertificates.volume .Values.global.caCertificates.volume }}
+      {{- with (.Values.reportsController.caCertificates.volume | default .Values.global.caCertificates.volume) }}
+      - name: ca-certificates
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
 {{- end -}}
 {{- end -}}

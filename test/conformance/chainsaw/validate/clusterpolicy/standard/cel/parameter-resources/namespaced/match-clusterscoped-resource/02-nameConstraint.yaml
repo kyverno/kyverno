@@ -1,0 +1,13 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: name-constraint
+spec:
+  timeouts: {}
+  try:
+  - apply:
+      file: nameConstraint.yaml
+  - assert:
+      file: nameConstraint.yaml

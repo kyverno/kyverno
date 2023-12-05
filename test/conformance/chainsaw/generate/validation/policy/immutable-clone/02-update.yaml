@@ -1,0 +1,19 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: update
+spec:
+  timeouts: {}
+  try:
+  - apply:
+      expect:
+      - check:
+          ($error != null): true
+      file: update-namespace.yaml
+  - apply:
+      expect:
+      - check:
+          ($error != null): true
+      file: update-name.yaml

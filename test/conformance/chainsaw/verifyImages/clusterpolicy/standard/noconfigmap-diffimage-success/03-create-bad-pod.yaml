@@ -1,0 +1,14 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: create-bad-pod
+spec:
+  timeouts: {}
+  try:
+  - apply:
+      expect:
+      - check:
+          ($error != null): true
+      file: bad-pod.yaml

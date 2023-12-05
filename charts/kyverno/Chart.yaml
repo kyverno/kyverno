@@ -34,9 +34,9 @@ annotations:
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
     - kind: added
+      description: allow overriding revisionHistoryLimit
+    - kind: added
       description: support for GrafanaDashboard custom resource
-    - kind: changed
-      description: only create ServiceMonitor if cluster supports it
     - kind: fixed
       description: rbac templating issues
     - kind: added
@@ -77,6 +77,16 @@ annotations:
       description: missing image pull policy missing in a couple of deployments
     - kind: added
       description: added TUF flags for custom sigstore deployments
+    - kind: added
+      description: allow setting admission controller replica count to 2
+    - kind: added
+      description: Allow overriding the ca-certificate bundle for deployments
+    - kind: added
+      description: allow excluding resourceFilters via config.resourceFiltersExclude
+    - kind: fixed
+      description: Fix Helm chart to not error when replicas defined
+    - kind: added
+      description: allow nodeSelector settings for policyReportsCleanup
 dependencies:
   - name: grafana
     version: "0.0.0"

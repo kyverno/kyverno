@@ -1,7 +1,7 @@
 {{- $name := "require-non-root-groups" }}
 {{- if eq (include "kyverno-policies.podSecurityOther" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+kind: {{ .Values.policyKind }}
 metadata:
   name: {{ $name }}
   annotations:

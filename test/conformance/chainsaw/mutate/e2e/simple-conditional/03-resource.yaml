@@ -1,0 +1,13 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: resource
+spec:
+  timeouts: {}
+  try:
+  - apply:
+      file: pod2.yaml
+  - assert:
+      file: pod2-mutated.yaml

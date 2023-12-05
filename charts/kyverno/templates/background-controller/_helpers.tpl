@@ -38,3 +38,7 @@
     {{ required "A service account name is required when `rbac.create` is set to `false`" .Values.backgroundController.rbac.serviceAccount.name }}
 {{- end -}}
 {{- end -}}
+
+{{- define "kyverno.background-controller.caCertificatesConfigMapName" -}}
+{{ printf "%s-ca-certificates" (include "kyverno.background-controller.name" .) }}
+{{- end -}}

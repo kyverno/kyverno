@@ -1,0 +1,17 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: script
+spec:
+  timeouts: {}
+  try:
+  - script:
+      content: "if kubectl -n test-validate exec nginx -it -- sh 2>&1 | grep -q \"Exec'ing
+        into Pods protected with the label 'exec=false' is forbidden\" \nthen \n  echo
+        \"Tested failed. Exec Request was not blocked.\"\n  exit 1 \nelse \n  echo
+        \"Test succeeded. Exec Request was blocked.\"\n  exit 0\nfi\n"
+  finally:
+  - sleep:
+      duration: 5s

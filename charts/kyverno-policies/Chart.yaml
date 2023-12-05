@@ -31,3 +31,5 @@ annotations:
       description: "Walk back change in PSS policy to send to to_upper"
     - kind: fixed
       description: Skip DELETE requests on policies using deny statements
+    - kind: added
+      description: Add policyKind to allow changing ClusterPolicy to Policy for all policies

@@ -39,7 +39,6 @@ The list of organizations that have publicly shared the usage of Kyverno:
 | [LinkedIn](https://www.linkedin.com/)                                                                | Policy enforcement on our on-prem Kubernetes clusters. |
 | [Groww](https://groww.in/) | We have implemented Kyverno as a part of Auto compliance. We put policies to satisfy CIS Compliance for GKE as well as block anomalies detected by the Red Team. |
 | [Spotify](https://www.cncf.io/announcements/2023/11/08/cloud-native-computing-foundation-presents-the-top-end-user-award-to-spotify/) | Spotify uses Kyverno extensively for its admission controller capabilities, including best practices and environment-specific data. |
-| [Spotify](https://www.cncf.io/announcements/2023/11/08/cloud-native-computing-foundation-presents-the-top-end-user-award-to-spotify/) | Spotify uses Kyverno extensively for its admission controller capabilities, including best practices and environment-specific data. |
 | [US DoD Platform One](https://p1.dso.mil/) |  The US Department of Defense (DoD) Platform One uses Kyverno as its default policy engine for Kubernetes. |
 
 <!-- append the line below to the table

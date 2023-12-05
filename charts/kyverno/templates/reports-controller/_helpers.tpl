@@ -38,3 +38,7 @@
     {{ required "A service account name is required when `rbac.create` is set to `false`" .Values.reportsController.rbac.serviceAccount.name }}
 {{- end -}}
 {{- end -}}
+
+{{- define "kyverno.reports-controller.caCertificatesConfigMapName" -}}
+{{ printf "%s-ca-certificates" (include "kyverno.reports-controller.name" .) }}
+{{- end -}}

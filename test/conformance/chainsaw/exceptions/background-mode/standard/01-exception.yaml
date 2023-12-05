@@ -1,0 +1,20 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: exception
+spec:
+  timeouts: {}
+  try:
+  - apply:
+      file: exception-allowed.yaml
+  - apply:
+      expect:
+      - check:
+          ($error != null): true
+      file: exception-rejected.yaml
+  - assert:
+      file: exception-allowed.yaml
+  - error:
+      file: exception-rejected.yaml
