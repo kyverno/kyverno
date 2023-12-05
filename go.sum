@@ -1389,8 +1389,8 @@ github.com/sigstore/sigstore/pkg/signature/kms/aws v1.7.5 h1:ilufPp36exfpivctI3E
 github.com/sigstore/sigstore/pkg/signature/kms/aws v1.7.5/go.mod h1:121n8nBnuXbcI6K0hIBo/0EMYiyXqGVzbIYd0rV0ZWw=
 github.com/sigstore/sigstore/pkg/signature/kms/azure v1.7.5 h1:gLdNJJo+xMf7+IeFRlyA/Pjavndo9rivmf5ioYeuPmM=
 github.com/sigstore/sigstore/pkg/signature/kms/azure v1.7.5/go.mod h1:9nJQA5YgWsXrwjrVoVaO8JfTI/TpPF+oAkpkNKZu6lo=
-github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.7.5 h1:Ku3MD55VXR7+uezCS4LOY0+y2EZFlGCGFyzl+ZSoPyo=
-github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.7.5/go.mod h1:FsNzxmFGATZS5ynkJLLXm9g2zHD0Xw23iJs7lM/asPo=
+github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.7.6 h1:aMVT9XXFQEnBtJ6szzanyAdKT5gFK4emN+jLSlFlOso=
+github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.7.6/go.mod h1:Hwhlx8JSZJF1R27JlwW/Bl2h40reG3MfKANREtBI0L8=
 github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.7.5 h1:yWNBuL52Je3ukUGry1qwg00ujJF2UFWShzXFIAtmxZU=
 github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.7.5/go.mod h1:EI9vDWVGG8fQU9aFMY7Bd204xJiqmXcDMSkFifCf16Q=
 github.com/sigstore/timestamp-authority v1.2.0 h1:Ffk10QsHxu6aLwySQ7WuaoWkD63QkmcKtozlEFot/VI=
@@ -1839,8 +1839,8 @@ golang.org/x/oauth2 v0.0.0-20201109201403-9fd604954f58/go.mod h1:KelEdhl1UZF7XfJ
 golang.org/x/oauth2 v0.0.0-20201208152858-08078c50e5b5/go.mod h1:KelEdhl1UZF7XfJ4dDtk6s++YSgaE7mD/BuKKDLBl4A=
 golang.org/x/oauth2 v0.0.0-20210218202405-ba52d332ba99/go.mod h1:KelEdhl1UZF7XfJ4dDtk6s++YSgaE7mD/BuKKDLBl4A=
 golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c/go.mod h1:KelEdhl1UZF7XfJ4dDtk6s++YSgaE7mD/BuKKDLBl4A=
-golang.org/x/oauth2 v0.14.0 h1:P0Vrf/2538nmC0H+pEQ3MNFRRnVR7RlqyVw+bvm26z0=
-golang.org/x/oauth2 v0.14.0/go.mod h1:lAtNWgaWfL4cm7j2OV8TxGi9Qb7ECORx8DktCY74OwM=
+golang.org/x/oauth2 v0.15.0 h1:s8pnnxNVzjWyrvYdFUQq5llS1PX2zhPXmccZv99h7uQ=
+golang.org/x/oauth2 v0.15.0/go.mod h1:q48ptWNTY5XWf+JNten23lcvHpLJ0ZSxF5ttTHKVCAM=
 golang.org/x/sync v0.0.0-20180314180146-1d60e4601c6f/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.0.0-20181108010431-42b317875d0f/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=

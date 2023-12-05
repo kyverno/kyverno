@@ -46,7 +46,7 @@ require (
 	github.com/sigstore/sigstore v1.7.6
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.7.5
 	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.7.5
-	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.7.5
+	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.7.6
 	github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.7.5
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.8.4
@@ -377,7 +377,7 @@ require (
 	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/net v0.19.0 // indirect
-	golang.org/x/oauth2 v0.14.0 // indirect
+	golang.org/x/oauth2 v0.15.0 // indirect
 	golang.org/x/sync v0.5.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
 	golang.org/x/term v0.15.0 // indirect
