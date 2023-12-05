@@ -1,0 +1,13 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: script
+spec:
+  timeouts: {}
+  try:
+  - script:
+      content: "if kubectl apply -f resource.yaml\nthen \n  echo \"Tested failed.
+        Resource was allowed.\"\n  exit 1 \nelse \n  echo \"Test succeeded. Resource
+        was blocked.\"\n  exit 0\nfi\n"

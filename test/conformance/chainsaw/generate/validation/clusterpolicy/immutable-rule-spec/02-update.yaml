@@ -1,0 +1,31 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: update
+spec:
+  timeouts: {}
+  try:
+  - apply:
+      expect:
+      - check:
+          ($error != null): true
+      file: update-rule-name.yaml
+  - apply:
+      expect:
+      - check:
+          ($error != null): true
+      file: update-rule-match.yaml
+  - apply:
+      expect:
+      - check:
+          ($error != null): true
+      file: update-rule-exclude.yaml
+  - apply:
+      expect:
+      - check:
+          ($error != null): true
+      file: update-rule-preconditions.yaml
+  - apply:
+      file: update-rule-generate-synchronize.yaml

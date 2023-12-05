@@ -1,0 +1,15 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: script
+spec:
+  timeouts: {}
+  try:
+  - script:
+      content: ./modify-resource-filters.sh removeNode
+      timeout: 30s
+  - script:
+      content: ./send-request-to-status-subresource.sh
+      timeout: 30s

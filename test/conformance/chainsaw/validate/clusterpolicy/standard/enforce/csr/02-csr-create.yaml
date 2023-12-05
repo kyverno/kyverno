@@ -1,0 +1,13 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: csr-create
+spec:
+  timeouts: {}
+  try:
+  - apply:
+      file: csr.yaml
+  - assert:
+      file: csr-mutated.yaml

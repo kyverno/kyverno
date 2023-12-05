@@ -6,5 +6,5 @@ Then it creates a resource that violates the policy.
 ## Expected Behavior
 
 The resource creates fine as the policy doesn't apply at admission time.
-No admission ezvent is created.
+No admission event is created.
 One background event is created.

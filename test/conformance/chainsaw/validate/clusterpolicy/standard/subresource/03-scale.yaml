@@ -1,0 +1,15 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: scale
+spec:
+  timeouts: {}
+  try:
+  - script:
+      content: "if kubectl scale deployment nginx-deployment --replicas 2\nthen \n
+        \ exit 0\nelse \n  exit 1\nfi\n"
+  - script:
+      content: "if kubectl scale sts nginx-sts --replicas 2\nthen \n  exit 1\nelse
+        \n  exit 0\nfi\n"

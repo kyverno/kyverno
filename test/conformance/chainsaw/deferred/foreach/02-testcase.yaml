@@ -1,0 +1,13 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: testcase
+spec:
+  timeouts: {}
+  try:
+  - apply:
+      file: cm.yaml
+  - assert:
+      file: cm-assert.yaml

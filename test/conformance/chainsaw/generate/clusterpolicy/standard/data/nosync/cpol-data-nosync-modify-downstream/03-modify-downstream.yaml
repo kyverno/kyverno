@@ -1,0 +1,13 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: modify-downstream
+spec:
+  timeouts: {}
+  try:
+  - apply:
+      file: downstream-modified.yaml
+  - assert:
+      file: downstream-untouched.yaml

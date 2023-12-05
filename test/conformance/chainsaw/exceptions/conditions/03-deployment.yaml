@@ -1,0 +1,19 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: deployment
+spec:
+  timeouts: {}
+  try:
+  - apply:
+      file: good-deployment.yaml
+  - apply:
+      expect:
+      - check:
+          ($error != null): true
+      file: bad-deployment.yaml
+  finally:
+  - sleep:
+      duration: 5s

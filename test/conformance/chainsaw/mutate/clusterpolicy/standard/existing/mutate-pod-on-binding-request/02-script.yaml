@@ -1,0 +1,19 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: script
+spec:
+  timeouts: {}
+  try:
+  - script:
+      content: ./modify-resource-filters.sh removeBinding
+  - command:
+      args:
+      - run
+      - nginx-pod
+      - --image=nginx
+      - -n
+      - test-ns
+      entrypoint: kubectl

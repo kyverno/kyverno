@@ -1,0 +1,15 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: downstream-delete
+spec:
+  timeouts: {}
+  try:
+  - delete:
+      ref:
+        apiVersion: v1
+        kind: ConfigMap
+        name: zk-kafka-address
+        namespace: cpol-data-nosync-delete-downstream-ns

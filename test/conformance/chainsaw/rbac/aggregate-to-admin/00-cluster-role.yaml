@@ -1,8 +1,11 @@
+---
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: TestStep
 metadata:
-  name: rbac
+  creationTimestamp: null
+  name: cluster-role
 spec:
+  timeouts: {}
   try:
   - assert:
       file: admin-policies.yaml

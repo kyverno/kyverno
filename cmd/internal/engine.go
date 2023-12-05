@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
@@ -34,6 +35,7 @@ func NewEngine(
 	kubeClient kubernetes.Interface,
 	kyvernoClient versioned.Interface,
 	secretLister corev1listers.SecretNamespaceLister,
+	apiCallConfig apicall.APICallConfiguration,
 ) engineapi.Engine {
 	configMapResolver := NewConfigMapResolver(ctx, logger, kubeClient, 15*time.Minute)
 	exceptionsSelector := NewExceptionSelector(ctx, logger, kyvernoClient, 15*time.Minute)
@@ -46,7 +48,7 @@ func NewEngine(
 		adapters.Client(client),
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), secretLister),
 		ivCache,
-		factories.DefaultContextLoaderFactory(configMapResolver),
+		factories.DefaultContextLoaderFactory(configMapResolver, factories.WithAPICallConfig(apiCallConfig)),
 		exceptionsSelector,
 		imageSignatureRepository,
 	)

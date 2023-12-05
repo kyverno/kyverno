@@ -1,0 +1,12 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: debug
+spec:
+  timeouts: {}
+  try:
+  - script:
+      content: "if kubectl debug --image=busybox foo\nthen \n  exit 1\nelse \n  exit
+        0\nfi\n"

@@ -1,0 +1,14 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: script-patch-svc-type
+spec:
+  timeouts: {}
+  try:
+  - script:
+      content: "if kubectl patch service podinfo -p '{\"spec\":{\"type\":\"NodePort\",\"ports\":[{\"port\":9898,\"nodePort\":32000}]}}'
+        -n apply-on-deletion-ns\nthen \n  echo \"Tested failed. The service type cannot
+        be changed to NodePort\"\n  exit 1 \nelse \n  echo \"Test succeeded. The service
+        update is blocked\"\n  exit 0\nfi\n"
