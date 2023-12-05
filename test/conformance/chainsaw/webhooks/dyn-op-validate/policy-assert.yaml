@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: add-apparmor-annotations
+  name: require-labels
 status:
   conditions:
     - reason: Succeeded
