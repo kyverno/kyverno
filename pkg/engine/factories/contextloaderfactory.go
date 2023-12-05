@@ -8,6 +8,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/loaders"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
@@ -37,10 +38,17 @@ func WithInitializer(initializer engineapi.Initializer) ContextLoaderFactoryOpti
 	}
 }
 
+func WithAPICallConfig(config apicall.APICallConfiguration) ContextLoaderFactoryOptions {
+	return func(cl *contextLoader) {
+		cl.apiCallConfig = config
+	}
+}
+
 type contextLoader struct {
-	logger       logr.Logger
-	cmResolver   engineapi.ConfigmapResolver
-	initializers []engineapi.Initializer
+	logger        logr.Logger
+	cmResolver    engineapi.ConfigmapResolver
+	initializers  []engineapi.Initializer
+	apiCallConfig apicall.APICallConfiguration
 }
 
 func (l *contextLoader) Load(
@@ -94,7 +102,7 @@ func (l *contextLoader) newLoader(
 		}
 	} else if entry.APICall != nil {
 		if client != nil {
-			ldr := loaders.NewAPILoader(ctx, l.logger, entry, jsonContext, jp, client)
+			ldr := loaders.NewAPILoader(ctx, l.logger, entry, jsonContext, jp, client, l.apiCallConfig)
 			return enginecontext.NewDeferredLoader(entry.Name, ldr, l.logger)
 		} else {
 			l.logger.Info("disabled loading of APICall context entry %s", entry.Name)

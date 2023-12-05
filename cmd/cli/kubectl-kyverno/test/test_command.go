@@ -494,14 +494,14 @@ func buildPolicyResults(
 
 			if test.Resources != nil {
 				if test.Policy == policyName {
-					// results[].namespace value implicit set same as metadata.namespace until and unless
-					// user provides explicit values for results[].namespace in test yaml file.
-					if test.Namespace == "" {
-						test.Namespace = resourceNamespace
-						testResults[i].Namespace = resourceNamespace
-					}
 					for _, resource := range test.Resources {
 						if resource == resourceName {
+							// results[].namespace value implicit set same as metadata.namespace until and unless
+							// user provides explicit values for results[].namespace in test yaml file.
+							if test.Namespace == "" {
+								test.Namespace = resourceNamespace
+								testResults[i].Namespace = resourceNamespace
+							}
 							var resultsKey string
 							resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, resource)
 							if !slices.Contains(rules, test.Rule) {
