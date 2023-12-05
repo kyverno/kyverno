@@ -62,6 +62,7 @@ func handleGeneratePolicy(out io.Writer, generateResponse *engineapi.EngineRespo
 
 			gv, err := schema.ParseGroupVersion(apiVersion)
 			if err != nil {
+				fmt.Fprintf(out, "failed to parse group and version from clone list kind %s: %v\n", apiVersion, err)
 				continue
 			}
 
