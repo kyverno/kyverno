@@ -219,6 +219,7 @@ func main() {
 		webhookServerPort            int
 		backgroundServiceAccountName string
 		maxAPICallResponseLength     int64
+		renewBefore                  time.Duration
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -238,6 +239,7 @@ func main() {
 	flagset.StringVar(&caSecretName, "caSecretName", "", "Name of the secret containing CA.")
 	flagset.StringVar(&tlsSecretName, "tlsSecretName", "", "Name of the secret containing TLS pair.")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 10*1000*1000, "Configure the value of maximum allowed GET response size from API Calls")
+	flagset.DurationVar(&renewBefore, "renewBefore", 15*24*time.Hour, "The certificate renewal time before expiration")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -305,6 +307,7 @@ func main() {
 		tls.CertRenewalInterval,
 		tls.CAValidityDuration,
 		tls.TLSValidityDuration,
+		renewBefore,
 		serverIP,
 		config.KyvernoServiceName(),
 		config.DnsNames(config.KyvernoServiceName(), config.KyvernoNamespace()),
