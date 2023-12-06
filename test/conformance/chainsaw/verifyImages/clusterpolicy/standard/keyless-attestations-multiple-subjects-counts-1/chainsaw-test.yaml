@@ -2,7 +2,7 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   creationTimestamp: null
-  name: multiple-attestors
+  name: keyless-attestations-multiple-subjects-counts-1
 spec:
   steps:
   - name: step-01

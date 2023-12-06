@@ -2,7 +2,7 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   creationTimestamp: null
-  name: multiple-attestors
+  name: keyless-attestations-multiple-subjects-counts-3
 spec:
   steps:
   - name: step-01
@@ -14,6 +14,11 @@ spec:
   - name: step-02
     try:
     - apply:
-        file: chainsaw-step-02-apply-1.yaml
-    - assert:
-        file: chainsaw-step-02-assert-1.yaml
+        expect:
+        - check:
+            ($error != null): true
+        file: pod.yaml
+  - name: step-03
+    try:
+    - error:
+        file: chainsaw-step-03-error-1.yaml
