@@ -1032,16 +1032,13 @@ dev-lab-kwok: ## Deploy kwok
 	@kubectl apply -k ./scripts/config/kwok
 
 #####################
-# Bump new versions #
+# Bump old versions #
 #####################
 
-KYVERNO_CHART_VERSION ?= latest #3.1.0-rc.7 #latest
-POLICIES_CHART_VERSION ?= latest #3.1.0-rc.7 #latest
-APP_VERSION ?= latest #v1.11.0-rc.7 #latest act code
+KYVERNO_CHART_VERSION ?= latest
+POLICIES_CHART_VERSION ?= latest
+APP_VERSION ?= latest
 KUBE_VERSION_N ?= ">=1.25.0-0"
-
-# sed -i 's/version: .*/version: $(KYVERNO_CHART_VERSION)/' charts/kyverno/Chart.yaml
-
 
 release:
 	@echo "Updating Chart.yaml files..."
@@ -1051,7 +1048,6 @@ release:
 	sed -i 's/appVersion: .*/appVersion: $(APP_VERSION)/' charts/kyverno/Chart.yaml
 	sed -i 's/kubeVersion: .*/kubeVersion: $(KUBE_VERSION_N)/' charts/kyverno/Chart.yaml
 	@echo "old Releases bumped."
-
 
 ########
 # HELP #
