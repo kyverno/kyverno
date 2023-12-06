@@ -96,6 +96,24 @@ func TestCosignPayload(t *testing.T) {
 	assert.Equal(t, d2, "sha256:ee53528c4e3c723945cf870d73702b76135955a218dd7497bf344aa73ebb4227")
 }
 
+func TestCosignInvalidSignatureAlgorithm(t *testing.T) {
+	opts := images.Options{
+		ImageRef:           "ghcr.io/jimbugwadia/pause2",
+		Client:             nil,
+		FetchAttestations:  false,
+		Key:                globalRekorPubKey,
+		SignatureAlgorithm: "sha1",
+	}
+
+	rc, err := registryclient.New()
+	assert.NilError(t, err)
+	opts.Client = rc
+
+	verifier := &cosignVerifier{}
+	_, err = verifier.VerifySignature(context.TODO(), opts)
+	assert.ErrorContains(t, err, "failed to load public key from PEM: invalid hash function specified")
+}
+
 func TestCosignKeyless(t *testing.T) {
 	opts := images.Options{
 		ImageRef:  "ghcr.io/jimbugwadia/pause2",

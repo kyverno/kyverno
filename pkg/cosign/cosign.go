@@ -31,6 +31,14 @@ import (
 	"go.uber.org/multierr"
 )
 
+var signatureAlgorithmMap = map[string]crypto.Hash{
+	"":       crypto.SHA256,
+	"sha224": crypto.SHA224,
+	"sha256": crypto.SHA256,
+	"sha384": crypto.SHA384,
+	"sha512": crypto.SHA512,
+}
+
 func NewVerifier() images.ImageVerifier {
 	return &cosignVerifier{}
 }
@@ -88,11 +96,6 @@ func (v *cosignVerifier) VerifySignature(ctx context.Context, opts images.Option
 
 func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.CheckOpts, error) {
 	var err error
-	signatureAlgorithmMap := map[string]crypto.Hash{
-		"":       crypto.SHA256,
-		"sha256": crypto.SHA256,
-		"sha512": crypto.SHA512,
-	}
 
 	options, err := opts.Client.Options(ctx)
 	if err != nil {
