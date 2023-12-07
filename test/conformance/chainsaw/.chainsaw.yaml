@@ -11,3 +11,4 @@ spec:
   failFast: false
   excludeTestRegex: '_.+'
   forceTerminationGracePeriod: 5s
+  delayBeforeCleanup: 3s

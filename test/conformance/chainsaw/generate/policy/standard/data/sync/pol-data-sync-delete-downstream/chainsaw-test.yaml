@@ -27,9 +27,8 @@ spec:
           namespace: exeter
   - name: step-04
     try:
-    - script:
-        content: sleep 6
-        timeout: 10s
+    - sleep:
+        duration: 6s
   - name: step-05
     try:
     - assert:
