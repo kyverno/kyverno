@@ -4,6 +4,8 @@ metadata:
   creationTimestamp: null
   name: notary-attestation-verification
 spec:
+  timeouts:
+    delete: 1m
   steps:
   - name: step-01
     try:
