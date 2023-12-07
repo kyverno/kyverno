@@ -88,21 +88,30 @@ func runTest(out io.Writer, testCase test.TestCase, auditWarn bool) ([]engineapi
 				}
 				if rule.Name == res.Rule {
 					if rule.HasGenerate() {
-						ruleUnstr, err := generate.GetUnstrRule(rule.Generation.DeepCopy())
-						if err != nil {
-							fmt.Fprintf(out, "    Error: failed to get unstructured rule (%s)\n", err)
-							break
-						}
-						genClone, _, err := unstructured.NestedMap(ruleUnstr.Object, "clone")
-						if err != nil {
-							fmt.Fprintf(out, "    Error: failed to read data (%s)\n", err)
-							break
-						}
-						if len(genClone) != 0 {
+						if len(rule.Generation.CloneList.Kinds) != 0 { // cloneList
+							// We cannot cast this to an unstructured object because it doesn't have a kind.
 							if isGit {
 								ruleToCloneSourceResource[rule.Name] = res.CloneSourceResource
 							} else {
 								ruleToCloneSourceResource[rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
+							}
+						} else { // clone or data
+							ruleUnstr, err := generate.GetUnstrRule(rule.Generation.DeepCopy())
+							if err != nil {
+								fmt.Fprintf(out, "    Error: failed to get unstructured rule (%s)\n", err)
+								break
+							}
+							genClone, _, err := unstructured.NestedMap(ruleUnstr.Object, "clone")
+							if err != nil {
+								fmt.Fprintf(out, "    Error: failed to read data (%s)\n", err)
+								break
+							}
+							if len(genClone) != 0 {
+								if isGit {
+									ruleToCloneSourceResource[rule.Name] = res.CloneSourceResource
+								} else {
+									ruleToCloneSourceResource[rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
+								}
 							}
 						}
 					}
