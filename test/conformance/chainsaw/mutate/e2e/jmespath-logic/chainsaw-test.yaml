@@ -1,0 +1,29 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: jmespath-logic
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: manifests.yaml
+    - assert:
+        file: policy-one-ready.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: resource.yaml
+    - assert:
+        file: resource-mutated.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: chainsaw-step-03-apply-1-1.yaml
+  - name: step-04
+    try:
+    - apply:
+        file: resource-two.yaml
+    - assert:
+        file: resource-two-mutated.yaml
