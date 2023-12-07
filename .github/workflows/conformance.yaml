@@ -27,6 +27,8 @@ jobs:
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
+        with:
+          free-disk-space: false
       - name: ko build
         shell: bash
         run: |
@@ -54,6 +56,8 @@ jobs:
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
+        with:
+          free-disk-space: false
       - name: Build CLI
         shell: bash
         run: |
@@ -118,9 +122,15 @@ jobs:
         continue-on-error: true
         with:
           build-cache-key: run-conformance
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
+      - name: Install kind
+        shell: bash
+        run: |
+          # For AMD64 / x86_64
+          [ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          # For ARM64
+          [ $(uname -m) = aarch64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-arm64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
       - name: Create kind cluster
         shell: bash
         run: |
@@ -187,9 +197,15 @@ jobs:
         continue-on-error: true
         with:
           build-cache-key: run-conformance
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
+      - name: Install kind
+        shell: bash
+        run: |
+          # For AMD64 / x86_64
+          [ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          # For ARM64
+          [ $(uname -m) = aarch64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-arm64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
       - name: Create kind cluster
         shell: bash
         run: |
@@ -257,9 +273,15 @@ jobs:
         continue-on-error: true
         with:
           build-cache-key: run-conformance
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
+      - name: Install kind
+        shell: bash
+        run: |
+          # For AMD64 / x86_64
+          [ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          # For ARM64
+          [ $(uname -m) = aarch64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-arm64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
       - name: Create kind cluster
         shell: bash
         run: |
@@ -329,9 +351,15 @@ jobs:
         continue-on-error: true
         with:
           build-cache-key: run-conformance
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
+      - name: Install kind
+        shell: bash
+        run: |
+          # For AMD64 / x86_64
+          [ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          # For ARM64
+          [ $(uname -m) = aarch64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-arm64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
       - name: Create kind cluster
         shell: bash
         run: |
@@ -399,9 +427,15 @@ jobs:
         continue-on-error: true
         with:
           build-cache-key: run-conformance
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
+      - name: Install kind
+        shell: bash
+        run: |
+          # For AMD64 / x86_64
+          [ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          # For ARM64
+          [ $(uname -m) = aarch64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-arm64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
       - name: Create kind cluster
         shell: bash
         run: |
@@ -476,9 +510,15 @@ jobs:
         continue-on-error: true
         with:
           build-cache-key: run-conformance
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
+      - name: Install kind
+        shell: bash
+        run: |
+          # For AMD64 / x86_64
+          [ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          # For ARM64
+          [ $(uname -m) = aarch64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-arm64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
       - name: Create kind cluster
         shell: bash
         run: |
@@ -551,9 +591,15 @@ jobs:
         continue-on-error: true
         with:
           build-cache-key: run-conformance
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
+      - name: Install kind
+        shell: bash
+        run: |
+          # For AMD64 / x86_64
+          [ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          # For ARM64
+          [ $(uname -m) = aarch64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-arm64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
       - name: Create kind cluster
         shell: bash
         run: |
@@ -626,11 +672,17 @@ jobs:
         continue-on-error: true
         with:
           build-cache-key: run-conformance
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
+      - name: Install kind
+        shell: bash
+        run: |
+          # For AMD64 / x86_64
+          [ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          # For ARM64
+          [ $(uname -m) = aarch64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-arm64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@2ac99cde6d6b55fae443d1771304d9a3957d1713
+        uses: sigstore/scaffolding/actions/setup@9e5583eaf47855103a9acd6eaa2b1da85f28e28e
         with:
           version: 'v0.6.8'
           k8s-version: ${{ matrix.k8s-version.version }}
@@ -719,9 +771,15 @@ jobs:
         continue-on-error: true
         with:
           build-cache-key: run-conformance
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
+      - name: Install kind
+        shell: bash
+        run: |
+          # For AMD64 / x86_64
+          [ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          # For ARM64
+          [ $(uname -m) = aarch64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-arm64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
       - name: Create kind cluster
         shell: bash
         run: |
@@ -779,37 +837,37 @@ jobs:
           - name: v1.28
             version: v1.28.0
         tests:
-          - argo
-          - aws
-          - best-practices
-          - castai
-          - cert-manager
-          - consul
-          - external-secret-operator
-          - flux
-          - istio
-          - karpenter
-          - kasten
-          - kubecost
-          - kubeops
-          - kubevirt
-          - linkerd
-          - nginx-ingress
-          - openshift
-          # - other
-          - other/a
-          - other/b-d
-          - other/e-l
-          - other/m-q
-          - other/rec-req
-          - other/res
-          - other/s-z
-          # - pod-security
-          # - psa
-          - psp-migration
-          # - tekton
-          # - traefik
-          # - velero
+          - ^argo$
+          - ^aws$
+          - ^best-practices$
+          - ^castai$
+          - ^cert-manager$
+          - ^consul$
+          - ^external-secret-operator$
+          - ^flux$
+          - ^istio$
+          - ^karpenter$
+          - ^kasten$
+          - ^kubecost$
+          - ^kubeops$
+          - ^kubevirt$
+          - ^linkerd$
+          - ^nginx-ingress$
+          - ^openshift$
+          - ^other$/^a
+          - ^other$/^[b-d]
+          - ^other$/^[e-l]
+          - ^other$/^[m-q]
+          - ^other$/^re[c-q]
+          - ^other$/^res
+          - ^other$/^[s-z]
+          - ^pod-security$
+          - ^pod-security-cel$
+          - ^psa$
+          - ^psp-migration$
+          # - ^tekton
+          # - ^traefik
+          # - ^velero
     needs:
       - prepare-images
       - prepare-cli
@@ -864,12 +922,21 @@ jobs:
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
-      - name: Test policy library with kuttl
-        shell: bash
+      - name: Install Chainsaw
+        uses: kyverno/chainsaw/.github/actions/install@5ca138ff5ad87bfb2c41e52cde8c00154756e4c5 # v0.0.7
+        with:
+          release: v0.0.9-alpha.3
+      - name: Install CRDs
+        run: |
+          set -e
+          kubectl apply -f ./policies/CRDs
+      - name: Test with Chainsaw
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
           cd policies
-          ../.tools/kubectl-kuttl test ./${{ matrix.tests }} --config ./kuttl-test.yaml
+          chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}' --no-color=false
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs

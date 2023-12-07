@@ -67,6 +67,7 @@ func main() {
 		webhookServerPort int
 		maxQueuedEvents   int
 		interval          time.Duration
+		renewBefore       time.Duration
 	)
 	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -77,6 +78,7 @@ func main() {
 	flagset.DurationVar(&interval, "ttlReconciliationInterval", time.Minute, "Set this flag to set the interval after which the resource controller reconciliation should occur")
 	flagset.StringVar(&caSecretName, "caSecretName", "", "Name of the secret containing CA.")
 	flagset.StringVar(&tlsSecretName, "tlsSecretName", "", "Name of the secret containing TLS pair.")
+	flagset.DurationVar(&renewBefore, "renewBefore", 15*24*time.Hour, "The certificate renewal time before expiration")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -166,6 +168,7 @@ func main() {
 				tls.CertRenewalInterval,
 				tls.CAValidityDuration,
 				tls.TLSValidityDuration,
+				renewBefore,
 				serverIP,
 				config.KyvernoServiceName(),
 				config.DnsNames(config.KyvernoServiceName(), config.KyvernoNamespace()),
