@@ -232,6 +232,11 @@ config:
     # Example to disable admission enforcer on AKS:
     # 'admissions.enforcer/disabled': 'true'
 
+  # -- Defines labels to set on webhook configurations.
+  webhookLabels: {}
+    # Example to adopt webhook resources in ArgoCD:
+    # 'argocd.argoproj.io/instance': 'kyverno'
+
   # -- Defines match conditions to set on webhook configurations (requires Kubernetes 1.27+).
   matchConditions: []
 
