@@ -10,6 +10,5 @@ spec:
   - error:
       file: pod-assert.yaml
   finally:
-  - script:
-      content: sleep 5
-    timeout: 10s
+  - sleep:
+      duration: 5s

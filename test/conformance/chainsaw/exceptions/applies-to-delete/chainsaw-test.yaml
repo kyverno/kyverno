@@ -1,0 +1,33 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: applies-to-delete
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: exception.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: namespace.yaml
+  - name: step-04
+    try:
+    - apply:
+        file: deployment.yaml
+  - name: step-05
+    try:
+    - delete:
+        ref:
+          apiVersion: apps/v1
+          kind: Deployment
+          name: test-dpl1
+          namespace: reza-dev

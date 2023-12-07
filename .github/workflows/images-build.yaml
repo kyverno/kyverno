@@ -29,7 +29,7 @@ jobs:
       - name: ko build
         run: VERSION=${{ github.ref_name }} make ko-build-all
       - name: Trivy Scan Image
-        uses: aquasecurity/trivy-action@2b6a709cf9c4025c5438138008beaddbb02086f0 # v0.14.0
+        uses: aquasecurity/trivy-action@22d2755f774d925b191a185b74e782a4b0638a41 # v0.15.0
         with:
           scan-type: 'fs'
           ignore-unfixed: true
