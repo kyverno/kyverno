@@ -31,6 +31,8 @@ jobs:
         if: steps.checksecret.outputs.result == 'true'
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
+        with:
+          free-disk-space: false
       - name: SonarCloud Scan
         if: steps.checksecret.outputs.result == 'true'
         uses: sonarsource/sonarcloud-github-action@db501078e936e4b4c8773d1bb949ba9ddb7b6b6a # v1.9
