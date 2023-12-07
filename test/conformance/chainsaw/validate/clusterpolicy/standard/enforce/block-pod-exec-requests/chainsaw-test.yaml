@@ -15,10 +15,7 @@ spec:
         file: chainsaw-step-01-apply-1-3.yaml
     - assert:
         file: chainsaw-step-01-assert-1-1.yaml
-  - finally:
-    - sleep:
-        duration: 5s
-    name: step-02
+  - name: step-02
     try:
     - script:
         content: "if kubectl -n test-validate exec nginx -it -- sh 2>&1 | grep -q

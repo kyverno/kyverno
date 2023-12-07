@@ -634,21 +634,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-      - name: Setup caches
-        uses: ./.github/actions/setup-caches
-        timeout-minutes: 5
-        continue-on-error: true
+      # install tools
+      - name: Install helm
+        id: helm
+        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
         with:
-          build-cache-key: run-conformance
-      - name: Install kind
-        shell: bash
-        run: |
-          # For AMD64 / x86_64
-          [ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
-          # For ARM64
-          [ $(uname -m) = aarch64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-arm64
-          chmod +x ./kind
-          sudo mv ./kind /usr/local/bin/kind
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install crane
+        uses: imjasonh/setup-crane@00c9e93efa4e1138c9a7a5c594acd6c75a2fbf0c
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@1fc5bd396d372bee37d608f955b336615edf79c8
+      - name: Install chainsaw
+        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
+        with:
+          release: v0.0.9-alpha.4
+      # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
         uses: sigstore/scaffolding/actions/setup@9e5583eaf47855103a9acd6eaa2b1da85f28e28e
         with:
@@ -657,9 +657,11 @@ jobs:
           knative-version: '1.10.0'
       - name: Create TUF values config map
         run: |
+          set -e
           kubectl create namespace kyverno
           kubectl -n kyverno create configmap tufvalues --from-literal=TUF_MIRROR=$TUF_MIRROR --from-literal=FULCIO_URL=$FULCIO_URL --from-literal=REKOR_URL=$REKOR_URL --from-literal=CTLOG_URL=$CTLOG_URL --from-literal=ISSUER_URL=$ISSUER_URL
           kubectl -n tuf-system get secrets tuf-root -oyaml | sed 's/namespace: .*/namespace: kyverno/' | kubectl create -f -
+      # deploy kyverno
       - name: Download kyverno images archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
@@ -668,17 +670,17 @@ jobs:
         shell: bash
         run: |
           set -e
-          make kind-load-image-archive
+          kind load image-archive kyverno.tar --name kind
       - name: Install kyverno
         shell: bash
         run: |
           set -e
+          export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
           make kind-install-kyverno
-      - name: Install crane
-        uses: imjasonh/setup-crane@00c9e93efa4e1138c9a7a5c594acd6c75a2fbf0c
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@1fc5bd396d372bee37d608f955b336615edf79c8
+      - name: Wait for kyverno ready
+        uses: ./.github/actions/kyverno-wait-ready
+      # prepare test image
       - name: Create test image
         shell: bash
         run: |
@@ -689,12 +691,7 @@ jobs:
           cosign initialize --mirror $TUF_MIRROR --root $TUF_MIRROR/root.json
           COSIGN_EXPERIMENTAL=1 cosign sign --rekor-url $REKOR_URL --fulcio-url $FULCIO_URL $TEST_IMAGE_URL --identity-token `curl -s $ISSUER_URL` -y
           echo "TEST_IMAGE_URL=$TEST_IMAGE_URL" >> $GITHUB_ENV
-      - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
-      - name: Install Chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
-        with:
-          release: v0.0.9-alpha.4
+      # run tests
       - name: Test with Chainsaw
         shell: bash
         env:
@@ -844,25 +841,16 @@ jobs:
         with:
           repository: kyverno/policies
           path: policies
-      - name: Setup caches
-        uses: ./.github/actions/setup-caches
-        timeout-minutes: 5
-        continue-on-error: true
+      # install tools
+      - name: Install helm
+        id: helm
+        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
         with:
-          build-cache-key: run-conformance
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
-      - name: Create kind cluster
-        shell: bash
-        run: |
-          set -e
-          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
-          make kind-create-cluster
-      - name: Download kyverno images archive
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install chainsaw
+        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
         with:
-          name: kyverno.tar
+          release: v0.0.9-alpha.4
       - name: Download kyverno CLI archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
@@ -873,23 +861,33 @@ jobs:
           set -e
           chmod +x kubectl-kyverno && mv kubectl-kyverno ./cmd/cli/kubectl-kyverno/kyverno
           echo "$PWD/cmd/cli/kubectl-kyverno" >> $GITHUB_PATH
+      # create cluster
+      - name: Create kind cluster
+        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
+        with:
+          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          cluster_name: kind
+          config: ./scripts/config/kind/default.yaml
+      # deploy kyverno
+      - name: Download kyverno images archive
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
         shell: bash
         run: |
           set -e
-          make kind-load-image-archive
+          kind load image-archive kyverno.tar --name kind
       - name: Install kyverno
         shell: bash
         run: |
           set -e
+          export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
-      - name: Install Chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
-        with:
-          release: v0.0.9-alpha.4
+      # run tests
       - name: Install CRDs
         run: |
           set -e

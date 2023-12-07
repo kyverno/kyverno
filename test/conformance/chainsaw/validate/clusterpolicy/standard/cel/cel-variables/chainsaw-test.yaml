@@ -26,7 +26,3 @@ spec:
         - check:
             ($error != null): true
         file: deployments-fail.yaml
-  - name: step-04
-    try:
-    - sleep:
-        duration: 3s

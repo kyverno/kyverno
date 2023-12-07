@@ -5,10 +5,7 @@ metadata:
   name: validating-admission-policy-pass
 spec:
   steps:
-  - finally:
-    - sleep:
-        duration: 5s
-    name: step-01
+  - name: step-01
     try:
     - apply:
         file: deployment.yaml

@@ -29,10 +29,7 @@ spec:
         file: policy.yaml
     - assert:
         file: policy-assert.yaml
-  - finally:
-    - sleep:
-        duration: 5s
-    name: step-05
+  - name: step-05
     try:
     - apply:
         file: statefulset-pass.yaml

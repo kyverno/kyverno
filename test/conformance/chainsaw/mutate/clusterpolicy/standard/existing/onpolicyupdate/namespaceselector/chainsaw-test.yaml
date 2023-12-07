@@ -25,10 +25,6 @@ spec:
         file: policy.yaml
     - assert:
         file: policy-assert.yaml
-  - name: step-03
-    try:
-    - sleep:
-        duration: 3s
   - name: step-04
     try:
     - assert:

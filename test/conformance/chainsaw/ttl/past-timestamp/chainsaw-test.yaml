@@ -9,10 +9,7 @@ spec:
     try:
     - apply:
         file: pod.yaml
-  - finally:
-    - sleep:
-        duration: 5s
-    name: step-02
+  - name: step-02
     try:
     - error:
         file: pod-assert.yaml
