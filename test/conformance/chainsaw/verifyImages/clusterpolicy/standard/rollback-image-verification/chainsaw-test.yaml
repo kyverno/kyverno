@@ -4,6 +4,8 @@ metadata:
   creationTimestamp: null
   name: rollback-image-verification
 spec:
+  timeouts:
+    delete: 2m
   steps:
   - name: step-01
     try:
@@ -19,10 +21,16 @@ spec:
         file: deployment_new.yaml
     - assert:
         file: deployment-assert.yaml
+    finally:
+    - sleep:
+        duration: 5s
   - name: step-03
     try:
     - script:
         content: kubectl -n verify-images rollout undo deployment nginx-deployment
+    finally:
+    - sleep:
+        duration: 5s
   - name: step-04
     try:
     - assert:
