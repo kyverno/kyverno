@@ -25,6 +25,13 @@ Add the milestone label by commenting `/milestone 1.2.3`.
 
 -->
 
+## Documentation (optional)
+
+My PR contains new or altered behavior to Kyverno. 
+- [ ] I have sent the draft PR to add or update [the documentation](https://github.com/kyverno/website) and the link is:
+  <!-- Uncomment to link to the PR -->
+  <!-- https://github.com/kyverno/website/pull/123 -->
+
 ## What type of PR is this
 
 <!--
@@ -99,12 +106,6 @@ them, don't hesitate to ask. We're here to help! This is simply a reminder of wh
 - [ ] My PR needs to be cherry picked to a specific release branch which is <replace>.
 - [ ] My PR contains new or altered behavior to Kyverno and
   - [ ] CLI support should be added and my PR doesn't contain that functionality.
-  - [ ] I have added or changed [the documentation](https://github.com/kyverno/website) myself in an existing PR and the link is:
-  <!-- Uncomment to link to the PR -->
-  <!-- https://github.com/kyverno/website/pull/123 -->
-  - [ ] I have raised an issue in [kyverno/website](https://github.com/kyverno/website) to track the documentation update and the link is:
-  <!-- Uncomment to link to the issue -->
-  <!-- https://github.com/kyverno/website/issues/1 -->
 
 ## Further Comments
 
