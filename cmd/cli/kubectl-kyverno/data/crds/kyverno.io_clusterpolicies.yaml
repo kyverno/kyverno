@@ -3817,7 +3817,8 @@ spec:
                                                   default: sha256
                                                   description: Specify signature algorithm
                                                     for public keys. Supported values
-                                                    are sha224, sha256, sha384 and sha512.
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             repository:
@@ -7845,7 +7846,8 @@ spec:
                                                   default: sha256
                                                   description: Specify signature algorithm
                                                     for public keys. Supported values
-                                                    are sha224, sha256, sha384 and sha512.
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             repository:
@@ -12548,7 +12550,8 @@ spec:
                                                   default: sha256
                                                   description: Specify signature algorithm
                                                     for public keys. Supported values
-                                                    are sha224, sha256, sha384 and sha512.
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             repository:
@@ -16561,7 +16564,8 @@ spec:
                                                   default: sha256
                                                   description: Specify signature algorithm
                                                     for public keys. Supported values
-                                                    are sha224, sha256, sha384 and sha512.
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             repository:
