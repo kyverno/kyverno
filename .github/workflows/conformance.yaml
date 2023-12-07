@@ -125,7 +125,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
         with:
-          release: v0.0.8
+          release: v0.0.9-alpha.4
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -196,7 +196,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
         with:
-          release: v0.0.8
+          release: v0.0.9-alpha.4
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -267,7 +267,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
         with:
-          release: v0.0.8
+          release: v0.0.9-alpha.4
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -340,7 +340,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
         with:
-          release: v0.0.8
+          release: v0.0.9-alpha.4
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -411,7 +411,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
         with:
-          release: v0.0.8
+          release: v0.0.9-alpha.4
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -489,7 +489,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
         with:
-          release: v0.0.8
+          release: v0.0.9-alpha.4
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -566,7 +566,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
         with:
-          release: v0.0.8
+          release: v0.0.9-alpha.4
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -694,7 +694,7 @@ jobs:
       - name: Install Chainsaw
         uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
         with:
-          release: v0.0.8
+          release: v0.0.9-alpha.4
       - name: Test with Chainsaw
         shell: bash
         env:
@@ -742,7 +742,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
         with:
-          release: v0.0.8
+          release: v0.0.9-alpha.4
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -889,7 +889,7 @@ jobs:
       - name: Install Chainsaw
         uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
         with:
-          release: v0.0.9-alpha.3
+          release: v0.0.9-alpha.4
       - name: Install CRDs
         run: |
           set -e
