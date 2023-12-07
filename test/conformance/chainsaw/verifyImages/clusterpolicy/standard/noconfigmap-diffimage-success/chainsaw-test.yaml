@@ -5,7 +5,7 @@ metadata:
   name: noconfigmap-diffimage-success
 spec:
   timeouts:
-    delete: 1m
+    delete: 2m
   steps:
   - name: step-01
     try:
