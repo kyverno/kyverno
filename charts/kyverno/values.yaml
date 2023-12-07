@@ -588,6 +588,9 @@ cleanupJobs:
       seccompProfile:
         type: RuntimeDefault
 
+    # -- Pod PriorityClassName
+    priorityClassName: ""
+
     # -- Job resources
     resources: {}
 
@@ -658,6 +661,9 @@ cleanupJobs:
           - ALL
       seccompProfile:
         type: RuntimeDefault
+
+    # -- Pod PriorityClassName
+    priorityClassName: ""
 
     # -- Job resources
     resources: {}
