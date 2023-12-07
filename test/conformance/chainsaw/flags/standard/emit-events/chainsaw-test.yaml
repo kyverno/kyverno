@@ -1,0 +1,39 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: emit-events
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: admission-controller.yaml
+    - assert:
+        file: admission-controller-assert.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: resource.yaml
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+        file: resource-fail.yaml
+  - name: step-04
+    try:
+    - apply:
+        file: event-assert.yaml
+  - name: step-05
+    try:
+    - script:
+        content: "if kubectl logs deployment/kyverno-admission-controller -n kyverno
+          | grep \"reason=\\\"PolicyViolation\\\"\" \nthen \n    echo \"Test succeeded.
+          PolicyViolation event was not created.\"\n    exit 0\nelse \n    echo \"Tested
+          failed. PolicyViolation event should have been created.\"\n    exit 1\nfi\n"
