@@ -1,0 +1,7 @@
+apiVersion: v1
+data:
+  image: nginx
+kind: ConfigMap
+metadata:
+  name: foreach-patchstrategicmerge-context-configmap
+  namespace: foreach-patchstrategicmerge-context-ns
