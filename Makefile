@@ -1021,8 +1021,8 @@ dev-lab-kwok: ## Deploy kwok
 # Bump new versions #
 #####################
 
-KYVERNO_CHART_VERSION ?= latest
-POLICIES_CHART_VERSION ?= latest
+KYVERNO_CHART_VERSION ?= v3.1.1
+POLICIES_CHART_VERSION ?= v3.1.1
 APP_VERSION ?= latest
 KUBE_VERSION_N ?= ">=1.25.0-0"
 
