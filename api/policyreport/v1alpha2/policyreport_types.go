@@ -53,6 +53,9 @@ type PolicyReport struct {
 	// PolicyReportResult provides result details
 	// +optional
 	Results []PolicyReportResult `json:"results,omitempty"`
+
+	//OwnerResourceInfo
+	OwnerResource OwnerResourceInfo `json:"ownerResource,omitempty"`
 }
 
 func (r *PolicyReport) GetResults() []PolicyReportResult {
@@ -75,4 +78,11 @@ type PolicyReportList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []PolicyReport `json:"items"`
+}
+
+// OwnerResourceInfo holds owner resource information
+type OwnerResourceInfo struct {
+	Name    string `json:"name,omitempty"`
+	Kind    string `json:"kind,omitempty"`
+	Version string `json:"version,omitempty"`
 }
