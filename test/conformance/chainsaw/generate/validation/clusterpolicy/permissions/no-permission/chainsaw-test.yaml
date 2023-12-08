@@ -1,0 +1,37 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: no-permission
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+        file: policy.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: chainsaw-step-02-apply-1-1.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+  - name: step-04
+    try:
+    - delete:
+        ref:
+          apiVersion: kyverno.io/v1
+          kind: ClusterPolicy
+          name: cpol-validate-create-sa-permission
+  - name: step-05
+    try:
+    - apply:
+        file: policy-with-var.yaml
+    - assert:
+        file: policy-assert.yaml

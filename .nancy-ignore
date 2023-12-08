@@ -1,2 +1,4 @@
 # golang/k8s.io/apiserver@v0.28.1
-CVE-2020-8561 until=2023-11-30
+CVE-2020-8561 until=2023-12-30
+# golang/github.com/lestrrat-go/jwx/v2@v2.0.16
+CVE-2023-49290 until=2023-12-30

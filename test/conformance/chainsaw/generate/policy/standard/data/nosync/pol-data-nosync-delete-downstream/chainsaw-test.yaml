@@ -1,0 +1,35 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: pol-data-nosync-delete-downstream
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-ready.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: secret.yaml
+    - assert:
+        file: generated-configmap.yaml
+  - name: step-03
+    try:
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: ConfigMap
+          name: zk-kafka-address
+          namespace: hammer
+  - name: step-04
+    try:
+    - sleep:
+        duration: 3s
+  - name: step-05
+    try:
+    - error:
+        file: chainsaw-step-05-error-1-1.yaml
