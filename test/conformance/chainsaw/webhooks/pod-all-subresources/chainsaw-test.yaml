@@ -1,0 +1,17 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: pod-all-subresources
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+  - name: step-02
+    try:
+    - assert:
+        file: webhooks.yaml

@@ -1,0 +1,25 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: cpol-clone-nosync-delete-rule
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-ready.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: ns.yaml
+    - assert:
+        file: cloned.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: singlerule.yaml
+    - assert:
+        file: check.yaml
