@@ -69,7 +69,7 @@ func evaluatePSS(level *api.LevelVersion, pod corev1.Pod) (results []pssutils.PS
 	return results
 }
 
-func exemptPodLevelExclusion(defaultCheckResults, excludeCheckResults []pssutils.PSSCheckResult, exclude kyvernov1.PodSecurityStandard, pod *corev1.Pod, matching *corev1.Pod) []pssutils.PSSCheckResult {
+func exemptExclusions(defaultCheckResults, excludeCheckResults []pssutils.PSSCheckResult, exclude kyvernov1.PodSecurityStandard, pod *corev1.Pod, matching *corev1.Pod, isContainerLevelExclusion bool) []pssutils.PSSCheckResult {
 	defaultCheckResultsMap := make(map[string]pssutils.PSSCheckResult, len(defaultCheckResults))
 
 	for _, result := range defaultCheckResults {
@@ -80,75 +80,17 @@ func exemptPodLevelExclusion(defaultCheckResults, excludeCheckResults []pssutils
 		for _, checkID := range pssutils.PSS_controls_to_check_id[exclude.ControlName] {
 			if excludeResult.ID == checkID {
 				for _, excludeFieldErr := range *excludeResult.CheckResult.ErrList {
-					excludeField, _, _, _ := parseField(excludeFieldErr.Field)
-					var excludeBadValues []string
-					switch excludeFieldErr.BadValue.(type) {
-					case string:
-						badValue := excludeFieldErr.BadValue.(string)
-						if badValue == "" {
-							break
-						}
-						excludeBadValues = append(excludeBadValues, badValue)
-					case bool:
-						excludeBadValues = append(excludeBadValues, strconv.FormatBool(excludeFieldErr.BadValue.(bool)))
-					case int:
-						excludeBadValues = append(excludeBadValues, strconv.Itoa(excludeFieldErr.BadValue.(int)))
-					case []string:
-						excludeBadValues = append(excludeBadValues, excludeFieldErr.BadValue.([]string)...)
-					default:
-					}
-					if excludeField == exclude.RestrictedField || len(exclude.RestrictedField) == 0 {
-						flag := true
-						if len(exclude.Values) != 0 {
-							for _, badValue := range excludeBadValues {
-								if !wildcard.CheckPatterns(exclude.Values, badValue) {
-									flag = false
-									break
-								}
-							}
-						}
-						if flag {
-							defaultCheckResult := defaultCheckResultsMap[checkID]
-							for idx, defaultFieldErr := range *defaultCheckResult.CheckResult.ErrList {
-								defaultField, _, _, _ := parseField(defaultFieldErr.Field)
-								if excludeField == defaultField {
-									remove(defaultCheckResult.CheckResult.ErrList, idx)
-									break
-								}
-							}
-							if len(*defaultCheckResult.CheckResult.ErrList) == 0 {
-								delete(defaultCheckResultsMap, checkID)
-							} else {
-								defaultCheckResultsMap[checkID] = defaultCheckResult
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	var newDefaultCheckResults []pssutils.PSSCheckResult
-	for _, result := range defaultCheckResultsMap {
-		newDefaultCheckResults = append(newDefaultCheckResults, result)
-	}
-
-	return newDefaultCheckResults
-}
-
-func exemptContainerLevelExclusion(defaultCheckResults, excludeCheckResults []pssutils.PSSCheckResult, exclude kyvernov1.PodSecurityStandard, pod *corev1.Pod, matching *corev1.Pod) []pssutils.PSSCheckResult {
-	defaultCheckResultsMap := make(map[string]pssutils.PSSCheckResult, len(defaultCheckResults))
-
-	for _, result := range defaultCheckResults {
-		defaultCheckResultsMap[result.ID] = result
-	}
-
-	for _, excludeResult := range excludeCheckResults {
-		for _, checkID := range pssutils.PSS_controls_to_check_id[exclude.ControlName] {
-			if excludeResult.ID == checkID {
-				for _, excludeFieldErr := range *excludeResult.CheckResult.ErrList {
-					excludeField, excludeIndexes, excludeContainerType, isContainerLevelField := parseField(excludeFieldErr.Field)
+					var excludeField, excludeContainerType string;
+					var excludeIndexes []int;
+					var isContainerLevelField bool = false;
 					var excludeContainer corev1.Container
+
+					if isContainerLevelExclusion{
+						excludeField, excludeIndexes, excludeContainerType, isContainerLevelField = parseField(excludeFieldErr.Field)
+					}else{
+						excludeField, _, _, _ = parseField(excludeFieldErr.Field)
+					}
+
 					if isContainerLevelField {
 						excludeContainer = getContainerInfo(matching, excludeIndexes[0], excludeContainerType)
 					}
@@ -182,8 +124,17 @@ func exemptContainerLevelExclusion(defaultCheckResults, excludeCheckResults []ps
 							defaultCheckResult := defaultCheckResultsMap[checkID]
 							if defaultCheckResult.CheckResult.ErrList != nil {
 								for idx, defaultFieldErr := range *defaultCheckResult.CheckResult.ErrList {
-									defaultField, defaultIndexes, defaultContainerType, isContainerLevelField := parseField(defaultFieldErr.Field)
+									var defaultField, defaultContainerType string;
+									var defaultIndexes []int;
+									var isContainerLevelField bool = false;
 									var defaultContainer corev1.Container
+
+									if isContainerLevelExclusion {
+										defaultField, defaultIndexes, defaultContainerType, isContainerLevelField = parseField(defaultFieldErr.Field)
+									}else{
+										defaultField, _, _, _ = parseField(defaultFieldErr.Field)
+									}
+
 									if isContainerLevelField {
 										defaultContainer = getContainerInfo(pod, defaultIndexes[0], defaultContainerType)
 										if excludeField == defaultField && excludeContainer.Name == defaultContainer.Name {
@@ -290,13 +241,15 @@ func EvaluatePod(rule *kyvernov1.PodSecurity, pod *corev1.Pod) (bool, []pssutils
 		switch {
 		// exclude pod level checks
 		case spec != nil:
+			isContainerLevelExclusion := false
 			excludeCheckResults := evaluatePSS(levelVersion, *spec)
-			defaultCheckResults = exemptPodLevelExclusion(defaultCheckResults, excludeCheckResults, exclude, pod, matching)
+			defaultCheckResults = exemptExclusions(defaultCheckResults, excludeCheckResults, exclude, pod, matching, isContainerLevelExclusion)
 
 		// exclude container level checks
 		default:
+			isContainerLevelExclusion := true
 			excludeCheckResults := evaluatePSS(levelVersion, *matching)
-			defaultCheckResults = exemptContainerLevelExclusion(defaultCheckResults, excludeCheckResults, exclude, pod, matching)
+			defaultCheckResults = exemptExclusions(defaultCheckResults, excludeCheckResults, exclude, pod, matching, isContainerLevelExclusion)
 		}
 	}
 
