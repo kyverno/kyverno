@@ -80,14 +80,14 @@ func exemptExclusions(defaultCheckResults, excludeCheckResults []pssutils.PSSChe
 		for _, checkID := range pssutils.PSS_controls_to_check_id[exclude.ControlName] {
 			if excludeResult.ID == checkID {
 				for _, excludeFieldErr := range *excludeResult.CheckResult.ErrList {
-					var excludeField, excludeContainerType string;
-					var excludeIndexes []int;
-					var isContainerLevelField bool = false;
+					var excludeField, excludeContainerType string
+					var excludeIndexes []int
+					var isContainerLevelField bool = false
 					var excludeContainer corev1.Container
 
-					if isContainerLevelExclusion{
+					if isContainerLevelExclusion {
 						excludeField, excludeIndexes, excludeContainerType, isContainerLevelField = parseField(excludeFieldErr.Field)
-					}else{
+					} else {
 						excludeField, _, _, _ = parseField(excludeFieldErr.Field)
 					}
 
@@ -124,14 +124,14 @@ func exemptExclusions(defaultCheckResults, excludeCheckResults []pssutils.PSSChe
 							defaultCheckResult := defaultCheckResultsMap[checkID]
 							if defaultCheckResult.CheckResult.ErrList != nil {
 								for idx, defaultFieldErr := range *defaultCheckResult.CheckResult.ErrList {
-									var defaultField, defaultContainerType string;
-									var defaultIndexes []int;
-									var isContainerLevelField bool = false;
+									var defaultField, defaultContainerType string
+									var defaultIndexes []int
+									var isContainerLevelField bool = false
 									var defaultContainer corev1.Container
 
 									if isContainerLevelExclusion {
 										defaultField, defaultIndexes, defaultContainerType, isContainerLevelField = parseField(defaultFieldErr.Field)
-									}else{
+									} else {
 										defaultField, _, _, _ = parseField(defaultFieldErr.Field)
 									}
 
