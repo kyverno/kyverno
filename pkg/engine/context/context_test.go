@@ -131,59 +131,76 @@ func TestAddVariable(t *testing.T) {
 	ctx := NewContext(jp)
 
 	tests := []struct {
-		name     string
-		key      string
-		value    interface{}
-		wantErr  bool
-		expected interface{}
+		name         string
+		key          string
+		value        interface{}
+		wantErr      bool
+		wantQueryErr bool
+		expected     interface{}
 	}{
 		{
-			name:    "Simple variable",
-			key:     "simpleKey",
-			value:   "simpleValue",
-			wantErr: false,
+			name:         "Simple variable",
+			key:          "simpleKey",
+			value:        "simpleValue",
+			wantErr:      false,
+			wantQueryErr: false,
+			expected:     "simpleValue",
 		},
 		{
-			name:    "Nested variable",
-			key:     "nested.key",
-			value:   123,
-			wantErr: false,
+			name:         "Nested variable",
+			key:          "nested.key",
+			value:        123,
+			wantErr:      false,
+			wantQueryErr: false,
+			expected:     float64(123),
 		},
 		{
-			name:    "Invalid key format",
-			key:     "invalid,key",
-			value:   "someValue",
-			wantErr: false,
+			name:         "Invalid key format",
+			key:          "invalid,key",
+			value:        "someValue",
+			wantErr:      false,
+			wantQueryErr: true,
+			expected:     nil,
 		},
 		{
-			name:    "Complex nested variable",
-			key:     "complex.nested.key",
-			value:   map[string]interface{}{"innerKey": "innerValue"},
-			wantErr: false,
+			name:         "Complex nested variable",
+			key:          "complex.nested.key",
+			value:        map[string]interface{}{"innerKey": "innerValue"},
+			wantErr:      false,
+			wantQueryErr: false,
+			expected:     map[string]interface{}{"innerKey": "innerValue"},
 		},
 		{
-			name:    "Array value",
-			key:     "arrayKey",
-			value:   []int{1, 2, 3},
-			wantErr: false,
+			name:         "Array value",
+			key:          "arrayKey",
+			value:        []int{1, 2, 3},
+			wantErr:      false,
+			wantQueryErr: false,
+			expected:     []interface{}{float64(1), float64(2), float64(3)},
 		},
 		{
-			name:    "Boolean value",
-			key:     "boolKey",
-			value:   true,
-			wantErr: false,
+			name:         "Boolean value",
+			key:          "boolKey",
+			value:        true,
+			wantErr:      false,
+			wantQueryErr: false,
+			expected:     true,
 		},
 		{
-			name:    "Empty key",
-			key:     "",
-			value:   "someValue",
-			wantErr: true,
+			name:         "Empty key",
+			key:          "",
+			value:        "someValue",
+			wantErr:      true,
+			wantQueryErr: false,
+			expected:     nil,
 		},
 		{
-			name:    "Nil value",
-			key:     "nilKey",
-			value:   nil,
-			wantErr: false,
+			name:         "Nil value",
+			key:          "nilKey",
+			value:        nil,
+			wantErr:      false,
+			wantQueryErr: false,
+			expected:     nil,
 		},
 	}
 	for _, tt := range tests {
@@ -192,10 +209,13 @@ func TestAddVariable(t *testing.T) {
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
-				assert.NoError(t, err)
-				result, err := ctx.Query(tt.key)
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expected, result)
+				result, queryErr := ctx.Query(tt.key)
+				if tt.wantQueryErr {
+					assert.Error(t, queryErr)
+				} else {
+					assert.NoError(t, err)
+					assert.Equal(t, tt.expected, result)
+				}
 			}
 		})
 	}
