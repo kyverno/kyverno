@@ -1,0 +1,15 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: prevent-loop
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: chainsaw-step-01-apply-1-1.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: policy.yaml
