@@ -88,28 +88,14 @@ func exemptExclusions(defaultCheckResults, excludeCheckResults []pssutils.PSSChe
 					if isContainerLevelExclusion {
 						excludeField, excludeIndexes, excludeContainerType, isContainerLevelField = parseField(excludeFieldErr.Field)
 					} else {
-						excludeField, _, _, _ = parseField(excludeFieldErr.Field)
+						excludeField = regexIndex.ReplaceAllString(excludeFieldErr.Field, "*")
 					}
 
 					if isContainerLevelField {
 						excludeContainer = getContainerInfo(matching, excludeIndexes[0], excludeContainerType)
 					}
-					var excludeBadValues []string
-					switch excludeFieldErr.BadValue.(type) {
-					case string:
-						badValue := excludeFieldErr.BadValue.(string)
-						if badValue == "" {
-							break
-						}
-						excludeBadValues = append(excludeBadValues, badValue)
-					case bool:
-						excludeBadValues = append(excludeBadValues, strconv.FormatBool(excludeFieldErr.BadValue.(bool)))
-					case int:
-						excludeBadValues = append(excludeBadValues, strconv.Itoa(excludeFieldErr.BadValue.(int)))
-					case []string:
-						excludeBadValues = append(excludeBadValues, excludeFieldErr.BadValue.([]string)...)
-					default:
-					}
+					excludeBadValues := extractBadValues(excludeFieldErr)
+
 					if excludeField == exclude.RestrictedField || len(exclude.RestrictedField) == 0 {
 						flag := true
 						if len(exclude.Values) != 0 {
@@ -132,7 +118,7 @@ func exemptExclusions(defaultCheckResults, excludeCheckResults []pssutils.PSSChe
 									if isContainerLevelExclusion {
 										defaultField, defaultIndexes, defaultContainerType, isContainerLevelField = parseField(defaultFieldErr.Field)
 									} else {
-										defaultField, _, _, _ = parseField(defaultFieldErr.Field)
+										defaultField = regexIndex.ReplaceAllString(defaultFieldErr.Field, "*")
 									}
 
 									if isContainerLevelField {
@@ -167,6 +153,28 @@ func exemptExclusions(defaultCheckResults, excludeCheckResults []pssutils.PSSChe
 	}
 
 	return newDefaultCheckResults
+}
+
+func extractBadValues(excludeFieldErr *field.Error) []string {
+	var excludeBadValues []string
+
+	switch excludeFieldErr.BadValue.(type) {
+	case string:
+		badValue := excludeFieldErr.BadValue.(string)
+		if badValue == "" {
+			break
+		}
+		excludeBadValues = append(excludeBadValues, badValue)
+	case bool:
+		excludeBadValues = append(excludeBadValues, strconv.FormatBool(excludeFieldErr.BadValue.(bool)))
+	case int:
+		excludeBadValues = append(excludeBadValues, strconv.Itoa(excludeFieldErr.BadValue.(int)))
+	case []string:
+		excludeBadValues = append(excludeBadValues, excludeFieldErr.BadValue.([]string)...)
+	default:
+	}
+
+	return excludeBadValues
 }
 
 func remove(s *field.ErrorList, i int) {
