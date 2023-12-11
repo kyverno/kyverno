@@ -1,3 +1,5 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
 name: Conformance tests
 
 permissions: {}
@@ -92,25 +94,25 @@ jobs:
           - name: v1.28
             version: v1.28.0
         tests:
-          - autogen
-          - background-only
-          - cleanup
-          - deferred
-          - events
-          - exceptions
-          - filter
-          - generate/clusterpolicy
-          - generate/policy
-          - generate/validation
-          - mutate
-          - policy-validation
-          - rangeoperators
-          - rbac
-          - reports
-          - validate
-          - verify-manifests
-          - verifyImages
-          - webhooks
+          - ^autogen$
+          - ^background-only$
+          - ^cleanup$
+          - ^deferred$
+          - ^events$
+          - ^exceptions$
+          - ^filter$
+          - ^generate$/^clusterpolicy$
+          - ^generate$/^policy$
+          - ^generate$/^validation$
+          - ^mutate$
+          - ^policy-validation$
+          - ^rangeoperators$
+          - ^rbac$
+          - ^reports$
+          - ^validate$
+          - ^verify-manifests$
+          - ^verifyImages$
+          - ^webhooks$
     needs: prepare-images
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
@@ -123,9 +125,9 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
+        uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
-          release: v0.0.9-alpha.4
+          release: v0.0.9
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -159,7 +161,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+          cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}'
       # debug
       - name: Debug failure
         if: failure()
@@ -194,9 +196,9 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
+        uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
-          release: v0.0.9-alpha.4
+          release: v0.0.9
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -265,9 +267,9 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
+        uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
-          release: v0.0.9-alpha.4
+          release: v0.0.9
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -338,9 +340,9 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
+        uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
-          release: v0.0.9-alpha.4
+          release: v0.0.9
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -409,9 +411,9 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
+        uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
-          release: v0.0.9-alpha.4
+          release: v0.0.9
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -487,9 +489,9 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
+        uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
-          release: v0.0.9-alpha.4
+          release: v0.0.9
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -564,9 +566,9 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
+        uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
-          release: v0.0.9-alpha.4
+          release: v0.0.9
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -645,9 +647,9 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@1fc5bd396d372bee37d608f955b336615edf79c8
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
+        uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
-          release: v0.0.9-alpha.4
+          release: v0.0.9
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
         uses: sigstore/scaffolding/actions/setup@9e5583eaf47855103a9acd6eaa2b1da85f28e28e
@@ -737,9 +739,9 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
+        uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
-          release: v0.0.9-alpha.4
+          release: v0.0.9
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -848,9 +850,9 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
+        uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
-          release: v0.0.9-alpha.4
+          release: v0.0.9
       - name: Download kyverno CLI archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
