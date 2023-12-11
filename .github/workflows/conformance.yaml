@@ -125,7 +125,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
+        uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
           release: v0.0.9
       # create cluster
@@ -196,7 +196,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
+        uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
           release: v0.0.9
       # create cluster
@@ -267,7 +267,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
+        uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
           release: v0.0.9
       # create cluster
@@ -340,7 +340,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
+        uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
           release: v0.0.9
       # create cluster
@@ -411,7 +411,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
+        uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
           release: v0.0.9
       # create cluster
@@ -489,7 +489,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
+        uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
           release: v0.0.9
       # create cluster
@@ -566,7 +566,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
+        uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
           release: v0.0.9
       # create cluster
@@ -647,7 +647,7 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@1fc5bd396d372bee37d608f955b336615edf79c8
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
+        uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
           release: v0.0.9
       # create cluster
@@ -739,7 +739,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
+        uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
           release: v0.0.9
       # create cluster
@@ -850,7 +850,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
+        uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
           release: v0.0.9
       - name: Download kyverno CLI archive
