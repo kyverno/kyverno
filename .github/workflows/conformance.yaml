@@ -94,25 +94,25 @@ jobs:
           - name: v1.28
             version: v1.28.0
         tests:
-          - autogen
-          - background-only
-          - cleanup
-          - deferred
-          - events
-          - exceptions
-          - filter
-          - generate/clusterpolicy
-          - generate/policy
-          - generate/validation
-          - mutate
-          - policy-validation
-          - rangeoperators
-          - rbac
-          - reports
-          - validate
-          - verify-manifests
-          - verifyImages
-          - webhooks
+          - ^autogen$
+          - ^background-only$
+          - ^cleanup$
+          - ^deferred$
+          - ^events$
+          - ^exceptions$
+          - ^filter$
+          - ^generate$/^clusterpolicy$
+          - ^generate$/^policy$
+          - ^generate$/^validation$
+          - ^mutate$
+          - ^policy-validation$
+          - ^rangeoperators$
+          - ^rbac$
+          - ^reports$
+          - ^validate$
+          - ^verify-manifests$
+          - ^verifyImages$
+          - ^webhooks$
     needs: prepare-images
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
@@ -161,7 +161,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+          cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}'
       # debug
       - name: Debug failure
         if: failure()
