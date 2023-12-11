@@ -1216,32 +1216,33 @@ ZDGRs55xuoeLDJ/ZRFf9bI+IaCUd1YrfYcHIl3G87Av+r49YVwqRDT0VDV7uLgqn
 	testCases := []struct {
 		jmesPath       string
 		expectedResult map[string]interface{}
-	}{{
-		jmesPath:       "x509_decode(base64_decode('" + certs[0] + "'))",
-		expectedResult: resExpected[0],
-	}, {
-		jmesPath:       "x509_decode(base64_decode('" + certs[1] + "'))",
-		expectedResult: resExpected[1],
-	}, {
-		jmesPath:       "x509_decode('" + certs[2] + "')",
-		expectedResult: resExpected[0],
-	}, {
-		jmesPath:       "x509_decode('" + certs[3] + "')",
-		expectedResult: resExpected[1],
-	}, {
-		jmesPath:       "x509_decode('" + certs[4] + "')",
-		expectedResult: resExpected[0],
-	}, {
-		jmesPath:       "x509_decode('" + certs[5] + "')",
-		expectedResult: resExpected[1],
-	}, {
-		jmesPath:       "x509_decode('" + certs[6] + "')",
-		expectedResult: resExpected[2],
-	},
-	// {
-	// 	jmesPath:       "x509_decode('xyz')",
-	// 	expectedResult: map[string]interface{}{},
-	// }
+	}{
+		{
+			jmesPath:       "x509_decode(base64_decode('" + certs[0] + "'))",
+			expectedResult: resExpected[0],
+		}, {
+			jmesPath:       "x509_decode(base64_decode('" + certs[1] + "'))",
+			expectedResult: resExpected[1],
+		}, {
+			jmesPath:       "x509_decode('" + certs[2] + "')",
+			expectedResult: resExpected[0],
+		}, {
+			jmesPath:       "x509_decode('" + certs[3] + "')",
+			expectedResult: resExpected[1],
+		}, {
+			jmesPath:       "x509_decode('" + certs[4] + "')",
+			expectedResult: resExpected[0],
+		}, {
+			jmesPath:       "x509_decode('" + certs[5] + "')",
+			expectedResult: resExpected[1],
+		}, {
+			jmesPath:       "x509_decode('" + certs[6] + "')",
+			expectedResult: resExpected[2],
+		},
+		// {
+		// 	jmesPath:       "x509_decode('xyz')",
+		// 	expectedResult: map[string]interface{}{},
+		// }
 	}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
@@ -1675,6 +1676,7 @@ func Test_ImageNormalize(t *testing.T) {
 		})
 	}
 }
+
 func Test_IsExternalURL(t *testing.T) {
 	testCases := []struct {
 		jmesPath       string
@@ -1705,19 +1707,19 @@ func Test_IsExternalURL(t *testing.T) {
 			jmesPath:       "is_external_url('http://245.48.83.160')",
 			expectedResult: true,
 		}, {
-			jmesPath:       "is_external_url('http://[fd12:3456:789a:1::1]')", //192.168.3.6
+			jmesPath:       "is_external_url('http://[fd12:3456:789a:1::1]')", // 192.168.3.6
 			expectedResult: false,
 		}, {
-			jmesPath:       "is_external_url('http://[fdb7:d8fd:c4e4:5561::1]')", //182.61.200.7
+			jmesPath:       "is_external_url('http://[fdb7:d8fd:c4e4:5561::1]')", // 182.61.200.7
 			expectedResult: false,
 		}, {
-			jmesPath:       "is_external_url('http://[::1]')", //ipv6 loopback
+			jmesPath:       "is_external_url('http://[::1]')", // ipv6 loopback
 			expectedResult: false,
 		}, {
 			jmesPath:       "is_external_url('http://[2001:db8::ff00:42:8329]')",
 			expectedResult: true,
 		}, {
-			jmesPath:       "is_external_url('http://www.google.com@192.168.1.3')", //url with basic auth
+			jmesPath:       "is_external_url('http://www.google.com@192.168.1.3')", // url with basic auth
 			expectedResult: false,
 		},
 	}
@@ -1732,4 +1734,15 @@ func Test_IsExternalURL(t *testing.T) {
 			assert.Equal(t, res, tc.expectedResult)
 		})
 	}
+}
+
+func Test_SHA256(t *testing.T) {
+	jp, err := jmespathInterface.Query("sha256('alertmanager-kube-prometheus-stack-alertmanager')")
+	assert.NilError(t, err)
+
+	result, err := jp.Search("")
+	assert.NilError(t, err)
+	str, ok := result.(string)
+	assert.Assert(t, ok)
+	assert.Equal(t, str, "75c07bb807f2d80a85d34880b8af0c5f29f7c27577076ed5d0e4b427dee7dbcc")
 }
