@@ -54,6 +54,15 @@ spec:
       name: AGGREGATE
       priority: 1
       type: string
+    - jsonPath: .metadata.name
+      name: OwnerName
+      type: string
+    - jsonPath: .kind
+      name: OwnerKind
+      type: string
+    - jsonPath: .apiVersion
+      name: OwnerVersion
+      type: string
     name: v1alpha2
     schema:
       openAPIV3Schema:
@@ -395,6 +404,15 @@ spec:
       name: Hash
       priority: 1
       type: string
+    - jsonPath: .metadata.name
+      name: OwnerName
+      type: string
+    - jsonPath: .kind
+      name: OwnerKind
+      type: string
+    - jsonPath: .apiVersion
+      name: OwnerVersion
+      type: string
     name: v1alpha2
     schema:
       openAPIV3Schema:
@@ -672,6 +690,15 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .metadata.name
+      name: OwnerName
+      type: string
+    - jsonPath: .kind
+      name: OwnerKind
+      type: string
+    - jsonPath: .apiVersion
+      name: OwnerVersion
+      type: string
     deprecated: true
     name: v2alpha1
     schema:
@@ -1914,6 +1941,15 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .metadata.name
+      name: OwnerName
+      type: string
+    - jsonPath: .kind
+      name: OwnerKind
+      type: string
+    - jsonPath: .apiVersion
+      name: OwnerVersion
+      type: string
     name: v2beta1
     schema:
       openAPIV3Schema:
@@ -3204,6 +3240,15 @@ spec:
       name: AGGREGATE
       priority: 1
       type: string
+    - jsonPath: .metadata.name
+      name: OWNER NAME
+      type: string
+    - jsonPath: .kind
+      name: OWNER KIND
+      type: string
+    - jsonPath: .apiVersion
+      name: OWNER VERSION
+      type: string
     name: v1alpha2
     schema:
       openAPIV3Schema:
@@ -3546,6 +3591,15 @@ spec:
       name: Hash
       priority: 1
       type: string
+    - jsonPath: .metadata.name
+      name: OwnerName
+      type: string
+    - jsonPath: .kind
+      name: OwnerKind
+      type: string
+    - jsonPath: .apiVersion
+      name: OwnerVersion
+      type: string
     name: v1alpha2
     schema:
       openAPIV3Schema:
@@ -3823,6 +3877,15 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .metadata.name
+      name: OwnerName
+      type: string
+    - jsonPath: .kind
+      name: OwnerKind
+      type: string
+    - jsonPath: .apiVersion
+      name: OwnerVersion
+      type: string
     deprecated: true
     name: v2alpha1
     schema:
@@ -5065,6 +5128,15 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .metadata.name
+      name: OwnerName
+      type: string
+    - jsonPath: .kind
+      name: OwnerKind
+      type: string
+    - jsonPath: .apiVersion
+      name: OwnerVersion
+      type: string
     name: v2beta1
     schema:
       openAPIV3Schema:
@@ -6362,6 +6434,15 @@ spec:
       type: integer
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
       name: MESSAGE
+      type: string
+    - jsonPath: .metadata.name
+      name: OWNER NAME
+      type: string
+    - jsonPath: .kind
+      name: OWNER KIND
+      type: string
+    - jsonPath: .apiVersion
+      name: OWNER VERSION
       type: string
     name: v1
     schema:
@@ -15353,6 +15434,15 @@ spec:
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
       name: MESSAGE
       type: string
+    - jsonPath: .metadata.name
+      name: OWNER NAME
+      type: string
+    - jsonPath: .kind
+      name: OWNER KIND
+      type: string
+    - jsonPath: .apiVersion
+      name: OWNER VERSION
+      type: string
     name: v2beta1
     schema:
       openAPIV3Schema:
@@ -24093,6 +24183,15 @@ spec:
       type: integer
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
       name: MESSAGE
+      type: string
+    - jsonPath: .metadata.name
+      name: OWNER NAME
+      type: string
+    - jsonPath: .kind
+      name: OWNER KIND
+      type: string
+    - jsonPath: .apiVersion
+      name: OWNER VERSION
       type: string
     name: v1
     schema:
@@ -33085,6 +33184,15 @@ spec:
       type: integer
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
       name: MESSAGE
+      type: string
+    - jsonPath: .metadata.name
+      name: OWNER NAME
+      type: string
+    - jsonPath: .kind
+      name: OWNER KIND
+      type: string
+    - jsonPath: .apiVersion
+      name: OWNER VERSION
       type: string
     name: v2beta1
     schema:
@@ -43019,6 +43127,15 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .metadata.name
+      name: OwnerName
+      type: string
+    - jsonPath: .kind
+      name: OwnerKind
+      type: string
+    - jsonPath: .apiVersion
+      name: OwnerVersion
+      type: string
     name: v1beta1
     schema:
       openAPIV3Schema:
@@ -43432,6 +43549,15 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .metadata.name
+      name: OwnerName
+      type: string
+    - jsonPath: .kind
+      name: OwnerKind
+      type: string
+    - jsonPath: .apiVersion
+      name: OwnerVersion
+      type: string
     name: v1alpha2
     schema:
       openAPIV3Schema:
@@ -43799,6 +43925,15 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .metadata.name
+      name: OwnerName
+      type: string
+    - jsonPath: .kind
+      name: OwnerKind
+      type: string
+    - jsonPath: .apiVersion
+      name: OwnerVersion
+      type: string
     name: v1alpha2
     schema:
       openAPIV3Schema:
