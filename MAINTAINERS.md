@@ -11,6 +11,7 @@ Maintainers are approvers who have shown good technical judgement in guiding fea
 | Trey Dockendorf          | [@treydock](https://github.com/treydock)               | Ohio Supercomputer Center |
 | Charles-Edouard Brétéché | [@eddycharly](https://github.com/eddycharly)           | Nirmata                   |
 | Vishal Choudhary         | [@vishal-chdhry](https://github.com/vishal-chdhry)     | Nirmata                   |
+| Mariam Fahmy             | [@MariamFahmy98](https://github.com/MariamFahmy98)     | Nirmata                   |
 
 **Note**: Please refer to the [Project Governance](https://kyverno.io/community/#project-governance) for more information on the responsibilities and privileges of a maintainer in Kyverno.
 
