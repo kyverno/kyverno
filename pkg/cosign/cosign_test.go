@@ -111,7 +111,7 @@ func TestCosignInvalidSignatureAlgorithm(t *testing.T) {
 
 	verifier := &cosignVerifier{}
 	_, err = verifier.VerifySignature(context.TODO(), opts)
-	assert.ErrorContains(t, err, "failed to load public key from PEM: invalid hash function specified")
+	assert.ErrorContains(t, err, "invalid signature algorithm provided sha1")
 }
 
 func TestCosignKeyless(t *testing.T) {
