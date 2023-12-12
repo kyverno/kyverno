@@ -1,0 +1,13 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: TestStep
+metadata:
+  creationTimestamp: null
+  name: badpod
+spec:
+  timeouts: {}
+  try:
+  - script:
+      content: ./bad-pod-update-test.sh
+    timeout: 30s
+
