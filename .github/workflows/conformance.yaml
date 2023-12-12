@@ -127,7 +127,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
-          release: v0.0.9
+          release: v0.1.0
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -198,7 +198,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
-          release: v0.0.9
+          release: v0.1.0
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -269,7 +269,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
-          release: v0.0.9
+          release: v0.1.0
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -342,7 +342,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
-          release: v0.0.9
+          release: v0.1.0
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -413,7 +413,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
-          release: v0.0.9
+          release: v0.1.0
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -491,7 +491,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
-          release: v0.0.9
+          release: v0.1.0
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -568,7 +568,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
-          release: v0.0.9
+          release: v0.1.0
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -649,7 +649,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
-          release: v0.0.9
+          release: v0.1.0
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
         uses: sigstore/scaffolding/actions/setup@9e5583eaf47855103a9acd6eaa2b1da85f28e28e
@@ -741,7 +741,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
-          release: v0.0.9
+          release: v0.1.0
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -852,7 +852,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/chainsaw/.github/actions/install@7885ebe21beb083fea3dc5651fe2ae8002a5f45a # v0.0.9
         with:
-          release: v0.0.9
+          release: v0.1.0
       - name: Download kyverno CLI archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
