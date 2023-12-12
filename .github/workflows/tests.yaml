@@ -30,5 +30,7 @@ jobs:
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
+        with:
+          free-disk-space: false
       - name: Unit test
         run: make test-unit

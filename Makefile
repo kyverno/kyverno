@@ -7,7 +7,7 @@
 GIT_SHA              := $(shell git rev-parse HEAD)
 REGISTRY             ?= ghcr.io
 REPO                 ?= kyverno
-KIND_IMAGE           ?= kindest/node:v1.27.3
+KIND_IMAGE           ?= kindest/node:v1.28.0
 KIND_NAME            ?= kind
 KIND_CONFIG          ?= default
 GOOS                 ?= $(shell go env GOOS)
@@ -32,36 +32,34 @@ USE_CONFIG           ?= standard
 # TOOLS #
 #########
 
-TOOLS_DIR                          := $(PWD)/.tools
-KIND                               := $(TOOLS_DIR)/kind
-KIND_VERSION                       := v0.20.0
-CONTROLLER_GEN                     := $(TOOLS_DIR)/controller-gen
-CONTROLLER_GEN_VERSION             := v0.12.0
-CLIENT_GEN                         := $(TOOLS_DIR)/client-gen
-LISTER_GEN                         := $(TOOLS_DIR)/lister-gen
-INFORMER_GEN                       := $(TOOLS_DIR)/informer-gen
-OPENAPI_GEN                        := $(TOOLS_DIR)/openapi-gen
-REGISTER_GEN                       := $(TOOLS_DIR)/register-gen
-DEEPCOPY_GEN                       := $(TOOLS_DIR)/deepcopy-gen
-DEFAULTER_GEN                      := $(TOOLS_DIR)/defaulter-gen
-APPLYCONFIGURATION_GEN             := $(TOOLS_DIR)/applyconfiguration-gen
-CODE_GEN_VERSION                   := v0.28.0
-GEN_CRD_API_REFERENCE_DOCS         := $(TOOLS_DIR)/gen-crd-api-reference-docs
-GEN_CRD_API_REFERENCE_DOCS_VERSION := latest
-GO_ACC                             := $(TOOLS_DIR)/go-acc
-GO_ACC_VERSION                     := latest
-GOIMPORTS                          := $(TOOLS_DIR)/goimports
-GOIMPORTS_VERSION                  := latest
-HELM                               := $(TOOLS_DIR)/helm
-HELM_VERSION                       := v3.12.3
-HELM_DOCS                          := $(TOOLS_DIR)/helm-docs
-HELM_DOCS_VERSION                  := v1.11.0
-KO                                 := $(TOOLS_DIR)/ko
-KO_VERSION                         := v0.14.1
-KUTTL                              := $(TOOLS_DIR)/kubectl-kuttl
-KUTTL_VERSION                      := v0.0.0-20230914072640-e3af68e47317
-KUBE_VERSION                       := v1.25.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(APPLYCONFIGURATION_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(KUTTL)
+TOOLS_DIR                          ?= $(PWD)/.tools
+KIND                               ?= $(TOOLS_DIR)/kind
+KIND_VERSION                       ?= v0.20.0
+CONTROLLER_GEN                     ?= $(TOOLS_DIR)/controller-gen
+CONTROLLER_GEN_VERSION             ?= v0.12.0
+CLIENT_GEN                         ?= $(TOOLS_DIR)/client-gen
+LISTER_GEN                         ?= $(TOOLS_DIR)/lister-gen
+INFORMER_GEN                       ?= $(TOOLS_DIR)/informer-gen
+OPENAPI_GEN                        ?= $(TOOLS_DIR)/openapi-gen
+REGISTER_GEN                       ?= $(TOOLS_DIR)/register-gen
+DEEPCOPY_GEN                       ?= $(TOOLS_DIR)/deepcopy-gen
+DEFAULTER_GEN                      ?= $(TOOLS_DIR)/defaulter-gen
+APPLYCONFIGURATION_GEN             ?= $(TOOLS_DIR)/applyconfiguration-gen
+CODE_GEN_VERSION                   ?= v0.28.0
+GEN_CRD_API_REFERENCE_DOCS         ?= $(TOOLS_DIR)/gen-crd-api-reference-docs
+GEN_CRD_API_REFERENCE_DOCS_VERSION ?= latest
+GO_ACC                             ?= $(TOOLS_DIR)/go-acc
+GO_ACC_VERSION                     ?= latest
+GOIMPORTS                          ?= $(TOOLS_DIR)/goimports
+GOIMPORTS_VERSION                  ?= latest
+HELM                               ?= $(TOOLS_DIR)/helm
+HELM_VERSION                       ?= v3.12.3
+HELM_DOCS                          ?= $(TOOLS_DIR)/helm-docs
+HELM_DOCS_VERSION                  ?= v1.11.0
+KO                                 ?= $(TOOLS_DIR)/ko
+KO_VERSION                         ?= v0.14.1
+KUBE_VERSION                       ?= v1.25.0
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(APPLYCONFIGURATION_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -132,10 +130,6 @@ $(HELM_DOCS):
 $(KO):
 	@echo Install ko... >&2
 	@GOBIN=$(TOOLS_DIR) go install github.com/google/ko@$(KO_VERSION)
-
-$(KUTTL):
-	@echo Install kuttl... >&2
-	@GOBIN=$(TOOLS_DIR) go install github.com/kyverno/kuttl/cmd/kubectl-kuttl@$(KUTTL_VERSION)
 
 .PHONY: install-tools
 install-tools: $(TOOLS) ## Install tools
@@ -731,15 +725,6 @@ code-cov-report: test-clean ## Generate code coverage report
 	@GO111MODULE=on go test -v -coverprofile=coverage.out ./...
 	@go tool cover -func=coverage.out -o $(CODE_COVERAGE_FILE_TXT)
 	@go tool cover -html=coverage.out -o $(CODE_COVERAGE_FILE_HTML)
-
-###############
-# KUTTL TESTS #
-###############
-
-.PHONY: test-kuttl
-test-kuttl: $(KUTTL) ## Run kuttl tests
-	@echo Running kuttl tests... >&2
-	@$(KUTTL) test --config ./test/conformance/kuttl/kuttl-test.yaml
 
 #############
 # CLI TESTS #

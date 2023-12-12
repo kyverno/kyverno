@@ -30,6 +30,8 @@ jobs:
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
+        with:
+          free-disk-space: false
       - name: Generate Code Coverage Report
         run: make code-cov-report
       - name: Upload Report to Codecov

@@ -14,8 +14,16 @@ import (
 )
 
 func IsDeleteRequest(ctx engineapi.PolicyContext) bool {
+	if ctx == nil {
+		return false
+	}
+
+	if op := ctx.Operation(); string(op) != "" {
+		return op == kyvernov1.Delete
+	}
+
+	// if the NewResource is empty, the request is a DELETE
 	newResource := ctx.NewResource()
-	// if the OldResource is not empty, and the NewResource is empty, the request is a DELETE
 	return IsEmptyUnstructured(&newResource)
 }
 

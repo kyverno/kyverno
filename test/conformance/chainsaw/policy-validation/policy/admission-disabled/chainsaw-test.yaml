@@ -1,0 +1,21 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: admission-disabled
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: policy-validate.yaml
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+        file: policy-mutate.yaml
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+        file: policy-verify-image.yaml

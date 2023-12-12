@@ -1,9 +1,0 @@
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: pol-clone-create-on-trigger-deletion-target-netowrkpolicy
-  namespace: pol-clone-create-on-trigger-deletion-ns
-spec:
-  policyTypes:
-  - Ingress
-  - Egress
