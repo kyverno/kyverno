@@ -14,9 +14,9 @@ require (
 	github.com/cyphar/filepath-securejoin v0.2.4
 	github.com/dgraph-io/ristretto v0.1.1
 	github.com/distribution/reference v0.5.0
-	github.com/evanphx/json-patch/v5 v5.6.0
+	github.com/evanphx/json-patch/v5 v5.7.0
 	github.com/fatih/color v1.16.0
-	github.com/fluxcd/pkg/oci v0.32.0
+	github.com/fluxcd/pkg/oci v0.33.3
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-git/go-billy/v5 v5.5.0
 	github.com/go-git/go-git/v5 v5.11.0
@@ -144,22 +144,22 @@ require (
 	github.com/aliyun/credentials-go v1.3.2 // indirect
 	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230305170008-8188dc5388df // indirect
 	github.com/aptible/supercronic v0.2.28
-	github.com/aws/aws-sdk-go-v2 v1.23.5 // indirect
-	github.com/aws/aws-sdk-go-v2/config v1.25.11 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.16.9 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.14.9 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.2.8 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.5.8 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.7.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ecr v1.23.1 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.24.0 // indirect
+	github.com/aws/aws-sdk-go-v2/config v1.26.1 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.16.12 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.14.10 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.2.9 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.5.9 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.7.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ecr v1.24.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ecrpublic v1.20.3 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.10.3 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.10.8 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.10.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.10.9 // indirect
 	github.com/aws/aws-sdk-go-v2/service/kms v1.27.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.18.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.21.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.26.2 // indirect
-	github.com/aws/smithy-go v1.18.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.18.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.21.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.26.5 // indirect
+	github.com/aws/smithy-go v1.19.0 // indirect
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20231121224113-b6714ac5eb13 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
@@ -194,7 +194,7 @@ require (
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/emicklei/proto v1.12.1 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
-	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
+	github.com/evanphx/json-patch v5.7.0+incompatible // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/frankban/quicktest v1.14.5 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
@@ -400,7 +400,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	inet.af/netaddr v0.0.0-20230525184311-b8eac61e914a // indirect
 	k8s.io/component-base v0.29.0-alpha.3 // indirect
-	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00
+	k8s.io/kube-openapi v0.0.0-20231113174909-778a5567bc1e
 	k8s.io/kubectl v0.28.4 // indirect
 	oras.land/oras-go/v2 v2.3.1 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.28.1 // indirect
