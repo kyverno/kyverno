@@ -92,7 +92,6 @@ func GetImageInfo(image string, cfg config.Configuration) (*ImageInfo, error) {
 
 	imageInfo.Reference = imageInfo.String()
 	return imageInfo, nil
-
 }
 
 // addDefaultRegistry always adds default registry
