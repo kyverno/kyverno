@@ -48,6 +48,10 @@ type AdmissionReportSpec struct {
 // +kubebuilder:printcolumn:name="GVR",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.gvr']",priority=1
 // +kubebuilder:printcolumn:name="REF",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.name']",priority=1
 // +kubebuilder:printcolumn:name="AGGREGATE",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/report\\.aggregate']",priority=1
+// +kubebuilder:printcolumn:name="OWNER API VERSION",type=string,JSONPath=".metadata.ownerReferences[*].apiVersion"
+// +kubebuilder:printcolumn:name="OWNER KIND",type=string,JSONPath=".metadata.ownerReferences[*].kind"
+// +kubebuilder:printcolumn:name="OWNER NAME",type=string,JSONPath=".metadata.ownerReferences[*].name"
+// +kubebuilder:printcolumn:name="OWNER UID",type=string,JSONPath=".metadata.ownerReferences[*].uid"
 
 // AdmissionReport is the Schema for the AdmissionReports API
 type AdmissionReport struct {
@@ -83,6 +87,10 @@ func (r *AdmissionReport) SetSummary(summary policyreportv1alpha2.PolicyReportSu
 // +kubebuilder:printcolumn:name="GVR",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.gvr']",priority=1
 // +kubebuilder:printcolumn:name="REF",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.name']",priority=1
 // +kubebuilder:printcolumn:name="AGGREGATE",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/report\\.aggregate']",priority=1
+// +kubebuilder:printcolumn:name="OWNER API VERSION",type=string,JSONPath=".metadata.ownerReferences[*].apiVersion"
+// +kubebuilder:printcolumn:name="OWNER KIND",type=string,JSONPath=".metadata.ownerReferences[*].kind"
+// +kubebuilder:printcolumn:name="OWNER NAME",type=string,JSONPath=".metadata.ownerReferences[*].name"
+// +kubebuilder:printcolumn:name="OWNER UID",type=string,JSONPath=".metadata.ownerReferences[*].uid"
 
 // ClusterAdmissionReport is the Schema for the ClusterAdmissionReports API
 type ClusterAdmissionReport struct {

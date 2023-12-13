@@ -34,6 +34,10 @@ import (
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Schedule",type=string,JSONPath=".spec.schedule"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Owner API Version",type=string,JSONPath=".metadata.ownerReferences[*].apiVersion"
+// +kubebuilder:printcolumn:name="Owner Kind",type=string,JSONPath=".metadata.ownerReferences[*].kind"
+// +kubebuilder:printcolumn:name="Owner Name",type=string,JSONPath=".metadata.ownerReferences[*].name"
+// +kubebuilder:printcolumn:name="Owner UID",type=string,JSONPath=".metadata.ownerReferences[*].uid"
 // +kubebuilder:deprecatedversion
 
 // CleanupPolicy defines a rule for resource cleanup.
@@ -106,6 +110,10 @@ type CleanupPolicyList kyvernov2beta1.CleanupPolicyList
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Schedule",type=string,JSONPath=".spec.schedule"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Owner API Version",type=string,JSONPath=".metadata.ownerReferences[*].apiVersion"
+// +kubebuilder:printcolumn:name="Owner Kind",type=string,JSONPath=".metadata.ownerReferences[*].kind"
+// +kubebuilder:printcolumn:name="Owner Name",type=string,JSONPath=".metadata.ownerReferences[*].name"
+// +kubebuilder:printcolumn:name="Owner UID",type=string,JSONPath=".metadata.ownerReferences[*].uid"
 // +kubebuilder:deprecatedversion
 
 // ClusterCleanupPolicy defines rule for resource cleanup.

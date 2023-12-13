@@ -36,6 +36,10 @@ import (
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Schedule",type=string,JSONPath=".spec.schedule"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Owner API Version",type=string,JSONPath=".metadata.ownerReferences[*].apiVersion"
+// +kubebuilder:printcolumn:name="Owner Kind",type=string,JSONPath=".metadata.ownerReferences[*].kind"
+// +kubebuilder:printcolumn:name="Owner Name",type=string,JSONPath=".metadata.ownerReferences[*].name"
+// +kubebuilder:printcolumn:name="Owner UID",type=string,JSONPath=".metadata.ownerReferences[*].uid"
 
 // CleanupPolicy defines a rule for resource cleanup.
 type CleanupPolicy struct {
@@ -122,6 +126,10 @@ type CleanupPolicyList struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Schedule",type=string,JSONPath=".spec.schedule"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Owner API Version",type=string,JSONPath=".metadata.ownerReferences[*].apiVersion"
+// +kubebuilder:printcolumn:name="Owner Kind",type=string,JSONPath=".metadata.ownerReferences[*].kind"
+// +kubebuilder:printcolumn:name="Owner Name",type=string,JSONPath=".metadata.ownerReferences[*].name"
+// +kubebuilder:printcolumn:name="Owner UID",type=string,JSONPath=".metadata.ownerReferences[*].uid"
 
 // ClusterCleanupPolicy defines rule for resource cleanup.
 type ClusterCleanupPolicy struct {

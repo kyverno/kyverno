@@ -35,6 +35,10 @@ import (
 // +kubebuilder:printcolumn:name="Error",type=integer,JSONPath=`.summary.error`
 // +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=`.summary.skip`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Owner API Version",type=string,JSONPath=".metadata.ownerReferences[*].apiVersion"
+// +kubebuilder:printcolumn:name="Owner Kind",type=string,JSONPath=".metadata.ownerReferences[*].kind"
+// +kubebuilder:printcolumn:name="Owner Name",type=string,JSONPath=".metadata.ownerReferences[*].name"
+// +kubebuilder:printcolumn:name="Owner UID",type=string,JSONPath=".metadata.ownerReferences[*].uid"
 
 // ClusterPolicyReport is the Schema for the clusterpolicyreports API
 type ClusterPolicyReport struct {

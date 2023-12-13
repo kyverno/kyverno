@@ -46,6 +46,10 @@ type BackgroundScanReportSpec struct {
 // +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=".spec.summary.skip"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="Hash",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.hash']",priority=1
+// +kubebuilder:printcolumn:name="Owner API Version",type=string,JSONPath=".metadata.ownerReferences[*].apiVersion"
+// +kubebuilder:printcolumn:name="Owner Kind",type=string,JSONPath=".metadata.ownerReferences[*].kind"
+// +kubebuilder:printcolumn:name="Owner Name",type=string,JSONPath=".metadata.ownerReferences[*].name"
+// +kubebuilder:printcolumn:name="Owner UID",type=string,JSONPath=".metadata.ownerReferences[*].uid"
 
 // BackgroundScanReport is the Schema for the BackgroundScanReports API
 type BackgroundScanReport struct {
@@ -82,6 +86,10 @@ func (r *BackgroundScanReport) SetSummary(summary policyreportv1alpha2.PolicyRep
 // +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=".spec.summary.skip"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="Hash",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.hash']",priority=1
+// +kubebuilder:printcolumn:name="Owner API Version",type=string,JSONPath=".metadata.ownerReferences[*].apiVersion"
+// +kubebuilder:printcolumn:name="Owner Kind",type=string,JSONPath=".metadata.ownerReferences[*].kind"
+// +kubebuilder:printcolumn:name="Owner Name",type=string,JSONPath=".metadata.ownerReferences[*].name"
+// +kubebuilder:printcolumn:name="Owner UID",type=string,JSONPath=".metadata.ownerReferences[*].uid"
 
 // ClusterBackgroundScanReport is the Schema for the ClusterBackgroundScanReports API
 type ClusterBackgroundScanReport struct {

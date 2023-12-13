@@ -53,6 +53,18 @@ spec:
       name: Hash
       priority: 1
       type: string
+    - jsonPath: .metadata.ownerReferences[*].apiVersion
+      name: OwnerApiVersion
+      type: string
+    - jsonPath: .metadata.ownerReferences[*].kind
+      name: OwnerKind
+      type: string
+    - jsonPath: .metadata.ownerReferences[*].name
+      name: OwnerName
+      type: string
+    - jsonPath: .metadata.ownerReferences[*].uid
+      name: OwnerUID
+      type: string
     name: v1alpha2
     schema:
       openAPIV3Schema:
