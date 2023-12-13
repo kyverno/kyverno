@@ -41,16 +41,16 @@ spec:
       name: Age
       type: date
     - jsonPath: .metadata.ownerReferences[*].apiVersion
-      name: OwnerApiVersion
+      name: Owner API Version
       type: string
     - jsonPath: .metadata.ownerReferences[*].kind
-      name: OwnerKind
+      name: Owner Kind
       type: string
     - jsonPath: .metadata.ownerReferences[*].name
-      name: OwnerName
+      name: Owner Name
       type: string
     - jsonPath: .metadata.ownerReferences[*].uid
-      name: OwnerUID
+      name: Owner UID
       type: string
     name: v1beta1
     schema:

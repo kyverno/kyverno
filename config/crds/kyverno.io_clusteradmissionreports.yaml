@@ -52,11 +52,11 @@ spec:
     - jsonPath: .metadata.ownerReferences[*].apiVersion
       name: OWNER API VERSION
       type: string
-    - jsonPath: .metadata.ownerReferences[*].name
-      name: OWNER NAME
-      type: string
     - jsonPath: .metadata.ownerReferences[*].kind
       name: OWNER KIND
+      type: string
+    - jsonPath: .metadata.ownerReferences[*].name
+      name: OWNER NAME
       type: string
     - jsonPath: .metadata.ownerReferences[*].uid
       name: OWNER UID
