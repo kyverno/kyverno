@@ -23,6 +23,12 @@ type ImageInfo struct {
 
 	// Digest is the image digest portion e.g. `sha256:128c6e3534b842a2eec139999b8ce8aa9a2af9907e2b9269550809d18cd832a3`
 	Digest string `json:"digest,omitempty"`
+
+	// Reference is an optional readable reference for the image e.g. `docker.io/nginx`
+	Reference string `json:"reference,omitempty"`
+
+	// ReferenceWithTag is an optional readable reference for the image along with the image tag e.g. `docker.io/nginx:v10`
+	ReferenceWithTag string `json:"referenceWithTag,omitempty"`
 }
 
 func (i *ImageInfo) String() string {
@@ -39,14 +45,6 @@ func (i *ImageInfo) String() string {
 	}
 }
 
-func (i *ImageInfo) ReferenceWithTag() string {
-	if i.Registry != "" {
-		return fmt.Sprintf("%s/%s:%s", i.Registry, i.Path, i.Tag)
-	} else {
-		return fmt.Sprintf("%s:%s", i.Path, i.Tag)
-	}
-}
-
 func GetImageInfo(image string, cfg config.Configuration) (*ImageInfo, error) {
 	// adding the default domain in order to properly parse image info
 	fullImageName := addDefaultRegistry(image, cfg)
@@ -55,7 +53,7 @@ func GetImageInfo(image string, cfg config.Configuration) (*ImageInfo, error) {
 		return nil, fmt.Errorf("bad image: %s, defaultRegistry: %s, enableDefaultRegistryMutation: %t: %w", fullImageName, config.Configuration.GetDefaultRegistry(cfg), config.Configuration.GetEnableDefaultRegistryMutation(cfg), err)
 	}
 
-	var registry, path, name, tag, digest string
+	var registry, path, name, tag, digest, referenceWithTag string
 	if named, ok := ref.(reference.Named); ok {
 		registry = reference.Domain(named)
 		path = reference.Path(named)
@@ -77,13 +75,24 @@ func GetImageInfo(image string, cfg config.Configuration) (*ImageInfo, error) {
 		registry = ""
 	}
 
-	return &ImageInfo{
-		Registry: registry,
-		Name:     name,
-		Path:     path,
-		Tag:      tag,
-		Digest:   digest,
-	}, nil
+	if registry != "" {
+		referenceWithTag = fmt.Sprintf("%s/%s:%s", registry, path, tag)
+	} else {
+		referenceWithTag = fmt.Sprintf("%s:%s", path, tag)
+	}
+
+	imageInfo := &ImageInfo{
+		Registry:         registry,
+		Name:             name,
+		Path:             path,
+		Tag:              tag,
+		Digest:           digest,
+		ReferenceWithTag: referenceWithTag,
+	}
+
+	imageInfo.Reference = imageInfo.String()
+	return imageInfo, nil
+
 }
 
 // addDefaultRegistry always adds default registry
