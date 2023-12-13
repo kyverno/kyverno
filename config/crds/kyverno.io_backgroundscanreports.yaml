@@ -53,6 +53,15 @@ spec:
       name: Hash
       priority: 1
       type: string
+    - jsonPath: .metadata.name
+      name: OwnerName
+      type: string
+    - jsonPath: .kind
+      name: OwnerKind
+      type: string
+    - jsonPath: .apiVersion
+      name: OwnerVersion
+      type: string
     name: v1alpha2
     schema:
       openAPIV3Schema:

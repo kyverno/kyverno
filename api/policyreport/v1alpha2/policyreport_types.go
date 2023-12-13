@@ -30,6 +30,9 @@ import (
 // +kubebuilder:printcolumn:name="Error",type=integer,JSONPath=`.summary.error`
 // +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=`.summary.skip`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Owner Name",type=string,JSONPath=".metadata.name"
+// +kubebuilder:printcolumn:name="Owner Kind",type=string,JSONPath=".kind"
+// +kubebuilder:printcolumn:name="Owner Version",type=string,JSONPath=".apiVersion"
 // +kubebuilder:resource:shortName=polr
 
 // PolicyReport is the Schema for the policyreports API

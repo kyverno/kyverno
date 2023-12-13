@@ -36,6 +36,9 @@ import (
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Schedule",type=string,JSONPath=".spec.schedule"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Owner Name",type=string,JSONPath=".metadata.name"
+// +kubebuilder:printcolumn:name="Owner Kind",type=string,JSONPath=".kind"
+// +kubebuilder:printcolumn:name="Owner Version",type=string,JSONPath=".apiVersion"
 
 // CleanupPolicy defines a rule for resource cleanup.
 type CleanupPolicy struct {
@@ -122,6 +125,9 @@ type CleanupPolicyList struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Schedule",type=string,JSONPath=".spec.schedule"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Owner Name",type=string,JSONPath=".metadata.name"
+// +kubebuilder:printcolumn:name="Owner Kind",type=string,JSONPath=".kind"
+// +kubebuilder:printcolumn:name="Owner Version",type=string,JSONPath=".apiVersion"
 
 // ClusterCleanupPolicy defines rule for resource cleanup.
 type ClusterCleanupPolicy struct {

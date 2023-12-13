@@ -49,6 +49,15 @@ spec:
       name: AGGREGATE
       priority: 1
       type: string
+    - jsonPath: .metadata.name
+      name: OWNER NAME
+      type: string
+    - jsonPath: .kind
+      name: OWNER KIND
+      type: string
+    - jsonPath: .apiVersion
+      name: OWNER VERSION
+      type: string
     name: v1alpha2
     schema:
       openAPIV3Schema:

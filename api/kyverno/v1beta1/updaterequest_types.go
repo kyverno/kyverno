@@ -51,6 +51,9 @@ type UpdateRequestStatus struct {
 // +kubebuilder:printcolumn:name="ResourceNamespace",type="string",JSONPath=".spec.resource.namespace"
 // +kubebuilder:printcolumn:name="status",type="string",JSONPath=".status.state"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Owner Name",type=string,JSONPath=".metadata.name"
+// +kubebuilder:printcolumn:name="Owner Kind",type=string,JSONPath=".kind"
+// +kubebuilder:printcolumn:name="Owner Version",type=string,JSONPath=".apiVersion"
 // +kubebuilder:resource:shortName=ur,categories=kyverno
 
 // UpdateRequest is a request to process mutate and generate rules in background.

@@ -25,6 +25,9 @@ import (
 // +kubebuilder:printcolumn:name="GENERATE",type=integer,JSONPath=`.status.rulecount.generate`,priority=1
 // +kubebuilder:printcolumn:name="VERIFY IMAGES",type=integer,JSONPath=`.status.rulecount.verifyimages`,priority=1
 // +kubebuilder:printcolumn:name="MESSAGE",type=string,JSONPath=`.status.conditions[?(@.type == "Ready")].message`
+// +kubebuilder:printcolumn:name="OWNER NAME",type=string,JSONPath=".metadata.name"
+// +kubebuilder:printcolumn:name="OWNER KIND",type=string,JSONPath=".kind"
+// +kubebuilder:printcolumn:name="OWNER VERSION",type=string,JSONPath=".apiVersion"
 // +kubebuilder:resource:shortName=pol,categories=kyverno
 
 // Policy declares validation, mutation, and generation behaviors for matching resources.
