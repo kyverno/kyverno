@@ -292,7 +292,7 @@ func (ctx *context) AddElement(data interface{}, index, nesting int) error {
 
 func (ctx *context) AddImageInfo(info apiutils.ImageInfo, cfg config.Configuration) error {
 	data := map[string]interface{}{
-		"reference":        info.String(),
+		"reference":        info.Reference,
 		"referenceWithTag": info.ReferenceWithTag,
 		"registry":         info.Registry,
 		"path":             info.Path,
