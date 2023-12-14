@@ -123,13 +123,6 @@ type Spec struct {
 	// Defaults to "false" if not specified.
 	// +optional
 	UseServerSideApply bool `json:"useServerSideApply,omitempty" yaml:"useServerSideApply,omitempty"`
-
-	// SkipBackgroundRequests bypasses admission requests that are sent by the background controller.
-	// The default value is set to "true", it must be set to "false" to apply
-	// generate and mutateExisting rules to those requests.
-	// +optional
-	// +kubebuilder:default=true
-	SkipBackgroundRequests bool `json:"skipBackgroundRequests,omitempty" yaml:"skipBackgroundRequests,omitempty"`
 }
 
 func (s *Spec) SetRules(rules []Rule) {

@@ -65,6 +65,13 @@ type Rule struct {
 	// VerifyImages is used to verify image signatures and mutate them to add a digest
 	// +optional
 	VerifyImages []ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
+
+	// SkipBackgroundRequests bypasses admission requests that are sent by the background controller.
+	// The default value is set to "true", it must be set to "false" to apply
+	// generate and mutateExisting rules to those requests.
+	// +optional
+	// +kubebuilder:default=true
+	SkipBackgroundRequests bool `json:"skipBackgroundRequests,omitempty" yaml:"skipBackgroundRequests,omitempty"`
 }
 
 // HasMutate checks for mutate rule
