@@ -17,9 +17,6 @@ import (
 
 // handleBackgroundApplies applies generate and mutateExisting policies, and creates update requests for background reconcile
 func (h *resourceHandlers) handleBackgroundApplies(ctx context.Context, logger logr.Logger, request admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, generatePolicies, mutatePolicies []kyvernov1.PolicyInterface, ts time.Time) {
-	// if h.backgroundServiceAccountName == policyContext.AdmissionInfo().AdmissionUserInfo.Username {
-	// 	return
-	// }
 	go h.handleMutateExisting(ctx, logger, request, mutatePolicies, policyContext, ts)
 	h.handleGenerate(ctx, logger, request, generatePolicies, policyContext, ts)
 }
