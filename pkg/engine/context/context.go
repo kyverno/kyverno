@@ -6,13 +6,12 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/kyverno/kyverno/pkg/engine/jsonutils"
-
 	jsoniter "github.com/json-iterator/go"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/engine/jsonutils"
 	"github.com/kyverno/kyverno/pkg/logging"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -402,11 +401,9 @@ func (ctx *context) reset(restore bool) {
 }
 
 func (ctx *context) resetCheckpoint(restore bool) bool {
-
 	if len(ctx.jsonRawCheckpoints) == 0 {
 		return false
 	}
-
 	n := len(ctx.jsonRawCheckpoints) - 1
 	jsonRawCheckpoint := ctx.jsonRawCheckpoints[n]
 	if restore {
@@ -416,7 +413,6 @@ func (ctx *context) resetCheckpoint(restore bool) bool {
 		ctx.jsonRaw = ctx.copyContext(jsonRawCheckpoint)
 		ctx.jsonRawCheckpoints = ctx.jsonRawCheckpoints[:n]
 	}
-
 	return true
 }
 
