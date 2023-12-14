@@ -118,13 +118,20 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 			return nil
 		}
 
-		policy, _ := c.getPolicySpec(*ur)
+		policy, err := c.getPolicySpec(*ur)
+		if err != nil {
+			return err
+		}
+
 		events := event.NewBackgroundFailedEvent(err, policy, ur.Spec.Rule, event.GeneratePolicyController,
 			kyvernov1.ResourceSpec{Kind: trigger.GetKind(), Namespace: trigger.GetNamespace(), Name: trigger.GetName()})
 		c.eventGen.Add(events...)
 	}
 
-	return updateStatus(c.statusControl, *ur, err, genResources)
+	if err = updateStatus(c.statusControl, *ur, err, genResources); err != nil {
+		return err
+	}
+	return err
 }
 
 const doesNotApply = "policy does not apply to resource"
@@ -365,8 +372,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 
 		genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy, ur)
 		if err != nil {
-			log.Error(err, "failed to apply generate rule", "policy", policy.GetName(),
-				"rule", rule.Name, "resource", resource.GetName(), "suggestion", "users need to grant Kyverno's service account additional privileges")
+			log.Error(err, "failed to apply generate rule", "policy", policy.GetName(), "rule", rule.Name, "resource", resource.GetName())
 			return nil, err
 		}
 		ruleNameToProcessingTime[rule.Name] = time.Since(startTime)

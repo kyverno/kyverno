@@ -69,8 +69,8 @@ type Rule struct {
 	// SkipBackgroundRequests bypasses admission requests that are sent by the background controller.
 	// The default value is set to "true", it must be set to "false" to apply
 	// generate and mutateExisting rules to those requests.
-	// +optional
 	// +kubebuilder:default=true
+	// +kubebuilder:validation:Optional
 	SkipBackgroundRequests bool `json:"skipBackgroundRequests,omitempty" yaml:"skipBackgroundRequests,omitempty"`
 }
 
