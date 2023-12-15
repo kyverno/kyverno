@@ -22,6 +22,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -100,9 +101,10 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 	trigger, err := c.getTrigger(ur.Spec)
 	if err != nil {
 		logger.V(3).Info("the trigger resource does not exist or is pending creation, re-queueing", "details", err.Error())
-		if err := common.UpdateRetryAnnotation(c.kyvernoClient, ur); err != nil {
+		if err := updateStatus(c.statusControl, *ur, err, nil); err != nil {
 			return err
 		}
+		return nil
 	}
 
 	if trigger == nil {
@@ -459,6 +461,11 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, t
 			} else {
 				if !rule.Generation.Synchronize {
 					logger.V(4).Info("synchronize disabled, skip syncing changes")
+					continue
+				}
+				if err := validate.MatchPattern(logger, generatedObj.Object, newResource.Object); err == nil {
+					logger.V(4).Info("patterns match, skipping updates")
+					continue
 				}
 				logger.V(4).Info("updating existing resource")
 				if targetMeta.GetAPIVersion() == "" {

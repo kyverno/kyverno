@@ -30,6 +30,11 @@ func UpdateStatus(client versioned.Interface, urLister kyvernov1beta1listers.Upd
 		latest.Status.GeneratedResources = genResources
 	}
 
+	if state == kyvernov1beta1.Failed {
+		if latest, err = retryOrDeleteOnFailure(client, latest, 3); err != nil {
+			return nil, err
+		}
+	}
 	new, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), latest, metav1.UpdateOptions{})
 	if err != nil {
 		return ur, errors.Wrapf(err, "failed to update ur status to %s", string(state))
@@ -82,24 +87,17 @@ func increaseRetryAnnotation(ur *kyvernov1beta1.UpdateRequest) (int, map[string]
 	return retry, urAnnotations, nil
 }
 
-func UpdateRetryAnnotation(kyvernoClient versioned.Interface, ur *kyvernov1beta1.UpdateRequest) error {
-	retry, urAnnotations, err := increaseRetryAnnotation(ur)
-	if err != nil {
-		return err
-	}
-	if retry > 3 {
+func retryOrDeleteOnFailure(kyvernoClient versioned.Interface, ur *kyvernov1beta1.UpdateRequest, limit int) (latest *kyvernov1beta1.UpdateRequest, err error) {
+	if ur.Status.RetryCount > limit {
 		err = kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
 		if err != nil {
-			return errors.Wrapf(err, "exceeds retry limit, failed to delete the UR: %s, retry: %v, resourceVersion: %s", ur.Name, retry, ur.GetResourceVersion())
+			return nil, errors.Wrapf(err, "exceeds retry limit, failed to delete the UR: %s, retry: %v, resourceVersion: %s", ur.Name, ur.Status.RetryCount, ur.GetResourceVersion())
 		}
 	} else {
-		ur.SetAnnotations(urAnnotations)
-		_, err = kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Update(context.TODO(), ur, metav1.UpdateOptions{})
-		if err != nil {
-			return errors.Wrapf(err, "failed to update annotation in update request: %s for the resource, retry: %v, resourceVersion %s, annotations: %v", ur.Name, retry, ur.GetResourceVersion(), urAnnotations)
-		}
+		ur.Status.RetryCount++
 	}
-	return nil
+
+	return ur, nil
 }
 
 func FindDownstream(client dclient.Interface, apiVersion, kind string, labels map[string]string) (*unstructured.UnstructuredList, error) {
