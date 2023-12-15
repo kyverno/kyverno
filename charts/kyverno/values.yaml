@@ -232,6 +232,11 @@ config:
     # Example to disable admission enforcer on AKS:
     # 'admissions.enforcer/disabled': 'true'
 
+  # -- Defines labels to set on webhook configurations.
+  webhookLabels: {}
+    # Example to adopt webhook resources in ArgoCD:
+    # 'argocd.argoproj.io/instance': 'kyverno'
+
   # -- Defines match conditions to set on webhook configurations (requires Kubernetes 1.27+).
   matchConditions: []
 
@@ -414,6 +419,18 @@ policyReportsCleanup:
   # -- Node labels for pod assignment
   nodeSelector: {}
 
+  # -- List of node taints to tolerate
+  tolerations: []
+
+  # -- Pod anti affinity constraints.
+  podAntiAffinity: {}
+
+  # -- Pod affinity constraints.
+  podAffinity: {}
+
+  # -- Node affinity constraints.
+  nodeAffinity: {}
+
   # -- Security context for the hook containers
   securityContext:
     runAsUser: 65534
@@ -588,6 +605,9 @@ cleanupJobs:
       seccompProfile:
         type: RuntimeDefault
 
+    # -- Pod PriorityClassName
+    priorityClassName: ""
+
     # -- Job resources
     resources: {}
 
@@ -658,6 +678,9 @@ cleanupJobs:
           - ALL
       seccompProfile:
         type: RuntimeDefault
+
+    # -- Pod PriorityClassName
+    priorityClassName: ""
 
     # -- Job resources
     resources: {}

@@ -1,0 +1,45 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: pol-data-sync-delete-trigger
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: chainsaw-step-01-apply-1-1.yaml
+    - apply:
+        file: chainsaw-step-01-apply-1-2.yaml
+    - assert:
+        file: chainsaw-step-01-assert-1-1.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: chainsaw-step-02-apply-1-1.yaml
+  - name: step-03
+    try:
+    - sleep:
+        duration: 3s
+  - name: step-04
+    try:
+    - assert:
+        file: chainsaw-step-04-assert-1-1.yaml
+    - assert:
+        file: chainsaw-step-04-assert-1-2.yaml
+  - name: step-05
+    try:
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: ConfigMap
+          name: test-org
+          namespace: pol-data-sync-delete-trigger-ns
+  - name: step-06
+    try:
+    - sleep:
+        duration: 3s
+  - name: step-07
+    try:
+    - error:
+        file: chainsaw-step-07-error-1-1.yaml

@@ -19,7 +19,7 @@ require (
 	github.com/fluxcd/pkg/oci v0.32.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-git/go-billy/v5 v5.5.0
-	github.com/go-git/go-git/v5 v5.10.1
+	github.com/go-git/go-git/v5 v5.11.0
 	github.com/go-logr/logr v1.3.0
 	github.com/go-logr/zapr v1.3.0
 	github.com/google/gnostic-models v0.6.9-0.20230804172637-c7be7c783f49
@@ -43,11 +43,11 @@ require (
 	github.com/sigstore/cosign/v2 v2.2.0
 	github.com/sigstore/k8s-manifest-sigstore v0.5.1
 	github.com/sigstore/rekor v1.3.4
-	github.com/sigstore/sigstore v1.7.5
-	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.7.5
-	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.7.5
-	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.7.5
-	github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.7.5
+	github.com/sigstore/sigstore v1.7.6
+	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.7.6
+	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.7.6
+	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.7.6
+	github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.7.6
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.8.4
 	github.com/zach-klippenstein/goregen v0.0.0-20160303162051-795b5e3961ea
@@ -67,7 +67,7 @@ require (
 	golang.org/x/crypto v0.16.0
 	golang.org/x/text v0.14.0
 	gomodules.xyz/jsonpatch/v2 v2.4.0
-	google.golang.org/grpc v1.59.0
+	google.golang.org/grpc v1.60.0
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
@@ -83,8 +83,8 @@ require (
 	k8s.io/utils v0.0.0-20231121161247-cf03d44ff3cf
 	sigs.k8s.io/controller-runtime v0.16.3
 	sigs.k8s.io/kubectl-validate v0.0.2
-	sigs.k8s.io/kustomize/api v0.15.0
-	sigs.k8s.io/kustomize/kyaml v0.15.0
+	sigs.k8s.io/kustomize/api v0.16.0
+	sigs.k8s.io/kustomize/kyaml v0.16.0
 	sigs.k8s.io/release-utils v0.7.7
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1
 	sigs.k8s.io/yaml v1.4.0
@@ -144,22 +144,22 @@ require (
 	github.com/aliyun/credentials-go v1.3.2 // indirect
 	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230305170008-8188dc5388df // indirect
 	github.com/aptible/supercronic v0.2.28
-	github.com/aws/aws-sdk-go-v2 v1.23.1 // indirect
-	github.com/aws/aws-sdk-go-v2/config v1.25.5 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.16.4 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.14.5 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.2.4 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.5.4 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.23.5 // indirect
+	github.com/aws/aws-sdk-go-v2/config v1.25.11 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.16.9 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.14.9 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.2.8 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.5.8 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.7.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.23.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ecrpublic v1.20.3 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.10.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.10.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/kms v1.26.3 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.17.3 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.20.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.25.4 // indirect
-	github.com/aws/smithy-go v1.17.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.10.3 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.10.8 // indirect
+	github.com/aws/aws-sdk-go-v2/service/kms v1.27.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.18.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.21.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.26.2 // indirect
+	github.com/aws/smithy-go v1.18.1 // indirect
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20231121224113-b6714ac5eb13 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
@@ -264,7 +264,7 @@ require (
 	github.com/jinzhu/copier v0.4.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
-	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/json-iterator/go v1.1.12
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/klauspost/compress v1.17.2 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
@@ -377,7 +377,7 @@ require (
 	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/net v0.19.0 // indirect
-	golang.org/x/oauth2 v0.14.0 // indirect
+	golang.org/x/oauth2 v0.15.0 // indirect
 	golang.org/x/sync v0.5.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
 	golang.org/x/term v0.15.0 // indirect

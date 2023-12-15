@@ -1,0 +1,11 @@
+apiVersion: v1
+data:
+  foo: bar
+kind: ConfigMap
+metadata:
+  annotations:
+    kyverno.io/clusterroles: '["chip","system:basic-user","system:discovery","system:public-info-viewer"]'
+    kyverno.io/created-by: '{"groups":["mygroup","system:authenticated"],"username":"chip"}'
+    kyverno.io/roles: '["qa:chip-special-role"]'
+  name: foo
+  namespace: qa
