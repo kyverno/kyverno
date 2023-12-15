@@ -51,12 +51,12 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 			authCheck := authChecker.NewSelfChecker(client.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews())
 			// check if the controller has the required permissions to generate validating admission policies.
 			if !validatingadmissionpolicy.HasValidatingAdmissionPolicyPermission(authCheck) {
-				return "doesn't have required permissions for generating ValidatingAdmissionPolicies", nil
+				return "insufficent permissions to generate ValidatingAdmissionPolicies", nil
 			}
 
 			// check if the controller has the required permissions to generate validating admission policy bindings.
 			if !validatingadmissionpolicy.HasValidatingAdmissionPolicyBindingPermission(authCheck) {
-				return "doesn't have required permissions for generating ValidatingAdmissionPolicyBindings", nil
+				return "insufficent permissions to generate ValidatingAdmissionPolicyBindings", nil
 			}
 		}
 	}
