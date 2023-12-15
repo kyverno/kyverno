@@ -1,6 +1,8 @@
 package processor
 
 import (
+	"fmt"
+
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy/annotations"
 	"github.com/kyverno/kyverno/pkg/autogen"
@@ -22,13 +24,13 @@ func (rc ResultCounts) Warn() int  { return rc.warn }
 func (rc ResultCounts) Error() int { return rc.err }
 func (rc ResultCounts) Skip() int  { return rc.skip }
 
-func (rc *ResultCounts) addEngineResponses(auditWarn bool, responses ...engineapi.EngineResponse) {
+func (rc *ResultCounts) addEngineResponses(auditWarn bool, policyReport bool, resourcePath string, responses ...engineapi.EngineResponse) {
 	for _, response := range responses {
-		rc.addEngineResponse(auditWarn, response)
+		rc.addEngineResponse(auditWarn, policyReport, resourcePath, response)
 	}
 }
 
-func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.EngineResponse) {
+func (rc *ResultCounts) addEngineResponse(auditWarn bool, policyReport bool, resourcePath string, response engineapi.EngineResponse) {
 	if !response.IsEmpty() {
 		genericPolicy := response.Policy()
 		if polType := genericPolicy.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
@@ -36,7 +38,7 @@ func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.Eng
 		}
 		policy := genericPolicy.GetPolicy().(kyvernov1.PolicyInterface)
 		scored := annotations.Scored(policy.GetAnnotations())
-		for _, rule := range autogen.ComputeRules(policy) {
+		for i, rule := range autogen.ComputeRules(policy) {
 			if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
 				ruleFoundInEngineResponse := false
 				for _, valResponseRule := range response.PolicyResponse.Rules {
@@ -46,15 +48,26 @@ func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.Eng
 						case engineapi.RuleStatusPass:
 							rc.pass++
 						case engineapi.RuleStatusFail:
+							auditWarning := false
 							if !scored {
 								rc.warn++
 								break
 							} else if auditWarn && response.GetValidationFailureAction().Audit() {
+								auditWarning = true
 								rc.warn++
 							} else {
 								rc.fail++
 							}
+							if !policyReport {
+								if auditWarning {
+									fmt.Printf("\npolicy %s -> resource %s failed as audit warning: \n", policy.GetName(), resourcePath)
+								} else {
+									fmt.Printf("\npolicy %s -> resource %s failed: \n", policy.GetName(), resourcePath)
+								}
+								fmt.Printf("%d. %s: %s \n", i+1, valResponseRule.Name(), valResponseRule.Message())
+							}
 						case engineapi.RuleStatusError:
+							fmt.Printf("\npolicy %s -> resource %s error: %s\n", policy.GetName(), resourcePath, valResponseRule.Message())
 							rc.err++
 						case engineapi.RuleStatusWarn:
 							rc.warn++
