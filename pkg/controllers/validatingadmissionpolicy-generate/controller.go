@@ -318,15 +318,15 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 
 	// check if the controller has the required permissions to generate validating admission policies.
 	if !validatingadmissionpolicy.HasValidatingAdmissionPolicyPermission(c.checker) {
-		logger.Info("insufficent permissions to generate ValidatingAdmissionPolicies")
-		c.updateClusterPolicyStatus(ctx, *policy, false, "insufficent permissions to generate ValidatingAdmissionPolicies")
+		logger.Info("insufficient permissions to generate ValidatingAdmissionPolicies")
+		c.updateClusterPolicyStatus(ctx, *policy, false, "insufficient permissions to generate ValidatingAdmissionPolicies")
 		return nil
 	}
 
 	// check if the controller has the required permissions to generate validating admission policy bindings.
 	if !validatingadmissionpolicy.HasValidatingAdmissionPolicyBindingPermission(c.checker) {
-		logger.Info("insufficent permissions to generate ValidatingAdmissionPolicyBindings")
-		c.updateClusterPolicyStatus(ctx, *policy, false, "insufficent permissions to generate ValidatingAdmissionPolicyBindings")
+		logger.Info("insufficient permissions to generate ValidatingAdmissionPolicyBindings")
+		c.updateClusterPolicyStatus(ctx, *policy, false, "insufficient permissions to generate ValidatingAdmissionPolicyBindings")
 		return nil
 	}
 
