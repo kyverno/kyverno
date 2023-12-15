@@ -741,6 +741,10 @@ The chart values are organised per component.
 | policyReportsCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | policyReportsCleanup.podSecurityContext | object | `{}` | Security context for the pod |
 | policyReportsCleanup.nodeSelector | object | `{}` | Node labels for pod assignment |
+| policyReportsCleanup.tolerations | list | `[]` | List of node taints to tolerate |
+| policyReportsCleanup.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
+| policyReportsCleanup.podAffinity | object | `{}` | Pod affinity constraints. |
+| policyReportsCleanup.nodeAffinity | object | `{}` | Node affinity constraints. |
 | policyReportsCleanup.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
 
 ## TLS Configuration

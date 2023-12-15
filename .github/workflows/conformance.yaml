@@ -85,14 +85,14 @@ jobs:
             values:
               - standard
         k8s-version:
-          - name: v1.25
-            version: v1.25.11
           - name: v1.26
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
           - name: v1.28
             version: v1.28.0
+          - name: v1.29
+            version: v1.29.0
         tests:
           - ^autogen$
           - ^background-only$
@@ -249,6 +249,8 @@ jobs:
         k8s-version:
           - name: v1.28
             version: v1.28.0
+          - name: v1.29
+            version: v1.29.0
         tests:
           - generate-validating-admission-policy
     needs: prepare-images
@@ -389,6 +391,8 @@ jobs:
         k8s-version:
           - name: v1.28
             version: v1.28.0
+          - name: v1.29
+            version: v1.29.0
         tests:
           - validating-admission-policy-reports
     needs: prepare-images
@@ -456,14 +460,14 @@ jobs:
               - standard
               - force-failure-policy-ignore
         k8s-version:
-          - name: v1.25
-            version: v1.25.11
           - name: v1.26
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
           - name: v1.28
             version: v1.28.0
+          - name: v1.29
+            version: v1.29.0
         tests:
           - force-failure-policy-ignore
           - rbac
@@ -532,14 +536,14 @@ jobs:
               - standard
               - ttl
         k8s-version:
-          - name: v1.25
-            version: v1.25.11
           - name: v1.26
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
           - name: v1.28
             version: v1.28.0
+          - name: v1.29
+            version: v1.29.0
         tests:
           - ttl
     needs: prepare-images
@@ -607,14 +611,14 @@ jobs:
               - standard
               - custom-sigstore
         k8s-version:
-          - name: v1.25
-            version: v1.25.x
           - name: v1.26
             version: v1.26.x
           - name: v1.27
             version: v1.27.x
           - name: v1.28
             version: v1.28.x
+          - name: v1.29
+            version: v1.29.x
         tests:
           - custom-sigstore
     needs: prepare-images
@@ -701,14 +705,14 @@ jobs:
             values:
               - default
         k8s-version:
-          - name: v1.25
-            version: v1.25.11
           - name: v1.26
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
           - name: v1.28
             version: v1.28.0
+          - name: v1.29
+            version: v1.29.0
         tests:
           - rbac
     needs: prepare-images
@@ -773,14 +777,14 @@ jobs:
             values:
               - standard
         k8s-version:
-          - name: v1.25
-            version: v1.25.11
           - name: v1.26
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
           - name: v1.28
             version: v1.28.0
+          - name: v1.29
+            version: v1.29.0
         tests:
           - ^argo$
           - ^aws$
