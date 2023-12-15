@@ -112,10 +112,11 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 	namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
 	genResources, err = c.applyGenerate(*trigger, *ur, namespaceLabels)
 	if err != nil {
-		// Need not update the status when policy doesn't apply on resource, because all the update requests are removed by the cleanup controller
 		if strings.Contains(err.Error(), doesNotApply) {
-			logger.V(4).Info("skipping updating status of update request")
-			return nil
+			ur.Status.State = kyvernov1beta1.Completed
+			logger.V(4).Info(fmt.Sprintf("%s, updating UR status to Completed", err.Error()))
+			_, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
+			return err
 		}
 
 		policy, err := c.getPolicySpec(*ur)
