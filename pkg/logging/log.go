@@ -50,7 +50,7 @@ func Setup(logFormat string, level int) error {
 	switch logFormat {
 	case TextFormat:
 		config := textlogger.NewConfig(
-			textlogger.Verbosity(2),
+			textlogger.Verbosity(level),
 			textlogger.Output(os.Stdout),
 		)
 		globalLog = textlogger.NewLogger(config)
