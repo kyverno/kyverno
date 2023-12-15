@@ -93,6 +93,8 @@ jobs:
             version: v1.27.3
           - name: v1.28
             version: v1.28.0
+          - name: v1.29
+            version: v1.29.0
         tests:
           - ^autogen$
           - ^background-only$
