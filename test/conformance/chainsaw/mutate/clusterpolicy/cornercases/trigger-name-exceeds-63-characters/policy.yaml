@@ -20,13 +20,11 @@ spec:
                 - UPDATE
       mutate:
         targets:
-          - apiVersion: apps/v1
-            kind: Deployment
+          - apiVersion: v1
+            kind: ConfigMap
             namespace: default
-            name: my-deployment
+            name: cm-1
         patchStrategicMerge:
-          spec:
-            template:
-              metadata:
-                annotations:
-                  example.org/restart-trigger: secret-updated
+          metadata:
+            labels:
+              foo: bar
