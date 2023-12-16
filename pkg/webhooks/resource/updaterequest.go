@@ -8,10 +8,13 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/generation"
+	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
@@ -36,12 +39,20 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 		}
 		logger.V(4).Info("update request for mutateExisting policy")
 
+		// skip rules that don't specify the DELETE operation in case the admission request is of type DELETE
+		var skipped []string
+		for _, rule := range autogen.ComputeRules(policy) {
+			if request.Operation == admissionv1.Delete && !webhookutils.MatchDeleteOperation(rule) {
+				skipped = append(skipped, rule.Name)
+			}
+		}
+
 		var rules []engineapi.RuleResponse
 		policyContext := policyContext.WithPolicy(policy)
 		engineResponse := h.engine.ApplyBackgroundChecks(ctx, policyContext)
 
 		for _, rule := range engineResponse.PolicyResponse.Rules {
-			if rule.Status() == engineapi.RuleStatusPass {
+			if rule.Status() == engineapi.RuleStatusPass && !datautils.SliceContains(skipped, rule.Name()) {
 				rules = append(rules, rule)
 			}
 		}
