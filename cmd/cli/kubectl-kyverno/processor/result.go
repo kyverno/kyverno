@@ -89,7 +89,7 @@ func (rc *ResultCounts) addEngineResponse(auditWarn bool, policyReport bool, res
 	}
 }
 
-func (rc *ResultCounts) addGenerateResponse(auditWarn bool, resPath string, response engineapi.EngineResponse) {
+func (rc *ResultCounts) addGenerateResponse(auditWarn bool, response engineapi.EngineResponse) {
 	genericPolicy := response.Policy()
 	if polType := genericPolicy.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
 		return
