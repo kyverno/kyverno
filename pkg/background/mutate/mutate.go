@@ -166,6 +166,9 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 				err := fmt.Errorf("failed to mutate existing resource, rule %s, response %v: %s", r.Name(), r.Status(), r.Message())
 				logger.Error(err, "")
 				errs = append(errs, err)
+				if err := common.UpdateRetryAnnotation(c.kyvernoClient, ur); err != nil {
+					errs = append(errs, err)
+				}
 				c.report(err, policy, rule.Name, patched)
 
 			case engineapi.RuleStatusSkip:
