@@ -21,5 +21,3 @@ spec:
           restrictedField: "spec.hostNetwork"
           values:
           - "true"
-
-

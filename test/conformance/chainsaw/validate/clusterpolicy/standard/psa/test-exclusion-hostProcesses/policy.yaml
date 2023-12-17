@@ -37,5 +37,3 @@ spec:
           restrictedField: "spec.initContainers[*].securityContext.windowsOptions.hostProcess"
           values:
           - "true"
-
-

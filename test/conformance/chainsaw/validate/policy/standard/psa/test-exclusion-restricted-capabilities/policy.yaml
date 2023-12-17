@@ -29,4 +29,3 @@ spec:
           restrictedField: "spec.initContainers[*].securityContext.capabilities.add"
           values:
           - "baz"
-

@@ -25,4 +25,3 @@ spec:
     securityContext:
       seccompProfile:
         type: Unconfined
-

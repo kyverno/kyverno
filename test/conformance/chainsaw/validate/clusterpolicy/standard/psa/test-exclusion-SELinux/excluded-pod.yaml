@@ -21,4 +21,3 @@ spec:
     securityContext:
       seLinuxOptions:
         type: bar
-

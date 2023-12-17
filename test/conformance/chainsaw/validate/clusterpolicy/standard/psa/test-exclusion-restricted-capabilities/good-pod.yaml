@@ -33,6 +33,3 @@ spec:
       capabilities:
         drop:
         - ALL
-
-
-

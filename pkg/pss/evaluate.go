@@ -69,8 +69,13 @@ func evaluatePSS(level *api.LevelVersion, pod corev1.Pod) (results []pssutils.PS
 	return results
 }
 
-func exemptExclusions(defaultCheckResults, excludeCheckResults []pssutils.PSSCheckResult, exclude kyvernov1.PodSecurityStandard, pod *corev1.Pod, matching *corev1.Pod, isContainerLevelExclusion bool) []pssutils.PSSCheckResult {
+func exemptExclusions(defaultCheckResults, excludeCheckResults []pssutils.PSSCheckResult, exclude kyvernov1.PodSecurityStandard, pod *corev1.Pod, matching *corev1.Pod, isContainerLevelExclusion bool)([]pssutils.PSSCheckResult, error) {
 	defaultCheckResultsMap := make(map[string]pssutils.PSSCheckResult, len(defaultCheckResults))
+
+	if err := exclude.Validate(exclude); err != nil {
+		fmt.Print(err)
+		return nil, err
+	}
 
 	for _, result := range defaultCheckResults {
 		defaultCheckResultsMap[result.ID] = result
@@ -152,7 +157,7 @@ func exemptExclusions(defaultCheckResults, excludeCheckResults []pssutils.PSSChe
 		newDefaultCheckResults = append(newDefaultCheckResults, result)
 	}
 
-	return newDefaultCheckResults
+	return newDefaultCheckResults, nil
 }
 
 func extractBadValues(excludeFieldErr *field.Error) []string {
@@ -171,7 +176,6 @@ func extractBadValues(excludeFieldErr *field.Error) []string {
 		excludeBadValues = append(excludeBadValues, strconv.Itoa(excludeFieldErr.BadValue.(int)))
 	case []string:
 		excludeBadValues = append(excludeBadValues, excludeFieldErr.BadValue.([]string)...)
-	default:
 	}
 
 	return excludeBadValues
@@ -251,17 +255,17 @@ func EvaluatePod(rule *kyvernov1.PodSecurity, pod *corev1.Pod) (bool, []pssutils
 		case spec != nil:
 			isContainerLevelExclusion := false
 			excludeCheckResults := evaluatePSS(levelVersion, *spec)
-			defaultCheckResults = exemptExclusions(defaultCheckResults, excludeCheckResults, exclude, pod, matching, isContainerLevelExclusion)
+			defaultCheckResults, err = exemptExclusions(defaultCheckResults, excludeCheckResults, exclude, pod, matching, isContainerLevelExclusion)
 
 		// exclude container level checks
 		default:
 			isContainerLevelExclusion := true
 			excludeCheckResults := evaluatePSS(levelVersion, *matching)
-			defaultCheckResults = exemptExclusions(defaultCheckResults, excludeCheckResults, exclude, pod, matching, isContainerLevelExclusion)
+			defaultCheckResults, err = exemptExclusions(defaultCheckResults, excludeCheckResults, exclude, pod, matching, isContainerLevelExclusion)
 		}
 	}
 
-	return len(defaultCheckResults) == 0, defaultCheckResults, nil
+	return (len(defaultCheckResults) == 0 && err == nil), defaultCheckResults, err
 }
 
 // GetPodWithMatchingContainers extracts matching container/pod info by the given exclude rule

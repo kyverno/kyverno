@@ -20,4 +20,3 @@ spec:
     securityContext:
       windowsOptions:
         hostProcess: false
-

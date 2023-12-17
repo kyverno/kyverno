@@ -21,5 +21,3 @@ spec:
           restrictedField: "spec.securityContext.sysctls[*].name"
           values:
           - "fake.value"
-
-

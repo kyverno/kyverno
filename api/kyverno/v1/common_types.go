@@ -440,6 +440,15 @@ type PodSecurityStandard struct {
 	Values []string `json:"values,omitempty" yaml:"values,omitempty"`
 }
 
+// Validate checks if the values in the PodSecurityStandard struct are valid.
+func (pss *PodSecurityStandard) Validate(exclude PodSecurityStandard) error {
+	if (exclude.RestrictedField != "" && len(exclude.Values) == 0) || (exclude.RestrictedField == "" && len(exclude.Values) != 0) {
+		return fmt.Errorf("Values[] and RestrictedField must be set together")
+	}
+
+	return nil
+}
+
 // CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
 type CEL struct {
 	// Expressions is a list of CELExpression types.

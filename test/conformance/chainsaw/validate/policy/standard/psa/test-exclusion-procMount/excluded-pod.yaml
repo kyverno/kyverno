@@ -20,4 +20,3 @@ spec:
     - 1d
     securityContext:
       procMount: bar
-

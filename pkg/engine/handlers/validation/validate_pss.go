@@ -37,6 +37,11 @@ func (h validatePssHandler) Process(
 	_ engineapi.EngineContextLoader,
 	exceptions []kyvernov2beta1.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
+	if engineutils.IsDeleteRequest(policyContext) {
+		logger.V(3).Info("skipping PSS validation on deleted resource")
+		return resource, nil
+	}
+
 	// check if there is a policy exception matches the incoming resource
 	exception := engineutils.MatchesException(exceptions, policyContext, logger)
 	if exception != nil {

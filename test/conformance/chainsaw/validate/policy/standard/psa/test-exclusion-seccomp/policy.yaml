@@ -33,4 +33,3 @@ spec:
           restrictedField: "spec.initContainers[*].securityContext.seccompProfile.type"
           values:
           - "Unconfined"
-

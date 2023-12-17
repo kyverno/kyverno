@@ -24,4 +24,3 @@ spec:
       capabilities:
         add:
         - baz
-

@@ -21,5 +21,3 @@ spec:
           restrictedField: "spec.volumes[*].flexVolume"
           values:
           - "driver"
-
-

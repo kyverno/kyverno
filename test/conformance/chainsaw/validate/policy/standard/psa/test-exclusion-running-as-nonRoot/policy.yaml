@@ -27,5 +27,3 @@ spec:
           restrictedField: "spec.containers[*].securityContext.runAsNonRoot"
           values:
           - "false"
-
-

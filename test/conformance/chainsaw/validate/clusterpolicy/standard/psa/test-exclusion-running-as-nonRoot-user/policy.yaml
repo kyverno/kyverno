@@ -27,5 +27,3 @@ spec:
           restrictedField: "spec.containers[*].securityContext.runAsUser"
           values:
           - "0"
-
-

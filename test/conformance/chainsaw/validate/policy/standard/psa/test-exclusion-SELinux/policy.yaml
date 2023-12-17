@@ -29,4 +29,3 @@ spec:
           restrictedField: "spec.initContainers[*].securityContext.seLinuxOptions.type"
           values:
           - "bar"
-
