@@ -14,6 +14,8 @@ spec:
           - dictionary-2
           namespaces:
           - staging-2
+          operations:
+          - DELETE
     mutate:
       patchStrategicMerge:
         metadata:
@@ -25,8 +27,4 @@ spec:
         name: test-secret-2
         namespace: '{{ request.object.metadata.namespace }}'
     name: mutate-secret-on-configmap-delete
-    preconditions:
-      any:
-      - key: '{{ request.operation }}'
-        operator: Equals
-        value: DELETE
+
