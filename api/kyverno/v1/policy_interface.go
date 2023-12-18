@@ -19,5 +19,4 @@ type PolicyInterface interface {
 	GetKind() string
 	CreateDeepCopy() PolicyInterface
 	IsReady() bool
-	ValidateSchema() bool
 }
