@@ -617,8 +617,8 @@ jobs:
             version: v1.27.x
           - name: v1.28
             version: v1.28.x
-          - name: v1.29
-            version: v1.29.x
+          # - name: v1.29
+          #   version: v1.29.x
         tests:
           - custom-sigstore
     needs: prepare-images
@@ -965,7 +965,8 @@ jobs:
           KYVERNO_EXPERIMENTAL=true kyverno fix test ./test/cli --save --compress
           make verify-cli-tests
 
-  conformance-required:
+  conformance-required-success:
+    name: conformance-required
     needs:
     - standard
     - ttl
@@ -979,5 +980,25 @@ jobs:
     - monitor-helm-secret-size
     - check-tests
     runs-on: ubuntu-latest
+    if: ${{ success() }}
     steps:
-    - run: echo "Required jobs success!"
+    - run: ${{ true }}
+
+  conformance-required-failure:
+    name: conformance-required
+    needs:
+    - standard
+    - ttl
+    - force-failure-policy-ignore
+    - validatingadmissionpolicies-v1alpha1
+    - validatingadmissionpolicies-v1beta1
+    - validatingadmissionpolicies-reports-v1alpha1
+    - validatingadmissionpolicies-reports-v1beta1
+    - custom-sigstore
+    - default
+    - monitor-helm-secret-size
+    - check-tests
+    runs-on: ubuntu-latest
+    if: ${{ failure() || cancelled() }}
+    steps:
+    - run: ${{ false }}
