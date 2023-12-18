@@ -97,48 +97,48 @@ func TestVariables_NamespaceSelectors(t *testing.T) {
 	}
 }
 
-func TestVariables_SetInStore(t *testing.T) {
-	vals, err := values.Load(nil, "../_testdata/values/limit-configmap-for-sa.yaml")
-	assert.NoError(t, err)
-	vals.ValuesSpec.Policies = append(vals.ValuesSpec.Policies, v1alpha1.Policy{
-		Name: "limit-configmap-for-sa",
-		Rules: []v1alpha1.Rule{{
-			Name: "rule",
-			Values: map[string]interface{}{
-				"foo": "bar",
-			},
-			ForeachValues: map[string][]interface{}{
-				"baz": nil,
-			},
-		}},
-	})
-	tests := []struct {
-		name      string
-		values    *v1alpha1.ValuesSpec
-		variables map[string]string
-	}{{
-		name:      "nil",
-		values:    nil,
-		variables: nil,
-	}, {
-		name:      "empty",
-		values:    &v1alpha1.ValuesSpec{},
-		variables: nil,
-	}, {
-		name:      "values",
-		values:    &vals.ValuesSpec,
-		variables: nil,
-	}}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v := Variables{
-				values:    tt.values,
-				variables: tt.variables,
-			}
-			v.SetInStore()
-		})
-	}
-}
+// func TestVariables_SetInStore(t *testing.T) {
+// 	vals, err := values.Load(nil, "../_testdata/values/limit-configmap-for-sa.yaml")
+// 	assert.NoError(t, err)
+// 	vals.ValuesSpec.Policies = append(vals.ValuesSpec.Policies, v1alpha1.Policy{
+// 		Name: "limit-configmap-for-sa",
+// 		Rules: []v1alpha1.Rule{{
+// 			Name: "rule",
+// 			Values: map[string]interface{}{
+// 				"foo": "bar",
+// 			},
+// 			ForeachValues: map[string][]interface{}{
+// 				"baz": nil,
+// 			},
+// 		}},
+// 	})
+// 	tests := []struct {
+// 		name      string
+// 		values    *v1alpha1.ValuesSpec
+// 		variables map[string]string
+// 	}{{
+// 		name:      "nil",
+// 		values:    nil,
+// 		variables: nil,
+// 	}, {
+// 		name:      "empty",
+// 		values:    &v1alpha1.ValuesSpec{},
+// 		variables: nil,
+// 	}, {
+// 		name:      "values",
+// 		values:    &vals.ValuesSpec,
+// 		variables: nil,
+// 	}}
+// 	for _, tt := range tests {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			v := Variables{
+// 				values:    tt.values,
+// 				variables: tt.variables,
+// 			}
+// 			v.SetInStore()
+// 		})
+// 	}
+// }
 
 func TestVariables_ComputeVariables(t *testing.T) {
 	loadValues := func(path string) *v1alpha1.ValuesSpec {

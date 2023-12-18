@@ -227,9 +227,9 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	userInfo *v1beta1.RequestInfo,
 	mutateLogPathIsDir bool,
 ) (*processor.ResultCounts, []*unstructured.Unstructured, []engineapi.EngineResponse, error) {
-	if vars != nil {
-		vars.SetInStore()
-	}
+	// if vars != nil {
+	// 	vars.SetInStore()
+	// }
 	// validate policies
 	var validPolicies []kyvernov1.PolicyInterface
 	for _, pol := range policies {
@@ -337,6 +337,7 @@ func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPoli
 }
 
 func (c *ApplyCommandConfig) initStoreAndClusterClient(skipInvalidPolicies SkippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error, dclient.Interface) {
+	var store store.Store
 	store.SetLocal(true)
 	store.SetRegistryAccess(c.RegistryAccess)
 	if c.Cluster {

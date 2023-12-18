@@ -73,9 +73,10 @@ func runTest(out io.Writer, testCase test.TestCase, auditWarn bool) ([]engineapi
 		}
 	}
 	// init store
+	var store store.Store
 	store.SetLocal(true)
 	if vars != nil {
-		vars.SetInStore()
+		vars.SetInStore(&store)
 	}
 	fmt.Fprintln(out, "  Applying", len(policies)+len(validatingAdmissionPolicies), pluralize.Pluralize(len(policies)+len(validatingAdmissionPolicies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
 	// TODO document the code below
@@ -137,6 +138,7 @@ func runTest(out io.Writer, testCase test.TestCase, auditWarn bool) ([]engineapi
 
 	for _, resource := range uniques {
 		processor := processor.PolicyProcessor{
+			Store:                     &store,
 			Policies:                  validPolicies,
 			Resource:                  *resource,
 			MutateLogPath:             "",
