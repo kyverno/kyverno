@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"fmt"
 	"io"
 	stdlog "log"
 	"os"
@@ -56,8 +55,6 @@ func InitFlags(flags *flag.FlagSet) {
 // Setup configures the logger with the supplied log format.
 // It returns an error if the JSON logger could not be initialized or passed logFormat is not recognized.
 func Setup(logFormat string, loggingTimestampFormat string, level int) error {
-
-	fmt.Print("We are setting the logging up..\n")
 
 	var zc zap.Config
 
