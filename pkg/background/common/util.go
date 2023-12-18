@@ -2,8 +2,6 @@ package common
 
 import (
 	"context"
-	"fmt"
-	"strconv"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
