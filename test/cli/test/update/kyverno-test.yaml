@@ -1,0 +1,12 @@
+name: my-user-patches-deployment
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+variables: variables.yaml
+results:
+  - policy: block-update-no-label-change
+    rule: check-label-change
+    resource: deployment
+    kind: Deployment
+    result: pass
