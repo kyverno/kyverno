@@ -40,6 +40,17 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .metadata.ownerReferences[*].apiVersion
+      name: Owner API Version
+      type: string
+    - jsonPath: .metadata.ownerReferences[*].kind
+      name: Owner Kind
+      type: string
+    - jsonPath: .metadata.ownerReferences[*].name
+      name: Owner Name
+      type: string
+    - jsonPath: .metadata.ownerReferences[*].uid
+      name: Owner UID
     name: v1beta1
     schema:
       openAPIV3Schema:

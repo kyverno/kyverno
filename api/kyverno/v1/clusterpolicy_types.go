@@ -26,6 +26,10 @@ import (
 // +kubebuilder:printcolumn:name="GENERATE",type=integer,JSONPath=`.status.rulecount.generate`,priority=1
 // +kubebuilder:printcolumn:name="VERIFY IMAGES",type=integer,JSONPath=`.status.rulecount.verifyimages`,priority=1
 // +kubebuilder:printcolumn:name="MESSAGE",type=string,JSONPath=`.status.conditions[?(@.type == "Ready")].message`
+// +kubebuilder:printcolumn:name="OWNER API VERSION",type=string,JSONPath=".metadata.ownerReferences[*].apiVersion"
+// +kubebuilder:printcolumn:name="OWNER KIND",type=string,JSONPath=".metadata.ownerReferences[*].kind"
+// +kubebuilder:printcolumn:name="OWNER NAME",type=string,JSONPath=".metadata.ownerReferences[*].name"
+// +kubebuilder:printcolumn:name="OWNER UID",type=string,JSONPath=".metadata.ownerReferences[*].uid"
 // +kubebuilder:storageversion
 
 // ClusterPolicy declares validation, mutation, and generation behaviors for matching resources.
