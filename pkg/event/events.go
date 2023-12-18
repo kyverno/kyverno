@@ -53,13 +53,6 @@ func buildPolicyEventMessage(resp engineapi.RuleResponse, resource engineapi.Res
 	return b.String()
 }
 
-func getCleanupPolicyKind(policy kyvernov2alpha1.CleanupPolicyInterface) string {
-	if policy.IsNamespaced() {
-		return "CleanupPolicy"
-	}
-	return "ClusterCleanupPolicy"
-}
-
 func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineResponse) Info {
 	resource := engineResponse.Resource
 	var bldr strings.Builder
@@ -72,24 +65,29 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 		res = fmt.Sprintf("%s %s", resource.GetKind(), resource.GetName())
 	}
 
-	pol := engineResponse.Policy().GetPolicy().(kyvernov1.PolicyInterface)
-	hasValidate := pol.GetSpec().HasValidate()
-	hasVerifyImages := pol.GetSpec().HasVerifyImages()
-	hasMutate := pol.GetSpec().HasMutate()
-
 	var action Action
-	if hasValidate || hasVerifyImages {
+	policy := engineResponse.Policy()
+	if policy.GetType() == engineapi.KyvernoPolicyType {
+		pol := engineResponse.Policy().GetPolicy().(kyvernov1.PolicyInterface)
+		hasValidate := pol.GetSpec().HasValidate()
+		hasVerifyImages := pol.GetSpec().HasVerifyImages()
+		hasMutate := pol.GetSpec().HasMutate()
+		if hasValidate || hasVerifyImages {
+			fmt.Fprintf(&bldr, "%s: pass", res)
+			action = ResourcePassed
+		} else if hasMutate {
+			fmt.Fprintf(&bldr, "%s is successfully mutated", res)
+			action = ResourceMutated
+		}
+	} else {
 		fmt.Fprintf(&bldr, "%s: pass", res)
 		action = ResourcePassed
-	} else if hasMutate {
-		fmt.Fprintf(&bldr, "%s is successfully mutated", res)
-		action = ResourceMutated
 	}
 
 	return Info{
-		Kind:              pol.GetKind(),
-		Name:              pol.GetName(),
-		Namespace:         pol.GetNamespace(),
+		Kind:              policy.GetKind(),
+		Name:              policy.GetName(),
+		Namespace:         policy.GetNamespace(),
 		RelatedAPIVersion: resource.GetAPIVersion(),
 		RelatedKind:       resource.GetKind(),
 		RelatedName:       resource.GetName(),
@@ -226,7 +224,7 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 func NewCleanupPolicyEvent(policy kyvernov2alpha1.CleanupPolicyInterface, resource unstructured.Unstructured, err error) Info {
 	if err == nil {
 		return Info{
-			Kind:              getCleanupPolicyKind(policy),
+			Kind:              policy.GetKind(),
 			Namespace:         policy.GetNamespace(),
 			Name:              policy.GetName(),
 			RelatedAPIVersion: resource.GetAPIVersion(),
@@ -240,7 +238,7 @@ func NewCleanupPolicyEvent(policy kyvernov2alpha1.CleanupPolicyInterface, resour
 		}
 	} else {
 		return Info{
-			Kind:              getCleanupPolicyKind(policy),
+			Kind:              policy.GetKind(),
 			Namespace:         policy.GetNamespace(),
 			Name:              policy.GetName(),
 			RelatedAPIVersion: resource.GetAPIVersion(),
@@ -253,6 +251,34 @@ func NewCleanupPolicyEvent(policy kyvernov2alpha1.CleanupPolicyInterface, resour
 			Message:           fmt.Sprintf("failed to clean up the target resource %v/%v/%v: %v", resource.GetKind(), resource.GetNamespace(), resource.GetName(), err.Error()),
 		}
 	}
+}
+
+func NewValidatingAdmissionPolicyEvent(policy kyvernov1.PolicyInterface, vapName, vapBindingName string) []Info {
+	vapEvent := Info{
+		Kind:              policy.GetKind(),
+		Namespace:         policy.GetNamespace(),
+		Name:              policy.GetName(),
+		RelatedAPIVersion: "admissionregistration.k8s.io/v1alpha1",
+		RelatedKind:       "ValidatingAdmissionPolicy",
+		RelatedName:       vapName,
+		Source:            GeneratePolicyController,
+		Action:            ResourceGenerated,
+		Reason:            PolicyApplied,
+		Message:           fmt.Sprintf("successfully generated validating admission policy %s from policy %s", vapName, policy.GetName()),
+	}
+	vapBindingEvent := Info{
+		Kind:              policy.GetKind(),
+		Namespace:         policy.GetNamespace(),
+		Name:              policy.GetName(),
+		RelatedAPIVersion: "admissionregistration.k8s.io/v1alpha1",
+		RelatedKind:       "ValidatingAdmissionPolicyBinding",
+		RelatedName:       vapBindingName,
+		Source:            GeneratePolicyController,
+		Action:            ResourceGenerated,
+		Reason:            PolicyApplied,
+		Message:           fmt.Sprintf("successfully generated validating admission policy binding %s from policy %s", vapBindingName, policy.GetName()),
+	}
+	return []Info{vapEvent, vapBindingEvent}
 }
 
 func NewFailedEvent(err error, policy, rule string, source Source, resource kyvernov1.ResourceSpec) Info {

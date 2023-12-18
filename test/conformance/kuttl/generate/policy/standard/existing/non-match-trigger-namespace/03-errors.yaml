@@ -1,7 +1,0 @@
-apiVersion: v1
-data:
-  modify: Zm9v
-kind: ConfigMap
-metadata:
-  name: regcred-modify
-  namespace: non-match-trigger-namespace-ns

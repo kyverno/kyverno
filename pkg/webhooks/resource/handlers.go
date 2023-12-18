@@ -17,7 +17,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
@@ -52,10 +51,9 @@ type resourceHandlers struct {
 	cpolLister kyvernov1listers.ClusterPolicyLister
 	polLister  kyvernov1listers.PolicyLister
 
-	urGenerator    webhookgenerate.Generator
-	eventGen       event.Interface
-	openApiManager openapi.ValidateInterface
-	pcBuilder      webhookutils.PolicyContextBuilder
+	urGenerator webhookgenerate.Generator
+	eventGen    event.Interface
+	pcBuilder   webhookutils.PolicyContextBuilder
 
 	admissionReports             bool
 	backgroungServiceAccountName string
@@ -74,7 +72,6 @@ func NewHandlers(
 	polInformer kyvernov1informers.PolicyInformer,
 	urGenerator webhookgenerate.Generator,
 	eventGen event.Interface,
-	openApiManager openapi.ValidateInterface,
 	admissionReports bool,
 	backgroungServiceAccountName string,
 	jp jmespath.Interface,
@@ -92,7 +89,6 @@ func NewHandlers(
 		polLister:                    polInformer.Lister(),
 		urGenerator:                  urGenerator,
 		eventGen:                     eventGen,
-		openApiManager:               openApiManager,
 		pcBuilder:                    webhookutils.NewPolicyContextBuilder(configuration, jp),
 		admissionReports:             admissionReports,
 		backgroungServiceAccountName: backgroungServiceAccountName,
@@ -158,7 +154,7 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.Response(request.UID, err)
 	}
-	mh := mutation.NewMutationHandler(logger, h.engine, h.eventGen, h.openApiManager, h.nsLister, h.metricsConfig)
+	mh := mutation.NewMutationHandler(logger, h.engine, h.eventGen, h.nsLister, h.metricsConfig)
 	mutatePatches, mutateWarnings, err := mh.HandleMutation(ctx, request.AdmissionRequest, mutatePolicies, policyContext, startTime)
 	if err != nil {
 		logger.Error(err, "mutation failed")

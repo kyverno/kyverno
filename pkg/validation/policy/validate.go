@@ -1,7 +1,6 @@
 package policy
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,26 +10,23 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/distribution/distribution/reference"
+	"github.com/distribution/reference"
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/jmoiron/jsonq"
 	"github.com/kyverno/go-jmespath"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/openapi"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -38,7 +34,7 @@ import (
 )
 
 var (
-	allowedVariables                   = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images|images\.|image\.|([a-z_0-9]+\()[^{}]`)
+	allowedVariables                   = enginecontext.ReservedKeys
 	allowedVariablesBackground         = regexp.MustCompile(`request\.|element|elementIndex|@|images|images\.|image\.|([a-z_0-9]+\()[^{}]`)
 	allowedVariablesInTarget           = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
 	allowedVariablesBackgroundInTarget = regexp.MustCompile(`request\.|element|elementIndex|@|images|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
@@ -120,14 +116,11 @@ func checkValidationFailureAction(spec *kyvernov1.Spec) []string {
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager openapi.Manager, username string) ([]string, error) {
+func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, username string) ([]string, error) {
 	var warnings []string
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
 	mutateExistingOnPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
-	if !mock {
-		openapicontroller.NewController(client, openApiManager).CheckSync(context.TODO())
-	}
 
 	warnings = append(warnings, checkValidationFailureAction(spec)...)
 	var errs field.ErrorList
@@ -145,11 +138,14 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		}
 	}
 
-	var res []*metav1.APIResourceList
-	clusterResources := sets.New[string]()
-	if !mock {
+	getClusteredResources := func(invalidate bool) (sets.Set[string], error) {
+		clusterResources := sets.New[string]()
 		// Get all the cluster type kind supported by cluster
-		res, err = discovery.ServerPreferredResources(client.Discovery().CachedDiscoveryInterface())
+		d := client.Discovery().CachedDiscoveryInterface()
+		if invalidate {
+			d.Invalidate()
+		}
+		res, err := discovery.ServerPreferredResources(d)
 		if err != nil {
 			if discovery.IsGroupDiscoveryFailedError(err) {
 				err := err.(*discovery.ErrGroupDiscoveryFailed)
@@ -157,7 +153,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 					logging.Error(err, "failed to list api resources", "group", gv)
 				}
 			} else {
-				return warnings, err
+				return nil, err
 			}
 		}
 		for _, resList := range res {
@@ -168,10 +164,29 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 				}
 			}
 		}
+		return clusterResources, nil
 	}
+	clusterResources := sets.New[string]()
 
-	if errs := policy.Validate(clusterResources); len(errs) != 0 {
-		return warnings, errs.ToAggregate()
+	// if not using a mock, we first try to validate and if it fails we retry with cache invalidation in between
+	if !mock {
+		clusterResources, err = getClusteredResources(false)
+		if err != nil {
+			return warnings, err
+		}
+		if errs := policy.Validate(clusterResources); len(errs) != 0 {
+			clusterResources, err = getClusteredResources(true)
+			if err != nil {
+				return warnings, err
+			}
+			if errs := policy.Validate(clusterResources); len(errs) != 0 {
+				return warnings, errs.ToAggregate()
+			}
+		}
+	} else {
+		if errs := policy.Validate(clusterResources); len(errs) != 0 {
+			return warnings, errs.ToAggregate()
+		}
 	}
 
 	if !policy.IsNamespaced() {
@@ -284,8 +299,13 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			}
 		}
 
-		if err := validateActions(i, &rules[i], client, mock, username); err != nil {
+		msg, err := validateActions(i, &rules[i], client, mock, username)
+		if err != nil {
 			return warnings, err
+		} else {
+			if len(msg) != 0 {
+				warnings = append(warnings, msg)
+			}
 		}
 
 		if rule.HasVerifyImages() {
@@ -362,11 +382,6 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 		if rule.HasVerifyImages() {
 			checkForDeprecatedFieldsInVerifyImages(rule, &warnings)
-		}
-	}
-	if !mock && (spec.SchemaValidation == nil || *spec.SchemaValidation) {
-		if err := openApiManager.ValidatePolicyMutation(policy); err != nil {
-			return warnings, fmt.Errorf("%s (you can bypass schema validation by setting `spec.schemaValidation: false`)", err)
 		}
 	}
 	return warnings, nil

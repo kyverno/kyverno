@@ -9,6 +9,7 @@ import (
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/logging"
 	errors "github.com/pkg/errors"
@@ -51,6 +52,7 @@ func ResourceSpecFromUnstructured(obj unstructured.Unstructured) kyvernov1.Resou
 		Kind:       obj.GetKind(),
 		Namespace:  obj.GetNamespace(),
 		Name:       obj.GetName(),
+		UID:        obj.GetUID(),
 	}
 }
 
@@ -98,4 +100,9 @@ func UpdateRetryAnnotation(kyvernoClient versioned.Interface, ur *kyvernov1beta1
 		}
 	}
 	return nil
+}
+
+func FindDownstream(client dclient.Interface, apiVersion, kind string, labels map[string]string) (*unstructured.UnstructuredList, error) {
+	selector := &metav1.LabelSelector{MatchLabels: labels}
+	return client.ListResource(context.TODO(), apiVersion, kind, "", selector)
 }

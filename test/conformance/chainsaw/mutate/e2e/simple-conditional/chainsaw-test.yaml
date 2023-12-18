@@ -1,0 +1,25 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: simple-conditional
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-ready.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: pod1.yaml
+    - assert:
+        file: pod1-mutated.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: pod2.yaml
+    - assert:
+        file: pod2-mutated.yaml

@@ -6,9 +6,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
-	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 )
 
 // MockContext is used for testing and validation of variables
@@ -62,6 +62,16 @@ func (ctx *MockContext) Query(query string) (interface{}, error) {
 		re:              ctx.re,
 		allowedPatterns: ctx.allowedPatterns,
 	}
+}
+
+func (ctx *MockContext) QueryOperation() string {
+	if op, err := ctx.Query("request.operation"); err != nil {
+		if op != nil {
+			return op.(string)
+		}
+	}
+
+	return ""
 }
 
 func (ctx *MockContext) isVariableDefined(variable string) bool {

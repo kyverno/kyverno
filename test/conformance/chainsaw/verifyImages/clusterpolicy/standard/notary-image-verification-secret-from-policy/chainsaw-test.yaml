@@ -1,0 +1,54 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: notary-image-verification-secret-from-policy
+spec:
+  timeouts:
+    delete: 2m
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: chainsaw-step-01-apply-1.yaml
+    - apply:
+        file: chainsaw-step-01-apply-2.yaml
+    - apply:
+        file: chainsaw-step-01-apply-3.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: chainsaw-step-02-apply-1.yaml
+  - name: step-03
+    try:
+    - script:
+        content: "if kubectl apply -f 06-pod.yaml\nthen \n  echo \"Tested failed.
+          Pod was created when it shouldn't have been.\"\n  exit 1 \nelse \n  echo
+          \"Test succeeded. Pod was not created as intended.\"\n  exit 0\nfi\n"
+  - name: step-04
+    try:
+    - script:
+        content: |
+          kubectl create secret docker-registry regcred --docker-username=kyverno --docker-password=$GITHUB_TOKEN --docker-server=ghcr.io -n kyverno
+  - name: step-05
+    try:
+    - apply:
+        file: chainsaw-step-05-apply-1.yaml
+  - name: step-06
+    try:
+    - apply:
+        file: chainsaw-step-06-apply-1.yaml
+  - name: step-07
+    try:
+    - assert:
+        file: chainsaw-step-07-assert-1.yaml
+  - name: step-08
+    try:
+    - command:
+        args:
+        - delete
+        - secret
+        - regcred
+        - -n
+        - kyverno
+        entrypoint: kubectl

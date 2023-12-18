@@ -28,7 +28,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/openapi"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/spf13/cobra"
@@ -77,7 +76,7 @@ func Command() *cobra.Command {
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			out := cmd.OutOrStdout()
-			color.InitColors(removeColor)
+			color.Init(removeColor)
 			applyCommandConfig.PolicyPaths = args
 			rc, _, skipInvalidPolicies, responses, err := applyCommandConfig.applyCommandHelper(out)
 			if err != nil {
@@ -142,10 +141,6 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("failed to decode yaml (%w)", err)
 	}
-	openApiManager, err := openapi.NewManager(log.Log)
-	if err != nil {
-		return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("failed to initialize openAPIController (%w)", err)
-	}
 	rc, resources1, skipInvalidPolicies, responses1, err, dClient := c.initStoreAndClusterClient(skipInvalidPolicies)
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
@@ -171,7 +166,6 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		variables,
 		policies,
 		resources,
-		openApiManager,
 		&skipInvalidPolicies,
 		dClient,
 		userInfo,
@@ -228,7 +222,6 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	vars *variables.Variables,
 	policies []kyvernov1.PolicyInterface,
 	resources []*unstructured.Unstructured,
-	openApiManager openapi.Manager,
 	skipInvalidPolicies *SkippedInvalidPolicies,
 	dClient dclient.Interface,
 	userInfo *v1beta1.RequestInfo,
@@ -241,7 +234,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	var validPolicies []kyvernov1.PolicyInterface
 	for _, pol := range policies {
 		// TODO we should return this info to the caller
-		_, err := policyvalidation.Validate(pol, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
+		_, err := policyvalidation.Validate(pol, nil, nil, true, config.KyvernoUserName(config.KyvernoServiceAccountName()))
 		if err != nil {
 			log.Log.Error(err, "policy validation error")
 			if strings.HasPrefix(err.Error(), "variable 'element.name'") {
@@ -250,18 +243,6 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 				skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, pol.GetName())
 			}
 			continue
-		}
-		matches, err := policy.ExtractVariables(pol)
-		if err != nil {
-			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
-			continue
-		}
-		if !vars.HasVariables() && variables.NeedsVariables(matches...) {
-			// check policy in variable file
-			if !vars.HasPolicyVariables(pol.GetName()) {
-				fmt.Fprintf(out, "test skipped for policy %v (as required variables are not provided by the users) \n \n", pol.GetName())
-				continue
-			}
 		}
 		validPolicies = append(validPolicies, pol)
 	}

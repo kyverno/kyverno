@@ -5,8 +5,9 @@
 {{- if not (typeIs "string" $tag) -}}
   {{ fail "Image tags must be strings." }}
 {{- end -}}
-{{- if .image.registry -}}
-  {{- print .image.registry "/" (required "An image repository is required" .image.repository) ":" $tag -}}
+{{- $imageRegistry := default .image.registry .globalRegistry -}}
+{{- if $imageRegistry -}}
+  {{- print $imageRegistry "/" (required "An image repository is required" .image.repository) ":" $tag -}}
 {{- else -}}
   {{- print (required "An image repository is required" .image.repository) ":" $tag -}}
 {{- end -}}

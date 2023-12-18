@@ -4,12 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/distribution/distribution/reference"
+	"github.com/distribution/reference"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/logging"
 )
-
-var logger = logging.WithName("image")
 
 type ImageInfo struct {
 	// Registry is the URL address of the image registry e.g. `docker.io`
@@ -51,17 +48,11 @@ func (i *ImageInfo) ReferenceWithTag() string {
 }
 
 func GetImageInfo(image string, cfg config.Configuration) (*ImageInfo, error) {
-	logger.V(3).Info(
-		"getting the image info",
-		"image", image,
-		"defaultRegistry", config.Configuration.GetDefaultRegistry(cfg),
-		"enableDefaultRegistryMutation", config.Configuration.GetEnableDefaultRegistryMutation(cfg),
-	)
 	// adding the default domain in order to properly parse image info
 	fullImageName := addDefaultRegistry(image, cfg)
 	ref, err := reference.Parse(fullImageName)
 	if err != nil {
-		return nil, fmt.Errorf("bad image: %s: %w", fullImageName, err)
+		return nil, fmt.Errorf("bad image: %s, defaultRegistry: %s, enableDefaultRegistryMutation: %t: %w", fullImageName, config.Configuration.GetDefaultRegistry(cfg), config.Configuration.GetEnableDefaultRegistryMutation(cfg), err)
 	}
 
 	var registry, path, name, tag, digest string
@@ -85,16 +76,6 @@ func GetImageInfo(image string, cfg config.Configuration) (*ImageInfo, error) {
 	if fullImageName != image && !config.Configuration.GetEnableDefaultRegistryMutation(cfg) {
 		registry = ""
 	}
-
-	logger.V(3).Info(
-		"getting the image info",
-		"image", image,
-		"registry", registry,
-		"name", name,
-		"path", path,
-		"tag", tag,
-		"digest", digest,
-	)
 
 	return &ImageInfo{
 		Registry: registry,

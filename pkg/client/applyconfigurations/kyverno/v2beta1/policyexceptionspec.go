@@ -21,9 +21,10 @@ package v2beta1
 // PolicyExceptionSpecApplyConfiguration represents an declarative configuration of the PolicyExceptionSpec type for use
 // with apply.
 type PolicyExceptionSpecApplyConfiguration struct {
-	Background *bool                             `json:"background,omitempty"`
-	Match      *MatchResourcesApplyConfiguration `json:"match,omitempty"`
-	Exceptions []ExceptionApplyConfiguration     `json:"exceptions,omitempty"`
+	Background *bool                               `json:"background,omitempty"`
+	Match      *MatchResourcesApplyConfiguration   `json:"match,omitempty"`
+	Conditions *AnyAllConditionsApplyConfiguration `json:"conditions,omitempty"`
+	Exceptions []ExceptionApplyConfiguration       `json:"exceptions,omitempty"`
 }
 
 // PolicyExceptionSpecApplyConfiguration constructs an declarative configuration of the PolicyExceptionSpec type for use with
@@ -45,6 +46,14 @@ func (b *PolicyExceptionSpecApplyConfiguration) WithBackground(value bool) *Poli
 // If called multiple times, the Match field is set to the value of the last call.
 func (b *PolicyExceptionSpecApplyConfiguration) WithMatch(value *MatchResourcesApplyConfiguration) *PolicyExceptionSpecApplyConfiguration {
 	b.Match = value
+	return b
+}
+
+// WithConditions sets the Conditions field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Conditions field is set to the value of the last call.
+func (b *PolicyExceptionSpecApplyConfiguration) WithConditions(value *AnyAllConditionsApplyConfiguration) *PolicyExceptionSpecApplyConfiguration {
+	b.Conditions = value
 	return b
 }
 

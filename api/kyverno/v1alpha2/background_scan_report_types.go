@@ -36,9 +36,9 @@ type BackgroundScanReportSpec struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
 // +kubebuilder:resource:shortName=bgscanr,categories=kyverno
-// +kubebuilder:printcolumn:name="ApiVersion",type=string,JSONPath=".metadata.ownerReferences[0].apiVersion",priority=1
-// +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=".metadata.ownerReferences[0].kind",priority=1
-// +kubebuilder:printcolumn:name="Subject",type=string,JSONPath=".metadata.ownerReferences[0].name",priority=1
+// +kubebuilder:printcolumn:name="ApiVersion",type=string,JSONPath=".metadata.ownerReferences[0].apiVersion"
+// +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=".metadata.ownerReferences[0].kind"
+// +kubebuilder:printcolumn:name="Subject",type=string,JSONPath=".metadata.ownerReferences[0].name"
 // +kubebuilder:printcolumn:name="Pass",type=integer,JSONPath=".spec.summary.pass"
 // +kubebuilder:printcolumn:name="Fail",type=integer,JSONPath=".spec.summary.fail"
 // +kubebuilder:printcolumn:name="Warn",type=integer,JSONPath=".spec.summary.warn"
@@ -72,9 +72,9 @@ func (r *BackgroundScanReport) SetSummary(summary policyreportv1alpha2.PolicyRep
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
 // +kubebuilder:resource:scope=Cluster,shortName=cbgscanr,categories=kyverno
-// +kubebuilder:printcolumn:name="ApiVersion",type=string,JSONPath=".metadata.ownerReferences[0].apiVersion",priority=1
-// +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=".metadata.ownerReferences[0].kind",priority=1
-// +kubebuilder:printcolumn:name="Subject",type=string,JSONPath=".metadata.ownerReferences[0].name",priority=1
+// +kubebuilder:printcolumn:name="ApiVersion",type=string,JSONPath=".metadata.ownerReferences[0].apiVersion"
+// +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=".metadata.ownerReferences[0].kind"
+// +kubebuilder:printcolumn:name="Subject",type=string,JSONPath=".metadata.ownerReferences[0].name"
 // +kubebuilder:printcolumn:name="Pass",type=integer,JSONPath=".spec.summary.pass"
 // +kubebuilder:printcolumn:name="Fail",type=integer,JSONPath=".spec.summary.fail"
 // +kubebuilder:printcolumn:name="Warn",type=integer,JSONPath=".spec.summary.warn"

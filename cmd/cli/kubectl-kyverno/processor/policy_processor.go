@@ -98,6 +98,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	var responses []engineapi.EngineResponse
 	// mutate
 	for _, policy := range p.Policies {
+		if !policyHasMutate(policy) {
+			continue
+		}
 		policyContext, err := p.makePolicyContext(jp, cfg, resource, policy, namespaceLabels, gvk, subresource)
 		if err != nil {
 			return responses, err
@@ -112,6 +115,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	// verify images
 	for _, policy := range p.Policies {
+		if !policyHasVerifyImages(policy) {
+			continue
+		}
 		policyContext, err := p.makePolicyContext(jp, cfg, resource, policy, namespaceLabels, gvk, subresource)
 		if err != nil {
 			return responses, err
@@ -151,6 +157,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	// validate
 	for _, policy := range p.Policies {
+		if !policyHasValidateOrVerifyImageChecks(policy) {
+			continue
+		}
 		policyContext, err := p.makePolicyContext(jp, cfg, resource, policy, namespaceLabels, gvk, subresource)
 		if err != nil {
 			return responses, err
@@ -225,6 +234,13 @@ func (p *PolicyProcessor) makePolicyContext(
 		return nil, fmt.Errorf("failed to create policy context (%w)", err)
 	}
 	if operation == kyvernov1.Update {
+		resource := resource.DeepCopy()
+		policyContext = policyContext.WithOldResource(*resource)
+		if err := policyContext.JSONContext().AddOldResource(resource.Object); err != nil {
+			return nil, fmt.Errorf("failed to update old resource in json context (%w)", err)
+		}
+	}
+	if operation == kyvernov1.Delete {
 		policyContext = policyContext.WithOldResource(resource)
 		if err := policyContext.JSONContext().AddOldResource(resource.Object); err != nil {
 			return nil, fmt.Errorf("failed to update old resource in json context (%w)", err)

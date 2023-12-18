@@ -1,0 +1,34 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: cpol-data-nosync-delete-policy
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-ready.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: resource.yaml
+    - assert:
+        file: resource-generated.yaml
+  - name: step-03
+    try:
+    - delete:
+        ref:
+          apiVersion: kyverno.io/v1
+          kind: ClusterPolicy
+          name: cpol-data-nosync-delete-policy-policy
+  - name: step-04
+    try:
+    - sleep:
+        duration: 3s
+  - name: step-05
+    try:
+    - assert:
+        file: chainsaw-step-05-assert-1-1.yaml

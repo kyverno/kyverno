@@ -7,7 +7,6 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/pluralize"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/path"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
@@ -17,17 +16,17 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
+	"github.com/kyverno/kyverno/ext/output/pluralize"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/openapi"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func runTest(out io.Writer, openApiManager openapi.Manager, testCase test.TestCase, auditWarn bool) ([]engineapi.EngineResponse, error) {
+func runTest(out io.Writer, testCase test.TestCase, auditWarn bool) ([]engineapi.EngineResponse, error) {
 	// don't process test case with errors
 	if testCase.Err != nil {
 		return nil, testCase.Err
@@ -78,7 +77,7 @@ func runTest(out io.Writer, openApiManager openapi.Manager, testCase test.TestCa
 	if vars != nil {
 		vars.SetInStore()
 	}
-	fmt.Fprintln(out, "  Applying", len(policies), pluralize.Pluralize(len(policies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
+	fmt.Fprintln(out, "  Applying", len(policies)+len(validatingAdmissionPolicies), pluralize.Pluralize(len(policies)+len(validatingAdmissionPolicies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
 	// TODO document the code below
 	ruleToCloneSourceResource := map[string]string{}
 	for _, policy := range policies {
@@ -89,21 +88,30 @@ func runTest(out io.Writer, openApiManager openapi.Manager, testCase test.TestCa
 				}
 				if rule.Name == res.Rule {
 					if rule.HasGenerate() {
-						ruleUnstr, err := generate.GetUnstrRule(rule.Generation.DeepCopy())
-						if err != nil {
-							fmt.Fprintf(out, "    Error: failed to get unstructured rule (%s)\n", err)
-							break
-						}
-						genClone, _, err := unstructured.NestedMap(ruleUnstr.Object, "clone")
-						if err != nil {
-							fmt.Fprintf(out, "    Error: failed to read data (%s)\n", err)
-							break
-						}
-						if len(genClone) != 0 {
+						if len(rule.Generation.CloneList.Kinds) != 0 { // cloneList
+							// We cannot cast this to an unstructured object because it doesn't have a kind.
 							if isGit {
 								ruleToCloneSourceResource[rule.Name] = res.CloneSourceResource
 							} else {
 								ruleToCloneSourceResource[rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
+							}
+						} else { // clone or data
+							ruleUnstr, err := generate.GetUnstrRule(rule.Generation.DeepCopy())
+							if err != nil {
+								fmt.Fprintf(out, "    Error: failed to get unstructured rule (%s)\n", err)
+								break
+							}
+							genClone, _, err := unstructured.NestedMap(ruleUnstr.Object, "clone")
+							if err != nil {
+								fmt.Fprintf(out, "    Error: failed to read data (%s)\n", err)
+								break
+							}
+							if len(genClone) != 0 {
+								if isGit {
+									ruleToCloneSourceResource[rule.Name] = res.CloneSourceResource
+								} else {
+									ruleToCloneSourceResource[rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
+								}
 							}
 						}
 					}
@@ -116,22 +124,10 @@ func runTest(out io.Writer, openApiManager openapi.Manager, testCase test.TestCa
 	var validPolicies []kyvernov1.PolicyInterface
 	for _, pol := range policies {
 		// TODO we should return this info to the caller
-		_, err := policyvalidation.Validate(pol, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
+		_, err := policyvalidation.Validate(pol, nil, nil, true, config.KyvernoUserName(config.KyvernoServiceAccountName()))
 		if err != nil {
 			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
 			continue
-		}
-		matches, err := policy.ExtractVariables(pol)
-		if err != nil {
-			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
-			continue
-		}
-		if !vars.HasVariables() && variables.NeedsVariables(matches...) {
-			// check policy in variable file
-			if !vars.HasPolicyVariables(pol.GetName()) {
-				fmt.Fprintln(out, "    test skipped for policy", pol.GetName(), "(as required variables are not provided by the users)")
-				// continue
-			}
 		}
 		validPolicies = append(validPolicies, pol)
 	}

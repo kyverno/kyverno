@@ -8,14 +8,12 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/filter"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/cache"
 )
@@ -32,7 +30,7 @@ func Command() *cobra.Command {
 		Args:         cobra.MinimumNArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, dirPath []string) (err error) {
-			color.InitColors(removeColor)
+			color.Init(removeColor)
 			store.SetRegistryAccess(registryAccess)
 			return testCommandExecute(cmd.OutOrStdout(), dirPath, fileName, gitBranch, testCase, failOnly, detailedResults)
 		},
@@ -74,11 +72,6 @@ func testCommandExecute(
 		for _, e := range errors {
 			fmt.Fprintln(out, "  Error:", e)
 		}
-	}
-	// init openapi manager
-	openApiManager, err := openapi.NewManager(log.Log)
-	if err != nil {
-		return fmt.Errorf("unable to create open api controller, %w", err)
 	}
 	// load tests
 	tests, err := loadTests(dirPath, fileName, gitBranch)
@@ -122,7 +115,7 @@ func testCommandExecute(
 				continue
 			}
 			resourcePath := filepath.Dir(test.Path)
-			responses, err := runTest(out, openApiManager, test, false)
+			responses, err := runTest(out, test, false)
 			if err != nil {
 				return fmt.Errorf("failed to run test (%w)", err)
 			}

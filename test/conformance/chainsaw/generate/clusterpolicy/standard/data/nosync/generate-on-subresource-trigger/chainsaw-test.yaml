@@ -1,0 +1,92 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: generate-on-subresource-trigger
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: policy.yaml
+    - apply:
+        file: namespace.yaml
+    - assert:
+        file: policy-ready.yaml
+    - assert:
+        file: namespace-ready.yaml
+  - name: step-02
+    try:
+    - command:
+        args:
+        - run
+        - nginx
+        - --image=nginx
+        - -n
+        - test-generate-exec
+        entrypoint: kubectl
+    - command:
+        args:
+        - wait
+        - --for=condition=Ready
+        - pod/nginx
+        - -n
+        - test-generate-exec
+        entrypoint: kubectl
+    - command:
+        args:
+        - exec
+        - -n
+        - test-generate-exec
+        - nginx
+        - -it
+        - --
+        - ls
+        entrypoint: kubectl
+  - name: step-03
+    try:
+    - assert:
+        file: chainsaw-step-03-assert-1-1.yaml
+  - name: step-99
+    try:
+    - command:
+        args:
+        - delete
+        - cpol
+        - zk-kafka-address
+        - --force
+        - --wait=true
+        - --ignore-not-found=true
+        entrypoint: kubectl
+        timeout: 30s
+    - command:
+        args:
+        - delete
+        - pod
+        - nginx
+        - -n
+        - test-generate-exec
+        - --wait=true
+        - --ignore-not-found=true
+        entrypoint: kubectl
+        timeout: 30s
+    - command:
+        args:
+        - delete
+        - cm
+        - zk-kafka-address
+        - -n
+        - test-generate-exec
+        - --wait=true
+        - --ignore-not-found=true
+        entrypoint: kubectl
+        timeout: 30s
+    - command:
+        args:
+        - delete
+        - ns
+        - test-generate-exec
+        - --wait=true
+        - --ignore-not-found=true
+        entrypoint: kubectl
+        timeout: 30s

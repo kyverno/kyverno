@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
@@ -22,6 +23,7 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
+	"k8s.io/client-go/tools/cache"
 )
 
 type validateCELHandler struct {
@@ -41,15 +43,32 @@ func (h validateCELHandler) Process(
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
 	_ engineapi.EngineContextLoader,
+	exceptions []kyvernov2beta1.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	if engineutils.IsDeleteRequest(policyContext) {
 		logger.V(3).Info("skipping CEL validation on deleted resource")
 		return resource, nil
 	}
+
+	// check if there is a policy exception matches the incoming resource
+	exception := engineutils.MatchesException(exceptions, policyContext, logger)
+	if exception != nil {
+		key, err := cache.MetaNamespaceKeyFunc(exception)
+		if err != nil {
+			logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
+			return resource, handlers.WithError(rule, engineapi.Validation, "failed to compute exception key", err)
+		} else {
+			logger.V(3).Info("policy rule skipped due to policy exception", "exception", key)
+			return resource, handlers.WithResponses(
+				engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule skipped due to policy exception "+key).WithException(exception),
+			)
+		}
+	}
+
 	// check if a corresponding validating admission policy is generated
 	vapStatus := policyContext.Policy().GetStatus().ValidatingAdmissionPolicy
 	if vapStatus.Generated {
-		logger.V(3).Info("skipping CEL validation due to the generation of its corresponding validating admission policy")
+		logger.V(3).Info("skipping CEL validation due to the generation of its corresponding ValidatingAdmissionPolicy")
 		return resource, nil
 	}
 
@@ -79,6 +98,11 @@ func (h validateCELHandler) Process(
 	// extract CEL expressions used in validations and audit annotations
 	variables := rule.Validation.CEL.Variables
 	validations := rule.Validation.CEL.Expressions
+	for i := range validations {
+		if validations[i].Message == "" {
+			validations[i].Message = rule.Validation.Message
+		}
+	}
 	auditAnnotations := rule.Validation.CEL.AuditAnnotations
 
 	optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: true}

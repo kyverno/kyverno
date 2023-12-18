@@ -35,12 +35,13 @@ func InitMetrics(
 				transportCreds,
 				kubeClient,
 				logger,
+				metricsConfiguration,
 			)
 			if err != nil {
 				return nil, nil, nil, err
 			}
 		} else if otelProvider == "prometheus" {
-			meterProvider, metricsServerMux, err = NewPrometheusConfig(ctx, logger)
+			meterProvider, metricsServerMux, err = NewPrometheusConfig(ctx, logger, metricsConfiguration)
 			if err != nil {
 				return nil, nil, nil, err
 			}

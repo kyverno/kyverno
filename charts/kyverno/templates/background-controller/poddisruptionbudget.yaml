@@ -1,5 +1,5 @@
 {{- if .Values.backgroundController.enabled -}}
-{{- if (gt (int .Values.backgroundController.replicas) 1) -}}
+{{- if or .Values.backgroundController.podDisruptionBudget.enabled (gt (int .Values.backgroundController.replicas) 1) -}}
 apiVersion: {{ template "kyverno.pdb.apiVersion" . }}
 kind: PodDisruptionBudget
 metadata:

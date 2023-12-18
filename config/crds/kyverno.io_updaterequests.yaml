@@ -343,6 +343,9 @@ spec:
                   namespace:
                     description: Namespace specifies resource namespace.
                     type: string
+                  uid:
+                    description: UID specifies the resource uid.
+                    type: string
                 type: object
               rule:
                 description: Rule is the associate rule name of the current UR.
@@ -377,6 +380,9 @@ spec:
                       type: string
                     namespace:
                       description: Namespace specifies resource namespace.
+                      type: string
+                    uid:
+                      description: UID specifies the resource uid.
                       type: string
                   type: object
                 type: array

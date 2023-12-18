@@ -218,9 +218,7 @@ bool
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>SchemaValidation skips validation checks for policies as well as patched resources.
-Optional. The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to disable the validation checks.</p>
+<p>Deprecated.</p>
 </td>
 </tr>
 <tr>
@@ -483,9 +481,7 @@ bool
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>SchemaValidation skips validation checks for policies as well as patched resources.
-Optional. The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to disable the validation checks.</p>
+<p>Deprecated.</p>
 </td>
 </tr>
 <tr>
@@ -792,7 +788,7 @@ string
 </em>
 </td>
 <td>
-<p>Attestors specify the required attestors (i.e. authorities)</p>
+<p>Attestors specify the required attestors (i.e. authorities).</p>
 </td>
 </tr>
 <tr>
@@ -838,7 +834,7 @@ StaticKeyAttestor
 </em>
 </td>
 <td>
-<p>Keys specifies one or more public keys</p>
+<p>Keys specifies one or more public keys.</p>
 </td>
 </tr>
 <tr>
@@ -851,7 +847,7 @@ CertificateAttestor
 </em>
 </td>
 <td>
-<p>Certificates specifies one or more certificates</p>
+<p>Certificates specifies one or more certificates.</p>
 </td>
 </tr>
 <tr>
@@ -878,7 +874,7 @@ Kubernetes apiextensions/v1.JSON
 </em>
 </td>
 <td>
-<p>Attestor is a nested AttestorSet used to specify a more complex set of match authorities</p>
+<p>Attestor is a nested set of Attestor used to specify a more complex set of match authorities.</p>
 </td>
 </tr>
 <tr>
@@ -1109,7 +1105,8 @@ bool
 </em>
 </td>
 <td>
-<p>IgnoreSCT requires that a certificate contain an embedded SCT during verification.</p>
+<p>IgnoreSCT defines whether to use the Signed Certificate Timestamp (SCT) log to check for a certificate
+timestamp. Default is false. Set to true if this was opted out during signing.</p>
 </td>
 </tr>
 <tr>
@@ -1120,7 +1117,7 @@ string
 </em>
 </td>
 <td>
-<p>CTLogPubKey, if set, is used to validate SCTs against those keys.</p>
+<p>PubKey, if set, is used to validate SCTs against a custom source.</p>
 </td>
 </tr>
 </tbody>
@@ -1150,7 +1147,7 @@ string
 </em>
 </td>
 <td>
-<p>Certificate is an optional PEM encoded public certificate.</p>
+<p>Cert is an optional PEM-encoded public certificate.</p>
 </td>
 </tr>
 <tr>
@@ -1161,7 +1158,7 @@ string
 </em>
 </td>
 <td>
-<p>CertificateChain is an optional PEM encoded set of certificates used to verify</p>
+<p>CertChain is an optional PEM encoded set of certificates used to verify.</p>
 </td>
 </tr>
 <tr>
@@ -1188,8 +1185,8 @@ CTLog
 </em>
 </td>
 <td>
-<p>CTLog provides configuration for validation of SCTs.
-If the value is nil, default ctlog public key is used</p>
+<p>CTLog (certificate timestamp log) provides a configuration for validation of Signed Certificate
+Timestamps (SCTs). If the value is unset, the default behavior by Cosign is used.</p>
 </td>
 </tr>
 </tbody>
@@ -1373,7 +1370,7 @@ string
 <a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>, 
 <a href="#kyverno.io/v1.Rule">Rule</a>, 
 <a href="#kyverno.io/v1.TargetResourceSpec">TargetResourceSpec</a>, 
-<a href="#kyverno.io/v2alpha1.CleanupPolicySpec">CleanupPolicySpec</a>, 
+<a href="#kyverno.io/v2beta1.CleanupPolicySpec">CleanupPolicySpec</a>, 
 <a href="#kyverno.io/v2beta1.Rule">Rule</a>)
 </p>
 <p>
@@ -2085,7 +2082,7 @@ bool
 </em>
 </td>
 <td>
-<p>AllowInsecureRegistry allows insecure access to a registry</p>
+<p>AllowInsecureRegistry allows insecure access to a registry.</p>
 </td>
 </tr>
 <tr>
@@ -2098,8 +2095,8 @@ bool
 </em>
 </td>
 <td>
-<p>Providers specifies a list of OCI Registry names, whose authentication providers are provided
-It can be of one of these values: AWS, ACR, GCP, GHCR</p>
+<p>Providers specifies a list of OCI Registry names, whose authentication providers are provided.
+It can be of one of these values: default,google,azure,amazon,github.</p>
 </td>
 </tr>
 <tr>
@@ -2110,8 +2107,8 @@ It can be of one of these values: AWS, ACR, GCP, GHCR</p>
 </em>
 </td>
 <td>
-<p>Secrets specifies a list of secrets that are provided for credentials
-Secrets must live in the Kyverno namespace</p>
+<p>Secrets specifies a list of secrets that are provided for credentials.
+Secrets must live in the Kyverno namespace.</p>
 </td>
 </tr>
 </tbody>
@@ -2335,7 +2332,7 @@ ImageRegistryCredentials
 </em>
 </td>
 <td>
-<p>ImageRegistryCredentials provides credentials that will be used for authentication with registry</p>
+<p>ImageRegistryCredentials provides credentials that will be used for authentication with registry.</p>
 </td>
 </tr>
 <tr>
@@ -2346,7 +2343,7 @@ bool
 </em>
 </td>
 <td>
-<p>UseCache enables caching of image verify responses for this rule</p>
+<p>UseCache enables caching of image verify responses for this rule.</p>
 </td>
 </tr>
 </tbody>
@@ -2402,8 +2399,8 @@ CTLog
 </em>
 </td>
 <td>
-<p>CTLog provides configuration for validation of SCTs.
-If the value is nil, default ctlog public key is used</p>
+<p>CTLog (certificate timestamp log) provides a configuration for validation of Signed Certificate
+Timestamps (SCTs). If the value is unset, the default behavior by Cosign is used.</p>
 </td>
 </tr>
 <tr>
@@ -2425,7 +2422,7 @@ string
 </em>
 </td>
 <td>
-<p>Subject is the verified identity used for keyless signing, for example the email address</p>
+<p>Subject is the verified identity used for keyless signing, for example the email address.</p>
 </td>
 </tr>
 <tr>
@@ -2969,7 +2966,7 @@ string
 </em>
 </td>
 <td>
-<p>URL is the address of the transparency log. Defaults to the public log <a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>.</p>
+<p>URL is the address of the transparency log. Defaults to the public Rekor log instance <a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>.</p>
 </td>
 </tr>
 <tr>
@@ -2980,8 +2977,8 @@ string
 </em>
 </td>
 <td>
-<p>RekorPubKey is an optional PEM encoded public key to use for a custom Rekor.
-If set, is used to validate signatures on log entries from Rekor.</p>
+<p>RekorPubKey is an optional PEM-encoded public key to use for a custom Rekor.
+If set, this will be used to validate transparency log signatures from a custom Rekor.</p>
 </td>
 </tr>
 <tr>
@@ -2992,7 +2989,7 @@ bool
 </em>
 </td>
 <td>
-<p>IgnoreTlog skip tlog verification</p>
+<p>IgnoreTlog skips transparency log verification.</p>
 </td>
 </tr>
 </tbody>
@@ -3295,6 +3292,20 @@ string
 <td>
 <em>(Optional)</em>
 <p>Name specifies the resource name.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>uid</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#uid-types-pkg">
+k8s.io/apimachinery/pkg/types.UID
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>UID specifies the resource uid.</p>
 </td>
 </tr>
 </tbody>
@@ -3766,9 +3777,7 @@ bool
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>SchemaValidation skips validation checks for policies as well as patched resources.
-Optional. The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to disable the validation checks.</p>
+<p>Deprecated.</p>
 </td>
 </tr>
 <tr>
@@ -3882,7 +3891,7 @@ string
 </em>
 </td>
 <td>
-<p>Specify signature algorithm for public keys. Supported values are sha256 and sha512</p>
+<p>Specify signature algorithm for public keys. Supported values are sha256 and sha512.</p>
 </td>
 </tr>
 <tr>
@@ -3934,8 +3943,8 @@ CTLog
 </em>
 </td>
 <td>
-<p>CTLog provides configuration for validation of SCTs.
-If the value is nil, default ctlog public key is used</p>
+<p>CTLog (certificate timestamp log) provides a configuration for validation of Signed Certificate
+Timestamps (SCTs). If the value is unset, the default behavior by Cosign is used.</p>
 </td>
 </tr>
 </tbody>
@@ -5459,7 +5468,7 @@ Refer to the Kubernetes API documentation for the fields of the
 <td>
 <code>spec</code><br/>
 <em>
-<a href="#kyverno.io/v2alpha1.CleanupPolicySpec">
+<a href="#kyverno.io/v2beta1.CleanupPolicySpec">
 CleanupPolicySpec
 </a>
 </em>
@@ -5547,7 +5556,7 @@ AnyAllConditions
 <td>
 <code>status</code><br/>
 <em>
-<a href="#kyverno.io/v2alpha1.CleanupPolicyStatus">
+<a href="#kyverno.io/v2beta1.CleanupPolicyStatus">
 CleanupPolicyStatus
 </a>
 </em>
@@ -5608,7 +5617,7 @@ Refer to the Kubernetes API documentation for the fields of the
 <td>
 <code>spec</code><br/>
 <em>
-<a href="#kyverno.io/v2alpha1.CleanupPolicySpec">
+<a href="#kyverno.io/v2beta1.CleanupPolicySpec">
 CleanupPolicySpec
 </a>
 </em>
@@ -5696,7 +5705,7 @@ AnyAllConditions
 <td>
 <code>status</code><br/>
 <em>
-<a href="#kyverno.io/v2alpha1.CleanupPolicyStatus">
+<a href="#kyverno.io/v2beta1.CleanupPolicyStatus">
 CleanupPolicyStatus
 </a>
 </em>
@@ -5795,6 +5804,21 @@ MatchResources
 </tr>
 <tr>
 <td>
+<code>conditions</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions are used to determine if a resource applies to the exception by evaluating a
+set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>exceptions</code><br/>
 <em>
 <a href="#kyverno.io/v2beta1.Exception">
@@ -5817,16 +5841,24 @@ MatchResources
 <p>
 <p>CleanupPolicyInterface abstracts the concrete policy type (CleanupPolicy vs ClusterCleanupPolicy)</p>
 </p>
-<h3 id="kyverno.io/v2alpha1.CleanupPolicySpec">CleanupPolicySpec
+<h2 id="kyverno.io/v2beta1">kyverno.io/v2beta1</h2>
+Resource Types:
+<ul><li>
+<a href="#kyverno.io/v2beta1.CleanupPolicy">CleanupPolicy</a>
+</li><li>
+<a href="#kyverno.io/v2beta1.ClusterCleanupPolicy">ClusterCleanupPolicy</a>
+</li><li>
+<a href="#kyverno.io/v2beta1.ClusterPolicy">ClusterPolicy</a>
+</li><li>
+<a href="#kyverno.io/v2beta1.Policy">Policy</a>
+</li><li>
+<a href="#kyverno.io/v2beta1.PolicyException">PolicyException</a>
+</li></ul>
+<hr />
+<h3 id="kyverno.io/v2beta1.CleanupPolicy">CleanupPolicy
 </h3>
 <p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v2alpha1.CleanupPolicy">CleanupPolicy</a>, 
-<a href="#kyverno.io/v2alpha1.ClusterCleanupPolicy">ClusterCleanupPolicy</a>)
-</p>
-<p>
-<p>CleanupPolicySpec stores specifications for selecting resources that the user needs to delete
-and schedule when the matching resources needs deleted.</p>
+<p>CleanupPolicy defines a rule for resource cleanup.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -5836,6 +5868,51 @@ and schedule when the matching resources needs deleted.</p>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2beta1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>CleanupPolicy</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.CleanupPolicySpec">
+CleanupPolicySpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec declares policy behaviors.</p>
+<br/>
+<br/>
+<table class="table table-striped">
 <tr>
 <td>
 <code>context</code><br/>
@@ -5907,18 +5984,30 @@ AnyAllConditions
 <p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
 </td>
 </tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.CleanupPolicyStatus">
+CleanupPolicyStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Status contains policy runtime data.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v2alpha1.CleanupPolicyStatus">CleanupPolicyStatus
+<h3 id="kyverno.io/v2beta1.ClusterCleanupPolicy">ClusterCleanupPolicy
 </h3>
 <p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v2alpha1.CleanupPolicy">CleanupPolicy</a>, 
-<a href="#kyverno.io/v2alpha1.ClusterCleanupPolicy">ClusterCleanupPolicy</a>)
-</p>
-<p>
-<p>CleanupPolicyStatus stores the status of the policy.</p>
+<p>ClusterCleanupPolicy defines rule for resource cleanup.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -5930,40 +6019,139 @@ AnyAllConditions
 <tbody>
 <tr>
 <td>
-<code>conditions</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#condition-v1-meta">
-[]Kubernetes meta/v1.Condition
-</a>
-</em>
-</td>
+<code>apiVersion</code><br/>
+string</td>
 <td>
+<code>
+kyverno.io/v2beta1
+</code>
 </td>
 </tr>
 <tr>
 <td>
-<code>lastExecutionTime</code><br/>
+<code>kind</code><br/>
+string
+</td>
+<td><code>ClusterCleanupPolicy</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#time-v1-meta">
-Kubernetes meta/v1.Time
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
 </td>
 <td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.CleanupPolicySpec">
+CleanupPolicySpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec declares policy behaviors.</p>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>context</code><br/>
+<em>
+<a href="#kyverno.io/v1.ContextEntry">
+[]ContextEntry
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Context defines variables and data sources that can be used during rule execution.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>match</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>MatchResources defines when cleanuppolicy should be applied. The match
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the user name or role.
+At least one kind is required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>exclude</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ExcludeResources defines when cleanuppolicy should not be applied. The exclude
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the name or role.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>schedule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The schedule in Cron format</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.CleanupPolicyStatus">
+CleanupPolicyStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Status contains policy runtime data.</p>
 </td>
 </tr>
 </tbody>
 </table>
-<hr />
-<h2 id="kyverno.io/v2beta1">kyverno.io/v2beta1</h2>
-Resource Types:
-<ul><li>
-<a href="#kyverno.io/v2beta1.ClusterPolicy">ClusterPolicy</a>
-</li><li>
-<a href="#kyverno.io/v2beta1.Policy">Policy</a>
-</li><li>
-<a href="#kyverno.io/v2beta1.PolicyException">PolicyException</a>
-</li></ul>
 <hr />
 <h3 id="kyverno.io/v2beta1.ClusterPolicy">ClusterPolicy
 </h3>
@@ -6137,9 +6325,7 @@ bool
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>SchemaValidation skips validation checks for policies as well as patched resources.
-Optional. The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to disable the validation checks.</p>
+<p>Deprecated.</p>
 </td>
 </tr>
 <tr>
@@ -6401,9 +6587,7 @@ bool
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>SchemaValidation skips validation checks for policies as well as patched resources.
-Optional. The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to disable the validation checks.</p>
+<p>Deprecated.</p>
 </td>
 </tr>
 <tr>
@@ -6578,6 +6762,21 @@ MatchResources
 </tr>
 <tr>
 <td>
+<code>conditions</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions are used to determine if a resource applies to the exception by evaluating a
+set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>exceptions</code><br/>
 <em>
 <a href="#kyverno.io/v2beta1.Exception">
@@ -6599,8 +6798,9 @@ MatchResources
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v2alpha1.CleanupPolicySpec">CleanupPolicySpec</a>, 
+<a href="#kyverno.io/v2beta1.CleanupPolicySpec">CleanupPolicySpec</a>, 
 <a href="#kyverno.io/v2beta1.Deny">Deny</a>, 
+<a href="#kyverno.io/v2beta1.PolicyExceptionSpec">PolicyExceptionSpec</a>, 
 <a href="#kyverno.io/v2beta1.Rule">Rule</a>)
 </p>
 <p>
@@ -6645,6 +6845,148 @@ Here, at least one of the conditions need to pass.</p>
 finer control of when an rule is applied. A condition can reference object data
 using JMESPath notation.
 Here, all of the conditions need to pass.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2beta1.CleanupPolicySpec">CleanupPolicySpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.CleanupPolicy">CleanupPolicy</a>, 
+<a href="#kyverno.io/v2alpha1.ClusterCleanupPolicy">ClusterCleanupPolicy</a>, 
+<a href="#kyverno.io/v2beta1.CleanupPolicy">CleanupPolicy</a>, 
+<a href="#kyverno.io/v2beta1.ClusterCleanupPolicy">ClusterCleanupPolicy</a>)
+</p>
+<p>
+<p>CleanupPolicySpec stores specifications for selecting resources that the user needs to delete
+and schedule when the matching resources needs deleted.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>context</code><br/>
+<em>
+<a href="#kyverno.io/v1.ContextEntry">
+[]ContextEntry
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Context defines variables and data sources that can be used during rule execution.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>match</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>MatchResources defines when cleanuppolicy should be applied. The match
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the user name or role.
+At least one kind is required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>exclude</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ExcludeResources defines when cleanuppolicy should not be applied. The exclude
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the name or role.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>schedule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The schedule in Cron format</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2beta1.CleanupPolicyStatus">CleanupPolicyStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.CleanupPolicy">CleanupPolicy</a>, 
+<a href="#kyverno.io/v2alpha1.ClusterCleanupPolicy">ClusterCleanupPolicy</a>, 
+<a href="#kyverno.io/v2beta1.CleanupPolicy">CleanupPolicy</a>, 
+<a href="#kyverno.io/v2beta1.ClusterCleanupPolicy">ClusterCleanupPolicy</a>)
+</p>
+<p>
+<p>CleanupPolicyStatus stores the status of the policy.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#condition-v1-meta">
+[]Kubernetes meta/v1.Condition
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>lastExecutionTime</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#time-v1-meta">
+Kubernetes meta/v1.Time
+</a>
+</em>
+</td>
+<td>
 </td>
 </tr>
 </tbody>
@@ -6964,7 +7306,7 @@ bool
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v2alpha1.CleanupPolicySpec">CleanupPolicySpec</a>, 
+<a href="#kyverno.io/v2beta1.CleanupPolicySpec">CleanupPolicySpec</a>, 
 <a href="#kyverno.io/v2beta1.PolicyExceptionSpec">PolicyExceptionSpec</a>, 
 <a href="#kyverno.io/v2beta1.Rule">Rule</a>)
 </p>
@@ -7053,6 +7395,21 @@ MatchResources
 </td>
 <td>
 <p>Match defines match clause used to check if a resource applies to the exception</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions are used to determine if a resource applies to the exception by evaluating a
+set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.</p>
 </td>
 </tr>
 <tr>
@@ -7553,9 +7910,7 @@ bool
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>SchemaValidation skips validation checks for policies as well as patched resources.
-Optional. The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to disable the validation checks.</p>
+<p>Deprecated.</p>
 </td>
 </tr>
 <tr>
