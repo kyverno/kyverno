@@ -71,7 +71,6 @@ func (rc *ResultCounts) addEngineResponse(auditWarn bool, policyReport bool, res
 								fmt.Printf("%d. %s: %s \n", i+1, valResponseRule.Name(), valResponseRule.Message())
 							}
 						case engineapi.RuleStatusError:
-							fmt.Printf("\npolicy %s -> resource %s error: %s\n", policy.GetName(), resourcePath, valResponseRule.Message())
 							rc.err++
 						case engineapi.RuleStatusWarn:
 							rc.warn++
