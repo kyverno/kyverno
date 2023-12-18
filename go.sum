@@ -216,8 +216,8 @@ github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230305170008-8188dc5388df/g
 github.com/aokoli/goutils v1.0.1/go.mod h1:SijmP0QR8LtwsmDs8Yii5Z/S4trXFGFC2oO5g9DP+DQ=
 github.com/apache/thrift v0.12.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
 github.com/apache/thrift v0.13.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
-github.com/aptible/supercronic v0.2.28 h1:b3LiHnwyXeAJPdWcEXnuWR6y38Dn2iMAW30rrQagW/g=
-github.com/aptible/supercronic v0.2.28/go.mod h1:84URRjD4iBPig2KhnSB5kWJIk8PTxKwH3VUSTF1xJYg=
+github.com/aptible/supercronic v0.2.29 h1:I+3RoDspAs/ySQO+MQd6genE07csDV/ErhFOtACT5oo=
+github.com/aptible/supercronic v0.2.29/go.mod h1:84URRjD4iBPig2KhnSB5kWJIk8PTxKwH3VUSTF1xJYg=
 github.com/aquilax/truncate v1.0.0 h1:UgIGS8U/aZ4JyOJ2h3xcF5cSQ06+gGBnjxH2RUHJe0U=
 github.com/aquilax/truncate v1.0.0/go.mod h1:BeMESIDMlvlS3bmg4BVvBbbZUNwWtS8uzYPAKXwwhLw=
 github.com/arbovm/levenshtein v0.0.0-20160628152529-48b4e1c0c4d0 h1:jfIu9sQUG6Ig+0+Ap1h4unLjW6YQJpKZVmUzxsD4E/Q=
