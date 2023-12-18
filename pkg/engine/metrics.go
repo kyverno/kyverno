@@ -9,6 +9,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 )
 
 func (e *engine) reportMetrics(
@@ -71,7 +72,7 @@ func (e *engine) reportMetrics(
 					attribute.String("rule_type", string(ruleType)),
 					attribute.String("rule_execution_cause", string(executionCause)),
 				}
-				e.resultCounter.Add(ctx, 1, commonLabels...)
+				e.resultCounter.Add(ctx, 1, metric.WithAttributes(commonLabels...))
 			}
 			if e.durationHistogram != nil {
 				commonLabels := []attribute.KeyValue{
@@ -88,7 +89,7 @@ func (e *engine) reportMetrics(
 					attribute.String("rule_type", string(ruleType)),
 					attribute.String("rule_execution_cause", string(executionCause)),
 				}
-				e.durationHistogram.Record(ctx, rule.Stats().ProcessingTime().Seconds(), commonLabels...)
+				e.durationHistogram.Record(ctx, rule.Stats().ProcessingTime().Seconds(), metric.WithAttributes(commonLabels...))
 			}
 		}
 	}

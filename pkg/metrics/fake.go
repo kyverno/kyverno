@@ -2,7 +2,7 @@ package metrics
 
 import (
 	"github.com/kyverno/kyverno/pkg/config"
-	"go.opentelemetry.io/otel/metric/global"
+	"go.opentelemetry.io/otel"
 	"k8s.io/klog/v2"
 )
 
@@ -11,6 +11,6 @@ func NewFakeMetricsConfig() *MetricsConfig {
 		config: config.NewDefaultMetricsConfiguration(),
 		Log:    klog.NewKlogr(),
 	}
-	_ = mc.initializeMetrics(global.MeterProvider())
+	_ = mc.initializeMetrics(otel.GetMeterProvider())
 	return mc
 }
