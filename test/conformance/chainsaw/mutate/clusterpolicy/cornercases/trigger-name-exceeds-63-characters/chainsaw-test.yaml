@@ -1,0 +1,32 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: trigger-name-exceeds-63-characters
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: secret.yaml
+    - assert:
+        file: secret-assert.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: configmap.yaml
+    - assert:
+        file: configmap-assert.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+  - name: step-04
+    try:
+    - apply:
+        file: update-secret.yaml
+  - name: step-05
+    try:
+    - assert:
+        file: patched-configmap.yaml

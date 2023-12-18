@@ -10873,9 +10873,7 @@ spec:
                   type: object
                 type: array
               schemaValidation:
-                description: SchemaValidation skips validation checks for policies
-                  as well as patched resources. Optional. The default value is set
-                  to "true", it must be set to "false" to disable the validation checks.
+                description: Deprecated.
                 type: boolean
               useServerSideApply:
                 description: UseServerSideApply controls whether to use server-side
@@ -19589,9 +19587,7 @@ spec:
                   type: object
                 type: array
               schemaValidation:
-                description: SchemaValidation skips validation checks for policies
-                  as well as patched resources. Optional. The default value is set
-                  to "true", it must be set to "false" to disable the validation checks.
+                description: Deprecated.
                 type: boolean
               useServerSideApply:
                 description: UseServerSideApply controls whether to use server-side
@@ -28607,9 +28603,7 @@ spec:
                   type: object
                 type: array
               schemaValidation:
-                description: SchemaValidation skips validation checks for policies
-                  as well as patched resources. Optional. The default value is set
-                  to "true", it must be set to "false" to disable the validation checks.
+                description: Deprecated.
                 type: boolean
               useServerSideApply:
                 description: UseServerSideApply controls whether to use server-side
@@ -37325,9 +37319,7 @@ spec:
                   type: object
                 type: array
               schemaValidation:
-                description: SchemaValidation skips validation checks for policies
-                  as well as patched resources. Optional. The default value is set
-                  to "true", it must be set to "false" to disable the validation checks.
+                description: Deprecated.
                 type: boolean
               useServerSideApply:
                 description: UseServerSideApply controls whether to use server-side
