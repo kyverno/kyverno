@@ -43,7 +43,7 @@ func MutateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
 	}
 	isNil := trigger == nil || (reflect.ValueOf(trigger).Kind() == reflect.Ptr && reflect.ValueOf(trigger).IsNil())
 	if !isNil {
-		set[kyvernov1beta1.URMutateTriggerNameLabel] = trigger.GetName()
+		set[kyvernov1beta1.URMutateTriggerNameLabel] = trimByLength(trigger.GetName(), 63)
 		set[kyvernov1beta1.URMutateTriggerNSLabel] = trigger.GetNamespace()
 		set[kyvernov1beta1.URMutateTriggerKindLabel] = trigger.GetKind()
 		if trigger.GetAPIVersion() != "" {
@@ -101,4 +101,11 @@ func TriggerInfo(labels map[string]string, obj unstructured.Unstructured) {
 
 func TagSource(labels map[string]string, obj Object) {
 	labels[GenerateTypeCloneSourceLabel] = ""
+}
+
+func trimByLength(value string, character int) string {
+	if len(value) > character {
+		return value[0:character]
+	}
+	return value
 }

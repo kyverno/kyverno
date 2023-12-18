@@ -85,34 +85,34 @@ jobs:
             values:
               - standard
         k8s-version:
-          - name: v1.25
-            version: v1.25.11
           - name: v1.26
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
           - name: v1.28
             version: v1.28.0
+          - name: v1.29
+            version: v1.29.0
         tests:
-          - autogen
-          - background-only
-          - cleanup
-          - deferred
-          - events
-          - exceptions
-          - filter
-          - generate/clusterpolicy
-          - generate/policy
-          - generate/validation
-          - mutate
-          - policy-validation
-          - rangeoperators
-          - rbac
-          - reports
-          - validate
-          - verify-manifests
-          - verifyImages
-          - webhooks
+          - ^autogen$
+          - ^background-only$
+          - ^cleanup$
+          - ^deferred$
+          - ^events$
+          - ^exceptions$
+          - ^filter$
+          - ^generate$/^clusterpolicy$
+          - ^generate$/^policy$
+          - ^generate$/^validation$
+          - ^mutate$
+          - ^policy-validation$
+          - ^rangeoperators$
+          - ^rbac$
+          - ^reports$
+          - ^validate$
+          - ^verify-manifests$
+          - ^verifyImages$
+          - ^webhooks$
     needs: prepare-images
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
@@ -125,9 +125,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
-        with:
-          release: v0.0.9
+        uses: kyverno/action-install-chainsaw@6ab03ccb2c8309b5f494fcbc78ec3a2d80cfabee # v0.1.0
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -161,7 +159,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+          cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}'
       # debug
       - name: Debug failure
         if: failure()
@@ -196,9 +194,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
-        with:
-          release: v0.0.9
+        uses: kyverno/action-install-chainsaw@6ab03ccb2c8309b5f494fcbc78ec3a2d80cfabee # v0.1.0
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -253,6 +249,8 @@ jobs:
         k8s-version:
           - name: v1.28
             version: v1.28.0
+          - name: v1.29
+            version: v1.29.0
         tests:
           - generate-validating-admission-policy
     needs: prepare-images
@@ -267,9 +265,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
-        with:
-          release: v0.0.9
+        uses: kyverno/action-install-chainsaw@6ab03ccb2c8309b5f494fcbc78ec3a2d80cfabee # v0.1.0
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -340,9 +336,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
-        with:
-          release: v0.0.9
+        uses: kyverno/action-install-chainsaw@6ab03ccb2c8309b5f494fcbc78ec3a2d80cfabee # v0.1.0
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -397,6 +391,8 @@ jobs:
         k8s-version:
           - name: v1.28
             version: v1.28.0
+          - name: v1.29
+            version: v1.29.0
         tests:
           - validating-admission-policy-reports
     needs: prepare-images
@@ -411,9 +407,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
-        with:
-          release: v0.0.9
+        uses: kyverno/action-install-chainsaw@6ab03ccb2c8309b5f494fcbc78ec3a2d80cfabee # v0.1.0
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -466,14 +460,14 @@ jobs:
               - standard
               - force-failure-policy-ignore
         k8s-version:
-          - name: v1.25
-            version: v1.25.11
           - name: v1.26
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
           - name: v1.28
             version: v1.28.0
+          - name: v1.29
+            version: v1.29.0
         tests:
           - force-failure-policy-ignore
           - rbac
@@ -489,9 +483,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
-        with:
-          release: v0.0.9
+        uses: kyverno/action-install-chainsaw@6ab03ccb2c8309b5f494fcbc78ec3a2d80cfabee # v0.1.0
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -544,14 +536,14 @@ jobs:
               - standard
               - ttl
         k8s-version:
-          - name: v1.25
-            version: v1.25.11
           - name: v1.26
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
           - name: v1.28
             version: v1.28.0
+          - name: v1.29
+            version: v1.29.0
         tests:
           - ttl
     needs: prepare-images
@@ -566,9 +558,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
-        with:
-          release: v0.0.9
+        uses: kyverno/action-install-chainsaw@6ab03ccb2c8309b5f494fcbc78ec3a2d80cfabee # v0.1.0
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -621,14 +611,14 @@ jobs:
               - standard
               - custom-sigstore
         k8s-version:
-          - name: v1.25
-            version: v1.25.x
           - name: v1.26
             version: v1.26.x
           - name: v1.27
             version: v1.27.x
           - name: v1.28
             version: v1.28.x
+          # - name: v1.29
+          #   version: v1.29.x
         tests:
           - custom-sigstore
     needs: prepare-images
@@ -645,14 +635,12 @@ jobs:
       - name: Install crane
         uses: imjasonh/setup-crane@00c9e93efa4e1138c9a7a5c594acd6c75a2fbf0c
       - name: Install Cosign
-        uses: sigstore/cosign-installer@1fc5bd396d372bee37d608f955b336615edf79c8
+        uses: sigstore/cosign-installer@9614fae9e5c5eddabb09f90a270fcb487c9f7149
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
-        with:
-          release: v0.0.9
+        uses: kyverno/action-install-chainsaw@6ab03ccb2c8309b5f494fcbc78ec3a2d80cfabee # v0.1.0
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@9e5583eaf47855103a9acd6eaa2b1da85f28e28e
+        uses: sigstore/scaffolding/actions/setup@a6e9b1a7a45f10449bbb677c31ce4c1389edd08b
         with:
           version: 'v0.6.8'
           k8s-version: ${{ matrix.k8s-version.version }}
@@ -717,14 +705,14 @@ jobs:
             values:
               - default
         k8s-version:
-          - name: v1.25
-            version: v1.25.11
           - name: v1.26
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
           - name: v1.28
             version: v1.28.0
+          - name: v1.29
+            version: v1.29.0
         tests:
           - rbac
     needs: prepare-images
@@ -739,9 +727,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
-        with:
-          release: v0.0.9
+        uses: kyverno/action-install-chainsaw@6ab03ccb2c8309b5f494fcbc78ec3a2d80cfabee # v0.1.0
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -791,14 +777,14 @@ jobs:
             values:
               - standard
         k8s-version:
-          - name: v1.25
-            version: v1.25.11
           - name: v1.26
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
           - name: v1.28
             version: v1.28.0
+          - name: v1.29
+            version: v1.29.0
         tests:
           - ^argo$
           - ^aws$
@@ -850,9 +836,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
-        with:
-          release: v0.0.9
+        uses: kyverno/action-install-chainsaw@6ab03ccb2c8309b5f494fcbc78ec3a2d80cfabee # v0.1.0
       - name: Download kyverno CLI archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
@@ -981,7 +965,8 @@ jobs:
           KYVERNO_EXPERIMENTAL=true kyverno fix test ./test/cli --save --compress
           make verify-cli-tests
 
-  conformance-required:
+  conformance-required-success:
+    name: conformance-required
     needs:
     - standard
     - ttl
@@ -995,5 +980,25 @@ jobs:
     - monitor-helm-secret-size
     - check-tests
     runs-on: ubuntu-latest
+    if: ${{ success() }}
     steps:
-    - run: echo "Required jobs success!"
+    - run: ${{ true }}
+
+  conformance-required-failure:
+    name: conformance-required
+    needs:
+    - standard
+    - ttl
+    - force-failure-policy-ignore
+    - validatingadmissionpolicies-v1alpha1
+    - validatingadmissionpolicies-v1beta1
+    - validatingadmissionpolicies-reports-v1alpha1
+    - validatingadmissionpolicies-reports-v1beta1
+    - custom-sigstore
+    - default
+    - monitor-helm-secret-size
+    - check-tests
+    runs-on: ubuntu-latest
+    if: ${{ failure() || cancelled() }}
+    steps:
+    - run: ${{ false }}
