@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: deployment
-  namespace: my-user
+  namespace: my-ns
   annotations:
     existing-annotation: existing-value
   labels:
