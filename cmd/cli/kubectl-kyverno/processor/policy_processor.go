@@ -234,7 +234,8 @@ func (p *PolicyProcessor) makePolicyContext(
 		return nil, fmt.Errorf("failed to create policy context (%w)", err)
 	}
 	if operation == kyvernov1.Update {
-		policyContext = policyContext.WithOldResource(resource)
+		resource := resource.DeepCopy()
+		policyContext = policyContext.WithOldResource(*resource)
 		if err := policyContext.JSONContext().AddOldResource(resource.Object); err != nil {
 			return nil, fmt.Errorf("failed to update old resource in json context (%w)", err)
 		}
