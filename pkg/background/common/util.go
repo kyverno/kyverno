@@ -61,32 +61,6 @@ func ResourceSpecFromUnstructured(obj unstructured.Unstructured) kyvernov1.Resou
 	}
 }
 
-func increaseRetryAnnotation(ur *kyvernov1beta1.UpdateRequest) (int, map[string]string, error) {
-	urAnnotations := ur.Annotations
-	if len(urAnnotations) == 0 {
-		urAnnotations = map[string]string{
-			kyvernov1beta1.URGenerateRetryCountAnnotation: "1",
-		}
-	}
-
-	retry := 1
-	val, ok := urAnnotations[kyvernov1beta1.URGenerateRetryCountAnnotation]
-	if !ok {
-		urAnnotations[kyvernov1beta1.URGenerateRetryCountAnnotation] = "1"
-	} else {
-		retryUint, err := strconv.ParseUint(val, 10, 64)
-		if err != nil {
-			return retry, urAnnotations, fmt.Errorf("unable to convert retry-count %v: %w", val, err)
-		}
-		retry = int(retryUint)
-		retry += 1
-		incrementedRetryString := strconv.Itoa(retry)
-		urAnnotations[kyvernov1beta1.URGenerateRetryCountAnnotation] = incrementedRetryString
-	}
-
-	return retry, urAnnotations, nil
-}
-
 func retryOrDeleteOnFailure(kyvernoClient versioned.Interface, ur *kyvernov1beta1.UpdateRequest, limit int) (latest *kyvernov1beta1.UpdateRequest, err error) {
 	if ur.Status.RetryCount > limit {
 		err = kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
