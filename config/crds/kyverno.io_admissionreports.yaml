@@ -39,11 +39,9 @@ spec:
       type: integer
     - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.gvr']
       name: GVR
-      priority: 1
       type: string
     - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.name']
       name: REF
-      priority: 1
       type: string
     - jsonPath: .metadata.labels['audit\.kyverno\.io/report\.aggregate']
       name: AGGREGATE
