@@ -251,11 +251,9 @@ spec:
       type: integer
     - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.gvr']
       name: GVR
-      priority: 1
       type: string
     - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.name']
       name: REF
-      priority: 1
       type: string
     - jsonPath: .metadata.labels['audit\.kyverno\.io/report\.aggregate']
       name: AGGREGATE
@@ -572,15 +570,12 @@ spec:
   - additionalPrinterColumns:
     - jsonPath: .metadata.ownerReferences[0].apiVersion
       name: ApiVersion
-      priority: 1
       type: string
     - jsonPath: .metadata.ownerReferences[0].kind
       name: Kind
-      priority: 1
       type: string
     - jsonPath: .metadata.ownerReferences[0].name
       name: Subject
-      priority: 1
       type: string
     - jsonPath: .spec.summary.pass
       name: Pass
@@ -3407,11 +3402,9 @@ spec:
       type: integer
     - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.gvr']
       name: GVR
-      priority: 1
       type: string
     - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.name']
       name: REF
-      priority: 1
       type: string
     - jsonPath: .metadata.labels['audit\.kyverno\.io/report\.aggregate']
       name: AGGREGATE
@@ -3729,15 +3722,12 @@ spec:
   - additionalPrinterColumns:
     - jsonPath: .metadata.ownerReferences[0].apiVersion
       name: ApiVersion
-      priority: 1
       type: string
     - jsonPath: .metadata.ownerReferences[0].kind
       name: Kind
-      priority: 1
       type: string
     - jsonPath: .metadata.ownerReferences[0].name
       name: Subject
-      priority: 1
       type: string
     - jsonPath: .spec.summary.pass
       name: Pass
@@ -43627,11 +43617,9 @@ spec:
   - additionalPrinterColumns:
     - jsonPath: .scope.kind
       name: Kind
-      priority: 1
       type: string
     - jsonPath: .scope.name
       name: Name
-      priority: 1
       type: string
     - jsonPath: .summary.pass
       name: Pass
@@ -43996,11 +43984,9 @@ spec:
   - additionalPrinterColumns:
     - jsonPath: .scope.kind
       name: Kind
-      priority: 1
       type: string
     - jsonPath: .scope.name
       name: Name
-      priority: 1
       type: string
     - jsonPath: .summary.pass
       name: Pass
