@@ -247,6 +247,14 @@ func CleanupServerPort() string {
 	return cleanupServerPort
 }
 
+func ClientRateLimitQPS() float64 {
+	return clientRateLimitQPS
+}
+
+func ClientRateLimitBurst() int {
+	return clientRateLimitBurst
+}
+
 func printFlagSettings(logger logr.Logger) {
 	logger = logger.WithName("flag")
 	flag.VisitAll(func(f *flag.Flag) {

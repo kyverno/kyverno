@@ -136,6 +136,8 @@ func main() {
 		setup.KyvernoDynamicClient,
 		kyvernoInformer.Kyverno().V2beta1().ClusterCleanupPolicies(),
 		kyvernoInformer.Kyverno().V2beta1().CleanupPolicies(),
+		internal.ClientRateLimitQPS(),
+		internal.ClientRateLimitBurst(),
 		maxQueuedEvents,
 		logging.WithName("EventGenerator"),
 	)

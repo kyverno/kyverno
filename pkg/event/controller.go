@@ -12,6 +12,7 @@ import (
 	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"golang.org/x/time/rate"
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -74,15 +75,33 @@ func NewEventGenerator(
 	client dclient.Interface,
 	cpInformer kyvernov1informers.ClusterPolicyInformer,
 	pInformer kyvernov1informers.PolicyInformer,
+	clientRateLimitQPS float64,
+	clientRateLimitBurst int,
 	maxQueuedEvents int,
 	omitEvents []string,
 	log logr.Logger,
 ) Controller {
 	gen := generator{
-		client:                 client,
-		cpLister:               cpInformer.Lister(),
-		pLister:                pInformer.Lister(),
-		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter(), eventWorkQueueName),
+		client:   client,
+		cpLister: cpInformer.Lister(),
+		pLister:  pInformer.Lister(),
+		queue: workqueue.NewRateLimitingQueueWithConfig(
+			workqueue.NewMaxOfRateLimiter(
+				workqueue.NewItemExponentialFailureRateLimiter(
+					5*time.Millisecond,
+					1000*time.Second,
+				),
+				&workqueue.BucketRateLimiter{
+					Limiter: rate.NewLimiter(
+						rate.Limit(clientRateLimitQPS),
+						clientRateLimitBurst,
+					),
+				},
+			),
+			workqueue.RateLimitingQueueConfig{
+				Name: eventWorkQueueName,
+			},
+		),
 		policyCtrRecorder:      NewRecorder(PolicyController, client.GetEventsInterface()),
 		admissionCtrRecorder:   NewRecorder(AdmissionController, client.GetEventsInterface()),
 		genPolicyRecorder:      NewRecorder(GeneratePolicyController, client.GetEventsInterface()),
@@ -100,6 +119,8 @@ func NewEventCleanupGenerator(
 	client dclient.Interface,
 	clustercleanuppolInformer kyvernov2beta1informers.ClusterCleanupPolicyInformer,
 	cleanuppolInformer kyvernov2beta1informers.CleanupPolicyInformer,
+	clientRateLimitQPS float64,
+	clientRateLimitBurst int,
 	maxQueuedEvents int,
 	log logr.Logger,
 ) Controller {
@@ -107,10 +128,26 @@ func NewEventCleanupGenerator(
 		client:                  client,
 		clustercleanuppolLister: clustercleanuppolInformer.Lister(),
 		cleanuppolLister:        cleanuppolInformer.Lister(),
-		queue:                   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter(), eventWorkQueueName),
-		cleanupPolicyRecorder:   NewRecorder(CleanupController, client.GetEventsInterface()),
-		maxQueuedEvents:         maxQueuedEvents,
-		log:                     log,
+		queue: workqueue.NewRateLimitingQueueWithConfig(
+			workqueue.NewMaxOfRateLimiter(
+				workqueue.NewItemExponentialFailureRateLimiter(
+					5*time.Millisecond,
+					1000*time.Second,
+				),
+				&workqueue.BucketRateLimiter{
+					Limiter: rate.NewLimiter(
+						rate.Limit(clientRateLimitQPS),
+						clientRateLimitBurst,
+					),
+				},
+			),
+			workqueue.RateLimitingQueueConfig{
+				Name: eventWorkQueueName,
+			},
+		),
+		cleanupPolicyRecorder: NewRecorder(CleanupController, client.GetEventsInterface()),
+		maxQueuedEvents:       maxQueuedEvents,
+		log:                   log,
 	}
 	return &gen
 }
@@ -140,7 +177,7 @@ func (gen *generator) Add(infos ...Info) {
 		}
 
 		if shouldEmitEvent {
-			gen.queue.Add(info)
+			gen.queue.AddRateLimited(info)
 			logger.V(6).Info("creating event", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace, "reason", info.Reason)
 		}
 	}
