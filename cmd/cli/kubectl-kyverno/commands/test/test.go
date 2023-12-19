@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func runTest(out io.Writer, testCase test.TestCase, auditWarn bool) ([]engineapi.EngineResponse, error) {
+func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWarn bool) ([]engineapi.EngineResponse, error) {
 	// don't process test case with errors
 	if testCase.Err != nil {
 		return nil, testCase.Err
@@ -73,9 +73,11 @@ func runTest(out io.Writer, testCase test.TestCase, auditWarn bool) ([]engineapi
 		}
 	}
 	// init store
+	var store store.Store
 	store.SetLocal(true)
+	store.SetRegistryAccess(registryAccess)
 	if vars != nil {
-		vars.SetInStore()
+		vars.SetInStore(&store)
 	}
 	fmt.Fprintln(out, "  Applying", len(policies)+len(validatingAdmissionPolicies), pluralize.Pluralize(len(policies)+len(validatingAdmissionPolicies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
 	// TODO document the code below
@@ -137,6 +139,7 @@ func runTest(out io.Writer, testCase test.TestCase, auditWarn bool) ([]engineapi
 
 	for _, resource := range uniques {
 		processor := processor.PolicyProcessor{
+			Store:                     &store,
 			Policies:                  validPolicies,
 			Resource:                  *resource,
 			MutateLogPath:             "",

@@ -11,7 +11,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/filter"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/spf13/cobra"
@@ -31,8 +30,7 @@ func Command() *cobra.Command {
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, dirPath []string) (err error) {
 			color.Init(removeColor)
-			store.SetRegistryAccess(registryAccess)
-			return testCommandExecute(cmd.OutOrStdout(), dirPath, fileName, gitBranch, testCase, failOnly, detailedResults)
+			return testCommandExecute(cmd.OutOrStdout(), dirPath, fileName, gitBranch, testCase, registryAccess, failOnly, detailedResults)
 		},
 	}
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "Test filename")
@@ -57,6 +55,7 @@ func testCommandExecute(
 	fileName string,
 	gitBranch string,
 	testCase string,
+	registryAccess bool,
 	failOnly bool,
 	detailedResults bool,
 ) (err error) {
@@ -115,7 +114,7 @@ func testCommandExecute(
 				continue
 			}
 			resourcePath := filepath.Dir(test.Path)
-			responses, err := runTest(out, test, false)
+			responses, err := runTest(out, test, registryAccess, false)
 			if err != nil {
 				return fmt.Errorf("failed to run test (%w)", err)
 			}
