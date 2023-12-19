@@ -419,6 +419,18 @@ policyReportsCleanup:
   # -- Node labels for pod assignment
   nodeSelector: {}
 
+  # -- List of node taints to tolerate
+  tolerations: []
+
+  # -- Pod anti affinity constraints.
+  podAntiAffinity: {}
+
+  # -- Pod affinity constraints.
+  podAffinity: {}
+
+  # -- Node affinity constraints.
+  nodeAffinity: {}
+
   # -- Security context for the hook containers
   securityContext:
     runAsUser: 65534

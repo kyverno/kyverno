@@ -38,6 +38,8 @@ type UpdateRequestStatus struct {
 	// This will track the resources that are updated by the generate Policy.
 	// Will be used during clean up resources.
 	GeneratedResources []kyvernov1.ResourceSpec `json:"generatedResources,omitempty" yaml:"generatedResources,omitempty"`
+
+	RetryCount int `json:"retryCount,omitempty" yaml:"retryCount,omitempty"`
 }
 
 // +genclient

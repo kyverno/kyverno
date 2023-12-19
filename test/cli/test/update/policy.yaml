@@ -1,0 +1,27 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: block-update-no-label-change
+spec:
+  validationFailureAction: Audit
+  background: false
+  rules:
+    - name: check-label-change
+      match:
+        all:
+          - resources:
+              kinds:
+                - Deployment
+      preconditions:
+        all:
+          - key: "{{ request.operation || '' }}"
+            operator: Equals
+            value: UPDATE
+      validate:
+        message: Pass only if labels are different
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.metadata.labels || `{}` }}"
+                operator: Equals
+                value: "{{ request.oldObject.metadata.labels || `{}` }}"

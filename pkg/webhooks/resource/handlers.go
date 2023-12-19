@@ -56,7 +56,7 @@ type resourceHandlers struct {
 	pcBuilder   webhookutils.PolicyContextBuilder
 
 	admissionReports             bool
-	backgroungServiceAccountName string
+	backgroundServiceAccountName string
 }
 
 func NewHandlers(
@@ -73,7 +73,7 @@ func NewHandlers(
 	urGenerator webhookgenerate.Generator,
 	eventGen event.Interface,
 	admissionReports bool,
-	backgroungServiceAccountName string,
+	backgroundServiceAccountName string,
 	jp jmespath.Interface,
 ) webhooks.ResourceHandlers {
 	return &resourceHandlers{
@@ -91,7 +91,7 @@ func NewHandlers(
 		eventGen:                     eventGen,
 		pcBuilder:                    webhookutils.NewPolicyContextBuilder(configuration, jp),
 		admissionReports:             admissionReports,
-		backgroungServiceAccountName: backgroungServiceAccountName,
+		backgroundServiceAccountName: backgroundServiceAccountName,
 	}
 }
 
