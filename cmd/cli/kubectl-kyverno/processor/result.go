@@ -132,8 +132,9 @@ func (rc *ResultCounts) addMutateResponse(resourcePath string, response engineap
 	if !policyHasMutate {
 		return false
 	}
+	printCount := 0
 	printMutatedRes := false
-	for _, policyRule := range autogen.ComputeRules(policy) {
+	for i, policyRule := range autogen.ComputeRules(policy) {
 		ruleFoundInEngineResponse := false
 		for _, mutateResponseRule := range response.PolicyResponse.Rules {
 			if policyRule.Name == mutateResponseRule.Name() {
@@ -142,10 +143,17 @@ func (rc *ResultCounts) addMutateResponse(resourcePath string, response engineap
 					rc.pass++
 					printMutatedRes = true
 				} else if mutateResponseRule.Status() == engineapi.RuleStatusSkip {
+					fmt.Printf("\nskipped mutate policy %s -> resource %s", policy.GetName(), resourcePath)
 					rc.skip++
 				} else if mutateResponseRule.Status() == engineapi.RuleStatusError {
+					fmt.Printf("\nerror while applying mutate policy %s -> resource %s\nerror: %s", policy.GetName(), resourcePath, mutateResponseRule.Message())
 					rc.err++
 				} else {
+					if printCount < 1 {
+						fmt.Printf("\nfailed to apply mutate policy %s -> resource %s", policy.GetName(), resourcePath)
+						printCount++
+					}
+					fmt.Printf("%d. %s - %s \n", i+1, mutateResponseRule.Name(), mutateResponseRule.Message())
 					rc.fail++
 				}
 				continue
