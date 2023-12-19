@@ -1,0 +1,16 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: update
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- kind: Deployment
+  policy: block-update-no-label-change
+  resources:
+  - my-ns/deployment
+  result: pass
+  rule: check-label-change
+variables: values.yaml

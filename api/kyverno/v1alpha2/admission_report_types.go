@@ -45,8 +45,8 @@ type AdmissionReportSpec struct {
 // +kubebuilder:printcolumn:name="WARN",type=integer,JSONPath=".spec.summary.warn"
 // +kubebuilder:printcolumn:name="ERROR",type=integer,JSONPath=".spec.summary.error"
 // +kubebuilder:printcolumn:name="SKIP",type=integer,JSONPath=".spec.summary.skip"
-// +kubebuilder:printcolumn:name="GVR",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.gvr']",priority=1
-// +kubebuilder:printcolumn:name="REF",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.name']",priority=1
+// +kubebuilder:printcolumn:name="GVR",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.gvr']"
+// +kubebuilder:printcolumn:name="REF",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.name']"
 // +kubebuilder:printcolumn:name="AGGREGATE",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/report\\.aggregate']",priority=1
 
 // AdmissionReport is the Schema for the AdmissionReports API
@@ -80,8 +80,8 @@ func (r *AdmissionReport) SetSummary(summary policyreportv1alpha2.PolicyReportSu
 // +kubebuilder:printcolumn:name="WARN",type=integer,JSONPath=".spec.summary.warn"
 // +kubebuilder:printcolumn:name="ERROR",type=integer,JSONPath=".spec.summary.error"
 // +kubebuilder:printcolumn:name="SKIP",type=integer,JSONPath=".spec.summary.skip"
-// +kubebuilder:printcolumn:name="GVR",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.gvr']",priority=1
-// +kubebuilder:printcolumn:name="REF",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.name']",priority=1
+// +kubebuilder:printcolumn:name="GVR",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.gvr']"
+// +kubebuilder:printcolumn:name="REF",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.name']"
 // +kubebuilder:printcolumn:name="AGGREGATE",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/report\\.aggregate']",priority=1
 
 // ClusterAdmissionReport is the Schema for the ClusterAdmissionReports API
