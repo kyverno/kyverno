@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/ext/resource/convert"
@@ -15,10 +14,9 @@ import (
 )
 
 var (
-	factory, _        = resourceloader.New(openapiclient.NewComposite(openapiclient.NewLocalCRDFiles(data.Crds(), data.CrdsFolder)))
-	exceptionV2alpha1 = schema.GroupVersion(kyvernov2alpha1.GroupVersion).WithKind("PolicyException")
-	exceptionV2beta1  = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("PolicyException")
-	exceptionV2       = schema.GroupVersion(kyvernov2.GroupVersion).WithKind("PolicyException")
+	factory, _       = resourceloader.New(openapiclient.NewComposite(openapiclient.NewLocalCRDFiles(data.Crds(), data.CrdsFolder)))
+	exceptionV2beta1 = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("PolicyException")
+	exceptionV2      = schema.GroupVersion(kyvernov2.GroupVersion).WithKind("PolicyException")
 )
 
 func Load(content []byte) ([]*kyvernov2.PolicyException, error) {
@@ -33,7 +31,7 @@ func Load(content []byte) ([]*kyvernov2.PolicyException, error) {
 			return nil, err
 		}
 		switch gvk {
-		case exceptionV2alpha1, exceptionV2beta1, exceptionV2:
+		case exceptionV2beta1, exceptionV2:
 			exception, err := convert.To[kyvernov2.PolicyException](untyped)
 			if err != nil {
 				return nil, err
