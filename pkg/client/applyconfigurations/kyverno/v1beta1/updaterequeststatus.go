@@ -30,6 +30,7 @@ type UpdateRequestStatusApplyConfiguration struct {
 	State              *v1beta1.UpdateRequestState         `json:"state,omitempty"`
 	Message            *string                             `json:"message,omitempty"`
 	GeneratedResources []v1.ResourceSpecApplyConfiguration `json:"generatedResources,omitempty"`
+	RetryCount         *int                                `json:"retryCount,omitempty"`
 }
 
 // UpdateRequestStatusApplyConfiguration constructs an declarative configuration of the UpdateRequestStatus type for use with
@@ -72,5 +73,13 @@ func (b *UpdateRequestStatusApplyConfiguration) WithGeneratedResources(values ..
 		}
 		b.GeneratedResources = append(b.GeneratedResources, *values[i])
 	}
+	return b
+}
+
+// WithRetryCount sets the RetryCount field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the RetryCount field is set to the value of the last call.
+func (b *UpdateRequestStatusApplyConfiguration) WithRetryCount(value int) *UpdateRequestStatusApplyConfiguration {
+	b.RetryCount = &value
 	return b
 }
