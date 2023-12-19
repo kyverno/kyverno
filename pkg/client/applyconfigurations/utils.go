@@ -22,12 +22,14 @@ import (
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	v1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	v2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	v2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	kyvernov1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v1alpha2"
 	kyvernov1beta1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v2"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v2alpha1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v2beta1"
 	applyconfigurationspolicyreportv1alpha2 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/policyreport/v1alpha2"
@@ -167,6 +169,14 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov1beta1.UpdateRequestSpecContextApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("UpdateRequestStatus"):
 		return &kyvernov1beta1.UpdateRequestStatusApplyConfiguration{}
+
+		// Group=kyverno.io, Version=v2
+	case v2.SchemeGroupVersion.WithKind("Exception"):
+		return &kyvernov2.ExceptionApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("PolicyException"):
+		return &kyvernov2.PolicyExceptionApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("PolicyExceptionSpec"):
+		return &kyvernov2.PolicyExceptionSpecApplyConfiguration{}
 
 		// Group=kyverno.io, Version=v2alpha1
 	case v2alpha1.SchemeGroupVersion.WithKind("CleanupPolicy"):
