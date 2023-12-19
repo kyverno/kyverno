@@ -12,7 +12,7 @@ spec:
   - name: step-02
     try:
     - apply:
-        file: confimap.yaml
+        file: configmap.yaml
   - name: step-03
     try:
     - apply:
