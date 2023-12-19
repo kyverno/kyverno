@@ -979,6 +979,7 @@ jobs:
     - default
     - monitor-helm-secret-size
     - check-tests
+    - policy-library
     runs-on: ubuntu-latest
     if: ${{ success() }}
     steps:
@@ -998,6 +999,7 @@ jobs:
     - default
     - monitor-helm-secret-size
     - check-tests
+    - policy-library
     runs-on: ubuntu-latest
     if: ${{ failure() || cancelled() }}
     steps:
