@@ -218,9 +218,7 @@ bool
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>SchemaValidation skips validation checks for policies as well as patched resources.
-Optional. The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to disable the validation checks.</p>
+<p>Deprecated.</p>
 </td>
 </tr>
 <tr>
@@ -483,9 +481,7 @@ bool
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>SchemaValidation skips validation checks for policies as well as patched resources.
-Optional. The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to disable the validation checks.</p>
+<p>Deprecated.</p>
 </td>
 </tr>
 <tr>
@@ -3496,6 +3492,19 @@ Generation
 <p>VerifyImages is used to verify image signatures and mutate them to add a digest</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>skipBackgroundRequests</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>SkipBackgroundRequests bypasses admission requests that are sent by the background controller.
+The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to apply
+generate and mutateExisting rules to those requests.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -3781,9 +3790,7 @@ bool
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>SchemaValidation skips validation checks for policies as well as patched resources.
-Optional. The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to disable the validation checks.</p>
+<p>Deprecated.</p>
 </td>
 </tr>
 <tr>
@@ -5411,6 +5418,16 @@ string
 Will be used during clean up resources.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>retryCount</code><br/>
+<em>
+int
+</em>
+</td>
+<td>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -6331,9 +6348,7 @@ bool
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>SchemaValidation skips validation checks for policies as well as patched resources.
-Optional. The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to disable the validation checks.</p>
+<p>Deprecated.</p>
 </td>
 </tr>
 <tr>
@@ -6595,9 +6610,7 @@ bool
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>SchemaValidation skips validation checks for policies as well as patched resources.
-Optional. The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to disable the validation checks.</p>
+<p>Deprecated.</p>
 </td>
 </tr>
 <tr>
@@ -7785,6 +7798,19 @@ Generation
 <p>VerifyImages is used to verify image signatures and mutate them to add a digest</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>skipBackgroundRequests</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>SkipBackgroundRequests bypasses admission requests that are sent by the background controller.
+The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to apply
+generate and mutateExisting rules to those requests.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -7920,9 +7946,7 @@ bool
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>SchemaValidation skips validation checks for policies as well as patched resources.
-Optional. The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to disable the validation checks.</p>
+<p>Deprecated.</p>
 </td>
 </tr>
 <tr>

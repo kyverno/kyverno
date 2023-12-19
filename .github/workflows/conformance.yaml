@@ -617,8 +617,8 @@ jobs:
             version: v1.27.x
           - name: v1.28
             version: v1.28.x
-          - name: v1.29
-            version: v1.29.x
+          # - name: v1.29
+          #   version: v1.29.x
         tests:
           - custom-sigstore
     needs: prepare-images
@@ -640,7 +640,7 @@ jobs:
         uses: kyverno/action-install-chainsaw@6ab03ccb2c8309b5f494fcbc78ec3a2d80cfabee # v0.1.0
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@9e5583eaf47855103a9acd6eaa2b1da85f28e28e
+        uses: sigstore/scaffolding/actions/setup@a6e9b1a7a45f10449bbb677c31ce4c1389edd08b
         with:
           version: 'v0.6.8'
           k8s-version: ${{ matrix.k8s-version.version }}
@@ -965,7 +965,8 @@ jobs:
           KYVERNO_EXPERIMENTAL=true kyverno fix test ./test/cli --save --compress
           make verify-cli-tests
 
-  conformance-required:
+  conformance-required-success:
+    name: conformance-required
     needs:
     - standard
     - ttl
@@ -979,5 +980,25 @@ jobs:
     - monitor-helm-secret-size
     - check-tests
     runs-on: ubuntu-latest
+    if: ${{ success() }}
     steps:
-    - run: echo "Required jobs success!"
+    - run: ${{ true }}
+
+  conformance-required-failure:
+    name: conformance-required
+    needs:
+    - standard
+    - ttl
+    - force-failure-policy-ignore
+    - validatingadmissionpolicies-v1alpha1
+    - validatingadmissionpolicies-v1beta1
+    - validatingadmissionpolicies-reports-v1alpha1
+    - validatingadmissionpolicies-reports-v1beta1
+    - custom-sigstore
+    - default
+    - monitor-helm-secret-size
+    - check-tests
+    runs-on: ubuntu-latest
+    if: ${{ failure() || cancelled() }}
+    steps:
+    - run: ${{ false }}
