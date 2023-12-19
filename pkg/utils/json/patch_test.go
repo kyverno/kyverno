@@ -154,7 +154,7 @@ func TestCheckPatch(t *testing.T) {
 		wantErr bool
 	}{{
 		name:    "test",
-		args:    args{[]byte(`{"path":"path","op":"op","value":123}`)},
+		args:    args{[]byte(`{"path":"path","op":"add","value":123}`)},
 		wantErr: false,
 	}, {
 		name:    "error",

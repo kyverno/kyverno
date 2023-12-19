@@ -1,0 +1,19 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: mutate-with-404-api-call
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: pod.yaml
+    - assert:
+        file: pod-assert.yaml

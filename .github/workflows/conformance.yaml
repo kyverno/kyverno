@@ -1,3 +1,5 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
 name: Conformance tests
 
 permissions: {}
@@ -83,60 +85,55 @@ jobs:
             values:
               - standard
         k8s-version:
-          - name: v1.25
-            version: v1.25.11
           - name: v1.26
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
           - name: v1.28
             version: v1.28.0
+          - name: v1.29
+            version: v1.29.0
         tests:
-          - autogen
-          - background-only
-          - cleanup
-          - deferred
-          - events
-          - exceptions
-          - filter
-          - generate/clusterpolicy
-          - generate/policy
-          - generate/validation
-          - mutate
-          - policy-validation
-          - rangeoperators
-          - rbac
-          - reports
-          - validate
-          - verify-manifests
-          - verifyImages
-          - webhooks
+          - ^autogen$
+          - ^background-only$
+          - ^cleanup$
+          - ^deferred$
+          - ^events$
+          - ^exceptions$
+          - ^filter$
+          - ^generate$/^clusterpolicy$
+          - ^generate$/^policy$
+          - ^generate$/^validation$
+          - ^mutate$
+          - ^policy-validation$
+          - ^rangeoperators$
+          - ^rbac$
+          - ^reports$
+          - ^validate$
+          - ^verify-manifests$
+          - ^verifyImages$
+          - ^webhooks$
     needs: prepare-images
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-      - name: Setup caches
-        uses: ./.github/actions/setup-caches
-        timeout-minutes: 5
-        continue-on-error: true
+      # install tools
+      - name: Install helm
+        id: helm
+        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
         with:
-          build-cache-key: run-conformance
-      - name: Install kind
-        shell: bash
-        run: |
-          # For AMD64 / x86_64
-          [ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
-          # For ARM64
-          [ $(uname -m) = aarch64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-arm64
-          chmod +x ./kind
-          sudo mv ./kind /usr/local/bin/kind
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install chainsaw
+        uses: kyverno/action-install-chainsaw@6ab03ccb2c8309b5f494fcbc78ec3a2d80cfabee # v0.1.0
+      # create cluster
       - name: Create kind cluster
-        shell: bash
-        run: |
-          set -e
-          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
-          make kind-create-cluster
+        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
+        with:
+          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          cluster_name: kind
+          config: ./scripts/config/kind/default.yaml
+      # deploy kyverno
       - name: Download kyverno images archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
@@ -145,30 +142,29 @@ jobs:
         shell: bash
         run: |
           set -e
-          make kind-load-image-archive
+          kind load image-archive kyverno.tar --name kind
       - name: Install kyverno
         shell: bash
         run: |
           set -e
+          export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
-      - name: Install Chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
-        with:
-          release: v0.0.8
+      # run tests
       - name: Test with Chainsaw
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          chainsaw test --config ./test/conformance/chainsaw/_config/common.yaml --test-dir ./test/conformance/chainsaw/${{ matrix.tests }} --no-color=false
+          cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}'
+      # debug
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
-  
+
   validatingadmissionpolicies-v1alpha1:
     runs-on: ubuntu-latest
     permissions:
@@ -191,28 +187,22 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-      - name: Setup caches
-        uses: ./.github/actions/setup-caches
-        timeout-minutes: 5
-        continue-on-error: true
+      # install tools
+      - name: Install helm
+        id: helm
+        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
         with:
-          build-cache-key: run-conformance
-      - name: Install kind
-        shell: bash
-        run: |
-          # For AMD64 / x86_64
-          [ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
-          # For ARM64
-          [ $(uname -m) = aarch64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-arm64
-          chmod +x ./kind
-          sudo mv ./kind /usr/local/bin/kind
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install chainsaw
+        uses: kyverno/action-install-chainsaw@6ab03ccb2c8309b5f494fcbc78ec3a2d80cfabee # v0.1.0
+      # create cluster
       - name: Create kind cluster
-        shell: bash
-        run: |
-          set -e
-          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
-          export KIND_CONFIG=vap-v1alpha1
-          make kind-create-cluster
+        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
+        with:
+          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          cluster_name: kind
+          config: ./scripts/config/kind/vap-v1alpha1.yaml
+      # deploy kyverno
       - name: Download kyverno images archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
@@ -221,26 +211,25 @@ jobs:
         shell: bash
         run: |
           set -e
-          make kind-load-image-archive
+          kind load image-archive kyverno.tar --name kind
       - name: Install kyverno
         shell: bash
         run: |
           set -e
+          export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
-      - name: Install Chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
-        with:
-          release: v0.0.8
+      # run tests
       - name: Test with Chainsaw
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          chainsaw test --config ./test/conformance/chainsaw/_config/common.yaml --test-dir ./test/conformance/chainsaw/${{ matrix.tests }} --no-color=false
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+      # debug
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
@@ -260,6 +249,8 @@ jobs:
         k8s-version:
           - name: v1.28
             version: v1.28.0
+          - name: v1.29
+            version: v1.29.0
         tests:
           - generate-validating-admission-policy
     needs: prepare-images
@@ -267,28 +258,22 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-      - name: Setup caches
-        uses: ./.github/actions/setup-caches
-        timeout-minutes: 5
-        continue-on-error: true
+      # install tools
+      - name: Install helm
+        id: helm
+        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
         with:
-          build-cache-key: run-conformance
-      - name: Install kind
-        shell: bash
-        run: |
-          # For AMD64 / x86_64
-          [ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
-          # For ARM64
-          [ $(uname -m) = aarch64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-arm64
-          chmod +x ./kind
-          sudo mv ./kind /usr/local/bin/kind
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install chainsaw
+        uses: kyverno/action-install-chainsaw@6ab03ccb2c8309b5f494fcbc78ec3a2d80cfabee # v0.1.0
+      # create cluster
       - name: Create kind cluster
-        shell: bash
-        run: |
-          set -e
-          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
-          export KIND_CONFIG=vap-v1beta1
-          make kind-create-cluster
+        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
+        with:
+          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          cluster_name: kind
+          config: ./scripts/config/kind/vap-v1beta1.yaml
+      # deploy kyverno
       - name: Download kyverno images archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
@@ -297,26 +282,25 @@ jobs:
         shell: bash
         run: |
           set -e
-          make kind-load-image-archive
+          kind load image-archive kyverno.tar --name kind
       - name: Install kyverno
         shell: bash
         run: |
           set -e
+          export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
-      - name: Install Chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
-        with:
-          release: v0.0.8
+      # run tests
       - name: Test with Chainsaw
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          chainsaw test --config ./test/conformance/chainsaw/_config/common.yaml --test-dir ./test/conformance/chainsaw/${{ matrix.tests }} --no-color=false
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+      # debug
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
@@ -345,28 +329,22 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-      - name: Setup caches
-        uses: ./.github/actions/setup-caches
-        timeout-minutes: 5
-        continue-on-error: true
+      # install tools
+      - name: Install helm
+        id: helm
+        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
         with:
-          build-cache-key: run-conformance
-      - name: Install kind
-        shell: bash
-        run: |
-          # For AMD64 / x86_64
-          [ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
-          # For ARM64
-          [ $(uname -m) = aarch64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-arm64
-          chmod +x ./kind
-          sudo mv ./kind /usr/local/bin/kind
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install chainsaw
+        uses: kyverno/action-install-chainsaw@6ab03ccb2c8309b5f494fcbc78ec3a2d80cfabee # v0.1.0
+      # create cluster
       - name: Create kind cluster
-        shell: bash
-        run: |
-          set -e
-          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
-          export KIND_CONFIG=vap-v1alpha1
-          make kind-create-cluster
+        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
+        with:
+          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          cluster_name: kind
+          config: ./scripts/config/kind/vap-v1alpha1.yaml
+      # deploy kyverno
       - name: Download kyverno images archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
@@ -375,26 +353,25 @@ jobs:
         shell: bash
         run: |
           set -e
-          make kind-load-image-archive
+          kind load image-archive kyverno.tar --name kind
       - name: Install kyverno
         shell: bash
         run: |
           set -e
+          export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
-      - name: Install Chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
-        with:
-          release: v0.0.8
+      # run tests
       - name: Test with Chainsaw
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          chainsaw test --config ./test/conformance/chainsaw/_config/common.yaml --test-dir ./test/conformance/chainsaw/${{ matrix.tests }} --no-color=false
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+      # debug
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
@@ -414,6 +391,8 @@ jobs:
         k8s-version:
           - name: v1.28
             version: v1.28.0
+          - name: v1.29
+            version: v1.29.0
         tests:
           - validating-admission-policy-reports
     needs: prepare-images
@@ -421,28 +400,22 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-      - name: Setup caches
-        uses: ./.github/actions/setup-caches
-        timeout-minutes: 5
-        continue-on-error: true
+      # install tools
+      - name: Install helm
+        id: helm
+        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
         with:
-          build-cache-key: run-conformance
-      - name: Install kind
-        shell: bash
-        run: |
-          # For AMD64 / x86_64
-          [ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
-          # For ARM64
-          [ $(uname -m) = aarch64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-arm64
-          chmod +x ./kind
-          sudo mv ./kind /usr/local/bin/kind
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install chainsaw
+        uses: kyverno/action-install-chainsaw@6ab03ccb2c8309b5f494fcbc78ec3a2d80cfabee # v0.1.0
+      # create cluster
       - name: Create kind cluster
-        shell: bash
-        run: |
-          set -e
-          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
-          export KIND_CONFIG=vap-v1beta1
-          make kind-create-cluster
+        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
+        with:
+          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          cluster_name: kind
+          config: ./scripts/config/kind/vap-v1beta1.yaml
+      # deploy kyverno
       - name: Download kyverno images archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
@@ -451,26 +424,25 @@ jobs:
         shell: bash
         run: |
           set -e
-          make kind-load-image-archive
+          kind load image-archive kyverno.tar --name kind
       - name: Install kyverno
         shell: bash
         run: |
           set -e
+          export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
-      - name: Install Chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
-        with:
-          release: v0.0.8
+      # run tests
       - name: Test with Chainsaw
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          chainsaw test --config ./test/conformance/chainsaw/_config/common.yaml --test-dir ./test/conformance/chainsaw/${{ matrix.tests }} --no-color=false
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+      # debug
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
@@ -488,14 +460,14 @@ jobs:
               - standard
               - force-failure-policy-ignore
         k8s-version:
-          - name: v1.25
-            version: v1.25.11
           - name: v1.26
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
           - name: v1.28
             version: v1.28.0
+          - name: v1.29
+            version: v1.29.0
         tests:
           - force-failure-policy-ignore
           - rbac
@@ -504,27 +476,22 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-      - name: Setup caches
-        uses: ./.github/actions/setup-caches
-        timeout-minutes: 5
-        continue-on-error: true
+      # install tools
+      - name: Install helm
+        id: helm
+        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
         with:
-          build-cache-key: run-conformance
-      - name: Install kind
-        shell: bash
-        run: |
-          # For AMD64 / x86_64
-          [ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
-          # For ARM64
-          [ $(uname -m) = aarch64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-arm64
-          chmod +x ./kind
-          sudo mv ./kind /usr/local/bin/kind
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install chainsaw
+        uses: kyverno/action-install-chainsaw@6ab03ccb2c8309b5f494fcbc78ec3a2d80cfabee # v0.1.0
+      # create cluster
       - name: Create kind cluster
-        shell: bash
-        run: |
-          set -e
-          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
-          make kind-create-cluster
+        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
+        with:
+          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          cluster_name: kind
+          config: ./scripts/config/kind/default.yaml
+      # deploy kyverno
       - name: Download kyverno images archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
@@ -533,26 +500,25 @@ jobs:
         shell: bash
         run: |
           set -e
-          make kind-load-image-archive
+          kind load image-archive kyverno.tar --name kind
       - name: Install kyverno
         shell: bash
         run: |
           set -e
+          export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
-      - name: Install Chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
-        with:
-          release: v0.0.8
+      # run tests
       - name: Test with Chainsaw
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          chainsaw test --config ./test/conformance/chainsaw/_config/common.yaml --test-dir ./test/conformance/chainsaw/${{ matrix.tests }} --no-color=false
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+      # debug
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
@@ -570,14 +536,14 @@ jobs:
               - standard
               - ttl
         k8s-version:
-          - name: v1.25
-            version: v1.25.11
           - name: v1.26
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
           - name: v1.28
             version: v1.28.0
+          - name: v1.29
+            version: v1.29.0
         tests:
           - ttl
     needs: prepare-images
@@ -585,27 +551,22 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-      - name: Setup caches
-        uses: ./.github/actions/setup-caches
-        timeout-minutes: 5
-        continue-on-error: true
+      # install tools
+      - name: Install helm
+        id: helm
+        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
         with:
-          build-cache-key: run-conformance
-      - name: Install kind
-        shell: bash
-        run: |
-          # For AMD64 / x86_64
-          [ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
-          # For ARM64
-          [ $(uname -m) = aarch64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-arm64
-          chmod +x ./kind
-          sudo mv ./kind /usr/local/bin/kind
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install chainsaw
+        uses: kyverno/action-install-chainsaw@6ab03ccb2c8309b5f494fcbc78ec3a2d80cfabee # v0.1.0
+      # create cluster
       - name: Create kind cluster
-        shell: bash
-        run: |
-          set -e
-          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
-          make kind-create-cluster
+        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
+        with:
+          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          cluster_name: kind
+          config: ./scripts/config/kind/default.yaml
+      # deploy kyverno
       - name: Download kyverno images archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
@@ -614,26 +575,25 @@ jobs:
         shell: bash
         run: |
           set -e
-          make kind-load-image-archive
+          kind load image-archive kyverno.tar --name kind
       - name: Install kyverno
         shell: bash
         run: |
           set -e
+          export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
-      - name: Install Chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
-        with:
-          release: v0.0.8
+      # run tests
       - name: Test with Chainsaw
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          chainsaw test --config ./test/conformance/chainsaw/_config/common.yaml --test-dir ./test/conformance/chainsaw/${{ matrix.tests }} --no-color=false
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+      # debug
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
@@ -651,14 +611,14 @@ jobs:
               - standard
               - custom-sigstore
         k8s-version:
-          - name: v1.25
-            version: v1.25.x
           - name: v1.26
             version: v1.26.x
           - name: v1.27
             version: v1.27.x
           - name: v1.28
             version: v1.28.x
+          # - name: v1.29
+          #   version: v1.29.x
         tests:
           - custom-sigstore
     needs: prepare-images
@@ -666,32 +626,32 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-      - name: Setup caches
-        uses: ./.github/actions/setup-caches
-        timeout-minutes: 5
-        continue-on-error: true
+      # install tools
+      - name: Install helm
+        id: helm
+        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
         with:
-          build-cache-key: run-conformance
-      - name: Install kind
-        shell: bash
-        run: |
-          # For AMD64 / x86_64
-          [ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
-          # For ARM64
-          [ $(uname -m) = aarch64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-arm64
-          chmod +x ./kind
-          sudo mv ./kind /usr/local/bin/kind
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install crane
+        uses: imjasonh/setup-crane@00c9e93efa4e1138c9a7a5c594acd6c75a2fbf0c
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@9614fae9e5c5eddabb09f90a270fcb487c9f7149
+      - name: Install chainsaw
+        uses: kyverno/action-install-chainsaw@6ab03ccb2c8309b5f494fcbc78ec3a2d80cfabee # v0.1.0
+      # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@9e5583eaf47855103a9acd6eaa2b1da85f28e28e
+        uses: sigstore/scaffolding/actions/setup@a6e9b1a7a45f10449bbb677c31ce4c1389edd08b
         with:
           version: 'v0.6.8'
           k8s-version: ${{ matrix.k8s-version.version }}
           knative-version: '1.10.0'
       - name: Create TUF values config map
         run: |
+          set -e
           kubectl create namespace kyverno
           kubectl -n kyverno create configmap tufvalues --from-literal=TUF_MIRROR=$TUF_MIRROR --from-literal=FULCIO_URL=$FULCIO_URL --from-literal=REKOR_URL=$REKOR_URL --from-literal=CTLOG_URL=$CTLOG_URL --from-literal=ISSUER_URL=$ISSUER_URL
           kubectl -n tuf-system get secrets tuf-root -oyaml | sed 's/namespace: .*/namespace: kyverno/' | kubectl create -f -
+      # deploy kyverno
       - name: Download kyverno images archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
@@ -700,17 +660,17 @@ jobs:
         shell: bash
         run: |
           set -e
-          make kind-load-image-archive
+          kind load image-archive kyverno.tar --name kind
       - name: Install kyverno
         shell: bash
         run: |
           set -e
+          export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
           make kind-install-kyverno
-      - name: Install crane
-        uses: imjasonh/setup-crane@00c9e93efa4e1138c9a7a5c594acd6c75a2fbf0c
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@1fc5bd396d372bee37d608f955b336615edf79c8
+      - name: Wait for kyverno ready
+        uses: ./.github/actions/kyverno-wait-ready
+      # prepare test image
       - name: Create test image
         shell: bash
         run: |
@@ -721,19 +681,14 @@ jobs:
           cosign initialize --mirror $TUF_MIRROR --root $TUF_MIRROR/root.json
           COSIGN_EXPERIMENTAL=1 cosign sign --rekor-url $REKOR_URL --fulcio-url $FULCIO_URL $TEST_IMAGE_URL --identity-token `curl -s $ISSUER_URL` -y
           echo "TEST_IMAGE_URL=$TEST_IMAGE_URL" >> $GITHUB_ENV
-      - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
-      - name: Install Chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
-        with:
-          release: v0.0.8
+      # run tests
       - name: Test with Chainsaw
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          chainsaw test --config ./test/conformance/chainsaw/_config/common.yaml --test-dir ./test/conformance/chainsaw/${{ matrix.tests }} --no-color=false
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
@@ -750,14 +705,14 @@ jobs:
             values:
               - default
         k8s-version:
-          - name: v1.25
-            version: v1.25.11
           - name: v1.26
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
           - name: v1.28
             version: v1.28.0
+          - name: v1.29
+            version: v1.29.0
         tests:
           - rbac
     needs: prepare-images
@@ -765,27 +720,22 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-      - name: Setup caches
-        uses: ./.github/actions/setup-caches
-        timeout-minutes: 5
-        continue-on-error: true
+      # install tools
+      - name: Install helm
+        id: helm
+        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
         with:
-          build-cache-key: run-conformance
-      - name: Install kind
-        shell: bash
-        run: |
-          # For AMD64 / x86_64
-          [ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
-          # For ARM64
-          [ $(uname -m) = aarch64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-arm64
-          chmod +x ./kind
-          sudo mv ./kind /usr/local/bin/kind
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install chainsaw
+        uses: kyverno/action-install-chainsaw@6ab03ccb2c8309b5f494fcbc78ec3a2d80cfabee # v0.1.0
+      # create cluster
       - name: Create kind cluster
-        shell: bash
-        run: |
-          set -e
-          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
-          make kind-create-cluster
+        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
+        with:
+          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          cluster_name: kind
+          config: ./scripts/config/kind/default.yaml
+      # deploy kyverno
       - name: Download kyverno images archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
@@ -794,26 +744,25 @@ jobs:
         shell: bash
         run: |
           set -e
-          make kind-load-image-archive
+          kind load image-archive kyverno.tar --name kind
       - name: Install kyverno
         shell: bash
         run: |
           set -e
+          export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
-      - name: Install Chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5d6585b843b48eaf1940a8333bb828fd6a3385e3 # v0.0.8
-        with:
-          release: v0.0.8
+      # run tests
       - name: Test with Chainsaw
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          chainsaw test --config ./test/conformance/chainsaw/_config/common.yaml --test-dir ./test/conformance/chainsaw/${{ matrix.tests }} --no-color=false
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+      # debug
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
@@ -828,14 +777,14 @@ jobs:
             values:
               - standard
         k8s-version:
-          - name: v1.25
-            version: v1.25.11
           - name: v1.26
             version: v1.26.6
           - name: v1.27
             version: v1.27.3
           - name: v1.28
             version: v1.28.0
+          - name: v1.29
+            version: v1.29.0
         tests:
           - ^argo$
           - ^aws$
@@ -880,25 +829,14 @@ jobs:
         with:
           repository: kyverno/policies
           path: policies
-      - name: Setup caches
-        uses: ./.github/actions/setup-caches
-        timeout-minutes: 5
-        continue-on-error: true
+      # install tools
+      - name: Install helm
+        id: helm
+        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
         with:
-          build-cache-key: run-conformance
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
-      - name: Create kind cluster
-        shell: bash
-        run: |
-          set -e
-          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
-          make kind-create-cluster
-      - name: Download kyverno images archive
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
-        with:
-          name: kyverno.tar
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install chainsaw
+        uses: kyverno/action-install-chainsaw@6ab03ccb2c8309b5f494fcbc78ec3a2d80cfabee # v0.1.0
       - name: Download kyverno CLI archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
@@ -909,27 +847,37 @@ jobs:
           set -e
           chmod +x kubectl-kyverno && mv kubectl-kyverno ./cmd/cli/kubectl-kyverno/kyverno
           echo "$PWD/cmd/cli/kubectl-kyverno" >> $GITHUB_PATH
+      # create cluster
+      - name: Create kind cluster
+        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
+        with:
+          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          cluster_name: kind
+          config: ./scripts/config/kind/default.yaml
+      # deploy kyverno
+      - name: Download kyverno images archive
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
         shell: bash
         run: |
           set -e
-          make kind-load-image-archive
+          kind load image-archive kyverno.tar --name kind
       - name: Install kyverno
         shell: bash
         run: |
           set -e
+          export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
-      - name: Install Chainsaw
-        uses: kyverno/chainsaw/.github/actions/install@5ca138ff5ad87bfb2c41e52cde8c00154756e4c5 # v0.0.7
-        with:
-          release: v0.0.9-alpha.3
+      # run tests
       - name: Install CRDs
         run: |
           set -e
-          kubectl apply -f ./policies/CRDs
+          kubectl apply -f ./policies/.chainsaw/crds
       - name: Test with Chainsaw
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -1017,7 +965,8 @@ jobs:
           KYVERNO_EXPERIMENTAL=true kyverno fix test ./test/cli --save --compress
           make verify-cli-tests
 
-  required:
+  conformance-required-success:
+    name: conformance-required
     needs:
     - standard
     - ttl
@@ -1031,5 +980,25 @@ jobs:
     - monitor-helm-secret-size
     - check-tests
     runs-on: ubuntu-latest
+    if: ${{ success() }}
     steps:
-    - run: echo "Required jobs success!"
+    - run: ${{ true }}
+
+  conformance-required-failure:
+    name: conformance-required
+    needs:
+    - standard
+    - ttl
+    - force-failure-policy-ignore
+    - validatingadmissionpolicies-v1alpha1
+    - validatingadmissionpolicies-v1beta1
+    - validatingadmissionpolicies-reports-v1alpha1
+    - validatingadmissionpolicies-reports-v1beta1
+    - custom-sigstore
+    - default
+    - monitor-helm-secret-size
+    - check-tests
+    runs-on: ubuntu-latest
+    if: ${{ failure() || cancelled() }}
+    steps:
+    - run: ${{ false }}

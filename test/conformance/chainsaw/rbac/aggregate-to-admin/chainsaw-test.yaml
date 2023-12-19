@@ -1,0 +1,17 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: aggregate-to-admin
+spec:
+  steps:
+  - name: step-00
+    try:
+    - assert:
+        file: admin-policies.yaml
+    - assert:
+        file: admin-policyreport.yaml
+    - assert:
+        file: admin-reports.yaml
+    - assert:
+        file: admin-updaterequest.yaml

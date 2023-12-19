@@ -32,33 +32,33 @@ USE_CONFIG           ?= standard
 # TOOLS #
 #########
 
-TOOLS_DIR                          := $(PWD)/.tools
-KIND                               := $(TOOLS_DIR)/kind
-KIND_VERSION                       := v0.20.0
-CONTROLLER_GEN                     := $(TOOLS_DIR)/controller-gen
-CONTROLLER_GEN_VERSION             := v0.12.0
-CLIENT_GEN                         := $(TOOLS_DIR)/client-gen
-LISTER_GEN                         := $(TOOLS_DIR)/lister-gen
-INFORMER_GEN                       := $(TOOLS_DIR)/informer-gen
-OPENAPI_GEN                        := $(TOOLS_DIR)/openapi-gen
-REGISTER_GEN                       := $(TOOLS_DIR)/register-gen
-DEEPCOPY_GEN                       := $(TOOLS_DIR)/deepcopy-gen
-DEFAULTER_GEN                      := $(TOOLS_DIR)/defaulter-gen
-APPLYCONFIGURATION_GEN             := $(TOOLS_DIR)/applyconfiguration-gen
-CODE_GEN_VERSION                   := v0.28.0
-GEN_CRD_API_REFERENCE_DOCS         := $(TOOLS_DIR)/gen-crd-api-reference-docs
-GEN_CRD_API_REFERENCE_DOCS_VERSION := latest
-GO_ACC                             := $(TOOLS_DIR)/go-acc
-GO_ACC_VERSION                     := latest
-GOIMPORTS                          := $(TOOLS_DIR)/goimports
-GOIMPORTS_VERSION                  := latest
-HELM                               := $(TOOLS_DIR)/helm
-HELM_VERSION                       := v3.12.3
-HELM_DOCS                          := $(TOOLS_DIR)/helm-docs
-HELM_DOCS_VERSION                  := v1.11.0
-KO                                 := $(TOOLS_DIR)/ko
-KO_VERSION                         := v0.14.1
-KUBE_VERSION                       := v1.25.0
+TOOLS_DIR                          ?= $(PWD)/.tools
+KIND                               ?= $(TOOLS_DIR)/kind
+KIND_VERSION                       ?= v0.20.0
+CONTROLLER_GEN                     ?= $(TOOLS_DIR)/controller-gen
+CONTROLLER_GEN_VERSION             ?= v0.12.0
+CLIENT_GEN                         ?= $(TOOLS_DIR)/client-gen
+LISTER_GEN                         ?= $(TOOLS_DIR)/lister-gen
+INFORMER_GEN                       ?= $(TOOLS_DIR)/informer-gen
+OPENAPI_GEN                        ?= $(TOOLS_DIR)/openapi-gen
+REGISTER_GEN                       ?= $(TOOLS_DIR)/register-gen
+DEEPCOPY_GEN                       ?= $(TOOLS_DIR)/deepcopy-gen
+DEFAULTER_GEN                      ?= $(TOOLS_DIR)/defaulter-gen
+APPLYCONFIGURATION_GEN             ?= $(TOOLS_DIR)/applyconfiguration-gen
+CODE_GEN_VERSION                   ?= v0.28.0
+GEN_CRD_API_REFERENCE_DOCS         ?= $(TOOLS_DIR)/gen-crd-api-reference-docs
+GEN_CRD_API_REFERENCE_DOCS_VERSION ?= latest
+GO_ACC                             ?= $(TOOLS_DIR)/go-acc
+GO_ACC_VERSION                     ?= latest
+GOIMPORTS                          ?= $(TOOLS_DIR)/goimports
+GOIMPORTS_VERSION                  ?= latest
+HELM                               ?= $(TOOLS_DIR)/helm
+HELM_VERSION                       ?= v3.12.3
+HELM_DOCS                          ?= $(TOOLS_DIR)/helm-docs
+HELM_DOCS_VERSION                  ?= v1.11.0
+KO                                 ?= $(TOOLS_DIR)/ko
+KO_VERSION                         ?= v0.14.1
+KUBE_VERSION                       ?= v1.25.0
 TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(APPLYCONFIGURATION_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
@@ -455,8 +455,8 @@ codegen-register: $(PACKAGE_SHIM) $(REGISTER_GEN) ## Generate types registration
 		--go-header-file=./scripts/boilerplate.go.txt \
 		--input-dirs=$(INPUT_DIRS)
 
-.PHONY: codegen-deepcopy
-codegen-deepcopy: $(PACKAGE_SHIM) $(DEEPCOPY_GEN) ## Generate deep copy functions
+.PHONY: codegen-deepcopy-all
+codegen-deepcopy-all: $(PACKAGE_SHIM) $(DEEPCOPY_GEN) ## Generate deep copy functions
 	@echo Generate deep copy functions... >&2
 	@GOPATH=$(GOPATH_SHIM) $(DEEPCOPY_GEN) \
 		--go-header-file=./scripts/boilerplate.go.txt \
@@ -615,7 +615,7 @@ codegen-manifest-release: $(HELM) ## Create release manifest
 codegen-manifest-all: codegen-manifest-install-latest codegen-manifest-debug ## Create all manifests
 
 .PHONY: codegen-quick
-codegen-quick: codegen-deepcopy codegen-crds-all codegen-docs-all codegen-helm-all codegen-manifest-all ## Generate all generated code except client
+codegen-quick: codegen-deepcopy-all codegen-crds-all codegen-docs-all codegen-helm-all codegen-manifest-all ## Generate all generated code except client
 
 .PHONY: codegen-slow
 codegen-slow: codegen-client-all ## Generate client code
@@ -648,11 +648,11 @@ verify-client: codegen-client-all ## Check client is up to date
 	@git diff --ignore-space-change --quiet --exit-code pkg/clients
 
 .PHONY: verify-deepcopy
-verify-deepcopy: codegen-deepcopy ## Check deepcopy functions are up to date
+verify-deepcopy: codegen-deepcopy-all ## Check deepcopy functions are up to date
 	@echo Checking deepcopy functions are up to date... >&2
 	@git --no-pager diff api
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-deepcopy".' >&2
-	@echo 'To correct this, locally run "make codegen-deepcopy", commit the changes, and re-run tests.' >&2
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-deepcopy-all".' >&2
+	@echo 'To correct this, locally run "make codegen-deepcopy-all", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code api
 
 .PHONY: verify-docs
