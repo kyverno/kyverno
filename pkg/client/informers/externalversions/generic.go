@@ -24,6 +24,7 @@ import (
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	v1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	v2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	v2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
@@ -76,6 +77,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		// Group=kyverno.io, Version=v1beta1
 	case v1beta1.SchemeGroupVersion.WithResource("updaterequests"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1beta1().UpdateRequests().Informer()}, nil
+
+		// Group=kyverno.io, Version=v2
+	case v2.SchemeGroupVersion.WithResource("policyexceptions"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2().PolicyExceptions().Informer()}, nil
 
 		// Group=kyverno.io, Version=v2alpha1
 	case v2alpha1.SchemeGroupVersion.WithResource("cleanuppolicies"):
