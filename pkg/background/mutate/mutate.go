@@ -97,9 +97,8 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 			trigger, err = common.GetResource(c.client, ur.Spec, c.log)
 			if err != nil || trigger == nil {
 				logger.WithName(rule.Name).Error(err, "failed to get trigger resource")
-				errs = append(errs, err)
-				if err := common.UpdateRetryAnnotation(c.kyvernoClient, ur); err != nil {
-					errs = append(errs, err)
+				if err := updateURStatus(c.statusControl, *ur, err); err != nil {
+					return err
 				}
 				continue
 			}
@@ -109,9 +108,8 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 				if err != nil || trigger == nil {
 					if admissionRequest.SubResource == "" {
 						logger.WithName(rule.Name).Error(err, "failed to get trigger resource")
-						errs = append(errs, err)
-						if err := common.UpdateRetryAnnotation(c.kyvernoClient, ur); err != nil {
-							errs = append(errs, err)
+						if err := updateURStatus(c.statusControl, *ur, err); err != nil {
+							return err
 						}
 						continue
 					} else {
