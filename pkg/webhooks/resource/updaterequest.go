@@ -20,9 +20,6 @@ import (
 
 // handleBackgroundApplies applies generate and mutateExisting policies, and creates update requests for background reconcile
 func (h *resourceHandlers) handleBackgroundApplies(ctx context.Context, logger logr.Logger, request admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, generatePolicies, mutatePolicies []kyvernov1.PolicyInterface, ts time.Time) {
-	if h.backgroungServiceAccountName == policyContext.AdmissionInfo().AdmissionUserInfo.Username {
-		return
-	}
 	go h.handleMutateExisting(ctx, logger, request, mutatePolicies, policyContext, ts)
 	h.handleGenerate(ctx, logger, request, generatePolicies, policyContext, ts)
 }
@@ -37,6 +34,8 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 		if !policy.GetSpec().IsMutateExisting() {
 			continue
 		}
+
+		policyNew := skipBackgroundRequests(policy, logger, h.backgroundServiceAccountName, policyContext.AdmissionInfo().AdmissionUserInfo.Username)
 		logger.V(4).Info("update request for mutateExisting policy")
 
 		// skip rules that don't specify the DELETE operation in case the admission request is of type DELETE
@@ -48,7 +47,7 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 		}
 
 		var rules []engineapi.RuleResponse
-		policyContext := policyContext.WithPolicy(policy)
+		policyContext := policyContext.WithPolicy(policyNew)
 		engineResponse := h.engine.ApplyBackgroundChecks(ctx, policyContext)
 
 		for _, rule := range engineResponse.PolicyResponse.Rules {
@@ -84,5 +83,10 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 
 func (h *resourceHandlers) handleGenerate(ctx context.Context, logger logr.Logger, request admissionv1.AdmissionRequest, generatePolicies []kyvernov1.PolicyInterface, policyContext *engine.PolicyContext, ts time.Time) {
 	gh := generation.NewGenerationHandler(logger, h.engine, h.client, h.kyvernoClient, h.nsLister, h.urLister, h.cpolLister, h.polLister, h.urGenerator, h.eventGen, h.metricsConfig)
-	go gh.Handle(ctx, request, generatePolicies, policyContext)
+	var policies []kyvernov1.PolicyInterface
+	for _, p := range generatePolicies {
+		new := skipBackgroundRequests(p, logger, h.backgroundServiceAccountName, policyContext.AdmissionInfo().AdmissionUserInfo.Username)
+		policies = append(policies, new)
+	}
+	go gh.Handle(ctx, request, policies, policyContext)
 }
