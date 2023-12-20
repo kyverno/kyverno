@@ -21,8 +21,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
-	"go.opentelemetry.io/otel/metric/global"
-	"go.opentelemetry.io/otel/metric/instrument"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -36,8 +36,8 @@ type engine struct {
 	contextLoader        engineapi.ContextLoaderFactory
 	exceptionSelector    engineapi.PolicyExceptionSelector
 	// metrics
-	resultCounter     instrument.Int64Counter
-	durationHistogram instrument.Float64Histogram
+	resultCounter     metric.Int64Counter
+	durationHistogram metric.Float64Histogram
 }
 
 type handlerFactory = func() (handlers.Handler, error)
@@ -51,17 +51,17 @@ func NewEngine(
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,
 ) engineapi.Engine {
-	meter := global.MeterProvider().Meter(metrics.MeterName)
+	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
 	resultCounter, err := meter.Int64Counter(
 		"kyverno_policy_results",
-		instrument.WithDescription("can be used to track the results associated with the policies applied in the user's cluster, at the level from rule to policy to admission requests"),
+		metric.WithDescription("can be used to track the results associated with the policies applied in the user's cluster, at the level from rule to policy to admission requests"),
 	)
 	if err != nil {
 		logging.Error(err, "failed to register metric kyverno_policy_results")
 	}
 	durationHistogram, err := meter.Float64Histogram(
 		"kyverno_policy_execution_duration_seconds",
-		instrument.WithDescription("can be used to track the latencies (in seconds) associated with the execution/processing of the individual rules under Kyverno policies whenever they evaluate incoming resource requests"),
+		metric.WithDescription("can be used to track the latencies (in seconds) associated with the execution/processing of the individual rules under Kyverno policies whenever they evaluate incoming resource requests"),
 	)
 	if err != nil {
 		logging.Error(err, "failed to register metric kyverno_policy_execution_duration_seconds")
