@@ -3,6 +3,7 @@ package policy
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -152,6 +153,18 @@ func (pc *policyController) canBackgroundProcess(p kyvernov1.PolicyInterface) bo
 	if err := policyvalidation.ValidateVariables(p, true); err != nil {
 		logger.V(4).Info("policy cannot be processed in the background")
 		return false
+	}
+
+	if p.GetSpec().IsMutateExisting() {
+		val := os.Getenv("BACKGROUND_SCAN_INTERVAL")
+		interval, err := time.ParseDuration(val)
+		if err != nil {
+			logger.Error(err, "failed to parse BACKGROUND_SCAN_INTERVAL env variable, skip[ing the policy event")
+			return false
+		}
+		if p.GetCreationTimestamp().Add(interval).After(time.Now()) {
+			return p.GetSpec().GetMutateExistingOnPolicyUpdate()
+		}
 	}
 
 	return true
