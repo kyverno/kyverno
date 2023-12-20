@@ -159,8 +159,8 @@ func (pc *policyController) canBackgroundProcess(p kyvernov1.PolicyInterface) bo
 		val := os.Getenv("BACKGROUND_SCAN_INTERVAL")
 		interval, err := time.ParseDuration(val)
 		if err != nil {
-			logger.Error(err, "failed to parse BACKGROUND_SCAN_INTERVAL env variable, skip[ing the policy event")
-			return false
+			logger.V(4).Info("failed to parse BACKGROUND_SCAN_INTERVAL env variable, falling to default 1h", "msg", err.Error())
+			interval = time.Hour
 		}
 		if p.GetCreationTimestamp().Add(interval).After(time.Now()) {
 			return p.GetSpec().GetMutateExistingOnPolicyUpdate()
