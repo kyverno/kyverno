@@ -6,6 +6,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/path"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
@@ -22,6 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -37,7 +39,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	var dClient dclient.Interface
 	// values/variables
 	fmt.Fprintln(out, "  Loading values/variables", "...")
-	vars, err := variables.New(testCase.Fs, testDir, testCase.Test.Variables, testCase.Test.Values)
+	vars, err := variables.New(out, testCase.Fs, testDir, testCase.Test.Variables, testCase.Test.Values)
 	if err != nil {
 		err = fmt.Errorf("failed to decode yaml (%w)", err)
 		return nil, err
@@ -50,6 +52,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 		if err != nil {
 			return nil, fmt.Errorf("Error: failed to load request info (%s)", err)
 		}
+		deprecations.CheckUserInfo(out, testCase.Test.UserInfo, info)
 		userInfo = &info.RequestInfo
 	}
 	// policies
@@ -136,7 +139,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	// execute engine
 	var engineResponses []engineapi.EngineResponse
 	var resultCounts processor.ResultCounts
-
 	for _, resource := range uniques {
 		processor := processor.PolicyProcessor{
 			Store:                     &store,
@@ -152,6 +154,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 			Client:                    dClient,
 			Subresources:              vars.Subresources(),
 			Out:                       out,
+			RegistryClient:            registryclient.NewOrDie(),
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {

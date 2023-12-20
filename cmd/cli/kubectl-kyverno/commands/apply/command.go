@@ -14,6 +14,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
@@ -28,6 +29,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/spf13/cobra"
@@ -135,9 +137,10 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		if err != nil {
 			return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("failed to load request info (%w)", err)
 		}
+		deprecations.CheckUserInfo(out, c.UserInfoPath, info)
 		userInfo = &info.RequestInfo
 	}
-	variables, err := variables.New(nil, "", c.ValuesFile, nil, c.Variables...)
+	variables, err := variables.New(out, nil, "", c.ValuesFile, nil, c.Variables...)
 	if err != nil {
 		return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("failed to decode yaml (%w)", err)
 	}
@@ -162,6 +165,14 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		policyRulesCount += len(validatingAdmissionPolicies)
 		fmt.Fprintf(out, "\nApplying %d policy rule(s) to %d resource(s)...\n", policyRulesCount, len(resources))
 	}
+
+	var regOpts []registryclient.Option
+	if c.RegistryAccess {
+		regOpts = append(regOpts, registryclient.WithLocalKeychain())
+	}
+
+	rclient := registryclient.NewOrDie(regOpts...)
+
 	rc, resources1, responses1, err = c.applyPolicytoResource(
 		out,
 		&store,
@@ -172,6 +183,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		dClient,
 		userInfo,
 		mutateLogPathIsDir,
+		rclient,
 	)
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
@@ -229,6 +241,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	dClient dclient.Interface,
 	userInfo *v1beta1.RequestInfo,
 	mutateLogPathIsDir bool,
+	rclient registryclient.Client,
 ) (*processor.ResultCounts, []*unstructured.Unstructured, []engineapi.EngineResponse, error) {
 	if vars != nil {
 		vars.SetInStore(store)
@@ -249,6 +262,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 		}
 		validPolicies = append(validPolicies, pol)
 	}
+
 	var rc processor.ResultCounts
 	var responses []engineapi.EngineResponse
 	for _, resource := range resources {
@@ -269,6 +283,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 			AuditWarn:            c.AuditWarn,
 			Subresources:         vars.Subresources(),
 			Out:                  out,
+			RegistryClient:       rclient,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
