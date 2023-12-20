@@ -642,7 +642,7 @@ jobs:
       - name: Create kind cluster and setup Sigstore Scaffolding
         uses: sigstore/scaffolding/actions/setup@bea34b6f64147aa09768cd9c4c5d17e71d9e144e
         with:
-          version: 'v0.6.8'
+          version: main
           k8s-version: ${{ matrix.k8s-version.version }}
           knative-version: '1.10.0'
       - name: Create TUF values config map
