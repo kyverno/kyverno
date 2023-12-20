@@ -21,15 +21,12 @@ spec:
   - additionalPrinterColumns:
     - jsonPath: .metadata.ownerReferences[0].apiVersion
       name: ApiVersion
-      priority: 1
       type: string
     - jsonPath: .metadata.ownerReferences[0].kind
       name: Kind
-      priority: 1
       type: string
     - jsonPath: .metadata.ownerReferences[0].name
       name: Subject
-      priority: 1
       type: string
     - jsonPath: .spec.summary.pass
       name: Pass
