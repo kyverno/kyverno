@@ -146,7 +146,7 @@ func (gen *generator) Run(ctx context.Context, workers int, waitGroup *sync.Wait
 	defer utilruntime.HandleCrash()
 	// TODO: we should probably wait workers exited before stopping recorders
 	defer gen.stopRecorders()
-	defer gen.queue.ShutDown()
+	defer gen.queue.ShutDownWithDrain()
 	defer logger.Info("shutting down...")
 	if err := gen.startRecorders(ctx); err != nil {
 		logger.Error(err, "failed to start recorders")
