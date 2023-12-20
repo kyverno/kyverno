@@ -144,11 +144,9 @@ func NewPolicyController(
 
 func (pc *policyController) canBackgroundProcess(p kyvernov1.PolicyInterface) bool {
 	logger := pc.log.WithValues("policy", p.GetName())
-	if !p.BackgroundProcessingEnabled() {
-		if !p.GetSpec().HasGenerate() && !p.GetSpec().IsMutateExisting() {
-			logger.V(4).Info("background processing is disabled")
-			return false
-		}
+	if !p.GetSpec().HasGenerate() && !p.GetSpec().IsMutateExisting() {
+		logger.V(4).Info("policy does not have background rules for reconciliation")
+		return false
 	}
 
 	if err := policyvalidation.ValidateVariables(p, true); err != nil {
