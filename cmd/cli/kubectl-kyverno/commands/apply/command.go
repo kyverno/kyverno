@@ -14,6 +14,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
@@ -136,9 +137,10 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		if err != nil {
 			return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("failed to load request info (%w)", err)
 		}
+		deprecations.CheckUserInfo(out, c.UserInfoPath, info)
 		userInfo = &info.RequestInfo
 	}
-	variables, err := variables.New(nil, "", c.ValuesFile, nil, c.Variables...)
+	variables, err := variables.New(out, nil, "", c.ValuesFile, nil, c.Variables...)
 	if err != nil {
 		return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("failed to decode yaml (%w)", err)
 	}
