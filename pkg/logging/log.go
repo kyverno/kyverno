@@ -69,6 +69,7 @@ func Setup(logFormat string, loggingTimestampFormat string, level int) error {
 		return errors.New("log format not recognized, pass `text` for text mode or `json` to enable JSON logging")
 	}
 
+	//Configure the timestamp format
 	switch loggingTimestampFormat {
 	case ISO8601:
 		zc.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
