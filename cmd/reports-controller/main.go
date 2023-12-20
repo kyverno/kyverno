@@ -283,7 +283,7 @@ func main() {
 	}
 	// start event generator
 	var wg sync.WaitGroup
-	go eventGenerator.Run(ctx, 3, &wg)
+	go eventGenerator.Run(ctx, event.Workers, &wg)
 	// setup leader election
 	le, err := leaderelection.New(
 		setup.Logger.WithName("leader-election"),

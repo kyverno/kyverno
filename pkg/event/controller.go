@@ -16,47 +16,52 @@ import (
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/events"
 	"k8s.io/client-go/util/workqueue"
 )
 
 const (
+	Workers             = 3
+	CleanupWorkers      = 3
 	eventWorkQueueName  = "kyverno-events"
 	workQueueRetryLimit = 3
 )
 
 // generator generate events
 type generator struct {
-	client dclient.Interface
-	// list/get cluster policy
-	cpLister kyvernov1listers.ClusterPolicyLister
-	// list/get policy
-	pLister kyvernov1listers.PolicyLister
-	// list/get cluster cleanup policy
+	// clients
+	client                  dclient.Interface
+	cpLister                kyvernov1listers.ClusterPolicyLister
+	pLister                 kyvernov1listers.PolicyLister
 	clustercleanuppolLister kyvernov2beta1listers.ClusterCleanupPolicyLister
-	// list/get cleanup policy
-	cleanuppolLister kyvernov2beta1listers.CleanupPolicyLister
-	// queue to store event generation requests
-	queue workqueue.RateLimitingInterface
+	cleanuppolLister        kyvernov2beta1listers.CleanupPolicyLister
 
+	// broadcasters
 	policyCtrBroadcaster      events.EventBroadcaster
 	admissionCtrBroadcaster   events.EventBroadcaster
 	genPolicyBroadcaster      events.EventBroadcaster
 	mutateExistingBroadcaster events.EventBroadcaster
 	cleanupPolicyBroadcaster  events.EventBroadcaster
 
+	// recorders
 	policyCtrRecorder      events.EventRecorder
 	admissionCtrRecorder   events.EventRecorder
 	genPolicyRecorder      events.EventRecorder
 	mutateExistingRecorder events.EventRecorder
 	cleanupPolicyRecorder  events.EventRecorder
 
+	// config
+	queue           workqueue.RateLimitingInterface
 	maxQueuedEvents int
+	omitEvents      sets.Set[string]
+	logger          logr.Logger
+}
 
-	omitEvents []string
-
-	log logr.Logger
+// Interface to generate event
+type Interface interface {
+	Add(infoList ...Info)
 }
 
 // Controller interface to generate event
@@ -65,23 +70,17 @@ type Controller interface {
 	Run(context.Context, int, *sync.WaitGroup)
 }
 
-// Interface to generate event
-type Interface interface {
-	Add(infoList ...Info)
-}
-
 // NewEventGenerator to generate a new event controller
 func NewEventGenerator(
-	// source Source,
 	client dclient.Interface,
 	cpInformer kyvernov1informers.ClusterPolicyInformer,
 	pInformer kyvernov1informers.PolicyInformer,
 	maxQueuedEvents int,
 	omitEvents []string,
-	log logr.Logger,
+	logger logr.Logger,
 ) Controller {
 	sink := newSink(client.GetEventsInterface())
-	gen := generator{
+	return &generator{
 		client:                    client,
 		cpLister:                  cpInformer.Lister(),
 		pLister:                   pInformer.Lister(),
@@ -91,66 +90,57 @@ func NewEventGenerator(
 		genPolicyBroadcaster:      newBroadcaster(sink),
 		mutateExistingBroadcaster: newBroadcaster(sink),
 		maxQueuedEvents:           maxQueuedEvents,
-		omitEvents:                omitEvents,
-		log:                       log,
+		omitEvents:                sets.New(omitEvents...),
+		logger:                    logger,
 	}
-	return &gen
 }
 
 // NewEventGenerator to generate a new event cleanup controller
 func NewEventCleanupGenerator(
-	// source Source,
 	client dclient.Interface,
 	clustercleanuppolInformer kyvernov2beta1informers.ClusterCleanupPolicyInformer,
 	cleanuppolInformer kyvernov2beta1informers.CleanupPolicyInformer,
 	maxQueuedEvents int,
-	log logr.Logger,
+	logger logr.Logger,
 ) Controller {
 	sink := newSink(client.GetEventsInterface())
-	gen := generator{
+	return &generator{
 		client:                   client,
 		clustercleanuppolLister:  clustercleanuppolInformer.Lister(),
 		cleanuppolLister:         cleanuppolInformer.Lister(),
 		queue:                    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter(), eventWorkQueueName),
 		cleanupPolicyBroadcaster: newBroadcaster(sink),
 		maxQueuedEvents:          maxQueuedEvents,
-		log:                      log,
+		logger:                   logger,
 	}
-	return &gen
 }
 
 // Add queues an event for generation
 func (gen *generator) Add(infos ...Info) {
-	logger := gen.log
+	logger := gen.logger
 	logger.V(3).Info("generating events", "count", len(infos))
 	if gen.maxQueuedEvents == 0 || gen.queue.Len() > gen.maxQueuedEvents {
 		logger.V(2).Info("exceeds the event queue limit, dropping the event", "maxQueuedEvents", gen.maxQueuedEvents, "current size", gen.queue.Len())
 		return
 	}
 	for _, info := range infos {
+		// don't create event for resources with generateName as the name is not generated yet
 		if info.Name == "" {
-			// dont create event for resources with generateName
-			// as the name is not generated yet
 			logger.V(3).Info("skipping event creation for resource without a name", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace)
 			continue
 		}
-		shouldEmitEvent := true
-		for _, eventReason := range gen.omitEvents {
-			if info.Reason == Reason(eventReason) {
-				shouldEmitEvent = false
-				logger.V(6).Info("omitting event", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace, "reason", info.Reason)
-			}
+		if gen.omitEvents.Has(string(info.Reason)) {
+			logger.V(6).Info("omitting event", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace, "reason", info.Reason)
+			continue
 		}
-		if shouldEmitEvent {
-			gen.queue.Add(info)
-			logger.V(6).Info("creating event", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace, "reason", info.Reason)
-		}
+		gen.queue.Add(info)
+		logger.V(6).Info("creating event", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace, "reason", info.Reason)
 	}
 }
 
 // Run begins generator
 func (gen *generator) Run(ctx context.Context, workers int, waitGroup *sync.WaitGroup) {
-	logger := gen.log
+	logger := gen.logger
 	logger.Info("start")
 	defer logger.Info("terminated")
 	defer utilruntime.HandleCrash()
@@ -174,39 +164,39 @@ func (gen *generator) Run(ctx context.Context, workers int, waitGroup *sync.Wait
 
 func (gen *generator) startRecorders(ctx context.Context) error {
 	if gen.policyCtrBroadcaster != nil {
-		policyCtrRecorder, err := startRecording(ctx, gen.policyCtrBroadcaster, PolicyController)
+		recorder, err := startRecording(ctx, gen.policyCtrBroadcaster, PolicyController)
 		if err != nil {
 			return err
 		}
-		gen.policyCtrRecorder = policyCtrRecorder
+		gen.policyCtrRecorder = recorder
 	}
 	if gen.admissionCtrBroadcaster != nil {
-		admissionCtrRecorder, err := startRecording(ctx, gen.admissionCtrBroadcaster, AdmissionController)
+		recorder, err := startRecording(ctx, gen.admissionCtrBroadcaster, AdmissionController)
 		if err != nil {
 			return err
 		}
-		gen.admissionCtrRecorder = admissionCtrRecorder
+		gen.admissionCtrRecorder = recorder
 	}
 	if gen.genPolicyBroadcaster != nil {
-		genPolicyRecorder, err := startRecording(ctx, gen.genPolicyBroadcaster, GeneratePolicyController)
+		recorder, err := startRecording(ctx, gen.genPolicyBroadcaster, GeneratePolicyController)
 		if err != nil {
 			return err
 		}
-		gen.genPolicyRecorder = genPolicyRecorder
+		gen.genPolicyRecorder = recorder
 	}
 	if gen.mutateExistingBroadcaster != nil {
-		mutateExistingRecorder, err := startRecording(ctx, gen.mutateExistingBroadcaster, MutateExistingController)
+		recorder, err := startRecording(ctx, gen.mutateExistingBroadcaster, MutateExistingController)
 		if err != nil {
 			return err
 		}
-		gen.mutateExistingRecorder = mutateExistingRecorder
+		gen.mutateExistingRecorder = recorder
 	}
 	if gen.cleanupPolicyBroadcaster != nil {
-		cleanupPolicyRecorder, err := startRecording(ctx, gen.cleanupPolicyBroadcaster, CleanupController)
+		recorder, err := startRecording(ctx, gen.cleanupPolicyBroadcaster, CleanupController)
 		if err != nil {
 			return err
 		}
-		gen.cleanupPolicyRecorder = cleanupPolicyRecorder
+		gen.cleanupPolicyRecorder = recorder
 	}
 	return nil
 }
@@ -234,46 +224,40 @@ func (gen *generator) runWorker(ctx context.Context) {
 	}
 }
 
-func (gen *generator) handleErr(err error, key interface{}) {
-	logger := gen.log
-	if err == nil {
-		gen.queue.Forget(key)
-		return
-	}
-	// This controller retries if something goes wrong. After that, it stops trying.
-	if gen.queue.NumRequeues(key) < workQueueRetryLimit {
-		logger.V(4).Info("retrying event generation", "key", key, "reason", err.Error())
-		// Re-enqueue the key rate limited. Based on the rate limiter on the
-		// queue and the re-enqueue history, the key will be processed later again.
-		gen.queue.AddRateLimited(key)
-		return
-	}
-	gen.queue.Forget(key)
-	if !errors.IsNotFound(err) {
-		logger.Error(err, "failed to generate event", "key", key)
-	}
-}
-
 func (gen *generator) processNextWorkItem() bool {
-	obj, shutdown := gen.queue.Get()
-	if shutdown {
-		return false
-	}
-	defer gen.queue.Done(obj)
-	var key Info
-	var ok bool
-	if key, ok = obj.(Info); !ok {
-		gen.queue.Forget(obj)
-		gen.log.V(2).Info("Incorrect type; expected type 'info'", "obj", obj)
+	if obj, quit := gen.queue.Get(); !quit {
+		defer gen.queue.Done(obj)
+		if key, ok := obj.(Info); ok {
+			gen.handleErr(gen.syncHandler(key), obj)
+		} else {
+			gen.queue.Forget(obj)
+			gen.logger.V(2).Info("Incorrect type; expected type 'info'", "obj", obj)
+		}
 		return true
 	}
-	err := gen.syncHandler(key)
-	gen.handleErr(err, obj)
-	return true
+	return false
+}
+
+func (gen *generator) handleErr(err error, key interface{}) {
+	logger := gen.logger
+	if err == nil {
+		gen.queue.Forget(key)
+	} else {
+		if !errors.IsNotFound(err) {
+			logger.Error(err, "failed to generate event", "key", key)
+		}
+		if gen.queue.NumRequeues(key) < workQueueRetryLimit {
+			logger.V(4).Info("retrying event generation", "key", key, "reason", err.Error())
+			gen.queue.AddRateLimited(key)
+		} else {
+			logger.Info("dropping event generation", "key", key, "reason", err.Error())
+			gen.queue.Forget(key)
+		}
+	}
 }
 
 func (gen *generator) syncHandler(key Info) error {
-	logger := gen.log
+	logger := gen.logger
 	var regardingObj, relatedObj runtime.Object
 	var err error
 	switch key.Kind {

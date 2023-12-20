@@ -172,7 +172,7 @@ func main() {
 		os.Exit(1)
 	}
 	// start event generator
-	go eventGenerator.Run(signalCtx, 3, &wg)
+	go eventGenerator.Run(signalCtx, event.Workers, &wg)
 	// setup leader election
 	le, err := leaderelection.New(
 		setup.Logger.WithName("leader-election"),
