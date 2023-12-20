@@ -39,16 +39,18 @@ type generator struct {
 	cleanuppolLister kyvernov2beta1listers.CleanupPolicyLister
 	// queue to store event generation requests
 	queue workqueue.RateLimitingInterface
-	// events generated at policy controller
-	policyCtrRecorder events.EventRecorder
-	// events generated at admission control
-	admissionCtrRecorder events.EventRecorder
-	// events generated at namespaced policy controller to process 'generate' rule
-	genPolicyRecorder events.EventRecorder
-	// events generated at mutateExisting controller
+
+	policyCtrBroadcaster      events.EventBroadcaster
+	admissionCtrBroadcaster   events.EventBroadcaster
+	genPolicyBroadcaster      events.EventBroadcaster
+	mutateExistingBroadcaster events.EventBroadcaster
+	cleanupPolicyBroadcaster  events.EventBroadcaster
+
+	policyCtrRecorder      events.EventRecorder
+	admissionCtrRecorder   events.EventRecorder
+	genPolicyRecorder      events.EventRecorder
 	mutateExistingRecorder events.EventRecorder
-	// events generated at cleanup controller
-	cleanupPolicyRecorder events.EventRecorder
+	cleanupPolicyRecorder  events.EventRecorder
 
 	maxQueuedEvents int
 
@@ -78,18 +80,19 @@ func NewEventGenerator(
 	omitEvents []string,
 	log logr.Logger,
 ) Controller {
+	sink := newSink(client.GetEventsInterface())
 	gen := generator{
-		client:                 client,
-		cpLister:               cpInformer.Lister(),
-		pLister:                pInformer.Lister(),
-		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter(), eventWorkQueueName),
-		policyCtrRecorder:      NewRecorder(PolicyController, client.GetEventsInterface()),
-		admissionCtrRecorder:   NewRecorder(AdmissionController, client.GetEventsInterface()),
-		genPolicyRecorder:      NewRecorder(GeneratePolicyController, client.GetEventsInterface()),
-		mutateExistingRecorder: NewRecorder(MutateExistingController, client.GetEventsInterface()),
-		maxQueuedEvents:        maxQueuedEvents,
-		omitEvents:             omitEvents,
-		log:                    log,
+		client:                    client,
+		cpLister:                  cpInformer.Lister(),
+		pLister:                   pInformer.Lister(),
+		queue:                     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter(), eventWorkQueueName),
+		policyCtrBroadcaster:      newBroadcaster(sink),
+		admissionCtrBroadcaster:   newBroadcaster(sink),
+		genPolicyBroadcaster:      newBroadcaster(sink),
+		mutateExistingBroadcaster: newBroadcaster(sink),
+		maxQueuedEvents:           maxQueuedEvents,
+		omitEvents:                omitEvents,
+		log:                       log,
 	}
 	return &gen
 }
@@ -103,14 +106,15 @@ func NewEventCleanupGenerator(
 	maxQueuedEvents int,
 	log logr.Logger,
 ) Controller {
+	sink := newSink(client.GetEventsInterface())
 	gen := generator{
-		client:                  client,
-		clustercleanuppolLister: clustercleanuppolInformer.Lister(),
-		cleanuppolLister:        cleanuppolInformer.Lister(),
-		queue:                   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter(), eventWorkQueueName),
-		cleanupPolicyRecorder:   NewRecorder(CleanupController, client.GetEventsInterface()),
-		maxQueuedEvents:         maxQueuedEvents,
-		log:                     log,
+		client:                   client,
+		clustercleanuppolLister:  clustercleanuppolInformer.Lister(),
+		cleanuppolLister:         cleanuppolInformer.Lister(),
+		queue:                    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter(), eventWorkQueueName),
+		cleanupPolicyBroadcaster: newBroadcaster(sink),
+		maxQueuedEvents:          maxQueuedEvents,
+		log:                      log,
 	}
 	return &gen
 }
@@ -130,7 +134,6 @@ func (gen *generator) Add(infos ...Info) {
 			logger.V(3).Info("skipping event creation for resource without a name", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace)
 			continue
 		}
-
 		shouldEmitEvent := true
 		for _, eventReason := range gen.omitEvents {
 			if info.Reason == Reason(eventReason) {
@@ -138,7 +141,6 @@ func (gen *generator) Add(infos ...Info) {
 				logger.V(6).Info("omitting event", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace, "reason", info.Reason)
 			}
 		}
-
 		if shouldEmitEvent {
 			gen.queue.Add(info)
 			logger.V(6).Info("creating event", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace, "reason", info.Reason)
@@ -150,9 +152,16 @@ func (gen *generator) Add(infos ...Info) {
 func (gen *generator) Run(ctx context.Context, workers int, waitGroup *sync.WaitGroup) {
 	logger := gen.log
 	logger.Info("start")
-	defer logger.Info("shutting down")
+	defer logger.Info("terminated")
 	defer utilruntime.HandleCrash()
+	// TODO: we should probably wait workers exited before stopping recorders
+	defer gen.stopRecorders()
 	defer gen.queue.ShutDown()
+	defer logger.Info("shutting down...")
+	if err := gen.startRecorders(ctx); err != nil {
+		logger.Error(err, "failed to start recorders")
+		return
+	}
 	for i := 0; i < workers; i++ {
 		waitGroup.Add(1)
 		go func() {
@@ -161,6 +170,63 @@ func (gen *generator) Run(ctx context.Context, workers int, waitGroup *sync.Wait
 		}()
 	}
 	<-ctx.Done()
+}
+
+func (gen *generator) startRecorders(ctx context.Context) error {
+	if gen.policyCtrBroadcaster != nil {
+		policyCtrRecorder, err := startRecording(ctx, gen.policyCtrBroadcaster, PolicyController)
+		if err != nil {
+			return err
+		}
+		gen.policyCtrRecorder = policyCtrRecorder
+	}
+	if gen.admissionCtrBroadcaster != nil {
+		admissionCtrRecorder, err := startRecording(ctx, gen.admissionCtrBroadcaster, AdmissionController)
+		if err != nil {
+			return err
+		}
+		gen.admissionCtrRecorder = admissionCtrRecorder
+	}
+	if gen.genPolicyBroadcaster != nil {
+		genPolicyRecorder, err := startRecording(ctx, gen.genPolicyBroadcaster, GeneratePolicyController)
+		if err != nil {
+			return err
+		}
+		gen.genPolicyRecorder = genPolicyRecorder
+	}
+	if gen.mutateExistingBroadcaster != nil {
+		mutateExistingRecorder, err := startRecording(ctx, gen.mutateExistingBroadcaster, MutateExistingController)
+		if err != nil {
+			return err
+		}
+		gen.mutateExistingRecorder = mutateExistingRecorder
+	}
+	if gen.cleanupPolicyBroadcaster != nil {
+		cleanupPolicyRecorder, err := startRecording(ctx, gen.cleanupPolicyBroadcaster, CleanupController)
+		if err != nil {
+			return err
+		}
+		gen.cleanupPolicyRecorder = cleanupPolicyRecorder
+	}
+	return nil
+}
+
+func (gen *generator) stopRecorders() {
+	if gen.policyCtrBroadcaster != nil {
+		gen.policyCtrBroadcaster.Shutdown()
+	}
+	if gen.admissionCtrBroadcaster != nil {
+		gen.admissionCtrBroadcaster.Shutdown()
+	}
+	if gen.genPolicyBroadcaster != nil {
+		gen.genPolicyBroadcaster.Shutdown()
+	}
+	if gen.mutateExistingBroadcaster != nil {
+		gen.mutateExistingBroadcaster.Shutdown()
+	}
+	if gen.cleanupPolicyBroadcaster != nil {
+		gen.cleanupPolicyBroadcaster.Shutdown()
+	}
 }
 
 func (gen *generator) runWorker(ctx context.Context) {
