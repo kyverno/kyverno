@@ -22,11 +22,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func runTest(out io.Writer, testCase test.TestCase, auditWarn bool) ([]engineapi.EngineResponse, error) {
+func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWarn bool) ([]engineapi.EngineResponse, error) {
 	// don't process test case with errors
 	if testCase.Err != nil {
 		return nil, testCase.Err
@@ -73,9 +74,11 @@ func runTest(out io.Writer, testCase test.TestCase, auditWarn bool) ([]engineapi
 		}
 	}
 	// init store
+	var store store.Store
 	store.SetLocal(true)
+	store.SetRegistryAccess(registryAccess)
 	if vars != nil {
-		vars.SetInStore()
+		vars.SetInStore(&store)
 	}
 	fmt.Fprintln(out, "  Applying", len(policies)+len(validatingAdmissionPolicies), pluralize.Pluralize(len(policies)+len(validatingAdmissionPolicies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
 	// TODO document the code below
@@ -137,6 +140,7 @@ func runTest(out io.Writer, testCase test.TestCase, auditWarn bool) ([]engineapi
 
 	for _, resource := range uniques {
 		processor := processor.PolicyProcessor{
+			Store:                     &store,
 			Policies:                  validPolicies,
 			Resource:                  *resource,
 			MutateLogPath:             "",
@@ -149,6 +153,7 @@ func runTest(out io.Writer, testCase test.TestCase, auditWarn bool) ([]engineapi
 			Client:                    dClient,
 			Subresources:              vars.Subresources(),
 			Out:                       out,
+			RegistryClient:            registryclient.NewOrDie(),
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
