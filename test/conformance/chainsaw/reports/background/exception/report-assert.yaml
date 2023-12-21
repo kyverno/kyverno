@@ -11,6 +11,7 @@ scope:
   name: emergency
 results:
 - policy: require-labels
+  policyException: mynewpolex
   result: skip
   rule: require-team
   scored: true
