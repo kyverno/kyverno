@@ -1021,11 +1021,12 @@ dev-lab-kwok: ## Deploy kwok
 # Bump new versions #
 #####################
 
-KYVERNO_CHART_VERSION ?= v3.1.1
+KYVERNO_CHART_VERSION ?= v3.1.1 
 POLICIES_CHART_VERSION ?= v3.1.1
 APP_VERSION ?= latest
 KUBE_VERSION_N ?= ">=1.25.0-0"
 
+.PHONY: release
 release:
 	@echo "Updating Chart.yaml files..."
 	sed -i 's/version: .*/version: $(POLICIES_CHART_VERSION)/' charts/kyverno-policies/Chart.yaml

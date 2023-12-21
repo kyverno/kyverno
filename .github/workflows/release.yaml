@@ -248,6 +248,7 @@ jobs:
         run: |
           rm -rf release
           mkdir release
+          make release KYVERNO_CHART_VERSION="${VERSION}" POLICIES_CHART_VERSION="${VERSION}"
           make release-notes > release/release-notes.out
           cat release/release-notes.out
       - name: Run GoReleaser
