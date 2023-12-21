@@ -42418,8 +42418,7 @@ spec:
         type: object
     served: true
     storage: true
-  - deprecated: true
-    name: v2alpha1
+  - name: v2alpha1
     schema:
       openAPIV3Schema:
         description: PolicyException declares resources to be excluded from specified
@@ -43008,7 +43007,7 @@ spec:
         required:
         - spec
         type: object
-    served: true
+    served: false
     storage: false
   - deprecated: true
     name: v2beta1
