@@ -4,10 +4,10 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
+	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
@@ -111,8 +111,8 @@ func FetchPolicies(polLister kyvernov1listers.PolicyLister, namespace string) ([
 	return policies, nil
 }
 
-func FetchPolicyExceptions(polexLister kyvernov2alpha1listers.PolicyExceptionLister, namespace string) ([]kyvernov2alpha1.PolicyException, error) {
-	var exceptions []kyvernov2alpha1.PolicyException
+func FetchPolicyExceptions(polexLister kyvernov2listers.PolicyExceptionLister, namespace string) ([]kyvernov2.PolicyException, error) {
+	var exceptions []kyvernov2.PolicyException
 	if polexs, err := polexLister.PolicyExceptions(namespace).List(labels.Everything()); err != nil {
 		return nil, err
 	} else {
