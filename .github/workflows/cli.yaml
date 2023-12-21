@@ -42,7 +42,7 @@ jobs:
           fi
       - name: Test CLI
         run: |
-          VERSION=${{ github.ref_name }} make test-cli
+          KYVERNO_KUBECTL_VALIDATE=false VERSION=${{ github.ref_name }} make test-cli
       - name: Test CLI (failures)
         run: |
           CLI_PATH=$PWD/cmd/cli/kubectl-kyverno/kubectl-kyverno
@@ -75,7 +75,7 @@ jobs:
           fi
       - name: Test CLI
         run: |
-          KYVERNO_KUBECTL_VALIDATE=true VERSION=${{ github.ref_name }} make test-cli
+          VERSION=${{ github.ref_name }} make test-cli
       - name: Test CLI (failures)
         run: |
           CLI_PATH=$PWD/cmd/cli/kubectl-kyverno/kubectl-kyverno
