@@ -255,9 +255,8 @@ func main() {
 	}
 	eventGenerator := event.NewEventGenerator(
 		setup.KyvernoDynamicClient,
-		maxQueuedEvents,
-		omitEventsValues,
 		logging.WithName("EventGenerator"),
+		omitEventsValues...,
 	)
 	// engine
 	engine := internal.NewEngine(

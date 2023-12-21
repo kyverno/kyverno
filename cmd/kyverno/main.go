@@ -322,9 +322,8 @@ func main() {
 	}
 	eventGenerator := event.NewEventGenerator(
 		setup.KyvernoDynamicClient,
-		maxQueuedEvents,
-		omitEventsValues,
 		logging.WithName("EventGenerator"),
+		omitEventsValues...,
 	)
 	// this controller only subscribe to events, nothing is returned...
 	policymetricscontroller.NewController(

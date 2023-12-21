@@ -132,9 +132,8 @@ func main() {
 		kyvernoInformer.Kyverno().V2beta1().ClusterCleanupPolicies(),
 		genericloggingcontroller.CheckGeneration,
 	)
-	eventGenerator := event.NewEventCleanupGenerator(
+	eventGenerator := event.NewEventGenerator(
 		setup.KyvernoDynamicClient,
-		maxQueuedEvents,
 		logging.WithName("EventGenerator"),
 	)
 	// start informers and wait for cache sync

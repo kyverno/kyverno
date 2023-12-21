@@ -138,9 +138,8 @@ func main() {
 	}
 	eventGenerator := event.NewEventGenerator(
 		setup.KyvernoDynamicClient,
-		maxQueuedEvents,
-		emitEventsValues,
 		logging.WithName("EventGenerator"),
+		emitEventsValues...,
 	)
 	// this controller only subscribe to events, nothing is returned...
 	var wg sync.WaitGroup
