@@ -92,7 +92,8 @@ func Command() *cobra.Command {
 			} else {
 				printViolations(out, rc)
 			}
-			return exit(rc, applyCommandConfig.warnExitCode, applyCommandConfig.warnNoPassed)
+			exit(rc, applyCommandConfig.warnExitCode, applyCommandConfig.warnNoPassed)
+			return nil
 		},
 	}
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.ResourcePaths, "resource", "r", []string{}, "Path to resource files")
@@ -453,13 +454,12 @@ func printViolations(out io.Writer, rc *processor.ResultCounts) {
 	fmt.Fprintf(out, "\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n", rc.Pass(), rc.Fail(), rc.Warn(), rc.Error(), rc.Skip())
 }
 
-func exit(rc *processor.ResultCounts, warnExitCode int, warnNoPassed bool) error {
+func exit(rc *processor.ResultCounts, warnExitCode int, warnNoPassed bool) {
 	if rc.Fail() > 0 || rc.Error() > 0 {
-		return fmt.Errorf("exit as fail or error count > 0")
+		log.Log.Info("exit as fail or error count > 0")
 	} else if rc.Warn() > 0 && warnExitCode != 0 {
-		return fmt.Errorf("exit as warnExitCode is %d", warnExitCode)
+		log.Log.Info("exit as warnExitCode is %d", warnExitCode)
 	} else if rc.Pass() == 0 && warnNoPassed {
-		return fmt.Errorf("exit as warnExitCode is %d", warnExitCode)
+		log.Log.Info("exit as warnExitCode is %d", warnExitCode)
 	}
-	return nil
 }
