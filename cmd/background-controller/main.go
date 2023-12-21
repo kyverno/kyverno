@@ -138,8 +138,6 @@ func main() {
 	}
 	eventGenerator := event.NewEventGenerator(
 		setup.KyvernoDynamicClient,
-		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-		kyvernoInformer.Kyverno().V1().Policies(),
 		maxQueuedEvents,
 		emitEventsValues,
 		logging.WithName("EventGenerator"),
