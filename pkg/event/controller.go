@@ -9,7 +9,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	corev1 "k8s.io/api/core/v1"
-	errors "k8s.io/apimachinery/pkg/api/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -170,9 +169,6 @@ func (gen *generator) handleErr(err error, key interface{}) {
 	if err == nil {
 		gen.queue.Forget(key)
 	} else {
-		if !errors.IsNotFound(err) {
-			logger.Error(err, "failed to generate event", "key", key)
-		}
 		if gen.queue.NumRequeues(key) < workQueueRetryLimit {
 			logger.V(4).Info("retrying event generation", "key", key, "reason", err.Error())
 			gen.queue.AddRateLimited(key)

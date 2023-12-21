@@ -262,7 +262,7 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 		Regarding: corev1.ObjectReference{
 			// TODO: iirc it's not safe to assume api version is set
 			APIVersion: "kyverno.io/v2",
-			Kind:       exception.Kind,
+			Kind:       "PolicyException",
 			Name:       exceptionName,
 			Namespace:  exceptionNamespace,
 			UID:        exception.GetUID(),
