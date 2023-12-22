@@ -28,6 +28,14 @@ const (
 	GHCR    ImageRegistryCredentialsProvidersType = "github"
 )
 
+var signatureAlgorithmMap = map[string]bool{
+	"":       true,
+	"sha224": true,
+	"sha256": true,
+	"sha384": true,
+	"sha512": true,
+}
+
 // ImageVerification validates that images that match the specified pattern
 // are signed with the supplied public key. Once the image is verified it is
 // mutated to include the SHA digest retrieved during the registration.
@@ -166,7 +174,7 @@ type StaticKeyAttestor struct {
 	// (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
 	PublicKeys string `json:"publicKeys,omitempty" yaml:"publicKeys,omitempty"`
 
-	// Specify signature algorithm for public keys. Supported values are sha256 and sha512.
+	// Specify signature algorithm for public keys. Supported values are sha224, sha256, sha384 and sha512.
 	// +kubebuilder:default=sha256
 	SignatureAlgorithm string `json:"signatureAlgorithm,omitempty" yaml:"signatureAlgorithm,omitempty"`
 
@@ -450,8 +458,10 @@ func (ska *StaticKeyAttestor) Validate(path *field.Path) (errs field.ErrorList) 
 	if ska.PublicKeys == "" && ska.KMS == "" && ska.Secret == nil {
 		errs = append(errs, field.Invalid(path, ska, "A public key, kms key or secret is required"))
 	}
-	if ska.PublicKeys != "" && ska.SignatureAlgorithm != "" && ska.SignatureAlgorithm != "sha256" && ska.SignatureAlgorithm != "sha512" {
-		errs = append(errs, field.Invalid(path, ska, "Invalid signature algorithm provided"))
+	if ska.PublicKeys != "" {
+		if _, ok := signatureAlgorithmMap[ska.SignatureAlgorithm]; !ok {
+			errs = append(errs, field.Invalid(path, ska, "Invalid signature algorithm provided"))
+		}
 	}
 	return errs
 }
