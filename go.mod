@@ -43,7 +43,7 @@ require (
 	github.com/sigstore/cosign/v2 v2.2.2
 	github.com/sigstore/k8s-manifest-sigstore v0.5.1
 	github.com/sigstore/rekor v1.3.4
-	github.com/sigstore/sigstore v1.7.6
+	github.com/sigstore/sigstore v1.8.0
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.7.6
 	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.7.6
 	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.7.6
@@ -306,7 +306,7 @@ require (
 	github.com/sagikazarmark/locafero v0.3.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/sassoftware/relic v7.2.1+incompatible // indirect
-	github.com/secure-systems-lab/go-securesystemslib v0.7.0 // indirect
+	github.com/secure-systems-lab/go-securesystemslib v0.8.0 // indirect
 	github.com/segmentio/ksuid v1.0.4 // indirect
 	github.com/sergi/go-diff v1.3.1 // indirect
 	github.com/shibumi/go-pathspec v1.3.0 // indirect

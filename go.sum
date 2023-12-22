@@ -1310,8 +1310,8 @@ github.com/sassoftware/relic v7.2.1+incompatible/go.mod h1:CWfAxv73/iLZ17rbyhIEq
 github.com/sassoftware/relic/v7 v7.6.1 h1:O5s8ewCgq5QYNpv45dK4u6IpBmDM9RIcsbf/G1uXepQ=
 github.com/sassoftware/relic/v7 v7.6.1/go.mod h1:NxwtWxWxlUa9as2qZi635Ye6bBT/tGnMALLq7dSfOOU=
 github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529/go.mod h1:DxrIzT+xaE7yg65j358z/aeFdxmN0P9QXhEzd20vsDc=
-github.com/secure-systems-lab/go-securesystemslib v0.7.0 h1:OwvJ5jQf9LnIAS83waAjPbcMsODrTQUpJ02eNLUoxBg=
-github.com/secure-systems-lab/go-securesystemslib v0.7.0/go.mod h1:/2gYnlnHVQ6xeGtfIqFy7Do03K4cdCY0A/GlJLDKLHI=
+github.com/secure-systems-lab/go-securesystemslib v0.8.0 h1:mr5An6X45Kb2nddcFlbmfHkLguCE9laoZCUzEEpIZXA=
+github.com/secure-systems-lab/go-securesystemslib v0.8.0/go.mod h1:UH2VZVuJfCYR8WgMlCU1uFsOUU+KeyrTWcSS73NBOzU=
 github.com/securego/gosec/v2 v2.7.0/go.mod h1:xNbGArrGUspJLuz3LS5XCY1EBW/0vABAl/LWfSklmiM=
 github.com/segmentio/ksuid v1.0.4 h1:sBo2BdShXjmcugAMwjugoGUdUV0pcxY5mW4xKRn3v4c=
 github.com/segmentio/ksuid v1.0.4/go.mod h1:/XUiZBD3kVx5SmUOl55voK5yeAbBNNIed+2O73XgrPE=
@@ -1336,8 +1336,8 @@ github.com/sigstore/k8s-manifest-sigstore v0.5.1 h1:jGYuk6LXJm/GzZB/RR2RZ23T84BC
 github.com/sigstore/k8s-manifest-sigstore v0.5.1/go.mod h1:YL1Yf0ta9jDxYimhZP/DGGaiwMG1CrKupOqfOdMk5d8=
 github.com/sigstore/rekor v1.3.4 h1:RGIia1iOZU7fOiiP2UY/WFYhhp50S5aUm7YrM8aiA6E=
 github.com/sigstore/rekor v1.3.4/go.mod h1:1GubPVO2yO+K0m0wt/3SHFqnilr/hWbsjSOe7Vzxrlg=
-github.com/sigstore/sigstore v1.7.6 h1:zB0woXx+3Bp7dk7AjklHF1VhXBdCs84VXkZbp0IHLv8=
-github.com/sigstore/sigstore v1.7.6/go.mod h1:FJE+NpEZIs4QKqZl4B2RtaVLVDcDtocAwTiNlexeBkY=
+github.com/sigstore/sigstore v1.8.0 h1:sSRWXv1JiDsK4T2wNWVYcvKCgxcSrhQ/QUJxsfCO4OM=
+github.com/sigstore/sigstore v1.8.0/go.mod h1:l12B1gFlLIpBIVeqk/q1Lb+6YSOGNuN3xLExIjYH+qc=
 github.com/sigstore/sigstore/pkg/signature/kms/aws v1.7.6 h1:WzZExOcFanrFfCi7SUgkBtJicWnSNziBD9nSSQIrqhc=
 github.com/sigstore/sigstore/pkg/signature/kms/aws v1.7.6/go.mod h1:3zOHOLHnCE6EXyVH+6Z/lC9O1RDsbmR045NQ1DogiHw=
 github.com/sigstore/sigstore/pkg/signature/kms/azure v1.7.6 h1:wsPt9kNXF1ZZyae2wO35NLsK+cjWqPGpuPaDdXzRe0g=
