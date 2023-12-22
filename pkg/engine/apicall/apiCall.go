@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"os"
 
@@ -142,16 +143,16 @@ func (a *apiCall) executeServiceCall(ctx context.Context, apiCall *kyvernov1.API
 	}
 	defer resp.Body.Close()
 
-	if a.config.maxAPICallResponseLength != 0 {
-		if resp.ContentLength <= 0 {
-			return nil, fmt.Errorf("content length header must be present.")
-		}
+	limit := a.config.maxAPICallResponseLength
+	if limit != 0 {
 		if resp.ContentLength > a.config.maxAPICallResponseLength {
 			return nil, fmt.Errorf("content length must be less than max response length of %d.", a.config.maxAPICallResponseLength)
 		}
+	} else {
+		limit = math.MaxInt64 // no limit
 	}
 
-	reader := io.LimitReader(resp.Body, max(a.config.maxAPICallResponseLength, resp.ContentLength))
+	reader := io.LimitReader(resp.Body, limit)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		b, err := io.ReadAll(reader)
 		if err == nil {
