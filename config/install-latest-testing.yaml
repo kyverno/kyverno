@@ -2706,7 +2706,6 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    deprecated: true
     name: v2alpha1
     schema:
       openAPIV3Schema:
@@ -3937,7 +3936,7 @@ spec:
         required:
         - spec
         type: object
-    served: true
+    served: false
     storage: false
     subresources:
       status: {}
@@ -7687,7 +7686,6 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    deprecated: true
     name: v2alpha1
     schema:
       openAPIV3Schema:
@@ -8918,7 +8916,7 @@ spec:
         required:
         - spec
         type: object
-    served: true
+    served: false
     storage: false
     subresources:
       status: {}
