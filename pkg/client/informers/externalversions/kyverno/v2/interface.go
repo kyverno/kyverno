@@ -24,6 +24,10 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
+	// CleanupPolicies returns a CleanupPolicyInformer.
+	CleanupPolicies() CleanupPolicyInformer
+	// ClusterCleanupPolicies returns a ClusterCleanupPolicyInformer.
+	ClusterCleanupPolicies() ClusterCleanupPolicyInformer
 	// PolicyExceptions returns a PolicyExceptionInformer.
 	PolicyExceptions() PolicyExceptionInformer
 }
@@ -37,6 +41,16 @@ type version struct {
 // New returns a new Interface.
 func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakListOptions internalinterfaces.TweakListOptionsFunc) Interface {
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
+}
+
+// CleanupPolicies returns a CleanupPolicyInformer.
+func (v *version) CleanupPolicies() CleanupPolicyInformer {
+	return &cleanupPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// ClusterCleanupPolicies returns a ClusterCleanupPolicyInformer.
+func (v *version) ClusterCleanupPolicies() ClusterCleanupPolicyInformer {
+	return &clusterCleanupPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // PolicyExceptions returns a PolicyExceptionInformer.

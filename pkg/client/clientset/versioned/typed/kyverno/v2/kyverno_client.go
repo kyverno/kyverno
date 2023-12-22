@@ -28,12 +28,22 @@ import (
 
 type KyvernoV2Interface interface {
 	RESTClient() rest.Interface
+	CleanupPoliciesGetter
+	ClusterCleanupPoliciesGetter
 	PolicyExceptionsGetter
 }
 
 // KyvernoV2Client is used to interact with features provided by the kyverno.io group.
 type KyvernoV2Client struct {
 	restClient rest.Interface
+}
+
+func (c *KyvernoV2Client) CleanupPolicies(namespace string) CleanupPolicyInterface {
+	return newCleanupPolicies(c, namespace)
+}
+
+func (c *KyvernoV2Client) ClusterCleanupPolicies() ClusterCleanupPolicyInterface {
+	return newClusterCleanupPolicies(c)
 }
 
 func (c *KyvernoV2Client) PolicyExceptions(namespace string) PolicyExceptionInterface {

@@ -18,4 +18,8 @@ limitations under the License.
 
 package v2
 
+type CleanupPolicyExpansion interface{}
+
+type ClusterCleanupPolicyExpansion interface{}
+
 type PolicyExceptionExpansion interface{}
