@@ -86,7 +86,7 @@ func (v *mutationHandler) applyMutations(
 
 	for _, policy := range policies {
 		spec := policy.GetSpec()
-		if !spec.HasMutate() {
+		if !spec.HasMutateStandard() {
 			continue
 		}
 
