@@ -36,12 +36,20 @@ func (c *FakeKyvernoV2) BackgroundScanReports(namespace string) v2.BackgroundSca
 	return &FakeBackgroundScanReports{c, namespace}
 }
 
+func (c *FakeKyvernoV2) CleanupPolicies(namespace string) v2.CleanupPolicyInterface {
+	return &FakeCleanupPolicies{c, namespace}
+}
+
 func (c *FakeKyvernoV2) ClusterAdmissionReports() v2.ClusterAdmissionReportInterface {
 	return &FakeClusterAdmissionReports{c}
 }
 
 func (c *FakeKyvernoV2) ClusterBackgroundScanReports() v2.ClusterBackgroundScanReportInterface {
 	return &FakeClusterBackgroundScanReports{c}
+}
+
+func (c *FakeKyvernoV2) ClusterCleanupPolicies() v2.ClusterCleanupPolicyInterface {
+	return &FakeClusterCleanupPolicies{c}
 }
 
 func (c *FakeKyvernoV2) PolicyExceptions(namespace string) v2.PolicyExceptionInterface {
