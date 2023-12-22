@@ -1,6 +1,8 @@
 module github.com/kyverno/kyverno
 
-go 1.21
+go 1.21.4
+
+toolchain go1.21.5
 
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24
@@ -71,33 +73,36 @@ require (
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
-	k8s.io/api v0.28.4
-	k8s.io/apiextensions-apiserver v0.28.4
-	k8s.io/apimachinery v0.28.4
-	k8s.io/apiserver v0.28.4
-	k8s.io/cli-runtime v0.28.2
-	k8s.io/client-go v0.28.4
-	k8s.io/klog/v2 v2.100.1
-	k8s.io/kube-aggregator v0.28.2
-	k8s.io/pod-security-admission v0.28.2
-	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
+	k8s.io/api v0.29.0-alpha.3
+	k8s.io/apiextensions-apiserver v0.29.0-alpha.3
+	k8s.io/apimachinery v0.29.0-alpha.3
+	k8s.io/apiserver v0.29.0-alpha.3
+	k8s.io/cli-runtime v0.29.0-alpha.3
+	k8s.io/client-go v0.29.0-alpha.3
+	k8s.io/klog/v2 v2.110.1
+	k8s.io/kube-aggregator v0.29.0-alpha.3
+	k8s.io/pod-security-admission v0.29.0-alpha.3
+	k8s.io/utils v0.0.0-20231127182322-b307cd553661
 	sigs.k8s.io/controller-runtime v0.16.3
-	sigs.k8s.io/kubectl-validate v0.0.0-20230927155409-3b3ca3ad91d0
-	sigs.k8s.io/kustomize/api v0.14.0
-	sigs.k8s.io/kustomize/kyaml v0.14.3
-	sigs.k8s.io/release-utils v0.7.6
+	sigs.k8s.io/kubectl-validate v0.0.2
+	sigs.k8s.io/kustomize/api v0.16.0
+	sigs.k8s.io/kustomize/kyaml v0.16.0
+	sigs.k8s.io/release-utils v0.7.7
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1
 	sigs.k8s.io/yaml v1.4.0
 )
 
 require (
+	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.10.4 // indirect
 	github.com/google/go-github/v55 v55.0.0 // indirect
 	github.com/gowebpki/jcs v1.0.1 // indirect
 	github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 // indirect
+	github.com/moby/term v0.5.0 // indirect
 	github.com/sagikazarmark/locafero v0.3.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
+	gopkg.in/evanphx/json-patch.v5 v5.6.0 // indirect
 )
 
 require (
@@ -240,7 +245,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/btree v1.1.2 // indirect
-	github.com/google/cel-go v0.16.1 // indirect
+	github.com/google/cel-go v0.17.7 // indirect
 	github.com/google/certificate-transparency-go v1.1.7 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
@@ -405,12 +410,15 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	inet.af/netaddr v0.0.0-20230525184311-b8eac61e914a // indirect
-	k8s.io/component-base v0.28.4 // indirect
+	k8s.io/component-base v0.29.0-alpha.3 // indirect
 	k8s.io/kube-openapi v0.0.0-20231113174909-778a5567bc1e
-	k8s.io/kubectl v0.28.2 // indirect
+	k8s.io/kubectl v0.28.4 // indirect
 	oras.land/oras-go/v2 v2.3.1 // indirect
-	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.1.4 // indirect
+	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.28.1 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 )
 
-replace github.com/sigstore/cosign/v2 => github.com/kyverno/cosign/v2 v2.0.0-20231109090756-51fd41540436
+replace (
+	github.com/sigstore/cosign/v2 => github.com/kyverno/cosign/v2 v2.0.0-20231109090756-51fd41540436
+	sigs.k8s.io/kubectl-validate => github.com/kyverno/kubectl-validate v0.0.0-20231116142848-59e4e6124b70
+)
