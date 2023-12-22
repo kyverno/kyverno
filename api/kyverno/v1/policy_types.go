@@ -54,7 +54,7 @@ func (p *Policy) HasAutoGenAnnotation() bool {
 // HasMutateOrValidateOrGenerate checks for rule types
 func (p *Policy) HasMutateOrValidateOrGenerate() bool {
 	for _, rule := range p.Spec.Rules {
-		if rule.HasMutate() || rule.HasValidate() || rule.HasGenerate() {
+		if rule.HasMutateStandard() || rule.HasValidate() || rule.HasGenerate() {
 			return true
 		}
 	}
