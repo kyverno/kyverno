@@ -148,7 +148,7 @@ spec:
                 fieldPath: metadata.namespace
           - name: TUF_ROOT
             value: {{ .Values.reportsController.tufRootMountPath }}
-          {{- with .Values.reportsController.extraEnvVars }}
+          {{- with (concat .Values.global.extraEnvVars .Values.reportsController.extraEnvVars) }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
           {{- with .Values.reportsController.resources }}
