@@ -21,6 +21,12 @@ var (
 	apiConfig = APICallConfiguration{
 		maxAPICallResponseLength: 1 * 1000 * 1000,
 	}
+	apiConfigMaxSizeExceed = APICallConfiguration{
+		maxAPICallResponseLength: 10,
+	}
+	apiConfigWithoutSecurityCheck = APICallConfiguration{
+		maxAPICallResponseLength: 0,
+	}
 )
 
 func buildTestServer(responseData []byte) *httptest.Server {
@@ -75,6 +81,18 @@ func Test_serviceGetRequest(t *testing.T) {
 	assert.NilError(t, err)
 
 	data, err := call.FetchAndLoad(context.TODO())
+	assert.NilError(t, err)
+	assert.Assert(t, data != nil, "nil data")
+	assert.Equal(t, string(serverResponse), string(data))
+
+	call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfigMaxSizeExceed)
+	assert.NilError(t, err)
+	data, err = call.FetchAndLoad(context.TODO())
+	assert.ErrorContains(t, err, "response length must be less than max allowed response length of 10.")
+
+	call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfigWithoutSecurityCheck)
+	assert.NilError(t, err)
+	data, err = call.FetchAndLoad(context.TODO())
 	assert.NilError(t, err)
 	assert.Assert(t, data != nil, "nil data")
 	assert.Equal(t, string(serverResponse), string(data))
