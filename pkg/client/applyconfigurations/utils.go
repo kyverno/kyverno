@@ -145,12 +145,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		// Group=kyverno.io, Version=v1alpha2
 	case v1alpha2.SchemeGroupVersion.WithKind("AdmissionReport"):
 		return &kyvernov1alpha2.AdmissionReportApplyConfiguration{}
-	case v1alpha2.SchemeGroupVersion.WithKind("AdmissionReportSpec"):
-		return &kyvernov1alpha2.AdmissionReportSpecApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("BackgroundScanReport"):
 		return &kyvernov1alpha2.BackgroundScanReportApplyConfiguration{}
-	case v1alpha2.SchemeGroupVersion.WithKind("BackgroundScanReportSpec"):
-		return &kyvernov1alpha2.BackgroundScanReportSpecApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("ClusterAdmissionReport"):
 		return &kyvernov1alpha2.ClusterAdmissionReportApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("ClusterBackgroundScanReport"):
@@ -171,6 +167,18 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov1beta1.UpdateRequestStatusApplyConfiguration{}
 
 		// Group=kyverno.io, Version=v2
+	case v2.SchemeGroupVersion.WithKind("AdmissionReport"):
+		return &kyvernov2.AdmissionReportApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("AdmissionReportSpec"):
+		return &kyvernov2.AdmissionReportSpecApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("BackgroundScanReport"):
+		return &kyvernov2.BackgroundScanReportApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("BackgroundScanReportSpec"):
+		return &kyvernov2.BackgroundScanReportSpecApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("ClusterAdmissionReport"):
+		return &kyvernov2.ClusterAdmissionReportApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("ClusterBackgroundScanReport"):
+		return &kyvernov2.ClusterBackgroundScanReportApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("Exception"):
 		return &kyvernov2.ExceptionApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("PolicyException"):
