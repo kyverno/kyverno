@@ -4,7 +4,6 @@ import (
 	"github.com/go-logr/logr"
 	evictions "github.com/kyverno/kyverno/pkg/clients/kube/policyv1beta1/evictions"
 	poddisruptionbudgets "github.com/kyverno/kyverno/pkg/clients/kube/policyv1beta1/poddisruptionbudgets"
-	podsecuritypolicies "github.com/kyverno/kyverno/pkg/clients/kube/policyv1beta1/podsecuritypolicies"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	k8s_io_client_go_kubernetes_typed_policy_v1beta1 "k8s.io/client-go/kubernetes/typed/policy/v1beta1"
 	"k8s.io/client-go/rest"
@@ -39,10 +38,6 @@ func (c *withMetrics) PodDisruptionBudgets(namespace string) k8s_io_client_go_ku
 	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "PodDisruptionBudget", c.clientType)
 	return poddisruptionbudgets.WithMetrics(c.inner.PodDisruptionBudgets(namespace), recorder)
 }
-func (c *withMetrics) PodSecurityPolicies() k8s_io_client_go_kubernetes_typed_policy_v1beta1.PodSecurityPolicyInterface {
-	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "PodSecurityPolicy", c.clientType)
-	return podsecuritypolicies.WithMetrics(c.inner.PodSecurityPolicies(), recorder)
-}
 
 type withTracing struct {
 	inner  k8s_io_client_go_kubernetes_typed_policy_v1beta1.PolicyV1beta1Interface
@@ -58,9 +53,6 @@ func (c *withTracing) Evictions(namespace string) k8s_io_client_go_kubernetes_ty
 func (c *withTracing) PodDisruptionBudgets(namespace string) k8s_io_client_go_kubernetes_typed_policy_v1beta1.PodDisruptionBudgetInterface {
 	return poddisruptionbudgets.WithTracing(c.inner.PodDisruptionBudgets(namespace), c.client, "PodDisruptionBudget")
 }
-func (c *withTracing) PodSecurityPolicies() k8s_io_client_go_kubernetes_typed_policy_v1beta1.PodSecurityPolicyInterface {
-	return podsecuritypolicies.WithTracing(c.inner.PodSecurityPolicies(), c.client, "PodSecurityPolicy")
-}
 
 type withLogging struct {
 	inner  k8s_io_client_go_kubernetes_typed_policy_v1beta1.PolicyV1beta1Interface
@@ -75,7 +67,4 @@ func (c *withLogging) Evictions(namespace string) k8s_io_client_go_kubernetes_ty
 }
 func (c *withLogging) PodDisruptionBudgets(namespace string) k8s_io_client_go_kubernetes_typed_policy_v1beta1.PodDisruptionBudgetInterface {
 	return poddisruptionbudgets.WithLogging(c.inner.PodDisruptionBudgets(namespace), c.logger.WithValues("resource", "PodDisruptionBudgets").WithValues("namespace", namespace))
-}
-func (c *withLogging) PodSecurityPolicies() k8s_io_client_go_kubernetes_typed_policy_v1beta1.PodSecurityPolicyInterface {
-	return podsecuritypolicies.WithLogging(c.inner.PodSecurityPolicies(), c.logger.WithValues("resource", "PodSecurityPolicies"))
 }
