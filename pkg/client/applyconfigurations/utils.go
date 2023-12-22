@@ -171,16 +171,30 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2.AdmissionReportApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("AdmissionReportSpec"):
 		return &kyvernov2.AdmissionReportSpecApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("AnyAllConditions"):
+		return &kyvernov2.AnyAllConditionsApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("BackgroundScanReport"):
 		return &kyvernov2.BackgroundScanReportApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("BackgroundScanReportSpec"):
 		return &kyvernov2.BackgroundScanReportSpecApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("CleanupPolicy"):
+		return &kyvernov2.CleanupPolicyApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("CleanupPolicySpec"):
+		return &kyvernov2.CleanupPolicySpecApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("CleanupPolicyStatus"):
+		return &kyvernov2.CleanupPolicyStatusApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("ClusterAdmissionReport"):
 		return &kyvernov2.ClusterAdmissionReportApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("ClusterBackgroundScanReport"):
 		return &kyvernov2.ClusterBackgroundScanReportApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("ClusterCleanupPolicy"):
+		return &kyvernov2.ClusterCleanupPolicyApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("Condition"):
+		return &kyvernov2.ConditionApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("Exception"):
 		return &kyvernov2.ExceptionApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("MatchResources"):
+		return &kyvernov2.MatchResourcesApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("PolicyException"):
 		return &kyvernov2.PolicyExceptionApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("PolicyExceptionSpec"):
