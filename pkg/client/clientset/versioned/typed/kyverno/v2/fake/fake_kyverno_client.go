@@ -56,6 +56,10 @@ func (c *FakeKyvernoV2) PolicyExceptions(namespace string) v2.PolicyExceptionInt
 	return &FakePolicyExceptions{c, namespace}
 }
 
+func (c *FakeKyvernoV2) UpdateRequests(namespace string) v2.UpdateRequestInterface {
+	return &FakeUpdateRequests{c, namespace}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeKyvernoV2) RESTClient() rest.Interface {

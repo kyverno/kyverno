@@ -31,3 +31,5 @@ type ClusterBackgroundScanReportExpansion interface{}
 type ClusterCleanupPolicyExpansion interface{}
 
 type PolicyExceptionExpansion interface{}
+
+type UpdateRequestExpansion interface{}

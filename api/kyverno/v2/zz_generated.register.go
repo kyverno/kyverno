@@ -72,6 +72,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&ClusterCleanupPolicyList{},
 		&PolicyException{},
 		&PolicyExceptionList{},
+		&UpdateRequest{},
+		&UpdateRequestList{},
 	)
 	// AddToGroupVersion allows the serialization of client types like ListOptions.
 	v1.AddToGroupVersion(scheme, SchemeGroupVersion)
