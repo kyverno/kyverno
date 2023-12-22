@@ -87,7 +87,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 	}
 
 	for _, rule := range policy.GetSpec().Rules {
-		if !rule.IsMutateExisting() || ur.Spec.Rule != rule.Name {
+		if !rule.HasMutateExisting() || ur.Spec.Rule != rule.Name {
 			continue
 		}
 
