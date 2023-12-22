@@ -2,6 +2,7 @@ package apicall
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -29,11 +30,23 @@ var (
 	}
 )
 
-func buildTestServer(responseData []byte) *httptest.Server {
+func buildTestServer(responseData []byte, useChunked bool) *httptest.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/resource", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
 			w.Write(responseData)
+
+			if useChunked {
+				flusher, ok := w.(http.Flusher)
+				if !ok {
+					panic("expected http.ResponseWriter to be an http.Flusher")
+				}
+				for i := 1; i <= 10; i++ {
+					fmt.Fprintf(w, "Chunk #%d\n", i)
+					flusher.Flush()
+				}
+			}
+
 			return
 		}
 
@@ -48,59 +61,64 @@ func buildTestServer(responseData []byte) *httptest.Server {
 }
 
 func Test_serviceGetRequest(t *testing.T) {
-	serverResponse := []byte(`{ "day": "Sunday" }`)
-	s := buildTestServer(serverResponse)
-	defer s.Close()
+	testfn := func(t *testing.T, useChunked bool) {
+		serverResponse := []byte(`{ "day": "Sunday" }`)
+		s := buildTestServer(serverResponse, false)
+		defer s.Close()
 
-	entry := kyvernov1.ContextEntry{}
-	ctx := enginecontext.NewContext(jp)
+		entry := kyvernov1.ContextEntry{}
+		ctx := enginecontext.NewContext(jp)
 
-	_, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
-	assert.ErrorContains(t, err, "missing APICall")
+		_, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
+		assert.ErrorContains(t, err, "missing APICall")
 
-	entry.Name = "test"
-	entry.APICall = &kyvernov1.APICall{
-		Service: &kyvernov1.ServiceCall{
-			URL: s.URL,
-		},
+		entry.Name = "test"
+		entry.APICall = &kyvernov1.APICall{
+			Service: &kyvernov1.ServiceCall{
+				URL: s.URL,
+			},
+		}
+
+		call, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
+		assert.NilError(t, err)
+		_, err = call.FetchAndLoad(context.TODO())
+		assert.ErrorContains(t, err, "invalid request type")
+
+		entry.APICall.Method = "GET"
+		call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
+		assert.NilError(t, err)
+		_, err = call.FetchAndLoad(context.TODO())
+		assert.ErrorContains(t, err, "HTTP 404")
+
+		entry.APICall.Service.URL = s.URL + "/resource"
+		call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
+		assert.NilError(t, err)
+
+		data, err := call.FetchAndLoad(context.TODO())
+		assert.NilError(t, err)
+		assert.Assert(t, data != nil, "nil data")
+		assert.Equal(t, string(serverResponse), string(data))
+
+		call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfigMaxSizeExceed)
+		assert.NilError(t, err)
+		data, err = call.FetchAndLoad(context.TODO())
+		assert.ErrorContains(t, err, "response length must be less than max allowed response length of 10.")
+
+		call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfigWithoutSecurityCheck)
+		assert.NilError(t, err)
+		data, err = call.FetchAndLoad(context.TODO())
+		assert.NilError(t, err)
+		assert.Assert(t, data != nil, "nil data")
+		assert.Equal(t, string(serverResponse), string(data))
 	}
 
-	call, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
-	assert.NilError(t, err)
-	_, err = call.FetchAndLoad(context.TODO())
-	assert.ErrorContains(t, err, "invalid request type")
-
-	entry.APICall.Method = "GET"
-	call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
-	assert.NilError(t, err)
-	_, err = call.FetchAndLoad(context.TODO())
-	assert.ErrorContains(t, err, "HTTP 404")
-
-	entry.APICall.Service.URL = s.URL + "/resource"
-	call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
-	assert.NilError(t, err)
-
-	data, err := call.FetchAndLoad(context.TODO())
-	assert.NilError(t, err)
-	assert.Assert(t, data != nil, "nil data")
-	assert.Equal(t, string(serverResponse), string(data))
-
-	call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfigMaxSizeExceed)
-	assert.NilError(t, err)
-	data, err = call.FetchAndLoad(context.TODO())
-	assert.ErrorContains(t, err, "response length must be less than max allowed response length of 10.")
-
-	call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfigWithoutSecurityCheck)
-	assert.NilError(t, err)
-	data, err = call.FetchAndLoad(context.TODO())
-	assert.NilError(t, err)
-	assert.Assert(t, data != nil, "nil data")
-	assert.Equal(t, string(serverResponse), string(data))
+	t.Run("Standard", func(t *testing.T) { testfn(t, false) })
+	t.Run("Chunked", func(t *testing.T) { testfn(t, true) })
 }
 
 func Test_servicePostRequest(t *testing.T) {
 	serverResponse := []byte(`{ "day": "Monday" }`)
-	s := buildTestServer(serverResponse)
+	s := buildTestServer(serverResponse, false)
 	defer s.Close()
 
 	entry := kyvernov1.ContextEntry{
