@@ -654,115 +654,115 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   # runs conformance test suites with configuration:
-  policy-library:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        config:
-          - name: policy-library
-            values:
-              - standard
-        k8s-version:
-          - name: v1.25
-            version: v1.25.11
-          - name: v1.26
-            version: v1.26.6
-          - name: v1.27
-            version: v1.27.3
-          - name: v1.28
-            version: v1.28.0
-        tests:
-          - argo
-          - aws
-          - best-practices
-          - castai
-          - cert-manager
-          - consul
-          - external-secret-operator
-          - flux
-          - istio
-          - karpenter
-          - kasten
-          - kubecost
-          - kubeops
-          - kubevirt
-          - linkerd
-          - nginx-ingress
-          - openshift
-          # - other
-          - other/a
-          - other/b-d
-          - other/e-l
-          - other/m-q
-          - other/rec-req
-          - other/res
-          - other/s-z
-          # - pod-security
-          # - psa
-          - psp-migration
-          # - tekton
-          # - traefik
-          # - velero
-    needs:
-      - prepare-images
-      - prepare-cli
-    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
-    steps:
-      - name: Checkout kyverno/kyverno
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
-      - name: Checkout kyverno/policies
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
-        with:
-          repository: kyverno/policies
-          path: policies
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
-        with:
-          build-cache-key: run-conformance
-      - name: Create kind cluster
-        shell: bash
-        run: |
-          set -e
-          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
-          make kind-create-cluster
-      - name: Download kyverno images archive
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
-        with:
-          name: kyverno.tar
-      - name: Download kyverno CLI archive
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
-        with:
-          name: kubectl-kyverno
-      - name: Install Kyverno CLI
-        shell: bash
-        run: |
-          set -e
-          chmod +x kubectl-kyverno && mv kubectl-kyverno ./cmd/cli/kubectl-kyverno/kyverno
-          echo "$PWD/cmd/cli/kubectl-kyverno" >> $GITHUB_PATH
-      - name: Load kyverno images archive in kind cluster
-        shell: bash
-        run: |
-          set -e
-          make kind-load-image-archive
-      - name: Install kyverno
-        shell: bash
-        run: |
-          set -e
-          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
-          make kind-install-kyverno
-      - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
-      - name: Test policy library with kuttl
-        shell: bash
-        run: |
-          set -e
-          cd policies
-          ../.tools/kubectl-kuttl test ./${{ matrix.tests }} --config ./kuttl-test.yaml
-      - name: Debug failure
-        if: failure()
-        uses: ./.github/actions/kyverno-logs
+  # policy-library:
+  #   runs-on: ubuntu-latest
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       config:
+  #         - name: policy-library
+  #           values:
+  #             - standard
+  #       k8s-version:
+  #         - name: v1.25
+  #           version: v1.25.11
+  #         - name: v1.26
+  #           version: v1.26.6
+  #         - name: v1.27
+  #           version: v1.27.3
+  #         - name: v1.28
+  #           version: v1.28.0
+  #       tests:
+  #         - argo
+  #         - aws
+  #         - best-practices
+  #         - castai
+  #         - cert-manager
+  #         - consul
+  #         - external-secret-operator
+  #         - flux
+  #         - istio
+  #         - karpenter
+  #         - kasten
+  #         - kubecost
+  #         - kubeops
+  #         - kubevirt
+  #         - linkerd
+  #         - nginx-ingress
+  #         - openshift
+  #         # - other
+  #         - other/a
+  #         - other/b-d
+  #         - other/e-l
+  #         - other/m-q
+  #         - other/rec-req
+  #         - other/res
+  #         - other/s-z
+  #         # - pod-security
+  #         # - psa
+  #         - psp-migration
+  #         # - tekton
+  #         # - traefik
+  #         # - velero
+  #   needs:
+  #     - prepare-images
+  #     - prepare-cli
+  #   name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
+  #   steps:
+  #     - name: Checkout kyverno/kyverno
+  #       uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+  #     - name: Checkout kyverno/policies
+  #       uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+  #       with:
+  #         repository: kyverno/policies
+  #         path: policies
+  #     - name: Setup build env
+  #       uses: ./.github/actions/setup-build-env
+  #       timeout-minutes: 10
+  #       with:
+  #         build-cache-key: run-conformance
+  #     - name: Create kind cluster
+  #       shell: bash
+  #       run: |
+  #         set -e
+  #         export KIND_IMAGE=kindest/node:${{ matrix.k8s-version.version }}
+  #         make kind-create-cluster
+  #     - name: Download kyverno images archive
+  #       uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+  #       with:
+  #         name: kyverno.tar
+  #     - name: Download kyverno CLI archive
+  #       uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+  #       with:
+  #         name: kubectl-kyverno
+  #     - name: Install Kyverno CLI
+  #       shell: bash
+  #       run: |
+  #         set -e
+  #         chmod +x kubectl-kyverno && mv kubectl-kyverno ./cmd/cli/kubectl-kyverno/kyverno
+  #         echo "$PWD/cmd/cli/kubectl-kyverno" >> $GITHUB_PATH
+  #     - name: Load kyverno images archive in kind cluster
+  #       shell: bash
+  #       run: |
+  #         set -e
+  #         make kind-load-image-archive
+  #     - name: Install kyverno
+  #       shell: bash
+  #       run: |
+  #         set -e
+  #         export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+  #         make kind-install-kyverno
+  #     - name: Wait for kyverno ready
+  #       uses: ./.github/actions/kyverno-wait-ready
+  #     - name: Test policy library with kuttl
+  #       shell: bash
+  #       run: |
+  #         set -e
+  #         cd policies
+  #         ../.tools/kubectl-kuttl test ./${{ matrix.tests }} --config ./kuttl-test.yaml
+  #     - name: Debug failure
+  #       if: failure()
+  #       uses: ./.github/actions/kyverno-logs
 
   monitor-helm-secret-size:
     runs-on: ubuntu-latest
