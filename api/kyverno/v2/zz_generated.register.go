@@ -58,10 +58,14 @@ func init() {
 // Adds the list of known types to Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&CleanupPolicy{},
-		&CleanupPolicyList{},
-		&ClusterCleanupPolicy{},
-		&ClusterCleanupPolicyList{},
+		&AdmissionReport{},
+		&AdmissionReportList{},
+		&BackgroundScanReport{},
+		&BackgroundScanReportList{},
+		&ClusterAdmissionReport{},
+		&ClusterAdmissionReportList{},
+		&ClusterBackgroundScanReport{},
+		&ClusterBackgroundScanReportList{},
 		&PolicyException{},
 		&PolicyExceptionList{},
 	)

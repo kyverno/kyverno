@@ -18,17 +18,29 @@ limitations under the License.
 
 package v2
 
-// CleanupPolicyListerExpansion allows custom methods to be added to
-// CleanupPolicyLister.
-type CleanupPolicyListerExpansion interface{}
+// AdmissionReportListerExpansion allows custom methods to be added to
+// AdmissionReportLister.
+type AdmissionReportListerExpansion interface{}
 
-// CleanupPolicyNamespaceListerExpansion allows custom methods to be added to
-// CleanupPolicyNamespaceLister.
-type CleanupPolicyNamespaceListerExpansion interface{}
+// AdmissionReportNamespaceListerExpansion allows custom methods to be added to
+// AdmissionReportNamespaceLister.
+type AdmissionReportNamespaceListerExpansion interface{}
 
-// ClusterCleanupPolicyListerExpansion allows custom methods to be added to
-// ClusterCleanupPolicyLister.
-type ClusterCleanupPolicyListerExpansion interface{}
+// BackgroundScanReportListerExpansion allows custom methods to be added to
+// BackgroundScanReportLister.
+type BackgroundScanReportListerExpansion interface{}
+
+// BackgroundScanReportNamespaceListerExpansion allows custom methods to be added to
+// BackgroundScanReportNamespaceLister.
+type BackgroundScanReportNamespaceListerExpansion interface{}
+
+// ClusterAdmissionReportListerExpansion allows custom methods to be added to
+// ClusterAdmissionReportLister.
+type ClusterAdmissionReportListerExpansion interface{}
+
+// ClusterBackgroundScanReportListerExpansion allows custom methods to be added to
+// ClusterBackgroundScanReportLister.
+type ClusterBackgroundScanReportListerExpansion interface{}
 
 // PolicyExceptionListerExpansion allows custom methods to be added to
 // PolicyExceptionLister.
