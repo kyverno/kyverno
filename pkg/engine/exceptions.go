@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 )
@@ -13,8 +13,8 @@ import (
 func (e *engine) GetPolicyExceptions(
 	policy kyvernov1.PolicyInterface,
 	rule string,
-) ([]kyvernov2.PolicyException, error) {
-	var exceptions []kyvernov2.PolicyException
+) ([]kyvernov2beta1.PolicyException, error) {
+	var exceptions []kyvernov2beta1.PolicyException
 	if e.exceptionSelector == nil {
 		return exceptions, nil
 	}

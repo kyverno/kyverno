@@ -42425,7 +42425,7 @@ spec:
         - spec
         type: object
     served: true
-    storage: true
+    storage: false
   - name: v2alpha1
     schema:
       openAPIV3Schema:
@@ -43017,8 +43017,7 @@ spec:
         type: object
     served: false
     storage: false
-  - deprecated: true
-    name: v2beta1
+  - name: v2beta1
     schema:
       openAPIV3Schema:
         description: PolicyException declares resources to be excluded from specified
@@ -43608,7 +43607,7 @@ spec:
         - spec
         type: object
     served: true
-    storage: false
+    storage: true
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
