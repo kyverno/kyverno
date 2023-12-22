@@ -21,4 +21,3 @@ kubeVersion: ">=1.16.0-0"
 annotations:
   artifacthub.io/operator: "false"
   artifacthub.io/prerelease: "false"
-  
