@@ -1,0 +1,30 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: trigger-deployment-restarts
+spec:
+  mutateExistingOnPolicyUpdate: false
+  rules:
+    - name: trigger-deployment-restarts
+      match:
+        any:
+          - resources:
+              kinds:
+                - Secret
+              names:
+                - my-secret-123456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789
+              namespaces:
+                - default
+              operations:
+                - CREATE
+                - UPDATE
+      mutate:
+        targets:
+          - apiVersion: v1
+            kind: ConfigMap
+            namespace: default
+            name: cm-1
+        patchStrategicMerge:
+          metadata:
+            labels:
+              foo: bar

@@ -12,10 +12,6 @@ import (
 
 func (pc *policyController) handleMutate(policyKey string, policy kyvernov1.PolicyInterface) error {
 	logger := pc.log.WithName("handleMutate").WithName(policyKey)
-	if !policy.GetSpec().MutateExistingOnPolicyUpdate {
-		logger.V(4).Info("skip policy application on policy event", "policyKey", policyKey, "mutateExiting", policy.GetSpec().MutateExistingOnPolicyUpdate)
-		return nil
-	}
 
 	logger.Info("update URs on policy event")
 	for _, rule := range policy.GetSpec().Rules {
