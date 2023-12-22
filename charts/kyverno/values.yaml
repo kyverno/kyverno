@@ -413,6 +413,10 @@ policyReportsCleanup:
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
 
+  # -- Image pull secrets
+  imagePullSecrets: []
+  # - name: secretName
+
   # -- Security context for the pod
   podSecurityContext: {}
 

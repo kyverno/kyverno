@@ -739,6 +739,7 @@ The chart values are organised per component.
 | policyReportsCleanup.image.repository | string | `"bitnami/kubectl"` | Image repository |
 | policyReportsCleanup.image.tag | string | `"1.28.4"` | Image tag Defaults to `latest` if omitted |
 | policyReportsCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
+| policyReportsCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
 | policyReportsCleanup.podSecurityContext | object | `{}` | Security context for the pod |
 | policyReportsCleanup.nodeSelector | object | `{}` | Node labels for pod assignment |
 | policyReportsCleanup.tolerations | list | `[]` | List of node taints to tolerate |
