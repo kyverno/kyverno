@@ -2,8 +2,8 @@ package client
 
 import (
 	"github.com/go-logr/logr"
-	clustercidrs "github.com/kyverno/kyverno/pkg/clients/kube/networkingv1alpha1/clustercidrs"
 	ipaddresses "github.com/kyverno/kyverno/pkg/clients/kube/networkingv1alpha1/ipaddresses"
+	servicecidrs "github.com/kyverno/kyverno/pkg/clients/kube/networkingv1alpha1/servicecidrs"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	k8s_io_client_go_kubernetes_typed_networking_v1alpha1 "k8s.io/client-go/kubernetes/typed/networking/v1alpha1"
 	"k8s.io/client-go/rest"
@@ -30,13 +30,13 @@ type withMetrics struct {
 func (c *withMetrics) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-func (c *withMetrics) ClusterCIDRs() k8s_io_client_go_kubernetes_typed_networking_v1alpha1.ClusterCIDRInterface {
-	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "ClusterCIDR", c.clientType)
-	return clustercidrs.WithMetrics(c.inner.ClusterCIDRs(), recorder)
-}
 func (c *withMetrics) IPAddresses() k8s_io_client_go_kubernetes_typed_networking_v1alpha1.IPAddressInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "IPAddress", c.clientType)
 	return ipaddresses.WithMetrics(c.inner.IPAddresses(), recorder)
+}
+func (c *withMetrics) ServiceCIDRs() k8s_io_client_go_kubernetes_typed_networking_v1alpha1.ServiceCIDRInterface {
+	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "ServiceCIDR", c.clientType)
+	return servicecidrs.WithMetrics(c.inner.ServiceCIDRs(), recorder)
 }
 
 type withTracing struct {
@@ -47,11 +47,11 @@ type withTracing struct {
 func (c *withTracing) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-func (c *withTracing) ClusterCIDRs() k8s_io_client_go_kubernetes_typed_networking_v1alpha1.ClusterCIDRInterface {
-	return clustercidrs.WithTracing(c.inner.ClusterCIDRs(), c.client, "ClusterCIDR")
-}
 func (c *withTracing) IPAddresses() k8s_io_client_go_kubernetes_typed_networking_v1alpha1.IPAddressInterface {
 	return ipaddresses.WithTracing(c.inner.IPAddresses(), c.client, "IPAddress")
+}
+func (c *withTracing) ServiceCIDRs() k8s_io_client_go_kubernetes_typed_networking_v1alpha1.ServiceCIDRInterface {
+	return servicecidrs.WithTracing(c.inner.ServiceCIDRs(), c.client, "ServiceCIDR")
 }
 
 type withLogging struct {
@@ -62,9 +62,9 @@ type withLogging struct {
 func (c *withLogging) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-func (c *withLogging) ClusterCIDRs() k8s_io_client_go_kubernetes_typed_networking_v1alpha1.ClusterCIDRInterface {
-	return clustercidrs.WithLogging(c.inner.ClusterCIDRs(), c.logger.WithValues("resource", "ClusterCIDRs"))
-}
 func (c *withLogging) IPAddresses() k8s_io_client_go_kubernetes_typed_networking_v1alpha1.IPAddressInterface {
 	return ipaddresses.WithLogging(c.inner.IPAddresses(), c.logger.WithValues("resource", "IPAddresses"))
+}
+func (c *withLogging) ServiceCIDRs() k8s_io_client_go_kubernetes_typed_networking_v1alpha1.ServiceCIDRInterface {
+	return servicecidrs.WithLogging(c.inner.ServiceCIDRs(), c.logger.WithValues("resource", "ServiceCIDRs"))
 }
