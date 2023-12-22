@@ -296,9 +296,9 @@ func (s *Spec) validateDeprecatedFields(path *field.Path) (errs field.ErrorList)
 }
 
 func (s *Spec) validateMutateTargets(path *field.Path) (errs field.ErrorList) {
-	if s.MutateExistingOnPolicyUpdate {
+	if s.GetMutateExistingOnPolicyUpdate() {
 		for i, rule := range s.Rules {
-			if !rule.HasMutateExisting() {
+			if !rule.HasMutate() {
 				continue
 			}
 			if len(rule.Mutation.Targets) == 0 {
