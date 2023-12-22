@@ -142,7 +142,47 @@ func Test_ReferenceWithTag(t *testing.T) {
 	for _, test := range testCases {
 		imageInfo, err := GetImageInfo(test.input, cfg)
 		assert.NoError(t, err)
-		assert.Equal(t, test.expected, imageInfo.ReferenceWithTag())
+		assert.Equal(t, test.expected, imageInfo.ReferenceWithTag)
+	}
+}
+
+func Test_ReferenceAndReferenceWithTag(t *testing.T) {
+	testCases := []struct {
+		input                    string
+		expectedReference        string
+		expectedReferenceWithTag string
+	}{{
+		input:                    "nginx",
+		expectedReference:        "docker.io/nginx:latest",
+		expectedReferenceWithTag: "docker.io/nginx:latest",
+	}, {
+		input:                    "nginx:v10.3",
+		expectedReference:        "docker.io/nginx:v10.3",
+		expectedReferenceWithTag: "docker.io/nginx:v10.3",
+	}, {
+		input:                    "docker.io/test/nginx:v10.3",
+		expectedReference:        "docker.io/test/nginx:v10.3",
+		expectedReferenceWithTag: "docker.io/test/nginx:v10.3",
+	}, {
+		input:                    "test/nginx",
+		expectedReference:        "docker.io/test/nginx:latest",
+		expectedReferenceWithTag: "docker.io/test/nginx:latest",
+	}, {
+		input:                    "localhost:4443/test/nginx",
+		expectedReference:        "localhost:4443/test/nginx:latest",
+		expectedReferenceWithTag: "localhost:4443/test/nginx:latest",
+	}, {
+		input:                    "docker.io/test/centos@sha256:dead07b4d8ed7e29e98de0f4504d87e8880d4347859d839686a31da35a3b532f",
+		expectedReference:        "docker.io/test/centos@sha256:dead07b4d8ed7e29e98de0f4504d87e8880d4347859d839686a31da35a3b532f",
+		expectedReferenceWithTag: "docker.io/test/centos:",
+	}}
+	cfg, err := initializeMockConfig("docker.io", true)
+	assert.NoError(t, err)
+	for _, test := range testCases {
+		imageInfo, err := GetImageInfo(test.input, cfg)
+		assert.NoError(t, err)
+		assert.Equal(t, test.expectedReference, imageInfo.Reference)
+		assert.Equal(t, test.expectedReferenceWithTag, imageInfo.ReferenceWithTag)
 	}
 }
 
