@@ -1,0 +1,5 @@
+# A command can only run a single command, not a pipeline and not a script. The program called must exist on the system where the test is run.
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: sleep 10
