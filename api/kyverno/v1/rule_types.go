@@ -377,7 +377,7 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 
 // ValidateMutationRuleTargetNamespace checks if the targets are scoped to the policy's namespace
 func (r *Rule) ValidateMutationRuleTargetNamespace(path *field.Path, namespaced bool, policyNamespace string) (errs field.ErrorList) {
-	if r.HasMutateStandard() && namespaced {
+	if r.HasMutateExisting() && namespaced {
 		for idx, target := range r.Mutation.Targets {
 			if target.Namespace != "" && target.Namespace != policyNamespace {
 				errs = append(errs, field.Invalid(path.Child("targets").Index(idx).Child("namespace"), target.Namespace, "This field can be ignored or should have value of the namespace where the policy is being created"))
