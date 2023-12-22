@@ -18,6 +18,30 @@ limitations under the License.
 
 package v2
 
+// AdmissionReportListerExpansion allows custom methods to be added to
+// AdmissionReportLister.
+type AdmissionReportListerExpansion interface{}
+
+// AdmissionReportNamespaceListerExpansion allows custom methods to be added to
+// AdmissionReportNamespaceLister.
+type AdmissionReportNamespaceListerExpansion interface{}
+
+// BackgroundScanReportListerExpansion allows custom methods to be added to
+// BackgroundScanReportLister.
+type BackgroundScanReportListerExpansion interface{}
+
+// BackgroundScanReportNamespaceListerExpansion allows custom methods to be added to
+// BackgroundScanReportNamespaceLister.
+type BackgroundScanReportNamespaceListerExpansion interface{}
+
+// ClusterAdmissionReportListerExpansion allows custom methods to be added to
+// ClusterAdmissionReportLister.
+type ClusterAdmissionReportListerExpansion interface{}
+
+// ClusterBackgroundScanReportListerExpansion allows custom methods to be added to
+// ClusterBackgroundScanReportLister.
+type ClusterBackgroundScanReportListerExpansion interface{}
+
 // PolicyExceptionListerExpansion allows custom methods to be added to
 // PolicyExceptionLister.
 type PolicyExceptionListerExpansion interface{}
