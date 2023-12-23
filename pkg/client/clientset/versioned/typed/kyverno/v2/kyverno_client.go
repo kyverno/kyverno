@@ -35,6 +35,7 @@ type KyvernoV2Interface interface {
 	ClusterBackgroundScanReportsGetter
 	ClusterCleanupPoliciesGetter
 	PolicyExceptionsGetter
+	UpdateRequestsGetter
 }
 
 // KyvernoV2Client is used to interact with features provided by the kyverno.io group.
@@ -68,6 +69,10 @@ func (c *KyvernoV2Client) ClusterCleanupPolicies() ClusterCleanupPolicyInterface
 
 func (c *KyvernoV2Client) PolicyExceptions(namespace string) PolicyExceptionInterface {
 	return newPolicyExceptions(c, namespace)
+}
+
+func (c *KyvernoV2Client) UpdateRequests(namespace string) UpdateRequestInterface {
+	return newUpdateRequests(c, namespace)
 }
 
 // NewForConfig creates a new KyvernoV2Client for the given config.

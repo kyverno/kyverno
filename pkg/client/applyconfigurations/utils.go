@@ -171,6 +171,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2.AdmissionReportApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("AdmissionReportSpec"):
 		return &kyvernov2.AdmissionReportSpecApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("AdmissionRequestInfoObject"):
+		return &kyvernov2.AdmissionRequestInfoObjectApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("AnyAllConditions"):
 		return &kyvernov2.AnyAllConditionsApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("BackgroundScanReport"):
@@ -199,6 +201,16 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2.PolicyExceptionApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("PolicyExceptionSpec"):
 		return &kyvernov2.PolicyExceptionSpecApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("RequestInfo"):
+		return &kyvernov2.RequestInfoApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("UpdateRequest"):
+		return &kyvernov2.UpdateRequestApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("UpdateRequestSpec"):
+		return &kyvernov2.UpdateRequestSpecApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("UpdateRequestSpecContext"):
+		return &kyvernov2.UpdateRequestSpecContextApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("UpdateRequestStatus"):
+		return &kyvernov2.UpdateRequestStatusApplyConfiguration{}
 
 		// Group=kyverno.io, Version=v2alpha1
 	case v2alpha1.SchemeGroupVersion.WithKind("CleanupPolicy"):

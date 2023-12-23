@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta1
+package v2
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -25,9 +25,6 @@ import (
 
 // UpdateRequestStatus defines the observed state of UpdateRequest
 type UpdateRequestStatus struct {
-	// Deprecated
-	Handler string `json:"handler,omitempty" yaml:"handler,omitempty"`
-
 	// State represents state of the update request.
 	State UpdateRequestState `json:"state" yaml:"state"`
 
@@ -45,7 +42,6 @@ type UpdateRequestStatus struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
-// +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Policy",type="string",JSONPath=".spec.policy"
 // +kubebuilder:printcolumn:name="RuleType",type="string",JSONPath=".spec.requestType"

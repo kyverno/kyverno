@@ -61,3 +61,11 @@ type PolicyExceptionListerExpansion interface{}
 // PolicyExceptionNamespaceListerExpansion allows custom methods to be added to
 // PolicyExceptionNamespaceLister.
 type PolicyExceptionNamespaceListerExpansion interface{}
+
+// UpdateRequestListerExpansion allows custom methods to be added to
+// UpdateRequestLister.
+type UpdateRequestListerExpansion interface{}
+
+// UpdateRequestNamespaceListerExpansion allows custom methods to be added to
+// UpdateRequestNamespaceLister.
+type UpdateRequestNamespaceListerExpansion interface{}
