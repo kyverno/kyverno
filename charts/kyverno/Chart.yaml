@@ -79,6 +79,8 @@ annotations:
       description: Fix Helm chart to not error when replicas defined
     - kind: added
       description: allow tolerations and affinity settings for reportsCleanup
+    - kind: added
+      description: Add imagePullSecrets to post-upgrade job
 dependencies:
   - name: grafana
     version: "0.0.0"
