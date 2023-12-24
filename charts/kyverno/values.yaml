@@ -23,6 +23,12 @@ global:
     # hostPath:
     #   path: /etc/pki/tls/ca-certificates.crt
     #   type: File
+  # -- Additional container environment variables to apply to all containers and init containers
+  extraEnvVars: []
+  # Example setting proxy
+  # extraEnvVars:
+  # - name: HTTPS_PROXY
+  #   value: 'https://proxy.example.com:3128'
 
 # -- (string) Override the name of the chart
 nameOverride: ~

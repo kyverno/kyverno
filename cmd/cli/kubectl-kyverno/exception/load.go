@@ -19,12 +19,12 @@ var (
 	exceptionV2      = schema.GroupVersion(kyvernov2.GroupVersion).WithKind("PolicyException")
 )
 
-func Load(content []byte) ([]*kyvernov2.PolicyException, error) {
+func Load(content []byte) ([]*kyvernov2beta1.PolicyException, error) {
 	documents, err := yamlutils.SplitDocuments(content)
 	if err != nil {
 		return nil, err
 	}
-	var exceptions []*kyvernov2.PolicyException
+	var exceptions []*kyvernov2beta1.PolicyException
 	for _, document := range documents {
 		gvk, untyped, err := factory.Load(document)
 		if err != nil {
@@ -32,7 +32,7 @@ func Load(content []byte) ([]*kyvernov2.PolicyException, error) {
 		}
 		switch gvk {
 		case exceptionV2beta1, exceptionV2:
-			exception, err := convert.To[kyvernov2.PolicyException](untyped)
+			exception, err := convert.To[kyvernov2beta1.PolicyException](untyped)
 			if err != nil {
 				return nil, err
 			}

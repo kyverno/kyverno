@@ -65,7 +65,7 @@ func NewExceptionSelector(
 	var exceptionsLister engineapi.PolicyExceptionSelector
 	if enablePolicyException {
 		factory := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
-		lister := factory.Kyverno().V2().PolicyExceptions().Lister()
+		lister := factory.Kyverno().V2beta1().PolicyExceptions().Lister()
 		if exceptionNamespace != "" {
 			exceptionsLister = lister.PolicyExceptions(exceptionNamespace)
 		} else {
