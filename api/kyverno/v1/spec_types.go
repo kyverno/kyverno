@@ -147,6 +147,26 @@ func (s *Spec) HasMutate() bool {
 	return false
 }
 
+// HasMutateStandard checks for standard admission mutate rule
+func (s *Spec) HasMutateStandard() bool {
+	for _, rule := range s.Rules {
+		if rule.HasMutateStandard() {
+			return true
+		}
+	}
+	return false
+}
+
+// HasMutateExisting checks for mutate existing rule types
+func (s *Spec) HasMutateExisting() bool {
+	for _, rule := range s.Rules {
+		if rule.HasMutateExisting() {
+			return true
+		}
+	}
+	return false
+}
+
 // HasValidate checks for validate rule types
 func (s *Spec) HasValidate() bool {
 	for _, rule := range s.Rules {
@@ -214,16 +234,6 @@ func (s *Spec) BackgroundProcessingEnabled() bool {
 	return *s.Background
 }
 
-// IsMutateExisting checks if the mutate policy applies to existing resources
-func (s *Spec) IsMutateExisting() bool {
-	for _, rule := range s.Rules {
-		if rule.IsMutateExisting() {
-			return true
-		}
-	}
-	return false
-}
-
 // GetMutateExistingOnPolicyUpdate return MutateExistingOnPolicyUpdate set value
 func (s *Spec) GetMutateExistingOnPolicyUpdate() bool {
 	return s.MutateExistingOnPolicyUpdate
@@ -286,7 +296,7 @@ func (s *Spec) validateDeprecatedFields(path *field.Path) (errs field.ErrorList)
 }
 
 func (s *Spec) validateMutateTargets(path *field.Path) (errs field.ErrorList) {
-	if s.MutateExistingOnPolicyUpdate {
+	if s.GetMutateExistingOnPolicyUpdate() {
 		for i, rule := range s.Rules {
 			if !rule.HasMutate() {
 				continue

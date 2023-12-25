@@ -117,7 +117,7 @@ spec:
             value: {{ template "kyverno.admission-controller.name" . }}
           - name: KYVERNO_SVC
             value: {{ template "kyverno.admission-controller.serviceName" . }}
-          {{- with .Values.admissionController.initContainer.extraEnvVars }}
+          {{- with (concat .Values.global.extraEnvVars .Values.admissionController.initContainer.extraEnvVars) }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
       containers:
@@ -209,7 +209,7 @@ spec:
             value: {{ template "kyverno.admission-controller.serviceName" . }}
           - name: TUF_ROOT
             value: {{ .Values.admissionController.tufRootMountPath }}
-          {{- with .Values.admissionController.container.extraEnvVars }}
+          {{- with (concat .Values.global.extraEnvVars .Values.admissionController.container.extraEnvVars) }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
           - name: KYVERNO_DEPLOYMENT
