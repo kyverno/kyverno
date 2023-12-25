@@ -1,0 +1,198 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: background-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+  name: kyverno:background-controller:additional
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - ""
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  - get
+  - list
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-data-sync-no-creation-upon-generated-resource
+spec:
+  rules:
+    - generate:
+        apiVersion: v1
+        data:
+          kind: Secret
+          metadata:
+            name: otel-collector-signalfx-config
+          stringData:
+            otel-collector-signalfx-config: |
+              service:
+                extensions:
+                - health_check
+                - http_forwarder
+                pipelines:
+                  metrics:
+                    receivers:
+                    # but actually, it's a scraper
+                    - prometheus
+                    processors:
+                    - batch
+                    - metricstransform
+                    - k8sattributes
+                    - resourcedetection
+                    exporters:
+                    - signalfx
+                    - logging
+                telemetry:
+                  metrics:
+                    address: 0.0.0.0:8888
+              receivers:
+                prometheus:
+                  config:
+                    scrape_configs:
+                    - job_name: k8s
+                      kubernetes_sd_configs:
+                      - role: pod
+                        namespaces:
+                          own_namespace: true
+                          # todo: needs to be replaced by Kyverno
+                      relabel_configs:
+                      # Only keep the discovered targets that has the label otel.collector.signalfx/scrape
+                      # Only keep the discovered targets that has the label otel.collector.signalfx/scrape
+                      - action: keep
+                        regex: "true"
+                        source_labels:
+                        - __meta_kubernetes_pod_label_otel_collector_signalfx_scrape
+                      # Add
+                      - action: replace
+                        regex: ([^:]+)(?::\d+)?;(\d+)
+                        replacement: $$1:$$2
+                        source_labels:
+                        - __address__
+                        - __meta_kubernetes_pod_label_otel_collector_signalfx_port
+                        target_label: __address__
+                      - action: replace
+                        regex: (.+)
+                        source_labels:
+                        - __meta_kubernetes_pod_annotation_otel_collector_signalfx_metric_path
+                        target_label: __metrics_path__
+                      - action: replace
+                        regex: (.*)-.*-.*$
+                        source_labels:
+                        - __meta_kubernetes_pod_name
+                        target_label: deployment
+                      - action: replace
+                        source_labels:
+                        - __meta_kubernetes_namespace
+                        target_label: kubernetes_namespace
+                      - action: replace
+                        source_labels:
+                        - __meta_kubernetes_pod_name
+                        target_label: kubernetes_pod_name
+                      - action: replace
+                        source_labels:
+                        - __meta_kubernetes_pod_container_name
+                        target_label: kubernetes_container_name
+                      scrape_interval: 10s
+              # Process the datapoints, enrich with more labels
+              processors:
+                attributes/newenvironment:
+                  actions:
+                  - action: insert
+                    key: environment
+                    value: managed-gke-dev
+                batch: {}
+                k8sattributes:
+                  extract:
+                    metadata:
+                    - podName
+                    - podUID
+                    - namespace
+                    - cluster
+                    - node
+                  passthrough: false
+                  filter:
+                    namespace: "{{request.object.metadata.namespace}}"
+                memory_limiter:
+                  check_interval: 5s
+                  limit_mib: 1638
+                  spike_limit_mib: 512
+                metricstransform:
+                  transforms:
+                  - action: update
+                    include: .*
+                    match_type: regexp
+                    operations:
+                    - action: add_label
+                      new_label: metric_source
+                      new_value: managed_gke
+                    - action: add_label
+                      new_label: managed_gke
+                      new_value: "true"
+                    - action: add_label
+                      new_label: kubernetes_cluster
+                      new_value: ccoe-europe-west4-dev-1
+                resourcedetection:
+                  detectors:
+                  - system
+                  override: true
+              exporters:
+                signalfx:
+                  access_token: "{{request.object.data.auth_token | base64_decode(@) || 'BACKGROUND'}}"
+                  access_token_passthrough: true
+                  realm: eu0
+                logging:
+                  loglevel: info
+              extensions:
+                health_check:
+                  endpoint: 0.0.0.0:13133
+                http_forwarder:
+                  egress:
+                    endpoint: https://api.eu0.signalfx.com
+                memory_ballast: {}
+                zpages: null
+          type: Opaque
+        kind: Secret
+        name: otel-collector-signalfx-secret
+        namespace: '{{request.object.metadata.namespace}}'
+        synchronize: true
+      match:
+        any:
+          - resources:
+              kinds:
+                - Secret
+              names:
+                - otel-collector-signalfx-token
+      name: generate-otel-secret-config
+      skipBackgroundRequests: true
+    - generate:
+        apiVersion: v1
+        kind: ServiceAccount
+        name: otel-collector-signalfx-sa
+        namespace: '{{request.object.metadata.namespace}}'
+        synchronize: true
+      match:
+        any:
+          - resources:
+              kinds:
+                - Secret
+              names:
+                - otel-collector-signalfx-secret
+      name: generate-otel-sa
+      skipBackgroundRequests: true

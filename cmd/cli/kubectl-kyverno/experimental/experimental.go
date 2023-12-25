@@ -10,17 +10,17 @@ const (
 	KubectlValidateEnv = "KYVERNO_KUBECTL_VALIDATE" //nolint:gosec
 )
 
-func getBool(env string) bool {
+func getBool(env string, fallback bool) bool {
 	if b, err := strconv.ParseBool(os.Getenv(env)); err == nil {
 		return b
 	}
-	return false
+	return fallback
 }
 
 func IsEnabled() bool {
-	return getBool(ExperimentalEnv)
+	return getBool(ExperimentalEnv, false)
 }
 
 func UseKubectlValidate() bool {
-	return getBool(KubectlValidateEnv)
+	return getBool(KubectlValidateEnv, true)
 }

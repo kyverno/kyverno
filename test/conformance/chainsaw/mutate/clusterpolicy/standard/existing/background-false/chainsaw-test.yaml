@@ -9,9 +9,12 @@ spec:
     try:
     - apply:
         file: chainsaw-step-01-apply-1-1.yaml
+    - apply:
+        file: chainsaw-step-01-apply-1-2.yaml
     - assert:
         file: chainsaw-step-01-assert-1-1.yaml
   - name: step-03
     try:
     - assert:
         file: chainsaw-step-03-assert-1-1.yaml
+        timeout: 1m30s

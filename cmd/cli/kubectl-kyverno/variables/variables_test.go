@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/values"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -131,11 +132,12 @@ func TestVariables_SetInStore(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			var s store.Store
 			v := Variables{
 				values:    tt.values,
 				variables: tt.variables,
 			}
-			v.SetInStore()
+			v.SetInStore(&s)
 		})
 	}
 }
@@ -257,11 +259,12 @@ func TestVariables_ComputeVariables(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			var s store.Store
 			v := Variables{
 				values:    tt.fields.values,
 				variables: tt.fields.variables,
 			}
-			got, err := v.ComputeVariables(tt.args.policy, tt.args.resource, tt.args.kind, tt.args.kindMap, tt.args.variables...)
+			got, err := v.ComputeVariables(&s, tt.args.policy, tt.args.resource, tt.args.kind, tt.args.kindMap, tt.args.variables...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Variables.ComputeVariables() error = %v, wantErr %v", err, tt.wantErr)
 				return
