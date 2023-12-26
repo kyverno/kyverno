@@ -279,6 +279,8 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 					logger.Error(err, "failed to delete update request")
 				}
 			}
+		} else if r.Status() == engineapi.RuleStatusNoMatch {
+			continue
 		} else {
 			applicableRules = append(applicableRules, r.Name())
 		}

@@ -37,7 +37,7 @@ func (e *engine) filterRules(
 	applyRules := policy.GetSpec().GetApplyRules()
 	for _, rule := range autogen.ComputeRules(policy) {
 		logger := internal.LoggerWithRule(logger, rule)
-		if ruleResp := e.filterRule(rule, logger, policyContext); ruleResp != nil {
+		if ruleResp := e.filterRule(rule, logger, policyContext); ruleResp != nil && ruleResp.Status() != engineapi.RuleStatusNoMatch {
 			resp.Rules = append(resp.Rules, *ruleResp)
 			if applyRules == kyvernov1.ApplyOne && ruleResp.Status() != engineapi.RuleStatusSkip {
 				break
@@ -95,7 +95,7 @@ func (e *engine) filterRule(
 			}
 		}
 		logger.V(4).Info("rule not matched", "reason", err.Error())
-		return nil
+		return engineapi.RuleNoMatch(rule.Name, ruleType, err.Error())
 	}
 
 	policyContext.JSONContext().Checkpoint()

@@ -18,4 +18,7 @@ const (
 	// RuleStatusSkip indicates that the policy rule was not selected based on user inputs or applicability, for example
 	// when preconditions are not met, or when conditional or global anchors are not satisfied.
 	RuleStatusSkip RuleStatus = "skip"
+	// RuleStatusNoMatch indicates that the resource was excluded from the policy rule evaluation because it does not match
+	// the policy rule filter.
+	RuleStatusNoMatch RuleStatus = "noMatch"
 )

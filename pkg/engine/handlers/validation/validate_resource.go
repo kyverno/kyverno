@@ -230,7 +230,7 @@ func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForE
 		}
 
 		r := foreachValidator.validate(ctx)
-		if r == nil {
+		if r == nil || r.Status() == engineapi.RuleStatusNoMatch {
 			v.log.V(2).Info("skip rule due to empty result")
 			continue
 		}

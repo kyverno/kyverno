@@ -67,6 +67,8 @@ func toPolicyResult(status engineapi.RuleStatus) policyreportv1alpha2.PolicyResu
 		return policyreportv1alpha2.StatusWarn
 	case engineapi.RuleStatusSkip:
 		return policyreportv1alpha2.StatusSkip
+	case engineapi.RuleStatusNoMatch:
+		return ""
 	}
 	return ""
 }
@@ -93,6 +95,10 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []policyre
 	if pol.GetType() == engineapi.KyvernoPolicyType {
 		key, _ := cache.MetaNamespaceKeyFunc(pol.GetPolicy().(kyvernov1.PolicyInterface))
 		for _, ruleResult := range response.PolicyResponse.Rules {
+			if ruleResult.Status() == engineapi.RuleStatusNoMatch {
+				continue
+			}
+
 			annotations := pol.GetAnnotations()
 			result := policyreportv1alpha2.PolicyReportResult{
 				Source:  kyverno.ValueKyvernoApp,
@@ -131,6 +137,10 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []policyre
 		}
 	} else {
 		for _, ruleResult := range response.PolicyResponse.Rules {
+			if ruleResult.Status() == engineapi.RuleStatusNoMatch {
+				continue
+			}
+
 			result := policyreportv1alpha2.PolicyReportResult{
 				Source:  "ValidatingAdmissionPolicy",
 				Policy:  ruleResult.Name(),

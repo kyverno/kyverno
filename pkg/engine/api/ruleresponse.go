@@ -78,6 +78,10 @@ func RuleFail(name string, ruleType RuleType, msg string) *RuleResponse {
 	return NewRuleResponse(name, ruleType, msg, RuleStatusFail)
 }
 
+func RuleNoMatch(name string, ruleType RuleType, msg string) *RuleResponse {
+	return NewRuleResponse(name, ruleType, msg, RuleStatusNoMatch)
+}
+
 func (r RuleResponse) WithException(exception *kyvernov2beta1.PolicyException) *RuleResponse {
 	r.exception = exception
 	return &r

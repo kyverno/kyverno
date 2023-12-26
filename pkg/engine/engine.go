@@ -248,7 +248,7 @@ func (e *engine) invokeRuleHandler(
 			// check if resource and rule match
 			if err := e.matches(rule, policyContext, resource); err != nil {
 				logger.V(4).Info("rule not matched", "reason", err.Error())
-				return resource, nil
+				return resource, []engineapi.RuleResponse{*engineapi.RuleNoMatch(rule.Name, ruleType, err.Error())}
 			}
 			if handlerFactory == nil {
 				return resource, handlers.WithError(rule, ruleType, "failed to instantiate handler", nil)

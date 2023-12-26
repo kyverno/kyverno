@@ -109,6 +109,11 @@ func (er EngineResponse) IsSkipped() bool {
 	return er.IsOneOf(RuleStatusSkip)
 }
 
+// IsNoMatch checks if any rule has noMatch resource or not.
+func (er EngineResponse) IsNoMatch() bool {
+	return er.IsOneOf(RuleStatusNoMatch)
+}
+
 // IsFailed checks if any rule created a policy violation
 func (er EngineResponse) IsFailed() bool {
 	return er.IsOneOf(RuleStatusFail)
@@ -121,7 +126,12 @@ func (er EngineResponse) IsError() bool {
 
 // IsEmpty checks if any rule results are present
 func (er EngineResponse) IsEmpty() bool {
-	return len(er.PolicyResponse.Rules) == 0
+	for _, r := range er.PolicyResponse.Rules {
+		if !r.HasStatus(RuleStatusNoMatch) {
+			return false
+		}
+	}
+	return true
 }
 
 // isNil checks if rule is an empty rule

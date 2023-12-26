@@ -284,7 +284,7 @@ func (iv *ImageVerifier) Verify(
 			if err != nil {
 				responses = append(responses, engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, "failed to update digest", err))
 			} else if patch != nil {
-				if ruleResp == nil {
+				if ruleResp == nil || ruleResp.Status() != engineapi.RuleStatusNoMatch {
 					ruleResp = engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, "mutated image digest")
 				}
 				patches = append(patches, *patch)
@@ -293,7 +293,7 @@ func (iv *ImageVerifier) Verify(
 			}
 		}
 
-		if ruleResp != nil {
+		if ruleResp != nil || ruleResp.Status() != engineapi.RuleStatusNoMatch {
 			if len(imageVerify.Attestors) > 0 || len(imageVerify.Attestations) > 0 {
 				iv.ivm.Add(image, ruleResp.Status() == engineapi.RuleStatusPass)
 			}
@@ -325,7 +325,7 @@ func (iv *ImageVerifier) verifyImage(
 	}
 	if len(imageVerify.Attestors) > 0 {
 		if !matchImageReferences(imageVerify.ImageReferences, image) {
-			return nil, ""
+			return engineapi.RuleNoMatch(iv.rule.Name, engineapi.ImageVerify, "image doesn't match reference"), ""
 		}
 		ruleResp, cosignResp := iv.verifyAttestors(ctx, imageVerify.Attestors, imageVerify, imageInfo, "")
 		if ruleResp.Status() != engineapi.RuleStatusPass {

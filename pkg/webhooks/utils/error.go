@@ -16,7 +16,7 @@ func GetErrorMsg(engineReponses []engineapi.EngineResponse) string {
 			resourceInfo = fmt.Sprintf("%s/%s/%s", er.Resource.GetKind(), er.Resource.GetNamespace(), er.Resource.GetName())
 			str = append(str, fmt.Sprintf("failed policy %s:", er.Policy().GetName()))
 			for _, rule := range er.PolicyResponse.Rules {
-				if rule.Status() != engineapi.RuleStatusPass {
+				if rule.Status() != engineapi.RuleStatusPass && rule.Status() != engineapi.RuleStatusNoMatch {
 					str = append(str, rule.String())
 				}
 			}

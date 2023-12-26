@@ -59,6 +59,7 @@ func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.Eng
 						case engineapi.RuleStatusWarn:
 							rc.warn++
 						case engineapi.RuleStatusSkip:
+						case engineapi.RuleStatusNoMatch:
 							rc.skip++
 						}
 						continue
@@ -85,6 +86,8 @@ func (rc *ResultCounts) addGenerateResponse(auditWarn bool, resPath string, resp
 				ruleFoundInEngineResponse = true
 				if ruleResponse.Status() == engineapi.RuleStatusPass {
 					rc.pass++
+				} else if ruleResponse.Status() == engineapi.RuleStatusNoMatch {
+					rc.skip++
 				} else {
 					if auditWarn && response.GetValidationFailureAction().Audit() {
 						rc.warn++
@@ -125,7 +128,7 @@ func (rc *ResultCounts) addMutateResponse(resourcePath string, response engineap
 				if mutateResponseRule.Status() == engineapi.RuleStatusPass {
 					rc.pass++
 					printMutatedRes = true
-				} else if mutateResponseRule.Status() == engineapi.RuleStatusSkip {
+				} else if mutateResponseRule.Status() == engineapi.RuleStatusSkip || mutateResponseRule.Status() == engineapi.RuleStatusNoMatch {
 					rc.skip++
 				} else if mutateResponseRule.Status() == engineapi.RuleStatusError {
 					rc.err++

@@ -33,7 +33,7 @@ func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineRe
 		Category: category,
 		Severity: severity,
 	}
-	if ruleResponse.Status() == engineapi.RuleStatusSkip {
+	if ruleResponse.Status() == engineapi.RuleStatusSkip || ruleResponse.Status() == engineapi.RuleStatusNoMatch {
 		result.Result = policyreportv1alpha2.StatusSkip
 	} else if ruleResponse.Status() == engineapi.RuleStatusError {
 		result.Result = policyreportv1alpha2.StatusError
@@ -69,6 +69,10 @@ func ComputePolicyReportResultsPerPolicy(auditWarn bool, engineResponses ...engi
 			// if ruleResponse.RuleType() != engineapi.Validation && ruleResponse.RuleType() != engineapi.ImageVerify {
 			// 	continue
 			// }
+			if ruleResponse.Status() == engineapi.RuleStatusNoMatch {
+				continue
+			}
+
 			results[policy] = append(results[policy], ComputePolicyReportResult(auditWarn, engineResponse, ruleResponse))
 		}
 	}

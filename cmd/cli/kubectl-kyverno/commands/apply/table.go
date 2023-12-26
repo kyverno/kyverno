@@ -22,6 +22,10 @@ func printTable(out io.Writer, compact, auditWarn bool, engineResponses ...engin
 		resourceName := engineResponse.Resource.GetName()
 
 		for _, ruleResponse := range engineResponse.PolicyResponse.Rules {
+			if ruleResponse.Status() == engineapi.RuleStatusNoMatch {
+				continue
+			}
+
 			var row table.Row
 			row.ID = id
 			id++

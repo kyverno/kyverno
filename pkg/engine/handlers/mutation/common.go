@@ -41,7 +41,7 @@ func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 			return mutate.NewErrorResponse("failed to mutate elements", errors.New(mutateResp.Message))
 		}
 
-		if mutateResp.Status != engineapi.RuleStatusSkip {
+		if mutateResp.Status != engineapi.RuleStatusSkip && mutateResp.Status != engineapi.RuleStatusNoMatch {
 			applyCount++
 			if mutateResp.Status == engineapi.RuleStatusPass {
 				f.resource.unstructured = mutateResp.PatchedResource

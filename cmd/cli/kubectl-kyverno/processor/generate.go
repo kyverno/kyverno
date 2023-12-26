@@ -96,6 +96,10 @@ func handleGeneratePolicy(out io.Writer, store *store.Store, generateResponse *e
 	var newRuleResponse []engineapi.RuleResponse
 
 	for _, rule := range generateResponse.PolicyResponse.Rules {
+		if rule.Status() == engineapi.RuleStatusNoMatch {
+			continue
+		}
+
 		genResource, err := c.ApplyGeneratePolicy(log.Log.V(2), &policyContext, gr, []string{rule.Name()})
 		if err != nil {
 			return nil, err

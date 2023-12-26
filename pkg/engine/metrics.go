@@ -36,6 +36,10 @@ func (e *engine) reportMetrics(
 		resourceKind := resourceSpec.GetKind()
 		resourceNamespace := resourceSpec.GetNamespace()
 		for _, rule := range response.PolicyResponse.Rules {
+			if rule.Status() == engineapi.RuleStatusNoMatch {
+				continue
+			}
+
 			ruleName := rule.Name()
 			ruleType := metrics.ParseRuleTypeFromEngineRuleResponse(rule)
 			var ruleResult metrics.RuleResult
