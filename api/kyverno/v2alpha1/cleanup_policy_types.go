@@ -34,7 +34,7 @@ import (
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Schedule",type=string,JSONPath=".spec.schedule"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:deprecatedversion
+// +kubebuilder:unservedversion
 
 // CleanupPolicy defines a rule for resource cleanup.
 type CleanupPolicy kyvernov2beta1.CleanupPolicy
@@ -106,7 +106,7 @@ type CleanupPolicyList kyvernov2beta1.CleanupPolicyList
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Schedule",type=string,JSONPath=".spec.schedule"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:deprecatedversion
+// +kubebuilder:unservedversion
 
 // ClusterCleanupPolicy defines rule for resource cleanup.
 type ClusterCleanupPolicy kyvernov2beta1.ClusterCleanupPolicy

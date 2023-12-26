@@ -28,7 +28,14 @@ import (
 
 type KyvernoV2Interface interface {
 	RESTClient() rest.Interface
+	AdmissionReportsGetter
+	BackgroundScanReportsGetter
+	CleanupPoliciesGetter
+	ClusterAdmissionReportsGetter
+	ClusterBackgroundScanReportsGetter
+	ClusterCleanupPoliciesGetter
 	PolicyExceptionsGetter
+	UpdateRequestsGetter
 }
 
 // KyvernoV2Client is used to interact with features provided by the kyverno.io group.
@@ -36,8 +43,36 @@ type KyvernoV2Client struct {
 	restClient rest.Interface
 }
 
+func (c *KyvernoV2Client) AdmissionReports(namespace string) AdmissionReportInterface {
+	return newAdmissionReports(c, namespace)
+}
+
+func (c *KyvernoV2Client) BackgroundScanReports(namespace string) BackgroundScanReportInterface {
+	return newBackgroundScanReports(c, namespace)
+}
+
+func (c *KyvernoV2Client) CleanupPolicies(namespace string) CleanupPolicyInterface {
+	return newCleanupPolicies(c, namespace)
+}
+
+func (c *KyvernoV2Client) ClusterAdmissionReports() ClusterAdmissionReportInterface {
+	return newClusterAdmissionReports(c)
+}
+
+func (c *KyvernoV2Client) ClusterBackgroundScanReports() ClusterBackgroundScanReportInterface {
+	return newClusterBackgroundScanReports(c)
+}
+
+func (c *KyvernoV2Client) ClusterCleanupPolicies() ClusterCleanupPolicyInterface {
+	return newClusterCleanupPolicies(c)
+}
+
 func (c *KyvernoV2Client) PolicyExceptions(namespace string) PolicyExceptionInterface {
 	return newPolicyExceptions(c, namespace)
+}
+
+func (c *KyvernoV2Client) UpdateRequests(namespace string) UpdateRequestInterface {
+	return newUpdateRequests(c, namespace)
 }
 
 // NewForConfig creates a new KyvernoV2Client for the given config.

@@ -145,7 +145,7 @@ func NewPolicyController(
 
 func (pc *policyController) canBackgroundProcess(p kyvernov1.PolicyInterface) bool {
 	logger := pc.log.WithValues("policy", p.GetName())
-	if !p.GetSpec().HasGenerate() && !p.GetSpec().IsMutateExisting() {
+	if !p.GetSpec().HasGenerate() && !p.GetSpec().HasMutateExisting() {
 		logger.V(4).Info("policy does not have background rules for reconciliation")
 		return false
 	}
@@ -155,7 +155,7 @@ func (pc *policyController) canBackgroundProcess(p kyvernov1.PolicyInterface) bo
 		return false
 	}
 
-	if p.GetSpec().IsMutateExisting() {
+	if p.GetSpec().HasMutateExisting() {
 		val := os.Getenv("BACKGROUND_SCAN_INTERVAL")
 		interval, err := time.ParseDuration(val)
 		if err != nil {
