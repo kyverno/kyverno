@@ -57,7 +57,6 @@ func NewController(
 	client kubernetes.Interface,
 	kyvernoClient versioned.Interface,
 	discoveryClient dclient.IDiscovery,
-	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer,
 	vapbindingInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyBindingInformer,
