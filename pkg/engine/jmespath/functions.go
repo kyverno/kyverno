@@ -62,7 +62,7 @@ var (
 	divide                 = "divide"
 	modulo                 = "modulo"
 	round                  = "round"
-	roundTailingZero       = "roundTrailingZero"
+	roundTrailingZero      = "roundTrailingZero"
 	base64Decode           = "base64_decode"
 	base64Encode           = "base64_encode"
 	pathCanonicalize       = "path_canonicalize"
@@ -326,12 +326,12 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		Note:       "does roundoff to upto the given decimal places",
 	}, {
 		FunctionEntry: gojmespath.FunctionEntry{
-			Name: roundTailingZero,
+			Name: roundTrailingZero,
 			Arguments: []argSpec{
 				{Types: []jpType{jpNumber}},
 				{Types: []jpType{jpNumber}},
 			},
-			Handler: jpRoundTailingZero,
+			Handler: jpRoundTrailingZero,
 		},
 		ReturnType: []jpType{jpString},
 		Note:       "does roundoff to upto the given decimal places accounting for trailing decimal zero",
@@ -924,7 +924,7 @@ func jpRound(arguments []interface{}) (interface{}, error) {
 	return rounded, nil
 }
 
-func jpRoundTailingZero(arguments []interface{}) (interface{}, error) {
+func jpRoundTrailingZero(arguments []interface{}) (interface{}, error) {
 	op, err := validateArg(round, arguments, 0, reflect.Float64)
 	if err != nil {
 		return nil, err
