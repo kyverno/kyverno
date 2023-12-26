@@ -383,6 +383,6 @@ require (
 
 replace (
 	github.com/sigstore/cosign/v2 => github.com/kyverno/cosign/v2 v2.0.0-20231109090756-51fd41540436
-	k8s.io/pod-security-admission v0.29.0-alpha.3 => github.com/YTGhost/pod-security-admission v0.0.0-20231116105308-8b1daa0177f2
+	k8s.io/pod-security-admission v0.29.0 => github.com/YTGhost/pod-security-admission v0.0.0-20231116105308-8b1daa0177f2
 	sigs.k8s.io/kubectl-validate => github.com/kyverno/kubectl-validate v0.0.0-20231116142848-59e4e6124b70
 )
