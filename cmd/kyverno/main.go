@@ -322,11 +322,8 @@ func main() {
 	}
 	eventGenerator := event.NewEventGenerator(
 		setup.KyvernoDynamicClient,
-		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-		kyvernoInformer.Kyverno().V1().Policies(),
-		maxQueuedEvents,
-		omitEventsValues,
 		logging.WithName("EventGenerator"),
+		omitEventsValues...,
 	)
 	// this controller only subscribe to events, nothing is returned...
 	policymetricscontroller.NewController(
@@ -393,7 +390,7 @@ func main() {
 		}
 	}
 	// start event generator
-	go eventGenerator.Run(signalCtx, 3, &wg)
+	go eventGenerator.Run(signalCtx, event.Workers, &wg)
 	// setup leader election
 	le, err := leaderelection.New(
 		setup.Logger.WithName("leader-election"),

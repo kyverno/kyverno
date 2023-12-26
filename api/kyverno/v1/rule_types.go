@@ -112,6 +112,19 @@ func (r *Rule) HasMutate() bool {
 	return !datautils.DeepEqual(r.Mutation, Mutation{})
 }
 
+// HasMutateStandard checks for standard admission mutate rule
+func (r *Rule) HasMutateStandard() bool {
+	if r.HasMutateExisting() {
+		return false
+	}
+	return !datautils.DeepEqual(r.Mutation, Mutation{})
+}
+
+// HasMutateExisting checks if the mutate rule applies to existing resources
+func (r *Rule) HasMutateExisting() bool {
+	return r.Mutation.Targets != nil
+}
+
 // HasVerifyImages checks for verifyImages rule
 func (r *Rule) HasVerifyImages() bool {
 	for _, verifyImage := range r.VerifyImages {
@@ -155,11 +168,6 @@ func (r *Rule) HasValidate() bool {
 // HasGenerate checks for generate rule
 func (r *Rule) HasGenerate() bool {
 	return !datautils.DeepEqual(r.Generation, Generation{})
-}
-
-// IsMutateExisting checks if the mutate rule applies to existing resources
-func (r *Rule) IsMutateExisting() bool {
-	return r.Mutation.Targets != nil
 }
 
 func (r *Rule) IsPodSecurity() bool {
@@ -369,7 +377,7 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 
 // ValidateMutationRuleTargetNamespace checks if the targets are scoped to the policy's namespace
 func (r *Rule) ValidateMutationRuleTargetNamespace(path *field.Path, namespaced bool, policyNamespace string) (errs field.ErrorList) {
-	if r.HasMutate() && namespaced {
+	if r.HasMutateExisting() && namespaced {
 		for idx, target := range r.Mutation.Targets {
 			if target.Namespace != "" && target.Namespace != policyNamespace {
 				errs = append(errs, field.Invalid(path.Child("targets").Index(idx).Child("namespace"), target.Namespace, "This field can be ignored or should have value of the namespace where the policy is being created"))

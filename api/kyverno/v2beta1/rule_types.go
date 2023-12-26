@@ -79,6 +79,19 @@ func (r *Rule) HasMutate() bool {
 	return !datautils.DeepEqual(r.Mutation, kyvernov1.Mutation{})
 }
 
+// HasMutate checks for standard admission mutate rule
+func (r *Rule) HasMutateStandard() bool {
+	if r.HasMutateExisting() {
+		return false
+	}
+	return !datautils.DeepEqual(r.Mutation, kyvernov1.Mutation{})
+}
+
+// HasMutateExisting checks if the mutate rule applies to existing resources
+func (r *Rule) HasMutateExisting() bool {
+	return r.Mutation.Targets != nil
+}
+
 // HasVerifyImages checks for verifyImages rule
 func (r *Rule) HasVerifyImages() bool {
 	for _, verifyImage := range r.VerifyImages {
@@ -122,11 +135,6 @@ func (r *Rule) HasValidate() bool {
 // HasGenerate checks for generate rule
 func (r *Rule) HasGenerate() bool {
 	return !datautils.DeepEqual(r.Generation, kyvernov1.Generation{})
-}
-
-// IsMutateExisting checks if the mutate rule applies to existing resources
-func (r *Rule) IsMutateExisting() bool {
-	return r.Mutation.Targets != nil
 }
 
 func (r *Rule) GetGenerateTypeAndSync() (_ kyvernov1.GenerateType, sync bool) {

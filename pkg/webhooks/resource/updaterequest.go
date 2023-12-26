@@ -31,7 +31,7 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 
 	var engineResponses []*engineapi.EngineResponse
 	for _, policy := range policies {
-		if !policy.GetSpec().IsMutateExisting() {
+		if !policy.GetSpec().HasMutateExisting() {
 			continue
 		}
 
