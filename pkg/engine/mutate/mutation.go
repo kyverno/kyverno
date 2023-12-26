@@ -63,7 +63,7 @@ func Mutate(rule *kyvernov1.Rule, ctx context.Interface, resource unstructured.U
 	if err := patchedResource.UnmarshalJSON(patchedBytes); err != nil {
 		return NewErrorResponse("failed to unmarshal patched resource", err)
 	}
-	if rule.IsMutateExisting() {
+	if rule.HasMutateExisting() {
 		if err := ctx.SetTargetResource(patchedResource.Object); err != nil {
 			return NewErrorResponse("failed to update patched target resource in the JSON context", err)
 		}

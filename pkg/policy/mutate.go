@@ -16,7 +16,7 @@ func (pc *policyController) handleMutate(policyKey string, policy kyvernov1.Poli
 	logger.Info("update URs on policy event")
 	for _, rule := range policy.GetSpec().Rules {
 		var ruleType kyvernov1beta1.RequestType
-		if rule.IsMutateExisting() {
+		if rule.HasMutateExisting() {
 			ruleType = kyvernov1beta1.Mutate
 			triggers := generateTriggers(pc.client, rule, pc.log)
 			for _, trigger := range triggers {

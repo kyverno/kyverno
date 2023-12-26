@@ -45,6 +45,7 @@ type UpdateRequestStatus struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Policy",type="string",JSONPath=".spec.policy"
 // +kubebuilder:printcolumn:name="RuleType",type="string",JSONPath=".spec.requestType"
