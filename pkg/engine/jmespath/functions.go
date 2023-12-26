@@ -62,6 +62,7 @@ var (
 	divide                 = "divide"
 	modulo                 = "modulo"
 	round                  = "round"
+	roundTailingZero       = "roundTrailingZero"
 	base64Decode           = "base64_decode"
 	base64Encode           = "base64_encode"
 	pathCanonicalize       = "path_canonicalize"
@@ -323,6 +324,17 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		},
 		ReturnType: []jpType{jpNumber},
 		Note:       "does roundoff to upto the given decimal places",
+	}, {
+		FunctionEntry: gojmespath.FunctionEntry{
+			Name: roundTailingZero,
+			Arguments: []argSpec{
+				{Types: []jpType{jpNumber}},
+				{Types: []jpType{jpNumber}},
+			},
+			Handler: jpRoundTailingZero,
+		},
+		ReturnType: []jpType{jpString},
+		Note:       "does roundoff to upto the given decimal places accounting for trailing decimal zero",
 	}, {
 		FunctionEntry: gojmespath.FunctionEntry{
 			Name: base64Decode,
@@ -910,6 +922,28 @@ func jpRound(arguments []interface{}) (interface{}, error) {
 	shift := math.Pow(10, float64(intLength))
 	rounded := math.Round(op.Float()*shift) / shift
 	return rounded, nil
+}
+
+func jpRoundTailingZero(arguments []interface{}) (interface{}, error) {
+	op, err := validateArg(round, arguments, 0, reflect.Float64)
+	if err != nil {
+		return nil, err
+	}
+	length, err := validateArg(round, arguments, 1, reflect.Float64)
+	if err != nil {
+		return nil, err
+	}
+	intLength, err := intNumber(length.Float())
+	if err != nil {
+		return nil, formatError(nonIntRoundError, round)
+	}
+	if intLength < 0 {
+		return nil, formatError(argOutOfBoundsError, round)
+	}
+	shift := math.Pow(10, float64(intLength))
+	rounded := math.Round(op.Float()*shift) / shift
+	formatted := fmt.Sprintf("%.*f", int(length.Float()), rounded)
+	return formatted, nil
 }
 
 func jpBase64Decode(arguments []interface{}) (interface{}, error) {
