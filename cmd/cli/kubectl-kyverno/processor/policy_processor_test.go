@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/assert"
 )
@@ -114,6 +115,7 @@ func Test_NamespaceSelector(t *testing.T) {
 			NamespaceSelectorMap: tc.namespaceSelectorMap,
 			Rc:                   rc,
 			Out:                  os.Stdout,
+			RegistryClient:       registryclient.NewOrDie(),
 		}
 		processor.ApplyPoliciesOnResource()
 		assert.Equal(t, int64(rc.Pass()), int64(tc.result.pass))
