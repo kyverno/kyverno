@@ -48,23 +48,24 @@ type SkippedInvalidPolicies struct {
 }
 
 type ApplyCommandConfig struct {
-	KubeConfig     string
-	Context        string
-	Namespace      string
-	MutateLogPath  string
-	Variables      []string
-	ValuesFile     string
-	UserInfoPath   string
-	Cluster        bool
-	PolicyReport   bool
-	Stdin          bool
-	RegistryAccess bool
-	AuditWarn      bool
-	ResourcePaths  []string
-	PolicyPaths    []string
-	GitBranch      string
-	warnExitCode   int
-	warnNoPassed   bool
+	KubeConfig          string
+	Context             string
+	Namespace           string
+	MutateLogPath       string
+	Variables           []string
+	ValuesFile          string
+	UserInfoPath        string
+	Cluster             bool
+	SkipResourceFilters bool
+	PolicyReport        bool
+	Stdin               bool
+	RegistryAccess      bool
+	AuditWarn           bool
+	ResourcePaths       []string
+	PolicyPaths         []string
+	GitBranch           string
+	warnExitCode        int
+	warnNoPassed        bool
 }
 
 func Command() *cobra.Command {
@@ -97,6 +98,7 @@ func Command() *cobra.Command {
 	}
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.ResourcePaths, "resource", "r", []string{}, "Path to resource files")
 	cmd.Flags().BoolVarP(&applyCommandConfig.Cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
+	cmd.Flags().BoolVarP(&applyCommandConfig.SkipResourceFilters, "skip-resourcefilters", "", false, "Optional parameter passed with cluster flag to skip the resourceFilters field from the kyverno configuration present in the cluster")
 	cmd.Flags().StringVarP(&applyCommandConfig.MutateLogPath, "output", "o", "", "Prints the mutated resources in provided file/directory")
 	// currently `set` flag supports variable for single policy applied on single resource
 	cmd.Flags().StringVarP(&applyCommandConfig.UserInfoPath, "userinfo", "u", "", "Admission Info including Roles, Cluster Roles and Subjects")
