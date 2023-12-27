@@ -81,6 +81,8 @@ annotations:
       description: allow tolerations and affinity settings for reportsCleanup
     - kind: added
       description: Add imagePullSecrets to post-upgrade job
+    - kind: added
+      description: allow nodeSelector settings for policyReportsCleanup
 dependencies:
   - name: grafana
     version: "0.0.0"
