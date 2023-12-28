@@ -31,9 +31,11 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/spf13/cobra"
 	"k8s.io/api/admissionregistration/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -158,6 +160,12 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	resources, err := c.loadResources(out, policies, validatingAdmissionPolicies, dClient)
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
+	}
+	if c.Cluster && !c.SkipResourceFilters {
+		resources, err = c.filterResources(resources, dClient)
+		if err != nil {
+			return rc, resources1, skipInvalidPolicies, responses1, err
+		}
 	}
 	if !c.Stdin {
 		var policyRulesCount int
@@ -302,6 +310,28 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, policies []kyvernov1.P
 		return resources, fmt.Errorf("failed to load resources (%w)", err)
 	}
 	return resources, nil
+}
+
+func (c *ApplyCommandConfig) filterResources(resources []*unstructured.Unstructured, dClient dclient.Interface) ([]*unstructured.Unstructured, error) {
+	kyvernoConfigMapName := config.KyvernoConfigMapName()
+	kyvernoConfigMap, err := dClient.GetKubeClient().CoreV1().ConfigMaps(config.KyvernoNamespace()).Get(context.TODO(), kyvernoConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving the kyverno configmap: %w", err)
+	}
+	configuration := config.NewDefaultConfiguration(false)
+	configuration.Load(kyvernoConfigMap)
+	var resourcesAfterFiltering []*unstructured.Unstructured
+	for _, resource := range resources {
+		subresource := ""
+		if kubeutils.IsSubresource(resource.GetName()) {
+			parts := strings.Split(resource.GetName(), "/")
+			subresource = parts[1]
+		}
+		if !configuration.ToFilter(resource.GroupVersionKind(), subresource, resource.GetNamespace(), resource.GetName()) {
+			resourcesAfterFiltering = append(resourcesAfterFiltering, resource)
+		}
+	}
+	return resourcesAfterFiltering, nil
 }
 
 func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error, []kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy) {
