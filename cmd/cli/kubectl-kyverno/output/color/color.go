@@ -66,7 +66,7 @@ func Resource(kind, namespace, name string) string {
 }
 
 func Excluded() string {
-	return color.BoldYellow.Sprint("Excluded")
+	return BoldYellow.Sprint("Excluded")
 }
 
 func NotFound() string {
