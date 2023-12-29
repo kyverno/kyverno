@@ -4,7 +4,7 @@ Chainsaw test for FluxCD Policy.
 
 ## Expected Behavior
 
-Test Latest FluxCD Policies.
+Tests verification of git repositories.
 
 ## Reference Issue(s)
 

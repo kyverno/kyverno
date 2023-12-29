@@ -4,7 +4,7 @@ Chainsaw test for FluxCD Policy.
 
 ## Expected Behavior
 
-Test Latest FluxCD Policies.
+Tests verification of latest fluxcd policies.
 
 ## Reference Issue(s)
 
