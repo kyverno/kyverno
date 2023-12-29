@@ -1,0 +1,24 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-git-repositories-assert
+spec:
+  validationFailureAction: Audit
+  background: false
+  rules:
+    - name: validate-git-repository-urls
+      match:
+        any:
+        - resources:
+            kinds:
+              - GitRepository
+      deny:
+        conditions:
+          any:
+          - key: "{{ request.object.spec.url }}"
+            operator: NotEqual
+            value: "https://github.com/fluxcd/?*"
+          - key: "{{ request.object.spec.url }}"
+            operator: NotEqual
+            value: "ssh://git@github.com:fluxcd/?*"
+        message: "GitRepository URL must be from the allowed organization."
