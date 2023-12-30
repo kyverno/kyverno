@@ -727,6 +727,7 @@ The chart values are organised per component.
 | global.image.registry | string | `nil` | Global value that allows to set a single image registry across all deployments. When set, it will override any values set under `.image.registry` across the chart. |
 | global.caCertificates.data | string | `nil` | Global CA certificates to use with Kyverno deployments This value is expected to be one large string of CA certificates Individual controller values will override this global value |
 | global.caCertificates.volume | object | `{}` | Global value to set single volume to be mounted for CA certificates for all deployments. Not used when `.Values.global.caCertificates.data` is defined Individual  controller values will override this global value |
+| global.extraEnvVars | list | `[]` | Additional container environment variables to apply to all containers and init containers |
 | nameOverride | string | `nil` | Override the name of the chart |
 | fullnameOverride | string | `nil` | Override the expanded name of the chart |
 | namespaceOverride | string | `nil` | Override the namespace the chart deploys to |
@@ -739,6 +740,7 @@ The chart values are organised per component.
 | policyReportsCleanup.image.repository | string | `"bitnami/kubectl"` | Image repository |
 | policyReportsCleanup.image.tag | string | `"1.28.4"` | Image tag Defaults to `latest` if omitted |
 | policyReportsCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
+| policyReportsCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
 | policyReportsCleanup.podSecurityContext | object | `{}` | Security context for the pod |
 | policyReportsCleanup.nodeSelector | object | `{}` | Node labels for pod assignment |
 | policyReportsCleanup.tolerations | list | `[]` | List of node taints to tolerate |

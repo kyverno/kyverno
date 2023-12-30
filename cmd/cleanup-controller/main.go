@@ -132,11 +132,8 @@ func main() {
 		kyvernoInformer.Kyverno().V2beta1().ClusterCleanupPolicies(),
 		genericloggingcontroller.CheckGeneration,
 	)
-	eventGenerator := event.NewEventCleanupGenerator(
+	eventGenerator := event.NewEventGenerator(
 		setup.KyvernoDynamicClient,
-		kyvernoInformer.Kyverno().V2beta1().ClusterCleanupPolicies(),
-		kyvernoInformer.Kyverno().V2beta1().CleanupPolicies(),
-		maxQueuedEvents,
 		logging.WithName("EventGenerator"),
 	)
 	// start informers and wait for cache sync
@@ -145,7 +142,7 @@ func main() {
 	}
 	// start event generator
 	var wg sync.WaitGroup
-	go eventGenerator.Run(ctx, 3, &wg)
+	go eventGenerator.Run(ctx, event.CleanupWorkers, &wg)
 	// setup leader election
 	le, err := leaderelection.New(
 		setup.Logger.WithName("leader-election"),

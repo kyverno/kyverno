@@ -193,16 +193,9 @@ func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
 	if bytes, err := json.Marshal(rule); err != nil {
 		return nil, err
 	} else {
-		if rule.Validation != nil && rule.Validation.PodSecurity != nil {
-			bytes = updateRestrictedFields(bytes, kind)
-			if err := json.Unmarshal(bytes, &rule); err != nil {
-				return nil, err
-			}
-		} else {
-			bytes = updateGenRuleByte(bytes, kind)
-			if err := json.Unmarshal(bytes, &rule); err != nil {
-				return nil, err
-			}
+		bytes = updateGenRuleByte(bytes, kind)
+		if err := json.Unmarshal(bytes, &rule); err != nil {
+			return nil, err
 		}
 
 		// CEL variables are object, oldObject, request, params and authorizer.

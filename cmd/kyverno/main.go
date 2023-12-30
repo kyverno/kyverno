@@ -191,7 +191,6 @@ func createrLeaderControllers(
 			kubeClient,
 			kyvernoClient,
 			dynamicClient.Discovery(),
-			kyvernoInformer.Kyverno().V1().Policies(),
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
 			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings(),
@@ -322,11 +321,8 @@ func main() {
 	}
 	eventGenerator := event.NewEventGenerator(
 		setup.KyvernoDynamicClient,
-		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-		kyvernoInformer.Kyverno().V1().Policies(),
-		maxQueuedEvents,
-		omitEventsValues,
 		logging.WithName("EventGenerator"),
+		omitEventsValues...,
 	)
 	// this controller only subscribe to events, nothing is returned...
 	policymetricscontroller.NewController(
@@ -393,7 +389,7 @@ func main() {
 		}
 	}
 	// start event generator
-	go eventGenerator.Run(signalCtx, 3, &wg)
+	go eventGenerator.Run(signalCtx, event.Workers, &wg)
 	// setup leader election
 	le, err := leaderelection.New(
 		setup.Logger.WithName("leader-election"),

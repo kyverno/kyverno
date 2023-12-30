@@ -84,7 +84,7 @@ func Test_NamespaceSelector(t *testing.T) {
 				fail: 1,
 				warn: 0,
 				err:  0,
-				skip: 2,
+				skip: 0,
 			},
 		},
 		{
@@ -100,7 +100,7 @@ func Test_NamespaceSelector(t *testing.T) {
 				fail: 1,
 				warn: 0,
 				err:  0,
-				skip: 4,
+				skip: 0,
 			},
 		},
 	}
