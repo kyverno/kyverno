@@ -3,10 +3,8 @@ kind: ClusterPolicy
 metadata:
   name: verify-flux-images-assert
 spec:
-  validationFailureAction: audit  # Consider changing to 'enforce' once tested
+  validationFailureAction: Audit  # Consider changing to 'enforce' once tested
   background: false
-  webhookTimeoutSeconds: 30
-  failurePolicy: Fail
   rules:
     - name: assert-cosign-signatures
       match:
