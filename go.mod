@@ -38,7 +38,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0-rc5
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.17.0
+	github.com/prometheus/client_golang v1.18.0
 	github.com/robfig/cron v1.2.0
 	github.com/sigstore/cosign/v2 v2.2.2
 	github.com/sigstore/k8s-manifest-sigstore v0.5.1
@@ -381,4 +381,8 @@ require (
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 )
 
-replace sigs.k8s.io/kubectl-validate => github.com/kyverno/kubectl-validate v0.0.0-20231116142848-59e4e6124b70
+replace (
+	github.com/sigstore/cosign/v2 => github.com/kyverno/cosign/v2 v2.0.0-20231109090756-51fd41540436
+	k8s.io/pod-security-admission v0.29.0 => github.com/YTGhost/pod-security-admission v0.0.0-20231116105308-8b1daa0177f2
+	sigs.k8s.io/kubectl-validate => github.com/kyverno/kubectl-validate v0.0.0-20231116142848-59e4e6124b70
+)

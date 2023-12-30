@@ -2848,6 +2848,31 @@ Empty list matches no containers, PSS checks are applied at the pod level only.
 Wildcards (&lsquo;*&rsquo; and &lsquo;?&rsquo;) are allowed. See: <a href="https://kubernetes.io/docs/concepts/containers/images">https://kubernetes.io/docs/concepts/containers/images</a>.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>restrictedField</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>RestrictedField selects the field for the given Pod Security Standard control.
+When not set, all restricted fields for the control are selected.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>values</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Values defines the allowed values that can be excluded.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
