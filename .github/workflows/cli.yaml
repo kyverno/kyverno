@@ -40,6 +40,13 @@ jobs:
           then
             echo "TEST_GIT_BRANCH=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
           fi
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          logout: true
       - name: Test CLI
         run: |
           KYVERNO_KUBECTL_VALIDATE=false VERSION=${{ github.ref_name }} make test-cli
@@ -73,6 +80,13 @@ jobs:
           then
             echo "TEST_GIT_BRANCH=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
           fi
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          logout: true
       - name: Test CLI
         run: |
           VERSION=${{ github.ref_name }} make test-cli
