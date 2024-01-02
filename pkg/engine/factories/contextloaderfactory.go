@@ -117,6 +117,14 @@ func (l *contextLoader) newLoader(
 	} else if entry.Variable != nil {
 		ldr := loaders.NewVariableLoader(l.logger, entry, jsonContext, jp)
 		return enginecontext.NewDeferredLoader(entry.Name, ldr, l.logger)
+	} else if entry.ResourceCache != nil {
+		if client != nil {
+			ldr := loaders.NewVariableLoader(l.logger, entry, jsonContext, jp)
+			return enginecontext.NewDeferredLoader(entry.Name, ldr, l.logger)
+		} else {
+			l.logger.Info("disabled loading of resource cache context entry", "name", entry.Name)
+			return nil, nil
+		}
 	}
 	return nil, fmt.Errorf("missing ConfigMap|APICall|ImageRegistry|Variable in context entry %s", entry.Name)
 }

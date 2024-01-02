@@ -6,5 +6,5 @@ import (
 )
 
 type ResourceCache interface {
-	Get(kyvernov1.ResourceCache, enginecontext.Interface) ([]byte, error)
+	Get(kyvernov1.ContextEntry, enginecontext.Interface) ([]byte, error)
 }

@@ -117,6 +117,9 @@ func (a *APICall) Store(data []byte) ([]byte, error) {
 
 func (a *APICall) Execute(ctx context.Context, call *kyvernov1.APICall) ([]byte, error) {
 	if call.URLPath != "" {
+		if a.client == nil {
+			return nil, fmt.Errorf("Client not found for K8s API Call %s", a.entry.Name)
+		}
 		return a.executeK8sAPICall(ctx, call.URLPath, call.Method, call.Data)
 	}
 

@@ -44,7 +44,7 @@ func New(logger logr.Logger, dclient *dynamic.DynamicClient, c cache.Cache) (*Re
 	}, nil
 }
 
-func (r *ResourceLoader) AddEntries(entries ...v2alpha1.CachedContextEntry) error {
+func (r *ResourceLoader) AddEntries(entries ...*v2alpha1.CachedContextEntry) error {
 	for _, entry := range entries {
 		if entry.Spec.Resource == nil {
 			continue
@@ -57,7 +57,7 @@ func (r *ResourceLoader) AddEntries(entries ...v2alpha1.CachedContextEntry) erro
 	return nil
 }
 
-func (r *ResourceLoader) AddEntry(entry v2alpha1.CachedContextEntry) error {
+func (r *ResourceLoader) AddEntry(entry *v2alpha1.CachedContextEntry) error {
 	if entry.Spec.Resource == nil {
 		return fmt.Errorf("Invalid object provided")
 	}
@@ -79,7 +79,7 @@ func (r *ResourceLoader) AddEntry(entry v2alpha1.CachedContextEntry) error {
 	return nil
 }
 
-func (r *ResourceLoader) Get(rc kyvernov1.ResourceCache) (interface{}, error) {
+func (r *ResourceLoader) Get(rc *kyvernov1.ResourceCache) (interface{}, error) {
 	if rc.Resource == nil {
 		return nil, fmt.Errorf("resource not found")
 	}
@@ -96,17 +96,22 @@ func (r *ResourceLoader) Get(rc kyvernov1.ResourceCache) (interface{}, error) {
 	return entry.Get()
 }
 
-func (r *ResourceLoader) Delete(rc kyvernov1.ResourceCache) bool {
-	if rc.Resource == nil {
-		return false
+func (r *ResourceLoader) Delete(entry *v2alpha1.CachedContextEntry) error {
+	if entry.Spec.Resource == nil {
+		return fmt.Errorf("invalid object provided")
 	}
+	rc := entry.Spec.Resource
 	resource := schema.GroupVersionResource{
-		Group:    rc.Resource.Group,
-		Version:  rc.Resource.Version,
-		Resource: rc.Resource.Kind,
+		Group:    rc.Group,
+		Version:  rc.Version,
+		Resource: rc.Kind,
 	}
-	key := getKeyForResourceEntry(resource, rc.Resource.Namespace)
-	return r.cache.Delete(key)
+	key := getKeyForResourceEntry(resource, rc.Namespace)
+	ok := r.cache.Delete(key)
+	if !ok {
+		return fmt.Errorf("failed to delete k8s object entry")
+	}
+	return nil
 }
 
 func (r *ResourceLoader) createGenericListerForResource(resource schema.GroupVersionResource, namespace string) (*cache.CacheEntry, error) {

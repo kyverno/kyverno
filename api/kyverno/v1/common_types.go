@@ -180,6 +180,14 @@ type ResourceCache struct {
 
 	// APICall stores infos about API call that should be cached
 	APICall *ExternalAPICall `json:"apiCall" yaml:"apiCall"`
+
+	// JMESPath is an optional JSON Match Expression that can be used to
+	// transform the JSON response returned from the server. For example
+	// a JMESPath of "items | length(@)" applied to the API server response
+	// for the URLPath "/apis/apps/v1/deployments" will return the total count
+	// of deployments across all namespaces.
+	// +kubebuilder:validation:Optional
+	JMESPath string `json:"jmesPath,omitempty" yaml:"jmesPath,omitempty"`
 }
 
 // K8sResource stores infos about kubernetes resource that should be cached

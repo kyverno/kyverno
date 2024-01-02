@@ -24,7 +24,6 @@ type Getter interface {
 
 type ExternalAPILoader struct {
 	logger logr.Logger
-	client apicall.ClientInterface
 	config apicall.APICallConfiguration
 	cache  cache.Cache
 }
@@ -38,15 +37,14 @@ type externalEntry struct {
 	data      interface{}
 }
 
-func New(logger logr.Logger, client apicall.ClientInterface, config apicall.APICallConfiguration) *ExternalAPILoader {
+func New(logger logr.Logger, config apicall.APICallConfiguration) *ExternalAPILoader {
 	return &ExternalAPILoader{
 		logger: logger,
-		client: client,
 		config: config,
 	}
 }
 
-func (e *ExternalAPILoader) AddEntries(entries ...v2alpha1.CachedContextEntry) error {
+func (e *ExternalAPILoader) AddEntries(entries ...*v2alpha1.CachedContextEntry) error {
 	for _, entry := range entries {
 		if entry.Spec.APICall == nil {
 			continue
@@ -59,7 +57,7 @@ func (e *ExternalAPILoader) AddEntries(entries ...v2alpha1.CachedContextEntry) e
 	return nil
 }
 
-func (e *ExternalAPILoader) AddEntry(entry v2alpha1.CachedContextEntry) error {
+func (e *ExternalAPILoader) AddEntry(entry *v2alpha1.CachedContextEntry) error {
 	if entry.Spec.APICall == nil {
 		return fmt.Errorf("Invalid object provided")
 	}
@@ -68,7 +66,7 @@ func (e *ExternalAPILoader) AddEntry(entry v2alpha1.CachedContextEntry) error {
 		Name:          entry.Name,
 		ResourceCache: rc,
 	}
-	executor, err := apicall.New(e.logger, nil, ctxentry, nil, e.client, e.config)
+	executor, err := apicall.New(e.logger, nil, ctxentry, nil, nil, e.config)
 	if err != nil {
 		return fmt.Errorf("failed to initiaize APICall: %w", err)
 	}
@@ -106,7 +104,7 @@ func (e *ExternalAPILoader) AddEntry(entry v2alpha1.CachedContextEntry) error {
 	return nil
 }
 
-func (e *ExternalAPILoader) Get(rc kyvernov1.ResourceCache) (interface{}, error) {
+func (e *ExternalAPILoader) Get(rc *kyvernov1.ResourceCache) (interface{}, error) {
 	if rc.Resource == nil {
 		return nil, fmt.Errorf("resource not found")
 	}
@@ -118,12 +116,17 @@ func (e *ExternalAPILoader) Get(rc kyvernov1.ResourceCache) (interface{}, error)
 	return entry.Get()
 }
 
-func (e *ExternalAPILoader) Delete(rc kyvernov1.ResourceCache) bool {
-	if rc.Resource == nil {
-		return false
+func (e *ExternalAPILoader) Delete(entry *v2alpha1.CachedContextEntry) error {
+	if entry.Spec.APICall == nil {
+		return fmt.Errorf("Invalid object provided")
 	}
+	rc := entry.Spec.ResourceCache.DeepCopy()
 	key := getKeyForExternalEntry(rc.APICall.Service.URL, rc.APICall.Service.CABundle, rc.APICall.RefreshIntervalSeconds)
-	return e.cache.Delete(key)
+	ok := e.cache.Delete(key)
+	if !ok {
+		return fmt.Errorf("failed to delete ext api loader")
+	}
+	return nil
 }
 
 func getKeyForExternalEntry(url, caBundle string, interval int64) string {
