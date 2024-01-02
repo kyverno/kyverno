@@ -1,5 +1,10 @@
 package resourcecache
 
-type CacheEntry interface {
-	Get() ([]byte, error)
+import (
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+)
+
+type ResourceCache interface {
+	Get(kyvernov1.ResourceCache, enginecontext.Interface) ([]byte, error)
 }

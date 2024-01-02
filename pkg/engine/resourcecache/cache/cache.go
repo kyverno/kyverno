@@ -7,25 +7,32 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-type CacheEntry interface {
-	Get() ([]byte, error)
+type Cache interface {
+	Add(key string, val *CacheEntry) bool
+	Get(key string) (ResourceEntry, bool)
+	Update(key string, val *CacheEntry) bool
+	Delete(key string) bool
 }
 
-type cacheEntry struct {
-	entry CacheEntry
-	stop  context.CancelFunc
+type ResourceEntry interface {
+	Get() (interface{}, error)
 }
 
-func (c *cacheEntry) Get() ([]byte, error) {
-	return c.entry.Get()
+type CacheEntry struct {
+	Entry ResourceEntry
+	Stop  context.CancelFunc
 }
 
-type Cache struct {
+func (c *CacheEntry) Get() (interface{}, error) {
+	return c.Entry.Get()
+}
+
+type cache struct {
 	sync.Mutex
 	store *ristretto.Cache
 }
 
-func New() (*Cache, error) {
+func New() (Cache, error) {
 	config := ristretto.Config{
 		MaxCost:     100 * 1000 * 1000, // 100 MB
 		NumCounters: 10 * 100,          // 100 entries
@@ -38,21 +45,21 @@ func New() (*Cache, error) {
 		return nil, err
 	}
 
-	return &Cache{
+	return &cache{
 		store: rcache,
 	}, nil
 }
 
-func (l *Cache) Add(key string, val *cacheEntry) bool {
+func (l *cache) Add(key string, val *CacheEntry) bool {
 	l.Lock()
 	defer l.Unlock()
-	if val.entry != nil {
+	if val.Entry != nil {
 		return false
 	}
 	return l.store.Set(key, val, 0)
 }
 
-func (l *Cache) Get(key string) (CacheEntry, bool) {
+func (l *cache) Get(key string) (ResourceEntry, bool) {
 	l.Lock()
 	defer l.Unlock()
 	val, ok := l.store.Get(key)
@@ -60,20 +67,20 @@ func (l *Cache) Get(key string) (CacheEntry, bool) {
 		return nil, ok
 	}
 
-	entry, ok := val.(*cacheEntry)
+	entry, ok := val.(*CacheEntry)
 	return entry, ok
 }
 
-func (l *Cache) Update(key string, val *cacheEntry) bool {
+func (l *cache) Update(key string, val *CacheEntry) bool {
 	l.Lock()
 	defer l.Unlock()
-	if val.entry != nil {
+	if val.Entry != nil {
 		return false
 	}
 	return l.store.Set(key, val, 0)
 }
 
-func (l *Cache) Delete(key string) bool {
+func (l *cache) Delete(key string) bool {
 	l.Lock()
 	defer l.Unlock()
 
@@ -83,7 +90,7 @@ func (l *Cache) Delete(key string) bool {
 }
 
 func ristrettoOnExit(val interface{}) {
-	if entry, ok := val.(*cacheEntry); ok {
-		entry.stop()
+	if entry, ok := val.(*CacheEntry); ok {
+		entry.Stop()
 	}
 }
