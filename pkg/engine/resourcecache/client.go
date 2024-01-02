@@ -29,7 +29,7 @@ type resourceCache struct {
 	jp        jmespath.Interface
 }
 
-func New(logger logr.Logger, dclient *dynamic.DynamicClient, informer v2alpha1.CachedContextEntryInformer, jp jmespath.Interface, config apicall.APICallConfiguration) (ResourceCache, error) {
+func New(logger logr.Logger, dclient dynamic.Interface, informer v2alpha1.CachedContextEntryInformer, jp jmespath.Interface, config apicall.APICallConfiguration) (ResourceCache, error) {
 	cacheClient, err := cache.New()
 	if err != nil {
 		return nil, err

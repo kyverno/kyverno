@@ -20,6 +20,7 @@ import (
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	ttlcontroller "github.com/kyverno/kyverno/pkg/controllers/ttl"
+	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
@@ -61,13 +62,14 @@ func (probes) IsLive(context.Context) bool {
 
 func main() {
 	var (
-		dumpPayload       bool
-		serverIP          string
-		servicePort       int
-		webhookServerPort int
-		maxQueuedEvents   int
-		interval          time.Duration
-		renewBefore       time.Duration
+		dumpPayload              bool
+		serverIP                 string
+		servicePort              int
+		webhookServerPort        int
+		maxQueuedEvents          int
+		interval                 time.Duration
+		renewBefore              time.Duration
+		maxAPICallResponseLength int64
 	)
 	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -79,6 +81,7 @@ func main() {
 	flagset.StringVar(&caSecretName, "caSecretName", "", "Name of the secret containing CA.")
 	flagset.StringVar(&tlsSecretName, "tlsSecretName", "", "Name of the secret containing TLS pair.")
 	flagset.DurationVar(&renewBefore, "renewBefore", 15*24*time.Hour, "The certificate renewal time before expiration")
+	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -160,6 +163,7 @@ func main() {
 			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 
 			cmResolver := internal.NewConfigMapResolver(ctx, setup.Logger, setup.KubeClient, resyncPeriod)
+			resourceCache := internal.NewResourceCacheLoader(ctx, setup.Logger, setup.Jp, setup.KyvernoClient, setup.DynamicClient, apicall.NewAPICallConfiguration(maxAPICallResponseLength), resyncPeriod)
 
 			// controllers
 			renewer := tls.NewCertRenewer(
@@ -273,6 +277,7 @@ func main() {
 					nsLister,
 					setup.Configuration,
 					cmResolver,
+					resourceCache,
 					setup.Jp,
 					eventGenerator,
 				),

@@ -24,12 +24,14 @@ func NewResourceCacheLoader(
 	logger logr.Logger,
 	entry kyvernov1.ContextEntry,
 	enginectx enginecontext.Interface,
+	rc resourcecache.ResourceCache,
 ) enginecontext.Loader {
 	return &resourceCacheLoader{
-		ctx:       ctx,
-		logger:    logger,
-		entry:     entry,
-		enginectx: enginectx,
+		ctx:           ctx,
+		logger:        logger,
+		entry:         entry,
+		resourceCache: rc,
+		enginectx:     enginectx,
 	}
 }
 

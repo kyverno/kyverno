@@ -20,7 +20,7 @@ import (
 
 type ResourceLoader struct {
 	logger logr.Logger
-	client *dynamic.DynamicClient
+	client dynamic.Interface
 	cache  cache.Cache
 }
 
@@ -36,7 +36,7 @@ func (re *resourceEntry) Get() (interface{}, error) {
 	return obj, nil
 }
 
-func New(logger logr.Logger, dclient *dynamic.DynamicClient, c cache.Cache) (*ResourceLoader, error) {
+func New(logger logr.Logger, dclient dynamic.Interface, c cache.Cache) (*ResourceLoader, error) {
 	return &ResourceLoader{
 		logger: logger,
 		client: dclient,

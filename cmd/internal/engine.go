@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
+	"github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -17,8 +18,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/engine/resourcecache"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -32,6 +35,7 @@ func NewEngine(
 	client dclient.Interface,
 	rclient registryclient.Client,
 	ivCache imageverifycache.Client,
+	dclient dynamic.Interface,
 	kubeClient kubernetes.Interface,
 	kyvernoClient versioned.Interface,
 	secretLister corev1listers.SecretNamespaceLister,
@@ -39,6 +43,7 @@ func NewEngine(
 ) engineapi.Engine {
 	configMapResolver := NewConfigMapResolver(ctx, logger, kubeClient, 15*time.Minute)
 	exceptionsSelector := NewExceptionSelector(ctx, logger, kyvernoClient, 15*time.Minute)
+	resourceCacheClient := NewResourceCacheLoader(ctx, logger, jp, kyvernoClient, dclient, apiCallConfig, resyncPeriod)
 	logger = logger.WithName("engine")
 	logger.Info("setup engine...")
 	return engine.NewEngine(
@@ -48,7 +53,7 @@ func NewEngine(
 		adapters.Client(client),
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), secretLister),
 		ivCache,
-		factories.DefaultContextLoaderFactory(configMapResolver, factories.WithAPICallConfig(apiCallConfig)),
+		factories.DefaultContextLoaderFactory(configMapResolver, resourceCacheClient, factories.WithAPICallConfig(apiCallConfig)),
 		exceptionsSelector,
 		imageSignatureRepository,
 	)
@@ -77,6 +82,36 @@ func NewExceptionSelector(
 		}
 	}
 	return exceptionsLister
+}
+
+func NewResourceCacheLoader(
+	ctx context.Context,
+	logger logr.Logger,
+	jp jmespath.Interface,
+	kyvernoClient versioned.Interface,
+	dclient dynamic.Interface,
+	apiCallConfig apicall.APICallConfiguration,
+	resyncPeriod time.Duration,
+) resourcecache.ResourceCache {
+	logger = logger.WithName("resourcecache-loader").WithValues("enableResourceCache", enableResourceCache)
+	logger.Info("setup resource cache loader...")
+	if !enableResourceCache {
+		logger.V(4).Info("resource caching is disabled")
+		return nil
+	}
+	var informer v2alpha1.CachedContextEntryInformer
+	factory := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+	informer = factory.Kyverno().V2alpha1().CachedContextEntries()
+	// start informers and wait for cache sync
+	if !StartInformersAndWaitForCacheSync(ctx, logger, factory) {
+		checkError(logger, errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
+	}
+
+	rc, err := resourcecache.New(logger, dclient, informer, jp, apiCallConfig)
+	if err != nil {
+		logger.Error(err, "failed to create resource cache client")
+	}
+	return rc
 }
 
 func NewConfigMapResolver(

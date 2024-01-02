@@ -11,17 +11,19 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/loaders"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/engine/resourcecache"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/toggle"
 )
 
 type ContextLoaderFactoryOptions func(*contextLoader)
 
-func DefaultContextLoaderFactory(cmResolver engineapi.ConfigmapResolver, opts ...ContextLoaderFactoryOptions) engineapi.ContextLoaderFactory {
+func DefaultContextLoaderFactory(cmResolver engineapi.ConfigmapResolver, rc resourcecache.ResourceCache, opts ...ContextLoaderFactoryOptions) engineapi.ContextLoaderFactory {
 	return func(_ kyvernov1.PolicyInterface, _ kyvernov1.Rule) engineapi.ContextLoader {
 		cl := &contextLoader{
-			logger:     logging.WithName("DefaultContextLoaderFactory"),
-			cmResolver: cmResolver,
+			logger:              logging.WithName("DefaultContextLoaderFactory"),
+			cmResolver:          cmResolver,
+			resourceCacheClient: rc,
 		}
 		for _, o := range opts {
 			o(cl)
@@ -43,10 +45,11 @@ func WithAPICallConfig(config apicall.APICallConfiguration) ContextLoaderFactory
 }
 
 type contextLoader struct {
-	logger        logr.Logger
-	cmResolver    engineapi.ConfigmapResolver
-	initializers  []engineapi.Initializer
-	apiCallConfig apicall.APICallConfiguration
+	logger              logr.Logger
+	cmResolver          engineapi.ConfigmapResolver
+	resourceCacheClient resourcecache.ResourceCache
+	initializers        []engineapi.Initializer
+	apiCallConfig       apicall.APICallConfiguration
 }
 
 func (l *contextLoader) Load(
@@ -118,13 +121,13 @@ func (l *contextLoader) newLoader(
 		ldr := loaders.NewVariableLoader(l.logger, entry, jsonContext, jp)
 		return enginecontext.NewDeferredLoader(entry.Name, ldr, l.logger)
 	} else if entry.ResourceCache != nil {
-		if client != nil {
-			ldr := loaders.NewVariableLoader(l.logger, entry, jsonContext, jp)
+		if l.resourceCacheClient != nil {
+			ldr := loaders.NewResourceCacheLoader(ctx, l.logger, entry, jsonContext, l.resourceCacheClient)
 			return enginecontext.NewDeferredLoader(entry.Name, ldr, l.logger)
 		} else {
 			l.logger.Info("disabled loading of resource cache context entry", "name", entry.Name)
 			return nil, nil
 		}
 	}
-	return nil, fmt.Errorf("missing ConfigMap|APICall|ImageRegistry|Variable in context entry %s", entry.Name)
+	return nil, fmt.Errorf("missing ConfigMap|APICall|ImageRegistry|Variable|ResourceCache in context entry %s", entry.Name)
 }

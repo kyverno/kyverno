@@ -60,7 +60,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 			adapters.Client(dclient),
 			factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 			imageverifycache.DisabledImageVerifyCache(),
-			factories.DefaultContextLoaderFactory(configMapResolver),
+			factories.DefaultContextLoaderFactory(configMapResolver, nil),
 			peLister,
 			"",
 		),

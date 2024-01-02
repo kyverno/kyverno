@@ -283,6 +283,7 @@ func main() {
 		setup.KyvernoDynamicClient,
 		setup.RegistryClient,
 		setup.ImageVerifyCacheClient,
+		setup.DynamicClient,
 		setup.KubeClient,
 		setup.KyvernoClient,
 		setup.RegistrySecretLister,
