@@ -176,9 +176,11 @@ type APICall struct {
 
 type ResourceCache struct {
 	// Resource stores infos about kubernetes resource that should be cached
+	// +kubebuilder:validation:Optional
 	Resource *K8sResource `json:"resource" yaml:"resource"`
 
 	// APICall stores infos about API call that should be cached
+	// +kubebuilder:validation:Optional
 	APICall *ExternalAPICall `json:"apiCall" yaml:"apiCall"`
 
 	// JMESPath is an optional JSON Match Expression that can be used to

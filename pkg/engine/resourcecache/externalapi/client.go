@@ -96,11 +96,12 @@ func (e *ExternalAPILoader) AddEntry(entry *v2alpha1.CachedContextEntry) error {
 	}
 	key := getKeyForExternalEntry(rc.APICall.Service.URL, rc.APICall.Service.CABundle, rc.APICall.RefreshIntervalSeconds)
 
+	e.logger.V(2).Info("key", key, "entry", entry)
 	ok := e.cache.Add(key, cacheEntry)
 	if !ok {
 		return fmt.Errorf("failed to create cache entry key=%s", key)
 	}
-
+	e.logger.V(2).Info("successfully created cache entry")
 	return nil
 }
 
@@ -113,6 +114,7 @@ func (e *ExternalAPILoader) Get(rc *kyvernov1.ResourceCache) (interface{}, error
 	if !ok {
 		return nil, fmt.Errorf("failed to create fetch entry key=%s", key)
 	}
+	e.logger.V(2).Info("successfully fetched cache entry")
 	return entry.Get()
 }
 
@@ -126,6 +128,7 @@ func (e *ExternalAPILoader) Delete(entry *v2alpha1.CachedContextEntry) error {
 	if !ok {
 		return fmt.Errorf("failed to delete ext api loader")
 	}
+	e.logger.V(2).Info("successfully deleted cache entry")
 	return nil
 }
 

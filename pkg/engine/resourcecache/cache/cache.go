@@ -53,7 +53,7 @@ func New() (Cache, error) {
 func (l *cache) Add(key string, val *CacheEntry) bool {
 	l.Lock()
 	defer l.Unlock()
-	if val.Entry != nil {
+	if val.Entry == nil {
 		return false
 	}
 	return l.store.Set(key, val, 0)

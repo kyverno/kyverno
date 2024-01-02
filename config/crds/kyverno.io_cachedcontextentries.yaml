@@ -129,9 +129,6 @@ spec:
                 - kind
                 - version
                 type: object
-            required:
-            - apiCall
-            - resource
             type: object
         required:
         - spec

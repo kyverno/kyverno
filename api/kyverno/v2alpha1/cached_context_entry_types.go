@@ -62,6 +62,9 @@ func (c *CachedContextEntrySpec) IsResource() bool {
 
 // Validate implements programmatic validation
 func (c *CachedContextEntrySpec) Validate(path *field.Path) (errs field.ErrorList) {
+	if c.JMESPath != "" {
+		errs = append(errs, field.Forbidden(path.Child("resource"), "Invalid field: jmespath"))
+	}
 	if c.IsResource() && c.IsAPICall() {
 		errs = append(errs, field.Forbidden(path.Child("resource"), "An External API Call entry requires a url"))
 	}

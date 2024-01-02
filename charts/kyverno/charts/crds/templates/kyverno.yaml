@@ -1359,9 +1359,6 @@ spec:
                 - kind
                 - version
                 type: object
-            required:
-            - apiCall
-            - resource
             type: object
         required:
         - spec
@@ -1742,9 +1739,6 @@ spec:
                           - kind
                           - version
                           type: object
-                      required:
-                      - apiCall
-                      - resource
                       type: object
                     variable:
                       description: Variable defines an arbitrary JMESPath context
@@ -3089,9 +3083,6 @@ spec:
                           - kind
                           - version
                           type: object
-                      required:
-                      - apiCall
-                      - resource
                       type: object
                     variable:
                       description: Variable defines an arbitrary JMESPath context
@@ -4436,9 +4427,6 @@ spec:
                           - kind
                           - version
                           type: object
-                      required:
-                      - apiCall
-                      - resource
                       type: object
                     variable:
                       description: Variable defines an arbitrary JMESPath context
@@ -7034,9 +7022,6 @@ spec:
                           - kind
                           - version
                           type: object
-                      required:
-                      - apiCall
-                      - resource
                       type: object
                     variable:
                       description: Variable defines an arbitrary JMESPath context
@@ -8381,9 +8366,6 @@ spec:
                           - kind
                           - version
                           type: object
-                      required:
-                      - apiCall
-                      - resource
                       type: object
                     variable:
                       description: Variable defines an arbitrary JMESPath context
@@ -9728,9 +9710,6 @@ spec:
                           - kind
                           - version
                           type: object
-                      required:
-                      - apiCall
-                      - resource
                       type: object
                     variable:
                       description: Variable defines an arbitrary JMESPath context
@@ -11155,9 +11134,6 @@ spec:
                                 - kind
                                 - version
                                 type: object
-                            required:
-                            - apiCall
-                            - resource
                             type: object
                           variable:
                             description: Variable defines an arbitrary JMESPath context
@@ -12983,9 +12959,6 @@ spec:
                                           - kind
                                           - version
                                           type: object
-                                      required:
-                                      - apiCall
-                                      - resource
                                       type: object
                                     variable:
                                       description: Variable defines an arbitrary JMESPath
@@ -13439,9 +13412,6 @@ spec:
                                           - kind
                                           - version
                                           type: object
-                                      required:
-                                      - apiCall
-                                      - resource
                                       type: object
                                     variable:
                                       description: Variable defines an arbitrary JMESPath
@@ -14127,9 +14097,6 @@ spec:
                                           - kind
                                           - version
                                           type: object
-                                      required:
-                                      - apiCall
-                                      - resource
                                       type: object
                                     variable:
                                       description: Variable defines an arbitrary JMESPath
@@ -16056,9 +16023,6 @@ spec:
                                     - kind
                                     - version
                                     type: object
-                                required:
-                                - apiCall
-                                - resource
                                 type: object
                               variable:
                                 description: Variable defines an arbitrary JMESPath
@@ -17968,9 +17932,6 @@ spec:
                                               - kind
                                               - version
                                               type: object
-                                          required:
-                                          - apiCall
-                                          - resource
                                           type: object
                                         variable:
                                           description: Variable defines an arbitrary
@@ -18446,9 +18407,6 @@ spec:
                                               - kind
                                               - version
                                               type: object
-                                          required:
-                                          - apiCall
-                                          - resource
                                           type: object
                                         variable:
                                           description: Variable defines an arbitrary
@@ -19171,9 +19129,6 @@ spec:
                                               - kind
                                               - version
                                               type: object
-                                          required:
-                                          - apiCall
-                                          - resource
                                           type: object
                                         variable:
                                           description: Variable defines an arbitrary
@@ -21240,9 +21195,6 @@ spec:
                                 - kind
                                 - version
                                 type: object
-                            required:
-                            - apiCall
-                            - resource
                             type: object
                           variable:
                             description: Variable defines an arbitrary JMESPath context
@@ -22642,9 +22594,6 @@ spec:
                                           - kind
                                           - version
                                           type: object
-                                      required:
-                                      - apiCall
-                                      - resource
                                       type: object
                                     variable:
                                       description: Variable defines an arbitrary JMESPath
@@ -23098,9 +23047,6 @@ spec:
                                           - kind
                                           - version
                                           type: object
-                                      required:
-                                      - apiCall
-                                      - resource
                                       type: object
                                     variable:
                                       description: Variable defines an arbitrary JMESPath
@@ -23965,9 +23911,6 @@ spec:
                                           - kind
                                           - version
                                           type: object
-                                      required:
-                                      - apiCall
-                                      - resource
                                       type: object
                                     variable:
                                       description: Variable defines an arbitrary JMESPath
@@ -25868,9 +25811,6 @@ spec:
                                     - kind
                                     - version
                                     type: object
-                                required:
-                                - apiCall
-                                - resource
                                 type: object
                               variable:
                                 description: Variable defines an arbitrary JMESPath
@@ -27780,9 +27720,6 @@ spec:
                                               - kind
                                               - version
                                               type: object
-                                          required:
-                                          - apiCall
-                                          - resource
                                           type: object
                                         variable:
                                           description: Variable defines an arbitrary
@@ -28258,9 +28195,6 @@ spec:
                                               - kind
                                               - version
                                               type: object
-                                          required:
-                                          - apiCall
-                                          - resource
                                           type: object
                                         variable:
                                           description: Variable defines an arbitrary
@@ -28983,9 +28917,6 @@ spec:
                                               - kind
                                               - version
                                               type: object
-                                          required:
-                                          - apiCall
-                                          - resource
                                           type: object
                                         variable:
                                           description: Variable defines an arbitrary
@@ -31079,9 +31010,6 @@ spec:
                                 - kind
                                 - version
                                 type: object
-                            required:
-                            - apiCall
-                            - resource
                             type: object
                           variable:
                             description: Variable defines an arbitrary JMESPath context
@@ -32907,9 +32835,6 @@ spec:
                                           - kind
                                           - version
                                           type: object
-                                      required:
-                                      - apiCall
-                                      - resource
                                       type: object
                                     variable:
                                       description: Variable defines an arbitrary JMESPath
@@ -33363,9 +33288,6 @@ spec:
                                           - kind
                                           - version
                                           type: object
-                                      required:
-                                      - apiCall
-                                      - resource
                                       type: object
                                     variable:
                                       description: Variable defines an arbitrary JMESPath
@@ -34051,9 +33973,6 @@ spec:
                                           - kind
                                           - version
                                           type: object
-                                      required:
-                                      - apiCall
-                                      - resource
                                       type: object
                                     variable:
                                       description: Variable defines an arbitrary JMESPath
@@ -35981,9 +35900,6 @@ spec:
                                     - kind
                                     - version
                                     type: object
-                                required:
-                                - apiCall
-                                - resource
                                 type: object
                               variable:
                                 description: Variable defines an arbitrary JMESPath
@@ -37893,9 +37809,6 @@ spec:
                                               - kind
                                               - version
                                               type: object
-                                          required:
-                                          - apiCall
-                                          - resource
                                           type: object
                                         variable:
                                           description: Variable defines an arbitrary
@@ -38371,9 +38284,6 @@ spec:
                                               - kind
                                               - version
                                               type: object
-                                          required:
-                                          - apiCall
-                                          - resource
                                           type: object
                                         variable:
                                           description: Variable defines an arbitrary
@@ -39096,9 +39006,6 @@ spec:
                                               - kind
                                               - version
                                               type: object
-                                          required:
-                                          - apiCall
-                                          - resource
                                           type: object
                                         variable:
                                           description: Variable defines an arbitrary
@@ -41166,9 +41073,6 @@ spec:
                                 - kind
                                 - version
                                 type: object
-                            required:
-                            - apiCall
-                            - resource
                             type: object
                           variable:
                             description: Variable defines an arbitrary JMESPath context
@@ -42568,9 +42472,6 @@ spec:
                                           - kind
                                           - version
                                           type: object
-                                      required:
-                                      - apiCall
-                                      - resource
                                       type: object
                                     variable:
                                       description: Variable defines an arbitrary JMESPath
@@ -43024,9 +42925,6 @@ spec:
                                           - kind
                                           - version
                                           type: object
-                                      required:
-                                      - apiCall
-                                      - resource
                                       type: object
                                     variable:
                                       description: Variable defines an arbitrary JMESPath
@@ -43891,9 +43789,6 @@ spec:
                                           - kind
                                           - version
                                           type: object
-                                      required:
-                                      - apiCall
-                                      - resource
                                       type: object
                                     variable:
                                       description: Variable defines an arbitrary JMESPath
@@ -45794,9 +45689,6 @@ spec:
                                     - kind
                                     - version
                                     type: object
-                                required:
-                                - apiCall
-                                - resource
                                 type: object
                               variable:
                                 description: Variable defines an arbitrary JMESPath
@@ -47706,9 +47598,6 @@ spec:
                                               - kind
                                               - version
                                               type: object
-                                          required:
-                                          - apiCall
-                                          - resource
                                           type: object
                                         variable:
                                           description: Variable defines an arbitrary
@@ -48184,9 +48073,6 @@ spec:
                                               - kind
                                               - version
                                               type: object
-                                          required:
-                                          - apiCall
-                                          - resource
                                           type: object
                                         variable:
                                           description: Variable defines an arbitrary
@@ -48909,9 +48795,6 @@ spec:
                                               - kind
                                               - version
                                               type: object
-                                          required:
-                                          - apiCall
-                                          - resource
                                           type: object
                                         variable:
                                           description: Variable defines an arbitrary

@@ -367,9 +367,6 @@ spec:
                           - kind
                           - version
                           type: object
-                      required:
-                      - apiCall
-                      - resource
                       type: object
                     variable:
                       description: Variable defines an arbitrary JMESPath context
@@ -1714,9 +1711,6 @@ spec:
                           - kind
                           - version
                           type: object
-                      required:
-                      - apiCall
-                      - resource
                       type: object
                     variable:
                       description: Variable defines an arbitrary JMESPath context
@@ -3061,9 +3055,6 @@ spec:
                           - kind
                           - version
                           type: object
-                      required:
-                      - apiCall
-                      - resource
                       type: object
                     variable:
                       description: Variable defines an arbitrary JMESPath context

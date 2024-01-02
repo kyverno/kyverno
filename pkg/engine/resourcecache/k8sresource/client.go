@@ -72,10 +72,12 @@ func (r *ResourceLoader) AddEntry(entry *v2alpha1.CachedContextEntry) error {
 	if err != nil {
 		return err
 	}
+	r.logger.V(2).Info("key", key, "entry", ent)
 	ok := r.cache.Add(key, ent)
 	if !ok {
 		return fmt.Errorf("failed to create cache entry key=%s", key)
 	}
+	r.logger.V(2).Info("successfully created cache entry")
 	return nil
 }
 
@@ -93,6 +95,7 @@ func (r *ResourceLoader) Get(rc *kyvernov1.ResourceCache) (interface{}, error) {
 	if !ok {
 		return nil, fmt.Errorf("failed to create fetch entry key=%s", key)
 	}
+	r.logger.V(2).Info("successfully fetched cache entry")
 	return entry.Get()
 }
 
@@ -111,6 +114,7 @@ func (r *ResourceLoader) Delete(entry *v2alpha1.CachedContextEntry) error {
 	if !ok {
 		return fmt.Errorf("failed to delete k8s object entry")
 	}
+	r.logger.V(2).Info("successfully deleted cache entry")
 	return nil
 }
 
