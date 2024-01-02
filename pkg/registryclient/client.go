@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	defaultKeychain  = authn.DefaultKeychain
+	defaultKeychain  = AnonymousKeychain
 	defaultTransport = &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{

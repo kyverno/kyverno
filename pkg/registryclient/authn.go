@@ -51,6 +51,14 @@ func (kc *autoRefreshSecrets) Resolve(resource authn.Resource) (authn.Authentica
 	return inner.Resolve(resource)
 }
 
+type anonymuskc struct{}
+
+var AnonymousKeychain authn.Keychain = anonymuskc{}
+
+func (anonymuskc) Resolve(_ authn.Resource) (authn.Authenticator, error) {
+	return authn.Anonymous, nil
+}
+
 type azurekeychain struct{}
 
 var AzureKeychain authn.Keychain = azurekeychain{}
