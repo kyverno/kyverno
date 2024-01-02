@@ -6,7 +6,13 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
+	"github.com/kyverno/kyverno/pkg/metrics"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
 	corev1 "k8s.io/api/core/v1"
+	apieventsv1 "k8s.io/api/events/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
@@ -32,6 +38,9 @@ type generator struct {
 	// client
 	eventsClient eventsv1.EventsV1Interface
 
+	// metrics
+	droppedEventsCounter metric.Int64Counter
+
 	// config
 	omitEvents sets.Set[string]
 	logger     logr.Logger
@@ -50,13 +59,22 @@ type Controller interface {
 
 // NewEventGenerator to generate a new event controller
 func NewEventGenerator(eventsClient eventsv1.EventsV1Interface, logger logr.Logger, omitEvents ...string) Controller {
+	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
+	droppedEventsCounter, err := meter.Int64Counter(
+		"kyverno_events_dropped",
+		metric.WithDescription("can be used to track the number of events dropped by the event generator"),
+	)
+	if err != nil {
+		logger.Error(err, "failed to register metric kyverno_events_dropped")
+	}
 	return &generator{
 		broadcaster: events.NewBroadcaster(&events.EventSinkImpl{
 			Interface: eventsClient,
 		}),
-		eventsClient: eventsClient,
-		omitEvents:   sets.New(omitEvents...),
-		logger:       logger,
+		eventsClient:         eventsClient,
+		omitEvents:           sets.New(omitEvents...),
+		logger:               logger,
+		droppedEventsCounter: droppedEventsCounter,
 	}
 }
 
@@ -95,9 +113,30 @@ func (gen *generator) Run(ctx context.Context, workers int, waitGroup *sync.Wait
 }
 
 func (gen *generator) startRecorders(ctx context.Context) error {
-	if err := gen.broadcaster.StartRecordingToSinkWithContext(ctx); err != nil {
+	eventHandler := func(obj runtime.Object) {
+		event, ok := obj.(*apieventsv1.Event)
+		if !ok {
+			gen.logger.Error(nil, "unexpected type, expected eventsv1.Event")
+			return
+		}
+
+		eventCopy := event.DeepCopy()
+		eventCopy.ResourceVersion = ""
+		_, err := gen.eventsClient.Events(event.Namespace).Create(ctx, eventCopy, metav1.CreateOptions{})
+		if err != nil {
+			gen.droppedEventsCounter.Add(ctx, 1)
+			gen.logger.Error(err, "failed to create event")
+		}
+	}
+	stopWatcher, err := gen.broadcaster.StartEventWatcher(eventHandler)
+	if err != nil {
 		return err
 	}
+	go func() {
+		<-ctx.Done()
+		stopWatcher()
+	}()
+
 	logger := klog.Background().V(int(0))
 	// TODO: logger watcher should be stopped
 	if _, err := gen.broadcaster.StartLogging(logger); err != nil {
