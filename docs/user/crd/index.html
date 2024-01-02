@@ -3284,6 +3284,21 @@ ExternalAPICall
 <p>APICall stores infos about API call that should be cached</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>jmesPath</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>JMESPath is an optional JSON Match Expression that can be used to
+transform the JSON response returned from the server. For example
+a JMESPath of &ldquo;items | length(@)&rdquo; applied to the API server response
+for the URLPath &ldquo;/apis/apps/v1/deployments&rdquo; will return the total count
+of deployments across all namespaces.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />

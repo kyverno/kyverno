@@ -23,6 +23,7 @@ package v1
 type ResourceCacheApplyConfiguration struct {
 	Resource *K8sResourceApplyConfiguration     `json:"resource,omitempty"`
 	APICall  *ExternalAPICallApplyConfiguration `json:"apiCall,omitempty"`
+	JMESPath *string                            `json:"jmesPath,omitempty"`
 }
 
 // ResourceCacheApplyConfiguration constructs an declarative configuration of the ResourceCache type for use with
@@ -44,5 +45,13 @@ func (b *ResourceCacheApplyConfiguration) WithResource(value *K8sResourceApplyCo
 // If called multiple times, the APICall field is set to the value of the last call.
 func (b *ResourceCacheApplyConfiguration) WithAPICall(value *ExternalAPICallApplyConfiguration) *ResourceCacheApplyConfiguration {
 	b.APICall = value
+	return b
+}
+
+// WithJMESPath sets the JMESPath field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the JMESPath field is set to the value of the last call.
+func (b *ResourceCacheApplyConfiguration) WithJMESPath(value string) *ResourceCacheApplyConfiguration {
+	b.JMESPath = &value
 	return b
 }

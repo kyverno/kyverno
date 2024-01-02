@@ -247,6 +247,7 @@ func main() {
 		internal.WithMetrics(),
 		internal.WithKubeconfig(),
 		internal.WithPolicyExceptions(),
+		internal.WithResourceCache(),
 		internal.WithConfigMapCaching(),
 		internal.WithDeferredLoading(),
 		internal.WithCosign(),

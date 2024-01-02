@@ -37,6 +37,7 @@ var (
 	eventsRateLimitBurst int
 	// engine
 	enablePolicyException  bool
+	enableResourceCache    bool
 	exceptionNamespace     string
 	enableConfigMapCaching bool
 	// cosign
@@ -98,6 +99,10 @@ func initKubeconfigFlags(qps float64, burst int, eventsQPS float64, eventsBurst 
 func initPolicyExceptionsFlags() {
 	flag.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions.")
 	flag.BoolVar(&enablePolicyException, "enablePolicyException", true, "Enable PolicyException feature.")
+}
+
+func initResourceCacheFlags() {
+	flag.BoolVar(&enableResourceCache, "enableResourceCache", true, "Enable ResourceCache feature.")
 }
 
 func initConfigMapCachingFlags() {
@@ -198,6 +203,11 @@ func initFlags(config Configuration, opts ...Option) {
 	if config.UsesPolicyExceptions() {
 		initPolicyExceptionsFlags()
 	}
+	// resource cache
+	// policy exceptions
+	if config.UsesResourceCache() {
+		initResourceCacheFlags()
+	}
 	// config map caching
 	if config.UsesConfigMapCaching() {
 		initConfigMapCachingFlags()
@@ -254,6 +264,10 @@ func ExceptionNamespace() string {
 }
 
 func PolicyExceptionEnabled() bool {
+	return enablePolicyException
+}
+
+func ResourceCacheEnabled() bool {
 	return enablePolicyException
 }
 

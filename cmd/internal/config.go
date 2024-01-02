@@ -10,6 +10,7 @@ type Configuration interface {
 	UsesProfiling() bool
 	UsesKubeconfig() bool
 	UsesPolicyExceptions() bool
+	UsesResourceCache() bool
 	UsesConfigMapCaching() bool
 	UsesDeferredLoading() bool
 	UsesCosign() bool
@@ -63,6 +64,12 @@ func WithKubeconfig() ConfigurationOption {
 func WithPolicyExceptions() ConfigurationOption {
 	return func(c *configuration) {
 		c.usesPolicyExceptions = true
+	}
+}
+
+func WithResourceCache() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesResourceCache = true
 	}
 }
 
@@ -158,6 +165,7 @@ type configuration struct {
 	usesProfiling            bool
 	usesKubeconfig           bool
 	usesPolicyExceptions     bool
+	usesResourceCache        bool
 	usesConfigMapCaching     bool
 	usesDeferredLoading      bool
 	usesCosign               bool
@@ -192,6 +200,10 @@ func (c *configuration) UsesKubeconfig() bool {
 
 func (c *configuration) UsesPolicyExceptions() bool {
 	return c.usesPolicyExceptions
+}
+
+func (c *configuration) UsesResourceCache() bool {
+	return c.usesResourceCache
 }
 
 func (c *configuration) UsesConfigMapCaching() bool {
