@@ -39,8 +39,7 @@ spec:
             description: Spec declares policy exception behaviors.
             properties:
               apiCall:
-                description: ExternalAPICall stores infos about API call that should
-                  be cached
+                description: APICall stores infos about API call that should be cached
                 properties:
                   data:
                     description: Data specifies the POST data sent to the server.

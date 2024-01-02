@@ -26,6 +26,7 @@ type ContextEntryApplyConfiguration struct {
 	APICall       *APICallApplyConfiguration            `json:"apiCall,omitempty"`
 	ImageRegistry *ImageRegistryApplyConfiguration      `json:"imageRegistry,omitempty"`
 	Variable      *VariableApplyConfiguration           `json:"variable,omitempty"`
+	ResourceCache *ResourceCacheApplyConfiguration      `json:"resourceCache,omitempty"`
 }
 
 // ContextEntryApplyConfiguration constructs an declarative configuration of the ContextEntry type for use with
@@ -71,5 +72,13 @@ func (b *ContextEntryApplyConfiguration) WithImageRegistry(value *ImageRegistryA
 // If called multiple times, the Variable field is set to the value of the last call.
 func (b *ContextEntryApplyConfiguration) WithVariable(value *VariableApplyConfiguration) *ContextEntryApplyConfiguration {
 	b.Variable = value
+	return b
+}
+
+// WithResourceCache sets the ResourceCache field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ResourceCache field is set to the value of the last call.
+func (b *ContextEntryApplyConfiguration) WithResourceCache(value *ResourceCacheApplyConfiguration) *ContextEntryApplyConfiguration {
+	b.ResourceCache = value
 	return b
 }

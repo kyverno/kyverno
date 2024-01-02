@@ -77,6 +77,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov1.DenyApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("DryRunOption"):
 		return &kyvernov1.DryRunOptionApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("ExternalAPICall"):
+		return &kyvernov1.ExternalAPICallApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ForEachMutation"):
 		return &kyvernov1.ForEachMutationApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ForEachValidation"):
@@ -91,6 +93,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov1.ImageRegistryCredentialsApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ImageVerification"):
 		return &kyvernov1.ImageVerificationApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("K8sResource"):
+		return &kyvernov1.K8sResourceApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("KeylessAttestor"):
 		return &kyvernov1.KeylessAttestorApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("Manifests"):
@@ -113,6 +117,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov1.RekorApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("RequestData"):
 		return &kyvernov1.RequestDataApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("ResourceCache"):
+		return &kyvernov1.ResourceCacheApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ResourceDescription"):
 		return &kyvernov1.ResourceDescriptionApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ResourceFilter"):
@@ -225,10 +231,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2alpha1.CleanupPolicyApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("ClusterCleanupPolicy"):
 		return &kyvernov2alpha1.ClusterCleanupPolicyApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("ExternalAPICall"):
-		return &kyvernov2alpha1.ExternalAPICallApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("K8sResource"):
-		return &kyvernov2alpha1.K8sResourceApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("PolicyException"):
 		return &kyvernov2alpha1.PolicyExceptionApplyConfiguration{}
 

@@ -49,11 +49,7 @@ func (c *CachedContextEntry) IsNamespaced() bool {
 
 // CachedContextEntrySpec stores policy exception spec
 type CachedContextEntrySpec struct {
-	// Resource stores infos about kubernetes resource that should be cached
-	Resource *K8sResource `json:"resource" yaml:"resource"`
-
-	// ExternalAPICall stores infos about API call that should be cached
-	APICall *ExternalAPICall `json:"apiCall" yaml:"apiCall"`
+	kyvernov1.ResourceCache `json:",inline,omitempty" yaml:",inline,omitempty"`
 }
 
 func (c *CachedContextEntrySpec) IsAPICall() bool {
@@ -69,51 +65,11 @@ func (c *CachedContextEntrySpec) Validate(path *field.Path) (errs field.ErrorLis
 	if c.IsResource() && c.IsAPICall() {
 		errs = append(errs, field.Forbidden(path.Child("resource"), "An External API Call entry requires a url"))
 	}
-	return errs
-}
-
-// K8sResource stores infos about kubernetes resource that should be cached
-type K8sResource struct {
-	// Group defines the group of the resource
-	Group string `json:"group" yaml:"group"`
-	// Version defines the version of the resource
-	Version string `json:"version" yaml:"version"`
-	// Kind defines the kind of the resource
-	Kind string `json:"kind" yaml:"kind"`
-	// Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.
-	// +kubebuilder:validation:Optional
-	Namespace string `json:"namespace" yaml:"namespace"`
-}
-
-// Validate implements programmatic validation
-func (k *K8sResource) Validate(path *field.Path) (errs field.ErrorList) {
-	if k.Group == "" {
-		errs = append(errs, field.Required(path.Child("group"), "An Resource entry requires a group"))
+	if c.IsResource() {
+		errs = append(errs, c.Resource.Validate(path.Child("resource"))...)
 	}
-	if k.Version == "" {
-		errs = append(errs, field.Required(path.Child("version"), "An Resource entry requires a version"))
-	}
-	if k.Kind == "" {
-		errs = append(errs, field.Required(path.Child("kind"), "An Resource entry requires a kind"))
-	}
-	return errs
-}
-
-// ExternalAPICall stores infos about API call that should be cached
-type ExternalAPICall struct {
-	kyvernov1.APICall `json:",inline,omitempty" yaml:",inline,omitempty"`
-	// Group defines the group of the resource
-	// +kubebuilder:default=0
-	RefreshIntervalSeconds int64 `json:"refreshIntervalSeconds" yaml:"refreshIntervalSeconds"`
-}
-
-// Validate implements programmatic validation
-func (e *ExternalAPICall) Validate(path *field.Path) (errs field.ErrorList) {
-	if e.Service.URL == "" {
-		errs = append(errs, field.Required(path.Child("url"), "An External API Call entry requires a url"))
-	}
-	if e.RefreshIntervalSeconds <= 0 {
-		errs = append(errs, field.Required(path.Child("refreshIntervalSeconds"), "An Resource entry requires a refresh interval greater than 0 seconds"))
+	if c.IsAPICall() {
+		errs = append(errs, c.APICall.Validate(path.Child("apiCall"))...)
 	}
 	return errs
 }

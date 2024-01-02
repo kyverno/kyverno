@@ -988,16 +988,18 @@ func validateRuleContext(rule kyvernov1.Rule) error {
 		}
 
 		var err error
-		if entry.ConfigMap != nil && entry.APICall == nil && entry.ImageRegistry == nil && entry.Variable == nil {
+		if entry.ConfigMap != nil && entry.APICall == nil && entry.ImageRegistry == nil && entry.Variable == nil && entry.ResourceCache == nil {
 			err = validateConfigMap(entry)
-		} else if entry.ConfigMap == nil && entry.APICall != nil && entry.ImageRegistry == nil && entry.Variable == nil {
+		} else if entry.ConfigMap == nil && entry.APICall != nil && entry.ImageRegistry == nil && entry.Variable == nil && entry.ResourceCache == nil {
 			err = validateAPICall(entry)
-		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.ImageRegistry != nil && entry.Variable == nil {
+		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.ImageRegistry != nil && entry.Variable == nil && entry.ResourceCache == nil {
 			err = validateImageRegistry(entry)
-		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.ImageRegistry == nil && entry.Variable != nil {
+		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.ImageRegistry == nil && entry.Variable != nil && entry.ResourceCache == nil {
+			err = validateVariable(entry)
+		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.ImageRegistry == nil && entry.Variable == nil && entry.ResourceCache != nil {
 			err = validateVariable(entry)
 		} else {
-			return fmt.Errorf("exactly one of configMap or apiCall or imageRegistry or variable is required for context entries")
+			return fmt.Errorf("exactly one of configMap or apiCall or imageRegistry or variable or resource cache is required for context entries")
 		}
 
 		if err != nil {

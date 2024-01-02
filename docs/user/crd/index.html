@@ -611,7 +611,7 @@ PolicyStatus
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.ContextEntry">ContextEntry</a>, 
-<a href="#kyverno.io/v2alpha1.ExternalAPICall">ExternalAPICall</a>)
+<a href="#kyverno.io/v1.ExternalAPICall">ExternalAPICall</a>)
 </p>
 <p>
 </p>
@@ -1488,6 +1488,19 @@ Variable
 <p>Variable defines an arbitrary JMESPath context variable that can be defined inline.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>resourceCache</code><br/>
+<em>
+<a href="#kyverno.io/v1.ResourceCache">
+ResourceCache
+</a>
+</em>
+</td>
+<td>
+<p>ResourceCache is the request to the cache to fetch a specific cache entry.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -1566,6 +1579,52 @@ string
 </em>
 </td>
 <td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.ExternalAPICall">ExternalAPICall
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ResourceCache">ResourceCache</a>)
+</p>
+<p>
+<p>ExternalAPICall stores infos about API call that should be cached</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>APICall</code><br/>
+<em>
+<a href="#kyverno.io/v1.APICall">
+APICall
+</a>
+</em>
+</td>
+<td>
+<p>
+(Members of <code>APICall</code> are embedded into this type.)
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>refreshIntervalSeconds</code><br/>
+<em>
+int64
+</em>
+</td>
+<td>
+<p>Group defines the group of the resource</p>
 </td>
 </tr>
 </tbody>
@@ -2411,6 +2470,70 @@ bool
 <p>
 <p>ImageVerificationType selects the type of verification algorithm</p>
 </p>
+<h3 id="kyverno.io/v1.K8sResource">K8sResource
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ResourceCache">ResourceCache</a>)
+</p>
+<p>
+<p>K8sResource stores infos about kubernetes resource that should be cached</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>group</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Group defines the group of the resource</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>version</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Version defines the version of the resource</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Kind defines the kind of the resource</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>namespace</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v1.KeylessAttestor">KeylessAttestor
 </h3>
 <p>
@@ -3113,6 +3236,52 @@ Kubernetes apiextensions/v1.JSON
 </td>
 <td>
 <p>Value is the data value</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.ResourceCache">ResourceCache
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ContextEntry">ContextEntry</a>, 
+<a href="#kyverno.io/v2alpha1.CachedContextEntrySpec">CachedContextEntrySpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>resource</code><br/>
+<em>
+<a href="#kyverno.io/v1.K8sResource">
+K8sResource
+</a>
+</em>
+</td>
+<td>
+<p>Resource stores infos about kubernetes resource that should be cached</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>apiCall</code><br/>
+<em>
+<a href="#kyverno.io/v1.ExternalAPICall">
+ExternalAPICall
+</a>
+</em>
+</td>
+<td>
+<p>APICall stores infos about API call that should be cached</p>
 </td>
 </tr>
 </tbody>
@@ -7441,28 +7610,17 @@ CachedContextEntrySpec
 <table class="table table-striped">
 <tr>
 <td>
-<code>resource</code><br/>
+<code>ResourceCache</code><br/>
 <em>
-<a href="#kyverno.io/v2alpha1.K8sResource">
-K8sResource
+<a href="#kyverno.io/v1.ResourceCache">
+ResourceCache
 </a>
 </em>
 </td>
 <td>
-<p>Resource stores infos about kubernetes resource that should be cached</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>apiCall</code><br/>
-<em>
-<a href="#kyverno.io/v2alpha1.ExternalAPICall">
-ExternalAPICall
-</a>
-</em>
-</td>
-<td>
-<p>ExternalAPICall stores infos about API call that should be cached</p>
+<p>
+(Members of <code>ResourceCache</code> are embedded into this type.)
+</p>
 </td>
 </tr>
 </table>
@@ -7921,28 +8079,17 @@ Applicable only to policies that have validate.podSecurity subrule.</p>
 <tbody>
 <tr>
 <td>
-<code>resource</code><br/>
+<code>ResourceCache</code><br/>
 <em>
-<a href="#kyverno.io/v2alpha1.K8sResource">
-K8sResource
+<a href="#kyverno.io/v1.ResourceCache">
+ResourceCache
 </a>
 </em>
 </td>
 <td>
-<p>Resource stores infos about kubernetes resource that should be cached</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>apiCall</code><br/>
-<em>
-<a href="#kyverno.io/v2alpha1.ExternalAPICall">
-ExternalAPICall
-</a>
-</em>
-</td>
-<td>
-<p>ExternalAPICall stores infos about API call that should be cached</p>
+<p>
+(Members of <code>ResourceCache</code> are embedded into this type.)
+</p>
 </td>
 </tr>
 </tbody>
@@ -7953,116 +8100,6 @@ ExternalAPICall
 <p>
 <p>CleanupPolicyInterface abstracts the concrete policy type (CleanupPolicy vs ClusterCleanupPolicy)</p>
 </p>
-<h3 id="kyverno.io/v2alpha1.ExternalAPICall">ExternalAPICall
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v2alpha1.CachedContextEntrySpec">CachedContextEntrySpec</a>)
-</p>
-<p>
-<p>ExternalAPICall stores infos about API call that should be cached</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>APICall</code><br/>
-<em>
-<a href="#kyverno.io/v1.APICall">
-APICall
-</a>
-</em>
-</td>
-<td>
-<p>
-(Members of <code>APICall</code> are embedded into this type.)
-</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>refreshIntervalSeconds</code><br/>
-<em>
-int64
-</em>
-</td>
-<td>
-<p>Group defines the group of the resource</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v2alpha1.K8sResource">K8sResource
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v2alpha1.CachedContextEntrySpec">CachedContextEntrySpec</a>)
-</p>
-<p>
-<p>K8sResource stores infos about kubernetes resource that should be cached</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>group</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Group defines the group of the resource</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>version</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Version defines the version of the resource</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Kind defines the kind of the resource</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>namespace</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h2 id="kyverno.io/v2beta1">kyverno.io/v2beta1</h2>
 Resource Types:
 <ul><li>
