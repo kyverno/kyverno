@@ -255,6 +255,7 @@ func main() {
 		internal.WithKyvernoClient(),
 		internal.WithDynamicClient(),
 		internal.WithKyvernoDynamicClient(),
+		internal.WithEventsClient(),
 		internal.WithApiServerClient(),
 		internal.WithFlagSets(flagset),
 	)
@@ -320,7 +321,7 @@ func main() {
 		omitEventsValues = []string{}
 	}
 	eventGenerator := event.NewEventGenerator(
-		setup.KyvernoDynamicClient,
+		setup.EventsClient,
 		logging.WithName("EventGenerator"),
 		omitEventsValues...,
 	)
