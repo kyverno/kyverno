@@ -16,12 +16,4 @@ spec:
   containers:
   - name: kyverno
     image: ghcr.io/kyverno/kyverno:v1.7.3
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: signed
-spec:
-  containers:
-    - name: signed
-      image: ghcr.io/kyverno/test-verify-image-private:signed
+

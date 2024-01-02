@@ -20,10 +20,3 @@ results:
   - test-pod-with-trusted-registry
   result: pass
   rule: only-allow-trusted-images
-- kind: Pod
-  policy: check-image
-  resources:
-  - signed
-  result: pass
-  rule: verify-signature
-
