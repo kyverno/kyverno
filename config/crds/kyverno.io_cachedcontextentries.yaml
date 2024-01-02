@@ -1,0 +1,134 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.12.0
+  name: cachedcontextentries.kyverno.io
+spec:
+  group: kyverno.io
+  names:
+    categories:
+    - kyverno
+    kind: CachedContextEntry
+    listKind: CachedContextEntryList
+    plural: cachedcontextentries
+    shortNames:
+    - cacheentry
+    singular: cachedcontextentry
+  scope: Cluster
+  versions:
+  - name: v2alpha1
+    schema:
+      openAPIV3Schema:
+        description: CachedContextEntry declares resources to be cached.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec declares policy exception behaviors.
+            properties:
+              apiCall:
+                description: ExternalAPICall stores infos about API call that should
+                  be cached
+                properties:
+                  data:
+                    description: Data specifies the POST data sent to the server.
+                    items:
+                      description: RequestData contains the HTTP POST data
+                      properties:
+                        key:
+                          description: Key is a unique identifier for the data value
+                          type: string
+                        value:
+                          description: Value is the data value
+                          x-kubernetes-preserve-unknown-fields: true
+                      required:
+                      - key
+                      - value
+                      type: object
+                    type: array
+                  jmesPath:
+                    description: JMESPath is an optional JSON Match Expression that
+                      can be used to transform the JSON response returned from the
+                      server. For example a JMESPath of "items | length(@)" applied
+                      to the API server response for the URLPath "/apis/apps/v1/deployments"
+                      will return the total count of deployments across all namespaces.
+                    type: string
+                  method:
+                    default: GET
+                    description: Method is the HTTP request type (GET or POST).
+                    enum:
+                    - GET
+                    - POST
+                    type: string
+                  refreshIntervalSeconds:
+                    default: 0
+                    description: Group defines the group of the resource
+                    format: int64
+                    type: integer
+                  service:
+                    description: Service is an API call to a JSON web service
+                    properties:
+                      caBundle:
+                        description: CABundle is a PEM encoded CA bundle which will
+                          be used to validate the server certificate.
+                        type: string
+                      url:
+                        description: URL is the JSON web service URL. A typical form
+                          is `https://{service}.{namespace}:{port}/{path}`.
+                        type: string
+                    required:
+                    - url
+                    type: object
+                  urlPath:
+                    description: URLPath is the URL path to be used in the HTTP GET
+                      or POST request to the Kubernetes API server (e.g. "/api/v1/namespaces"
+                      or  "/apis/apps/v1/deployments"). The format required is the
+                      same format used by the `kubectl get --raw` command. See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                      for details.
+                    type: string
+                required:
+                - refreshIntervalSeconds
+                type: object
+              resource:
+                description: Resource stores infos about kubernetes resource that
+                  should be cached
+                properties:
+                  group:
+                    description: Group defines the group of the resource
+                    type: string
+                  kind:
+                    description: Kind defines the kind of the resource
+                    type: string
+                  namespace:
+                    description: Namespace defines the namespace of the resource.
+                      Leave empty for cluster scoped resources.
+                    type: string
+                  version:
+                    description: Version defines the version of the resource
+                    type: string
+                required:
+                - group
+                - kind
+                - version
+                type: object
+            required:
+            - apiCall
+            - resource
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true

@@ -28,6 +28,10 @@ type FakeKyvernoV2alpha1 struct {
 	*testing.Fake
 }
 
+func (c *FakeKyvernoV2alpha1) CachedContextEntries() v2alpha1.CachedContextEntryInterface {
+	return &FakeCachedContextEntries{c}
+}
+
 func (c *FakeKyvernoV2alpha1) CleanupPolicies(namespace string) v2alpha1.CleanupPolicyInterface {
 	return &FakeCleanupPolicies{c, namespace}
 }

@@ -217,10 +217,18 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2.UpdateRequestStatusApplyConfiguration{}
 
 		// Group=kyverno.io, Version=v2alpha1
+	case v2alpha1.SchemeGroupVersion.WithKind("CachedContextEntry"):
+		return &kyvernov2alpha1.CachedContextEntryApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("CachedContextEntrySpec"):
+		return &kyvernov2alpha1.CachedContextEntrySpecApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("CleanupPolicy"):
 		return &kyvernov2alpha1.CleanupPolicyApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("ClusterCleanupPolicy"):
 		return &kyvernov2alpha1.ClusterCleanupPolicyApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("ExternalAPICall"):
+		return &kyvernov2alpha1.ExternalAPICallApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("K8sResource"):
+		return &kyvernov2alpha1.K8sResourceApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("PolicyException"):
 		return &kyvernov2alpha1.PolicyExceptionApplyConfiguration{}
 
