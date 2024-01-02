@@ -224,6 +224,7 @@ func main() {
 		internal.WithDynamicClient(),
 		internal.WithMetadataClient(),
 		internal.WithKyvernoDynamicClient(),
+		internal.WithEventsClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -254,7 +255,7 @@ func main() {
 		omitEventsValues = []string{}
 	}
 	eventGenerator := event.NewEventGenerator(
-		setup.KyvernoDynamicClient,
+		setup.EventsClient,
 		logging.WithName("EventGenerator"),
 		omitEventsValues...,
 	)

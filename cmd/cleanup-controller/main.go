@@ -88,6 +88,7 @@ func main() {
 		internal.WithLeaderElection(),
 		internal.WithKyvernoClient(),
 		internal.WithKyvernoDynamicClient(),
+		internal.WithEventsClient(),
 		internal.WithConfigMapCaching(),
 		internal.WithDeferredLoading(),
 		internal.WithMetadataClient(),
@@ -133,7 +134,7 @@ func main() {
 		genericloggingcontroller.CheckGeneration,
 	)
 	eventGenerator := event.NewEventGenerator(
-		setup.KyvernoDynamicClient,
+		setup.EventsClient,
 		logging.WithName("EventGenerator"),
 	)
 	// start informers and wait for cache sync
