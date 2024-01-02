@@ -23,10 +23,27 @@ import (
 type apiCall struct {
 	logger  logr.Logger
 	jp      jmespath.Interface
-	entry   kyvernov1.ContextEntry
+	entry   entry
 	jsonCtx enginecontext.Interface
 	client  ClientInterface
 	config  APICallConfiguration
+}
+
+type entry struct {
+	Name    string
+	APICall *kyvernov1.APICall
+}
+
+func parseentry(ent kyvernov1.ContextEntry) entry {
+	e := entry{
+		Name: ent.Name,
+	}
+	if ent.APICall != nil {
+		e.APICall = ent.APICall
+	} else {
+		e.APICall = &ent.ResourceCache.APICall.APICall
+	}
+	return e
 }
 
 type APICallConfiguration struct {
@@ -51,13 +68,13 @@ func New(
 	client ClientInterface,
 	apiCallConfig APICallConfiguration,
 ) (*apiCall, error) {
-	if entry.APICall == nil {
+	if entry.APICall == nil && entry.ResourceCache.APICall == nil {
 		return nil, fmt.Errorf("missing APICall in context entry %v", entry)
 	}
 	return &apiCall{
 		logger:  logger,
 		jp:      jp,
-		entry:   entry,
+		entry:   parseentry(entry),
 		jsonCtx: jsonCtx,
 		client:  client,
 		config:  apiCallConfig,
@@ -83,7 +100,7 @@ func (a *apiCall) Fetch(ctx context.Context) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", a.entry.Name, a.entry.APICall.URLPath, err)
 	}
-	data, err := a.execute(ctx, call)
+	data, err := a.Execute(ctx, call)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +115,7 @@ func (a *apiCall) Store(data []byte) ([]byte, error) {
 	return results, nil
 }
 
-func (a *apiCall) execute(ctx context.Context, call *kyvernov1.APICall) ([]byte, error) {
+func (a *apiCall) Execute(ctx context.Context, call *kyvernov1.APICall) ([]byte, error) {
 	if call.URLPath != "" {
 		return a.executeK8sAPICall(ctx, call.URLPath, call.Method, call.Data)
 	}
