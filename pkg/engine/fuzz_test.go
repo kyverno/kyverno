@@ -41,7 +41,7 @@ var (
 		nil,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(regClient), nil),
 		imageverifycache.DisabledImageVerifyCache(),
-		factories.DefaultContextLoaderFactory(nil),
+		factories.DefaultContextLoaderFactory(nil, nil),
 		nil,
 		"",
 	)
@@ -125,7 +125,7 @@ func FuzzVerifyImageAndPatchTest(f *testing.F) {
 			nil,
 			factories.DefaultRegistryClientFactory(adapters.RegistryClient(registryclient.NewOrDie()), nil),
 			imageverifycache.DisabledImageVerifyCache(),
-			factories.DefaultContextLoaderFactory(nil),
+			factories.DefaultContextLoaderFactory(nil, nil),
 			nil,
 			"",
 		)
@@ -272,7 +272,7 @@ func FuzzMutateTest(f *testing.F) {
 			adapters.Client(fuzzInterface),
 			factories.DefaultRegistryClientFactory(adapters.RegistryClient(nil), nil),
 			imageverifycache.DisabledImageVerifyCache(),
-			factories.DefaultContextLoaderFactory(nil),
+			factories.DefaultContextLoaderFactory(nil, nil),
 			nil,
 			"",
 		)

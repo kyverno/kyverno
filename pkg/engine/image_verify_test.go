@@ -320,7 +320,7 @@ func testVerifyAndPatchImages(
 		nil,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 		imageverifycache.DisabledImageVerifyCache(),
-		factories.DefaultContextLoaderFactory(cmResolver),
+		factories.DefaultContextLoaderFactory(cmResolver, nil),
 		nil,
 		"",
 	)
@@ -1073,7 +1073,7 @@ func testImageVerifyCache(
 		nil,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 		ivCache,
-		factories.DefaultContextLoaderFactory(cmResolver),
+		factories.DefaultContextLoaderFactory(cmResolver, nil),
 		nil,
 		"",
 	)
