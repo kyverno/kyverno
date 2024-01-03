@@ -644,7 +644,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 		for _, p := range policies {
 			if p.AdmissionProcessingEnabled() {
 				spec := p.GetSpec()
-				if spec.HasMutate() || spec.HasVerifyImages() {
+				if spec.HasMutateStandard() || spec.HasVerifyImages() {
 					if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
 						c.mergeWebhook(ignore, p, false)
 					} else {
@@ -770,7 +770,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 		for _, p := range policies {
 			if p.AdmissionProcessingEnabled() {
 				spec := p.GetSpec()
-				if spec.HasValidate() || spec.HasGenerate() || spec.HasMutate() || spec.HasVerifyImageChecks() || spec.HasVerifyManifests() {
+				if spec.HasValidate() || spec.HasGenerate() || spec.HasMutateExisting() || spec.HasVerifyImageChecks() || spec.HasVerifyManifests() {
 					if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
 						c.mergeWebhook(ignore, p, true)
 					} else {
@@ -867,8 +867,8 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 			continue
 		}
 		if (updateValidate && rule.HasValidate() || rule.HasVerifyImageChecks()) ||
-			(updateValidate && rule.HasMutate() && rule.IsMutateExisting()) ||
-			(!updateValidate && rule.HasMutate()) && !rule.IsMutateExisting() ||
+			(updateValidate && rule.HasMutateExisting()) ||
+			(!updateValidate && rule.HasMutateStandard()) ||
 			(!updateValidate && rule.HasVerifyImages()) || (!updateValidate && rule.HasVerifyManifests()) {
 			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
 		}

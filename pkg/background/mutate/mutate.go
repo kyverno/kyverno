@@ -87,7 +87,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 	}
 
 	for _, rule := range policy.GetSpec().Rules {
-		if !rule.IsMutateExisting() || ur.Spec.Rule != rule.Name {
+		if !rule.HasMutateExisting() || ur.Spec.Rule != rule.Name {
 			continue
 		}
 
@@ -97,9 +97,8 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 			trigger, err = common.GetResource(c.client, ur.Spec, c.log)
 			if err != nil || trigger == nil {
 				logger.WithName(rule.Name).Error(err, "failed to get trigger resource")
-				errs = append(errs, err)
-				if err := common.UpdateRetryAnnotation(c.kyvernoClient, ur); err != nil {
-					errs = append(errs, err)
+				if err := updateURStatus(c.statusControl, *ur, err); err != nil {
+					return err
 				}
 				continue
 			}
@@ -109,9 +108,8 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 				if err != nil || trigger == nil {
 					if admissionRequest.SubResource == "" {
 						logger.WithName(rule.Name).Error(err, "failed to get trigger resource")
-						errs = append(errs, err)
-						if err := common.UpdateRetryAnnotation(c.kyvernoClient, ur); err != nil {
-							errs = append(errs, err)
+						if err := updateURStatus(c.statusControl, *ur, err); err != nil {
+							return err
 						}
 						continue
 					} else {
@@ -170,8 +168,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 
 			case engineapi.RuleStatusSkip:
 				err := fmt.Errorf("mutate existing rule skipped, rule %s, response %v: %s", r.Name(), r.Status(), r.Message())
-				logger.Error(err, "")
-				c.report(err, policy, rule.Name, patched)
+				logger.Info(err.Error())
 
 			case engineapi.RuleStatusPass:
 				patchedNew := patched

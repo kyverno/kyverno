@@ -52,7 +52,7 @@ func (e *engine) filterRule(
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 ) *engineapi.RuleResponse {
-	if !rule.HasGenerate() && !rule.IsMutateExisting() {
+	if !rule.HasGenerate() && !rule.HasMutateExisting() {
 		return nil
 	}
 

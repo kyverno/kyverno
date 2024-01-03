@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cpol-data-sync-no-creation-upon-generated-resource-ns
+---
+apiVersion: v1
+kind: Secret
+metadata:
+ name: otel-collector-signalfx-token
+ namespace: cpol-data-sync-no-creation-upon-generated-resource-ns
+data:
+ auth_token: YmFy
+type: Opaque
