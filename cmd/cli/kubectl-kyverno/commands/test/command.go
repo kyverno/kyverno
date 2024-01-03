@@ -150,22 +150,24 @@ func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath stri
 		expected = test.Status
 	}
 	// fallback on deprecated field
-	if test.PatchedResource != "" {
-		equals, err := getAndCompareResource(response.PatchedResource, fs, filepath.Join(resoucePath, test.PatchedResource))
-		if err != nil {
-			return false, err.Error(), "Resource error"
+	if rule.Status() != "skip" {
+		if test.PatchedResource != "" {
+			equals, err := getAndCompareResource(response.PatchedResource, fs, filepath.Join(resoucePath, test.PatchedResource))
+			if err != nil {
+				return false, err.Error(), "Resource error"
+			}
+			if !equals {
+				return false, "Patched resource didn't match the patched resource in the test result", "Resource diff"
+			}
 		}
-		if !equals {
-			return false, "Patched resource didn't match the patched resource in the test result", "Resource diff"
-		}
-	}
-	if test.GeneratedResource != "" {
-		equals, err := getAndCompareResource(rule.GeneratedResource(), fs, filepath.Join(resoucePath, test.GeneratedResource))
-		if err != nil {
-			return false, err.Error(), "Resource error"
-		}
-		if !equals {
-			return false, "Generated resource didn't match the generated resource in the test result", "Resource diff"
+		if test.GeneratedResource != "" {
+			equals, err := getAndCompareResource(rule.GeneratedResource(), fs, filepath.Join(resoucePath, test.GeneratedResource))
+			if err != nil {
+				return false, err.Error(), "Resource error"
+			}
+			if !equals {
+				return false, "Generated resource didn't match the generated resource in the test result", "Resource diff"
+			}
 		}
 	}
 	result := report.ComputePolicyReportResult(false, response, rule)

@@ -179,13 +179,19 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			}
 			generateResponse := eng.ApplyBackgroundChecks(context.TODO(), policyContext)
 			if !generateResponse.IsEmpty() {
-				newRuleResponse, err := handleGeneratePolicy(p.Out, p.Store, &generateResponse, *policyContext, p.RuleToCloneSourceResource)
-				if err != nil {
-					log.Log.Error(err, "failed to apply generate policy")
-				} else {
-					generateResponse.PolicyResponse.Rules = newRuleResponse
+				for _, rule := range generateResponse.PolicyResponse.Rules {
+					if rule.Status() != "skip" {
+						newRuleResponse, err := handleGeneratePolicy(p.Out, p.Store, &generateResponse, *policyContext, p.RuleToCloneSourceResource)
+						if err != nil {
+							log.Log.Error(err, "failed to apply generate policy")
+						} else {
+							generateResponse.PolicyResponse.Rules = newRuleResponse
+						}
+						responses = append(responses, generateResponse)
+					} else {
+						responses = append(responses, generateResponse)
+					}
 				}
-				responses = append(responses, generateResponse)
 			}
 			p.Rc.addGenerateResponse(p.AuditWarn, resPath, generateResponse)
 		}
