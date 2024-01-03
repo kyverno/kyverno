@@ -86,7 +86,9 @@ func (h *resourceHandlers) handleGenerate(ctx context.Context, logger logr.Logge
 	var policies []kyvernov1.PolicyInterface
 	for _, p := range generatePolicies {
 		new := skipBackgroundRequests(p, logger, h.backgroundServiceAccountName, policyContext.AdmissionInfo().AdmissionUserInfo.Username)
-		policies = append(policies, new)
+		if new != nil {
+			policies = append(policies, new)
+		}
 	}
 	go gh.Handle(ctx, request, policies, policyContext)
 }
