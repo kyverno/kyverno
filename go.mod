@@ -82,7 +82,7 @@ require (
 	k8s.io/pod-security-admission v0.29.0
 	k8s.io/utils v0.0.0-20231127182322-b307cd553661
 	sigs.k8s.io/controller-runtime v0.16.3
-	sigs.k8s.io/kubectl-validate v0.0.2
+	sigs.k8s.io/kubectl-validate v0.0.2-0.20240102223437-fe143bcde89f
 	sigs.k8s.io/kustomize/api v0.16.0
 	sigs.k8s.io/kustomize/kyaml v0.16.0
 	sigs.k8s.io/release-utils v0.7.7
@@ -384,5 +384,4 @@ require (
 replace (
 	github.com/sigstore/cosign/v2 => github.com/kyverno/cosign/v2 v2.0.0-20231109090756-51fd41540436
 	k8s.io/pod-security-admission v0.29.0 => github.com/YTGhost/pod-security-admission v0.0.0-20231116105308-8b1daa0177f2
-	sigs.k8s.io/kubectl-validate => github.com/kyverno/kubectl-validate v0.0.0-20231116142848-59e4e6124b70
 )
