@@ -46,6 +46,7 @@ rules:
       - policyexceptions
       - policies
       - clusterpolicies
+      - cachedcontextentries
     verbs:
       - create
       - delete

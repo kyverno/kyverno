@@ -997,7 +997,7 @@ func validateRuleContext(rule kyvernov1.Rule) error {
 		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.ImageRegistry == nil && entry.Variable != nil && entry.ResourceCache == nil {
 			err = validateVariable(entry)
 		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.ImageRegistry == nil && entry.Variable == nil && entry.ResourceCache != nil {
-			err = validateVariable(entry)
+			err = validateResourceCache(entry)
 		} else {
 			return fmt.Errorf("exactly one of configMap or apiCall or imageRegistry or variable or resource cache is required for context entries")
 		}
@@ -1073,6 +1073,34 @@ func validateConfigMap(entry kyvernov1.ContextEntry) error {
 
 	if entry.ConfigMap.Namespace == "" {
 		return fmt.Errorf("a namespace is required for configMap context entry")
+	}
+
+	return nil
+}
+
+func validateResourceCache(entry kyvernov1.ContextEntry) error {
+	if entry.ResourceCache == nil {
+		return nil
+	}
+
+	if entry.ResourceCache.APICall != nil {
+		if entry.ResourceCache.APICall.URLPath != "" {
+			if entry.APICall.Service != nil {
+				return fmt.Errorf("a URLPath cannot be used for service API calls")
+			}
+		}
+	}
+
+	// If JMESPath contains variables, the validation will fail because it's not
+	// possible to infer which value will be inserted by the variable
+	// Skip validation if a variable is detected
+
+	jmesPath := variables.ReplaceAllVars(entry.ResourceCache.JMESPath, func(s string) string { return "kyvernojmespathvariable" })
+
+	if !strings.Contains(jmesPath, "kyvernojmespathvariable") && entry.ResourceCache.JMESPath != "" {
+		if _, err := jmespath.NewParser().Parse(entry.ResourceCache.JMESPath); err != nil {
+			return fmt.Errorf("failed to parse JMESPath %s: %v", entry.ResourceCache.JMESPath, err)
+		}
 	}
 
 	return nil

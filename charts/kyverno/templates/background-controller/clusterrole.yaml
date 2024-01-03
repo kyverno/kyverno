@@ -23,6 +23,7 @@ rules:
     resources:
       - policies
       - clusterpolicies
+      - cachedcontextentries
       - policyexceptions
       - updaterequests
       - updaterequests/status

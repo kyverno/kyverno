@@ -54,7 +54,7 @@ type controller struct {
 	// config
 	configuration config.Configuration
 	cmResolver    engineapi.ConfigmapResolver
-	resourceCache resourcecache.ResourceCache
+	resourceCache resourcecache.Interface
 	eventGen      event.Interface
 	jp            jmespath.Interface
 	metrics       cleanupMetrics
@@ -79,7 +79,7 @@ func NewController(
 	nsLister corev1listers.NamespaceLister,
 	configuration config.Configuration,
 	cmResolver engineapi.ConfigmapResolver,
-	resourceCache resourcecache.ResourceCache,
+	resourceCache resourcecache.Interface,
 	jp jmespath.Interface,
 	eventGen event.Interface,
 ) controllers.Controller {

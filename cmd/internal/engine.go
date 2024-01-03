@@ -92,7 +92,7 @@ func NewResourceCacheLoader(
 	dclient dynamic.Interface,
 	apiCallConfig apicall.APICallConfiguration,
 	resyncPeriod time.Duration,
-) resourcecache.ResourceCache {
+) resourcecache.Interface {
 	logger = logger.WithName("resourcecache-loader").WithValues("enableResourceCache", enableResourceCache)
 	logger.Info("setup resource cache loader...")
 	if !enableResourceCache {

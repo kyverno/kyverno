@@ -59,6 +59,7 @@ rules:
       - backgroundscanreports
       - clusterbackgroundscanreports
       - policyexceptions
+      - cachedcontextentries
     verbs:
       - create
       - delete

@@ -93,6 +93,7 @@ func main() {
 		internal.WithKyvernoDynamicClient(),
 		internal.WithEventsClient(),
 		internal.WithResourceCache(),
+		internal.WithEventsClient(),
 		internal.WithConfigMapCaching(),
 		internal.WithDeferredLoading(),
 		internal.WithMetadataClient(),

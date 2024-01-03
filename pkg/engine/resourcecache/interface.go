@@ -5,6 +5,6 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 )
 
-type ResourceCache interface {
+type Interface interface {
 	Get(kyvernov1.ContextEntry, enginecontext.Interface) ([]byte, error)
 }

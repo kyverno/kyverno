@@ -18,7 +18,7 @@ import (
 
 type ContextLoaderFactoryOptions func(*contextLoader)
 
-func DefaultContextLoaderFactory(cmResolver engineapi.ConfigmapResolver, rc resourcecache.ResourceCache, opts ...ContextLoaderFactoryOptions) engineapi.ContextLoaderFactory {
+func DefaultContextLoaderFactory(cmResolver engineapi.ConfigmapResolver, rc resourcecache.Interface, opts ...ContextLoaderFactoryOptions) engineapi.ContextLoaderFactory {
 	return func(_ kyvernov1.PolicyInterface, _ kyvernov1.Rule) engineapi.ContextLoader {
 		cl := &contextLoader{
 			logger:              logging.WithName("DefaultContextLoaderFactory"),
@@ -47,7 +47,7 @@ func WithAPICallConfig(config apicall.APICallConfiguration) ContextLoaderFactory
 type contextLoader struct {
 	logger              logr.Logger
 	cmResolver          engineapi.ConfigmapResolver
-	resourceCacheClient resourcecache.ResourceCache
+	resourceCacheClient resourcecache.Interface
 	initializers        []engineapi.Initializer
 	apiCallConfig       apicall.APICallConfiguration
 }

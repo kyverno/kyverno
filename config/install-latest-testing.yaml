@@ -54907,6 +54907,7 @@ rules:
       - backgroundscanreports
       - clusterbackgroundscanreports
       - policyexceptions
+      - cachedcontextentries
     verbs:
       - create
       - delete
@@ -54920,7 +54921,7 @@ rules:
       - reports.kyverno.io
     resources:
       - ephemeralreports
-      - clusterephemeralreports
+>>>>>>> 58755a454 (fix: add logging and fixes)
     verbs:
       - create
       - delete
@@ -55029,6 +55030,7 @@ rules:
     resources:
       - policies
       - clusterpolicies
+      - cachedcontextentries
       - policyexceptions
       - updaterequests
       - updaterequests/status
@@ -55154,6 +55156,7 @@ rules:
     resources:
       - clustercleanuppolicies
       - cleanuppolicies
+      - cachedcontextentries
     verbs:
       - list
       - watch
@@ -55482,6 +55485,7 @@ rules:
       - policyexceptions
       - policies
       - clusterpolicies
+      - cachedcontextentries
     verbs:
       - create
       - delete

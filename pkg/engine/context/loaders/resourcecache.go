@@ -15,7 +15,7 @@ type resourceCacheLoader struct {
 	logger        logr.Logger
 	entry         kyvernov1.ContextEntry
 	enginectx     enginecontext.Interface
-	resourceCache resourcecache.ResourceCache
+	resourceCache resourcecache.Interface
 	data          []byte
 }
 
@@ -24,7 +24,7 @@ func NewResourceCacheLoader(
 	logger logr.Logger,
 	entry kyvernov1.ContextEntry,
 	enginectx enginecontext.Interface,
-	rc resourcecache.ResourceCache,
+	rc resourcecache.Interface,
 ) enginecontext.Loader {
 	return &resourceCacheLoader{
 		ctx:           ctx,

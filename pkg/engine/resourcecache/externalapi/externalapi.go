@@ -15,7 +15,7 @@ import (
 )
 
 type Poller interface {
-	Run(stopCh <-chan struct{})
+	Run(context.Context, <-chan struct{})
 }
 
 type Getter interface {
@@ -30,7 +30,7 @@ type ExternalAPILoader struct {
 
 type externalEntry struct {
 	sync.Mutex
-	ctx       context.Context
+	logger    logr.Logger
 	call      *kyvernov1.APICall
 	ticker    *time.Ticker
 	apicaller *apicall.APICall
@@ -38,6 +38,7 @@ type externalEntry struct {
 }
 
 func New(logger logr.Logger, config apicall.APICallConfiguration) *ExternalAPILoader {
+	logger = logger.WithName("external api loader")
 	return &ExternalAPILoader{
 		logger: logger,
 		config: config,
@@ -59,36 +60,41 @@ func (e *ExternalAPILoader) AddEntries(entries ...*v2alpha1.CachedContextEntry) 
 
 func (e *ExternalAPILoader) AddEntry(entry *v2alpha1.CachedContextEntry) error {
 	if entry.Spec.APICall == nil {
-		return fmt.Errorf("Invalid object provided")
+		err := fmt.Errorf("Invalid object provided")
+		e.logger.Error(err, "")
+		return err
 	}
 	rc := entry.Spec.ResourceCache.DeepCopy()
 	ctxentry := kyvernov1.ContextEntry{
 		Name:          entry.Name,
 		ResourceCache: rc,
 	}
-	executor, err := apicall.New(e.logger, nil, ctxentry, nil, nil, e.config)
+	executor, err := apicall.New(e.logger.WithName("apicaller"), nil, ctxentry, nil, nil, e.config)
 	if err != nil {
-		return fmt.Errorf("failed to initiaize APICall: %w", err)
+		err := fmt.Errorf("failed to initiaize APICall: %w", err)
+		e.logger.Error(err, "")
+		return err
 	}
 
 	interval := time.Duration(entry.Spec.APICall.RefreshIntervalSeconds*int64(time.Nanosecond)) * time.Second
 	ticker := time.NewTicker(interval)
 
 	extEntry := &externalEntry{
-		ctx:       context.Background(),
+		logger:    e.logger.WithName("external entry"),
 		call:      rc.APICall.APICall.DeepCopy(),
 		apicaller: executor,
 		ticker:    ticker,
 	}
 
-	data, err := extEntry.apicaller.Execute(extEntry.ctx, extEntry.call)
+	ctx, cancel := context.WithCancel(context.Background())
+	data, err := extEntry.apicaller.Execute(ctx, extEntry.call)
 	if err != nil {
+		cancel()
 		return err
 	}
 	extEntry.data = data
 
-	ctx, cancel := context.WithCancel(context.Background())
-	go extEntry.Poller().Run(ctx.Done())
+	go extEntry.Poller().Run(ctx, ctx.Done())
 
 	cacheEntry := &cache.CacheEntry{
 		Entry: extEntry.Getter(),
@@ -99,7 +105,9 @@ func (e *ExternalAPILoader) AddEntry(entry *v2alpha1.CachedContextEntry) error {
 	e.logger.V(2).Info("key", key, "entry", entry)
 	ok := e.cache.Add(key, cacheEntry)
 	if !ok {
-		return fmt.Errorf("failed to create cache entry key=%s", key)
+		err := fmt.Errorf("failed to create cache entry key=%s", key)
+		e.logger.Error(err, "")
+		return err
 	}
 	e.logger.V(2).Info("successfully created cache entry")
 	return nil
@@ -112,7 +120,9 @@ func (e *ExternalAPILoader) Get(rc *kyvernov1.ResourceCache) (interface{}, error
 	key := getKeyForExternalEntry(rc.APICall.Service.URL, rc.APICall.Service.CABundle, rc.APICall.RefreshIntervalSeconds)
 	entry, ok := e.cache.Get(key)
 	if !ok {
-		return nil, fmt.Errorf("failed to create fetch entry key=%s", key)
+		err := fmt.Errorf("failed to create fetch entry key=%s", key)
+		e.logger.Error(err, "")
+		return nil, err
 	}
 	e.logger.V(2).Info("successfully fetched cache entry")
 	return entry.Get()
@@ -126,7 +136,9 @@ func (e *ExternalAPILoader) Delete(entry *v2alpha1.CachedContextEntry) error {
 	key := getKeyForExternalEntry(rc.APICall.Service.URL, rc.APICall.Service.CABundle, rc.APICall.RefreshIntervalSeconds)
 	ok := e.cache.Delete(key)
 	if !ok {
-		return fmt.Errorf("failed to delete ext api loader")
+		err := fmt.Errorf("failed to delete ext api loader")
+		e.logger.Error(err, "")
+		return err
 	}
 	e.logger.V(2).Info("successfully deleted cache entry")
 	return nil
@@ -152,16 +164,18 @@ func (e *externalEntry) Poller() Poller {
 func (e *externalEntry) Get() (interface{}, error) {
 	e.Lock()
 	defer e.Unlock()
+	e.logger.V(6).Info("cache entry data", "data", e.data)
 	return e.data, nil
 }
 
-func (e *externalEntry) Run(stopCh <-chan struct{}) {
+func (e *externalEntry) Run(ctx context.Context, stopCh <-chan struct{}) {
 	go func() {
 		for {
 			select {
 			case <-e.ticker.C:
-				data, err := e.apicaller.Execute(e.ctx, e.call)
+				data, err := e.apicaller.Execute(ctx, e.call)
 				if err != nil {
+					e.logger.Error(err, "failed to get data from api caller")
 					return
 				}
 				e.Lock()

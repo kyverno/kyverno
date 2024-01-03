@@ -25,23 +25,27 @@ type ResourceLoader struct {
 }
 
 type resourceEntry struct {
+	logger logr.Logger
 	lister k8scache.GenericNamespaceLister
 }
 
 func (re *resourceEntry) Get() (interface{}, error) {
 	obj, err := re.lister.List(labels.Everything())
 	if err != nil {
+		re.logger.Error(err, "failed to fetch data from entry")
 		return nil, err
 	}
+	re.logger.V(6).Info("cache entry data", "len", len(obj), "data", obj)
 	return obj, nil
 }
 
-func New(logger logr.Logger, dclient dynamic.Interface, c cache.Cache) (*ResourceLoader, error) {
+func New(logger logr.Logger, dclient dynamic.Interface, c cache.Cache) *ResourceLoader {
+	logger = logger.WithName("k8s resource loader")
 	return &ResourceLoader{
 		logger: logger,
 		client: dclient,
 		cache:  c,
-	}, nil
+	}
 }
 
 func (r *ResourceLoader) AddEntries(entries ...*v2alpha1.CachedContextEntry) error {
@@ -59,7 +63,9 @@ func (r *ResourceLoader) AddEntries(entries ...*v2alpha1.CachedContextEntry) err
 
 func (r *ResourceLoader) AddEntry(entry *v2alpha1.CachedContextEntry) error {
 	if entry.Spec.Resource == nil {
-		return fmt.Errorf("Invalid object provided")
+		err := fmt.Errorf("Invalid object provided")
+		r.logger.Error(err, "")
+		return err
 	}
 	rc := entry.Spec.Resource
 	resource := schema.GroupVersionResource{
@@ -75,7 +81,9 @@ func (r *ResourceLoader) AddEntry(entry *v2alpha1.CachedContextEntry) error {
 	r.logger.V(2).Info("key", key, "entry", ent)
 	ok := r.cache.Add(key, ent)
 	if !ok {
-		return fmt.Errorf("failed to create cache entry key=%s", key)
+		err := fmt.Errorf("failed to create cache entry key=%s", key)
+		r.logger.Error(err, "")
+		return err
 	}
 	r.logger.V(2).Info("successfully created cache entry")
 	return nil
@@ -93,7 +101,9 @@ func (r *ResourceLoader) Get(rc *kyvernov1.ResourceCache) (interface{}, error) {
 	key := getKeyForResourceEntry(resource, rc.Resource.Namespace)
 	entry, ok := r.cache.Get(key)
 	if !ok {
-		return nil, fmt.Errorf("failed to create fetch entry key=%s", key)
+		err := fmt.Errorf("failed to create fetch entry key=%s", key)
+		r.logger.Error(err, "")
+		return nil, err
 	}
 	r.logger.V(2).Info("successfully fetched cache entry")
 	return entry.Get()
@@ -112,7 +122,9 @@ func (r *ResourceLoader) Delete(entry *v2alpha1.CachedContextEntry) error {
 	key := getKeyForResourceEntry(resource, rc.Namespace)
 	ok := r.cache.Delete(key)
 	if !ok {
-		return fmt.Errorf("failed to delete k8s object entry")
+		err := fmt.Errorf("failed to delete k8s object entry")
+		r.logger.Error(err, "")
+		return err
 	}
 	r.logger.V(2).Info("successfully deleted cache entry")
 	return nil
@@ -125,7 +137,9 @@ func (r *ResourceLoader) createGenericListerForResource(resource schema.GroupVer
 	go informer.Informer().Run(ctx.Done())
 	if !k8scache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced) {
 		cancel()
-		return nil, errors.New("resource informer cache failed to sync")
+		err := errors.New("resource informer cache failed to sync")
+		r.logger.Error(err, "")
+		return nil, err
 	}
 
 	var lister k8scache.GenericNamespaceLister
@@ -135,7 +149,7 @@ func (r *ResourceLoader) createGenericListerForResource(resource schema.GroupVer
 		lister = informer.Lister().ByNamespace(namespace)
 	}
 	return &cache.CacheEntry{
-		Entry: &resourceEntry{lister: lister},
+		Entry: &resourceEntry{lister: lister, logger: r.logger.WithName("k8s resource entry")},
 		Stop:  cancel,
 	}, nil
 }

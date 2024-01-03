@@ -68,7 +68,7 @@ func New(
 	client ClientInterface,
 	apiCallConfig APICallConfiguration,
 ) (*APICall, error) {
-	if entry.APICall == nil && entry.ResourceCache.APICall == nil {
+	if entry.APICall == nil && (entry.ResourceCache == nil || entry.ResourceCache.APICall == nil) {
 		return nil, fmt.Errorf("missing APICall in context entry %v", entry)
 	}
 	return &APICall{
