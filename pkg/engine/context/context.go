@@ -404,15 +404,17 @@ func (ctx *context) resetCheckpoint(restore bool) bool {
 	if len(ctx.jsonRawCheckpoints) == 0 {
 		return false
 	}
+
 	n := len(ctx.jsonRawCheckpoints) - 1
 	jsonRawCheckpoint := ctx.jsonRawCheckpoints[n]
+
 	if restore {
 		ctx.jsonRawCheckpoints = ctx.jsonRawCheckpoints[:n]
 		ctx.jsonRaw = jsonRawCheckpoint
 	} else {
 		ctx.jsonRaw = ctx.copyContext(jsonRawCheckpoint)
-		ctx.jsonRawCheckpoints = ctx.jsonRawCheckpoints[:n]
 	}
+
 	return true
 }
 
