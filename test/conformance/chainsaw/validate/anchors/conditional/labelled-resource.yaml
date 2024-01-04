@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: busybox
+    type: monitoring
+  name: labelled-deployment
+  namespace: test-anchors
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: busybox
+      type: monitoring
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: busybox
+        type: monitoring
+    spec:
+      containers:
+        - name: busybox
+          image: busybox:1.35

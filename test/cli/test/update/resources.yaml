@@ -1,0 +1,11 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment
+  namespace: my-ns
+  annotations:
+    existing-annotation: existing-value
+  labels:
+    existing-label: existing-value
+spec:
+  replicas: 1

@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/assert"
 )
@@ -82,7 +84,7 @@ func Test_NamespaceSelector(t *testing.T) {
 				fail: 1,
 				warn: 0,
 				err:  0,
-				skip: 2,
+				skip: 0,
 			},
 		},
 		{
@@ -98,7 +100,7 @@ func Test_NamespaceSelector(t *testing.T) {
 				fail: 1,
 				warn: 0,
 				err:  0,
-				skip: 4,
+				skip: 0,
 			},
 		},
 	}
@@ -107,6 +109,7 @@ func Test_NamespaceSelector(t *testing.T) {
 		policyArray, _, _ := yamlutils.GetPolicy(tc.policy)
 		resourceArray, _ := resource.GetUnstructuredResources(tc.resource)
 		processor := PolicyProcessor{
+			Store:                &store.Store{},
 			Policies:             policyArray,
 			Resource:             *resourceArray[0],
 			MutateLogPath:        "",
@@ -114,6 +117,7 @@ func Test_NamespaceSelector(t *testing.T) {
 			NamespaceSelectorMap: tc.namespaceSelectorMap,
 			Rc:                   rc,
 			Out:                  os.Stdout,
+			RegistryClient:       registryclient.NewOrDie(),
 		}
 		processor.ApplyPoliciesOnResource()
 		assert.Equal(t, int64(rc.Pass()), int64(tc.result.pass))

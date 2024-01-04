@@ -39,7 +39,7 @@ func (v Variables) NamespaceSelectors() map[string]Labels {
 	return out
 }
 
-func (v Variables) ComputeVariables(policy, resource, kind string, kindMap sets.Set[string], variables ...string) (map[string]interface{}, error) {
+func (v Variables) ComputeVariables(s *store.Store, policy, resource, kind string, kindMap sets.Set[string], variables ...string) (map[string]interface{}, error) {
 	resourceValues := map[string]interface{}{}
 	// first apply global values
 	if v.values != nil {
@@ -73,13 +73,13 @@ func (v Variables) ComputeVariables(policy, resource, kind string, kindMap sets.
 	}
 	// skipping the variable check for non matching kind
 	// TODO remove dependency to store
-	if kindMap.Has(kind) && len(variables) > 0 && len(resourceValues) == 0 && store.HasPolicies() {
+	if kindMap.Has(kind) && len(variables) > 0 && len(resourceValues) == 0 && s.HasPolicies() {
 		return nil, fmt.Errorf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy, resource)
 	}
 	return resourceValues, nil
 }
 
-func (v Variables) SetInStore() {
+func (v Variables) SetInStore(s *store.Store) {
 	storePolicies := []store.Policy{}
 	if v.values != nil {
 		for _, p := range v.values.Policies {
@@ -97,5 +97,5 @@ func (v Variables) SetInStore() {
 			storePolicies = append(storePolicies, sp)
 		}
 	}
-	store.SetPolicies(storePolicies...)
+	s.SetPolicies(storePolicies...)
 }
