@@ -38,10 +38,8 @@ func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.Eng
 		scored := annotations.Scored(policy.GetAnnotations())
 		for _, rule := range autogen.ComputeRules(policy) {
 			if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
-				ruleFoundInEngineResponse := false
 				for _, valResponseRule := range response.PolicyResponse.Rules {
 					if rule.Name == valResponseRule.Name() {
-						ruleFoundInEngineResponse = true
 						switch valResponseRule.Status() {
 						case engineapi.RuleStatusPass:
 							rc.pass++
@@ -64,9 +62,6 @@ func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.Eng
 						continue
 					}
 				}
-				if !ruleFoundInEngineResponse {
-					rc.skip++
-				}
 			}
 		}
 	}
@@ -79,10 +74,8 @@ func (rc *ResultCounts) addGenerateResponse(auditWarn bool, resPath string, resp
 	}
 	policy := genericPolicy.GetPolicy().(kyvernov1.PolicyInterface)
 	for _, policyRule := range autogen.ComputeRules(policy) {
-		ruleFoundInEngineResponse := false
 		for _, ruleResponse := range response.PolicyResponse.Rules {
 			if policyRule.Name == ruleResponse.Name() {
-				ruleFoundInEngineResponse = true
 				if ruleResponse.Status() == engineapi.RuleStatusPass {
 					rc.pass++
 				} else {
@@ -94,9 +87,6 @@ func (rc *ResultCounts) addGenerateResponse(auditWarn bool, resPath string, resp
 				}
 				continue
 			}
-		}
-		if !ruleFoundInEngineResponse {
-			rc.skip++
 		}
 	}
 }
@@ -118,10 +108,8 @@ func (rc *ResultCounts) addMutateResponse(resourcePath string, response engineap
 	}
 	printMutatedRes := false
 	for _, policyRule := range autogen.ComputeRules(policy) {
-		ruleFoundInEngineResponse := false
 		for _, mutateResponseRule := range response.PolicyResponse.Rules {
 			if policyRule.Name == mutateResponseRule.Name() {
-				ruleFoundInEngineResponse = true
 				if mutateResponseRule.Status() == engineapi.RuleStatusPass {
 					rc.pass++
 					printMutatedRes = true
@@ -134,9 +122,6 @@ func (rc *ResultCounts) addMutateResponse(resourcePath string, response engineap
 				}
 				continue
 			}
-		}
-		if !ruleFoundInEngineResponse {
-			rc.skip++
 		}
 	}
 	return printMutatedRes

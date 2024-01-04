@@ -3368,7 +3368,7 @@ spec:
                                               default: sha256
                                               description: Specify signature algorithm
                                                 for public keys. Supported values
-                                                are sha256 and sha512.
+                                                are sha224, sha256, sha384 and sha512.
                                               type: string
                                           type: object
                                         repository:
@@ -3471,6 +3471,18 @@ spec:
                                       matches no containers, PSS checks are applied
                                       at the pod level only. Wildcards (''*'' and
                                       ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
+                                    items:
+                                      type: string
+                                    type: array
+                                  restrictedField:
+                                    description: RestrictedField selects the field
+                                      for the given Pod Security Standard control.
+                                      When not set, all restricted fields for the
+                                      control are selected.
+                                    type: string
+                                  values:
+                                    description: Values defines the allowed values
+                                      that can be excluded.
                                     items:
                                       type: string
                                     type: array
@@ -3825,7 +3837,8 @@ spec:
                                                   default: sha256
                                                   description: Specify signature algorithm
                                                     for public keys. Supported values
-                                                    are sha256 and sha512.
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             repository:
@@ -4241,7 +4254,7 @@ spec:
                                             default: sha256
                                             description: Specify signature algorithm
                                               for public keys. Supported values are
-                                              sha256 and sha512.
+                                              sha224, sha256, sha384 and sha512.
                                             type: string
                                         type: object
                                       repository:
@@ -7859,7 +7872,8 @@ spec:
                                                   default: sha256
                                                   description: Specify signature algorithm
                                                     for public keys. Supported values
-                                                    are sha256 and sha512.
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             repository:
@@ -7965,6 +7979,18 @@ spec:
                                           checks are applied at the pod level only.
                                           Wildcards (''*'' and ''?'') are allowed.
                                           See: https://kubernetes.io/docs/concepts/containers/images.'
+                                        items:
+                                          type: string
+                                        type: array
+                                      restrictedField:
+                                        description: RestrictedField selects the field
+                                          for the given Pod Security Standard control.
+                                          When not set, all restricted fields for
+                                          the control are selected.
+                                        type: string
+                                      values:
+                                        description: Values defines the allowed values
+                                          that can be excluded.
                                         items:
                                           type: string
                                         type: array
@@ -8345,8 +8371,8 @@ spec:
                                                       default: sha256
                                                       description: Specify signature
                                                         algorithm for public keys.
-                                                        Supported values are sha256
-                                                        and sha512.
+                                                        Supported values are sha224,
+                                                        sha256, sha384 and sha512.
                                                       type: string
                                                   type: object
                                                 repository:
@@ -8784,7 +8810,7 @@ spec:
                                                 default: sha256
                                                 description: Specify signature algorithm
                                                   for public keys. Supported values
-                                                  are sha256 and sha512.
+                                                  are sha224, sha256, sha384 and sha512.
                                                 type: string
                                             type: object
                                           repository:
@@ -12124,7 +12150,7 @@ spec:
                                               default: sha256
                                               description: Specify signature algorithm
                                                 for public keys. Supported values
-                                                are sha256 and sha512.
+                                                are sha224, sha256, sha384 and sha512.
                                               type: string
                                           type: object
                                         repository:
@@ -12227,6 +12253,18 @@ spec:
                                       matches no containers, PSS checks are applied
                                       at the pod level only. Wildcards (''*'' and
                                       ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
+                                    items:
+                                      type: string
+                                    type: array
+                                  restrictedField:
+                                    description: RestrictedField selects the field
+                                      for the given Pod Security Standard control.
+                                      When not set, all restricted fields for the
+                                      control are selected.
+                                    type: string
+                                  values:
+                                    description: Values defines the allowed values
+                                      that can be excluded.
                                     items:
                                       type: string
                                     type: array
@@ -12570,7 +12608,8 @@ spec:
                                                   default: sha256
                                                   description: Specify signature algorithm
                                                     for public keys. Supported values
-                                                    are sha256 and sha512.
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             repository:
@@ -12986,7 +13025,7 @@ spec:
                                             default: sha256
                                             description: Specify signature algorithm
                                               for public keys. Supported values are
-                                              sha256 and sha512.
+                                              sha224, sha256, sha384 and sha512.
                                             type: string
                                         type: object
                                       repository:
@@ -16588,7 +16627,8 @@ spec:
                                                   default: sha256
                                                   description: Specify signature algorithm
                                                     for public keys. Supported values
-                                                    are sha256 and sha512.
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             repository:
@@ -16694,6 +16734,18 @@ spec:
                                           checks are applied at the pod level only.
                                           Wildcards (''*'' and ''?'') are allowed.
                                           See: https://kubernetes.io/docs/concepts/containers/images.'
+                                        items:
+                                          type: string
+                                        type: array
+                                      restrictedField:
+                                        description: RestrictedField selects the field
+                                          for the given Pod Security Standard control.
+                                          When not set, all restricted fields for
+                                          the control are selected.
+                                        type: string
+                                      values:
+                                        description: Values defines the allowed values
+                                          that can be excluded.
                                         items:
                                           type: string
                                         type: array
@@ -17074,8 +17126,8 @@ spec:
                                                       default: sha256
                                                       description: Specify signature
                                                         algorithm for public keys.
-                                                        Supported values are sha256
-                                                        and sha512.
+                                                        Supported values are sha224,
+                                                        sha256, sha384 and sha512.
                                                       type: string
                                                   type: object
                                                 repository:
@@ -17513,7 +17565,7 @@ spec:
                                                 default: sha256
                                                 description: Specify signature algorithm
                                                   for public keys. Supported values
-                                                  are sha256 and sha512.
+                                                  are sha224, sha256, sha384 and sha512.
                                                 type: string
                                             type: object
                                           repository:

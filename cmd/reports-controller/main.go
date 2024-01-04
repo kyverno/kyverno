@@ -224,6 +224,7 @@ func main() {
 		internal.WithDynamicClient(),
 		internal.WithMetadataClient(),
 		internal.WithKyvernoDynamicClient(),
+		internal.WithEventsClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -254,12 +255,9 @@ func main() {
 		omitEventsValues = []string{}
 	}
 	eventGenerator := event.NewEventGenerator(
-		setup.KyvernoDynamicClient,
-		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-		kyvernoInformer.Kyverno().V1().Policies(),
-		maxQueuedEvents,
-		omitEventsValues,
+		setup.EventsClient,
 		logging.WithName("EventGenerator"),
+		omitEventsValues...,
 	)
 	// engine
 	engine := internal.NewEngine(
@@ -283,7 +281,7 @@ func main() {
 	}
 	// start event generator
 	var wg sync.WaitGroup
-	go eventGenerator.Run(ctx, 3, &wg)
+	go eventGenerator.Run(ctx, event.Workers, &wg)
 	// setup leader election
 	le, err := leaderelection.New(
 		setup.Logger.WithName("leader-election"),

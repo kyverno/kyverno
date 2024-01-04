@@ -25,7 +25,7 @@ func containsUserVariables(policy kyvernov1.PolicyInterface, vars [][]string) er
 		}
 	}
 	for _, rule := range policy.GetSpec().Rules {
-		if rule.IsMutateExisting() {
+		if rule.HasMutateExisting() {
 			return nil
 		}
 	}
