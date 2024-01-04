@@ -3,5 +3,5 @@ kind: ValidatingAdmissionPolicyBinding
 metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
-  name: disallow-host-path-t10-binding
+  name: check-label-app2-binding
 spec: {}
