@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: deny-pod-delete-validate-deny
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: deny-pod-delete-validate-deny
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      validate:
+        message: Pod cannot be deleted
+        deny:
+          conditions:
+            any:
+              - key: "{{request.operation}}"
+                operator: Equals
+                value: DELETE

@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/tls"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	"golang.org/x/exp/maps"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -71,6 +72,7 @@ func NewController(
 	path string,
 	server string,
 	servicePort int32,
+	webhookServerPort int32,
 	labelSelector *metav1.LabelSelector,
 	rules []admissionregistrationv1.RuleWithOperations,
 	failurePolicy *admissionregistrationv1.FailurePolicyType,
@@ -163,12 +165,16 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	return err
 }
 
-func objectMeta(name string, annotations map[string]string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
+func objectMeta(name string, annotations map[string]string, labels map[string]string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
+	desiredLabels := make(map[string]string)
+	defaultLabels := map[string]string{
+		kyverno.LabelWebhookManagedBy: kyverno.ValueKyvernoApp,
+	}
+	maps.Copy(desiredLabels, labels)
+	maps.Copy(desiredLabels, defaultLabels)
 	return metav1.ObjectMeta{
-		Name: name,
-		Labels: map[string]string{
-			kyverno.LabelWebhookManagedBy: kyverno.ValueKyvernoApp,
-		},
+		Name:            name,
+		Labels:          desiredLabels,
 		Annotations:     annotations,
 		OwnerReferences: owner,
 	}
@@ -176,7 +182,7 @@ func objectMeta(name string, annotations map[string]string, owner ...metav1.Owne
 
 func (c *controller) build(cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
 	return &admissionregistrationv1.ValidatingWebhookConfiguration{
-			ObjectMeta: objectMeta(c.webhookName, cfg.GetWebhookAnnotations()),
+			ObjectMeta: objectMeta(c.webhookName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels()),
 			Webhooks: []admissionregistrationv1.ValidatingWebhook{{
 				Name:                    fmt.Sprintf("%s.%s.svc", config.KyvernoServiceName(), config.KyvernoNamespace()),
 				ClientConfig:            c.clientConfig(caBundle),

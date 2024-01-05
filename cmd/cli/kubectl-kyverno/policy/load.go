@@ -14,9 +14,10 @@ import (
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/experimental"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource/convert"
-	resourceloader "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource/loader"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
+	"github.com/kyverno/kyverno/ext/resource/convert"
+	resourceloader "github.com/kyverno/kyverno/ext/resource/loader"
+	extyaml "github.com/kyverno/kyverno/ext/yaml"
 	"github.com/kyverno/kyverno/pkg/utils/git"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"k8s.io/api/admissionregistration/v1alpha1"
@@ -92,7 +93,7 @@ func LoadWithLoader(loader loader, fs billy.Filesystem, resourcePath string, pat
 }
 
 func kubectlValidateLoader(content []byte) ([]kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, error) {
-	documents, err := yamlutils.SplitDocuments(content)
+	documents, err := extyaml.SplitDocuments(content)
 	if err != nil {
 		return nil, nil, err
 	}

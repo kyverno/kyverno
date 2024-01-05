@@ -18,8 +18,12 @@ func NewAnchorMap() *AnchorMap {
 // if any of (key)=false then return KeysAreMissing() as true
 // if all the keys exists in the pattern exists in resource then return KeysAreMissing() as false
 func (ac *AnchorMap) KeysAreMissing() bool {
-	for _, v := range ac.anchorMap {
+	for k, v := range ac.anchorMap {
 		if !v {
+			// Negations should not be present in the resource so they count as missing.
+			if a := Parse(k); IsNegation(a) {
+				continue
+			}
 			return true
 		}
 	}

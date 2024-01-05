@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: policy-exception-events-creation-pod
+  namespace: policy-exception-events-creation-ns
+spec:
+  containers:
+  - image: nginx
+    name: nginx

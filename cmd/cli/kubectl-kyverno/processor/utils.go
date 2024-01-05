@@ -4,9 +4,10 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 )
 
-func policyHasGenerate(policy kyvernov1.PolicyInterface) bool {
+func policyHasValidateOrVerifyImageChecks(policy kyvernov1.PolicyInterface) bool {
 	for _, rule := range policy.GetSpec().Rules {
-		if rule.HasGenerate() {
+		//  engine.validate handles both validate and verifyImageChecks atm
+		if rule.HasValidate() || rule.HasVerifyImageChecks() {
 			return true
 		}
 	}

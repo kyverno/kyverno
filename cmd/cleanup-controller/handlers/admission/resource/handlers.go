@@ -34,7 +34,7 @@ func (h *validationHandlers) Validate(ctx context.Context, logger logr.Logger, r
 		logger.Info("doesn't have required permissions for deletion", "gvr", request.AdmissionRequest.Resource)
 	}
 	if err := validation.ValidateTtlLabel(ctx, metadata); err != nil {
-		logger.Error(err, "metadatas validation errors")
+		logger.Error(err, "metadata validation errors")
 		return admissionutils.ResponseSuccess(request.UID, fmt.Sprintf("cleanup.kyverno.io/ttl label value cannot be parsed as any recognizable format (%s)", err.Error()))
 	}
 	return admissionutils.ResponseSuccess(request.UID)

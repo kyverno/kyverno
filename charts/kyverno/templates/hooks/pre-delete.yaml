@@ -26,7 +26,8 @@ spec:
       {{- end }}
       containers:
         - name: kubectl
-          image: {{ .Values.webhooksCleanup.image }}
+          image: {{ (include "kyverno.image" (dict "globalRegistry" ((.Values.global).image).registry "image" .Values.webhooksCleanup.image "defaultTag" (default .Chart.AppVersion .Values.webhooksCleanup.image.tag))) | quote }}
+          imagePullPolicy: {{ .Values.webhooksCleanup.image.pullPolicy }}
           command:
             - sh
             - '-c'
@@ -43,7 +44,7 @@ spec:
       tolerations:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.webhooksCleanup.nodeSelector }}
+      {{- with .Values.webhooksCleanup.nodeSelector | default .Values.global.nodeSelector }}
       nodeSelector:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}

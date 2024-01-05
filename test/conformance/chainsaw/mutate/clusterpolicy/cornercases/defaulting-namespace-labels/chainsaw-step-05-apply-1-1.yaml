@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: webserver
+spec:
+  containers:
+  - image: nginx:latest
+    name: webserver
+    ports:
+    - containerPort: 80

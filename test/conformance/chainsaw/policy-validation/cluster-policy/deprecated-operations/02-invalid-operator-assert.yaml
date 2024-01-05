@@ -1,0 +1,22 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: invalid-operator-assert
+spec:
+  steps:
+  - name: step-01
+    try:
+    - script:
+        content: |
+          mkfifo test-pipe
+          if kubectl apply -f policy-invalid-operator.yaml 2> test-pipe | grep -q  "entered value of \`operator\` is invalid" test-pipe
+          then
+            echo "Test succeeded. Warning was displayed."
+            rm test-pipe
+            exit 0
+          else
+            echo "Tested failed. Warning was not displayed."
+            rm test-pipe
+            exit 1
+          fi

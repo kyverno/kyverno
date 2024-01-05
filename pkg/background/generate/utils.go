@@ -1,14 +1,10 @@
 package generate
 
 import (
-	"context"
-
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/background/common"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func newResourceSpec(genAPIVersion, genKind, genNamespace, genName string) kyvernov1.ResourceSpec {
@@ -29,11 +25,7 @@ func TriggerFromLabels(labels map[string]string) kyvernov1.ResourceSpec {
 		Kind:       labels[common.GenerateTriggerKindLabel],
 		Namespace:  labels[common.GenerateTriggerNSLabel],
 		Name:       labels[common.GenerateTriggerNameLabel],
+		UID:        types.UID(labels[common.GenerateTriggerUIDLabel]),
 		APIVersion: apiVersion.String(),
 	}
-}
-
-func FindDownstream(client dclient.Interface, apiVersion, kind string, labels map[string]string) (*unstructured.UnstructuredList, error) {
-	selector := &metav1.LabelSelector{MatchLabels: labels}
-	return client.ListResource(context.TODO(), apiVersion, kind, "", selector)
 }

@@ -16,10 +16,7 @@ limitations under the License.
 package v2beta1
 
 import (
-	"fmt"
-
-	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
-	"github.com/kyverno/kyverno/pkg/utils/wildcard"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -41,15 +38,8 @@ type PolicyException struct {
 
 // Validate implements programmatic validation
 func (p *PolicyException) Validate() (errs field.ErrorList) {
-	if err := ValidateVariables(p); err != nil {
-		errs = append(errs, field.Forbidden(field.NewPath(""), fmt.Sprintf("Policy Exception \"%s\" should not have variables", p.Name)))
-	}
 	errs = append(errs, p.Spec.Validate(field.NewPath("spec"))...)
 	return errs
-}
-
-func ValidateVariables(polex *PolicyException) error {
-	return regex.ObjectHasVariables(polex)
 }
 
 // Contains returns true if it contains an exception for the given policy/rule pair
@@ -66,6 +56,11 @@ type PolicyExceptionSpec struct {
 
 	// Match defines match clause used to check if a resource applies to the exception
 	Match MatchResources `json:"match" yaml:"match"`
+
+	// Conditions are used to determine if a resource applies to the exception by evaluating a
+	// set of conditions. The declaration can contain nested `any` or `all` statements.
+	// +optional
+	Conditions *AnyAllConditions `json:"conditions,omitempty"`
 
 	// Exceptions is a list policy/rules to be excluded
 	Exceptions []Exception `json:"exceptions" yaml:"exceptions"`
