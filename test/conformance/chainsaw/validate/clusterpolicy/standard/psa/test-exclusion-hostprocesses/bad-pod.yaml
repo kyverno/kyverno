@@ -4,8 +4,8 @@ metadata:
   name: bad-pod
 spec:
   securityContext:
-      windowsOptions:
-        hostProcess: true
+    windowsOptions:
+      hostProcess: true
   containers:
   - name: nginx1
     image: nginx

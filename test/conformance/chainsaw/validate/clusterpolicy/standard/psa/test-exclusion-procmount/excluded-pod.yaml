@@ -11,11 +11,11 @@ spec:
     - 1d
     securityContext:
       procMount: foo
-  # initContainers:
-  # - name: nginx2
-  #   image: nginx
-  #   args:
-  #   - sleep
-  #   - 1d
-  #   securityContext:
-  #     procMount: bar
+  initContainers:
+  - name: nginx2
+    image: nginx
+    args:
+    - sleep
+    - 1d
+    securityContext:
+      procMount: bar
