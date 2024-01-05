@@ -1,0 +1,7 @@
+global:
+  nodeSelector:
+    node-role.kubernetes.io/foo: ''
+
+admissionController:
+  nodeSelector:
+    node-role.kubernetes.io/bar: ''
