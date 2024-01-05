@@ -547,6 +547,13 @@ func (in *PolicyExceptionSpec) DeepCopyInto(out *PolicyExceptionSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.PodSecurity != nil {
+		in, out := &in.PodSecurity, &out.PodSecurity
+		*out = make([]v1.PodSecurityStandard, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	return
 }
 
