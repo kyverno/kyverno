@@ -2411,6 +2411,13 @@ spec:
                         is supported for backwards compatibility but will be deprecated
                         in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
                       x-kubernetes-preserve-unknown-fields: true
+                    skipBackgroundRequests:
+                      default: true
+                      description: SkipBackgroundRequests bypasses admission requests
+                        that are sent by the background controller. The default value
+                        is set to "true", it must be set to "false" to apply generate
+                        and mutateExisting rules to those requests.
+                      type: boolean
                     validate:
                       description: Validation is used to validate matching resources.
                       properties:
@@ -3361,7 +3368,7 @@ spec:
                                               default: sha256
                                               description: Specify signature algorithm
                                                 for public keys. Supported values
-                                                are sha256 and sha512.
+                                                are sha224, sha256, sha384 and sha512.
                                               type: string
                                           type: object
                                         repository:
@@ -3464,6 +3471,18 @@ spec:
                                       matches no containers, PSS checks are applied
                                       at the pod level only. Wildcards (''*'' and
                                       ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
+                                    items:
+                                      type: string
+                                    type: array
+                                  restrictedField:
+                                    description: RestrictedField selects the field
+                                      for the given Pod Security Standard control.
+                                      When not set, all restricted fields for the
+                                      control are selected.
+                                    type: string
+                                  values:
+                                    description: Values defines the allowed values
+                                      that can be excluded.
                                     items:
                                       type: string
                                     type: array
@@ -3818,7 +3837,8 @@ spec:
                                                   default: sha256
                                                   description: Specify signature algorithm
                                                     for public keys. Supported values
-                                                    are sha256 and sha512.
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             repository:
@@ -4234,7 +4254,7 @@ spec:
                                             default: sha256
                                             description: Specify signature algorithm
                                               for public keys. Supported values are
-                                              sha256 and sha512.
+                                              sha224, sha256, sha384 and sha512.
                                             type: string
                                         type: object
                                       repository:
@@ -4349,9 +4369,7 @@ spec:
                   type: object
                 type: array
               schemaValidation:
-                description: SchemaValidation skips validation checks for policies
-                  as well as patched resources. Optional. The default value is set
-                  to "true", it must be set to "false" to disable the validation checks.
+                description: Deprecated.
                 type: boolean
               useServerSideApply:
                 description: UseServerSideApply controls whether to use server-side
@@ -6846,6 +6864,13 @@ spec:
                             is supported for backwards compatibility but will be deprecated
                             in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
                           x-kubernetes-preserve-unknown-fields: true
+                        skipBackgroundRequests:
+                          default: true
+                          description: SkipBackgroundRequests bypasses admission requests
+                            that are sent by the background controller. The default
+                            value is set to "true", it must be set to "false" to apply
+                            generate and mutateExisting rules to those requests.
+                          type: boolean
                         validate:
                           description: Validation is used to validate matching resources.
                           properties:
@@ -7847,7 +7872,8 @@ spec:
                                                   default: sha256
                                                   description: Specify signature algorithm
                                                     for public keys. Supported values
-                                                    are sha256 and sha512.
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             repository:
@@ -7953,6 +7979,18 @@ spec:
                                           checks are applied at the pod level only.
                                           Wildcards (''*'' and ''?'') are allowed.
                                           See: https://kubernetes.io/docs/concepts/containers/images.'
+                                        items:
+                                          type: string
+                                        type: array
+                                      restrictedField:
+                                        description: RestrictedField selects the field
+                                          for the given Pod Security Standard control.
+                                          When not set, all restricted fields for
+                                          the control are selected.
+                                        type: string
+                                      values:
+                                        description: Values defines the allowed values
+                                          that can be excluded.
                                         items:
                                           type: string
                                         type: array
@@ -8333,8 +8371,8 @@ spec:
                                                       default: sha256
                                                       description: Specify signature
                                                         algorithm for public keys.
-                                                        Supported values are sha256
-                                                        and sha512.
+                                                        Supported values are sha224,
+                                                        sha256, sha384 and sha512.
                                                       type: string
                                                   type: object
                                                 repository:
@@ -8772,7 +8810,7 @@ spec:
                                                 default: sha256
                                                 description: Specify signature algorithm
                                                   for public keys. Supported values
-                                                  are sha256 and sha512.
+                                                  are sha224, sha256, sha384 and sha512.
                                                 type: string
                                             type: object
                                           repository:
@@ -11063,6 +11101,13 @@ spec:
                             type: object
                           type: array
                       type: object
+                    skipBackgroundRequests:
+                      default: true
+                      description: SkipBackgroundRequests bypasses admission requests
+                        that are sent by the background controller. The default value
+                        is set to "true", it must be set to "false" to apply generate
+                        and mutateExisting rules to those requests.
+                      type: boolean
                     validate:
                       description: Validation is used to validate matching resources.
                       properties:
@@ -12105,7 +12150,7 @@ spec:
                                               default: sha256
                                               description: Specify signature algorithm
                                                 for public keys. Supported values
-                                                are sha256 and sha512.
+                                                are sha224, sha256, sha384 and sha512.
                                               type: string
                                           type: object
                                         repository:
@@ -12208,6 +12253,18 @@ spec:
                                       matches no containers, PSS checks are applied
                                       at the pod level only. Wildcards (''*'' and
                                       ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
+                                    items:
+                                      type: string
+                                    type: array
+                                  restrictedField:
+                                    description: RestrictedField selects the field
+                                      for the given Pod Security Standard control.
+                                      When not set, all restricted fields for the
+                                      control are selected.
+                                    type: string
+                                  values:
+                                    description: Values defines the allowed values
+                                      that can be excluded.
                                     items:
                                       type: string
                                     type: array
@@ -12551,7 +12608,8 @@ spec:
                                                   default: sha256
                                                   description: Specify signature algorithm
                                                     for public keys. Supported values
-                                                    are sha256 and sha512.
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             repository:
@@ -12967,7 +13025,7 @@ spec:
                                             default: sha256
                                             description: Specify signature algorithm
                                               for public keys. Supported values are
-                                              sha256 and sha512.
+                                              sha224, sha256, sha384 and sha512.
                                             type: string
                                         type: object
                                       repository:
@@ -13067,9 +13125,7 @@ spec:
                   type: object
                 type: array
               schemaValidation:
-                description: SchemaValidation skips validation checks for policies
-                  as well as patched resources. Optional. The default value is set
-                  to "true", it must be set to "false" to disable the validation checks.
+                description: Deprecated.
                 type: boolean
               useServerSideApply:
                 description: UseServerSideApply controls whether to use server-side
@@ -15563,6 +15619,13 @@ spec:
                             is supported for backwards compatibility but will be deprecated
                             in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
                           x-kubernetes-preserve-unknown-fields: true
+                        skipBackgroundRequests:
+                          default: true
+                          description: SkipBackgroundRequests bypasses admission requests
+                            that are sent by the background controller. The default
+                            value is set to "true", it must be set to "false" to apply
+                            generate and mutateExisting rules to those requests.
+                          type: boolean
                         validate:
                           description: Validation is used to validate matching resources.
                           properties:
@@ -16564,7 +16627,8 @@ spec:
                                                   default: sha256
                                                   description: Specify signature algorithm
                                                     for public keys. Supported values
-                                                    are sha256 and sha512.
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             repository:
@@ -16670,6 +16734,18 @@ spec:
                                           checks are applied at the pod level only.
                                           Wildcards (''*'' and ''?'') are allowed.
                                           See: https://kubernetes.io/docs/concepts/containers/images.'
+                                        items:
+                                          type: string
+                                        type: array
+                                      restrictedField:
+                                        description: RestrictedField selects the field
+                                          for the given Pod Security Standard control.
+                                          When not set, all restricted fields for
+                                          the control are selected.
+                                        type: string
+                                      values:
+                                        description: Values defines the allowed values
+                                          that can be excluded.
                                         items:
                                           type: string
                                         type: array
@@ -17050,8 +17126,8 @@ spec:
                                                       default: sha256
                                                       description: Specify signature
                                                         algorithm for public keys.
-                                                        Supported values are sha256
-                                                        and sha512.
+                                                        Supported values are sha224,
+                                                        sha256, sha384 and sha512.
                                                       type: string
                                                   type: object
                                                 repository:
@@ -17489,7 +17565,7 @@ spec:
                                                 default: sha256
                                                 description: Specify signature algorithm
                                                   for public keys. Supported values
-                                                  are sha256 and sha512.
+                                                  are sha224, sha256, sha384 and sha512.
                                                 type: string
                                             type: object
                                           repository:

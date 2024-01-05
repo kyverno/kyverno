@@ -11,7 +11,7 @@ var (
 	RegexReferences = regexp.MustCompile(`^\$\(.[^\ ]*\)|[^\\]\$\(.[^\ ]*\)`)
 
 	// RegexEscpReferences is the Regex for '\$(...)'
-	RegexEscpReferences = regexp.MustCompile(`\\\$\(.[^\ ]*\)`)
+	RegexEscpReferences = regexp.MustCompile(`\\\$\(.[^\ \)]*\)`)
 
 	RegexVariableInit = regexp.MustCompile(`^\{\{(\{[^{}]*\}|[^{}])*\}\}`)
 

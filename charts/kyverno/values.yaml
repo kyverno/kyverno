@@ -10,6 +10,27 @@ global:
     # -- (string) Global value that allows to set a single image registry across all deployments.
     # When set, it will override any values set under `.image.registry` across the chart.
     registry: ~
+  caCertificates:
+    # -- Global CA certificates to use with Kyverno deployments
+    # This value is expected to be one large string of CA certificates
+    # Individual controller values will override this global value
+    data: ~
+    # -- Global value to set single volume to be mounted for CA certificates for all deployments.
+    # Not used when `.Values.global.caCertificates.data` is defined
+    # Individual  controller values will override this global value
+    volume: {}
+    # Example to use hostPath:
+    # hostPath:
+    #   path: /etc/pki/tls/ca-certificates.crt
+    #   type: File
+  # -- Additional container environment variables to apply to all containers and init containers
+  extraEnvVars: []
+  # Example setting proxy
+  # extraEnvVars:
+  # - name: HTTPS_PROXY
+  #   value: 'https://proxy.example.com:3128'
+  # -- Global node labels for pod assignment. Non-global values will override the global value.
+  nodeSelector: {}
 
 # -- (string) Override the name of the chart
 nameOverride: ~
@@ -219,6 +240,11 @@ config:
     # Example to disable admission enforcer on AKS:
     # 'admissions.enforcer/disabled': 'true'
 
+  # -- Defines labels to set on webhook configurations.
+  webhookLabels: {}
+    # Example to adopt webhook resources in ArgoCD:
+    # 'argocd.argoproj.io/instance': 'kyverno'
+
   # -- Defines match conditions to set on webhook configurations (requires Kubernetes 1.27+).
   matchConditions: []
 
@@ -229,6 +255,10 @@ config:
   # -- resourceFilter namespace exclude
   # Namespaces to exclude from the default resourceFilters
   resourceFiltersExcludeNamespaces: []
+
+  # -- resourceFilters exclude list
+  # Items to exclude from config.resourceFilters
+  resourceFiltersExclude: []
 
 # Metrics configuration
 metricsConfig:
@@ -342,6 +372,58 @@ webhooksCleanup:
 
   # -- Image pull secrets
   imagePullSecrets: []
+
+  # -- Security context for the pod
+  podSecurityContext: {}
+
+  # -- Node labels for pod assignment
+  nodeSelector: {}
+
+  # -- List of node taints to tolerate
+  tolerations: []
+
+  # -- Pod anti affinity constraints.
+  podAntiAffinity: {}
+
+  # -- Pod affinity constraints.
+  podAffinity: {}
+
+  # -- Node affinity constraints.
+  nodeAffinity: {}
+
+  # -- Security context for the hook containers
+  securityContext:
+    runAsUser: 65534
+    runAsGroup: 65534
+    runAsNonRoot: true
+    privileged: false
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
+
+policyReportsCleanup:
+  # -- Create a helm post-upgrade hook to cleanup the old policy reports.
+  enabled: true
+
+  image:
+    # -- (string) Image registry
+    registry: ~
+    # -- Image repository
+    repository: bitnami/kubectl
+    # -- Image tag
+    # Defaults to `latest` if omitted
+    tag: '1.28.4'
+    # -- (string) Image pull policy
+    # Defaults to image.pullPolicy if omitted
+    pullPolicy: ~
+
+  # -- Image pull secrets
+  imagePullSecrets: []
+  # - name: secretName
 
   # -- Security context for the pod
   podSecurityContext: {}
@@ -535,6 +617,9 @@ cleanupJobs:
       seccompProfile:
         type: RuntimeDefault
 
+    # -- Pod PriorityClassName
+    priorityClassName: ""
+
     # -- Job resources
     resources: {}
 
@@ -606,6 +691,9 @@ cleanupJobs:
       seccompProfile:
         type: RuntimeDefault
 
+    # -- Pod PriorityClassName
+    priorityClassName: ""
+
     # -- Job resources
     resources: {}
 
@@ -667,6 +755,9 @@ admissionController:
   # -- (int) Desired number of pods
   replicas: ~
 
+  # -- The number of revisions to keep
+  revisionHistoryLimit: 10
+
   # -- Additional labels to add to each pod
   podLabels: {}
     # example.com/label: foo
@@ -709,6 +800,11 @@ admissionController:
   # Useful for situations like when you end up dealing with a custom CNI over Amazon EKS.
   # Update the `dnsPolicy` accordingly as well to suit the host network mode.
   hostNetwork: false
+
+  # -- admissionController webhook server port
+  # in case you are using hostNetwork: true, you might want to change the port the webhookServer is listening to
+  webhookServer:
+    port: 9443
 
   # -- `dnsPolicy` determines the manner in which DNS resolution happens in the cluster.
   # In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`.
@@ -813,6 +909,18 @@ admissionController:
   sigstoreVolume:
     emptyDir: {}
 
+  caCertificates:
+    # -- CA certificates to use with Kyverno deployments
+    # This value is expected to be one large string of CA certificates
+    data: ~
+    # -- Volume to be mounted for CA certificates
+    # Not used when `.Values.admissionController.caCertificates.data` is defined
+    volume: {}
+    # Example to use hostPath:
+    # hostPath:
+    #   path: /etc/pki/tls/ca-certificates.crt
+    #   type: File
+
   # -- Image pull secrets
   imagePullSecrets: []
     # - secretName
@@ -858,6 +966,10 @@ admissionController:
 
     # -- Additional container environment variables.
     extraEnvVars: []
+    # Example setting proxy
+    # extraEnvVars:
+    # - name: HTTPS_PROXY
+    #   value: 'https://proxy.example.com:3128'
 
   container:
 
@@ -898,6 +1010,10 @@ admissionController:
 
     # -- Additional container environment variables.
     extraEnvVars: []
+    # Example setting proxy
+    # extraEnvVars:
+    # - name: HTTPS_PROXY
+    #   value: 'https://proxy.example.com:3128'
 
   # -- Array of extra init containers
   extraInitContainers: []
@@ -1084,6 +1200,9 @@ backgroundController:
   # -- (int) Desired number of pods
   replicas: ~
 
+  # -- The number of revisions to keep
+  revisionHistoryLimit: 10
+
   # -- Additional labels to add to each pod
   podLabels: {}
   # example.com/label: foo
@@ -1119,6 +1238,10 @@ backgroundController:
 
   # -- Additional container environment variables.
   extraEnvVars: []
+  # Example setting proxy
+  # extraEnvVars:
+  # - name: HTTPS_PROXY
+  #   value: 'https://proxy.example.com:3128'
 
   resources:
     # -- Pod resource limits
@@ -1188,6 +1311,18 @@ backgroundController:
     # -- Configures the maximum unavailable pods for disruptions.
     # Cannot be used if `minAvailable` is set.
     maxUnavailable:
+
+  caCertificates:
+    # -- CA certificates to use with Kyverno deployments
+    # This value is expected to be one large string of CA certificates
+    data: ~
+    # -- Volume to be mounted for CA certificates
+    # Not used when `.Values.backgroundController.caCertificates.data` is defined
+    volume: {}
+    # Example to use hostPath:
+    # hostPath:
+    #   path: /etc/pki/tls/ca-certificates.crt
+    #   type: File
 
   metricsService:
     # -- Create service.
@@ -1309,6 +1444,9 @@ cleanupController:
   # -- (int) Desired number of pods
   replicas: ~
 
+  # -- The number of revisions to keep
+  revisionHistoryLimit: 10
+
   # -- Additional labels to add to each pod
   podLabels: {}
   # example.com/label: foo
@@ -1334,6 +1472,15 @@ cleanupController:
   # Update the `dnsPolicy` accordingly as well to suit the host network mode.
   hostNetwork: false
 
+  # -- cleanupController server port
+  # in case you are using hostNetwork: true, you might want to change the port the cleanupController is listening to
+  server:
+    port: 9443
+  # -- cleanupController webhook server port
+  # in case you are using hostNetwork: true, you might want to change the port the webhookServer is listening to
+  webhookServer:
+    port: 9443
+
   # -- `dnsPolicy` determines the manner in which DNS resolution happens in the cluster.
   # In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`.
   # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy.
@@ -1344,6 +1491,10 @@ cleanupController:
 
   # -- Additional container environment variables.
   extraEnvVars: []
+  # Example setting proxy
+  # extraEnvVars:
+  # - name: HTTPS_PROXY
+  #   value: 'https://proxy.example.com:3128'
 
   resources:
     # -- Pod resource limits
@@ -1580,6 +1731,9 @@ reportsController:
   # -- (int) Desired number of pods
   replicas: ~
 
+  # -- The number of revisions to keep
+  revisionHistoryLimit: 10
+
   # -- Additional labels to add to each pod
   podLabels: {}
   # example.com/label: foo
@@ -1633,6 +1787,10 @@ reportsController:
 
   # -- Additional container environment variables.
   extraEnvVars: []
+  # Example setting proxy
+  # extraEnvVars:
+  # - name: HTTPS_PROXY
+  #   value: 'https://proxy.example.com:3128'
 
   resources:
     # -- Pod resource limits
@@ -1709,6 +1867,19 @@ reportsController:
   # -- Volume to be mounted in pods for TUF/cosign work.
   sigstoreVolume:
     emptyDir: {}
+
+  caCertificates:
+    # -- CA certificates to use with Kyverno deployments
+    # This value is expected to be one large string of CA certificates
+    data: ~
+    # -- Volume to be mounted for CA certificates
+    # Not used when `.Values.reportsController.caCertificates.data` is defined
+    volume: {}
+    # Example to use hostPath:
+    # hostPath:
+    #   path: /etc/pki/tls/ca-certificates.crt
+    #   type: File
+
 
   metricsService:
     # -- Create service.

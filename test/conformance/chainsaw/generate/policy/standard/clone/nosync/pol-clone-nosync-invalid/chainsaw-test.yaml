@@ -1,0 +1,19 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: pol-clone-nosync-invalid
+spec:
+  steps:
+  - name: step-01
+    try:
+    - script:
+        content: "if kubectl apply -f policy1.yaml\nthen \n  echo \"Tested failed.
+          Policy was created when it shouldn't have been.\"\n  exit 1 \nelse \n  echo
+          \"Test succeeded. Policy was not created as intended.\"\n  exit 0\nfi\n"
+  - name: step-02
+    try:
+    - script:
+        content: "if kubectl apply -f policy2.yaml\nthen \n  echo \"Tested failed.
+          Policy was created when it shouldn't have been.\"\n  exit 1 \nelse \n  echo
+          \"Test succeeded. Policy was not created as intended.\"\n  exit 0\nfi\n"

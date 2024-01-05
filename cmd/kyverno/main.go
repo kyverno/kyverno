@@ -25,6 +25,7 @@ import (
 	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/validatingadmissionpolicy-generate"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
@@ -116,6 +117,7 @@ func createrLeaderControllers(
 	certRenewer tls.CertRenewer,
 	runtime runtimeutils.Runtime,
 	servicePort int32,
+	webhookServerPort int32,
 	configuration config.Configuration,
 	eventGenerator event.Interface,
 ) ([]internal.Controller, func(context.Context) error, error) {
@@ -145,6 +147,7 @@ func createrLeaderControllers(
 		serverIP,
 		int32(webhookTimeout),
 		servicePort,
+		webhookServerPort,
 		autoUpdateWebhooks,
 		admissionReports,
 		runtime,
@@ -160,6 +163,7 @@ func createrLeaderControllers(
 		config.ExceptionValidatingWebhookServicePath,
 		serverIP,
 		servicePort,
+		webhookServerPort,
 		nil,
 		[]admissionregistrationv1.RuleWithOperations{{
 			Rule: admissionregistrationv1.Rule{
@@ -187,7 +191,6 @@ func createrLeaderControllers(
 			kubeClient,
 			kyvernoClient,
 			dynamicClient.Discovery(),
-			kyvernoInformer.Kyverno().V1().Policies(),
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
 			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings(),
@@ -212,7 +215,10 @@ func main() {
 		admissionReports             bool
 		dumpPayload                  bool
 		servicePort                  int
+		webhookServerPort            int
 		backgroundServiceAccountName string
+		maxAPICallResponseLength     int64
+		renewBefore                  time.Duration
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -227,9 +233,12 @@ func main() {
 	flagset.Func(toggle.GenerateValidatingAdmissionPolicyFlagName, toggle.GenerateValidatingAdmissionPolicyDescription, toggle.GenerateValidatingAdmissionPolicy.Parse)
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
+	flagset.IntVar(&webhookServerPort, "webhookServerPort", 9443, "Port used by the webhook server.")
 	flagset.StringVar(&backgroundServiceAccountName, "backgroundServiceAccountName", "", "Background service account name.")
 	flagset.StringVar(&caSecretName, "caSecretName", "", "Name of the secret containing CA.")
 	flagset.StringVar(&tlsSecretName, "tlsSecretName", "", "Name of the secret containing TLS pair.")
+	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 10*1000*1000, "Configure the value of maximum allowed GET response size from API Calls")
+	flagset.DurationVar(&renewBefore, "renewBefore", 15*24*time.Hour, "The certificate renewal time before expiration")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -246,6 +255,7 @@ func main() {
 		internal.WithKyvernoClient(),
 		internal.WithDynamicClient(),
 		internal.WithKyvernoDynamicClient(),
+		internal.WithEventsClient(),
 		internal.WithApiServerClient(),
 		internal.WithFlagSets(flagset),
 	)
@@ -297,6 +307,7 @@ func main() {
 		tls.CertRenewalInterval,
 		tls.CAValidityDuration,
 		tls.TLSValidityDuration,
+		renewBefore,
 		serverIP,
 		config.KyvernoServiceName(),
 		config.DnsNames(config.KyvernoServiceName(), config.KyvernoNamespace()),
@@ -310,12 +321,9 @@ func main() {
 		omitEventsValues = []string{}
 	}
 	eventGenerator := event.NewEventGenerator(
-		setup.KyvernoDynamicClient,
-		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-		kyvernoInformer.Kyverno().V1().Policies(),
-		maxQueuedEvents,
-		omitEventsValues,
+		setup.EventsClient,
 		logging.WithName("EventGenerator"),
+		omitEventsValues...,
 	)
 	// this controller only subscribe to events, nothing is returned...
 	policymetricscontroller.NewController(
@@ -356,6 +364,7 @@ func main() {
 		setup.KubeClient,
 		setup.KyvernoClient,
 		setup.RegistrySecretLister,
+		apicall.NewAPICallConfiguration(maxAPICallResponseLength),
 	)
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
@@ -381,7 +390,7 @@ func main() {
 		}
 	}
 	// start event generator
-	go eventGenerator.Run(signalCtx, 3, &wg)
+	go eventGenerator.Run(signalCtx, event.Workers, &wg)
 	// setup leader election
 	le, err := leaderelection.New(
 		setup.Logger.WithName("leader-election"),
@@ -413,6 +422,7 @@ func main() {
 				certRenewer,
 				runtime,
 				int32(servicePort),
+				int32(webhookServerPort),
 				setup.Configuration,
 				eventGenerator,
 			)
@@ -512,6 +522,7 @@ func main() {
 		kubeInformer.Rbac().V1().RoleBindings().Lister(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
 		setup.KyvernoDynamicClient.Discovery(),
+		int32(webhookServerPort),
 	)
 	// start informers and wait for cache sync
 	// we need to call start again because we potentially registered new informers

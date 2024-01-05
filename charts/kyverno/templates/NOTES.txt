@@ -22,9 +22,9 @@ The following components have been installed in your cluster:
 {{- end }}
 
 {{ if not .Values.admissionController.replicas }}
-⚠️  WARNING: Setting the admission controller replica count below 3 means Kyverno is not running in high availability mode.
-{{- else if lt (int .Values.admissionController.replicas) 3 }}
-⚠️  WARNING: Setting the admission controller replica count below 3 means Kyverno is not running in high availability mode.
+⚠️  WARNING: Setting the admission controller replica count below 2 means Kyverno is not running in high availability mode.
+{{- else if lt (int .Values.admissionController.replicas) 2 }}
+⚠️  WARNING: Setting the admission controller replica count below 2 means Kyverno is not running in high availability mode.
 {{- end }}
 
 {{- if semverCompare "<1.21.0" .Capabilities.KubeVersion.Version }}

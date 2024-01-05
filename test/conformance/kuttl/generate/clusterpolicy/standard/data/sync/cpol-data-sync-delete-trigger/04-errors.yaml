@@ -1,9 +1,0 @@
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: default-deny
-  namespace: cpol-data-sync-delete-trigger-ns
-spec:
-  policyTypes:
-  - Ingress
-  - Egress
