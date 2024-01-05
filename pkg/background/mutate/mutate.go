@@ -87,7 +87,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 	}
 
 	for _, rule := range policy.GetSpec().Rules {
-		if !rule.IsMutateExisting() || ur.Spec.Rule != rule.Name {
+		if !rule.HasMutateExisting() || ur.Spec.Rule != rule.Name {
 			continue
 		}
 
@@ -168,8 +168,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 
 			case engineapi.RuleStatusSkip:
 				err := fmt.Errorf("mutate existing rule skipped, rule %s, response %v: %s", r.Name(), r.Status(), r.Message())
-				logger.Error(err, "")
-				c.report(err, policy, rule.Name, patched)
+				logger.Info(err.Error())
 
 			case engineapi.RuleStatusPass:
 				patchedNew := patched

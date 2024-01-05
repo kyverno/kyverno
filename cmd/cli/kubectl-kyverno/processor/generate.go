@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func handleGeneratePolicy(out io.Writer, generateResponse *engineapi.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]string) ([]engineapi.RuleResponse, error) {
+func handleGeneratePolicy(out io.Writer, store *store.Store, generateResponse *engineapi.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]string) ([]engineapi.RuleResponse, error) {
 	newResource := policyContext.NewResource()
 	objects := []runtime.Object{&newResource}
 	for _, rule := range generateResponse.PolicyResponse.Rules {
@@ -74,7 +74,7 @@ func handleGeneratePolicy(out io.Writer, generateResponse *engineapi.EngineRespo
 		}
 	}
 
-	c, err := initializeMockController(out, listKinds, objects)
+	c, err := initializeMockController(out, store, listKinds, objects)
 	if err != nil {
 		fmt.Fprintln(out, "error at controller")
 		return nil, err
@@ -113,7 +113,7 @@ func handleGeneratePolicy(out io.Writer, generateResponse *engineapi.EngineRespo
 	return newRuleResponse, nil
 }
 
-func initializeMockController(out io.Writer, gvrToListKind map[schema.GroupVersionResource]string, objects []runtime.Object) (*generate.GenerateController, error) {
+func initializeMockController(out io.Writer, s *store.Store, gvrToListKind map[schema.GroupVersionResource]string, objects []runtime.Object) (*generate.GenerateController, error) {
 	client, err := dclient.NewFakeClient(runtime.NewScheme(), gvrToListKind, objects...)
 	if err != nil {
 		fmt.Fprintf(out, "Failed to mock dynamic client")
@@ -133,7 +133,7 @@ func initializeMockController(out io.Writer, gvrToListKind map[schema.GroupVersi
 		adapters.Client(client),
 		nil,
 		imageverifycache.DisabledImageVerifyCache(),
-		store.ContextLoaderFactory(nil),
+		store.ContextLoaderFactory(s, nil),
 		nil,
 		"",
 	))
