@@ -321,17 +321,6 @@ func updateGenRuleByte(pbyte []byte, kind string) (obj []byte) {
 	return obj
 }
 
-func updateRestrictedFields(pbyte []byte, kind string) (obj []byte) {
-	if kind == "Pod" {
-		obj = []byte(strings.ReplaceAll(string(pbyte), `"restrictedField":"spec`, `"restrictedField":"spec.template.spec`))
-	}
-	if kind == "Cronjob" {
-		obj = []byte(strings.ReplaceAll(string(pbyte), `"restrictedField":"spec`, `"restrictedField":"spec.jobTemplate.spec.template.spec`))
-	}
-	obj = []byte(strings.ReplaceAll(string(obj), "metadata", "spec.template.metadata"))
-	return obj
-}
-
 func updateCELFields(pbyte []byte, kind string) (obj []byte) {
 	if kind == "Pod" {
 		obj = []byte(strings.ReplaceAll(string(pbyte), "object.spec", "object.spec.template.spec"))

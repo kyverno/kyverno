@@ -149,6 +149,8 @@ github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d/go.mod h1:3eOhrU
 github.com/ThalesIgnite/crypto11 v1.2.5 h1:1IiIIEqYmBvUYFeMnHqRft4bwf/O36jryEUpY+9ef8E=
 github.com/ThalesIgnite/crypto11 v1.2.5/go.mod h1:ILDKtnCKiQ7zRoNxcp36Y1ZR8LBPmR2E23+wTQe/MlE=
 github.com/VividCortex/gohistogram v1.0.0/go.mod h1:Pf5mBqqDxYaXu3hDrrU+w6nw50o/4+TcAqDqk/vUH7g=
+github.com/YTGhost/pod-security-admission v0.0.0-20231116105308-8b1daa0177f2 h1:fU6MSdWY9ny1k+lWzCav7bBp/Is/uK/PAuLSn8SrVrs=
+github.com/YTGhost/pod-security-admission v0.0.0-20231116105308-8b1daa0177f2/go.mod h1:rBAI9Kn+bV1UGQqDqZSgFo/+fm8S/3fFOsU42Z8SVkc=
 github.com/afex/hystrix-go v0.0.0-20180502004556-fa1af6a1f4f5/go.mod h1:SkGFH1ia65gfNATL8TAiHDNxPzPdmEL5uirI2Uyuz6c=
 github.com/agnivade/levenshtein v1.1.1 h1:QY8M92nrzkmr798gCo3kmMyqXFzdQVpxLlGPRBij0P8=
 github.com/agnivade/levenshtein v1.1.1/go.mod h1:veldBMzWxcCG2ZvUTKD2kJNRdCk5hVbJomOvKkmgYbo=
@@ -945,12 +947,12 @@ github.com/kunwardeep/paralleltest v1.0.2/go.mod h1:ZPqNm1fVHPllh5LPVujzbVz1JN2G
 github.com/kylelemons/godebug v1.1.0 h1:RPNrshWIDI6G2gRW9EHilWtl7Z6Sb1BR0xunSBf0SNc=
 github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+fNqagV/RAw=
 github.com/kyoh86/exportloopref v0.1.8/go.mod h1:1tUcJeiioIs7VWe5gcOObrux3lb66+sBqGZrRkMwPgg=
+github.com/kyverno/cosign/v2 v2.0.0-20231109090756-51fd41540436 h1:PvxtUeaEvHgnVwnksc2LDBjWM7wsyIzZhZzS+RW+BEE=
+github.com/kyverno/cosign/v2 v2.0.0-20231109090756-51fd41540436/go.mod h1:QuAzDDmES0ROCdTPf97GzjidUmn5lpQq84ESET3NAi8=
 github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877 h1:XOLJNGX/q6MVpI8p8MKvk6jGBMvO4CrdwrizMMSsaRU=
 github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877/go.mod h1:yzDHaKovQy16rjN4kFnjF+IdNoN4p1ndw+va6+B8zUU=
 github.com/kyverno/go-jmespath/internal/testify v1.5.2-0.20230630133209-945021c749d9 h1:lL311dF3a2aeNibJj8v+uhFU3XkvRHZmCtAdSPOrQYY=
 github.com/kyverno/go-jmespath/internal/testify v1.5.2-0.20230630133209-945021c749d9/go.mod h1:XRxUGHIiCy1WYma1CdfdO1WOhIe8dLPTENaZr5D1ex4=
-github.com/kyverno/kubectl-validate v0.0.0-20231116142848-59e4e6124b70 h1:/ThsDBrhi0ayXXevlRt2MRh0DOkcXiSTJNMIFiV8dE0=
-github.com/kyverno/kubectl-validate v0.0.0-20231116142848-59e4e6124b70/go.mod h1:uo2AjjJaC8pmYqhF95caNvqzyQQaiXUpajPjwOy7Ylk=
 github.com/ldez/gomoddirectives v0.2.1/go.mod h1:sGicqkRgBOg//JfpXwkB9Hj0X5RyJ7mlACM5B9f6Me4=
 github.com/ldez/tagliatelle v0.2.0/go.mod h1:8s6WJQwEYHbKZDsp/LjArytKOG8qaMrKQQ3mFukHs88=
 github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7 h1:k/1ku0yehLCPqERCHkIHMDqDg1R02AcCScRuHbamU3s=
@@ -1200,8 +1202,8 @@ github.com/prometheus/client_golang v1.6.0/go.mod h1:ZLOG9ck3JLRdB5MgO8f+lLTe83A
 github.com/prometheus/client_golang v1.7.1/go.mod h1:PY5Wy2awLA44sXw4AOSfFBetzPP4j5+D6mVACh+pe2M=
 github.com/prometheus/client_golang v1.9.0/go.mod h1:FqZLKOZnGdFAhOK4nqGHa7D66IdsO+O441Eve7ptJDU=
 github.com/prometheus/client_golang v1.11.0/go.mod h1:Z6t4BnS23TR94PD6BsDNk8yVqroYurpAkEiz0P2BEV0=
-github.com/prometheus/client_golang v1.17.0 h1:rl2sfwZMtSthVU752MqfjQozy7blglC+1SOtjMAMh+Q=
-github.com/prometheus/client_golang v1.17.0/go.mod h1:VeL+gMmOAxkS2IqfCq0ZmHSL+LjWfWDUmp1mBz9JgUY=
+github.com/prometheus/client_golang v1.18.0 h1:HzFfmkOzH5Q8L8G+kSJKUx5dtG87sewO+FoDDqP5Tbk=
+github.com/prometheus/client_golang v1.18.0/go.mod h1:T+GXkCk5wSJyOqMIzVgvvjFDlkOQntgjkJWKrN5txjA=
 github.com/prometheus/client_model v0.0.0-20180712105110-5c3871d89910/go.mod h1:MbSGuTsp3dbXC40dX6PRTWyKYBIrTGTE9sqQNg2J8bo=
 github.com/prometheus/client_model v0.0.0-20190115171406-56726106282f/go.mod h1:MbSGuTsp3dbXC40dX6PRTWyKYBIrTGTE9sqQNg2J8bo=
 github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90/go.mod h1:xMI15A0UPsDsEKsMN9yxemIoYk6Tm2C1GtYGdfGttqA=
@@ -1311,8 +1313,6 @@ github.com/shopspring/decimal v1.3.1/go.mod h1:DKyhrW/HYNuLGql+MJL6WCR6knT2jwCFR
 github.com/shurcooL/go v0.0.0-20180423040247-9e1955d9fb6e/go.mod h1:TDJrrUr11Vxrven61rcy3hJMUqaf/CLWYhHNPmT14Lk=
 github.com/shurcooL/go-goon v0.0.0-20170922171312-37c2f522c041/go.mod h1:N5mDOmsrJOB+vfqUK+7DmDyjhSLIIBnXo9lvZJj3MWQ=
 github.com/shurcooL/sanitized_anchor_name v1.0.0/go.mod h1:1NzhyTcUVG4SuEtjjoZeVRXNmyL/1OwPU0+IJeTBvfc=
-github.com/sigstore/cosign/v2 v2.2.2 h1:V1uE1/QnKGfj77vuqlEGBg6O2ZJqOrWkLwjTC21Vxw0=
-github.com/sigstore/cosign/v2 v2.2.2/go.mod h1:bNmX0qyby7sgcqY9oY/jy5m+XJ3N3LtpOsNfO+A1CGo=
 github.com/sigstore/fulcio v1.4.3 h1:9JcUCZjjVhRF9fmhVuz6i1RyhCc/EGCD7MOl+iqCJLQ=
 github.com/sigstore/fulcio v1.4.3/go.mod h1:BQPWo7cfxmJwgaHlphUHUpFkp5+YxeJes82oo39m5og=
 github.com/sigstore/k8s-manifest-sigstore v0.5.1 h1:jGYuk6LXJm/GzZB/RR2RZ23T84BCP/j96jmhWRV2Q+g=
@@ -2226,8 +2226,6 @@ k8s.io/kube-openapi v0.0.0-20231113174909-778a5567bc1e h1:snPmy96t93RredGRjKfMFt
 k8s.io/kube-openapi v0.0.0-20231113174909-778a5567bc1e/go.mod h1:AsvuZPBlUDVuCdzJ87iajxtXuR9oktsTctW/R9wwouA=
 k8s.io/kubectl v0.28.4 h1:gWpUXW/T7aFne+rchYeHkyB8eVDl5UZce8G4X//kjUQ=
 k8s.io/kubectl v0.28.4/go.mod h1:CKOccVx3l+3MmDbkXtIUtibq93nN2hkDR99XDCn7c/c=
-k8s.io/pod-security-admission v0.29.0 h1:tY/ldtkbBCulMYVSWg6ZDLlgDYDWy6rLj8e/AgmwSj4=
-k8s.io/pod-security-admission v0.29.0/go.mod h1:bGIeKCzU0Q0Nl185NHmqcMCiOjTcqTrBfAQaeupwq0E=
 k8s.io/utils v0.0.0-20201110183641-67b214c5f920/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
 k8s.io/utils v0.0.0-20210111153108-fddb29f9d009/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
 k8s.io/utils v0.0.0-20231127182322-b307cd553661 h1:FepOBzJ0GXm8t0su67ln2wAZjbQ6RxQGZDnzuLcrUTI=
@@ -2250,6 +2248,8 @@ sigs.k8s.io/controller-runtime v0.16.3 h1:2TuvuokmfXvDUamSx1SuAOO3eTyye+47mJCigw
 sigs.k8s.io/controller-runtime v0.16.3/go.mod h1:j7bialYoSn142nv9sCOJmQgDXQXxnroFU4VnX/brVJ0=
 sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd h1:EDPBXCAspyGV4jQlpZSudPeMmr1bNJefnuqLsRAsHZo=
 sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd/go.mod h1:B8JuhiUyNFVKdsE8h686QcCxMaH6HrOAZj4vswFpcB0=
+sigs.k8s.io/kubectl-validate v0.0.2-0.20240102223437-fe143bcde89f h1:RPwKaV6OnIKUoI+cU8E35rYXt1ez9mjF5p9cOz9OgqE=
+sigs.k8s.io/kubectl-validate v0.0.2-0.20240102223437-fe143bcde89f/go.mod h1:Y67xSi06L5XSl+jSGFamNoa117yq6SnN4yXIzWHWxU8=
 sigs.k8s.io/kustomize/api v0.16.0 h1:/zAR4FOQDCkgSDmVzV2uiFbuy9bhu3jEzthrHCuvm1g=
 sigs.k8s.io/kustomize/api v0.16.0/go.mod h1:MnFZ7IP2YqVyVwMWoRxPtgl/5hpA+eCCrQR/866cm5c=
 sigs.k8s.io/kustomize/kyaml v0.16.0 h1:6J33uKSoATlKZH16unr2XOhDI+otoe2sR3M8PDzW3K0=

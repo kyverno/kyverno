@@ -104,45 +104,5 @@ func canGenerateVAP(spec *kyvernov1.Spec) (bool, string) {
 		}
 	}
 
-	// since 'any' specify resources which will be ORed, it can be converted into multiple NamedRuleWithOperations in ValidatingAdmissionPolicy
-	for _, value := range exclude.Any {
-		if ok, msg := checkUserInfo(value.UserInfo); !ok {
-			return false, msg
-		}
-		if ok, msg := checkResources(value.ResourceDescription); !ok {
-			return false, msg
-		}
-
-		// since namespace/object selectors are applied to all NamedRuleWithOperations in ValidatingAdmissionPolicy, then
-		// multiple namespace/object selectors aren't applicable across the `any` clause.
-		if value.NamespaceSelector != nil {
-			if containsNamespaceSelector {
-				msg = "skip generating ValidatingAdmissionPolicy: multiple NamespaceSelector across 'any' aren't applicable."
-				return false, msg
-			}
-			containsNamespaceSelector = true
-		}
-		if value.Selector != nil {
-			if containsObjectSelector {
-				msg = "skip generating ValidatingAdmissionPolicy: multiple ObjectSelector across 'any' aren't applicable."
-				return false, msg
-			}
-			containsObjectSelector = true
-		}
-	}
-	// since 'all' specify resources which will be ANDed, we can't have more than one resource.
-	if exclude.All != nil {
-		if len(exclude.All) > 1 {
-			msg = "skip generating ValidatingAdmissionPolicy: multiple 'all' isn't applicable."
-			return false, msg
-		} else {
-			if ok, msg := checkUserInfo(exclude.All[0].UserInfo); !ok {
-				return false, msg
-			}
-			if ok, msg := checkResources(exclude.All[0].ResourceDescription); !ok {
-				return false, msg
-			}
-		}
-	}
 	return true, msg
 }
