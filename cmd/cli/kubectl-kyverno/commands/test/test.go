@@ -146,7 +146,7 @@ func runTest(out io.Writer, testCase test.TestCase, auditWarn bool) ([]engineapi
 			Client:                    dClient,
 			Subresources:              vars.Subresources(),
 			Out:                       out,
-			RegistryClient:            store.GetRegistryClient(),
+			RegistryClient:            rclient,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
