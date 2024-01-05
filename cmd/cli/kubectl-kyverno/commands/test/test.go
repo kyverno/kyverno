@@ -23,6 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -123,6 +124,10 @@ func runTest(out io.Writer, testCase test.TestCase, auditWarn bool) ([]engineapi
 			continue
 		}
 		validPolicies = append(validPolicies, pol)
+	}
+	rclient := store.GetRegistryClient()
+	if rclient == nil {
+		rclient = registryclient.NewOrDie()
 	}
 	// execute engine
 	var engineResponses []engineapi.EngineResponse
