@@ -24,6 +24,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables/operator"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/utils/api"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -906,16 +907,12 @@ func validateValidationForEach(foreach []kyvernov1.ForEachValidation, schemaKey 
 			}
 		}
 		if fe.ForEachValidation != nil {
-			fe := kyvernov1.FromJSON(fe.ForEachValidation)
-			foreachConditions, err := apiutils.ApiextensionsJsonToKyvernoConditions(fe)
+			nestedForEach, err := api.DeserializeJSONArray[kyvernov1.ForEachValidation](fe.ForEachValidation)
 			if err != nil {
 				return schemaKey, err
 			}
-			switch typedForEachConditions := foreachConditions.(type) {
-			case []kyvernov1.ForEachValidation:
-				if path, err := validateValidationForEach(typedForEachConditions, schemaKey); err != nil {
-					return fmt.Sprintf("%s.%s", schemaKey, path), err
-				}
+			if path, err := validateValidationForEach(nestedForEach, schemaKey); err != nil {
+				return fmt.Sprintf("%s.%s", schemaKey, path), err
 			}
 		}
 	}
@@ -930,16 +927,12 @@ func validateMutationForEach(foreach []kyvernov1.ForEachMutation, schemaKey stri
 			}
 		}
 		if fe.ForEachMutation != nil {
-			fe := kyvernov1.FromJSON(fe.ForEachMutation)
-			foreachConditions, err := apiutils.ApiextensionsJsonToKyvernoConditions(fe)
+			nestedForEach, err := api.DeserializeJSONArray[kyvernov1.ForEachMutation](fe.ForEachMutation)
 			if err != nil {
 				return schemaKey, err
 			}
-			switch typedForEachConditions := foreachConditions.(type) {
-			case []kyvernov1.ForEachMutation:
-				if path, err := validateMutationForEach(typedForEachConditions, schemaKey); err != nil {
-					return fmt.Sprintf("%s.%s", schemaKey, path), err
-				}
+			if path, err := validateMutationForEach(nestedForEach, schemaKey); err != nil {
+				return fmt.Sprintf("%s.%s", schemaKey, path), err
 			}
 		}
 	}
