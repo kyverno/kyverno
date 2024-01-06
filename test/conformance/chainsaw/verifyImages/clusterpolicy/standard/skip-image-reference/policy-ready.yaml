@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v2beta1
 kind: ClusterPolicy
 metadata:
-  name: exclude-refs
+  name: verify-exclude-refs
 status:
   conditions:
   - reason: Succeeded
