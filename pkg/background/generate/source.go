@@ -30,6 +30,6 @@ func addSourceLabels(source *unstructured.Unstructured) {
 	labels[common.GenerateSourceVersionLabel] = source.GroupVersionKind().Version
 	labels[common.GenerateSourceKindLabel] = source.GetKind()
 	labels[common.GenerateSourceNSLabel] = source.GetNamespace()
-	labels[common.GenerateSourceNameLabel] = source.GetName()
+	labels[common.GenerateSourceUIDLabel] = string(source.GetUID())
 	source.SetLabels(labels)
 }

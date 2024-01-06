@@ -3,6 +3,8 @@ package client
 import (
 	"github.com/go-logr/logr"
 	github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2beta1"
+	cleanuppolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov2beta1/cleanuppolicies"
+	clustercleanuppolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov2beta1/clustercleanuppolicies"
 	clusterpolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov2beta1/clusterpolicies"
 	policies "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov2beta1/policies"
 	policyexceptions "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov2beta1/policyexceptions"
@@ -31,6 +33,14 @@ type withMetrics struct {
 func (c *withMetrics) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+func (c *withMetrics) CleanupPolicies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2beta1.CleanupPolicyInterface {
+	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "CleanupPolicy", c.clientType)
+	return cleanuppolicies.WithMetrics(c.inner.CleanupPolicies(namespace), recorder)
+}
+func (c *withMetrics) ClusterCleanupPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2beta1.ClusterCleanupPolicyInterface {
+	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "ClusterCleanupPolicy", c.clientType)
+	return clustercleanuppolicies.WithMetrics(c.inner.ClusterCleanupPolicies(), recorder)
+}
 func (c *withMetrics) ClusterPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2beta1.ClusterPolicyInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "ClusterPolicy", c.clientType)
 	return clusterpolicies.WithMetrics(c.inner.ClusterPolicies(), recorder)
@@ -52,6 +62,12 @@ type withTracing struct {
 func (c *withTracing) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+func (c *withTracing) CleanupPolicies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2beta1.CleanupPolicyInterface {
+	return cleanuppolicies.WithTracing(c.inner.CleanupPolicies(namespace), c.client, "CleanupPolicy")
+}
+func (c *withTracing) ClusterCleanupPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2beta1.ClusterCleanupPolicyInterface {
+	return clustercleanuppolicies.WithTracing(c.inner.ClusterCleanupPolicies(), c.client, "ClusterCleanupPolicy")
+}
 func (c *withTracing) ClusterPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2beta1.ClusterPolicyInterface {
 	return clusterpolicies.WithTracing(c.inner.ClusterPolicies(), c.client, "ClusterPolicy")
 }
@@ -69,6 +85,12 @@ type withLogging struct {
 
 func (c *withLogging) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
+}
+func (c *withLogging) CleanupPolicies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2beta1.CleanupPolicyInterface {
+	return cleanuppolicies.WithLogging(c.inner.CleanupPolicies(namespace), c.logger.WithValues("resource", "CleanupPolicies").WithValues("namespace", namespace))
+}
+func (c *withLogging) ClusterCleanupPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2beta1.ClusterCleanupPolicyInterface {
+	return clustercleanuppolicies.WithLogging(c.inner.ClusterCleanupPolicies(), c.logger.WithValues("resource", "ClusterCleanupPolicies"))
 }
 func (c *withLogging) ClusterPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2beta1.ClusterPolicyInterface {
 	return clusterpolicies.WithLogging(c.inner.ClusterPolicies(), c.logger.WithValues("resource", "ClusterPolicies"))

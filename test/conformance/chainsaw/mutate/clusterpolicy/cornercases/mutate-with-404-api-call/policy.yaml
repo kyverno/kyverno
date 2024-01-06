@@ -1,0 +1,23 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-404-api-call
+spec:
+  failurePolicy: Ignore
+  rules:
+  - name: mutate-404-api-call
+    context:
+    - name: val
+      apiCall:
+        service:
+          url: "https://www.google.com/404"
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            foo: "{{ val }}"

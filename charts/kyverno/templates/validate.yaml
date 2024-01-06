@@ -2,12 +2,6 @@
   {{- fail "mode is not supported anymore, please remove it from your release and use admissionController.replicas instead." -}}
 {{- end -}}
 
-{{- if .Values.admissionController.replicas -}}
-  {{- if eq (int .Values.admissionController.replicas) 2 -}}
-    {{- fail "Kyverno does not support running with 2 replicas. For a highly-available deployment, select 3 replicas or for standalone select 1 replica." -}}
-  {{- end -}}
-{{- end -}}
-
 {{- if eq (include "kyverno.namespace" .) "kube-system" -}}
   {{- fail "Kyverno cannot be installed in namespace kube-system." -}}
 {{- end -}}

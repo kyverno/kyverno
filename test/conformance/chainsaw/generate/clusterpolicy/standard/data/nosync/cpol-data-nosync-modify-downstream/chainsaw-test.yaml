@@ -1,0 +1,25 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: cpol-data-nosync-modify-downstream
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-ready.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: resource.yaml
+    - assert:
+        file: resource-generated.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: downstream-modified.yaml
+    - assert:
+        file: downstream-untouched.yaml

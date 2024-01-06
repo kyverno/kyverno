@@ -16,33 +16,23 @@ limitations under the License.
 package v2alpha1
 
 import (
-	"fmt"
-
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
-	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 // +genclient
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:storageversion
 // +kubebuilder:resource:shortName=polex,categories=kyverno
+// +kubebuilder:unservedversion
 
 // PolicyException declares resources to be excluded from specified policies.
 type PolicyException kyvernov2beta1.PolicyException
 
 // Validate implements programmatic validation
 func (p *PolicyException) Validate() (errs field.ErrorList) {
-	if err := ValidateVariables(p); err != nil {
-		errs = append(errs, field.Forbidden(field.NewPath(""), fmt.Sprintf("Policy Exception \"%s\" should not have variables", p.Name)))
-	}
 	errs = append(errs, p.Spec.Validate(field.NewPath("spec"))...)
 	return errs
-}
-
-func ValidateVariables(polex *PolicyException) error {
-	return regex.ObjectHasVariables(polex)
 }
 
 // Contains returns true if it contains an exception for the given policy/rule pair

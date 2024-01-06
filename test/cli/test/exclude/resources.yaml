@@ -1,0 +1,22 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    require-requests-limits.kyverno.io/exclude: "true"
+  name: require-requests-limits-skip
+  namespace: test
+spec:
+  containers:
+    - name: test
+      image: nginx
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: require-requests-limits-failed
+  namespace: ceph-csi
+spec:
+  containers:
+    - name: test
+      image: nginx

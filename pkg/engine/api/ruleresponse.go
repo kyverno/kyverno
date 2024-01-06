@@ -3,7 +3,7 @@ package api
 import (
 	"fmt"
 
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -43,15 +43,22 @@ type RuleResponse struct {
 	// podSecurityChecks contains pod security checks (only if this is a pod security rule)
 	podSecurityChecks *PodSecurityChecks
 	// exception is the exception applied (if any)
-	exception *kyvernov2alpha1.PolicyException
+	exception *kyvernov2beta1.PolicyException
+	// emitWarning enable passing rule message as warning to api server warning header
+	emitWarning bool
 }
 
 func NewRuleResponse(name string, ruleType RuleType, msg string, status RuleStatus) *RuleResponse {
+	emitWarn := false
+	if status == RuleStatusError || status == RuleStatusFail || status == RuleStatusWarn {
+		emitWarn = true
+	}
 	return &RuleResponse{
-		name:     name,
-		ruleType: ruleType,
-		message:  msg,
-		status:   status,
+		name:        name,
+		ruleType:    ruleType,
+		message:     msg,
+		status:      status,
+		emitWarning: emitWarn,
 	}
 }
 
@@ -78,7 +85,7 @@ func RuleFail(name string, ruleType RuleType, msg string) *RuleResponse {
 	return NewRuleResponse(name, ruleType, msg, RuleStatusFail)
 }
 
-func (r RuleResponse) WithException(exception *kyvernov2alpha1.PolicyException) *RuleResponse {
+func (r RuleResponse) WithException(exception *kyvernov2beta1.PolicyException) *RuleResponse {
 	r.exception = exception
 	return &r
 }
@@ -105,11 +112,16 @@ func (r RuleResponse) WithStats(stats ExecutionStats) RuleResponse {
 	return r
 }
 
+func (r RuleResponse) WithEmitWarning(emitWarning bool) *RuleResponse {
+	r.emitWarning = emitWarning
+	return &r
+}
+
 func (r *RuleResponse) Stats() ExecutionStats {
 	return r.stats
 }
 
-func (r *RuleResponse) Exception() *kyvernov2alpha1.PolicyException {
+func (r *RuleResponse) Exception() *kyvernov2beta1.PolicyException {
 	return r.exception
 }
 
@@ -143,6 +155,10 @@ func (r *RuleResponse) RuleType() RuleType {
 
 func (r *RuleResponse) Status() RuleStatus {
 	return r.status
+}
+
+func (r *RuleResponse) EmitWarning() bool {
+	return r.emitWarning
 }
 
 // HasStatus checks if rule status is in a given list

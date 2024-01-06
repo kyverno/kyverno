@@ -40,7 +40,7 @@ The [Kyverno website](https://kyverno.io), like the main Kyverno codebase, is st
 
 New contributors may easily view all [open issues labeled as good first issues](https://github.com/kyverno/kyverno/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) allowing you to get started in an approachable manner.
 
-Once you wish to get started contributing to the code base, please refer to our [running in development mode](https://github.com/kyverno/kyverno/wiki/Running-in-development-mode) for local setup guide.
+Once you wish to get started contributing to the code base, please refer to our [development guide](/DEVELOPMENT.md) for a how-to.
 
 In the process of submitting your PRs, please read and abide by the template provided to ensure the maintainers are able to understand your changes and quickly come up to speed. There are some important pieces that are required outside the code itself. Some of these are up to you, others are up to the maintainers.
 

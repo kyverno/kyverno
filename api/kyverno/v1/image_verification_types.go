@@ -28,6 +28,14 @@ const (
 	GHCR    ImageRegistryCredentialsProvidersType = "github"
 )
 
+var signatureAlgorithmMap = map[string]bool{
+	"":       true,
+	"sha224": true,
+	"sha256": true,
+	"sha384": true,
+	"sha512": true,
+}
+
 // ImageVerification validates that images that match the specified pattern
 // are signed with the supplied public key. Once the image is verified it is
 // mutated to include the SHA digest retrieved during the registration.
@@ -47,6 +55,13 @@ type ImageVerification struct {
 	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
 	// +kubebuilder:validation:Optional
 	ImageReferences []string `json:"imageReferences,omitempty" yaml:"imageReferences,omitempty"`
+
+	// SkipImageReferences is a list of matching image reference patterns that should be skipped.
+	// At least one pattern in the list must match the image for the rule to be skipped. Each image reference
+	// consists of a registry address (defaults to docker.io), repository, image, and tag (defaults to latest).
+	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
+	// +kubebuilder:validation:Optional
+	SkipImageReferences []string `json:"skipImageReferences,omitempty" yaml:"skipImageReferences,omitempty"`
 
 	// Deprecated. Use StaticKeyAttestor instead.
 	Key string `json:"key,omitempty" yaml:"key,omitempty"`
@@ -96,11 +111,11 @@ type ImageVerification struct {
 	// +kubebuilder:validation:Optional
 	Required bool `json:"required" yaml:"required"`
 
-	// ImageRegistryCredentials provides credentials that will be used for authentication with registry
+	// ImageRegistryCredentials provides credentials that will be used for authentication with registry.
 	// +kubebuilder:validation:Optional
 	ImageRegistryCredentials *ImageRegistryCredentials `json:"imageRegistryCredentials,omitempty" yaml:"imageRegistryCredentials,omitempty"`
 
-	// UseCache enables caching of image verify responses for this rule
+	// UseCache enables caching of image verify responses for this rule.
 	// +kubebuilder:default=true
 	// +kubebuilder:validation:Optional
 	UseCache bool `json:"useCache" yaml:"useCache"`
@@ -128,11 +143,11 @@ func (as AttestorSet) RequiredCount() int {
 }
 
 type Attestor struct {
-	// Keys specifies one or more public keys
+	// Keys specifies one or more public keys.
 	// +kubebuilder:validation:Optional
 	Keys *StaticKeyAttestor `json:"keys,omitempty" yaml:"keys,omitempty"`
 
-	// Certificates specifies one or more certificates
+	// Certificates specifies one or more certificates.
 	// +kubebuilder:validation:Optional
 	Certificates *CertificateAttestor `json:"certificates,omitempty" yaml:"certificates,omitempty"`
 
@@ -141,7 +156,7 @@ type Attestor struct {
 	// +kubebuilder:validation:Optional
 	Keyless *KeylessAttestor `json:"keyless,omitempty" yaml:"keyless,omitempty"`
 
-	// Attestor is a nested AttestorSet used to specify a more complex set of match authorities
+	// Attestor is a nested set of Attestor used to specify a more complex set of match authorities.
 	// +kubebuilder:validation:Optional
 	Attestor *apiextv1.JSON `json:"attestor,omitempty" yaml:"attestor,omitempty"`
 
@@ -166,7 +181,7 @@ type StaticKeyAttestor struct {
 	// (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
 	PublicKeys string `json:"publicKeys,omitempty" yaml:"publicKeys,omitempty"`
 
-	// Specify signature algorithm for public keys. Supported values are sha256 and sha512
+	// Specify signature algorithm for public keys. Supported values are sha224, sha256, sha384 and sha512.
 	// +kubebuilder:default=sha256
 	SignatureAlgorithm string `json:"signatureAlgorithm,omitempty" yaml:"signatureAlgorithm,omitempty"`
 
@@ -182,8 +197,8 @@ type StaticKeyAttestor struct {
 	// +kubebuilder:validation:Optional
 	Rekor *Rekor `json:"rekor,omitempty" yaml:"rekor,omitempty"`
 
-	// CTLog provides configuration for validation of SCTs.
-	// If the value is nil, default ctlog public key is used
+	// CTLog (certificate timestamp log) provides a configuration for validation of Signed Certificate
+	// Timestamps (SCTs). If the value is unset, the default behavior by Cosign is used.
 	// +kubebuilder:validation:Optional
 	CTLog *CTLog `json:"ctlog,omitempty" yaml:"ctlog,omitempty"`
 }
@@ -197,11 +212,11 @@ type SecretReference struct {
 }
 
 type CertificateAttestor struct {
-	// Certificate is an optional PEM encoded public certificate.
+	// Cert is an optional PEM-encoded public certificate.
 	// +kubebuilder:validation:Optional
 	Certificate string `json:"cert,omitempty" yaml:"cert,omitempty"`
 
-	// CertificateChain is an optional PEM encoded set of certificates used to verify
+	// CertChain is an optional PEM encoded set of certificates used to verify.
 	// +kubebuilder:validation:Optional
 	CertificateChain string `json:"certChain,omitempty" yaml:"certChain,omitempty"`
 
@@ -210,8 +225,8 @@ type CertificateAttestor struct {
 	// +kubebuilder:validation:Optional
 	Rekor *Rekor `json:"rekor,omitempty" yaml:"rekor,omitempty"`
 
-	// CTLog provides configuration for validation of SCTs.
-	// If the value is nil, default ctlog public key is used
+	// CTLog (certificate timestamp log) provides a configuration for validation of Signed Certificate
+	// Timestamps (SCTs). If the value is unset, the default behavior by Cosign is used.
 	// +kubebuilder:validation:Optional
 	CTLog *CTLog `json:"ctlog,omitempty" yaml:"ctlog,omitempty"`
 }
@@ -222,8 +237,8 @@ type KeylessAttestor struct {
 	// +kubebuilder:validation:Optional
 	Rekor *Rekor `json:"rekor,omitempty" yaml:"rekor,omitempty"`
 
-	// CTLog provides configuration for validation of SCTs.
-	// If the value is nil, default ctlog public key is used
+	// CTLog (certificate timestamp log) provides a configuration for validation of Signed Certificate
+	// Timestamps (SCTs). If the value is unset, the default behavior by Cosign is used.
 	// +kubebuilder:validation:Optional
 	CTLog *CTLog `json:"ctlog,omitempty" yaml:"ctlog,omitempty"`
 
@@ -231,7 +246,7 @@ type KeylessAttestor struct {
 	// +kubebuilder:validation:Optional
 	Issuer string `json:"issuer,omitempty" yaml:"issuer,omitempty"`
 
-	// Subject is the verified identity used for keyless signing, for example the email address
+	// Subject is the verified identity used for keyless signing, for example the email address.
 	// +kubebuilder:validation:Optional
 	Subject string `json:"subject,omitempty" yaml:"subject,omitempty"`
 
@@ -246,27 +261,28 @@ type KeylessAttestor struct {
 }
 
 type Rekor struct {
-	// URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+	// URL is the address of the transparency log. Defaults to the public Rekor log instance https://rekor.sigstore.dev.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:Default:=https://rekor.sigstore.dev
 	URL string `json:"url" yaml:"url"`
 
-	// RekorPubKey is an optional PEM encoded public key to use for a custom Rekor.
-	// If set, is used to validate signatures on log entries from Rekor.
+	// RekorPubKey is an optional PEM-encoded public key to use for a custom Rekor.
+	// If set, this will be used to validate transparency log signatures from a custom Rekor.
 	// +kubebuilder:validation:Optional
 	RekorPubKey string `json:"pubkey,omitempty" yaml:"pubkey,omitempty"`
 
-	// IgnoreTlog skip tlog verification
+	// IgnoreTlog skips transparency log verification.
 	// +kubebuilder:validation:Optional
 	IgnoreTlog bool `json:"ignoreTlog,omitempty" yaml:"ignoreTlog,omitempty"`
 }
 
 type CTLog struct {
-	// IgnoreSCT requires that a certificate contain an embedded SCT during verification.
+	// IgnoreSCT defines whether to use the Signed Certificate Timestamp (SCT) log to check for a certificate
+	// timestamp. Default is false. Set to true if this was opted out during signing.
 	// +kubebuilder:validation:Optional
 	IgnoreSCT bool `json:"ignoreSCT,omitempty" yaml:"ignoreSCT,omitempty"`
 
-	// CTLogPubKey, if set, is used to validate SCTs against those keys.
+	// PubKey, if set, is used to validate SCTs against a custom source.
 	// +kubebuilder:validation:Optional
 	CTLogPubKey string `json:"pubkey,omitempty" yaml:"pubkey,omitempty"`
 }
@@ -283,7 +299,7 @@ type Attestation struct {
 	// +kubebuilder:validation:Optional
 	Type string `json:"type" yaml:"type"`
 
-	// Attestors specify the required attestors (i.e. authorities)
+	// Attestors specify the required attestors (i.e. authorities).
 	// +kubebuilder:validation:Optional
 	Attestors []AttestorSet `json:"attestors" yaml:"attestors"`
 
@@ -294,17 +310,17 @@ type Attestation struct {
 }
 
 type ImageRegistryCredentials struct {
-	// AllowInsecureRegistry allows insecure access to a registry
+	// AllowInsecureRegistry allows insecure access to a registry.
 	// +kubebuilder:validation:Optional
 	AllowInsecureRegistry bool `json:"allowInsecureRegistry,omitempty" yaml:"allowInsecureRegistry,omitempty"`
 
-	// Providers specifies a list of OCI Registry names, whose authentication providers are provided
-	// It can be of one of these values: AWS, ACR, GCP, GHCR
+	// Providers specifies a list of OCI Registry names, whose authentication providers are provided.
+	// It can be of one of these values: default,google,azure,amazon,github.
 	// +kubebuilder:validation:Optional
 	Providers []ImageRegistryCredentialsProvidersType `json:"providers,omitempty" yaml:"providers,omitempty"`
 
-	// Secrets specifies a list of secrets that are provided for credentials
-	// Secrets must live in the Kyverno namespace
+	// Secrets specifies a list of secrets that are provided for credentials.
+	// Secrets must live in the Kyverno namespace.
 	// +kubebuilder:validation:Optional
 	Secrets []string `json:"secrets,omitempty" yaml:"secrets,omitempty"`
 }
@@ -449,8 +465,10 @@ func (ska *StaticKeyAttestor) Validate(path *field.Path) (errs field.ErrorList) 
 	if ska.PublicKeys == "" && ska.KMS == "" && ska.Secret == nil {
 		errs = append(errs, field.Invalid(path, ska, "A public key, kms key or secret is required"))
 	}
-	if ska.PublicKeys != "" && ska.SignatureAlgorithm != "" && ska.SignatureAlgorithm != "sha256" && ska.SignatureAlgorithm != "sha512" {
-		errs = append(errs, field.Invalid(path, ska, "Invalid signature algorithm provided"))
+	if ska.PublicKeys != "" {
+		if _, ok := signatureAlgorithmMap[ska.SignatureAlgorithm]; !ok {
+			errs = append(errs, field.Invalid(path, ska, "Invalid signature algorithm provided"))
+		}
 	}
 	return errs
 }

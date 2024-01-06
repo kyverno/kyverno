@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"k8s.io/client-go/tools/cache"
 )
 
 // ApplyBackgroundChecks checks for validity of generate and mutateExisting rules on the resource
@@ -51,7 +52,7 @@ func (e *engine) filterRule(
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 ) *engineapi.RuleResponse {
-	if !rule.HasGenerate() && !rule.IsMutateExisting() {
+	if !rule.HasGenerate() && !rule.HasMutateExisting() {
 		return nil
 	}
 
@@ -60,10 +61,23 @@ func (e *engine) filterRule(
 		ruleType = engineapi.Generation
 	}
 
-	// check if there is a corresponding policy exception
-	ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule)
-	if ruleResp != nil {
-		return ruleResp
+	// get policy exceptions that matches both policy and rule name
+	exceptions, err := e.GetPolicyExceptions(policyContext.Policy(), rule.Name)
+	if err != nil {
+		logger.Error(err, "failed to get exceptions")
+		return nil
+	}
+	// check if there is a policy exception matches the incoming resource
+	exception := engineutils.MatchesException(exceptions, policyContext, logger)
+	if exception != nil {
+		key, err := cache.MetaNamespaceKeyFunc(exception)
+		if err != nil {
+			logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
+			return engineapi.RuleError(rule.Name, engineapi.Validation, "failed to compute exception key", err)
+		} else {
+			logger.V(3).Info("policy rule skipped due to policy exception", "exception", key)
+			return engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule skipped due to policy exception "+key).WithException(exception)
+		}
 	}
 
 	newResource := policyContext.NewResource()

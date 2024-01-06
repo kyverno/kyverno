@@ -18,6 +18,18 @@ limitations under the License.
 
 package v2beta1
 
+// CleanupPolicyListerExpansion allows custom methods to be added to
+// CleanupPolicyLister.
+type CleanupPolicyListerExpansion interface{}
+
+// CleanupPolicyNamespaceListerExpansion allows custom methods to be added to
+// CleanupPolicyNamespaceLister.
+type CleanupPolicyNamespaceListerExpansion interface{}
+
+// ClusterCleanupPolicyListerExpansion allows custom methods to be added to
+// ClusterCleanupPolicyLister.
+type ClusterCleanupPolicyListerExpansion interface{}
+
 // ClusterPolicyListerExpansion allows custom methods to be added to
 // ClusterPolicyLister.
 type ClusterPolicyListerExpansion interface{}

@@ -4,14 +4,18 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/asn1"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"math"
+	"net"
+	"net/url"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -22,9 +26,9 @@ import (
 	trunc "github.com/aquilax/truncate"
 	"github.com/blang/semver/v4"
 	gojmespath "github.com/kyverno/go-jmespath"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/config"
 	imageutils "github.com/kyverno/kyverno/pkg/utils/image"
-	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	regen "github.com/zach-klippenstein/goregen"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
@@ -73,6 +77,8 @@ var (
 	random                 = "random"
 	x509_decode            = "x509_decode"
 	imageNormalize         = "image_normalize"
+	isExternalURL          = "is_external_url"
+	SHA256                 = "sha256"
 )
 
 func GetFunctions(configuration config.Configuration) []FunctionEntry {
@@ -580,6 +586,26 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		},
 		ReturnType: []jpType{jpString},
 		Note:       "normalizes an image reference",
+	}, {
+		FunctionEntry: gojmespath.FunctionEntry{
+			Name: isExternalURL,
+			Arguments: []argSpec{
+				{Types: []jpType{jpString}},
+			},
+			Handler: jpIsExternalURL,
+		},
+		ReturnType: []jpType{jpBool},
+		Note:       "determine if a URL points to an external network address",
+	}, {
+		FunctionEntry: gojmespath.FunctionEntry{
+			Name: SHA256,
+			Arguments: []argSpec{
+				{Types: []jpType{jpString}},
+			},
+			Handler: jpSha256,
+		},
+		ReturnType: []jpType{jpString},
+		Note:       "generate unique resources name if length exceeds the limit",
 	}}
 }
 
@@ -1220,4 +1246,46 @@ func jpImageNormalize(configuration config.Configuration) gojmespath.JpFunction 
 			return infos.String(), nil
 		}
 	}
+}
+
+func jpIsExternalURL(arguments []interface{}) (interface{}, error) {
+	var err error
+	str, err := validateArg(pathCanonicalize, arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+	parsedURL, err := url.Parse(str.String())
+	if err != nil {
+		return false, err
+	}
+	ip := net.ParseIP(parsedURL.Hostname())
+	if ip != nil {
+		return !(ip.IsLoopback() || ip.IsPrivate()), nil
+	}
+	// If it can't be parsed as an IP, then resolve the domain name
+	ips, err := net.LookupIP(parsedURL.Hostname())
+	if err != nil {
+		return nil, err
+	}
+	for _, ip := range ips {
+		if ip.IsLoopback() || ip.IsPrivate() {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func jpSha256(arguments []interface{}) (interface{}, error) {
+	var err error
+	str, err := validateArg("", arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+	hasher := sha256.New()
+	_, err = hasher.Write([]byte(str.String()))
+	if err != nil {
+		return "", err
+	}
+	hashedBytes := hasher.Sum(nil)
+	return hex.EncodeToString(hashedBytes), nil
 }

@@ -1,0 +1,19 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: background-vars-roles
+spec:
+  steps:
+  - name: step-01
+    try:
+    - script:
+        content: "if kubectl apply -f manifests.yaml 2>&1 | grep -q 'variable {{request.roles}}
+          is not allowed' \nthen \n    echo \"Test succeeded. The phrase 'variable
+          {{request.roles}} is not allowed' is found.\"\n    exit 0\nelse \n    echo
+          \"Test failed. The phrase 'variable {{request.roles}} is not allowed' has
+          not been found.\"\n    exit 1\nfi\n"
+  - name: step-02
+    try:
+    - error:
+        file: chainsaw-step-02-error-1-1.yaml

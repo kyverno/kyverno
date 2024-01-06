@@ -1,0 +1,42 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: target-namespace-scope
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: chainsaw-step-01-apply-1-1.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: policy-pass.yaml
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+        file: policy-fail-0.yaml
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+        file: policy-fail-1.yaml
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+        file: policy-fail-2.yaml
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+        file: policy-fail-3.yaml
+  - name: step-03
+    try:
+    - delete:
+        ref:
+          apiVersion: apiextensions.k8s.io/v1
+          kind: CustomResourceDefinition
+          name: roles.iam.aws.crossplane.io

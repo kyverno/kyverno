@@ -14,13 +14,13 @@ import (
 
 type policyHandlers struct {
 	client                       dclient.Interface
-	backgroungServiceAccountName string
+	backgroundServiceAccountName string
 }
 
 func NewHandlers(client dclient.Interface, serviceaccount string) webhooks.PolicyHandlers {
 	return &policyHandlers{
 		client:                       client,
-		backgroungServiceAccountName: serviceaccount,
+		backgroundServiceAccountName: serviceaccount,
 	}
 }
 
@@ -30,7 +30,7 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 		logger.Error(err, "failed to unmarshal policies from admission request")
 		return admissionutils.Response(request.UID, err)
 	}
-	warnings, err := policyvalidate.Validate(policy, oldPolicy, h.client, false, h.backgroungServiceAccountName)
+	warnings, err := policyvalidate.Validate(policy, oldPolicy, h.client, false, h.backgroundServiceAccountName)
 	if err != nil {
 		logger.Error(err, "policy validation errors")
 	}

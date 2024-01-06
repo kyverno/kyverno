@@ -1,0 +1,8 @@
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: myclonedsecret
+  namespace: poltest
+type: Opaque

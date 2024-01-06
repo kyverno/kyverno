@@ -3,30 +3,17 @@ package color
 import (
 	"strings"
 
-	"github.com/fatih/color"
 	"github.com/kataras/tablewriter"
+	"github.com/kyverno/kyverno/ext/output/color"
 )
 
 var (
-	BoldGreen     *color.Color
-	BoldRed       *color.Color
-	BoldYellow    *color.Color
-	BoldFgCyan    *color.Color
 	HeaderBgColor int
 	HeaderFgColor int
 )
 
-func InitColors(noColor bool) {
-	toggleColor := func(c *color.Color) *color.Color {
-		if noColor {
-			c.DisableColor()
-		}
-		return c
-	}
-	BoldGreen = toggleColor(color.New(color.FgGreen).Add(color.Bold))
-	BoldRed = toggleColor(color.New(color.FgRed).Add(color.Bold))
-	BoldYellow = toggleColor(color.New(color.FgYellow).Add(color.Bold))
-	BoldFgCyan = toggleColor(color.New(color.FgCyan).Add(color.Bold))
+func Init(noColor bool) {
+	color.Init(noColor, false)
 	if !noColor {
 		HeaderBgColor = tablewriter.BgBlackColor
 		HeaderFgColor = tablewriter.FgGreenColor
@@ -42,13 +29,13 @@ func Policy(namespace, name string) string {
 		}
 	}
 	if namespace == "" {
-		return BoldFgCyan.Sprint(name)
+		return color.BoldFgCyan.Sprint(name)
 	}
-	return BoldFgCyan.Sprint(namespace) + "/" + BoldFgCyan.Sprint(name)
+	return color.BoldFgCyan.Sprint(namespace) + "/" + color.BoldFgCyan.Sprint(name)
 }
 
 func Rule(name string) string {
-	return BoldFgCyan.Sprint(name)
+	return color.BoldFgCyan.Sprint(name)
 }
 
 func Resource(kind, namespace, name string) string {
@@ -60,31 +47,35 @@ func Resource(kind, namespace, name string) string {
 		}
 	}
 	if namespace == "" {
-		return BoldFgCyan.Sprint(kind) + "/" + BoldFgCyan.Sprint(name)
+		return color.BoldFgCyan.Sprint(kind) + "/" + color.BoldFgCyan.Sprint(name)
 	}
-	return BoldFgCyan.Sprint(namespace) + "/" + BoldFgCyan.Sprint(kind) + "/" + BoldFgCyan.Sprint(name)
+	return color.BoldFgCyan.Sprint(namespace) + "/" + color.BoldFgCyan.Sprint(kind) + "/" + color.BoldFgCyan.Sprint(name)
+}
+
+func Excluded() string {
+	return color.BoldYellow.Sprint("Excluded")
 }
 
 func NotFound() string {
-	return BoldYellow.Sprint("Not found")
+	return color.BoldYellow.Sprint("Not found")
 }
 
 func ResultPass() string {
-	return BoldGreen.Sprint("Pass")
+	return color.BoldGreen.Sprint("Pass")
 }
 
 func ResultFail() string {
-	return BoldRed.Sprint("Fail")
+	return color.BoldRed.Sprint("Fail")
 }
 
 func ResultWarn() string {
-	return BoldYellow.Sprint("Warn")
+	return color.BoldYellow.Sprint("Warn")
 }
 
 func ResultError() string {
-	return BoldRed.Sprint("Error")
+	return color.BoldRed.Sprint("Error")
 }
 
 func ResultSkip() string {
-	return BoldFgCyan.Sprint("Skip")
+	return color.BoldFgCyan.Sprint("Skip")
 }

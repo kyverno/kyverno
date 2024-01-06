@@ -35,6 +35,7 @@ import (
 )
 
 type PolicyProcessor struct {
+	Store                     *store.Store
 	Policies                  []kyvernov1.PolicyInterface
 	Resource                  unstructured.Unstructured
 	MutateLogPath             string
@@ -62,7 +63,11 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	if p.Client != nil {
 		client = adapters.Client(p.Client)
 	}
-	rclient := registryclient.NewOrDie()
+
+	rclient := p.Store.GetRegistryClient()
+	if rclient == nil {
+		rclient = registryclient.NewOrDie()
+	}
 	eng := engine.NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
@@ -70,7 +75,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		client,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 		imageverifycache.DisabledImageVerifyCache(),
-		store.ContextLoaderFactory(nil),
+		store.ContextLoaderFactory(p.Store, nil),
 		nil,
 		"",
 	)
@@ -98,6 +103,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	var responses []engineapi.EngineResponse
 	// mutate
 	for _, policy := range p.Policies {
+		if !policy.GetSpec().HasMutate() {
+			continue
+		}
 		policyContext, err := p.makePolicyContext(jp, cfg, resource, policy, namespaceLabels, gvk, subresource)
 		if err != nil {
 			return responses, err
@@ -112,6 +120,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	// verify images
 	for _, policy := range p.Policies {
+		if !policy.GetSpec().HasVerifyImages() {
+			continue
+		}
 		policyContext, err := p.makePolicyContext(jp, cfg, resource, policy, namespaceLabels, gvk, subresource)
 		if err != nil {
 			return responses, err
@@ -151,6 +162,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	// validate
 	for _, policy := range p.Policies {
+		if !policyHasValidateOrVerifyImageChecks(policy) {
+			continue
+		}
 		policyContext, err := p.makePolicyContext(jp, cfg, resource, policy, namespaceLabels, gvk, subresource)
 		if err != nil {
 			return responses, err
@@ -161,14 +175,14 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	// generate
 	for _, policy := range p.Policies {
-		if policyHasGenerate(policy) {
+		if policy.GetSpec().HasGenerate() {
 			policyContext, err := p.makePolicyContext(jp, cfg, resource, policy, namespaceLabels, gvk, subresource)
 			if err != nil {
 				return responses, err
 			}
 			generateResponse := eng.ApplyBackgroundChecks(context.TODO(), policyContext)
 			if !generateResponse.IsEmpty() {
-				newRuleResponse, err := handleGeneratePolicy(p.Out, &generateResponse, *policyContext, p.RuleToCloneSourceResource)
+				newRuleResponse, err := handleGeneratePolicy(p.Out, p.Store, &generateResponse, *policyContext, p.RuleToCloneSourceResource)
 				if err != nil {
 					log.Log.Error(err, "failed to apply generate policy")
 				} else {
@@ -196,7 +210,7 @@ func (p *PolicyProcessor) makePolicyContext(
 	var resourceValues map[string]interface{}
 	if p.Variables != nil {
 		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(p.Out, policy, p.Variables.Subresources(), p.Client)
-		vals, err := p.Variables.ComputeVariables(policy.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied /*matches...*/)
+		vals, err := p.Variables.ComputeVariables(p.Store, policy.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied /*matches...*/)
 		if err != nil {
 			return nil, fmt.Errorf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag (%w)",
 				policy.GetName(),
@@ -225,6 +239,13 @@ func (p *PolicyProcessor) makePolicyContext(
 		return nil, fmt.Errorf("failed to create policy context (%w)", err)
 	}
 	if operation == kyvernov1.Update {
+		resource := resource.DeepCopy()
+		policyContext = policyContext.WithOldResource(*resource)
+		if err := policyContext.JSONContext().AddOldResource(resource.Object); err != nil {
+			return nil, fmt.Errorf("failed to update old resource in json context (%w)", err)
+		}
+	}
+	if operation == kyvernov1.Delete {
 		policyContext = policyContext.WithOldResource(resource)
 		if err := policyContext.JSONContext().AddOldResource(resource.Object); err != nil {
 			return nil, fmt.Errorf("failed to update old resource in json context (%w)", err)
