@@ -89,7 +89,7 @@ func Command() *cobra.Command {
 			} else if table {
 				printTable(out, detailedResults, applyCommandConfig.AuditWarn, responses...)
 			} else {
-				printViolations(out, rc)
+				printViolations(out, rc, skipInvalidPolicies)
 			}
 			return exit(rc, applyCommandConfig.warnExitCode, applyCommandConfig.warnNoPassed)
 		},
@@ -438,8 +438,16 @@ func printReport(out io.Writer, engineResponses []engineapi.EngineResponse, audi
 	}
 }
 
-func printViolations(out io.Writer, rc *processor.ResultCounts) {
-	fmt.Fprintf(out, "\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n", rc.Pass(), rc.Fail(), rc.Warn(), rc.Error(), rc.Skip())
+func printViolations(out io.Writer, rc *processor.ResultCounts, skipInvalidPolicies SkippedInvalidPolicies) {
+	if len(skipInvalidPolicies.invalid) > 0 || len(skipInvalidPolicies.skipped) > 0 {
+		if len(skipInvalidPolicies.invalid) > 0 {
+			fmt.Fprintf(out, "\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n", rc.Pass(), rc.Fail(), rc.Warn(), len(skipInvalidPolicies.invalid), rc.Skip())
+		} else {
+			fmt.Fprintf(out, "\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n", rc.Pass(), rc.Fail(), rc.Warn(), len(skipInvalidPolicies.skipped), rc.Skip())
+		}
+	} else {
+		fmt.Fprintf(out, "\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n", rc.Pass(), rc.Fail(), rc.Warn(), rc.Error(), rc.Skip())
+	}
 }
 
 func exit(rc *processor.ResultCounts, warnExitCode int, warnNoPassed bool) error {
