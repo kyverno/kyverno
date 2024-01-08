@@ -29,6 +29,8 @@ global:
   # extraEnvVars:
   # - name: HTTPS_PROXY
   #   value: 'https://proxy.example.com:3128'
+  # -- Global node labels for pod assignment. Non-global values will override the global value.
+  nodeSelector: {}
 
 # -- (string) Override the name of the chart
 nameOverride: ~

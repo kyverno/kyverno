@@ -6,10 +6,10 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	corev1 "k8s.io/api/core/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
 )
@@ -29,6 +29,9 @@ type generator struct {
 	// recorders
 	recorders map[Source]events.EventRecorder
 
+	// client
+	eventsClient eventsv1.EventsV1Interface
+
 	// config
 	omitEvents sets.Set[string]
 	logger     logr.Logger
@@ -46,13 +49,14 @@ type Controller interface {
 }
 
 // NewEventGenerator to generate a new event controller
-func NewEventGenerator(client dclient.Interface, logger logr.Logger, omitEvents ...string) Controller {
+func NewEventGenerator(eventsClient eventsv1.EventsV1Interface, logger logr.Logger, omitEvents ...string) Controller {
 	return &generator{
 		broadcaster: events.NewBroadcaster(&events.EventSinkImpl{
-			Interface: client.GetEventsInterface(),
+			Interface: eventsClient,
 		}),
-		omitEvents: sets.New(omitEvents...),
-		logger:     logger,
+		eventsClient: eventsClient,
+		omitEvents:   sets.New(omitEvents...),
+		logger:       logger,
 	}
 }
 
