@@ -99,15 +99,11 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 	logger.Info("start processing UR", "ur", ur.Name, "resourceVersion", ur.GetResourceVersion())
 
 	trigger, err := c.getTrigger(ur.Spec)
-	if err != nil {
-		logger.V(3).Info("the trigger resource does not exist or is pending creation, re-queueing", "details", err.Error())
+	if err != nil || trigger == nil {
+		logger.V(3).Info("the trigger resource does not exist or is pending creation")
 		if err := updateStatus(c.statusControl, *ur, err, nil); err != nil {
 			return err
 		}
-		return nil
-	}
-
-	if trigger == nil {
 		return nil
 	}
 
