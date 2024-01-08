@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
@@ -33,8 +34,7 @@ spec:
     try:
     - script:
         content: "kubectl delete ns cpol-data-trigger-not-present-ns"
-    - sleep:
-        duration: 10s
+        timeout: 2m
   - name: step-07
     try:
     - script:
