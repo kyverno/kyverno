@@ -24,10 +24,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	regex "github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/event"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	validationpolicy "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -282,8 +284,6 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 
 	// Apply the generate rule on resource
 	genResources, err := c.ApplyGeneratePolicy(logger, policyContext, ur, applicableRules)
-
-	// generate events.
 	if err == nil {
 		for _, res := range genResources {
 			e := event.NewResourceGenerationEvent(ur.Spec.Policy, ur.Spec.Rule, event.GeneratePolicyController, res)
@@ -352,6 +352,20 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 			continue
 		}
 
+		ruleRaw, err := json.Marshal(rule.DeepCopy())
+		if err != nil {
+			return nil, fmt.Errorf("failed to serialize the policy: %v", err)
+		}
+		vars := regex.RegexVariables.FindAllStringSubmatch(string(ruleRaw), -1)
+
+		for _, s := range vars {
+			for _, banned := range validationpolicy.ForbiddenUserVariables {
+				if banned.Match([]byte(s[2])) {
+					log.Info("warning: resources with admission request variables may not be regenerated", "policy", policy.GetName(), "rule", rule.Name, "variable", s[2])
+				}
+			}
+		}
+
 		startTime := time.Now()
 		var genResource []kyvernov1.ResourceSpec
 		if applyRules == kyvernov1.ApplyOne && applyCount > 0 {
@@ -365,7 +379,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 		}
 
 		if rule, err = variables.SubstituteAllInRule(log, policyContext.JSONContext(), rule); err != nil {
-			log.Error(err, "variable substitution failed for rule %s", rule.Name)
+			log.Error(err, "variable substitution failed for rule", "rule", rule.Name)
 			return nil, err
 		}
 
