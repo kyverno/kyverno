@@ -352,16 +352,18 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 			continue
 		}
 
-		ruleRaw, err := json.Marshal(rule.DeepCopy())
-		if err != nil {
-			return nil, fmt.Errorf("failed to serialize the policy: %v", err)
-		}
-		vars := regex.RegexVariables.FindAllStringSubmatch(string(ruleRaw), -1)
+		if rule.Generation.Synchronize {
+			ruleRaw, err := json.Marshal(rule.DeepCopy())
+			if err != nil {
+				return nil, fmt.Errorf("failed to serialize the policy: %v", err)
+			}
+			vars := regex.RegexVariables.FindAllStringSubmatch(string(ruleRaw), -1)
 
-		for _, s := range vars {
-			for _, banned := range validationpolicy.ForbiddenUserVariables {
-				if banned.Match([]byte(s[2])) {
-					log.Info("warning: resources with admission request variables may not be regenerated", "policy", policy.GetName(), "rule", rule.Name, "variable", s[2])
+			for _, s := range vars {
+				for _, banned := range validationpolicy.ForbiddenUserVariables {
+					if banned.Match([]byte(s[2])) {
+						log.Info("warning: resources with admission request variables may not be regenerated", "policy", policy.GetName(), "rule", rule.Name, "variable", s[2])
+					}
 				}
 			}
 		}
