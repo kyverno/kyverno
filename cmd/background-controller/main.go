@@ -101,7 +101,6 @@ func main() {
 		internal.WithTracing(),
 		internal.WithKubeconfig(),
 		internal.WithPolicyExceptions(),
-		internal.WithResourceCache(),
 		internal.WithConfigMapCaching(),
 		internal.WithDeferredLoading(),
 		internal.WithRegistryClient(),

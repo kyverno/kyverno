@@ -20,7 +20,6 @@ import (
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	ttlcontroller "github.com/kyverno/kyverno/pkg/controllers/ttl"
-	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
@@ -164,7 +163,6 @@ func main() {
 			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 
 			cmResolver := internal.NewConfigMapResolver(ctx, setup.Logger, setup.KubeClient, resyncPeriod)
-			resourceCache := internal.NewResourceCacheLoader(ctx, setup.Logger, setup.Jp, setup.KyvernoClient, setup.DynamicClient, apicall.NewAPICallConfiguration(maxAPICallResponseLength), resyncPeriod)
 
 			// controllers
 			renewer := tls.NewCertRenewer(
@@ -278,7 +276,6 @@ func main() {
 					nsLister,
 					setup.Configuration,
 					cmResolver,
-					resourceCache,
 					setup.Jp,
 					eventGenerator,
 				),
