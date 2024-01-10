@@ -35,6 +35,7 @@ func GetResources(
 	cluster bool,
 	namespace string,
 	policyReport bool,
+	isGenericResource bool,
 ) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	var err error
@@ -62,7 +63,7 @@ func GetResources(
 			}
 		}
 	} else if len(resourcePaths) > 0 {
-		resources, err = whenClusterIsFalse(out, resourcePaths, policyReport)
+		resources, err = whenClusterIsFalse(out, resourcePaths, policyReport, isGenericResource)
 		if err != nil {
 			return resources, err
 		}
@@ -102,7 +103,7 @@ func whenClusterIsTrue(out io.Writer, resourceTypes []schema.GroupVersionKind, s
 	return resources, nil
 }
 
-func whenClusterIsFalse(out io.Writer, resourcePaths []string, policyReport bool) ([]*unstructured.Unstructured, error) {
+func whenClusterIsFalse(out io.Writer, resourcePaths []string, policyReport bool, isGenericResource bool) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	for _, resourcePath := range resourcePaths {
 		resourceBytes, err := resource.GetFileBytes(resourcePath)
@@ -115,9 +116,21 @@ func whenClusterIsFalse(out io.Writer, resourcePaths []string, policyReport bool
 			continue
 		}
 
-		getResources, err := resource.GetUnstructuredResources(resourceBytes)
-		if err != nil {
-			return nil, err
+		fmt.Print("gonna fire GetUnstructuredResources\n")
+
+		var getResources []*unstructured.Unstructured
+		if isGenericResource {
+			getResources, err = resource.GetUnstructuredResources(resourceBytes)
+			if err != nil {
+				fmt.Print("error in getUnstructuredResources\n")
+				return nil, err
+			}
+		} else {
+			getResources, err = resource.GetUnstructuredGenericResources(resourceBytes)
+			if err != nil {
+				fmt.Print("error in getUnstructuredResources\n")
+				return nil, err
+			}
 		}
 
 		resources = append(resources, getResources...)
