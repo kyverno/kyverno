@@ -42,34 +42,37 @@ func NewGenerationHandler(
 	urGenerator webhookgenerate.Generator,
 	eventGen event.Interface,
 	metrics metrics.MetricsConfigManager,
+	backgroundServiceAccountName string,
 ) GenerationHandler {
 	return &generationHandler{
-		log:           log,
-		engine:        engine,
-		client:        client,
-		kyvernoClient: kyvernoClient,
-		nsLister:      nsLister,
-		urLister:      urLister,
-		cpolLister:    cpolLister,
-		polLister:     polLister,
-		urGenerator:   urGenerator,
-		eventGen:      eventGen,
-		metrics:       metrics,
+		log:                          log,
+		engine:                       engine,
+		client:                       client,
+		kyvernoClient:                kyvernoClient,
+		nsLister:                     nsLister,
+		urLister:                     urLister,
+		cpolLister:                   cpolLister,
+		polLister:                    polLister,
+		urGenerator:                  urGenerator,
+		eventGen:                     eventGen,
+		metrics:                      metrics,
+		backgroundServiceAccountName: backgroundServiceAccountName,
 	}
 }
 
 type generationHandler struct {
-	log           logr.Logger
-	engine        engineapi.Engine
-	client        dclient.Interface
-	kyvernoClient versioned.Interface
-	nsLister      corev1listers.NamespaceLister
-	urLister      kyvernov1beta1listers.UpdateRequestNamespaceLister
-	cpolLister    kyvernov1listers.ClusterPolicyLister
-	polLister     kyvernov1listers.PolicyLister
-	urGenerator   webhookgenerate.Generator
-	eventGen      event.Interface
-	metrics       metrics.MetricsConfigManager
+	log                          logr.Logger
+	engine                       engineapi.Engine
+	client                       dclient.Interface
+	kyvernoClient                versioned.Interface
+	nsLister                     corev1listers.NamespaceLister
+	urLister                     kyvernov1beta1listers.UpdateRequestNamespaceLister
+	cpolLister                   kyvernov1listers.ClusterPolicyLister
+	polLister                    kyvernov1listers.PolicyLister
+	urGenerator                  webhookgenerate.Generator
+	eventGen                     event.Interface
+	metrics                      metrics.MetricsConfigManager
+	backgroundServiceAccountName string
 }
 
 func (h *generationHandler) Handle(
@@ -83,6 +86,9 @@ func (h *generationHandler) Handle(
 		h.handleTrigger(ctx, request, policies, policyContext)
 	}
 
+	if h.backgroundServiceAccountName == policyContext.AdmissionInfo().AdmissionUserInfo.Username {
+		return
+	}
 	h.handleNonTrigger(ctx, policyContext, request)
 }
 
