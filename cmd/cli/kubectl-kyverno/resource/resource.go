@@ -36,6 +36,13 @@ func GetUnstructuredResources(resourceBytes []byte) ([]*unstructured.Unstructure
 }
 
 func YamlToUnstructured(resourceYaml []byte, isGenericResource bool) (*unstructured.Unstructured, error) {
+	decode := scheme.Codecs.UniversalDeserializer().Decode
+	_, metaData, decodeErr := decode(resourceYaml, nil, nil)
+	if decodeErr != nil {
+		if !strings.Contains(decodeErr.Error(), "no kind") && !isGenericResource {
+			return nil, decodeErr
+		}
+	}
 
 	resourceJSON, err := yaml.YAMLToJSON(resourceYaml)
 
@@ -44,14 +51,6 @@ func YamlToUnstructured(resourceYaml []byte, isGenericResource bool) (*unstructu
 		resourceJSON, appendErr = prependGVKToGenericJSON(resourceJSON)
 		if err != nil {
 			return nil, appendErr
-		}
-	}
-
-	decode := scheme.Codecs.UniversalDeserializer().Decode
-	_, metaData, decodeErr := decode(resourceYaml, nil, nil)
-	if decodeErr != nil {
-		if !strings.Contains(decodeErr.Error(), "no kind") {
-			return nil, decodeErr
 		}
 	}
 
@@ -129,6 +128,8 @@ func GetFileBytes(path string) ([]byte, error) {
 	}
 }
 
+// Almost all of the code is identical to GetUnstructuredResources, we take this in favor of not breaking
+// other parts of the code which use GetUnstructuredResources
 func GetUnstructuredGenericResources(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
 	var resources []*unstructured.Unstructured
 	isGenericResource := true
@@ -139,7 +140,6 @@ func GetUnstructuredGenericResources(resourceBytes []byte) ([]*unstructured.Unst
 	for _, document := range documents {
 		resource, err := YamlToUnstructured(document, isGenericResource)
 		if err != nil {
-			fmt.Print("Error in YamlToUnstructured\n")
 			return nil, err
 		}
 		resources = append(resources, resource)
