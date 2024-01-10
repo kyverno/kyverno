@@ -2,6 +2,7 @@ package resource
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -25,7 +26,7 @@ func GetUnstructuredResources(resourceBytes []byte) ([]*unstructured.Unstructure
 		return nil, err
 	}
 	for _, document := range documents {
-		resource, err := YamlToUnstructured(document)
+		resource, err := YamlToUnstructured(document, false)
 		if err != nil {
 			return nil, err
 		}
@@ -34,7 +35,18 @@ func GetUnstructuredResources(resourceBytes []byte) ([]*unstructured.Unstructure
 	return resources, nil
 }
 
-func YamlToUnstructured(resourceYaml []byte) (*unstructured.Unstructured, error) {
+func YamlToUnstructured(resourceYaml []byte, isGenericResource bool) (*unstructured.Unstructured, error) {
+
+	resourceJSON, err := yaml.YAMLToJSON(resourceYaml)
+
+	if isGenericResource {
+		var appendErr error
+		resourceJSON, appendErr = prependGVKToGenericJSON(resourceJSON)
+		if err != nil {
+			return nil, appendErr
+		}
+	}
+
 	decode := scheme.Codecs.UniversalDeserializer().Decode
 	_, metaData, decodeErr := decode(resourceYaml, nil, nil)
 	if decodeErr != nil {
@@ -42,10 +54,7 @@ func YamlToUnstructured(resourceYaml []byte) (*unstructured.Unstructured, error)
 			return nil, decodeErr
 		}
 	}
-	resourceJSON, err := yaml.YAMLToJSON(resourceYaml)
-	if err != nil {
-		return nil, err
-	}
+
 	resource, err := kubeutils.BytesToUnstructured(resourceJSON)
 	if err != nil {
 		return nil, err
@@ -118,4 +127,41 @@ func GetFileBytes(path string) ([]byte, error) {
 		}
 		return file, nil
 	}
+}
+
+func GetUnstructuredGenericResources(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
+	var resources []*unstructured.Unstructured
+	isGenericResource := true
+	documents, err := yamlutils.SplitDocuments(resourceBytes)
+	if err != nil {
+		return nil, err
+	}
+	for _, document := range documents {
+		resource, err := YamlToUnstructured(document, isGenericResource)
+		if err != nil {
+			fmt.Print("Error in YamlToUnstructured\n")
+			return nil, err
+		}
+		resources = append(resources, resource)
+	}
+	return resources, nil
+}
+
+func prependGVKToGenericJSON(resourceJSON []byte) ([]byte, error) {
+	bytes := map[string]interface{}{}
+
+	if err := json.Unmarshal(resourceJSON, &bytes); err != nil {
+		return nil, fmt.Errorf("Error in unmarshalling to intermediate object: %w", err)
+	}
+
+	bytes["apiVersion"] = "V1"
+	bytes["kind"] = "Deployment"
+
+	finalResourceJSON, err := json.Marshal(bytes)
+
+	if err != nil {
+		return nil, fmt.Errorf("Error in marshalling intermediate object to final JSON: %w", err)
+	}
+
+	return finalResourceJSON, nil
 }
