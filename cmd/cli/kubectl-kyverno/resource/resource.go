@@ -155,7 +155,7 @@ func prependGVKToGenericJSON(resourceJSON []byte) ([]byte, error) {
 	}
 
 	bytes["apiVersion"] = "V1"
-	bytes["kind"] = "Deployment"
+	bytes["kind"] = "GenericJSONResource"
 
 	finalResourceJSON, err := json.Marshal(bytes)
 
