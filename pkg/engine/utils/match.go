@@ -68,6 +68,7 @@ func doesResourceMatchConditionBlock(
 	}
 
 	var errs []error
+	//CHANGE KIND MATCH CONDITION HEREEEEE
 	if len(conditionBlock.Kinds) > 0 {
 		// Matching on ephemeralcontainers even when they are not explicitly specified for backward compatibility.
 		if !matchutils.CheckKind(conditionBlock.Kinds, gvk, subresource, true) {
@@ -263,6 +264,8 @@ func matchesResourceDescriptionMatchHelper(
 	if datautils.DeepEqual(admissionInfo, kyvernov1beta1.RequestInfo{}) {
 		rmr.UserInfo = kyvernov1.UserInfo{}
 	}
+
+	fmt.Print("Inside matchesResourceDescriptionMatchHelper\n")
 
 	// checking if resource matches the rule
 	if !datautils.DeepEqual(rmr.ResourceDescription, kyvernov1.ResourceDescription{}) ||
