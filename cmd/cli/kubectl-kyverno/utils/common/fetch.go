@@ -116,8 +116,6 @@ func whenClusterIsFalse(out io.Writer, resourcePaths []string, policyReport bool
 			continue
 		}
 
-		fmt.Print("gonna fire GetUnstructuredResources\n")
-
 		var getResources []*unstructured.Unstructured
 		if !isGenericResource {
 			getResources, err = resource.GetUnstructuredResources(resourceBytes)
