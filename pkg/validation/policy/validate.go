@@ -424,16 +424,12 @@ func checkClosedBraces(s string) bool {
 	for _, char := range s {
 		switch char {
 		case '{':
-			stack = append(stack, '}')
+			stack = append(stack, char)
 		case '}':
-			if len(stack) == 0 || stack[len(stack)-1] != '}' {
+			if len(stack) == 0 {
 				return false
 			}
 			stack = stack[:len(stack)-1]
-		case '"':
-			start := strings.Index(s[1:], `"`) + 1
-			stack = append(stack, []rune(s[1:start])...)
-			s = s[start+1:]
 		}
 	}
 	return len(stack) == 0
