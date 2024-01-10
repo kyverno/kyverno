@@ -35,13 +35,17 @@ func GetResourceAccordingToResourcePath(
 	namespace string,
 	policyReport bool,
 	policyResourcePath string,
+	isGenericJson bool,
 ) (resources []*unstructured.Unstructured, err error) {
 	if fs != nil {
+		//TODO: add logic here too for generic JSON
 		resources, err = GetResourcesWithTest(out, fs, policies, resourcePaths, policyResourcePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract the resources (%w)", err)
 		}
 	} else {
+		//TODO: add logic here too for generic JSON
+
 		if len(resourcePaths) > 0 && resourcePaths[0] == "-" {
 			if source.IsStdin(resourcePaths[0]) {
 				resourceStr := ""
@@ -57,6 +61,7 @@ func GetResourceAccordingToResourcePath(
 				}
 			}
 		} else {
+
 			if len(resourcePaths) > 0 {
 				fileDesc, err := os.Stat(resourcePaths[0])
 				if err != nil {
@@ -78,7 +83,7 @@ func GetResourceAccordingToResourcePath(
 				}
 			}
 
-			resources, err = GetResources(out, policies, validatingAdmissionPolicies, resourcePaths, dClient, cluster, namespace, policyReport)
+			resources, err = GetResources(out, policies, validatingAdmissionPolicies, resourcePaths, dClient, cluster, namespace, policyReport, isGenericJson)
 			if err != nil {
 				return resources, err
 			}
