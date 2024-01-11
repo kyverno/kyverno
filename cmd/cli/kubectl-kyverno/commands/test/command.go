@@ -115,13 +115,14 @@ func testCommandExecute(
 			if len(filteredResults) == 0 {
 				continue
 			}
-			resourcePath := filepath.Dir(test.Path)
+			// resourcePath := filepath.Dir(test.Path)
 			responses, err := runTest(out, test, registryAccess, false)
 			if err != nil {
 				return fmt.Errorf("failed to run test (%w)", err)
 			}
 			fmt.Fprintln(out, "  Checking results ...")
-			t, err := printTestResult(out, filteredResults, responses, rc, failOnly, detailedResults, test.Fs, resourcePath)
+			// t, err := printTestResult(out, filteredResults, responses, rc, failOnly, detailedResults, test.Fs, resourcePath)
+			t, err := printCheckResult(out, test.Test.Checks, responses /*rc, failOnly, */, detailedResults /*, test.Fs, resourcePath*/)
 			if err != nil {
 				return fmt.Errorf("failed to print test result (%w)", err)
 			}

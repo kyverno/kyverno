@@ -1,16 +1,115 @@
 package test
 
 import (
+	"context"
 	"fmt"
 	"io"
 
 	"github.com/go-git/go-billy/v5"
+	"github.com/kyverno/kyverno-json/pkg/engine/assert"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"k8s.io/apimachinery/pkg/runtime"
 )
+
+func printCheckResult(
+	out io.Writer,
+	checks []v1alpha1.CheckResult,
+	responses []engineapi.EngineResponse,
+	detailedResults bool,
+) (table.Table, error) {
+	printer := table.NewTablePrinter(out)
+	var resultsTable table.Table
+	// testCount := 1
+	for _, check := range checks {
+		// filter engine responses
+		matchingEngineResponses := responses
+		// 1. by resource
+		if check.Match.Resource != nil {
+			var filtered []engineapi.EngineResponse
+			for _, response := range matchingEngineResponses {
+				errs, err := assert.Validate(context.Background(), check.Match.Resource.Value, response.Resource.UnstructuredContent(), nil)
+				if err != nil {
+					return resultsTable, err
+				}
+				if len(errs) == 0 {
+					filtered = append(filtered, response)
+				}
+			}
+			matchingEngineResponses = filtered
+		}
+		// 2. by policy
+		if check.Match.Policy != nil {
+			var filtered []engineapi.EngineResponse
+			for _, response := range matchingEngineResponses {
+				data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(response.Policy().GetPolicy())
+				if err != nil {
+					return resultsTable, err
+				}
+				errs, err := assert.Validate(context.Background(), check.Match.Policy.Value, data, nil)
+				if err != nil {
+					return resultsTable, err
+				}
+				if len(errs) == 0 {
+					filtered = append(filtered, response)
+				}
+			}
+			matchingEngineResponses = filtered
+		}
+		// collect rule responses
+		var matchingRuleResponses []engineapi.RuleResponse
+		for _, response := range matchingEngineResponses {
+			matchingRuleResponses = append(matchingRuleResponses, response.PolicyResponse.Rules...)
+		}
+		// filter rule responses
+		if check.Match.Rule != nil {
+			var filtered []engineapi.RuleResponse
+			for _, response := range matchingRuleResponses {
+				data := map[string]any{
+					"name": response.Name(),
+				}
+				errs, err := assert.Validate(context.Background(), check.Match.Rule.Value, data, nil)
+				if err != nil {
+					return resultsTable, err
+				}
+				if len(errs) == 0 {
+					filtered = append(filtered, response)
+				}
+			}
+			matchingRuleResponses = filtered
+		}
+		// perform check
+		var results []any
+		for _, response := range matchingRuleResponses {
+			data := map[string]any{
+				"name":     response.Name(),
+				"ruleType": response.RuleType(),
+				"message":  response.Message(),
+				"status":   string(response.Status()),
+				// generatedResource unstructured.Unstructured
+				// patchedTarget *unstructured.Unstructured
+				// patchedTargetParentResourceGVR metav1.GroupVersionResource
+				// patchedTargetSubresourceName string
+				// podSecurityChecks contains pod security checks (only if this is a pod security rule)
+				"podSecurityChecks": response.PodSecurityChecks(),
+				"exception ":        response.Exception(),
+			}
+			results = append(results, data)
+		}
+		errs, err := assert.Validate(context.Background(), check.Results.Value, results, nil)
+		if err != nil {
+			return resultsTable, err
+		}
+		fmt.Println(errs)
+	}
+	fmt.Fprintln(out)
+	printer.Print(resultsTable.Rows(detailedResults))
+	fmt.Fprintln(out)
+	return resultsTable, nil
+}
 
 func printTestResult(
 	out io.Writer,
@@ -24,7 +123,6 @@ func printTestResult(
 ) (table.Table, error) {
 	printer := table.NewTablePrinter(out)
 	var resultsTable table.Table
-	var countDeprecatedResource int
 	testCount := 1
 	for _, test := range tests {
 		// lookup matching engine responses (without the resource name)
@@ -36,7 +134,6 @@ func printTestResult(
 		if test.Resources != nil {
 			resources = append(resources, test.Resources...)
 		} else if test.Resource != "" {
-			countDeprecatedResource++
 			resources = append(resources, test.Resource)
 		}
 		for _, resource := range resources {
