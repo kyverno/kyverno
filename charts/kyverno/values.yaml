@@ -728,6 +728,9 @@ admissionController:
     # -- Create RBAC resources
     create: true
 
+    # -- Enable wildcard get/list/watch permissions
+    enableWildcardRBAC: true
+
     serviceAccount:
       # -- The ServiceAccount name
       name:
@@ -1114,6 +1117,9 @@ backgroundController:
     # -- Create RBAC resources
     create: true
 
+    # -- Enable wildcard get/list/watch permissions
+    enableWildcardRBAC: true
+    
     serviceAccount:
       # -- Service account name
       name:
@@ -1127,14 +1133,6 @@ backgroundController:
       # This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`.
       # @default -- See [values.yaml](values.yaml)
       extraResources:
-        - apiGroups:
-            - '*'
-          resources:
-            - '*'
-          verbs:
-            - get
-            - list
-            - watch
         - apiGroups:
             - networking.k8s.io
           resources:
@@ -1696,6 +1694,9 @@ reportsController:
   rbac:
     # -- Create RBAC resources
     create: true
+
+    # -- Enable wildcard get/list/watch permissions
+    enableWildcardRBAC: true
 
     serviceAccount:
       # -- Service account name

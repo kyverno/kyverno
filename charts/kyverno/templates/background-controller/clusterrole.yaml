@@ -18,6 +18,16 @@ metadata:
   labels:
     {{- include "kyverno.background-controller.labels" . | nindent 4 }}
 rules:
+{{- if .Values.backgroundController.rbac.enableWildcardRBAC }}
+  - apiGroups:
+      - '*'
+    resources:
+      - '*'
+    verbs:
+      - get
+      - list
+      - watch
+{{- end }}
   - apiGroups:
       - kyverno.io
     resources:

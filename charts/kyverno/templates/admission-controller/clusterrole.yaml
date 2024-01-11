@@ -127,14 +127,16 @@ rules:
       - get
       - list
       - watch
-  # - apiGroups:
-  #     - '*'
-  #   resources:
-  #     - '*'
-  #   verbs:
-  #     - get
-  #     - list
-  #     - watch
+{{- if .Values.admissionController.rbac.enableWildcardRBAC }}
+  - apiGroups:
+      - '*'
+    resources:
+      - '*'
+    verbs:
+      - get
+      - list
+      - watch
+{{- end }}
 {{- with .Values.admissionController.rbac.clusterRole.extraResources }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
