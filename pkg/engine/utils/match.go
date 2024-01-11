@@ -265,8 +265,6 @@ func matchesResourceDescriptionMatchHelper(
 		rmr.UserInfo = kyvernov1.UserInfo{}
 	}
 
-	fmt.Print("Inside matchesResourceDescriptionMatchHelper\n")
-
 	// checking if resource matches the rule
 	if !datautils.DeepEqual(rmr.ResourceDescription, kyvernov1.ResourceDescription{}) ||
 		!datautils.DeepEqual(rmr.UserInfo, kyvernov1.UserInfo{}) {
