@@ -1119,7 +1119,7 @@ backgroundController:
 
     # -- Enable wildcard get/list/watch permissions
     enableWildcardRBAC: true
-    
+
     serviceAccount:
       # -- Service account name
       name:
