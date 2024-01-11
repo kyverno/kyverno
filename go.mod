@@ -39,7 +39,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0-rc5
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.17.0
+	github.com/prometheus/client_golang v1.18.0
 	github.com/robfig/cron v1.2.0
 	github.com/sigstore/cosign/v2 v2.2.2
 	github.com/sigstore/k8s-manifest-sigstore v0.5.1
@@ -65,7 +65,7 @@ require (
 	go.uber.org/automaxprocs v1.5.3
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.26.0
-	golang.org/x/crypto v0.17.0
+	golang.org/x/crypto v0.18.0
 	golang.org/x/text v0.14.0
 	gomodules.xyz/jsonpatch/v2 v2.4.0
 	google.golang.org/grpc v1.60.1
@@ -78,12 +78,12 @@ require (
 	k8s.io/apiserver v0.29.0
 	k8s.io/cli-runtime v0.29.0
 	k8s.io/client-go v0.29.0
-	k8s.io/klog/v2 v2.110.1
+	k8s.io/klog/v2 v2.120.0
 	k8s.io/kube-aggregator v0.29.0
 	k8s.io/pod-security-admission v0.29.0
 	k8s.io/utils v0.0.0-20231127182322-b307cd553661
 	sigs.k8s.io/controller-runtime v0.16.3
-	sigs.k8s.io/kubectl-validate v0.0.2
+	sigs.k8s.io/kubectl-validate v0.0.2-0.20240102223437-fe143bcde89f
 	sigs.k8s.io/kustomize/api v0.16.0
 	sigs.k8s.io/kustomize/kyaml v0.16.0
 	sigs.k8s.io/release-utils v0.7.7
@@ -171,7 +171,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20230304212654-82a0ddb27589 // indirect
 	github.com/clbanning/mxj/v2 v2.7.0 // indirect
-	github.com/cloudflare/circl v1.3.6 // indirect
+	github.com/cloudflare/circl v1.3.7 // indirect
 	github.com/cockroachdb/apd/v3 v3.2.1 // indirect
 	github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.15.1 // indirect
@@ -362,8 +362,8 @@ require (
 	golang.org/x/net v0.19.0 // indirect
 	golang.org/x/oauth2 v0.15.0 // indirect
 	golang.org/x/sync v0.5.0 // indirect
-	golang.org/x/sys v0.15.0 // indirect
-	golang.org/x/term v0.15.0 // indirect
+	golang.org/x/sys v0.16.0 // indirect
+	golang.org/x/term v0.16.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/tools v0.16.1 // indirect
 	google.golang.org/api v0.154.0 // indirect
@@ -390,5 +390,4 @@ require (
 replace (
 	github.com/sigstore/cosign/v2 => github.com/kyverno/cosign/v2 v2.0.0-20231109090756-51fd41540436
 	k8s.io/pod-security-admission v0.29.0 => github.com/YTGhost/pod-security-admission v0.0.0-20231116105308-8b1daa0177f2
-	sigs.k8s.io/kubectl-validate => github.com/kyverno/kubectl-validate v0.0.0-20231116142848-59e4e6124b70
 )

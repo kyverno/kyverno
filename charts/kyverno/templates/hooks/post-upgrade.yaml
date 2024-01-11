@@ -62,7 +62,7 @@ spec:
       tolerations:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.policyReportsCleanup.nodeSelector }}
+      {{- with .Values.policyReportsCleanup.nodeSelector | default .Values.global.nodeSelector }}
       nodeSelector:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}

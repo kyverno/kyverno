@@ -171,6 +171,25 @@ func printTestResult(
 					testCount++
 					rows = append(rows, row)
 				}
+
+				// if there are no RuleResponse, the resource has been excluded. This is a pass.
+				if len(rows) == 0 {
+					row := table.Row{
+						RowCompact: table.RowCompact{
+							ID:        testCount,
+							Policy:    color.Policy("", test.Policy),
+							Rule:      color.Rule(test.Rule),
+							Resource:  color.Resource(test.Kind, test.Namespace, resource),
+							Result:    color.ResultPass(),
+							Reason:    color.Excluded(),
+							IsFailure: false,
+						},
+						Message: color.Excluded(),
+					}
+					rc.Skip++
+					testCount++
+					rows = append(rows, row)
+				}
 			}
 			// if not found
 			if len(rows) == 0 {
