@@ -204,7 +204,6 @@ func initFlags(config Configuration, opts ...Option) {
 		initPolicyExceptionsFlags()
 	}
 	// resource cache
-	// policy exceptions
 	if config.UsesResourceCache() {
 		initResourceCacheFlags()
 	}

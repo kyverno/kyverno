@@ -71,7 +71,7 @@ func (l *cache) Delete(key string) bool {
 
 	l.store.Del(key)
 	_, ok := l.store.Get(key)
-	return ok
+	return !ok
 }
 
 func ristrettoOnExit(val interface{}) {
