@@ -20,6 +20,7 @@ type Poller interface {
 
 type Getter interface {
 	Get() (interface{}, error)
+	Stop()
 }
 
 type ExternalAPILoader struct {
@@ -35,6 +36,46 @@ type externalEntry struct {
 	ticker    *time.Ticker
 	apicaller *apicall.APICall
 	data      interface{}
+	cancel    context.CancelFunc
+}
+
+func (e *externalEntry) Getter() Getter {
+	return e
+}
+
+func (e *externalEntry) Poller() Poller {
+	return e
+}
+
+func (e *externalEntry) Get() (interface{}, error) {
+	e.Lock()
+	defer e.Unlock()
+	e.logger.V(6).Info("cache entry data", "data", e.data)
+	return e.data, nil
+}
+
+func (e *externalEntry) Stop() {
+	e.cancel()
+}
+
+func (e *externalEntry) Run(ctx context.Context, stopCh <-chan struct{}) {
+	go func() {
+		for {
+			select {
+			case <-e.ticker.C:
+				data, err := e.apicaller.Execute(ctx, e.call)
+				if err != nil {
+					e.logger.Error(err, "failed to get data from api caller")
+					return
+				}
+				e.Lock()
+				e.data = data
+				e.Unlock()
+			case <-stopCh:
+				return
+			}
+		}
+	}()
 }
 
 func New(logger logr.Logger, config apicall.APICallConfiguration) *ExternalAPILoader {
@@ -79,14 +120,15 @@ func (e *ExternalAPILoader) AddEntry(entry *v2alpha1.CachedContextEntry) error {
 	interval := time.Duration(entry.Spec.APICall.RefreshIntervalSeconds*int64(time.Nanosecond)) * time.Second
 	ticker := time.NewTicker(interval)
 
+	ctx, cancel := context.WithCancel(context.Background())
 	extEntry := &externalEntry{
 		logger:    e.logger.WithName("external entry"),
 		call:      rc.APICall.APICall.DeepCopy(),
 		apicaller: executor,
 		ticker:    ticker,
+		cancel:    cancel,
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
 	data, err := extEntry.apicaller.Execute(ctx, extEntry.call)
 	if err != nil {
 		cancel()
@@ -96,14 +138,10 @@ func (e *ExternalAPILoader) AddEntry(entry *v2alpha1.CachedContextEntry) error {
 
 	go extEntry.Poller().Run(ctx, ctx.Done())
 
-	cacheEntry := &cache.CacheEntry{
-		Entry: extEntry.Getter(),
-		Stop:  cancel,
-	}
 	key := getKeyForExternalEntry(rc.APICall.Service.URL, rc.APICall.Service.CABundle, rc.APICall.RefreshIntervalSeconds)
 
 	e.logger.V(2).Info("key", key, "entry", entry)
-	ok := e.cache.Add(key, cacheEntry)
+	ok := e.cache.Add(key, extEntry.Getter())
 	if !ok {
 		err := fmt.Errorf("failed to create cache entry key=%s", key)
 		e.logger.Error(err, "")
@@ -151,39 +189,4 @@ func getKeyForExternalEntry(url, caBundle string, interval int64) string {
 type ExternalInformer interface {
 	Poller() Poller
 	Getter() Getter
-}
-
-func (e *externalEntry) Getter() Getter {
-	return e
-}
-
-func (e *externalEntry) Poller() Poller {
-	return e
-}
-
-func (e *externalEntry) Get() (interface{}, error) {
-	e.Lock()
-	defer e.Unlock()
-	e.logger.V(6).Info("cache entry data", "data", e.data)
-	return e.data, nil
-}
-
-func (e *externalEntry) Run(ctx context.Context, stopCh <-chan struct{}) {
-	go func() {
-		for {
-			select {
-			case <-e.ticker.C:
-				data, err := e.apicaller.Execute(ctx, e.call)
-				if err != nil {
-					e.logger.Error(err, "failed to get data from api caller")
-					return
-				}
-				e.Lock()
-				e.data = data
-				e.Unlock()
-			case <-stopCh:
-				return
-			}
-		}
-	}()
 }

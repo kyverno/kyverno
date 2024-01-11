@@ -1,30 +1,21 @@
 package cache
 
 import (
-	"context"
 	"sync"
 
 	"github.com/dgraph-io/ristretto"
 )
 
 type Cache interface {
-	Add(key string, val *CacheEntry) bool
+	Add(key string, val ResourceEntry) bool
 	Get(key string) (ResourceEntry, bool)
-	Update(key string, val *CacheEntry) bool
+	Update(key string, val ResourceEntry) bool
 	Delete(key string) bool
 }
 
 type ResourceEntry interface {
 	Get() (interface{}, error)
-}
-
-type CacheEntry struct {
-	Entry ResourceEntry
-	Stop  context.CancelFunc
-}
-
-func (c *CacheEntry) Get() (interface{}, error) {
-	return c.Entry.Get()
+	Stop()
 }
 
 type cache struct {
@@ -50,12 +41,9 @@ func New() (Cache, error) {
 	}, nil
 }
 
-func (l *cache) Add(key string, val *CacheEntry) bool {
+func (l *cache) Add(key string, val ResourceEntry) bool {
 	l.Lock()
 	defer l.Unlock()
-	if val.Entry == nil {
-		return false
-	}
 	return l.store.Set(key, val, 0)
 }
 
@@ -67,16 +55,13 @@ func (l *cache) Get(key string) (ResourceEntry, bool) {
 		return nil, ok
 	}
 
-	entry, ok := val.(*CacheEntry)
+	entry, ok := val.(ResourceEntry)
 	return entry, ok
 }
 
-func (l *cache) Update(key string, val *CacheEntry) bool {
+func (l *cache) Update(key string, val ResourceEntry) bool {
 	l.Lock()
 	defer l.Unlock()
-	if val.Entry != nil {
-		return false
-	}
 	return l.store.Set(key, val, 0)
 }
 
@@ -90,7 +75,7 @@ func (l *cache) Delete(key string) bool {
 }
 
 func ristrettoOnExit(val interface{}) {
-	if entry, ok := val.(*CacheEntry); ok {
+	if entry, ok := val.(ResourceEntry); ok {
 		entry.Stop()
 	}
 }

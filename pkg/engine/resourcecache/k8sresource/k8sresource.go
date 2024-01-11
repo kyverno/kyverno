@@ -11,6 +11,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/engine/resourcecache/cache"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -27,6 +28,7 @@ type ResourceLoader struct {
 type resourceEntry struct {
 	logger logr.Logger
 	lister k8scache.GenericNamespaceLister
+	cancel context.CancelFunc
 }
 
 func (re *resourceEntry) Get() (interface{}, error) {
@@ -35,8 +37,19 @@ func (re *resourceEntry) Get() (interface{}, error) {
 		re.logger.Error(err, "failed to fetch data from entry")
 		return nil, err
 	}
-	re.logger.V(6).Info("cache entry data", "len", len(obj), "data", obj)
+	re.logger.V(6).Info("cache entry data", "total fetched:", len(obj))
+	for _, o := range obj {
+		metadata, err := meta.Accessor(o)
+		if err != nil {
+			continue
+		}
+		re.logger.V(6).Info("cache entry data", "name", metadata.GetName(), "namespace", metadata.GetNamespace())
+	}
 	return obj, nil
+}
+
+func (re *resourceEntry) Stop() {
+	re.cancel()
 }
 
 func New(logger logr.Logger, dclient dynamic.Interface, c cache.Cache) *ResourceLoader {
@@ -130,8 +143,9 @@ func (r *ResourceLoader) Delete(entry *v2alpha1.CachedContextEntry) error {
 	return nil
 }
 
-func (r *ResourceLoader) createGenericListerForResource(resource schema.GroupVersionResource, namespace string) (*cache.CacheEntry, error) {
+func (r *ResourceLoader) createGenericListerForResource(resource schema.GroupVersionResource, namespace string) (cache.ResourceEntry, error) {
 	informer := dynamicinformer.NewFilteredDynamicInformer(r.client, resource, namespace, 5*time.Second, k8scache.Indexers{k8scache.NamespaceIndex: k8scache.MetaNamespaceIndexFunc}, nil)
+	informer.Informer().SetWatchErrorHandler(k8scache.DefaultWatchErrorHandler)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go informer.Informer().Run(ctx.Done())
@@ -148,10 +162,7 @@ func (r *ResourceLoader) createGenericListerForResource(resource schema.GroupVer
 	} else {
 		lister = informer.Lister().ByNamespace(namespace)
 	}
-	return &cache.CacheEntry{
-		Entry: &resourceEntry{lister: lister, logger: r.logger.WithName("k8s resource entry")},
-		Stop:  cancel,
-	}, nil
+	return &resourceEntry{lister: lister, logger: r.logger.WithName("k8s resource entry"), cancel: cancel}, nil
 }
 
 func getKeyForResourceEntry(resource schema.GroupVersionResource, namespace string) string {
