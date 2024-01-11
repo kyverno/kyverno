@@ -44,7 +44,7 @@ func (h mutateResourceHandler) Process(
 			rule:          rule,
 			foreach:       rule.Mutation.ForEachMutation,
 			policyContext: policyContext,
-			resource:      resourceInfo,
+			resource:      *resourceInfo.deepCopy(),
 			logger:        logger,
 			contextLoader: contextLoader,
 			nesting:       0,
