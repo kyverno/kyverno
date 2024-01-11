@@ -426,7 +426,7 @@ The chart values are organised per component.
 | backgroundController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | backgroundController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
 | backgroundController.rbac.coreClusterRole.extraResources | list | See [values.yaml](values.yaml) | Extra resource permissions to add in the core cluster role. This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`. |
-| backgroundController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
+| backgroundController.rbac.clusterRole.extraResources | list | `[{"apiGroups":[""],"resources":["secrets"],"verbs":["create","update","patch","delete"]}]` | comment out to opt-out of the default permissions to operate secrets |
 | backgroundController.image.registry | string | `"ghcr.io"` | Image registry |
 | backgroundController.image.repository | string | `"kyverno/background-controller"` | Image repository |
 | backgroundController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |

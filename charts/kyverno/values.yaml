@@ -1168,16 +1168,17 @@ backgroundController:
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
-      extraResources: []
-      # - apiGroups:
-      #     - ''
-      #   resources:
-      #     - pods
-      #   verbs:
-      #     - create
-      #     - update
-      #     - delete
-      #     - patch
+      # -- comment out to opt-out of the default permissions to operate secrets
+      extraResources:
+        - apiGroups:
+            - ''
+          resources:
+            - secrets
+          verbs:
+            - create
+            - update
+            - patch
+            - delete
 
   image:
     # -- Image registry
