@@ -3,6 +3,7 @@ package generate
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -40,6 +41,10 @@ func NewGenerateFactory(client dclient.Interface, rule kyvernov1.Generation, use
 // Validate validates the 'generate' rule
 func (g *Generate) Validate(ctx context.Context) (string, error) {
 	rule := g.rule
+	if reflect.DeepEqual(rule, kyvernov1.Generation{}) {
+		return "", nil
+	}
+
 	if rule.GetData() != nil && rule.Clone != (kyvernov1.CloneFrom{}) {
 		return "", fmt.Errorf("only one of data or clone can be specified")
 	}

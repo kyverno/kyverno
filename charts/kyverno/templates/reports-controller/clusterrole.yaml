@@ -18,10 +18,20 @@ metadata:
   labels:
     {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
 rules:
+  # - apiGroups:
+  #     - '*'
+  #   resources:
+  #     - '*'
+  #   verbs:
+  #     - get
+  #     - list
+  #     - watch
   - apiGroups:
-      - '*'
+      - ''
     resources:
-      - '*'
+      - secrets
+      - configmaps
+      - namespaces
     verbs:
       - get
       - list
@@ -33,6 +43,9 @@ rules:
       - clusteradmissionreports
       - backgroundscanreports
       - clusterbackgroundscanreports
+      - policyexceptions
+      - policies
+      - clusterpolicies
     verbs:
       - create
       - delete
