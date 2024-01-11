@@ -19,6 +19,10 @@ import (
 	k8scache "k8s.io/client-go/tools/cache"
 )
 
+var (
+	resyncPeriod = 15 * time.Second
+)
+
 type ResourceLoader struct {
 	logger logr.Logger
 	client dynamic.Interface
@@ -26,12 +30,16 @@ type ResourceLoader struct {
 }
 
 type resourceEntry struct {
-	logger logr.Logger
-	lister k8scache.GenericNamespaceLister
-	cancel context.CancelFunc
+	logger          logr.Logger
+	lister          k8scache.GenericNamespaceLister
+	watchErrHandler *WatchErrorHandler
+	cancel          context.CancelFunc
 }
 
 func (re *resourceEntry) Get() (interface{}, error) {
+	if re.watchErrHandler.Error() != nil {
+		return nil, re.watchErrHandler.Error()
+	}
 	obj, err := re.lister.List(labels.Everything())
 	if err != nil {
 		re.logger.Error(err, "failed to fetch data from entry")
@@ -144,8 +152,9 @@ func (r *ResourceLoader) Delete(entry *v2alpha1.CachedContextEntry) error {
 }
 
 func (r *ResourceLoader) createGenericListerForResource(resource schema.GroupVersionResource, namespace string) (cache.ResourceEntry, error) {
-	informer := dynamicinformer.NewFilteredDynamicInformer(r.client, resource, namespace, 5*time.Second, k8scache.Indexers{k8scache.NamespaceIndex: k8scache.MetaNamespaceIndexFunc}, nil)
-	informer.Informer().SetWatchErrorHandler(k8scache.DefaultWatchErrorHandler)
+	informer := dynamicinformer.NewFilteredDynamicInformer(r.client, resource, namespace, resyncPeriod, k8scache.Indexers{k8scache.NamespaceIndex: k8scache.MetaNamespaceIndexFunc}, nil)
+	watchErrHandler := NewWatchErrorHandler(r.logger, resource, namespace)
+	informer.Informer().SetWatchErrorHandler(watchErrHandler.WatchErrorHandlerFunction())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go informer.Informer().Run(ctx.Done())
@@ -162,7 +171,7 @@ func (r *ResourceLoader) createGenericListerForResource(resource schema.GroupVer
 	} else {
 		lister = informer.Lister().ByNamespace(namespace)
 	}
-	return &resourceEntry{lister: lister, logger: r.logger.WithName("k8s resource entry"), cancel: cancel}, nil
+	return &resourceEntry{lister: lister, logger: r.logger.WithName("k8s resource entry"), watchErrHandler: watchErrHandler, cancel: cancel}, nil
 }
 
 func getKeyForResourceEntry(resource schema.GroupVersionResource, namespace string) string {
