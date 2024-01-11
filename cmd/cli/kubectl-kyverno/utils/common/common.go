@@ -35,7 +35,7 @@ func GetResourceAccordingToResourcePath(
 	namespace string,
 	policyReport bool,
 	policyResourcePath string,
-	isGenericJson bool,
+	isGenericResource bool,
 ) (resources []*unstructured.Unstructured, err error) {
 	if fs != nil {
 		//TODO: add logic here too for generic JSON
@@ -83,7 +83,7 @@ func GetResourceAccordingToResourcePath(
 				}
 			}
 
-			resources, err = GetResources(out, policies, validatingAdmissionPolicies, resourcePaths, dClient, cluster, namespace, policyReport, isGenericJson)
+			resources, err = GetResources(out, policies, validatingAdmissionPolicies, resourcePaths, dClient, cluster, namespace, policyReport, isGenericResource)
 			if err != nil {
 				return resources, err
 			}

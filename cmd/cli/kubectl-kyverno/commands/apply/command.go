@@ -47,24 +47,24 @@ type SkippedInvalidPolicies struct {
 }
 
 type ApplyCommandConfig struct {
-	KubeConfig          string
-	Context             string
-	Namespace           string
-	MutateLogPath       string
-	Variables           []string
-	ValuesFile          string
-	UserInfoPath        string
-	Cluster             bool
-	PolicyReport        bool
-	Stdin               bool
-	RegistryAccess      bool
-	AuditWarn           bool
-	ResourcePaths       []string
-	PolicyPaths         []string
-	GitBranch           string
-	warnExitCode        int
-	warnNoPassed        bool
-	genericJSONResource bool
+	KubeConfig      string
+	Context         string
+	Namespace       string
+	MutateLogPath   string
+	Variables       []string
+	ValuesFile      string
+	UserInfoPath    string
+	Cluster         bool
+	PolicyReport    bool
+	Stdin           bool
+	RegistryAccess  bool
+	AuditWarn       bool
+	ResourcePaths   []string
+	PolicyPaths     []string
+	GitBranch       string
+	warnExitCode    int
+	warnNoPassed    bool
+	genericResource bool
 }
 
 func Command() *cobra.Command {
@@ -97,7 +97,7 @@ func Command() *cobra.Command {
 	}
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.ResourcePaths, "resource", "r", []string{}, "Path to resource files")
 	cmd.Flags().BoolVarP(&applyCommandConfig.Cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
-	cmd.Flags().BoolVar(&applyCommandConfig.genericJSONResource, "genericjson", false, "Apply policy to a file that is not a kubernetes resource. for eg, does not contain `apiVersion` and `kind`")
+	cmd.Flags().BoolVar(&applyCommandConfig.genericResource, "genericresource", false, "Apply policy to a file that is not a kubernetes resource. for eg, does not contain `apiVersion` and `kind`")
 	cmd.Flags().StringVarP(&applyCommandConfig.MutateLogPath, "output", "o", "", "Prints the mutated resources in provided file/directory")
 	// currently `set` flag supports variable for single policy applied on single resource
 	cmd.Flags().StringVarP(&applyCommandConfig.UserInfoPath, "userinfo", "u", "", "Admission Info including Roles, Cluster Roles and Subjects")
@@ -286,7 +286,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 }
 
 func (c *ApplyCommandConfig) loadResources(out io.Writer, policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, error) {
-	resources, err := common.GetResourceAccordingToResourcePath(out, nil, c.ResourcePaths, c.Cluster, policies, validatingAdmissionPolicies, dClient, c.Namespace, c.PolicyReport, "", c.genericJSONResource)
+	resources, err := common.GetResourceAccordingToResourcePath(out, nil, c.ResourcePaths, c.Cluster, policies, validatingAdmissionPolicies, dClient, c.Namespace, c.PolicyReport, "", c.genericResource)
 	if err != nil {
 		return resources, fmt.Errorf("failed to load resources (%w)", err)
 	}

@@ -1,6 +1,7 @@
 package match
 
 import (
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -14,7 +15,7 @@ var podGVK = schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
 func CheckKind(kinds []string, gvk schema.GroupVersionKind, subresource string, allowEphemeralContainers bool) bool {
 	for _, k := range kinds {
 		group, version, kind, sub := kubeutils.ParseKindSelector(k)
-		matchKind := wildcard.Match(kind, gvk.Kind) || gvk.Kind == "GenericJSONResource"
+		matchKind := wildcard.Match(kind, gvk.Kind) || gvk.Kind == resource.GenericResourceKind
 		if wildcard.Match(group, gvk.Group) && wildcard.Match(version, gvk.Version) && matchKind {
 			if wildcard.Match(sub, subresource) {
 				return true

@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	GenericJSONApiVersion   = "V1"
-	GenericJSONResourceKind = "GenericJSONResource"
+	GenericResourceApiVersion = "V1"
+	GenericResourceKind       = "GenericJSONResource"
 )
 
 func GetUnstructuredResources(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
@@ -159,8 +159,8 @@ func prependGVKToGenericJSON(resourceJSON []byte) ([]byte, error) {
 		return nil, fmt.Errorf("Error in unmarshalling to intermediate object: %w", err)
 	}
 
-	bytes["apiVersion"] = GenericJSONApiVersion
-	bytes["kind"] = GenericJSONResourceKind
+	bytes["apiVersion"] = GenericResourceApiVersion
+	bytes["kind"] = GenericResourceKind
 
 	finalResourceJSON, err := json.Marshal(bytes)
 
