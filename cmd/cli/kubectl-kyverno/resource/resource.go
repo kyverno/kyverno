@@ -21,7 +21,7 @@ import (
 
 const (
 	GenericResourceApiVersion = "V1"
-	GenericResourceKind       = "GenericJSONResource"
+	GenericResourceKind       = "GenericResource"
 )
 
 func GetUnstructuredResources(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
