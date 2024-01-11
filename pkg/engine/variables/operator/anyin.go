@@ -55,7 +55,7 @@ func (anyin AnyInHandler) validateValueWithStringPattern(key string, value inter
 	return keyExists
 }
 
-// anykeyExistsInArray checks if the  key exists in the array value
+// anykeyExistsInArray checks if the key exists in the array value
 // The value can be a string, an array of strings, or a JSON format
 // array of strings (e.g. ["val1", "val2", "val3"].
 func anyKeyExistsInArray(key string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
@@ -67,6 +67,11 @@ func anyKeyExistsInArray(key string, value interface{}, log logr.Logger) (invali
 			}
 		}
 
+		// this is what I came up with:
+	case int, int32, int64, float32, float64, bool:
+		// do something
+
+		
 	case string:
 		if wildcard.Match(valuesAvailable, key) {
 			return false, true
