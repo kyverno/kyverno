@@ -49352,7 +49352,6 @@ rules:
     - ""
     resources:
     - configmaps
-    - secrets
     - resourcequotas
     - limitranges
     verbs:
