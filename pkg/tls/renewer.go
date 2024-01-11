@@ -93,7 +93,7 @@ func NewCertRenewer(
 // RenewCA renews the CA certificate if needed
 func (c *certRenewer) RenewCA(ctx context.Context) error {
 	secret, key, certs, err := c.decodeCASecret(ctx)
-	if err != nil && !apierrors.IsNotFound(err) {
+	if err != nil && !apierrors.IsNotFound(err) && !apierrors.IsTimeout(err) {
 		return fmt.Errorf("failed to read CA (%w)", err)
 	}
 	now := time.Now()
