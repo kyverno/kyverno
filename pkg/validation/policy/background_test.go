@@ -133,4 +133,8 @@ func Test_Validation_invalid_backgroundPolicy(t *testing.T) {
 	assert.NilError(t, err)
 	err = ValidateVariables(&policy, true)
 	assert.ErrorContains(t, err, "variable {{serviceAccountName}} is not allowed")
+	err = validateJMESPath(&policy)
+	assert.NilError(t, err)
+	out := checkClosedBraces("{}{{}}")
+	assert.Equal(t, out, true)
 }
