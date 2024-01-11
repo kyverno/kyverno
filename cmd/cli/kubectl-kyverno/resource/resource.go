@@ -19,6 +19,11 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const (
+	GenericJSONApiVersion   = "V1"
+	GenericJSONResourceKind = "GenericJSONResource"
+)
+
 func GetUnstructuredResources(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
 	var resources []*unstructured.Unstructured
 	documents, err := yamlutils.SplitDocuments(resourceBytes)
@@ -154,8 +159,8 @@ func prependGVKToGenericJSON(resourceJSON []byte) ([]byte, error) {
 		return nil, fmt.Errorf("Error in unmarshalling to intermediate object: %w", err)
 	}
 
-	bytes["apiVersion"] = "V1"
-	bytes["kind"] = "GenericJSONResource"
+	bytes["apiVersion"] = GenericJSONApiVersion
+	bytes["kind"] = GenericJSONResourceKind
 
 	finalResourceJSON, err := json.Marshal(bytes)
 
