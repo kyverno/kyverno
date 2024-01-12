@@ -3,12 +3,13 @@ kind: Pod
 metadata:
   name: bad-pod
 spec:
+  hostNetwork: true
   securityContext:
       windowsOptions:
         hostProcess: true
   containers:
-  - name: nginx1
-    image: nginx
+  - name: busybox
+    image: busybox
     args:
     - sleep
     - 1d

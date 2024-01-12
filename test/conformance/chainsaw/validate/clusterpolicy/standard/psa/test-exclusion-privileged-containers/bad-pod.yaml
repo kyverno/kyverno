@@ -1,21 +1,22 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: excluded-pod
+  name: bad-pod
 spec:
   containers:
-  - name: nginx1
-    image: nginx
+  - name: busybox
+    image: busybox
     args:
     - sleep
     - 1d
     securityContext:
-      procMount: foo
+      privileged: true
   initContainers:
-  - name: nginx2
+  - name: nginx
     image: nginx
     args:
     - sleep
     - 1d
     securityContext:
-      procMount: bar
+      windowsOptions:
+        hostProcess: false

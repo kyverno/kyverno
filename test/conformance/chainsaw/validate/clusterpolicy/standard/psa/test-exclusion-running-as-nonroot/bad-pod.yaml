@@ -4,21 +4,21 @@ metadata:
   name: bad-pod
 spec:
   containers:
-  - name: nginx1
-    image: nginx
+  - name: busybox
+    image: busybox
     args:
     - sleep
     - 1d
     securityContext:
       seccompProfile:
         type: RuntimeDefault
-      runAsNonRoot: true
+      runAsNonRoot: false
       allowPrivilegeEscalation: false
       capabilities:
         drop:
         - ALL
   initContainers:
-  - name: nginx2
+  - name: nginx
     image: nginx
     args:
     - sleep
