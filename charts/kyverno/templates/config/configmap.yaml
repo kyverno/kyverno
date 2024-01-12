@@ -39,8 +39,12 @@ data:
   {{- else if .Values.config.excludeKyvernoNamespace }}
   webhooks: '[{"namespaceSelector": {"matchExpressions": [{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["{{ include "kyverno.namespace" . }}"]}]}}]'
   {{- end -}}
+  {{- if .Values.config.webhookAnnotations }}
   {{- with .Values.config.webhookAnnotations }}
   webhookAnnotations: {{ toJson . | quote }}
+  {{- end }}
+  {{- else if (lookup "rbac.authorization.k8s.io/v1" "ClusterRole" "" "aks-service") }}
+  webhookAnnotations: '{"admissions.enforcer/disabled":"true"}'
   {{- end }}
   {{- with .Values.config.webhookLabels }}
   webhookLabels: {{ toJson . | quote }}

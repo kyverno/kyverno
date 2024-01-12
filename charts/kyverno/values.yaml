@@ -237,7 +237,7 @@ config:
 
   # -- Defines annotations to set on webhook configurations.
   webhookAnnotations: {}
-    # Example to disable admission enforcer on AKS:
+    # If ClusterRole 'aks-service' is present the follow annotation is set by default
     # 'admissions.enforcer/disabled': 'true'
 
   # -- Defines labels to set on webhook configurations.
