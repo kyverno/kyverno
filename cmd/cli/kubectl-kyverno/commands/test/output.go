@@ -23,7 +23,7 @@ func printCheckResult(
 ) (table.Table, error) {
 	printer := table.NewTablePrinter(out)
 	var resultsTable table.Table
-	// testCount := 1
+	testCount := 1
 	for _, check := range checks {
 		// filter engine responses
 		matchingEngineResponses := responses
@@ -59,51 +59,79 @@ func printCheckResult(
 			}
 			matchingEngineResponses = filtered
 		}
-		// collect rule responses
-		var matchingRuleResponses []engineapi.RuleResponse
 		for _, response := range matchingEngineResponses {
-			matchingRuleResponses = append(matchingRuleResponses, response.PolicyResponse.Rules...)
-		}
-		// filter rule responses
-		if check.Match.Rule != nil {
-			var filtered []engineapi.RuleResponse
-			for _, response := range matchingRuleResponses {
-				data := map[string]any{
-					"name": response.Name(),
+			// filter rule responses
+			matchingRuleResponses := response.PolicyResponse.Rules
+			if check.Match.Rule != nil {
+				var filtered []engineapi.RuleResponse
+				for _, response := range matchingRuleResponses {
+					data := map[string]any{
+						"name": response.Name(),
+					}
+					errs, err := assert.Validate(context.Background(), check.Match.Rule.Value, data, nil)
+					if err != nil {
+						return resultsTable, err
+					}
+					if len(errs) == 0 {
+						filtered = append(filtered, response)
+					}
 				}
-				errs, err := assert.Validate(context.Background(), check.Match.Rule.Value, data, nil)
+				matchingRuleResponses = filtered
+			}
+			for _, rule := range matchingRuleResponses {
+				// perform check
+				data := map[string]any{
+					"name":     rule.Name(),
+					"ruleType": rule.RuleType(),
+					"message":  rule.Message(),
+					"status":   string(rule.Status()),
+					// generatedResource unstructured.Unstructured
+					// patchedTarget *unstructured.Unstructured
+					// patchedTargetParentResourceGVR metav1.GroupVersionResource
+					// patchedTargetSubresourceName string
+					// podSecurityChecks contains pod security checks (only if this is a pod security rule)
+					"podSecurityChecks": rule.PodSecurityChecks(),
+					"exception ":        rule.Exception(),
+				}
+				errs, err := assert.Validate(context.Background(), check.Assert.Value, data, nil)
 				if err != nil {
 					return resultsTable, err
 				}
-				if len(errs) == 0 {
-					filtered = append(filtered, response)
+				row := table.Row{
+					RowCompact: table.RowCompact{
+						ID:        testCount,
+						Policy:    color.Policy("", response.Policy().GetName()),
+						Rule:      color.Rule(rule.Name()),
+						Resource:  color.Resource(response.Resource.GetKind(), response.Resource.GetNamespace(), response.Resource.GetName()),
+						IsFailure: len(errs) != 0,
+					},
+					Message: rule.Message(),
 				}
+				if len(errs) == 0 {
+					row.Result = color.ResultPass()
+					row.Reason = "Ok"
+				} else {
+					row.Result = color.ResultFail()
+					row.Reason = errs.ToAggregate().Error()
+					row.Reason = rule.Message()
+				}
+				resultsTable.Add(row)
+				// for _, err := range errs {
+				// 	if success {
+				// 		row.Result = color.ResultPass()
+				// 		if test.Result == policyreportv1alpha2.StatusSkip {
+				// 			rc.Skip++
+				// 		} else {
+				// 			rc.Pass++
+				// 		}
+				// 	} else {
+				// 		row.Result = color.ResultFail()
+				// 		rc.Fail++
+				// 	}
+				// 	testCount++
+				// }
 			}
-			matchingRuleResponses = filtered
 		}
-		// perform check
-		var results []any
-		for _, response := range matchingRuleResponses {
-			data := map[string]any{
-				"name":     response.Name(),
-				"ruleType": response.RuleType(),
-				"message":  response.Message(),
-				"status":   string(response.Status()),
-				// generatedResource unstructured.Unstructured
-				// patchedTarget *unstructured.Unstructured
-				// patchedTargetParentResourceGVR metav1.GroupVersionResource
-				// patchedTargetSubresourceName string
-				// podSecurityChecks contains pod security checks (only if this is a pod security rule)
-				"podSecurityChecks": response.PodSecurityChecks(),
-				"exception ":        response.Exception(),
-			}
-			results = append(results, data)
-		}
-		errs, err := assert.Validate(context.Background(), check.Assert.Value, results, nil)
-		if err != nil {
-			return resultsTable, err
-		}
-		fmt.Println(errs)
 	}
 	fmt.Fprintln(out)
 	printer.Print(resultsTable.Rows(detailedResults))
