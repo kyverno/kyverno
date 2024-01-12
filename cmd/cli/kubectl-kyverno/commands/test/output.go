@@ -19,10 +19,9 @@ func printCheckResult(
 	out io.Writer,
 	checks []v1alpha1.CheckResult,
 	responses []engineapi.EngineResponse,
-	detailedResults bool,
-) (table.Table, error) {
-	printer := table.NewTablePrinter(out)
-	var resultsTable table.Table
+	rc *resultCounts,
+	resultsTable *table.Table,
+) error {
 	testCount := 1
 	for _, check := range checks {
 		// filter engine responses
@@ -33,7 +32,7 @@ func printCheckResult(
 			for _, response := range matchingEngineResponses {
 				errs, err := assert.Validate(context.Background(), check.Match.Resource.Value, response.Resource.UnstructuredContent(), nil)
 				if err != nil {
-					return resultsTable, err
+					return err
 				}
 				if len(errs) == 0 {
 					filtered = append(filtered, response)
@@ -47,11 +46,11 @@ func printCheckResult(
 			for _, response := range matchingEngineResponses {
 				data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(response.Policy().GetPolicy())
 				if err != nil {
-					return resultsTable, err
+					return err
 				}
 				errs, err := assert.Validate(context.Background(), check.Match.Policy.Value, data, nil)
 				if err != nil {
-					return resultsTable, err
+					return err
 				}
 				if len(errs) == 0 {
 					filtered = append(filtered, response)
@@ -70,7 +69,7 @@ func printCheckResult(
 					}
 					errs, err := assert.Validate(context.Background(), check.Match.Rule.Value, data, nil)
 					if err != nil {
-						return resultsTable, err
+						return err
 					}
 					if len(errs) == 0 {
 						filtered = append(filtered, response)
@@ -93,50 +92,72 @@ func printCheckResult(
 					"podSecurityChecks": rule.PodSecurityChecks(),
 					"exception ":        rule.Exception(),
 				}
-				errs, err := assert.Validate(context.Background(), check.Assert.Value, data, nil)
-				if err != nil {
-					return resultsTable, err
+				if check.Assert.Value != nil {
+					errs, err := assert.Validate(context.Background(), check.Assert.Value, data, nil)
+					if err != nil {
+						return err
+					}
+					row := table.Row{
+						RowCompact: table.RowCompact{
+							ID:        testCount,
+							Policy:    color.Policy("", response.Policy().GetName()),
+							Rule:      color.Rule(rule.Name()),
+							Resource:  color.Resource(response.Resource.GetKind(), response.Resource.GetNamespace(), response.Resource.GetName()),
+							IsFailure: len(errs) != 0,
+						},
+						Message: rule.Message(),
+					}
+					if len(errs) == 0 {
+						row.Result = color.ResultPass()
+						row.Reason = "Ok"
+						if rule.Status() == engineapi.RuleStatusSkip {
+							rc.Skip++
+						} else {
+							rc.Pass++
+						}
+					} else {
+						row.Result = color.ResultFail()
+						row.Reason = errs.ToAggregate().Error()
+						rc.Fail++
+					}
+					resultsTable.Add(row)
+					testCount++
 				}
-				row := table.Row{
-					RowCompact: table.RowCompact{
-						ID:        testCount,
-						Policy:    color.Policy("", response.Policy().GetName()),
-						Rule:      color.Rule(rule.Name()),
-						Resource:  color.Resource(response.Resource.GetKind(), response.Resource.GetNamespace(), response.Resource.GetName()),
-						IsFailure: len(errs) != 0,
-					},
-					Message: rule.Message(),
+				if check.Error.Value != nil {
+					errs, err := assert.Validate(context.Background(), check.Error.Value, data, nil)
+					if err != nil {
+						return err
+					}
+					row := table.Row{
+						RowCompact: table.RowCompact{
+							ID:        testCount,
+							Policy:    color.Policy("", response.Policy().GetName()),
+							Rule:      color.Rule(rule.Name()),
+							Resource:  color.Resource(response.Resource.GetKind(), response.Resource.GetNamespace(), response.Resource.GetName()),
+							IsFailure: len(errs) != 0,
+						},
+						Message: rule.Message(),
+					}
+					if len(errs) != 0 {
+						row.Result = color.ResultPass()
+						row.Reason = errs.ToAggregate().Error()
+						if rule.Status() == engineapi.RuleStatusSkip {
+							rc.Skip++
+						} else {
+							rc.Pass++
+						}
+					} else {
+						row.Result = color.ResultFail()
+						row.Reason = "The assertion succeeded but was expected to fail"
+						rc.Fail++
+					}
+					resultsTable.Add(row)
+					testCount++
 				}
-				if len(errs) == 0 {
-					row.Result = color.ResultPass()
-					row.Reason = "Ok"
-				} else {
-					row.Result = color.ResultFail()
-					row.Reason = errs.ToAggregate().Error()
-					row.Reason = rule.Message()
-				}
-				resultsTable.Add(row)
-				// for _, err := range errs {
-				// 	if success {
-				// 		row.Result = color.ResultPass()
-				// 		if test.Result == policyreportv1alpha2.StatusSkip {
-				// 			rc.Skip++
-				// 		} else {
-				// 			rc.Pass++
-				// 		}
-				// 	} else {
-				// 		row.Result = color.ResultFail()
-				// 		rc.Fail++
-				// 	}
-				// 	testCount++
-				// }
 			}
 		}
 	}
-	fmt.Fprintln(out)
-	printer.Print(resultsTable.Rows(detailedResults))
-	fmt.Fprintln(out)
-	return resultsTable, nil
+	return nil
 }
 
 func printTestResult(
@@ -144,13 +165,10 @@ func printTestResult(
 	tests []v1alpha1.TestResult,
 	responses []engineapi.EngineResponse,
 	rc *resultCounts,
-	failOnly bool,
-	detailedResults bool,
+	resultsTable *table.Table,
 	fs billy.Filesystem,
 	resoucePath string,
-) (table.Table, error) {
-	printer := table.NewTablePrinter(out)
-	var resultsTable table.Table
+) error {
 	testCount := 1
 	for _, test := range tests {
 		// lookup matching engine responses (without the resource name)
@@ -241,10 +259,7 @@ func printTestResult(
 			}
 		}
 	}
-	fmt.Fprintln(out)
-	printer.Print(resultsTable.Rows(detailedResults))
-	fmt.Fprintln(out)
-	return resultsTable, nil
+	return nil
 }
 
 func printFailedTestResult(out io.Writer, resultsTable table.Table, detailedResults bool) {
