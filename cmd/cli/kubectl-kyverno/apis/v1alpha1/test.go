@@ -44,12 +44,20 @@ type CheckResult struct {
 	// Match tells how to match relevant rule responses
 	Match CheckMatch `json:"match,omitempty"`
 
-	// Results contains assertion to be performed on the relevant rule responses
-	Results *v1alpha1.Any `json:"results,omitempty"`
+	// Assert contains assertion to be performed on the relevant rule responses
+	Assert v1alpha1.Any `json:"assert"`
+
+	// Error contains negative assertion to be performed on the relevant rule responses
+	Error v1alpha1.Any `json:"error"`
 }
 
 type CheckMatch struct {
+	// Resource filters engine responses
 	Resource *v1alpha1.Any `json:"resource,omitempty"`
-	Policy   *v1alpha1.Any `json:"policy,omitempty"`
-	Rule     *v1alpha1.Any `json:"rule,omitempty"`
+
+	// Policy filters engine responses
+	Policy *v1alpha1.Any `json:"policy,omitempty"`
+
+	// Rule filters rule responses
+	Rule *v1alpha1.Any `json:"rule,omitempty"`
 }

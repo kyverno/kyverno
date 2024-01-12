@@ -99,7 +99,7 @@ func printCheckResult(
 			}
 			results = append(results, data)
 		}
-		errs, err := assert.Validate(context.Background(), check.Results.Value, results, nil)
+		errs, err := assert.Validate(context.Background(), check.Assert.Value, results, nil)
 		if err != nil {
 			return resultsTable, err
 		}
