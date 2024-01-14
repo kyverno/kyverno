@@ -67,11 +67,6 @@ func anyKeyExistsInArray(key string, value interface{}, log logr.Logger) (invali
 			}
 		}
 
-		// this is what I came up with:
-	case int, int32, int64, float32, float64, bool:
-		// do something
-
-		
 	case string:
 		if wildcard.Match(valuesAvailable, key) {
 			return false, true
@@ -134,6 +129,14 @@ func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNo
 		for _, val := range valuesAvailable {
 			valueSlice = append(valueSlice, fmt.Sprint(val))
 		}
+		if anyNotIn {
+			return false, isAnyNotIn(key, valueSlice)
+		}
+		return false, isAnyIn(key, valueSlice)
+	
+	case int, int32, int64, float32, float64:
+		var valueSlice []string
+		valueSlice = append(valueSlice, fmt.Sprint(value))
 		if anyNotIn {
 			return false, isAnyNotIn(key, valueSlice)
 		}
