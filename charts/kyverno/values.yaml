@@ -388,6 +388,9 @@ webhooksCleanup:
   # -- Pod affinity constraints.
   podAffinity: {}
 
+  # -- Pod labels.
+  podLabels: {}
+
   # -- Node affinity constraints.
   nodeAffinity: {}
 
@@ -439,6 +442,9 @@ policyReportsCleanup:
 
   # -- Pod affinity constraints.
   podAffinity: {}
+
+  # -- Pod labels.
+  podLabels: {}
 
   # -- Node affinity constraints.
   nodeAffinity: {}
