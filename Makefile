@@ -1028,10 +1028,11 @@ help: ## Shows the available commands
 # Bump new versions #
 #####################
 
-KYVERNO_CHART_VERSION ?= 3.1.0-rc.7
-POLICIES_CHART_VERSION ?= 3.1.0-rc.7
-APP_VERSION ?= v1.11.0-rc.7
+KYVERNO_CHART_VERSION ?= latest
+POLICIES_CHART_VERSION ?= latest
+APP_VERSION ?= latest
 KUBE_VERSION ?= ">=1.25.0-0"
+
 
 release:
 	@echo "Updating Chart.yaml files..."
