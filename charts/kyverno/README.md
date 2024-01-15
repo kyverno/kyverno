@@ -657,6 +657,7 @@ The chart values are organised per component.
 | webhooksCleanup.tolerations | list | `[]` | List of node taints to tolerate |
 | webhooksCleanup.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
 | webhooksCleanup.podAffinity | object | `{}` | Pod affinity constraints. |
+| webhooksCleanup.podLabels | object | `{}` | Pod labels. |
 | webhooksCleanup.nodeAffinity | object | `{}` | Node affinity constraints. |
 | webhooksCleanup.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
 
@@ -750,6 +751,7 @@ The chart values are organised per component.
 | policyReportsCleanup.tolerations | list | `[]` | List of node taints to tolerate |
 | policyReportsCleanup.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
 | policyReportsCleanup.podAffinity | object | `{}` | Pod affinity constraints. |
+| policyReportsCleanup.podLabels | object | `{}` | Pod labels. |
 | policyReportsCleanup.nodeAffinity | object | `{}` | Node affinity constraints. |
 | policyReportsCleanup.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
 
