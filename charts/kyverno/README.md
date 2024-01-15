@@ -330,7 +330,7 @@ The chart values are organised per component.
 |-----|------|---------|-------------|
 | admissionController.featuresOverride | object | `{}` | Overrides features defined at the root level |
 | admissionController.rbac.create | bool | `true` | Create RBAC resources |
-| admissionController.rbac.enableWildcardRBAC | bool | `true` | Enable wildcard get/list/watch permissions |
+| admissionController.rbac.enableWildcardRBAC | bool | `true` | Enable wildcard get/list/watch permissions This flag offers an option to opt-out of wildcard permissions, set it to false provides minimum rbac permissions to run Kyverno. Warning: set it to false could potentially break current working policies. |
 | admissionController.rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |
 | admissionController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
 | admissionController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
@@ -422,7 +422,7 @@ The chart values are organised per component.
 | backgroundController.featuresOverride | object | `{}` | Overrides features defined at the root level |
 | backgroundController.enabled | bool | `true` | Enable background controller. |
 | backgroundController.rbac.create | bool | `true` | Create RBAC resources |
-| backgroundController.rbac.enableWildcardRBAC | bool | `true` | Enable wildcard get/list/watch permissions |
+| backgroundController.rbac.enableWildcardRBAC | bool | `true` | Enable wildcard get/list/watch permissions This flag offers an option to opt-out of wildcard permissions, set it to false provides minimum rbac permissions to run Kyverno. Warning: set it to false could potentially break current working policies. |
 | backgroundController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | backgroundController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
 | backgroundController.rbac.coreClusterRole.extraResources | list | See [values.yaml](values.yaml) | Extra resource permissions to add in the core cluster role. This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`. |
@@ -566,7 +566,7 @@ The chart values are organised per component.
 | reportsController.featuresOverride | object | `{}` | Overrides features defined at the root level |
 | reportsController.enabled | bool | `true` | Enable reports controller. |
 | reportsController.rbac.create | bool | `true` | Create RBAC resources |
-| reportsController.rbac.enableWildcardRBAC | bool | `true` | Enable wildcard get/list/watch permissions |
+| reportsController.rbac.enableWildcardRBAC | bool | `true` | Enable wildcard get/list/watch permissions This flag offers an option to opt-out of wildcard permissions, set it to false provides minimum rbac permissions to run Kyverno. Warning: set it to false could potentially break current working policies. |
 | reportsController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | reportsController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
 | reportsController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
