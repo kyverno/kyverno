@@ -39,7 +39,7 @@ annotations:
       description: Add podLabels to the post-upgrade hook
     - kind: added
       description: Add podLabels to the pre-delete hook
-    - kind: added 
+    - kind: added
       description: Add an option to opt-out of the wildcard get/list/watch permissions
 dependencies:
   - name: grafana
