@@ -120,7 +120,13 @@ func allSetExistsInArray(key []string, value interface{}, log logr.Logger, allNo
 			return false, isAllNotIn(key, valueSlice)
 		}
 		return false, isAllIn(key, valueSlice)
-
+	case int, int32, int64, float32, float64:
+		var valueSlice []string
+		valueSlice = append(valueSlice, fmt.Sprint(value))
+		if allNotIn {
+			return false, isAllNotIn(key, valueSlice)
+		}
+		return false, isAllIn(key, valueSlice)
 	case string:
 
 		if len(key) == 1 && key[0] == valuesAvailable {
