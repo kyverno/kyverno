@@ -54,6 +54,18 @@ type ClusterBackgroundScanReportListerExpansion interface{}
 // ClusterCleanupPolicyLister.
 type ClusterCleanupPolicyListerExpansion interface{}
 
+// ClusterPolicyListerExpansion allows custom methods to be added to
+// ClusterPolicyLister.
+type ClusterPolicyListerExpansion interface{}
+
+// PolicyListerExpansion allows custom methods to be added to
+// PolicyLister.
+type PolicyListerExpansion interface{}
+
+// PolicyNamespaceListerExpansion allows custom methods to be added to
+// PolicyNamespaceLister.
+type PolicyNamespaceListerExpansion interface{}
+
 // PolicyExceptionListerExpansion allows custom methods to be added to
 // PolicyExceptionLister.
 type PolicyExceptionListerExpansion interface{}

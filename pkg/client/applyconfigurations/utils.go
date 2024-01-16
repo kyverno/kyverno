@@ -175,10 +175,18 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2.AdmissionRequestInfoObjectApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("AnyAllConditions"):
 		return &kyvernov2.AnyAllConditionsApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("Attestation"):
+		return &kyvernov2.AttestationApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("Attestor"):
+		return &kyvernov2.AttestorApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("AttestorSet"):
+		return &kyvernov2.AttestorSetApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("BackgroundScanReport"):
 		return &kyvernov2.BackgroundScanReportApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("BackgroundScanReportSpec"):
 		return &kyvernov2.BackgroundScanReportSpecApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("CertificateAttestor"):
+		return &kyvernov2.CertificateAttestorApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("CleanupPolicy"):
 		return &kyvernov2.CleanupPolicyApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("CleanupPolicySpec"):
@@ -191,18 +199,48 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2.ClusterBackgroundScanReportApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("ClusterCleanupPolicy"):
 		return &kyvernov2.ClusterCleanupPolicyApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("ClusterPolicy"):
+		return &kyvernov2.ClusterPolicyApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("Condition"):
 		return &kyvernov2.ConditionApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("CTLog"):
+		return &kyvernov2.CTLogApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("Deny"):
+		return &kyvernov2.DenyApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("Exception"):
 		return &kyvernov2.ExceptionApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("Generation"):
+		return &kyvernov2.GenerationApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("ImageRegistryCredentials"):
+		return &kyvernov2.ImageRegistryCredentialsApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("ImageVerification"):
+		return &kyvernov2.ImageVerificationApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("KeylessAttestor"):
+		return &kyvernov2.KeylessAttestorApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("MatchResources"):
 		return &kyvernov2.MatchResourcesApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("Mutation"):
+		return &kyvernov2.MutationApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("Policy"):
+		return &kyvernov2.PolicyApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("PolicyException"):
 		return &kyvernov2.PolicyExceptionApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("PolicyExceptionSpec"):
 		return &kyvernov2.PolicyExceptionSpecApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("Rekor"):
+		return &kyvernov2.RekorApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("RequestInfo"):
 		return &kyvernov2.RequestInfoApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("Rule"):
+		return &kyvernov2.RuleApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("SecretReference"):
+		return &kyvernov2.SecretReferenceApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("Spec"):
+		return &kyvernov2.SpecApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("StaticKeyAttestor"):
+		return &kyvernov2.StaticKeyAttestorApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("TargetResourceSpec"):
+		return &kyvernov2.TargetResourceSpecApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("UpdateRequest"):
 		return &kyvernov2.UpdateRequestApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("UpdateRequestSpec"):
@@ -211,6 +249,10 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2.UpdateRequestSpecContextApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("UpdateRequestStatus"):
 		return &kyvernov2.UpdateRequestStatusApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("Validation"):
+		return &kyvernov2.ValidationApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("ValidationFailureActionOverride"):
+		return &kyvernov2.ValidationFailureActionOverrideApplyConfiguration{}
 
 		// Group=kyverno.io, Version=v2alpha1
 	case v2alpha1.SchemeGroupVersion.WithKind("CleanupPolicy"):
@@ -249,6 +291,10 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2beta1.PolicyExceptionApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("PolicyExceptionSpec"):
 		return &kyvernov2beta1.PolicyExceptionSpecApplyConfiguration{}
+	case v2beta1.SchemeGroupVersion.WithKind("ResourceDescription"):
+		return &kyvernov2beta1.ResourceDescriptionApplyConfiguration{}
+	case v2beta1.SchemeGroupVersion.WithKind("ResourceFilter"):
+		return &kyvernov2beta1.ResourceFilterApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("Rule"):
 		return &kyvernov2beta1.RuleApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("Spec"):

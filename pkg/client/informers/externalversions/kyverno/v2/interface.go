@@ -36,6 +36,10 @@ type Interface interface {
 	ClusterBackgroundScanReports() ClusterBackgroundScanReportInformer
 	// ClusterCleanupPolicies returns a ClusterCleanupPolicyInformer.
 	ClusterCleanupPolicies() ClusterCleanupPolicyInformer
+	// ClusterPolicies returns a ClusterPolicyInformer.
+	ClusterPolicies() ClusterPolicyInformer
+	// Policies returns a PolicyInformer.
+	Policies() PolicyInformer
 	// PolicyExceptions returns a PolicyExceptionInformer.
 	PolicyExceptions() PolicyExceptionInformer
 	// UpdateRequests returns a UpdateRequestInformer.
@@ -81,6 +85,16 @@ func (v *version) ClusterBackgroundScanReports() ClusterBackgroundScanReportInfo
 // ClusterCleanupPolicies returns a ClusterCleanupPolicyInformer.
 func (v *version) ClusterCleanupPolicies() ClusterCleanupPolicyInformer {
 	return &clusterCleanupPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// ClusterPolicies returns a ClusterPolicyInformer.
+func (v *version) ClusterPolicies() ClusterPolicyInformer {
+	return &clusterPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// Policies returns a PolicyInformer.
+func (v *version) Policies() PolicyInformer {
+	return &policyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // PolicyExceptions returns a PolicyExceptionInformer.
