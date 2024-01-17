@@ -98,6 +98,16 @@ rules:
       - subjectaccessreviews
     verbs:
       - create
+  {{- if .Values.crdsMigration.exceptions.enabled }}
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - policyexceptions
+    verbs:
+      - get
+      - list
+      - patch
+  {{- end }}
   - apiGroups:
       - '*'
     resources:
