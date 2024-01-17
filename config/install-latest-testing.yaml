@@ -49218,6 +49218,14 @@ rules:
     verbs:
       - create
   - apiGroups:
+      - kyverno.io
+    resources:
+      - policyexceptions
+    verbs:
+      - get
+      - list
+      - patch
+  - apiGroups:
       - '*'
     resources:
       - '*'
