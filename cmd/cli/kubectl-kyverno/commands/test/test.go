@@ -64,7 +64,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	// resources
 	fmt.Fprintln(out, "  Loading resources", "...")
 	resourceFullPath := path.GetFullPaths(testCase.Test.Resources, testDir, isGit)
-	resources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, resourceFullPath, false, policies, validatingAdmissionPolicies, dClient, "", false, testDir)
+	resources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, resourceFullPath, false, policies, validatingAdmissionPolicies, dClient, "", false, testDir, false)
 	if err != nil {
 		return nil, fmt.Errorf("Error: failed to load resources (%s)", err)
 	}

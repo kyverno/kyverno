@@ -2,6 +2,7 @@ package resource
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,6 +19,11 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const (
+	GenericResourceApiVersion = "V1"
+	GenericResourceKind       = "GenericResource"
+)
+
 func GetUnstructuredResources(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
 	var resources []*unstructured.Unstructured
 	documents, err := yamlutils.SplitDocuments(resourceBytes)
@@ -25,7 +31,7 @@ func GetUnstructuredResources(resourceBytes []byte) ([]*unstructured.Unstructure
 		return nil, err
 	}
 	for _, document := range documents {
-		resource, err := YamlToUnstructured(document)
+		resource, err := YamlToUnstructured(document, false)
 		if err != nil {
 			return nil, err
 		}
@@ -34,18 +40,25 @@ func GetUnstructuredResources(resourceBytes []byte) ([]*unstructured.Unstructure
 	return resources, nil
 }
 
-func YamlToUnstructured(resourceYaml []byte) (*unstructured.Unstructured, error) {
+func YamlToUnstructured(resourceYaml []byte, isGenericResource bool) (*unstructured.Unstructured, error) {
 	decode := scheme.Codecs.UniversalDeserializer().Decode
 	_, metaData, decodeErr := decode(resourceYaml, nil, nil)
 	if decodeErr != nil {
-		if !strings.Contains(decodeErr.Error(), "no kind") {
+		if !strings.Contains(decodeErr.Error(), "no kind") && !isGenericResource {
 			return nil, decodeErr
 		}
 	}
+
 	resourceJSON, err := yaml.YAMLToJSON(resourceYaml)
-	if err != nil {
-		return nil, err
+
+	if isGenericResource {
+		var appendErr error
+		resourceJSON, appendErr = prependGVKToGenericJSON(resourceJSON)
+		if err != nil {
+			return nil, appendErr
+		}
 	}
+
 	resource, err := kubeutils.BytesToUnstructured(resourceJSON)
 	if err != nil {
 		return nil, err
@@ -118,4 +131,42 @@ func GetFileBytes(path string) ([]byte, error) {
 		}
 		return file, nil
 	}
+}
+
+// Almost all of the code is identical to GetUnstructuredResources, we take this in favor of not breaking
+// other parts of the code which use GetUnstructuredResources
+func GetUnstructuredGenericResources(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
+	var resources []*unstructured.Unstructured
+	isGenericResource := true
+	documents, err := yamlutils.SplitDocuments(resourceBytes)
+	if err != nil {
+		return nil, err
+	}
+	for _, document := range documents {
+		resource, err := YamlToUnstructured(document, isGenericResource)
+		if err != nil {
+			return nil, err
+		}
+		resources = append(resources, resource)
+	}
+	return resources, nil
+}
+
+func prependGVKToGenericJSON(resourceJSON []byte) ([]byte, error) {
+	bytes := map[string]interface{}{}
+
+	if err := json.Unmarshal(resourceJSON, &bytes); err != nil {
+		return nil, fmt.Errorf("Error in unmarshalling to intermediate object: %w", err)
+	}
+
+	bytes["apiVersion"] = GenericResourceApiVersion
+	bytes["kind"] = GenericResourceKind
+
+	finalResourceJSON, err := json.Marshal(bytes)
+
+	if err != nil {
+		return nil, fmt.Errorf("Error in marshalling intermediate object to final JSON: %w", err)
+	}
+
+	return finalResourceJSON, nil
 }
