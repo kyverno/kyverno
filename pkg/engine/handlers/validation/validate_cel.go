@@ -49,7 +49,7 @@ func (h validateCELHandler) Process(
 	// check if a corresponding validating admission policy is generated
 	vapStatus := policyContext.Policy().GetStatus().ValidatingAdmissionPolicy
 	if vapStatus.Generated {
-		logger.V(3).Info("skipping CEL validation due to the generation of its corresponding validating admission policy")
+		logger.V(3).Info("skipping CEL validation due to the generation of its corresponding ValidatingAdmissionPolicy")
 		return resource, nil
 	}
 
@@ -79,6 +79,11 @@ func (h validateCELHandler) Process(
 	// extract CEL expressions used in validations and audit annotations
 	variables := rule.Validation.CEL.Variables
 	validations := rule.Validation.CEL.Expressions
+	for i := range validations {
+		if validations[i].Message == "" {
+			validations[i].Message = rule.Validation.Message
+		}
+	}
 	auditAnnotations := rule.Validation.CEL.AuditAnnotations
 
 	optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: true}

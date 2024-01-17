@@ -25,6 +25,7 @@ import (
 	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/validatingadmissionpolicy-generate"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
@@ -213,6 +214,7 @@ func main() {
 		dumpPayload                  bool
 		servicePort                  int
 		backgroundServiceAccountName string
+		maxAPICallResponseLength     int64
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -230,6 +232,7 @@ func main() {
 	flagset.StringVar(&backgroundServiceAccountName, "backgroundServiceAccountName", "", "Background service account name.")
 	flagset.StringVar(&caSecretName, "caSecretName", "", "Name of the secret containing CA.")
 	flagset.StringVar(&tlsSecretName, "tlsSecretName", "", "Name of the secret containing TLS pair.")
+	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 10*1000*1000, "Configure the value of maximum allowed GET response size from API Calls")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -356,6 +359,7 @@ func main() {
 		setup.KubeClient,
 		setup.KyvernoClient,
 		setup.RegistrySecretLister,
+		apicall.NewAPICallConfiguration(maxAPICallResponseLength),
 	)
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(

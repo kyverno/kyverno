@@ -1,0 +1,5 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+assert:
+- validatingadmissionpolicy.yaml
+- validatingadmissionpolicybinding.yaml
