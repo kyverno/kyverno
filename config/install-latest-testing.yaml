@@ -329,10 +329,6 @@ spec:
                     policy:
                       description: Policy is the name or identifier of the policy
                       type: string
-                    policyException:
-                      description: PolicyException is the name of the policy exception
-                        if exists
-                      type: string
                     properties:
                       additionalProperties:
                         type: string
@@ -948,10 +944,6 @@ spec:
                       type: string
                     policy:
                       description: Policy is the name or identifier of the policy
-                      type: string
-                    policyException:
-                      description: PolicyException is the name of the policy exception
-                        if exists
                       type: string
                     properties:
                       additionalProperties:
@@ -5316,10 +5308,6 @@ spec:
                     policy:
                       description: Policy is the name or identifier of the policy
                       type: string
-                    policyException:
-                      description: PolicyException is the name of the policy exception
-                        if exists
-                      type: string
                     properties:
                       additionalProperties:
                         type: string
@@ -5936,10 +5924,6 @@ spec:
                       type: string
                     policy:
                       description: Policy is the name or identifier of the policy
-                      type: string
-                    policyException:
-                      description: PolicyException is the name of the policy exception
-                        if exists
                       type: string
                     properties:
                       additionalProperties:
@@ -48480,10 +48464,6 @@ spec:
                 policy:
                   description: Policy is the name or identifier of the policy
                   type: string
-                policyException:
-                  description: PolicyException is the name of the policy exception
-                    if exists
-                  type: string
                 properties:
                   additionalProperties:
                     type: string
@@ -48849,10 +48829,6 @@ spec:
                   type: string
                 policy:
                   description: Policy is the name or identifier of the policy
-                  type: string
-                policyException:
-                  description: PolicyException is the name of the policy exception
-                    if exists
                   type: string
                 properties:
                   additionalProperties:

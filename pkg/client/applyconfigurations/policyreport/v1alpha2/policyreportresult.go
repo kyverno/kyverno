@@ -30,7 +30,6 @@ type PolicyReportResultApplyConfiguration struct {
 	Source           *string                  `json:"source,omitempty"`
 	Policy           *string                  `json:"policy,omitempty"`
 	Rule             *string                  `json:"rule,omitempty"`
-	PolicyException  *string                  `json:"policyException,omitempty"`
 	Resources        []v1.ObjectReference     `json:"resources,omitempty"`
 	ResourceSelector *metav1.LabelSelector    `json:"resourceSelector,omitempty"`
 	Message          *string                  `json:"message,omitempty"`
@@ -69,14 +68,6 @@ func (b *PolicyReportResultApplyConfiguration) WithPolicy(value string) *PolicyR
 // If called multiple times, the Rule field is set to the value of the last call.
 func (b *PolicyReportResultApplyConfiguration) WithRule(value string) *PolicyReportResultApplyConfiguration {
 	b.Rule = &value
-	return b
-}
-
-// WithPolicyException sets the PolicyException field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the PolicyException field is set to the value of the last call.
-func (b *PolicyReportResultApplyConfiguration) WithPolicyException(value string) *PolicyReportResultApplyConfiguration {
-	b.PolicyException = &value
 	return b
 }
 

@@ -101,10 +101,6 @@ type PolicyReportResult struct {
 	// +optional
 	Rule string `json:"rule,omitempty"`
 
-	// PolicyException is the name of the policy exception if exists
-	// +optional
-	PolicyException string `json:"policyException,omitempty"`
-
 	// Subjects is an optional reference to the checked Kubernetes resources
 	// +optional
 	Resources []corev1.ObjectReference `json:"resources,omitempty"`

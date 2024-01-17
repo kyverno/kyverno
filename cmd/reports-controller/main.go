@@ -63,7 +63,7 @@ func createReportControllers(
 	}
 
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
-	kyvernoV2 := kyvernoInformer.Kyverno().V2()
+	kyvernoV2beta1 := kyvernoInformer.Kyverno().V2beta1()
 	if backgroundScan || admissionReports {
 		resourceReportController := resourcereportcontroller.NewController(
 			client,
@@ -113,7 +113,7 @@ func createReportControllers(
 				metadataFactory,
 				kyvernoV1.Policies(),
 				kyvernoV1.ClusterPolicies(),
-				kyvernoV2.PolicyExceptions(),
+				kyvernoV2beta1.PolicyExceptions(),
 				vapInformer,
 				kubeInformer.Core().V1().Namespaces(),
 				resourceReportController,

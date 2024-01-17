@@ -2,19 +2,18 @@ package background
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
+	kyvernov2beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
+	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
@@ -58,7 +57,7 @@ type controller struct {
 	// listers
 	polLister      kyvernov1listers.PolicyLister
 	cpolLister     kyvernov1listers.ClusterPolicyLister
-	polexLister    kyvernov2listers.PolicyExceptionLister
+	polexLister    kyvernov2beta1listers.PolicyExceptionLister
 	vapLister      admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyLister
 	bgscanrLister  cache.GenericLister
 	cbgscanrLister cache.GenericLister
@@ -85,7 +84,7 @@ func NewController(
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
-	polexInformer kyvernov2informers.PolicyExceptionInformer,
+	polexInformer kyvernov2beta1informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer,
 	nsInformer corev1informers.NamespaceInformer,
 	metadataCache resource.MetadataCache,
@@ -164,17 +163,17 @@ func (c *controller) deletePolicy(obj kyvernov1.PolicyInterface) {
 	c.enqueueResources()
 }
 
-func (c *controller) addException(obj *kyvernov2.PolicyException) {
+func (c *controller) addException(obj *kyvernov2beta1.PolicyException) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateException(old, obj *kyvernov2.PolicyException) {
+func (c *controller) updateException(old, obj *kyvernov2beta1.PolicyException) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteException(obj *kyvernov2.PolicyException) {
+func (c *controller) deleteException(obj *kyvernov2beta1.PolicyException) {
 	c.enqueueResources()
 }
 
@@ -222,7 +221,7 @@ func (c *controller) getMeta(namespace, name string) (metav1.Object, error) {
 	}
 }
 
-func (c *controller) needsReconcile(namespace, name, hash string, exceptions []kyvernov2.PolicyException, policies ...engineapi.GenericPolicy) (bool, bool, error) {
+func (c *controller) needsReconcile(namespace, name, hash string, exceptions []kyvernov2beta1.PolicyException, policies ...engineapi.GenericPolicy) (bool, bool, error) {
 	// if the reportMetadata does not exist, we need a full reconcile
 	reportMetadata, err := c.getMeta(namespace, name)
 	if err != nil {
@@ -278,7 +277,7 @@ func (c *controller) reconcileReport(
 	uid types.UID,
 	gvk schema.GroupVersionKind,
 	resource resource.Resource,
-	exceptions []kyvernov2.PolicyException,
+	exceptions []kyvernov2beta1.PolicyException,
 	policies ...engineapi.GenericPolicy,
 ) error {
 	// namespace labels to be used by the scanner
@@ -346,7 +345,7 @@ func (c *controller) reconcileReport(
 		for _, result := range observed.GetResults() {
 			// if the policy did not change, keep the result
 			label := policyNameToLabel[result.Policy]
-			exceptionLabel := policyNameToLabel[result.PolicyException]
+			exceptionLabel := policyNameToLabel[result.Properties["exception"]]
 			if (label != "" && expected[label] == actual[label]) || (exceptionLabel != "" && expected[exceptionLabel] == actual[exceptionLabel]) {
 				ruleResults = append(ruleResults, result)
 			}
@@ -361,9 +360,7 @@ func (c *controller) reconcileReport(
 				break
 			}
 		}
-		fmt.Println("full:", full)
 		if full || reevaluate || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
-			fmt.Println("New scanner")
 			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp)
 			for _, result := range scanner.ScanResource(ctx, *target, nsLabels, policy) {
 				if result.Error != nil {
