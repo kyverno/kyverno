@@ -16,15 +16,7 @@ var (
 )
 
 const (
-	mcrHostname   = "mcr.microsoft.com"
-	tokenUsername = "<token>"
-
-	ServiceECR          = "ecr"
-	ServiceECRPublic    = "ecr-public"
-	proxyEndpointScheme = "https://"
-	programName         = "docker-credential-ecr-login"
-	ecrPublicName       = "public.ecr.aws"
-	ecrPublicEndpoint   = proxyEndpointScheme + ecrPublicName
+	mcrHostname = "mcr.microsoft.com"
 )
 
 type autoRefreshSecrets struct {
