@@ -4,8 +4,10 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
@@ -107,6 +109,20 @@ func FetchPolicies(polLister kyvernov1listers.PolicyLister, namespace string) ([
 		}
 	}
 	return policies, nil
+}
+
+func FetchPolicyExceptions(polexLister kyvernov2beta1listers.PolicyExceptionLister, namespace string) ([]kyvernov2beta1.PolicyException, error) {
+	var exceptions []kyvernov2beta1.PolicyException
+	if polexs, err := polexLister.PolicyExceptions(namespace).List(labels.Everything()); err != nil {
+		return nil, err
+	} else {
+		for _, polex := range polexs {
+			if polex.Spec.BackgroundProcessingEnabled() {
+				exceptions = append(exceptions, *polex)
+			}
+		}
+	}
+	return exceptions, nil
 }
 
 func FetchValidatingAdmissionPolicies(vapLister admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyLister) ([]admissionregistrationv1alpha1.ValidatingAdmissionPolicy, error) {
