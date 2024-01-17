@@ -1,5 +1,4 @@
-{{- if .Values.crdsMigration.exceptions.enabled -}}
-  {{- if not .Values.templating.enabled -}}
+{{- if and .Values.crdsMigration.exceptions.enabled (not .Values.templating.enabled) -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -41,7 +40,7 @@ spec:
 
                 # Check if there are any exceptions
                 if [ -z "$EXCEPTIONS" ]; then
-                echo "No exceptions found in the cluster."
+                echo "No exceptions found in the namespace: $ns"
                 fi
 
                 # Reapply each policy exception
@@ -81,5 +80,4 @@ spec:
           {{- tpl (toYaml .) $ | nindent 10 }}
         {{- end }}
       {{- end }}
-  {{- end -}}
 {{- end -}}
