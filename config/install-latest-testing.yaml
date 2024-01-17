@@ -49397,6 +49397,7 @@ rules:
     verbs:
       - list
       - watch
+      - patch
   - apiGroups:
       - kyverno.io
     resources:

@@ -772,6 +772,11 @@ The chart values are organised per component.
 | crdsMigration.image.repository | string | `"kyverno/kyverno-cli"` | Image repository |
 | crdsMigration.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | crdsMigration.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
+| crdsMigration.cleanuppolicies | object | `{"enabled":true}` | Create a helm post-upgrade hook to migrate the existing CRDs to the stored version |
+| crdsMigration.image.registry | string | `nil` | Image registry |
+| crdsMigration.image.repository | string | `"bitnami/kubectl"` | Image repository |
+| crdsMigration.image.tag | string | `"1.28.5"` | Image tag Defaults to `latest` if omitted |
+| crdsMigration.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | crdsMigration.imagePullSecrets | list | `[]` | Image pull secrets |
 | crdsMigration.podSecurityContext | object | `{}` | Security context for the pod |
 | crdsMigration.nodeSelector | object | `{}` | Node labels for pod assignment |

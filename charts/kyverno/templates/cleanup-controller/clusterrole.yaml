@@ -45,6 +45,10 @@ rules:
     verbs:
       - list
       - watch
+      {{- if .Values.crdsMigration.cleanuppolicies.enabled }}
+      - get
+      - patch
+      {{- end }}
   - apiGroups:
       - kyverno.io
     resources:
