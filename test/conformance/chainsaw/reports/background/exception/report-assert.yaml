@@ -11,11 +11,12 @@ scope:
   name: emergency
 results:
 - policy: require-labels
-  policyException: mynewpolex
   result: skip
   rule: require-team
   scored: true
   source: kyverno
+  properties:
+    exception: mynewpolex
 summary:
   error: 0
   fail: 0
