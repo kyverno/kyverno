@@ -8,7 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 )
 
-var forbidden = []*regexp.Regexp{
+var ForbiddenUserVariables = []*regexp.Regexp{
 	regexp.MustCompile(`[^\.](serviceAccountName)\b`),
 	regexp.MustCompile(`[^\.](serviceAccountNamespace)\b`),
 	regexp.MustCompile(`[^\.](request.userInfo)\b`),
@@ -25,12 +25,12 @@ func containsUserVariables(policy kyvernov1.PolicyInterface, vars [][]string) er
 		}
 	}
 	for _, rule := range policy.GetSpec().Rules {
-		if rule.IsMutateExisting() {
+		if rule.HasMutateExisting() {
 			return nil
 		}
 	}
 	for _, s := range vars {
-		for _, banned := range forbidden {
+		for _, banned := range ForbiddenUserVariables {
 			if banned.Match([]byte(s[2])) {
 				return fmt.Errorf("variable %s is not allowed", s[2])
 			}

@@ -27,6 +27,9 @@ background-color: #1589dd;
 <a href="#kyverno.io%2fv1beta1"><b style="color: white">kyverno.io/v1beta1</b></a>
 </li>
 <li>
+<a href="#kyverno.io%2fv2"><b style="color: white">kyverno.io/v2</b></a>
+</li>
+<li>
 <a href="#kyverno.io%2fv2alpha1"><b style="color: white">kyverno.io/v2alpha1</b></a>
 </li>
 <li>
@@ -1370,6 +1373,7 @@ string
 <a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>, 
 <a href="#kyverno.io/v1.Rule">Rule</a>, 
 <a href="#kyverno.io/v1.TargetResourceSpec">TargetResourceSpec</a>, 
+<a href="#kyverno.io/v2.CleanupPolicySpec">CleanupPolicySpec</a>, 
 <a href="#kyverno.io/v2beta1.CleanupPolicySpec">CleanupPolicySpec</a>, 
 <a href="#kyverno.io/v2beta1.Rule">Rule</a>)
 </p>
@@ -2844,6 +2848,31 @@ Empty list matches no containers, PSS checks are applied at the pod level only.
 Wildcards (&lsquo;*&rsquo; and &lsquo;?&rsquo;) are allowed. See: <a href="https://kubernetes.io/docs/concepts/containers/images">https://kubernetes.io/docs/concepts/containers/images</a>.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>restrictedField</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>RestrictedField selects the field for the given Pod Security Standard control.
+When not set, all restricted fields for the control are selected.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>values</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Values defines the allowed values that can be excluded.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -3223,6 +3252,7 @@ ResourceDescription
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.MatchResources">MatchResources</a>, 
+<a href="#kyverno.io/v2.MatchResources">MatchResources</a>, 
 <a href="#kyverno.io/v2beta1.MatchResources">MatchResources</a>)
 </p>
 <p>
@@ -3235,7 +3265,9 @@ ResourceDescription
 <a href="#kyverno.io/v1.Generation">Generation</a>, 
 <a href="#kyverno.io/v1.TargetResourceSpec">TargetResourceSpec</a>, 
 <a href="#kyverno.io/v1beta1.UpdateRequestSpec">UpdateRequestSpec</a>, 
-<a href="#kyverno.io/v1beta1.UpdateRequestStatus">UpdateRequestStatus</a>)
+<a href="#kyverno.io/v1beta1.UpdateRequestStatus">UpdateRequestStatus</a>, 
+<a href="#kyverno.io/v2.UpdateRequestSpec">UpdateRequestSpec</a>, 
+<a href="#kyverno.io/v2.UpdateRequestStatus">UpdateRequestStatus</a>)
 </p>
 <p>
 </p>
@@ -3490,6 +3522,19 @@ Generation
 <td>
 <em>(Optional)</em>
 <p>VerifyImages is used to verify image signatures and mutate them to add a digest</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>skipBackgroundRequests</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>SkipBackgroundRequests bypasses admission requests that are sent by the background controller.
+The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to apply
+generate and mutateExisting rules to those requests.</p>
 </td>
 </tr>
 </tbody>
@@ -3891,7 +3936,7 @@ string
 </em>
 </td>
 <td>
-<p>Specify signature algorithm for public keys. Supported values are sha256 and sha512.</p>
+<p>Specify signature algorithm for public keys. Supported values are sha224, sha256, sha384 and sha512.</p>
 </td>
 </tr>
 <tr>
@@ -4440,7 +4485,7 @@ Refer to the Kubernetes API documentation for the fields of the
 <td>
 <code>spec</code><br/>
 <em>
-<a href="#kyverno.io/v1alpha2.AdmissionReportSpec">
+<a href="#kyverno.io/v2.AdmissionReportSpec">
 AdmissionReportSpec
 </a>
 </em>
@@ -4544,7 +4589,7 @@ Refer to the Kubernetes API documentation for the fields of the
 <td>
 <code>spec</code><br/>
 <em>
-<a href="#kyverno.io/v1alpha2.BackgroundScanReportSpec">
+<a href="#kyverno.io/v2.BackgroundScanReportSpec">
 BackgroundScanReportSpec
 </a>
 </em>
@@ -4635,7 +4680,7 @@ Refer to the Kubernetes API documentation for the fields of the
 <td>
 <code>spec</code><br/>
 <em>
-<a href="#kyverno.io/v1alpha2.AdmissionReportSpec">
+<a href="#kyverno.io/v2.AdmissionReportSpec">
 AdmissionReportSpec
 </a>
 </em>
@@ -4739,7 +4784,7 @@ Refer to the Kubernetes API documentation for the fields of the
 <td>
 <code>spec</code><br/>
 <em>
-<a href="#kyverno.io/v1alpha2.BackgroundScanReportSpec">
+<a href="#kyverno.io/v2.BackgroundScanReportSpec">
 BackgroundScanReportSpec
 </a>
 </em>
@@ -4777,115 +4822,6 @@ PolicyReportSummary
 </td>
 </tr>
 </table>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1alpha2.AdmissionReportSpec">AdmissionReportSpec
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1alpha2.AdmissionReport">AdmissionReport</a>, 
-<a href="#kyverno.io/v1alpha2.ClusterAdmissionReport">ClusterAdmissionReport</a>)
-</p>
-<p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>owner</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#ownerreference-v1-meta">
-Kubernetes meta/v1.OwnerReference
-</a>
-</em>
-</td>
-<td>
-<p>Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>summary</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
-PolicyReportSummary
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportSummary provides a summary of results</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>results</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
-[]PolicyReportResult
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportResult provides result details</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1alpha2.BackgroundScanReportSpec">BackgroundScanReportSpec
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1alpha2.BackgroundScanReport">BackgroundScanReport</a>, 
-<a href="#kyverno.io/v1alpha2.ClusterBackgroundScanReport">ClusterBackgroundScanReport</a>)
-</p>
-<p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>summary</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
-PolicyReportSummary
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportSummary provides a summary of results</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>results</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
-[]PolicyReportResult
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportResult provides result details</p>
 </td>
 </tr>
 </tbody>
@@ -5403,6 +5339,1900 @@ string
 <td>
 <p>This will track the resources that are updated by the generate Policy.
 Will be used during clean up resources.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>retryCount</code><br/>
+<em>
+int
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="kyverno.io/v2">kyverno.io/v2</h2>
+<p>
+</p>
+Resource Types:
+<ul><li>
+<a href="#kyverno.io/v2.AdmissionReport">AdmissionReport</a>
+</li><li>
+<a href="#kyverno.io/v2.BackgroundScanReport">BackgroundScanReport</a>
+</li><li>
+<a href="#kyverno.io/v2.CleanupPolicy">CleanupPolicy</a>
+</li><li>
+<a href="#kyverno.io/v2.ClusterAdmissionReport">ClusterAdmissionReport</a>
+</li><li>
+<a href="#kyverno.io/v2.ClusterBackgroundScanReport">ClusterBackgroundScanReport</a>
+</li><li>
+<a href="#kyverno.io/v2.ClusterCleanupPolicy">ClusterCleanupPolicy</a>
+</li><li>
+<a href="#kyverno.io/v2.PolicyException">PolicyException</a>
+</li><li>
+<a href="#kyverno.io/v2.UpdateRequest">UpdateRequest</a>
+</li></ul>
+<hr />
+<h3 id="kyverno.io/v2.AdmissionReport">AdmissionReport
+</h3>
+<p>
+<p>AdmissionReport is the Schema for the AdmissionReports API</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>AdmissionReport</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2.AdmissionReportSpec">
+AdmissionReportSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>owner</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#ownerreference-v1-meta">
+Kubernetes meta/v1.OwnerReference
+</a>
+</em>
+</td>
+<td>
+<p>Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+PolicyReportSummary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2.BackgroundScanReport">BackgroundScanReport
+</h3>
+<p>
+<p>BackgroundScanReport is the Schema for the BackgroundScanReports API</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>BackgroundScanReport</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2.BackgroundScanReportSpec">
+BackgroundScanReportSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+PolicyReportSummary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2.CleanupPolicy">CleanupPolicy
+</h3>
+<p>
+<p>CleanupPolicy defines a rule for resource cleanup.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>CleanupPolicy</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2.CleanupPolicySpec">
+CleanupPolicySpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec declares policy behaviors.</p>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>context</code><br/>
+<em>
+<a href="#kyverno.io/v1.ContextEntry">
+[]ContextEntry
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Context defines variables and data sources that can be used during rule execution.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>match</code><br/>
+<em>
+<a href="#kyverno.io/v2.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>MatchResources defines when cleanuppolicy should be applied. The match
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the user name or role.
+At least one kind is required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>exclude</code><br/>
+<em>
+<a href="#kyverno.io/v2.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ExcludeResources defines when cleanuppolicy should not be applied. The exclude
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the name or role.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>schedule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The schedule in Cron format</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="#kyverno.io/v2.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#kyverno.io/v2.CleanupPolicyStatus">
+CleanupPolicyStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Status contains policy runtime data.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2.ClusterAdmissionReport">ClusterAdmissionReport
+</h3>
+<p>
+<p>ClusterAdmissionReport is the Schema for the ClusterAdmissionReports API</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>ClusterAdmissionReport</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2.AdmissionReportSpec">
+AdmissionReportSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>owner</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#ownerreference-v1-meta">
+Kubernetes meta/v1.OwnerReference
+</a>
+</em>
+</td>
+<td>
+<p>Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+PolicyReportSummary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2.ClusterBackgroundScanReport">ClusterBackgroundScanReport
+</h3>
+<p>
+<p>ClusterBackgroundScanReport is the Schema for the ClusterBackgroundScanReports API</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>ClusterBackgroundScanReport</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2.BackgroundScanReportSpec">
+BackgroundScanReportSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+PolicyReportSummary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2.ClusterCleanupPolicy">ClusterCleanupPolicy
+</h3>
+<p>
+<p>ClusterCleanupPolicy defines rule for resource cleanup.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>ClusterCleanupPolicy</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2.CleanupPolicySpec">
+CleanupPolicySpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec declares policy behaviors.</p>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>context</code><br/>
+<em>
+<a href="#kyverno.io/v1.ContextEntry">
+[]ContextEntry
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Context defines variables and data sources that can be used during rule execution.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>match</code><br/>
+<em>
+<a href="#kyverno.io/v2.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>MatchResources defines when cleanuppolicy should be applied. The match
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the user name or role.
+At least one kind is required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>exclude</code><br/>
+<em>
+<a href="#kyverno.io/v2.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ExcludeResources defines when cleanuppolicy should not be applied. The exclude
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the name or role.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>schedule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The schedule in Cron format</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="#kyverno.io/v2.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#kyverno.io/v2.CleanupPolicyStatus">
+CleanupPolicyStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Status contains policy runtime data.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2.PolicyException">PolicyException
+</h3>
+<p>
+<p>PolicyException declares resources to be excluded from specified policies.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>PolicyException</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2.PolicyExceptionSpec">
+PolicyExceptionSpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec declares policy exception behaviors.</p>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>background</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Background controls if exceptions are applied to existing policies during a background scan.
+Optional. Default value is &ldquo;true&rdquo;. The value must be set to &ldquo;false&rdquo; if the policy rule
+uses variables that are only available in the admission review request (e.g. user name).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>match</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>Match defines match clause used to check if a resource applies to the exception</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions are used to determine if a resource applies to the exception by evaluating a
+set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>exceptions</code><br/>
+<em>
+<a href="#kyverno.io/v2.Exception">
+[]Exception
+</a>
+</em>
+</td>
+<td>
+<p>Exceptions is a list policy/rules to be excluded</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2.UpdateRequest">UpdateRequest
+</h3>
+<p>
+<p>UpdateRequest is a request to process mutate and generate rules in background.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>UpdateRequest</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2.UpdateRequestSpec">
+UpdateRequestSpec
+</a>
+</em>
+</td>
+<td>
+<p>ResourceSpec is the information to identify the trigger resource.</p>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>requestType</code><br/>
+<em>
+<a href="#kyverno.io/v2.RequestType">
+RequestType
+</a>
+</em>
+</td>
+<td>
+<p>Type represents request type for background processing</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>policy</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Specifies the name of the policy.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>rule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Rule is the associate rule name of the current UR.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deleteDownstream</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>DeleteDownstream represents whether the downstream needs to be deleted.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>synchronize</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Synchronize represents the sync behavior of the corresponding rule
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>resource</code><br/>
+<em>
+<a href="#kyverno.io/v1.ResourceSpec">
+ResourceSpec
+</a>
+</em>
+</td>
+<td>
+<p>ResourceSpec is the information to identify the trigger resource.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>context</code><br/>
+<em>
+<a href="#kyverno.io/v2.UpdateRequestSpecContext">
+UpdateRequestSpecContext
+</a>
+</em>
+</td>
+<td>
+<p>Context &hellip;</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#kyverno.io/v2.UpdateRequestStatus">
+UpdateRequestStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Status contains statistics related to update request.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2.AdmissionReportSpec">AdmissionReportSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1alpha2.AdmissionReport">AdmissionReport</a>, 
+<a href="#kyverno.io/v1alpha2.ClusterAdmissionReport">ClusterAdmissionReport</a>, 
+<a href="#kyverno.io/v2.AdmissionReport">AdmissionReport</a>, 
+<a href="#kyverno.io/v2.ClusterAdmissionReport">ClusterAdmissionReport</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>owner</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#ownerreference-v1-meta">
+Kubernetes meta/v1.OwnerReference
+</a>
+</em>
+</td>
+<td>
+<p>Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+PolicyReportSummary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2.AdmissionRequestInfoObject">AdmissionRequestInfoObject
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2.UpdateRequestSpecContext">UpdateRequestSpecContext</a>)
+</p>
+<p>
+<p>AdmissionRequestInfoObject stores the admission request and operation details</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>admissionRequest</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#admissionrequest-v1-admission">
+Kubernetes admission/v1.AdmissionRequest
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>operation</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#operation-v1-admission">
+Kubernetes admission/v1.Operation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2.AnyAllConditions">AnyAllConditions
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2.CleanupPolicySpec">CleanupPolicySpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>any</code><br/>
+<em>
+<a href="#kyverno.io/v2.Condition">
+[]Condition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AnyConditions enable variable-based conditional rule execution. This is useful for
+finer control of when an rule is applied. A condition can reference object data
+using JMESPath notation.
+Here, at least one of the conditions need to pass.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>all</code><br/>
+<em>
+<a href="#kyverno.io/v2.Condition">
+[]Condition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AllConditions enable variable-based conditional rule execution. This is useful for
+finer control of when an rule is applied. A condition can reference object data
+using JMESPath notation.
+Here, all of the conditions need to pass.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2.BackgroundScanReportSpec">BackgroundScanReportSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1alpha2.BackgroundScanReport">BackgroundScanReport</a>, 
+<a href="#kyverno.io/v1alpha2.ClusterBackgroundScanReport">ClusterBackgroundScanReport</a>, 
+<a href="#kyverno.io/v2.BackgroundScanReport">BackgroundScanReport</a>, 
+<a href="#kyverno.io/v2.ClusterBackgroundScanReport">ClusterBackgroundScanReport</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+PolicyReportSummary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2.CleanupPolicySpec">CleanupPolicySpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2.CleanupPolicy">CleanupPolicy</a>, 
+<a href="#kyverno.io/v2.ClusterCleanupPolicy">ClusterCleanupPolicy</a>)
+</p>
+<p>
+<p>CleanupPolicySpec stores specifications for selecting resources that the user needs to delete
+and schedule when the matching resources needs deleted.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>context</code><br/>
+<em>
+<a href="#kyverno.io/v1.ContextEntry">
+[]ContextEntry
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Context defines variables and data sources that can be used during rule execution.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>match</code><br/>
+<em>
+<a href="#kyverno.io/v2.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>MatchResources defines when cleanuppolicy should be applied. The match
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the user name or role.
+At least one kind is required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>exclude</code><br/>
+<em>
+<a href="#kyverno.io/v2.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ExcludeResources defines when cleanuppolicy should not be applied. The exclude
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the name or role.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>schedule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The schedule in Cron format</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="#kyverno.io/v2.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2.CleanupPolicyStatus">CleanupPolicyStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2.CleanupPolicy">CleanupPolicy</a>, 
+<a href="#kyverno.io/v2.ClusterCleanupPolicy">ClusterCleanupPolicy</a>)
+</p>
+<p>
+<p>CleanupPolicyStatus stores the status of the policy.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#condition-v1-meta">
+[]Kubernetes meta/v1.Condition
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>lastExecutionTime</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#time-v1-meta">
+Kubernetes meta/v1.Time
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2.Condition">Condition
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2.AnyAllConditions">AnyAllConditions</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>key</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
+</a>
+</em>
+</td>
+<td>
+<p>Key is the context entry (using JMESPath) for conditional rule evaluation.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>operator</code><br/>
+<em>
+<a href="#kyverno.io/v2.ConditionOperator">
+ConditionOperator
+</a>
+</em>
+</td>
+<td>
+<p>Operator is the conditional operation to perform. Valid operators are:
+Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan,
+DurationLessThanOrEquals, DurationLessThan</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>value</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Value is the conditional value, or set of values. The values can be fixed set
+or can be variables declared using JMESPath.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>message</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Message is an optional display message</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2.ConditionOperator">ConditionOperator
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2.Condition">Condition</a>)
+</p>
+<p>
+<p>ConditionOperator is the operation performed on condition key and value.</p>
+</p>
+<h3 id="kyverno.io/v2.Exception">Exception
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2.PolicyExceptionSpec">PolicyExceptionSpec</a>)
+</p>
+<p>
+<p>Exception stores infos about a policy and rules</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>policyName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>PolicyName identifies the policy to which the exception is applied.
+The policy name uses the format <namespace>/<name> unless it
+references a ClusterPolicy.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ruleNames</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>RuleNames identifies the rules to which the exception is applied.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2.MatchResources">MatchResources
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2.CleanupPolicySpec">CleanupPolicySpec</a>)
+</p>
+<p>
+<p>MatchResources is used to specify resource and admission review request data for
+which a policy rule is applicable.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>any</code><br/>
+<em>
+<a href="#kyverno.io/v1.ResourceFilters">
+ResourceFilters
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Any allows specifying resources which will be ORed</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>all</code><br/>
+<em>
+<a href="#kyverno.io/v1.ResourceFilters">
+ResourceFilters
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>All allows specifying resources which will be ANDed</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2.PolicyExceptionSpec">PolicyExceptionSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2.PolicyException">PolicyException</a>)
+</p>
+<p>
+<p>PolicyExceptionSpec stores policy exception spec</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>background</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Background controls if exceptions are applied to existing policies during a background scan.
+Optional. Default value is &ldquo;true&rdquo;. The value must be set to &ldquo;false&rdquo; if the policy rule
+uses variables that are only available in the admission review request (e.g. user name).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>match</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>Match defines match clause used to check if a resource applies to the exception</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions are used to determine if a resource applies to the exception by evaluating a
+set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>exceptions</code><br/>
+<em>
+<a href="#kyverno.io/v2.Exception">
+[]Exception
+</a>
+</em>
+</td>
+<td>
+<p>Exceptions is a list policy/rules to be excluded</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2.RequestInfo">RequestInfo
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2.UpdateRequestSpecContext">UpdateRequestSpecContext</a>)
+</p>
+<p>
+<p>RequestInfo contains permission info carried in an admission request.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>roles</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Roles is a list of possible role send the request.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>clusterRoles</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ClusterRoles is a list of possible clusterRoles send the request.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>userInfo</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#userinfo-v1-authentication">
+Kubernetes authentication/v1.UserInfo
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>UserInfo is the userInfo carried in the admission request.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2.RequestType">RequestType
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2.UpdateRequestSpec">UpdateRequestSpec</a>)
+</p>
+<p>
+</p>
+<h3 id="kyverno.io/v2.UpdateRequestSpec">UpdateRequestSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2.UpdateRequest">UpdateRequest</a>)
+</p>
+<p>
+<p>UpdateRequestSpec stores the request specification.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>requestType</code><br/>
+<em>
+<a href="#kyverno.io/v2.RequestType">
+RequestType
+</a>
+</em>
+</td>
+<td>
+<p>Type represents request type for background processing</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>policy</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Specifies the name of the policy.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>rule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Rule is the associate rule name of the current UR.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deleteDownstream</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>DeleteDownstream represents whether the downstream needs to be deleted.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>synchronize</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Synchronize represents the sync behavior of the corresponding rule
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>resource</code><br/>
+<em>
+<a href="#kyverno.io/v1.ResourceSpec">
+ResourceSpec
+</a>
+</em>
+</td>
+<td>
+<p>ResourceSpec is the information to identify the trigger resource.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>context</code><br/>
+<em>
+<a href="#kyverno.io/v2.UpdateRequestSpecContext">
+UpdateRequestSpecContext
+</a>
+</em>
+</td>
+<td>
+<p>Context &hellip;</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2.UpdateRequestSpecContext">UpdateRequestSpecContext
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2.UpdateRequestSpec">UpdateRequestSpec</a>)
+</p>
+<p>
+<p>UpdateRequestSpecContext stores the context to be shared.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>userInfo</code><br/>
+<em>
+<a href="#kyverno.io/v2.RequestInfo">
+RequestInfo
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>admissionRequestInfo</code><br/>
+<em>
+<a href="#kyverno.io/v2.AdmissionRequestInfoObject">
+AdmissionRequestInfoObject
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2.UpdateRequestState">UpdateRequestState
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2.UpdateRequestStatus">UpdateRequestStatus</a>)
+</p>
+<p>
+<p>UpdateRequestState defines the state of request.</p>
+</p>
+<h3 id="kyverno.io/v2.UpdateRequestStatus">UpdateRequestStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2.UpdateRequest">UpdateRequest</a>)
+</p>
+<p>
+<p>UpdateRequestStatus defines the observed state of UpdateRequest</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>state</code><br/>
+<em>
+<a href="#kyverno.io/v2.UpdateRequestState">
+UpdateRequestState
+</a>
+</em>
+</td>
+<td>
+<p>State represents state of the update request.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>message</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Specifies request status message.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generatedResources</code><br/>
+<em>
+<a href="#kyverno.io/v1.ResourceSpec">
+[]ResourceSpec
+</a>
+</em>
+</td>
+<td>
+<p>This will track the resources that are updated by the generate Policy.
+Will be used during clean up resources.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>retryCount</code><br/>
+<em>
+int
+</em>
+</td>
+<td>
 </td>
 </tr>
 </tbody>
@@ -6798,6 +8628,7 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v2.PolicyExceptionSpec">PolicyExceptionSpec</a>, 
 <a href="#kyverno.io/v2beta1.CleanupPolicySpec">CleanupPolicySpec</a>, 
 <a href="#kyverno.io/v2beta1.Deny">Deny</a>, 
 <a href="#kyverno.io/v2beta1.PolicyExceptionSpec">PolicyExceptionSpec</a>, 
@@ -7306,6 +9137,7 @@ bool
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v2.PolicyExceptionSpec">PolicyExceptionSpec</a>, 
 <a href="#kyverno.io/v2beta1.CleanupPolicySpec">CleanupPolicySpec</a>, 
 <a href="#kyverno.io/v2beta1.PolicyExceptionSpec">PolicyExceptionSpec</a>, 
 <a href="#kyverno.io/v2beta1.Rule">Rule</a>)
@@ -7773,6 +9605,19 @@ Generation
 <td>
 <em>(Optional)</em>
 <p>VerifyImages is used to verify image signatures and mutate them to add a digest</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>skipBackgroundRequests</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>SkipBackgroundRequests bypasses admission requests that are sent by the background controller.
+The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to apply
+generate and mutateExisting rules to those requests.</p>
 </td>
 </tr>
 </tbody>
@@ -8336,8 +10181,8 @@ PolicyReportSummary
 (<em>Appears on:</em>
 <a href="#wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport</a>, 
 <a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>, 
-<a href="#kyverno.io/v1alpha2.AdmissionReportSpec">AdmissionReportSpec</a>, 
-<a href="#kyverno.io/v1alpha2.BackgroundScanReportSpec">BackgroundScanReportSpec</a>)
+<a href="#kyverno.io/v2.AdmissionReportSpec">AdmissionReportSpec</a>, 
+<a href="#kyverno.io/v2.BackgroundScanReportSpec">BackgroundScanReportSpec</a>)
 </p>
 <p>
 <p>PolicyReportResult provides the result for an individual policy</p>
@@ -8510,8 +10355,8 @@ PolicySeverity
 (<em>Appears on:</em>
 <a href="#wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport</a>, 
 <a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>, 
-<a href="#kyverno.io/v1alpha2.AdmissionReportSpec">AdmissionReportSpec</a>, 
-<a href="#kyverno.io/v1alpha2.BackgroundScanReportSpec">BackgroundScanReportSpec</a>)
+<a href="#kyverno.io/v2.AdmissionReportSpec">AdmissionReportSpec</a>, 
+<a href="#kyverno.io/v2.BackgroundScanReportSpec">BackgroundScanReportSpec</a>)
 </p>
 <p>
 <p>PolicyReportSummary provides a status count summary</p>

@@ -126,12 +126,62 @@ func Test_ImageVerification(t *testing.T) {
 			},
 		},
 		{
-			name: "valid static key attestor",
+			name: "static key invalid signature algorithm attestor",
+			subject: ImageVerification{
+				ImageReferences: []string{"*"},
+				Attestors: []AttestorSet{
+					{Entries: []Attestor{{
+						Keys: &StaticKeyAttestor{PublicKeys: "bla", SignatureAlgorithm: "sha1"},
+					}}},
+				},
+			},
+			errors: func(i *ImageVerification) field.ErrorList {
+				return field.ErrorList{
+					field.Invalid(path.Child("attestors").Index(0).Child("entries").Index(0).Child("keys"),
+						i.Attestors[0].Entries[0].Keys, "Invalid signature algorithm provided"),
+				}
+			},
+		},
+		{
+			name: "valid static key default signature algorithm attestor",
 			subject: ImageVerification{
 				ImageReferences: []string{"*"},
 				Attestors: []AttestorSet{
 					{Entries: []Attestor{{
 						Keys: &StaticKeyAttestor{PublicKeys: "bla"},
+					}}},
+				},
+			},
+		},
+		{
+			name: "valid static key sha224 signature algorithm attestor",
+			subject: ImageVerification{
+				ImageReferences: []string{"*"},
+				Attestors: []AttestorSet{
+					{Entries: []Attestor{{
+						Keys: &StaticKeyAttestor{PublicKeys: "bla", SignatureAlgorithm: "sha224"},
+					}}},
+				},
+			},
+		},
+		{
+			name: "valid static key sah256 signature algorithm attestor",
+			subject: ImageVerification{
+				ImageReferences: []string{"*"},
+				Attestors: []AttestorSet{
+					{Entries: []Attestor{{
+						Keys: &StaticKeyAttestor{PublicKeys: "bla", SignatureAlgorithm: "sha256"},
+					}}},
+				},
+			},
+		},
+		{
+			name: "valid static key sha384 signature algorithm attestor",
+			subject: ImageVerification{
+				ImageReferences: []string{"*"},
+				Attestors: []AttestorSet{
+					{Entries: []Attestor{{
+						Keys: &StaticKeyAttestor{PublicKeys: "bla", SignatureAlgorithm: "sha384"},
 					}}},
 				},
 			},

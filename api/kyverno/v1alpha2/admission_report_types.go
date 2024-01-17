@@ -17,22 +17,9 @@ limitations under the License.
 package v1alpha2
 
 import (
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-type AdmissionReportSpec struct {
-	// Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)
-	Owner metav1.OwnerReference `json:"owner"`
-
-	// PolicyReportSummary provides a summary of results
-	// +optional
-	Summary policyreportv1alpha2.PolicyReportSummary `json:"summary,omitempty"`
-
-	// PolicyReportResult provides result details
-	// +optional
-	Results []policyreportv1alpha2.PolicyReportResult `json:"results,omitempty"`
-}
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -50,11 +37,7 @@ type AdmissionReportSpec struct {
 // +kubebuilder:printcolumn:name="AGGREGATE",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/report\\.aggregate']",priority=1
 
 // AdmissionReport is the Schema for the AdmissionReports API
-type AdmissionReport struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              AdmissionReportSpec `json:"spec"`
-}
+type AdmissionReport kyvernov2.AdmissionReport
 
 func (r *AdmissionReport) GetResults() []policyreportv1alpha2.PolicyReportResult {
 	return r.Spec.Results
@@ -85,11 +68,7 @@ func (r *AdmissionReport) SetSummary(summary policyreportv1alpha2.PolicyReportSu
 // +kubebuilder:printcolumn:name="AGGREGATE",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/report\\.aggregate']",priority=1
 
 // ClusterAdmissionReport is the Schema for the ClusterAdmissionReports API
-type ClusterAdmissionReport struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              AdmissionReportSpec `json:"spec"`
-}
+type ClusterAdmissionReport kyvernov2.ClusterAdmissionReport
 
 func (r *ClusterAdmissionReport) GetResults() []policyreportv1alpha2.PolicyReportResult {
 	return r.Spec.Results
@@ -107,18 +86,10 @@ func (r *ClusterAdmissionReport) SetSummary(summary policyreportv1alpha2.PolicyR
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // AdmissionReportList contains a list of AdmissionReport
-type AdmissionReportList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []AdmissionReport `json:"items"`
-}
+type AdmissionReportList kyvernov2.AdmissionReportList
 
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // ClusterAdmissionReportList contains a list of ClusterAdmissionReport
-type ClusterAdmissionReportList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ClusterAdmissionReport `json:"items"`
-}
+type ClusterAdmissionReportList kyvernov2.ClusterAdmissionReportList

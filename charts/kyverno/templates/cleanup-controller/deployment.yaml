@@ -36,7 +36,7 @@ spec:
       securityContext:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.cleanupController.nodeSelector }}
+      {{- with .Values.cleanupController.nodeSelector | default .Values.global.nodeSelector }}
       nodeSelector:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
@@ -141,7 +141,7 @@ spec:
                 fieldPath: metadata.namespace
           - name: KYVERNO_SVC
             value: {{ template "kyverno.cleanup-controller.name" . }}
-          {{- with .Values.cleanupController.extraEnvVars }}
+          {{- with (concat .Values.global.extraEnvVars .Values.cleanupController.extraEnvVars) }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
           {{- with .Values.cleanupController.resources }}
