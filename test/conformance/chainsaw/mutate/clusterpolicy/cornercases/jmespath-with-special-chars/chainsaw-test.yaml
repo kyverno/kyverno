@@ -1,0 +1,19 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: jmespath-with-special-chars
+spec:
+  steps:
+  - name: step-00
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+  - name: step-01
+    try:
+    - apply:
+        file: resources.yaml
+    - assert:
+        file: resources-assert.yaml

@@ -1,30 +1,32 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: ondemand
   annotations:
-    policies.kyverno.io/description: >-
-      This Policy contains two different types of rules that is validate 
-      as well as mutate. The validate rule validate against the mutation or patches added by the mutate rule
-      whereas mutate rule adds label for nodeSelector "osc.edu/role: ondemand".
+    policies.kyverno.io/description: 'This Policy contains two different types of
+      rules that is validate  as well as mutate. The validate rule validate against
+      the mutation or patches added by the mutate rule whereas mutate rule adds label
+      for nodeSelector "osc.edu/role: ondemand".'
+  name: ondemand
 spec:
+  admission: true
+  background: true
   rules:
-  - name: ondemand-managed_by
-    match:
+  - match:
       any:
       - resources:
           kinds:
           - Pod
           namespaces:
-          - "user-?*"
+          - user-?*
+    name: ondemand-managed_by
     validate:
-      message: "{{ request.object.metadata.namespace }} pods must be managed by open-ondemand"
+      message: '{{ request.object.metadata.namespace }} pods must be managed by open-ondemand'
       pattern:
         metadata:
           labels:
-            app.kubernetes.io/managed-by: "open-ondemand"
-  - name: ondemand-nodeselector
-    match:
+            app.kubernetes.io/managed-by: open-ondemand
+  - match:
       any:
       - resources:
           kinds:
@@ -37,3 +39,5 @@ spec:
         spec:
           nodeSelector:
             osc.edu/role: ondemand
+    name: ondemand-nodeselector
+  validationFailureAction: Audit

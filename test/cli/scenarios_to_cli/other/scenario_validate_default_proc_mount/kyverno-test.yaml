@@ -1,0 +1,15 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- kind: Pod
+  policy: validate-default-proc-mount
+  resources:
+  - nginx-proc-mount
+  result: pass
+  rule: validate-default-proc-mount

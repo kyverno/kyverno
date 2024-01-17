@@ -25,7 +25,8 @@ import (
 // CleanupPolicyStatusApplyConfiguration represents an declarative configuration of the CleanupPolicyStatus type for use
 // with apply.
 type CleanupPolicyStatusApplyConfiguration struct {
-	Conditions []v1.Condition `json:"conditions,omitempty"`
+	Conditions        []v1.Condition `json:"conditions,omitempty"`
+	LastExecutionTime *v1.Time       `json:"lastExecutionTime,omitempty"`
 }
 
 // CleanupPolicyStatusApplyConfiguration constructs an declarative configuration of the CleanupPolicyStatus type for use with
@@ -41,5 +42,13 @@ func (b *CleanupPolicyStatusApplyConfiguration) WithConditions(values ...v1.Cond
 	for i := range values {
 		b.Conditions = append(b.Conditions, values[i])
 	}
+	return b
+}
+
+// WithLastExecutionTime sets the LastExecutionTime field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the LastExecutionTime field is set to the value of the last call.
+func (b *CleanupPolicyStatusApplyConfiguration) WithLastExecutionTime(value v1.Time) *CleanupPolicyStatusApplyConfiguration {
+	b.LastExecutionTime = &value
 	return b
 }

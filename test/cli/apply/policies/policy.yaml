@@ -1,56 +1,60 @@
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: disallow-latest-tag
-  annotations:
-    policies.kyverno.io/category: Best Practices
-    policies.kyverno.io/description: >-
-      The ':latest' tag is mutable and can lead to unexpected errors if the
-      image changes. A best practice is to use an immutable tag that maps to
-      a specific version of an application pod.
-spec:
-  validationFailureAction: audit
-  rules:
-  - name: validate-image-tag
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      message: "Using a mutable image tag e.g. 'latest' is not allowed."
-      pattern:
-        spec:
-          containers:
-          - image: "!*:latest"
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: drop-all-capabilities
+  annotations:
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/description: The ':latest' tag is mutable and can lead to
+      unexpected errors if the image changes. A best practice is to use an immutable
+      tag that maps to a specific version of an application pod.
+  name: disallow-latest-tag
+spec:
+  admission: true
+  background: true
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: validate-image-tag
+    validate:
+      message: Using a mutable image tag e.g. 'latest' is not allowed.
+      pattern:
+        spec:
+          containers:
+          - image: '!*:latest'
+  validationFailureAction: Audit
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
   annotations:
     policies.kyverno.io/scored: "false"
+  name: drop-all-capabilities
 spec:
-  validationFailureAction: audit
+  admission: true
+  background: true
   rules:
-    - name: require-drop-all
-      match:
-        any:
-        - resources:
-            kinds:
-              - Pod
-      preconditions:
-        all:
-        - key: "{{ request.operation }}"
-          operator: NotEquals
-          value: DELETE
-      validate:
-        message: >-
-          Containers must drop `ALL` capabilities.
-        foreach:
-          - list: request.object.spec.[ephemeralContainers, initContainers, containers][]
-            deny:
-              conditions:
-                all:
-                - key: ALL
-                  operator: AnyNotIn
-                  value: "{{ element.securityContext.capabilities.drop || '' }}"
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: require-drop-all
+    preconditions:
+      all:
+      - key: '{{ request.operation }}'
+        operator: NotEquals
+        value: DELETE
+    validate:
+      foreach:
+      - deny:
+          conditions:
+            all:
+            - key: ALL
+              operator: AnyNotIn
+              value: '{{ element.securityContext.capabilities.drop || '''' }}'
+        list: request.object.spec.[ephemeralContainers, initContainers, containers][]
+      message: Containers must drop `ALL` capabilities.
+  validationFailureAction: Audit

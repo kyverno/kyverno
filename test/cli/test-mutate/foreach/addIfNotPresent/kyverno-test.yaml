@@ -1,12 +1,16 @@
-name: foreach-mutate
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  - policies.yaml
+- policies.yaml
 resources:
-  - resources.yaml
+- resources.yaml
 results:
-  - policy: mutate-emptydir
-    rule: setDefault
-    resource: svc-sizelimit-test
-    patchedResource: deploy-patched.yaml
-    kind: Deployment
-    result: pass
+- kind: Deployment
+  patchedResource: deploy-patched.yaml
+  policy: mutate-emptydir
+  resources:
+  - svc-sizelimit-test
+  result: pass
+  rule: setDefault

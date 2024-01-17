@@ -7,6 +7,7 @@ import (
 	"time"
 
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	celutils "github.com/kyverno/kyverno/pkg/utils/cel"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -65,11 +66,10 @@ func Validate(policy v1alpha1.ValidatingAdmissionPolicy, resource unstructured.U
 
 	startTime := time.Now()
 
-	var expressions, messageExpressions, matchExpressions, auditExpressions []cel.ExpressionAccessor
-
 	validations := policy.Spec.Validations
-	matchConditions := policy.Spec.MatchConditions
 	auditAnnotations := policy.Spec.AuditAnnotations
+	matchConditions := policy.Spec.MatchConditions
+	variables := policy.Spec.Variables
 
 	hasParam := policy.Spec.ParamKind != nil
 
@@ -87,58 +87,28 @@ func Validate(policy v1alpha1.ValidatingAdmissionPolicy, resource unstructured.U
 		matchPolicy = *policy.Spec.MatchConstraints.MatchPolicy
 	}
 
-	for _, cel := range validations {
-		condition := &validatingadmissionpolicy.ValidationCondition{
-			Expression: cel.Expression,
-			Message:    cel.Message,
-		}
-		messageCondition := &validatingadmissionpolicy.MessageExpressionCondition{
-			MessageExpression: cel.MessageExpression,
-		}
-		expressions = append(expressions, condition)
-		messageExpressions = append(messageExpressions, messageCondition)
+	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
+	policyResp := engineapi.NewPolicyResponse()
+	var ruleResp *engineapi.RuleResponse
+
+	optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}
+
+	// compile CEL expressions
+	compiler, err := celutils.NewCompiler(validations, auditAnnotations, matchConditions, variables)
+	if err != nil {
+		ruleResp = engineapi.RuleError(policy.GetName(), engineapi.Validation, "Error creating composited compiler", err)
+		policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
+		engineResponse = engineResponse.WithPolicyResponse(policyResp)
+		return engineResponse
 	}
+	compiler.CompileVariables(optionalVars)
+	filter := compiler.CompileValidateExpressions(optionalVars)
+	messageExpressionfilter := compiler.CompileMessageExpressions(optionalVars)
+	auditAnnotationFilter := compiler.CompileAuditAnnotationsExpressions(optionalVars)
+	matchConditionFilter := compiler.CompileMatchExpressions(optionalVars)
 
-	for _, expression := range matchConditions {
-		condition := &matchconditions.MatchCondition{
-			Name:       expression.Name,
-			Expression: expression.Expression,
-		}
-		matchExpressions = append(matchExpressions, condition)
-	}
-
-	for _, auditAnnotation := range auditAnnotations {
-		auditCondition := &validatingadmissionpolicy.AuditAnnotationCondition{
-			Key:             auditAnnotation.Key,
-			ValueExpression: auditAnnotation.ValueExpression,
-		}
-		auditExpressions = append(auditExpressions, auditCondition)
-	}
-
-	filterCompiler := cel.NewFilterCompiler()
-	filter := filterCompiler.Compile(
-		expressions,
-		cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false},
-		celconfig.PerCallLimit,
-	)
-	messageExpressionfilter := filterCompiler.Compile(
-		messageExpressions,
-		cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false},
-		celconfig.PerCallLimit,
-	)
-	auditAnnotationFilter := filterCompiler.Compile(
-		auditExpressions,
-		cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false},
-		celconfig.PerCallLimit,
-	)
-	matchConditionFilter := filterCompiler.Compile(
-		matchExpressions,
-		cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false},
-		celconfig.PerCallLimit,
-	)
-
-	newMatcher := matchconditions.NewMatcher(matchConditionFilter, nil, &failPolicy, string(matchPolicy), "")
-	validator := validatingadmissionpolicy.NewValidator(filter, newMatcher, auditAnnotationFilter, messageExpressionfilter, nil, nil)
+	newMatcher := matchconditions.NewMatcher(matchConditionFilter, &failPolicy, "", string(matchPolicy), "")
+	validator := validatingadmissionpolicy.NewValidator(filter, newMatcher, auditAnnotationFilter, messageExpressionfilter, nil)
 
 	admissionAttributes := admission.NewAttributesRecord(
 		resource.DeepCopyObject(),
@@ -153,13 +123,9 @@ func Validate(policy v1alpha1.ValidatingAdmissionPolicy, resource unstructured.U
 		nil,
 	)
 	versionedAttr, _ := admission.NewVersionedAttributes(admissionAttributes, admissionAttributes.GetKind(), nil)
-	validateResult := validator.Validate(context.TODO(), versionedAttr, nil, celconfig.RuntimeCELCostBudget)
+	validateResult := validator.Validate(context.TODO(), schema.GroupVersionResource{}, versionedAttr, nil, nil, celconfig.RuntimeCELCostBudget, nil)
 
-	engineResponse := engineapi.NewEngineResponseWithValidatingAdmissionPolicy(resource, policy, nil)
-	policyResp := engineapi.NewPolicyResponse()
-	var ruleResp *engineapi.RuleResponse
 	isPass := true
-
 	for _, policyDecision := range validateResult.Decisions {
 		if policyDecision.Evaluation == validatingadmissionpolicy.EvalError {
 			isPass = false

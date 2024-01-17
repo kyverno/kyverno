@@ -1,22 +1,27 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: mutate-emptydir
 spec:
+  admission: true
+  background: true
   rules:
-    - name: setDefault
-      match:
-        resources:
+  - match:
+      any:
+      - resources:
           kinds:
-            - Deployment
-      mutate:
-        foreach:
-          - list: "request.object.spec.template.spec.volumes"
-            patchStrategicMerge:
+          - Deployment
+    mutate:
+      foreach:
+      - list: request.object.spec.template.spec.volumes
+        patchStrategicMerge:
+          spec:
+            template:
               spec:
-                template:
-                  spec:
-                    volumes:
-                      - name: "{{ element.name }}"
-                        (emptyDir):
-                          +(sizeLimit): "20Mi"
+                volumes:
+                - (emptyDir):
+                    +(sizeLimit): 20Mi
+                  name: '{{ element.name }}'
+    name: setDefault
+  validationFailureAction: Audit

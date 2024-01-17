@@ -5,12 +5,13 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
-	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -71,8 +72,8 @@ func IsImageVerified(resource unstructured.Unstructured, image string, log logr.
 	}
 	if annotations := resource.GetAnnotations(); len(annotations) == 0 {
 		return false, nil
-	} else if data, ok := annotations[engineapi.ImageVerifyAnnotationKey]; !ok {
-		log.V(2).Info("missing image metadata in annotation", "key", engineapi.ImageVerifyAnnotationKey)
+	} else if data, ok := annotations[kyverno.AnnotationImageVerify]; !ok {
+		log.V(2).Info("missing image metadata in annotation", "key", kyverno.AnnotationImageVerify)
 		return false, fmt.Errorf("image is not verified")
 	} else if ivm, err := engineapi.ParseImageMetadata(data); err != nil {
 		log.Error(err, "failed to parse image verification metadata", "data", data)

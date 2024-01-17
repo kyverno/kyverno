@@ -3,6 +3,7 @@ kind: Pod
 metadata:
   labels:
     foo: bar
+    color: orange
   name: same-name-but-diff-namespace
   namespace: testing
 spec:

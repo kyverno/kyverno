@@ -13,9 +13,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -29,9 +31,11 @@ func NewEngine(
 	jp jmespath.Interface,
 	client dclient.Interface,
 	rclient registryclient.Client,
+	ivCache imageverifycache.Client,
 	kubeClient kubernetes.Interface,
 	kyvernoClient versioned.Interface,
 	secretLister corev1listers.SecretNamespaceLister,
+	apiCallConfig apicall.APICallConfiguration,
 ) engineapi.Engine {
 	configMapResolver := NewConfigMapResolver(ctx, logger, kubeClient, 15*time.Minute)
 	exceptionsSelector := NewExceptionSelector(ctx, logger, kyvernoClient, 15*time.Minute)
@@ -43,7 +47,8 @@ func NewEngine(
 		jp,
 		adapters.Client(client),
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), secretLister),
-		factories.DefaultContextLoaderFactory(configMapResolver),
+		ivCache,
+		factories.DefaultContextLoaderFactory(configMapResolver, factories.WithAPICallConfig(apiCallConfig)),
 		exceptionsSelector,
 		imageSignatureRepository,
 	)
@@ -60,7 +65,7 @@ func NewExceptionSelector(
 	var exceptionsLister engineapi.PolicyExceptionSelector
 	if enablePolicyException {
 		factory := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
-		lister := factory.Kyverno().V2alpha1().PolicyExceptions().Lister()
+		lister := factory.Kyverno().V2beta1().PolicyExceptions().Lister()
 		if exceptionNamespace != "" {
 			exceptionsLister = lister.PolicyExceptions(exceptionNamespace)
 		} else {

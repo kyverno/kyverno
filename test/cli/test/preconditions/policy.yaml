@@ -1,24 +1,27 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: preconditions
 spec:
-  validationFailureAction: enforce
+  admission: true
   background: false
   rules:
-  - name: any-rule
-    match:
-      resources:
-        kinds:
-        - Pod
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: any-rule
     preconditions:
       any:
-      - key: "{{request.object.metadata.labels.app}}"
+      - key: '{{request.object.metadata.labels.app}}'
         operator: Equals
         value: busybox
     validate:
-      message: "Busybox must be used based on this label combination."
+      message: Busybox must be used based on this label combination.
       pattern:
         spec:
           containers:
-          - name: "*busybox*"
+          - name: '*busybox*'
+  validationFailureAction: Enforce

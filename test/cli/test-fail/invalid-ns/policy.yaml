@@ -1,35 +1,39 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: restrict-labels
+  annotations:
+    policies.kyverno.io/category: Labels
+    policies.kyverno.io/description: This policy prevents the use of an label beginning
+      with a common key name (in this case "platform.das-schiff.telekom.de/owner |
+      owner"). This can be useful to ensure users either don't set reserved labels
+      or to force them to use a newer version of an label.
+    policies.kyverno.io/minversion: 1.3.0
+    policies.kyverno.io/title: Restrict Labels on Namespaces
   labels:
     policy.schiff.telekom.de: enforced
-  annotations:
-    policies.kyverno.io/title: Restrict Labels on Namespaces
-    policies.kyverno.io/category: Labels
-    policies.kyverno.io/minversion: 1.3.0
-    policies.kyverno.io/description: >-
-      This policy prevents the use of an label beginning with a common
-      key name (in this case "platform.das-schiff.telekom.de/owner | owner"). This can be useful to ensure users either
-      don't set reserved labels or to force them to
-      use a newer version of an label.
+  name: restrict-labels
 spec:
-  validationFailureAction: enforce
+  admission: true
   background: false
   rules:
-  - name: restrict-labels
+  - exclude:
+      any:
+      - clusterRoles:
+        - cluster-admin
+        resources: {}
     match:
-      resources:
-        kinds:
-        - Namespace
-    exclude:
-      clusterRoles:
-      - cluster-admin
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    name: restrict-labels
     validate:
-      message: 'Every namespace has to have `platform.das-schiff.telekom.de/owner` label. It must not have value `das-schiff` which is reserved for system namespaces'
+      message: Every namespace has to have `platform.das-schiff.telekom.de/owner`
+        label. It must not have value `das-schiff` which is reserved for system namespaces
       pattern:
         metadata:
           labels:
-            platform.das-schiff.telekom.de/owner: "!das-schiff"
-            # For forward compatibility
-            =(schiff.telekom.de/owner): "!schiff"
+            =(schiff.telekom.de/owner): '!schiff'
+            platform.das-schiff.telekom.de/owner: '!das-schiff'
+  validationFailureAction: Enforce

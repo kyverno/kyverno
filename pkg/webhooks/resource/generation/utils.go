@@ -4,7 +4,6 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/engine"
-	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
@@ -26,13 +25,4 @@ func buildURContext(request admissionv1.AdmissionRequest, policyContext *engine.
 			Operation:        request.Operation,
 		},
 	}
-}
-
-func matchDeleteOperation(rule kyvernov1.Rule) bool {
-	ops := rule.MatchResources.GetOperations()
-	for _, rscFilters := range append(rule.MatchResources.All, rule.MatchResources.Any...) {
-		ops = append(ops, rscFilters.ResourceDescription.GetOperations()...)
-	}
-
-	return datautils.SliceContains(ops, string(admissionv1.Delete))
 }

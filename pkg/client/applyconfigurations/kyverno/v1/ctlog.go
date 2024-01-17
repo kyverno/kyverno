@@ -21,7 +21,8 @@ package v1
 // CTLogApplyConfiguration represents an declarative configuration of the CTLog type for use
 // with apply.
 type CTLogApplyConfiguration struct {
-	URL *string `json:"url,omitempty"`
+	IgnoreSCT   *bool   `json:"ignoreSCT,omitempty"`
+	CTLogPubKey *string `json:"pubkey,omitempty"`
 }
 
 // CTLogApplyConfiguration constructs an declarative configuration of the CTLog type for use with
@@ -30,10 +31,18 @@ func CTLog() *CTLogApplyConfiguration {
 	return &CTLogApplyConfiguration{}
 }
 
-// WithURL sets the URL field in the declarative configuration to the given value
+// WithIgnoreSCT sets the IgnoreSCT field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the URL field is set to the value of the last call.
-func (b *CTLogApplyConfiguration) WithURL(value string) *CTLogApplyConfiguration {
-	b.URL = &value
+// If called multiple times, the IgnoreSCT field is set to the value of the last call.
+func (b *CTLogApplyConfiguration) WithIgnoreSCT(value bool) *CTLogApplyConfiguration {
+	b.IgnoreSCT = &value
+	return b
+}
+
+// WithCTLogPubKey sets the CTLogPubKey field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the CTLogPubKey field is set to the value of the last call.
+func (b *CTLogApplyConfiguration) WithCTLogPubKey(value string) *CTLogApplyConfiguration {
+	b.CTLogPubKey = &value
 	return b
 }

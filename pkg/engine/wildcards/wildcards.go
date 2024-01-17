@@ -3,16 +3,18 @@ package wildcards
 import (
 	"strings"
 
+	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
-	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ReplaceInSelector replaces label selector keys and values containing
 // wildcard characters with matching keys and values from the resource labels.
-func ReplaceInSelector(labelSelector *metav1.LabelSelector, resourceLabels map[string]string) {
+func ReplaceInSelector(labelSelector *metav1.LabelSelector, resourceLabels map[string]string) *metav1.LabelSelector {
+	labelSelector = labelSelector.DeepCopy()
 	result := replaceWildcardsInMapKeyValues(labelSelector.MatchLabels, resourceLabels)
 	labelSelector.MatchLabels = result
+	return labelSelector
 }
 
 // replaceWildcardsInMap will expand  the "key" and "value" and will replace wildcard characters

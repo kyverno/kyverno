@@ -21,6 +21,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	utils "github.com/kyverno/kyverno/pkg/utils/engine"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
+	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -41,34 +42,37 @@ func NewGenerationHandler(
 	urGenerator webhookgenerate.Generator,
 	eventGen event.Interface,
 	metrics metrics.MetricsConfigManager,
+	backgroundServiceAccountName string,
 ) GenerationHandler {
 	return &generationHandler{
-		log:           log,
-		engine:        engine,
-		client:        client,
-		kyvernoClient: kyvernoClient,
-		nsLister:      nsLister,
-		urLister:      urLister,
-		cpolLister:    cpolLister,
-		polLister:     polLister,
-		urGenerator:   urGenerator,
-		eventGen:      eventGen,
-		metrics:       metrics,
+		log:                          log,
+		engine:                       engine,
+		client:                       client,
+		kyvernoClient:                kyvernoClient,
+		nsLister:                     nsLister,
+		urLister:                     urLister,
+		cpolLister:                   cpolLister,
+		polLister:                    polLister,
+		urGenerator:                  urGenerator,
+		eventGen:                     eventGen,
+		metrics:                      metrics,
+		backgroundServiceAccountName: backgroundServiceAccountName,
 	}
 }
 
 type generationHandler struct {
-	log           logr.Logger
-	engine        engineapi.Engine
-	client        dclient.Interface
-	kyvernoClient versioned.Interface
-	nsLister      corev1listers.NamespaceLister
-	urLister      kyvernov1beta1listers.UpdateRequestNamespaceLister
-	cpolLister    kyvernov1listers.ClusterPolicyLister
-	polLister     kyvernov1listers.PolicyLister
-	urGenerator   webhookgenerate.Generator
-	eventGen      event.Interface
-	metrics       metrics.MetricsConfigManager
+	log                          logr.Logger
+	engine                       engineapi.Engine
+	client                       dclient.Interface
+	kyvernoClient                versioned.Interface
+	nsLister                     corev1listers.NamespaceLister
+	urLister                     kyvernov1beta1listers.UpdateRequestNamespaceLister
+	cpolLister                   kyvernov1listers.ClusterPolicyLister
+	polLister                    kyvernov1listers.PolicyLister
+	urGenerator                  webhookgenerate.Generator
+	eventGen                     event.Interface
+	metrics                      metrics.MetricsConfigManager
+	backgroundServiceAccountName string
 }
 
 func (h *generationHandler) Handle(
@@ -82,6 +86,9 @@ func (h *generationHandler) Handle(
 		h.handleTrigger(ctx, request, policies, policyContext)
 	}
 
+	if h.backgroundServiceAccountName == policyContext.AdmissionInfo().AdmissionUserInfo.Username {
+		return
+	}
 	h.handleNonTrigger(ctx, policyContext, request)
 }
 
@@ -160,6 +167,7 @@ func (h *generationHandler) applyGeneration(
 		Kind:       trigger.GetKind(),
 		Namespace:  trigger.GetNamespace(),
 		Name:       trigger.GetName(),
+		UID:        trigger.GetUID(),
 	}
 
 	rules := getAppliedRules(policy, appliedRules)
@@ -196,12 +204,13 @@ func (h *generationHandler) syncTriggerAction(
 		Kind:       trigger.GetKind(),
 		Namespace:  trigger.GetNamespace(),
 		Name:       trigger.GetName(),
+		UID:        trigger.GetUID(),
 	}
 
 	rules := getAppliedRules(policy, failedRules)
 	for _, rule := range rules {
 		// fire generation on trigger deletion
-		if (request.Operation == admissionv1.Delete) && matchDeleteOperation(rule) {
+		if (request.Operation == admissionv1.Delete) && webhookutils.MatchDeleteOperation(rule) {
 			h.log.V(4).Info("creating the UR to generate downstream on trigger's deletion", "operation", request.Operation, "rule", rule.Name)
 			ur := buildURSpec(kyvernov1beta1.Generate, pKey, rule.Name, urSpec, false)
 			ur.Context = buildURContext(request, policyContext)
@@ -246,6 +255,7 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 			// clone source deletion
 			deleteDownstream = true
 		}
+		// fetch targets that have the source name label
 		targetSelector := map[string]string{
 			common.GenerateSourceGroupLabel:   old.GroupVersionKind().Group,
 			common.GenerateSourceVersionLabel: old.GroupVersionKind().Version,
@@ -253,7 +263,25 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 			common.GenerateSourceNSLabel:      old.GetNamespace(),
 			common.GenerateSourceNameLabel:    old.GetName(),
 		}
-		targets, err := generateutils.FindDownstream(h.client, old.GetAPIVersion(), old.GetKind(), targetSelector)
+		targets, err := common.FindDownstream(h.client, old.GetAPIVersion(), old.GetKind(), targetSelector)
+		if err != nil {
+			return fmt.Errorf("failed to list targets resources: %v", err)
+		}
+
+		for i := range targets.Items {
+			l := targets.Items[i].GetLabels()
+			labelsList = append(labelsList, l)
+		}
+
+		// fetch targets that have the source UID label
+		targetSelector = map[string]string{
+			common.GenerateSourceGroupLabel:   old.GroupVersionKind().Group,
+			common.GenerateSourceVersionLabel: old.GroupVersionKind().Version,
+			common.GenerateSourceKindLabel:    old.GetKind(),
+			common.GenerateSourceNSLabel:      old.GetNamespace(),
+			common.GenerateSourceUIDLabel:     string(old.GetUID()),
+		}
+		targets, err = common.FindDownstream(h.client, old.GetAPIVersion(), old.GetKind(), targetSelector)
 		if err != nil {
 			return fmt.Errorf("failed to list targets resources: %v", err)
 		}

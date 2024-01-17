@@ -34,11 +34,11 @@ func TestGetWarningMessages(t *testing.T) {
 						*engineapi.NewRuleResponse("rule", engineapi.Validation, "message warn", engineapi.RuleStatusWarn),
 					},
 				},
-			}.WithPolicy(&v1.ClusterPolicy{
+			}.WithPolicy(engineapi.NewKyvernoPolicy(&v1.ClusterPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 				},
-			}),
+			})),
 		}},
 		want: []string{
 			"policy test.rule: message warn",
@@ -56,11 +56,11 @@ func TestGetWarningMessages(t *testing.T) {
 						*engineapi.RuleSkip("rule-skip", engineapi.Validation, "message skip"),
 					},
 				},
-			}.WithPolicy(&v1.ClusterPolicy{
+			}.WithPolicy(engineapi.NewKyvernoPolicy(&v1.ClusterPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 				},
-			}),
+			})),
 		}},
 		want: []string{
 			"policy test.rule-warn: message warn",

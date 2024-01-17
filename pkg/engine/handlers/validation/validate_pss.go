@@ -4,17 +4,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
+	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/pss"
+	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/tools/cache"
 )
 
 type validatePssHandler struct{}
@@ -30,7 +35,28 @@ func (h validatePssHandler) Process(
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
 	_ engineapi.EngineContextLoader,
+	exceptions []kyvernov2beta1.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
+	if engineutils.IsDeleteRequest(policyContext) {
+		logger.V(3).Info("skipping PSS validation on deleted resource")
+		return resource, nil
+	}
+
+	// check if there is a policy exception matches the incoming resource
+	exception := engineutils.MatchesException(exceptions, policyContext, logger)
+	if exception != nil {
+		key, err := cache.MetaNamespaceKeyFunc(exception)
+		if err != nil {
+			logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
+			return resource, handlers.WithError(rule, engineapi.Validation, "failed to compute exception key", err)
+		} else {
+			logger.V(3).Info("policy rule skipped due to policy exception", "exception", key)
+			return resource, handlers.WithResponses(
+				engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule skipped due to policy exception "+key).WithException(exception),
+			)
+		}
+	}
+
 	// Marshal pod metadata and spec
 	podSecurity := rule.Validation.PodSecurity
 	if resource.Object == nil {
@@ -48,6 +74,7 @@ func (h validatePssHandler) Process(
 	if err != nil {
 		return resource, handlers.WithError(rule, engineapi.Validation, "failed to parse pod security api version", err)
 	}
+	pssChecks = convertChecks(pssChecks, resource.GetKind())
 	podSecurityChecks := engineapi.PodSecurityChecks{
 		Level:   podSecurity.Level,
 		Version: podSecurity.Version,
@@ -64,6 +91,29 @@ func (h validatePssHandler) Process(
 			engineapi.RuleFail(rule.Name, engineapi.Validation, msg).WithPodSecurityChecks(podSecurityChecks),
 		)
 	}
+}
+
+func convertChecks(checks []pssutils.PSSCheckResult, kind string) (newChecks []pssutils.PSSCheckResult) {
+	if kind == "DaemonSet" || kind == "Deployment" || kind == "Job" || kind == "StatefulSet" || kind == "ReplicaSet" || kind == "ReplicationController" {
+		for i := range checks {
+			for j := range *checks[i].CheckResult.ErrList {
+				(*checks[i].CheckResult.ErrList)[j].Field = strings.ReplaceAll((*checks[i].CheckResult.ErrList)[j].Field, "spec", "spec.template.spec")
+			}
+		}
+	} else if kind == "CronJob" {
+		for i := range checks {
+			for j := range *checks[i].CheckResult.ErrList {
+				(*checks[i].CheckResult.ErrList)[j].Field = strings.ReplaceAll((*checks[i].CheckResult.ErrList)[j].Field, "spec", "spec.jobTemplate.spec.template.spec")
+			}
+		}
+	}
+	for i := range checks {
+		for j := range *checks[i].CheckResult.ErrList {
+			(*checks[i].CheckResult.ErrList)[j].Field = strings.ReplaceAll((*checks[i].CheckResult.ErrList)[j].Field, "metadata", "spec.template.metadata")
+		}
+	}
+
+	return checks
 }
 
 func getSpec(resource unstructured.Unstructured) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta, err error) {
@@ -110,6 +160,8 @@ func getSpec(resource unstructured.Unstructured) (podSpec *corev1.PodSpec, metad
 		podSpec = &pod.Spec
 		metadata = &pod.ObjectMeta
 		return podSpec, metadata, nil
+	} else {
+		return nil, nil, fmt.Errorf("Could not find correct resource type")
 	}
 	if err != nil {
 		return nil, nil, err

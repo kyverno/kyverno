@@ -1,0 +1,362 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.12.0
+  name: tests.cli.kyverno.io
+spec:
+  group: cli.kyverno.io
+  names:
+    kind: Test
+    listKind: TestList
+    plural: tests
+    singular: test
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Test declares a test
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          name:
+            description: Name is the name of the test. This field is deprecated, use
+              `metadata.name` instead
+            type: string
+          policies:
+            description: Policies are the policies to be used in the test
+            items:
+              type: string
+            type: array
+          resources:
+            description: Resources are the resource to be used in the test
+            items:
+              type: string
+            type: array
+          results:
+            description: Results are the results to be checked in the test
+            items:
+              description: TestResultBase declares a test result
+              properties:
+                cloneSourceResource:
+                  description: CloneSourceResource takes the resource configuration
+                    file in yaml format from the user which is meant to be cloned
+                    by the generate rule.
+                  type: string
+                generatedResource:
+                  description: GeneratedResource takes a resource configuration file
+                    in yaml format from the user to compare it against the Kyverno
+                    generated resource configuration.
+                  type: string
+                isValidatingAdmissionPolicy:
+                  description: IsValidatingAdmissionPolicy indicates if the policy
+                    is a validating admission policy. It's required in case policy
+                    is a validating admission policy.
+                  type: boolean
+                kind:
+                  description: Kind mentions the kind of the resource on which the
+                    policy is to be applied.
+                  type: string
+                namespace:
+                  description: Namespace mentions the namespace of the policy which
+                    has namespace scope. This is DEPRECATED, use a name in the form
+                    `<namespace>/<name>` for policies and/or resources instead.
+                  type: string
+                patchedResource:
+                  description: PatchedResource takes a resource configuration file
+                    in yaml format from the user to compare it against the Kyverno
+                    mutated resource configuration.
+                  type: string
+                policy:
+                  description: Policy mentions the name of the policy.
+                  type: string
+                resource:
+                  description: Resource mentions the name of the resource on which
+                    the policy is to be applied. This is DEPRECATED, use `Resources`
+                    instead.
+                  type: string
+                resources:
+                  description: Resources gives us the list of resources on which the
+                    policy is going to be applied.
+                  items:
+                    type: string
+                  type: array
+                result:
+                  description: Result mentions the result that the user is expecting.
+                    Possible values are pass, fail and skip.
+                  enum:
+                  - pass
+                  - fail
+                  - warn
+                  - error
+                  - skip
+                  type: string
+                rule:
+                  description: Rule mentions the name of the rule in the policy. It's
+                    required in case policy is a kyverno policy.
+                  type: string
+                status:
+                  description: Status mentions the status that the user is expecting.
+                    Possible values are pass, fail and skip. This is DEPRECATED, use
+                    `Result` instead.
+                  enum:
+                  - pass
+                  - fail
+                  - warn
+                  - error
+                  - skip
+                  type: string
+              required:
+              - kind
+              - policy
+              - resources
+              - result
+              type: object
+            type: array
+          userinfo:
+            description: UserInfo is the user info to be used in the test
+            type: string
+          values:
+            description: Values are the values to be used in the test
+            properties:
+              globalValues:
+                description: GlobalValues are the global values
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              namespaceSelector:
+                description: NamespaceSelectors are the namespace labels
+                items:
+                  description: NamespaceSelector declares labels for a given namespace
+                  properties:
+                    labels:
+                      additionalProperties:
+                        type: string
+                      description: Labels are the labels for the given namespace
+                      type: object
+                    name:
+                      description: Name is the namespace name
+                      type: string
+                  required:
+                  - labels
+                  - name
+                  type: object
+                type: array
+              policies:
+                description: Policies are the policy values
+                items:
+                  description: Policy declares values for a given policy
+                  properties:
+                    name:
+                      description: Name is the policy name
+                      type: string
+                    resources:
+                      description: Resources are values for specific resources
+                      items:
+                        description: Resource declares values for a given resource
+                        properties:
+                          name:
+                            description: Name is the name of the resource
+                            type: string
+                          values:
+                            description: Values are the values for the given resource
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                        required:
+                        - name
+                        type: object
+                      type: array
+                    rules:
+                      description: Rules are values for specific policy rules
+                      items:
+                        description: Rule declares values for a given policy rule
+                        properties:
+                          foreachValues:
+                            description: ForeachValues are the foreach values for
+                              the given policy rule
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                          name:
+                            description: Name is the name of the ppolicy rule
+                            type: string
+                          values:
+                            description: Values are the values for the given policy
+                              rule
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                        required:
+                        - name
+                        type: object
+                      type: array
+                  required:
+                  - name
+                  type: object
+                type: array
+              subresources:
+                description: Subresources are the subresource/parent resource mappings
+                items:
+                  description: Subresource declares subresource/parent resource mapping
+                  properties:
+                    parentResource:
+                      description: ParentResource declares the parent resource api
+                      properties:
+                        categories:
+                          description: categories is a list of the grouped resources
+                            this resource belongs to (e.g. 'all')
+                          items:
+                            type: string
+                          type: array
+                        group:
+                          description: 'group is the preferred group of the resource.  Empty
+                            implies the group of the containing resource list. For
+                            subresources, this may have a different value, for example:
+                            Scale".'
+                          type: string
+                        kind:
+                          description: kind is the kind for the resource (e.g. 'Foo'
+                            is the kind for a resource 'foo')
+                          type: string
+                        name:
+                          description: name is the plural name of the resource.
+                          type: string
+                        namespaced:
+                          description: namespaced indicates if a resource is namespaced
+                            or not.
+                          type: boolean
+                        shortNames:
+                          description: shortNames is a list of suggested short names
+                            of the resource.
+                          items:
+                            type: string
+                          type: array
+                        singularName:
+                          description: singularName is the singular name of the resource.  This
+                            allows clients to handle plural and singular opaquely.
+                            The singularName is more correct for reporting status
+                            on a single item and both singular and plural are allowed
+                            from the kubectl CLI interface.
+                          type: string
+                        storageVersionHash:
+                          description: The hash value of the storage version, the
+                            version this resource is converted to when written to
+                            the data store. Value must be treated as opaque by clients.
+                            Only equality comparison on the value is valid. This is
+                            an alpha feature and may change or be removed in the future.
+                            The field is populated by the apiserver only if the StorageVersionHash
+                            feature gate is enabled. This field will remain optional
+                            even if it graduates.
+                          type: string
+                        verbs:
+                          description: verbs is a list of supported kube verbs (this
+                            includes get, list, watch, create, update, patch, delete,
+                            deletecollection, and proxy)
+                          items:
+                            type: string
+                          type: array
+                        version:
+                          description: 'version is the preferred version of the resource.  Empty
+                            implies the version of the containing resource list For
+                            subresources, this may have a different value, for example:
+                            v1 (while inside a v1beta1 version of the core resource''s
+                            group)".'
+                          type: string
+                      required:
+                      - kind
+                      - name
+                      - namespaced
+                      - singularName
+                      - verbs
+                      type: object
+                    subresource:
+                      description: Subresource declares the subresource api
+                      properties:
+                        categories:
+                          description: categories is a list of the grouped resources
+                            this resource belongs to (e.g. 'all')
+                          items:
+                            type: string
+                          type: array
+                        group:
+                          description: 'group is the preferred group of the resource.  Empty
+                            implies the group of the containing resource list. For
+                            subresources, this may have a different value, for example:
+                            Scale".'
+                          type: string
+                        kind:
+                          description: kind is the kind for the resource (e.g. 'Foo'
+                            is the kind for a resource 'foo')
+                          type: string
+                        name:
+                          description: name is the plural name of the resource.
+                          type: string
+                        namespaced:
+                          description: namespaced indicates if a resource is namespaced
+                            or not.
+                          type: boolean
+                        shortNames:
+                          description: shortNames is a list of suggested short names
+                            of the resource.
+                          items:
+                            type: string
+                          type: array
+                        singularName:
+                          description: singularName is the singular name of the resource.  This
+                            allows clients to handle plural and singular opaquely.
+                            The singularName is more correct for reporting status
+                            on a single item and both singular and plural are allowed
+                            from the kubectl CLI interface.
+                          type: string
+                        storageVersionHash:
+                          description: The hash value of the storage version, the
+                            version this resource is converted to when written to
+                            the data store. Value must be treated as opaque by clients.
+                            Only equality comparison on the value is valid. This is
+                            an alpha feature and may change or be removed in the future.
+                            The field is populated by the apiserver only if the StorageVersionHash
+                            feature gate is enabled. This field will remain optional
+                            even if it graduates.
+                          type: string
+                        verbs:
+                          description: verbs is a list of supported kube verbs (this
+                            includes get, list, watch, create, update, patch, delete,
+                            deletecollection, and proxy)
+                          items:
+                            type: string
+                          type: array
+                        version:
+                          description: 'version is the preferred version of the resource.  Empty
+                            implies the version of the containing resource list For
+                            subresources, this may have a different value, for example:
+                            v1 (while inside a v1beta1 version of the core resource''s
+                            group)".'
+                          type: string
+                      required:
+                      - kind
+                      - name
+                      - namespaced
+                      - singularName
+                      - verbs
+                      type: object
+                  required:
+                  - parentResource
+                  - subresource
+                  type: object
+                type: array
+            type: object
+          variables:
+            description: Variables is the values to be used in the test
+            type: string
+        type: object
+    served: true
+    storage: true

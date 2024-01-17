@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: soft-pod-antiaffinity-1
+  namespace: sample
+  annotations:
+    spot-toleration: 'false'
+  ownerReferences:
+    - controller: true
+      kind: Deployment
+      apiVersion: v1
+      uid: test
+      name: test
+spec:
+  containers:
+    - name: echo-server
+      image: hashicorp/http-echo:0.2.3
+      imagePullPolicy: IfNotPresent
+      args:
+        - -listen=:8080
+        - -text="hello world"
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: test-pod
+            topologyKey: kubernetes.io/hostname
+          weight: 100
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: soft-pod-antiaffinity-1-copy
+  namespace: sample
+  annotations:
+    spot-toleration: 'false'
+  ownerReferences:
+    - controller: true
+      kind: Deployment
+      apiVersion: v1
+      uid: test
+      name: test
+spec:
+  containers:
+    - name: echo-server
+      image: hashicorp/http-echo:0.2.3
+      imagePullPolicy: IfNotPresent
+      args:
+        - -listen=:8080
+        - -text="hello world"
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: test-pod
+            topologyKey: kubernetes.io/hostname
+          weight: 100

@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/tracing"
@@ -31,6 +32,7 @@ type engine struct {
 	jp                       jmespath.Interface
 	client                   engineapi.Client
 	rclientFactory           engineapi.RegistryClientFactory
+	ivCache                  imageverifycache.Client
 	contextLoader            engineapi.ContextLoaderFactory
 	exceptionSelector        engineapi.PolicyExceptionSelector
 	imageSignatureRepository string
@@ -47,6 +49,7 @@ func NewEngine(
 	jp jmespath.Interface,
 	client engineapi.Client,
 	rclientFactory engineapi.RegistryClientFactory,
+	ivCache imageverifycache.Client,
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,
 	imageSignatureRepository string,
@@ -72,6 +75,7 @@ func NewEngine(
 		jp:                       jp,
 		client:                   client,
 		rclientFactory:           rclientFactory,
+		ivCache:                  ivCache,
 		contextLoader:            contextLoader,
 		exceptionSelector:        exceptionSelector,
 		imageSignatureRepository: imageSignatureRepository,
@@ -251,10 +255,6 @@ func (e *engine) invokeRuleHandler(
 			} else if handler, err := handlerFactory(); err != nil {
 				return resource, handlers.WithError(rule, ruleType, "failed to instantiate handler", err)
 			} else if handler != nil {
-				// check if there's an exception
-				if ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule); ruleResp != nil {
-					return resource, handlers.WithResponses(ruleResp)
-				}
 				policyContext.JSONContext().Checkpoint()
 				defer func() {
 					policyContext.JSONContext().Restore()
@@ -283,8 +283,15 @@ func (e *engine) invokeRuleHandler(
 					s := stringutils.JoinNonEmpty([]string{"preconditions not met", msg}, "; ")
 					return resource, handlers.WithSkip(rule, ruleType, s)
 				}
+				// get policy exceptions that matches both policy and rule name
+				exceptions, err := e.GetPolicyExceptions(policyContext.Policy(), rule.Name)
+				if err != nil {
+					logger.Error(err, "failed to get exceptions")
+					return resource, nil
+				}
 				// process handler
-				return handler.Process(ctx, logger, policyContext, resource, rule, contextLoader)
+				resource, ruleResponses := handler.Process(ctx, logger, policyContext, resource, rule, contextLoader, exceptions)
+				return resource, ruleResponses
 			}
 			return resource, nil
 		},

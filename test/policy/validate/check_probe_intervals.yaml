@@ -1,36 +1,42 @@
-apiVersion : kyverno.io/v1
-kind : ClusterPolicy
-metadata :
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
   name: check-probe-intervals
 spec:
+  admission: true
+  background: true
   rules:
-  - name: check-probe-intervals
-    match:
-      resources:
-        kinds :
-        - Deployment
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Deployment
+    name: check-probe-intervals
     validate:
-      message: "livenessProbe must be > 10s"
+      message: livenessProbe must be > 10s
       pattern:
         spec:
           template:
             spec:
               containers:
-                - name: "*"
-                  livenessProbe:
-                    periodSeconds: ">10"
-  - name: check-probe-intervals
-    match:
-      resources:
-        kinds :
-        - Deployment
+              - livenessProbe:
+                  periodSeconds: '>10'
+                name: '*'
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Deployment
+    name: check-probe-intervals
     validate:
-      message: "readinessProbe must be > 10s"
+      message: readinessProbe must be > 10s
       pattern:
         spec:
           template:
             spec:
               containers:
-                - name: "*"
-                  readinessProbe:
-                    periodSeconds: ">10"
+              - name: '*'
+                readinessProbe:
+                  periodSeconds: '>10'
+  validationFailureAction: Audit

@@ -1,0 +1,37 @@
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: ValidatingAdmissionPolicy
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+  name: disallow-host-path-t7
+  ownerReferences:
+  - apiVersion: kyverno.io/v1
+    kind: ClusterPolicy
+    name: disallow-host-path-t7
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - apps
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - deployments
+      - statefulsets
+      - replicasets
+      - daemonsets
+    namespaceSelector:
+      matchExpressions:
+      - key: type
+        operator: In
+        values:
+        - connector
+  validations:
+  - expression: '!has(object.spec.template.spec.volumes) || object.spec.template.spec.volumes.all(volume,
+      !has(volume.hostPath))'
+    message: HostPath volumes are forbidden. The field spec.template.spec.volumes[*].hostPath
+      must be unset.

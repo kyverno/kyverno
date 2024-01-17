@@ -1,22 +1,27 @@
-apiVersion : kyverno.io/v1
+---
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: restrict-automount-sa-token
   annotations:
     policies.kyverno.io/category: Security
-    policies.kyverno.io/description: Kubernetes automatically mounts service account 
-      credentials in each pod. The service account may be assigned roles allowing pods 
-      to access API resources. To restrict access, opt out of auto-mounting tokens by 
-      setting automountServiceAccountToken to false.
+    policies.kyverno.io/description: Kubernetes automatically mounts service account
+      credentials in each pod. The service account may be assigned roles allowing
+      pods to access API resources. To restrict access, opt out of auto-mounting tokens
+      by setting automountServiceAccountToken to false.
+  name: restrict-automount-sa-token
 spec:
+  admission: true
+  background: true
   rules:
-  - name: validate-automountServiceAccountToken
-    match:
-      resources:
-        kinds:
-        - Pod
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: validate-automountServiceAccountToken
     validate:
-      message: "Auto-mounting of Service Account tokens is not allowed"
+      message: Auto-mounting of Service Account tokens is not allowed
       pattern:
         spec:
           automountServiceAccountToken: false
+  validationFailureAction: Audit

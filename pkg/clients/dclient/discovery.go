@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	openapiv2 "github.com/google/gnostic/openapiv2"
+	openapiv2 "github.com/google/gnostic-models/openapiv2"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
@@ -163,10 +163,17 @@ func (c serverResources) FindResource(groupVersion string, kind string) (apiReso
 
 func (c serverResources) FindResources(group, version, kind, subresource string) (map[TopLevelApiDescription]metav1.APIResource, error) {
 	resources, err := c.findResources(group, version, kind, subresource)
-	if err != nil {
-		if !c.cachedClient.Fresh() {
+	// if no resource was found, we have to force cache invalidation
+	if err != nil || len(resources) == 0 {
+		if !c.cachedClient.Fresh() || len(resources) == 0 {
 			c.cachedClient.Invalidate()
-			return c.findResources(group, version, kind, subresource)
+			resources, err := c.findResources(group, version, kind, subresource)
+			if err != nil {
+				return nil, err
+			} else if len(resources) == 0 {
+				return nil, fmt.Errorf("failed to find resource (%s/%s/%s/%s)", group, version, kind, subresource)
+			}
+			return resources, err
 		}
 	}
 	return resources, err

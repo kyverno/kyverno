@@ -11,6 +11,7 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest, rule kyvernov1.Rule, client dclient.Interface) generateResponse {
@@ -50,6 +51,13 @@ func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, pol
 	if sourceObjCopy.GetNamespace() != target.GetNamespace() && sourceObjCopy.GetOwnerReferences() != nil {
 		sourceObjCopy.SetOwnerReferences(nil)
 	}
+	// Clean up parameters that shouldn't be copied
+	sourceObjCopy.SetUID("")
+	sourceObjCopy.SetSelfLink("")
+	var emptyTime metav1.Time
+	sourceObjCopy.SetCreationTimestamp(emptyTime)
+	sourceObjCopy.SetManagedFields(nil)
+	sourceObjCopy.SetResourceVersion("")
 
 	targetObj, err := client.GetResource(context.TODO(), target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName())
 	if err != nil {
@@ -64,13 +72,15 @@ func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, pol
 	}
 
 	if targetObj != nil {
-		sourceObjCopy.SetUID(targetObj.GetUID())
-		sourceObjCopy.SetSelfLink(targetObj.GetSelfLink())
-		sourceObjCopy.SetCreationTimestamp(targetObj.GetCreationTimestamp())
-		sourceObjCopy.SetManagedFields(targetObj.GetManagedFields())
-		sourceObjCopy.SetResourceVersion(targetObj.GetResourceVersion())
-		if datautils.DeepEqual(sourceObjCopy, targetObj) {
-			return newSkipGenerateResponse(nil, target, nil)
+		if !policy.GetSpec().UseServerSideApply {
+			sourceObjCopy.SetUID(targetObj.GetUID())
+			sourceObjCopy.SetSelfLink(targetObj.GetSelfLink())
+			sourceObjCopy.SetCreationTimestamp(targetObj.GetCreationTimestamp())
+			sourceObjCopy.SetManagedFields(targetObj.GetManagedFields())
+			sourceObjCopy.SetResourceVersion(targetObj.GetResourceVersion())
+			if datautils.DeepEqual(sourceObjCopy, targetObj) {
+				return newSkipGenerateResponse(nil, target, nil)
+			}
 		}
 		return newUpdateGenerateResponse(sourceObjCopy.UnstructuredContent(), target, nil)
 	}

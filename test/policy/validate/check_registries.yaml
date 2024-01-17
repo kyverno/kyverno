@@ -1,22 +1,26 @@
-apiVersion : kyverno.io/v1
+---
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: check-registries
 spec:
+  admission: true
+  background: true
   rules:
-  - name: check-registries
-    match:
-      resources:
-        kinds:
-        - Deployment
-        - StatefulSet
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Deployment
+          - StatefulSet
+    name: check-registries
     validate:
-      message: "Registry is not allowed"
+      message: Registry is not allowed
       pattern:
         spec:
           template:
             spec:
               containers:
-              - name: "*"
-                # Check allowed registries
-                image: "*/nirmata/* | https://private.registry.io/*"
+              - image: '*/nirmata/* | https://private.registry.io/*'
+                name: '*'
+  validationFailureAction: Audit

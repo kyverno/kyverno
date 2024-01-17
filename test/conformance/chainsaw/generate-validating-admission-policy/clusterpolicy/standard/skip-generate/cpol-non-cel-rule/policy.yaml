@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-ns-purpose-label
+spec:
+  validationFailureAction: Enforce
+  rules:
+  - name: require-ns-purpose-label
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    validate:
+      message: "You must have label `purpose` with value `production` set on all new namespaces."
+      pattern:
+        metadata:
+          labels:
+            purpose: production

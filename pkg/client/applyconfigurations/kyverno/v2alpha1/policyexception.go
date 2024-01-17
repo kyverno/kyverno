@@ -19,6 +19,7 @@ limitations under the License.
 package v2alpha1
 
 import (
+	v2beta1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v2beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
@@ -29,7 +30,7 @@ import (
 type PolicyExceptionApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",omitempty,inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *PolicyExceptionSpecApplyConfiguration `json:"spec,omitempty"`
+	Spec                             *v2beta1.PolicyExceptionSpecApplyConfiguration `json:"spec,omitempty"`
 }
 
 // PolicyException constructs an declarative configuration of the PolicyException type for use with
@@ -204,7 +205,7 @@ func (b *PolicyExceptionApplyConfiguration) ensureObjectMetaApplyConfigurationEx
 // WithSpec sets the Spec field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Spec field is set to the value of the last call.
-func (b *PolicyExceptionApplyConfiguration) WithSpec(value *PolicyExceptionSpecApplyConfiguration) *PolicyExceptionApplyConfiguration {
+func (b *PolicyExceptionApplyConfiguration) WithSpec(value *v2beta1.PolicyExceptionSpecApplyConfiguration) *PolicyExceptionApplyConfiguration {
 	b.Spec = value
 	return b
 }

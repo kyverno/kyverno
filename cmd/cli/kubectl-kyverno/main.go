@@ -2,55 +2,38 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
-	"strconv"
 
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apply"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/create"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/jp"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/oci"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/version"
-	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/experimental"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/spf13/cobra"
 )
 
-const enableExperimentalEnv = "KYVERNO_EXPERIMENTAL"
-
 func main() {
-	cli := &cobra.Command{
-		Use:   "kyverno",
-		Long:  "To enable experimental commands, KYVERNO_EXPERIMENTAL should be configured with true or 1.",
-		Short: "Kubernetes Native Policy Management",
+	cmd, err := setup()
+	if err != nil {
+		fmt.Println("Error:", err)
+		os.Exit(1)
 	}
-	configureLogs(cli)
-	registerCommands(cli)
-	if err := cli.Execute(); err != nil {
+	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
 	}
 }
 
-func configureLogs(cli *cobra.Command) {
-	logging.InitFlags(nil)
+func setup() (*cobra.Command, error) {
+	cmd := commands.RootCommand(experimental.IsEnabled())
+	if err := configureLogs(cmd); err != nil {
+		return nil, fmt.Errorf("Failed to setup logging (%w)", err)
+	}
+	return cmd, nil
+}
+
+func configureLogs(cli *cobra.Command) error {
+	if err := log.Configure(); err != nil {
+		return err
+	}
 	cli.PersistentFlags().AddGoFlagSet(flag.CommandLine)
-	_ = cli.PersistentFlags().MarkHidden("alsologtostderr")
-	_ = cli.PersistentFlags().MarkHidden("logtostderr")
-	_ = cli.PersistentFlags().MarkHidden("log_dir")
-	_ = cli.PersistentFlags().MarkHidden("log_backtrace_at")
-	_ = cli.PersistentFlags().MarkHidden("stderrthreshold")
-	_ = cli.PersistentFlags().MarkHidden("vmodule")
-}
-
-func enableExperimental() bool {
-	if b, err := strconv.ParseBool(os.Getenv(enableExperimentalEnv)); err == nil {
-		return b
-	}
-	return false
-}
-
-func registerCommands(cli *cobra.Command) {
-	cli.AddCommand(version.Command(), create.Command(), apply.Command(), test.Command(), jp.Command())
-	if enableExperimental() {
-		cli.AddCommand(oci.Command())
-	}
+	return nil
 }

@@ -1,7 +1,8 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Values
 policies:
-  - name: deny-something
-    rules:
-      - name: deny-everything
-        values:
-          varA.data.ValueOfB: "something"
-          # request.namespace: kyverno
+- name: deny-something
+  rules:
+  - name: deny-everything
+    values:
+      varA.data.ValueOfB: something

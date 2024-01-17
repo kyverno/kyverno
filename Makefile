@@ -7,8 +7,9 @@
 GIT_SHA              := $(shell git rev-parse HEAD)
 REGISTRY             ?= ghcr.io
 REPO                 ?= kyverno
-KIND_IMAGE           ?= kindest/node:v1.26.6
+KIND_IMAGE           ?= kindest/node:v1.28.0
 KIND_NAME            ?= kind
+KIND_CONFIG          ?= default
 GOOS                 ?= $(shell go env GOOS)
 GOARCH               ?= $(shell go env GOARCH)
 KOCACHE              ?= /tmp/ko-cache
@@ -31,35 +32,34 @@ USE_CONFIG           ?= standard
 # TOOLS #
 #########
 
-TOOLS_DIR                          := $(PWD)/.tools
-KIND                               := $(TOOLS_DIR)/kind
-KIND_VERSION                       := v0.20.0
-CONTROLLER_GEN                     := $(TOOLS_DIR)/controller-gen
-CONTROLLER_GEN_VERSION             := v0.12.0
-CLIENT_GEN                         := $(TOOLS_DIR)/client-gen
-LISTER_GEN                         := $(TOOLS_DIR)/lister-gen
-INFORMER_GEN                       := $(TOOLS_DIR)/informer-gen
-OPENAPI_GEN                        := $(TOOLS_DIR)/openapi-gen
-REGISTER_GEN                       := $(TOOLS_DIR)/register-gen
-DEEPCOPY_GEN                       := $(TOOLS_DIR)/deepcopy-gen
-DEFAULTER_GEN                      := $(TOOLS_DIR)/defaulter-gen
-APPLYCONFIGURATION_GEN             := $(TOOLS_DIR)/applyconfiguration-gen
-CODE_GEN_VERSION                   := v0.26.3
-GEN_CRD_API_REFERENCE_DOCS         := $(TOOLS_DIR)/gen-crd-api-reference-docs
-GEN_CRD_API_REFERENCE_DOCS_VERSION := latest
-GO_ACC                             := $(TOOLS_DIR)/go-acc
-GO_ACC_VERSION                     := latest
-GOIMPORTS                          := $(TOOLS_DIR)/goimports
-GOIMPORTS_VERSION                  := latest
-HELM                               := $(TOOLS_DIR)/helm
-HELM_VERSION                       := v3.10.1
-HELM_DOCS                          := $(TOOLS_DIR)/helm-docs
-HELM_DOCS_VERSION                  := v1.11.0
-KO                                 := $(TOOLS_DIR)/ko
-KO_VERSION                         := v0.14.1
-KUTTL                              := $(TOOLS_DIR)/kubectl-kuttl
-KUTTL_VERSION                      := v0.0.0-20230126200340-834a4dac1ec7
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(APPLYCONFIGURATION_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(KUTTL)
+TOOLS_DIR                          ?= $(PWD)/.tools
+KIND                               ?= $(TOOLS_DIR)/kind
+KIND_VERSION                       ?= v0.20.0
+CONTROLLER_GEN                     ?= $(TOOLS_DIR)/controller-gen
+CONTROLLER_GEN_VERSION             ?= v0.12.0
+CLIENT_GEN                         ?= $(TOOLS_DIR)/client-gen
+LISTER_GEN                         ?= $(TOOLS_DIR)/lister-gen
+INFORMER_GEN                       ?= $(TOOLS_DIR)/informer-gen
+OPENAPI_GEN                        ?= $(TOOLS_DIR)/openapi-gen
+REGISTER_GEN                       ?= $(TOOLS_DIR)/register-gen
+DEEPCOPY_GEN                       ?= $(TOOLS_DIR)/deepcopy-gen
+DEFAULTER_GEN                      ?= $(TOOLS_DIR)/defaulter-gen
+APPLYCONFIGURATION_GEN             ?= $(TOOLS_DIR)/applyconfiguration-gen
+CODE_GEN_VERSION                   ?= v0.28.0
+GEN_CRD_API_REFERENCE_DOCS         ?= $(TOOLS_DIR)/gen-crd-api-reference-docs
+GEN_CRD_API_REFERENCE_DOCS_VERSION ?= latest
+GO_ACC                             ?= $(TOOLS_DIR)/go-acc
+GO_ACC_VERSION                     ?= latest
+GOIMPORTS                          ?= $(TOOLS_DIR)/goimports
+GOIMPORTS_VERSION                  ?= latest
+HELM                               ?= $(TOOLS_DIR)/helm
+HELM_VERSION                       ?= v3.12.3
+HELM_DOCS                          ?= $(TOOLS_DIR)/helm-docs
+HELM_DOCS_VERSION                  ?= v1.11.0
+KO                                 ?= $(TOOLS_DIR)/ko
+KO_VERSION                         ?= v0.14.1
+KUBE_VERSION                       ?= v1.25.0
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(APPLYCONFIGURATION_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -130,10 +130,6 @@ $(HELM_DOCS):
 $(KO):
 	@echo Install ko... >&2
 	@GOBIN=$(TOOLS_DIR) go install github.com/google/ko@$(KO_VERSION)
-
-$(KUTTL):
-	@echo Install kuttl... >&2
-	@GOBIN=$(TOOLS_DIR) go install github.com/kyverno/kuttl/cmd/kubectl-kuttl@$(KUTTL_VERSION)
 
 .PHONY: install-tools
 install-tools: $(TOOLS) ## Install tools
@@ -400,7 +396,7 @@ image-build-all: $(BUILD_WITH)-build-all
 GOPATH_SHIM                 := ${PWD}/.gopath
 PACKAGE_SHIM                := $(GOPATH_SHIM)/src/$(PACKAGE)
 OUT_PACKAGE                 := $(PACKAGE)/pkg/client
-INPUT_DIRS                  := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1alpha2,$(PACKAGE)/api/kyverno/v1beta1,$(PACKAGE)/api/kyverno/v2beta1,$(PACKAGE)/api/kyverno/v2alpha1,$(PACKAGE)/api/policyreport/v1alpha2
+INPUT_DIRS                  := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1alpha2,$(PACKAGE)/api/kyverno/v1beta1,$(PACKAGE)/api/kyverno/v2,$(PACKAGE)/api/kyverno/v2beta1,$(PACKAGE)/api/kyverno/v2alpha1,$(PACKAGE)/api/policyreport/v1alpha2
 CLIENTSET_PACKAGE           := $(OUT_PACKAGE)/clientset
 LISTERS_PACKAGE             := $(OUT_PACKAGE)/listers
 INFORMERS_PACKAGE           := $(OUT_PACKAGE)/informers
@@ -459,8 +455,8 @@ codegen-register: $(PACKAGE_SHIM) $(REGISTER_GEN) ## Generate types registration
 		--go-header-file=./scripts/boilerplate.go.txt \
 		--input-dirs=$(INPUT_DIRS)
 
-.PHONY: codegen-deepcopy
-codegen-deepcopy: $(PACKAGE_SHIM) $(DEEPCOPY_GEN) ## Generate deep copy functions
+.PHONY: codegen-deepcopy-all
+codegen-deepcopy-all: $(PACKAGE_SHIM) $(DEEPCOPY_GEN) ## Generate deep copy functions
 	@echo Generate deep copy functions... >&2
 	@GOPATH=$(GOPATH_SHIM) $(DEEPCOPY_GEN) \
 		--go-header-file=./scripts/boilerplate.go.txt \
@@ -493,8 +489,18 @@ codegen-crds-report: $(CONTROLLER_GEN) ## Generate policy reports CRDs
 	@echo Generate policy reports crds... >&2
 	@$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)
 
+.PHONY: codegen-crds-cli
+codegen-crds-cli: $(CONTROLLER_GEN) ## Generate CLI CRDs
+	@echo Generate cli crds... >&2
+	@$(CONTROLLER_GEN) crd paths=./cmd/cli/kubectl-kyverno/apis/... crd:crdVersions=v1 output:dir=${PWD}/cmd/cli/kubectl-kyverno/config/crds
+
 .PHONY: codegen-crds-all
-codegen-crds-all: codegen-crds-kyverno codegen-crds-report ## Generate all CRDs
+codegen-crds-all: codegen-crds-kyverno codegen-crds-report codegen-cli-crds ## Generate all CRDs
+
+.PHONY: codegen-helm-docs
+codegen-helm-docs: ## Generate helm docs
+	@echo Generate helm docs... >&2
+	@docker run -v ${PWD}/charts:/work -w /work jnorwood/helm-docs:v1.11.0 -s file
 
 .PHONY: codegen-api-docs
 codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API docs
@@ -506,23 +512,57 @@ codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API 
 		-template-dir docs/user/template \
 		-out-file docs/user/crd/index.html
 
-.PHONY: codegen-helm-docs
-codegen-helm-docs: ## Generate helm docs
-	@echo Generate helm docs... >&2
-	@docker run -v ${PWD}/charts:/work -w /work jnorwood/helm-docs:v1.11.0 -s file
+.PHONY: codegen-cli-api-docs
+codegen-cli-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate CLI API docs
+	@echo Generate CLI api docs... >&2
+	@rm -rf docs/user/cli/crd && mkdir -p docs/user/cli/crd
+	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 4 \
+		-api-dir $(PACKAGE)/cmd/cli/kubectl-kyverno/apis \
+		-config docs/user/config.json \
+		-template-dir docs/user/template \
+		-out-file docs/user/cli/crd/index.html
+
+.PHONY: codegen-cli-docs
+codegen-cli-docs: $(CLI_BIN) ## Generate CLI docs
+	@echo Generate cli docs... >&2
+	@rm -rf docs/user/cli/commands && mkdir -p docs/user/cli/commands
+	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) docs -o docs/user/cli/commands --autogenTag=false
+
+.PHONY: codegen-cli-crds
+codegen-cli-crds: codegen-crds-kyverno ## Copy generated CRDs to embed in the CLI
+	@echo Copy generated CRDs to embed in the CLI... >&2
+	@rm -rf cmd/cli/kubectl-kyverno/data/crds && mkdir -p cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/kyverno.io_clusterpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/kyverno.io_policies.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/kyverno.io_policyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp cmd/cli/kubectl-kyverno/config/crds/* cmd/cli/kubectl-kyverno/data/crds
+
+.PHONY: codegen-docs-all
+codegen-docs-all: codegen-helm-docs codegen-cli-docs codegen-api-docs  ## Generate all docs
+
+.PHONY: codegen-fix-tests
+codegen-fix-tests: $(CLI_BIN) ## Fix CLI test files
+	@echo Fix CLI test files... >&2
+	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix test . --save --compress --force
+
+.PHONY: codegen-fix-policies
+codegen-fix-policies: $(CLI_BIN) ## Fix CLI policy files
+	@echo Fix CLI policy files... >&2
+	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix policy . --save
+
+.PHONY: codegen-cli-all
+codegen-cli-all: codegen-cli-crds codegen-cli-docs codegen-cli-api-docs codegen-fix-tests ## Generate all CLI related code and docs
 
 .PHONY: codegen-helm-crds
 codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 	@echo Generate helm crds... >&2
 	@cat $(CRDS_PATH)/* \
-		| $(SED) -e '1i{{- if .Values.crds.install }}' \
-		| $(SED) -e '$$a{{- end }}' \
 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
  		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
-		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.crds.annotations }}' \
+		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
  		| $(SED) -e '/^  annotations:/i \ \ labels:' \
 		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
- 		> ./charts/kyverno/templates/crds/crds.yaml
+ 		> ./charts/kyverno/charts/crds/templates/crds.yaml
 
 .PHONY: codegen-helm-all
 codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and CRDs
@@ -530,7 +570,7 @@ codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and 
 .PHONY: codegen-manifest-install-latest
 codegen-manifest-install-latest: $(HELM) ## Create install_latest manifest
 	@echo Generate latest install manifest... >&2
-	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
+	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
 		--set templating.version=latest \
 		--set admissionController.container.image.tag=latest \
@@ -545,7 +585,7 @@ codegen-manifest-install-latest: $(HELM) ## Create install_latest manifest
 codegen-manifest-debug: $(HELM) ## Create debug manifest
 	@echo Generate debug manifest... >&2
 	@mkdir -p ./.manifest
-	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
+	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
 		--set templating.version=latest \
 		--set templating.debug=true \
@@ -561,7 +601,7 @@ codegen-manifest-debug: $(HELM) ## Create debug manifest
 codegen-manifest-release: $(HELM) ## Create release manifest
 	@echo Generate release manifest... >&2
 	@mkdir -p ./.manifest
-	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
+	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
 		--set templating.version=$(VERSION) \
 		--set admissionController.container.image.tag=$(VERSION) \
@@ -575,7 +615,7 @@ codegen-manifest-release: $(HELM) ## Create release manifest
 codegen-manifest-all: codegen-manifest-install-latest codegen-manifest-debug ## Create all manifests
 
 .PHONY: codegen-quick
-codegen-quick: codegen-deepcopy codegen-crds-all codegen-api-docs codegen-helm-all codegen-manifest-all ## Generate all generated code except client
+codegen-quick: codegen-deepcopy-all codegen-crds-all codegen-docs-all codegen-helm-all codegen-manifest-all ## Generate all generated code except client
 
 .PHONY: codegen-slow
 codegen-slow: codegen-client-all ## Generate client code
@@ -608,19 +648,19 @@ verify-client: codegen-client-all ## Check client is up to date
 	@git diff --ignore-space-change --quiet --exit-code pkg/clients
 
 .PHONY: verify-deepcopy
-verify-deepcopy: codegen-deepcopy ## Check deepcopy functions are up to date
+verify-deepcopy: codegen-deepcopy-all ## Check deepcopy functions are up to date
 	@echo Checking deepcopy functions are up to date... >&2
 	@git --no-pager diff api
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-deepcopy".' >&2
-	@echo 'To correct this, locally run "make codegen-deepcopy", commit the changes, and re-run tests.' >&2
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-deepcopy-all".' >&2
+	@echo 'To correct this, locally run "make codegen-deepcopy-all", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code api
 
-.PHONY: verify-api-docs
-verify-api-docs: codegen-api-docs ## Check api reference docs are up to date
-	@echo Checking api reference docs are up to date... >&2
+.PHONY: verify-docs
+verify-docs: codegen-docs-all ## Check docs are up to date
+	@echo Checking docs are up to date... >&2
 	@git --no-pager diff docs/user
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-api-docs".' >&2
-	@echo 'To correct this, locally run "make codegen-api-docs", commit the changes, and re-run tests.' >&2
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-docs-all".' >&2
+	@echo 'To correct this, locally run "make codegen-docs-all", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code docs/user
 
 .PHONY: verify-helm
@@ -639,9 +679,24 @@ verify-manifests: codegen-manifest-all ## Check manifests are up to date
 	@echo 'To correct this, locally run "make codegen-manifest-all", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code ${INSTALL_MANIFEST_PATH}
 
+.PHONY: verify-cli-crds
+verify-cli-crds: codegen-cli-crds ## Check generated CRDs to be embedded in the CLI are up to date
+	@echo Checking generated CRDs to be embedded in the CLI are up to date... >&2
+	@git --no-pager diff cmd/cli/kubectl-kyverno/data/crds
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-cli-crds".' >&2
+	@echo 'To correct this, locally run "make codegen-cli-crds", commit the changes, and re-run tests.' >&2
+	@git diff --quiet --exit-code cmd/cli/kubectl-kyverno/data/crds
+
+.PHONY: verify-cli-tests
+verify-cli-tests: ## Check CLI test files are up to date
+	@echo Checking CLI test files are up to date... >&2
+	@git --no-pager diff test/cli
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-fix-tests".' >&2
+	@echo 'To correct this, locally run "make codegen-fix-tests", commit the changes, and re-run tests.' >&2
+	@git diff --quiet --exit-code test/cli
 
 .PHONY: verify-codegen
-verify-codegen: verify-crds verify-client verify-deepcopy verify-api-docs verify-helm verify-manifests ## Verify all generated code and docs are up to date
+verify-codegen: verify-crds verify-client verify-deepcopy verify-docs verify-helm verify-manifests verify-cli-crds ## Verify all generated code and docs are up to date
 
 ##############
 # UNIT TESTS #
@@ -671,48 +726,53 @@ code-cov-report: test-clean ## Generate code coverage report
 	@go tool cover -func=coverage.out -o $(CODE_COVERAGE_FILE_TXT)
 	@go tool cover -html=coverage.out -o $(CODE_COVERAGE_FILE_HTML)
 
-###############
-# KUTTL TESTS #
-###############
-
-.PHONY: test-kuttl
-test-kuttl: $(KUTTL) ## Run kuttl tests
-	@echo Running kuttl tests... >&2
-	@$(KUTTL) test --config ./test/conformance/kuttl/kuttl-test.yaml
-
 #############
 # CLI TESTS #
 #############
 
 TEST_GIT_BRANCH ?= main
+TEST_GIT_REPO   ?= https://github.com/kyverno/policies
 
 .PHONY: test-cli
-test-cli: test-cli-policies test-cli-local test-cli-local-mutate test-cli-local-generate test-cli-test-case-selector-flag test-cli-registry ## Run all CLI tests
+test-cli: test-cli-policies test-cli-local ## Run all CLI tests
 
 .PHONY: test-cli-policies
-test-cli-policies: $(CLI_BIN)
-	@echo Testing against branch $(TEST_GIT_BRANCH)...
-	@$(CLI_BIN) test https://github.com/kyverno/policies/$(TEST_GIT_BRANCH)
+test-cli-policies: $(CLI_BIN) ## Run CLI tests against the policies repository
+	@echo Running cli tests against $(TEST_GIT_REPO)/$(TEST_GIT_BRANCH)... >&2
+	@$(CLI_BIN) test $(TEST_GIT_REPO)/$(TEST_GIT_BRANCH)
 
 .PHONY: test-cli-local
-test-cli-local: $(CLI_BIN)
+test-cli-local: test-cli-local-validate test-cli-local-mutate test-cli-local-generate test-cli-local-registry test-cli-local-scenarios test-cli-local-selector ## Run local CLI tests
+
+.PHONY: test-cli-local-validate
+test-cli-local-validate: $(CLI_BIN) ## Run local CLI validation tests
+	@echo Running local cli validation tests... >&2
 	@$(CLI_BIN) test ./test/cli/test
 
 .PHONY: test-cli-local-mutate
-test-cli-local-mutate: $(CLI_BIN)
+test-cli-local-mutate: $(CLI_BIN) ## Run local CLI mutation tests
+	@echo Running local cli mutation tests... >&2
 	@$(CLI_BIN) test ./test/cli/test-mutate
 
 .PHONY: test-cli-local-generate
-test-cli-local-generate: $(CLI_BIN)
+test-cli-local-generate: $(CLI_BIN) ## Run local CLI generation tests
+	@echo Running local cli generation tests... >&2
 	@$(CLI_BIN) test ./test/cli/test-generate
 
-.PHONY: test-cli-test-case-selector-flag
-test-cli-test-case-selector-flag: $(CLI_BIN)
+.PHONY: test-cli-local-selector
+test-cli-local-selector: $(CLI_BIN) ## Run local CLI tests (with test case selector)
+	@echo Running local cli selector tests... >&2
 	@$(CLI_BIN) test ./test/cli/test --test-case-selector "policy=disallow-latest-tag, rule=require-image-tag, resource=test-require-image-tag-pass"
 
-.PHONY: test-cli-registry
-test-cli-registry: $(CLI_BIN)
+.PHONY: test-cli-local-registry
+test-cli-local-registry: $(CLI_BIN) ## Run local CLI registry tests
+	@echo Running local cli registry tests... >&2
 	@$(CLI_BIN) test ./test/cli/registry --registry
+
+.PHONY: test-cli-local-scenarios
+test-cli-local-scenarios: $(CLI_BIN) ## Run local CLI scenarios tests
+	@echo Running local cli scenarios tests... >&2
+	@$(CLI_BIN) test ./test/cli/scenarios_to_cli --registry
 
 #############
 # HELM TEST #
@@ -794,7 +854,7 @@ docker-save-image-all: $(KIND) image-build-all ## Save docker images in archive
 .PHONY: kind-create-cluster
 kind-create-cluster: $(KIND) ## Create kind cluster
 	@echo Create kind cluster... >&2
-	@$(KIND) create cluster --name $(KIND_NAME) --image $(KIND_IMAGE) --config ./scripts/config/kind.yaml
+	@$(KIND) create cluster --name $(KIND_NAME) --image $(KIND_IMAGE) --config ./scripts/config/kind/$(KIND_CONFIG).yaml
 
 .PHONY: kind-delete-cluster
 kind-delete-cluster: $(KIND) ## Delete kind cluster
@@ -928,6 +988,13 @@ dev-lab-tempo: $(HELM) ## Deploy tempo helm chart
 		--values ./scripts/config/dev/tempo.yaml
 	@kubectl apply -f ./scripts/config/dev/tempo-datasource.yaml
 
+.PHONY: dev-lab-otel-collector
+dev-lab-otel-collector: $(HELM) ## Deploy tempo helm chart
+	@echo Install otel-collector chart... >&2
+	@$(HELM) upgrade --install opentelemetry-collector --namespace monitoring --create-namespace --wait \
+		--repo https://open-telemetry.github.io/opentelemetry-helm-charts opentelemetry-collector \
+		--values ./scripts/config/dev/otel-collector.yaml
+
 .PHONY: dev-lab-metrics-server
 dev-lab-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 	@echo Install metrics-server chart... >&2
@@ -936,7 +1003,7 @@ dev-lab-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 		--values ./scripts/config/dev/metrics-server.yaml
 
 .PHONY: dev-lab-all
-dev-lab-all: dev-lab-ingress-ngingx dev-lab-metrics-server dev-lab-prometheus dev-lab-loki dev-lab-tempo ## Deploy all dev lab components
+dev-lab-all: dev-lab-ingress-ngingx dev-lab-metrics-server dev-lab-prometheus dev-lab-loki dev-lab-tempo dev-lab-otel-collector ## Deploy all dev lab components
 
 .PHONY: dev-lab-policy-reporter
 dev-lab-policy-reporter: $(HELM) ## Deploy policy-reporter helm chart

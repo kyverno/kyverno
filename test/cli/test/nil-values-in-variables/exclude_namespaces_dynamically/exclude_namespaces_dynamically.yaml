@@ -1,45 +1,47 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: exclude-namespaces-example
   annotations:
-    policies.kyverno.io/title: Exclude Namespaces Dynamically
+    kyverno.io/kubernetes-version: "1.23"
+    kyverno.io/kyverno-version: 1.6.0
     policies.kyverno.io/category: Sample
+    policies.kyverno.io/description: It's common where policy lookups need to consider
+      a mapping to many possible values rather than a static mapping. This is a sample
+      which demonstrates how to dynamically look up an allow list of Namespaces from
+      a ConfigMap where the ConfigMap stores an array of strings. This policy validates
+      that any Pods created outside of the list of Namespaces have the label `foo`
+      applied.
+    policies.kyverno.io/minversion: 1.6.0
     policies.kyverno.io/severity: medium
     policies.kyverno.io/subject: Namespace, Pod
-    policies.kyverno.io/minversion: 1.6.0
-    kyverno.io/kyverno-version: 1.6.0
-    kyverno.io/kubernetes-version: "1.23"
-    policies.kyverno.io/description: >-
-      It's common where policy lookups need to consider a mapping to many possible values rather than a
-      static mapping. This is a sample which demonstrates how to dynamically look up an allow list of Namespaces from a ConfigMap
-      where the ConfigMap stores an array of strings. This policy validates that any Pods created
-      outside of the list of Namespaces have the label `foo` applied.
+    policies.kyverno.io/title: Exclude Namespaces Dynamically
+  name: exclude-namespaces-example
 spec:
-  validationFailureAction: audit
+  admission: true
   background: true
   rules:
-  - name: exclude-namespaces-dynamically
-    context:
-      - name: namespacefilters
-        configMap:
-          name: namespace-filters
-          namespace: default
+  - context:
+    - configMap:
+        name: namespace-filters
+        namespace: default
+      name: namespacefilters
     match:
-      resources:
-        kinds:
-        - Pod
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: exclude-namespaces-dynamically
     preconditions:
       all:
-      - key: "{{request.object.metadata.namespace}}"
+      - key: '{{request.object.metadata.namespace}}'
         operator: AnyNotIn
-        value: "{{namespacefilters.data.exclude}}"
+        value: '{{namespacefilters.data.exclude}}'
     validate:
-      message: >
-        Creating Pods in the  namespace,
-        which is not in the excluded list of namespaces {{ namespacefilters.data.exclude }},
-        is forbidden unless it carries the label `foo`.
+      message: |
+        Creating Pods in the  namespace, which is not in the excluded list of namespaces {{ namespacefilters.data.exclude }}, is forbidden unless it carries the label `foo`.
       pattern:
         metadata:
           labels:
-            foo: "*"
+            foo: '*'
+  validationFailureAction: Audit

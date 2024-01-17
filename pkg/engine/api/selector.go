@@ -1,7 +1,7 @@
 package api
 
 import (
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
@@ -14,4 +14,4 @@ type NamespacedResourceSelector[T any] interface {
 }
 
 // PolicyExceptionSelector is an abstract interface used to resolve poliicy exceptions
-type PolicyExceptionSelector = NamespacedResourceSelector[*kyvernov2alpha1.PolicyException]
+type PolicyExceptionSelector = NamespacedResourceSelector[*kyvernov2beta1.PolicyException]

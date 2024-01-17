@@ -81,8 +81,7 @@ var ConditionOperators = map[string]ConditionOperator{
 
 // Deny specifies a list of conditions used to pass or fail a validation rule.
 type Deny struct {
-	// Multiple conditions can be declared under an `any` or `all` statement. A direct list
-	// of conditions (without `any` or `all` statements) is also supported for backwards compatibility
+	// Multiple conditions can be declared under an `any` or `all` statement.
 	// See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
 	RawAnyAllConditions *AnyAllConditions `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }

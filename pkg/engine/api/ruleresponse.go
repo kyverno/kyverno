@@ -3,7 +3,7 @@ package api
 import (
 	"fmt"
 
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -43,7 +43,7 @@ type RuleResponse struct {
 	// podSecurityChecks contains pod security checks (only if this is a pod security rule)
 	podSecurityChecks *PodSecurityChecks
 	// exception is the exception applied (if any)
-	exception *kyvernov2alpha1.PolicyException
+	exception *kyvernov2beta1.PolicyException
 }
 
 func NewRuleResponse(name string, ruleType RuleType, msg string, status RuleStatus) *RuleResponse {
@@ -78,7 +78,7 @@ func RuleFail(name string, ruleType RuleType, msg string) *RuleResponse {
 	return NewRuleResponse(name, ruleType, msg, RuleStatusFail)
 }
 
-func (r RuleResponse) WithException(exception *kyvernov2alpha1.PolicyException) *RuleResponse {
+func (r RuleResponse) WithException(exception *kyvernov2beta1.PolicyException) *RuleResponse {
 	r.exception = exception
 	return &r
 }
@@ -109,7 +109,7 @@ func (r *RuleResponse) Stats() ExecutionStats {
 	return r.stats
 }
 
-func (r *RuleResponse) Exception() *kyvernov2alpha1.PolicyException {
+func (r *RuleResponse) Exception() *kyvernov2beta1.PolicyException {
 	return r.exception
 }
 

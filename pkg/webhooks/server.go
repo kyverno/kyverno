@@ -3,6 +3,7 @@ package webhooks
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -82,6 +83,7 @@ func NewServer(
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
 	discovery dclient.IDiscovery,
+	webhookServerPort int32,
 ) Server {
 	mux := httprouter.New()
 	resourceLogger := logger.WithName("resource")
@@ -128,7 +130,7 @@ func NewServer(
 			WithDump(debugModeOpts.DumpPayload).
 			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookMutating).
 			WithAdmission(policyLogger.WithName("mutate")).
-			ToHandlerFunc(),
+			ToHandlerFunc("MUTATE"),
 	)
 	mux.HandlerFunc(
 		"POST",
@@ -138,7 +140,7 @@ func NewServer(
 			WithSubResourceFilter().
 			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookValidating).
 			WithAdmission(policyLogger.WithName("validate")).
-			ToHandlerFunc(),
+			ToHandlerFunc("VALIDATE"),
 	)
 	mux.HandlerFunc(
 		"POST",
@@ -148,20 +150,20 @@ func NewServer(
 			WithSubResourceFilter().
 			WithMetrics(exceptionLogger, metricsConfig.Config(), metrics.WebhookValidating).
 			WithAdmission(exceptionLogger.WithName("validate")).
-			ToHandlerFunc(),
+			ToHandlerFunc("VALIDATE"),
 	)
 	mux.HandlerFunc(
 		"POST",
 		config.VerifyMutatingWebhookServicePath,
 		handlers.FromAdmissionFunc("VERIFY", handlers.Verify).
 			WithAdmission(verifyLogger.WithName("mutate")).
-			ToHandlerFunc(),
+			ToHandlerFunc("VERIFY"),
 	)
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(runtime.IsLive))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(runtime.IsReady))
 	return &server{
 		server: &http.Server{
-			Addr: ":9443",
+			Addr: fmt.Sprintf(":%d", webhookServerPort),
 			TLSConfig: &tls.Config{
 				GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 					certPem, keyPem, err := tlsProvider()
@@ -280,7 +282,7 @@ func registerWebhookHandlers(
 			return handlerFunc(ctx, logger, request, "fail", startTime)
 		},
 	)
-	mux.HandlerFunc("POST", basePath, builder(all).ToHandlerFunc())
-	mux.HandlerFunc("POST", basePath+"/ignore", builder(ignore).ToHandlerFunc())
-	mux.HandlerFunc("POST", basePath+"/fail", builder(fail).ToHandlerFunc())
+	mux.HandlerFunc("POST", basePath, builder(all).ToHandlerFunc(name))
+	mux.HandlerFunc("POST", basePath+"/ignore", builder(ignore).ToHandlerFunc(name))
+	mux.HandlerFunc("POST", basePath+"/fail", builder(fail).ToHandlerFunc(name))
 }

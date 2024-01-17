@@ -40,6 +40,7 @@ func (dl *deferredLoader) HasLoaded() bool {
 func (dl *deferredLoader) LoadData() error {
 	if err := dl.loader.LoadData(); err != nil {
 		dl.logger.Error(err, "failed to load data", "name", dl.name)
+		return err
 	}
 	return nil
 }
@@ -144,7 +145,7 @@ func (d *deferredLoaders) LoadMatching(query string, level int) error {
 
 	for l, idx := d.match(query, level, index); l != nil; l, idx = d.match(query, level, index) {
 		if err := d.loadData(l, idx); err != nil {
-			return nil
+			return err
 		}
 	}
 

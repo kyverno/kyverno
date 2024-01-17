@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
-	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	apiresource "k8s.io/apimachinery/pkg/api/resource"
 )
 

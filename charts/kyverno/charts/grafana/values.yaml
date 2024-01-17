@@ -1,0 +1,20 @@
+# -- Configmap name template.
+configMapName: '{{ include "kyverno.fullname" . }}-grafana'
+
+# -- (string) Namespace to create the grafana dashboard configmap.
+# If not set, it will be created in the same namespace where the chart is deployed.
+namespace: ~
+
+# -- Grafana dashboard configmap annotations.
+annotations: {}
+
+# -- Grafana dashboard configmap labels
+labels:
+  grafana_dashboard: "1"
+
+# -- create GrafanaDashboard custom resource referencing to the configMap.
+# according to https://grafana-operator.github.io/grafana-operator/docs/examples/dashboard_from_configmap/readme/
+grafanaDashboard:
+  create: false
+  matchLabels:
+    dashboards: "grafana"

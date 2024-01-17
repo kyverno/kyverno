@@ -1,35 +1,38 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: insert-podantiaffinity
 spec:
+  admission: true
+  background: true
   rules:
-    - name: insert-podantiaffinity
-      match:
-        resources:
+  - match:
+      any:
+      - resources:
           kinds:
-            - Deployment
-      preconditions:
-        # This precondition ensures that the label `app` is applied to Pods within the Deployment resource.
-      - key: "{{request.object.metadata.labels.app}}"
+          - Deployment
+    mutate:
+      patchStrategicMerge:
+        spec:
+          template:
+            spec:
+              +(affinity):
+                +(podAntiAffinity):
+                  +(preferredDuringSchedulingIgnoredDuringExecution):
+                  - podAffinityTerm:
+                      labelSelector:
+                        matchExpressions:
+                        - key: app
+                          operator: In
+                          values:
+                          - '{{request.object.metadata.labels.app}}'
+                      topologyKey: kubernetes.io/hostname
+                    weight: 1
+    name: insert-podantiaffinity
+    preconditions:
+      all:
+      - key: '{{request.object.metadata.labels.app}}'
         operator: NotEquals
         value: ""
-      # Mutates the Deployment resource to add fields.
-      mutate:
-        patchStrategicMerge:
-          spec:
-            template:
-              spec:
-                # Add the `affinity` key and others if not already specified in the Deployment manifest.
-                +(affinity):
-                  +(podAntiAffinity):
-                    +(preferredDuringSchedulingIgnoredDuringExecution):
-                      - weight: 1
-                        podAffinityTerm:
-                          topologyKey: "kubernetes.io/hostname"
-                          labelSelector:
-                            matchExpressions:
-                            - key: app
-                              operator: In
-                              values:
-                              - "{{request.object.metadata.labels.app}}"
+  validationFailureAction: Audit

@@ -41,6 +41,7 @@ func (e *engine) verifyAndPatchImages(
 				rule,
 				e.configuration,
 				e.rclientFactory,
+				e.ivCache,
 				&ivm,
 				e.imageSignatureRepository,
 			)

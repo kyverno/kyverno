@@ -14,12 +14,14 @@ type Configuration interface {
 	UsesDeferredLoading() bool
 	UsesCosign() bool
 	UsesRegistryClient() bool
+	UsesImageVerifyCache() bool
 	UsesLeaderElection() bool
 	UsesKyvernoClient() bool
 	UsesDynamicClient() bool
 	UsesApiServerClient() bool
 	UsesMetadataClient() bool
 	UsesKyvernoDynamicClient() bool
+	UsesEventsClient() bool
 	FlagSets() []*flag.FlagSet
 }
 
@@ -87,6 +89,12 @@ func WithRegistryClient() ConfigurationOption {
 	}
 }
 
+func WithImageVerifyCache() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesImageVerifyCache = true
+	}
+}
+
 func WithLeaderElection() ConfigurationOption {
 	return func(c *configuration) {
 		c.usesLeaderElection = true
@@ -125,6 +133,12 @@ func WithKyvernoDynamicClient() ConfigurationOption {
 	}
 }
 
+func WithEventsClient() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesEventsClient = true
+	}
+}
+
 func WithFlagSets(flagsets ...*flag.FlagSet) ConfigurationOption {
 	return func(c *configuration) {
 		c.flagSets = append(c.flagSets, flagsets...)
@@ -141,12 +155,14 @@ type configuration struct {
 	usesDeferredLoading      bool
 	usesCosign               bool
 	usesRegistryClient       bool
+	usesImageVerifyCache     bool
 	usesLeaderElection       bool
 	usesKyvernoClient        bool
 	usesDynamicClient        bool
 	usesApiServerClient      bool
 	usesMetadataClient       bool
 	usesKyvernoDynamicClient bool
+	usesEventsClient         bool
 	flagSets                 []*flag.FlagSet
 }
 
@@ -186,6 +202,10 @@ func (c *configuration) UsesRegistryClient() bool {
 	return c.usesRegistryClient
 }
 
+func (c *configuration) UsesImageVerifyCache() bool {
+	return c.usesImageVerifyCache
+}
+
 func (c *configuration) UsesLeaderElection() bool {
 	return c.usesLeaderElection
 }
@@ -208,6 +228,10 @@ func (c *configuration) UsesMetadataClient() bool {
 
 func (c *configuration) UsesKyvernoDynamicClient() bool {
 	return c.usesKyvernoDynamicClient
+}
+
+func (c *configuration) UsesEventsClient() bool {
+	return c.usesEventsClient
 }
 
 func (c *configuration) FlagSets() []*flag.FlagSet {

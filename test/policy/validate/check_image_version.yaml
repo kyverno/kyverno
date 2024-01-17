@@ -1,22 +1,25 @@
-apiVersion : kyverno.io/v1
+---
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: image-pull-policy
 spec:
+  admission: true
+  background: true
   rules:
-  - name: image-pull-policy
-    match:
-      resources:
-        kinds:
-        - Deployment
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Deployment
+    name: image-pull-policy
     validate:
-      message: "Image tag ':latest' requires imagePullPolicy 'Always'"
+      message: Image tag ':latest' requires imagePullPolicy 'Always'
       pattern:
         spec:
           template:
             spec:
               containers:
-              # select images which end with :latest
-              - (image): "*latest"
-                # require that the imagePullPolicy is "Always"  
+              - (image): '*latest'
                 imagePullPolicy: Always
+  validationFailureAction: Audit

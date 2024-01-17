@@ -8,13 +8,12 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
+	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 type Server interface {
@@ -29,9 +28,10 @@ type server struct {
 }
 
 type (
-	TlsProvider       = func() ([]byte, []byte, error)
-	ValidationHandler = func(context.Context, logr.Logger, handlers.AdmissionRequest, time.Time) handlers.AdmissionResponse
-	CleanupHandler    = func(context.Context, logr.Logger, string, time.Time, config.Configuration) error
+	TlsProvider            = func() ([]byte, []byte, error)
+	ValidationHandler      = func(context.Context, logr.Logger, handlers.AdmissionRequest, time.Time) handlers.AdmissionResponse
+	LabelValidationHandler = func(context.Context, logr.Logger, handlers.AdmissionRequest, time.Time) handlers.AdmissionResponse
+	CleanupHandler         = func(context.Context, logr.Logger, string, time.Time, config.Configuration) error
 )
 
 type Probes interface {
@@ -43,28 +43,14 @@ type Probes interface {
 func NewServer(
 	tlsProvider TlsProvider,
 	validationHandler ValidationHandler,
-	cleanupHandler CleanupHandler,
+	labelValidationHandler LabelValidationHandler,
 	metricsConfig metrics.MetricsConfigManager,
 	debugModeOpts webhooks.DebugModeOptions,
 	probes Probes,
 	cfg config.Configuration,
 ) Server {
 	policyLogger := logging.WithName("cleanup-policy")
-	cleanupLogger := logging.WithName("cleanup")
-	cleanupHandlerFunc := func(w http.ResponseWriter, r *http.Request) {
-		policy := r.URL.Query().Get("policy")
-		logger := cleanupLogger.WithValues("policy", policy)
-		err := cleanupHandler(r.Context(), logger, policy, time.Now(), cfg)
-		if err == nil {
-			w.WriteHeader(http.StatusOK)
-		} else {
-			if apierrors.IsNotFound(err) {
-				w.WriteHeader(http.StatusNotFound)
-			} else {
-				w.WriteHeader(http.StatusInternalServerError)
-			}
-		}
-	}
+	labelLogger := logging.WithName("ttl-label")
 	mux := httprouter.New()
 	mux.HandlerFunc(
 		"POST",
@@ -74,21 +60,23 @@ func NewServer(
 			WithSubResourceFilter().
 			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookValidating).
 			WithAdmission(policyLogger.WithName("validate")).
-			ToHandlerFunc(),
+			ToHandlerFunc("VALIDATE"),
 	)
 	mux.HandlerFunc(
-		"GET",
-		cleanup.CleanupServicePath,
-		handlers.HttpHandler(cleanupHandlerFunc).
-			WithMetrics(policyLogger).
-			WithTrace("CLEANUP").
-			ToHandlerFunc(),
+		"POST",
+		config.TtlValidatingWebhookServicePath,
+		handlers.FromAdmissionFunc("VALIDATE", labelValidationHandler).
+			WithDump(debugModeOpts.DumpPayload).
+			WithSubResourceFilter().
+			WithMetrics(labelLogger, metricsConfig.Config(), metrics.WebhookValidating).
+			WithAdmission(labelLogger.WithName("validate")).
+			ToHandlerFunc("VALIDATE"),
 	)
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(probes.IsLive))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(probes.IsReady))
 	return &server{
 		server: &http.Server{
-			Addr: ":9443",
+			Addr: ":" + internal.CleanupServerPort(),
 			TLSConfig: &tls.Config{
 				GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 					certPem, keyPem, err := tlsProvider()

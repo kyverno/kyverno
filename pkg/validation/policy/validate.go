@@ -1,37 +1,32 @@
 package policy
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
-	"github.com/distribution/distribution/reference"
+	"github.com/distribution/reference"
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/jmoiron/jsonq"
 	"github.com/kyverno/go-jmespath"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/openapi"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"github.com/kyverno/kyverno/pkg/utils/wildcard"
-	"golang.org/x/exp/slices"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -39,10 +34,11 @@ import (
 )
 
 var (
-	allowedVariables                   = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images|images\.|image\.|([a-z_0-9]+\()[^{}]`)
+	allowedVariables                   = enginecontext.ReservedKeys
 	allowedVariablesBackground         = regexp.MustCompile(`request\.|element|elementIndex|@|images|images\.|image\.|([a-z_0-9]+\()[^{}]`)
 	allowedVariablesInTarget           = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
 	allowedVariablesBackgroundInTarget = regexp.MustCompile(`request\.|element|elementIndex|@|images|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
+	regexVariables                     = regexp.MustCompile(`\{\{[^{}]*\}\}`)
 	// wildCardAllowedVariables represents regex for the allowed fields in wildcards
 	wildCardAllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace)[^{}]*\}\}`)
 	errOperationForbidden    = errors.New("variables are forbidden in the path of a JSONPatch")
@@ -120,14 +116,11 @@ func checkValidationFailureAction(spec *kyvernov1.Spec) []string {
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager openapi.Manager, username string) ([]string, error) {
+func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, username string) ([]string, error) {
 	var warnings []string
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
 	mutateExistingOnPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
-	if !mock {
-		openapicontroller.NewController(client, openApiManager).CheckSync(context.TODO())
-	}
 
 	warnings = append(warnings, checkValidationFailureAction(spec)...)
 	var errs field.ErrorList
@@ -145,11 +138,14 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		}
 	}
 
-	var res []*metav1.APIResourceList
-	clusterResources := sets.New[string]()
-	if !mock {
+	getClusteredResources := func(invalidate bool) (sets.Set[string], error) {
+		clusterResources := sets.New[string]()
 		// Get all the cluster type kind supported by cluster
-		res, err = discovery.ServerPreferredResources(client.Discovery().CachedDiscoveryInterface())
+		d := client.Discovery().CachedDiscoveryInterface()
+		if invalidate {
+			d.Invalidate()
+		}
+		res, err := discovery.ServerPreferredResources(d)
 		if err != nil {
 			if discovery.IsGroupDiscoveryFailedError(err) {
 				err := err.(*discovery.ErrGroupDiscoveryFailed)
@@ -157,7 +153,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 					logging.Error(err, "failed to list api resources", "group", gv)
 				}
 			} else {
-				return warnings, err
+				return nil, err
 			}
 		}
 		for _, resList := range res {
@@ -168,10 +164,29 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 				}
 			}
 		}
+		return clusterResources, nil
 	}
+	clusterResources := sets.New[string]()
 
-	if errs := policy.Validate(clusterResources); len(errs) != 0 {
-		return warnings, errs.ToAggregate()
+	// if not using a mock, we first try to validate and if it fails we retry with cache invalidation in between
+	if !mock {
+		clusterResources, err = getClusteredResources(false)
+		if err != nil {
+			return warnings, err
+		}
+		if errs := policy.Validate(clusterResources); len(errs) != 0 {
+			clusterResources, err = getClusteredResources(true)
+			if err != nil {
+				return warnings, err
+			}
+			if errs := policy.Validate(clusterResources); len(errs) != 0 {
+				return warnings, errs.ToAggregate()
+			}
+		}
+	} else {
+		if errs := policy.Validate(clusterResources); len(errs) != 0 {
+			return warnings, errs.ToAggregate()
+		}
 	}
 
 	if !policy.IsNamespaced() {
@@ -284,8 +299,13 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			}
 		}
 
-		if err := validateActions(i, &rules[i], client, mock, username); err != nil {
+		msg, err := validateActions(i, &rules[i], client, mock, username)
+		if err != nil {
 			return warnings, err
+		} else {
+			if len(msg) != 0 {
+				warnings = append(warnings, msg)
+			}
 		}
 
 		if rule.HasVerifyImages() {
@@ -362,11 +382,6 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 		if rule.HasVerifyImages() {
 			checkForDeprecatedFieldsInVerifyImages(rule, &warnings)
-		}
-	}
-	if !mock && (spec.SchemaValidation == nil || *spec.SchemaValidation) {
-		if err := openApiManager.ValidatePolicyMutation(policy); err != nil {
-			return warnings, fmt.Errorf("%s (you can bypass schema validation by setting `spec.schemaValidation: false`)", err)
 		}
 	}
 	return warnings, nil
@@ -542,7 +557,7 @@ func objectHasVariables(object interface{}) error {
 		return err
 	}
 
-	if len(common.RegexVariables.FindAllStringSubmatch(string(objectJSON), -1)) > 0 {
+	if len(regexVariables.FindAllStringSubmatch(string(objectJSON), -1)) > 0 {
 		return fmt.Errorf("invalid variables")
 	}
 
@@ -639,6 +654,17 @@ func validateMatchKindHelper(rule kyvernov1.Rule) error {
 	return fmt.Errorf("at least one element must be specified in a kind block, the kind attribute is mandatory when working with the resources element")
 }
 
+// isMapStringString goes through a map to verify values are string
+func isMapStringString(m map[string]interface{}) bool {
+	// range over labels
+	for _, val := range m {
+		if val == nil || reflect.TypeOf(val).String() != "string" {
+			return false
+		}
+	}
+	return true
+}
+
 // isLabelAndAnnotationsString :- Validate if labels and annotations contains only string values
 func isLabelAndAnnotationsString(rule kyvernov1.Rule) bool {
 	checkLabelAnnotation := func(metaKey map[string]interface{}) bool {
@@ -646,21 +672,15 @@ func isLabelAndAnnotationsString(rule kyvernov1.Rule) bool {
 			if mk == "labels" {
 				labelKey, ok := metaKey[mk].(map[string]interface{})
 				if ok {
-					// range over labels
-					for _, val := range labelKey {
-						if reflect.TypeOf(val).String() != "string" {
-							return false
-						}
+					if !isMapStringString(labelKey) {
+						return false
 					}
 				}
 			} else if mk == "annotations" {
 				annotationKey, ok := metaKey[mk].(map[string]interface{})
 				if ok {
-					// range over annotations
-					for _, val := range annotationKey {
-						if reflect.TypeOf(val).String() != "string" {
-							return false
-						}
+					if !isMapStringString(annotationKey) {
+						return false
 					}
 				}
 			}
@@ -1309,7 +1329,8 @@ func checkForScaleSubresource(ruleTypeJson []byte, allKinds []string, warnings *
 }
 
 func checkForStatusSubresource(ruleTypeJson []byte, allKinds []string, warnings *[]string) {
-	if strings.Contains(string(ruleTypeJson), "status") {
+	rule := string(ruleTypeJson)
+	if strings.Contains(rule, ".status") || strings.Contains(rule, "\"status\":") {
 		for _, kind := range allKinds {
 			if strings.Contains(strings.ToLower(kind), "status") {
 				return
@@ -1324,7 +1345,7 @@ func checkForDeprecatedFieldsInVerifyImages(rule kyvernov1.Rule, warnings *[]str
 	for _, imageVerify := range rule.VerifyImages {
 		for _, attestation := range imageVerify.Attestations {
 			if attestation.PredicateType != "" {
-				msg := fmt.Sprintf("predicateType has been deprecated use 'type: %s' instead of 'prediacteType: %s'", attestation.PredicateType, attestation.PredicateType)
+				msg := fmt.Sprintf("predicateType has been deprecated use 'type: %s' instead of 'predicateType: %s'", attestation.PredicateType, attestation.PredicateType)
 				*warnings = append(*warnings, msg)
 			}
 		}

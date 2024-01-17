@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	openapiv2 "github.com/google/gnostic/openapiv2"
+	openapiv2 "github.com/google/gnostic-models/openapiv2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -65,7 +65,7 @@ func (c *fakeDiscoveryClient) getGVR(resource string) (schema.GroupVersionResour
 			return gvr, nil
 		}
 	}
-	return schema.GroupVersionResource{}, errors.New("no found")
+	return schema.GroupVersionResource{}, errors.New("not found")
 }
 
 func (c *fakeDiscoveryClient) GetGVKFromGVR(schema.GroupVersionResource) (schema.GroupVersionKind, error) {

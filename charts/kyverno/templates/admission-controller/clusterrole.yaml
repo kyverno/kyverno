@@ -22,6 +22,10 @@ rules:
     resources:
       - mutatingwebhookconfigurations
       - validatingwebhookconfigurations
+      {{- if .Values.features.generateValidatingAdmissionPolicy.enabled }}
+      - validatingadmissionpolicies
+      - validatingadmissionpolicybindings
+      {{- end }}
     verbs:
       - create
       - delete
@@ -39,8 +43,8 @@ rules:
       - rolebindings
       - clusterrolebindings
     verbs:
-      - watch
       - list
+      - watch
   - apiGroups:
       - kyverno.io
     resources:

@@ -1,0 +1,33 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-host-path-t2
+spec:
+  validationFailureAction: Audit
+  rules:
+    - name: host-path
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+            operations:
+            - CREATE
+            - UPDATE
+            selector:
+              matchLabels:
+                app: critical
+        - resources:
+            kinds:
+              - Deployment
+            operations:
+            - CREATE
+            - UPDATE
+            selector:
+              matchLabels:
+                app: normal
+      validate:
+        cel:
+          expressions:
+            - expression: "!has(object.spec.template.spec.volumes) || object.spec.template.spec.volumes.all(volume, !has(volume.hostPath))"
+              message: "HostPath volumes are forbidden. The field spec.template.spec.volumes[*].hostPath must be unset."

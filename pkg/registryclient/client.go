@@ -4,23 +4,20 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
+	"runtime"
 	"time"
 
-	"github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
-	"github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/authn/github"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/google"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/tracing"
-	"github.com/sigstore/cosign/pkg/oci/remote"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"k8s.io/apimachinery/pkg/util/sets"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"sigs.k8s.io/release-utils/version"
 )
 
 var (
@@ -40,6 +37,8 @@ var (
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 	}
+
+	userAgent = fmt.Sprintf("Kyverno/%s (%s; %s)", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH)
 )
 
 // Client provides registry related objects.
@@ -54,8 +53,8 @@ type Client interface {
 	// and provides access to metadata about remote artifact.
 	FetchImageDescriptor(context.Context, string) (*gcrremote.Descriptor, error)
 
-	// BuildRemoteOption builds remote.Option based on client.
-	BuildRemoteOption(context.Context) remote.Option
+	// Options returns remote.Option configuration for the client.
+	Options(context.Context) ([]gcrremote.Option, error)
 }
 
 type client struct {
@@ -125,13 +124,13 @@ func WithCredentialProviders(credentialProviders ...string) Option {
 			chains = append(chains, authn.DefaultKeychain)
 		}
 		if helpers.Has("google") {
-			chains = append(chains, google.Keychain)
+			chains = append(chains, GCPKeychain)
 		}
 		if helpers.Has("amazon") {
-			chains = append(chains, authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard))))
+			chains = append(chains, AWSKeychain)
 		}
 		if helpers.Has("azure") {
-			chains = append(chains, authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()))
+			chains = append(chains, AzureKeychain)
 		}
 		if helpers.Has("github") {
 			chains = append(chains, github.Keychain)
@@ -165,13 +164,28 @@ func WithTracing() Option {
 	}
 }
 
-// BuildRemoteOption builds remote.Option based on client.
-func (c *client) BuildRemoteOption(ctx context.Context) remote.Option {
-	return remote.WithRemoteOptions(
+// Options returns remote.Option config parameters for the client
+func (c *client) Options(ctx context.Context) ([]gcrremote.Option, error) {
+	opts := []gcrremote.Option{
 		gcrremote.WithAuthFromKeychain(c.keychain),
 		gcrremote.WithTransport(c.transport),
 		gcrremote.WithContext(ctx),
-	)
+		gcrremote.WithUserAgent(userAgent),
+	}
+
+	pusher, err := gcrremote.NewPusher(opts...)
+	if err != nil {
+		return nil, err
+	}
+	opts = append(opts, gcrremote.Reuse(pusher))
+
+	puller, err := gcrremote.NewPuller(opts...)
+	if err != nil {
+		return nil, err
+	}
+	opts = append(opts, gcrremote.Reuse(puller))
+
+	return opts, nil
 }
 
 // FetchImageDescriptor fetches Descriptor from registry with given imageRef
@@ -184,6 +198,9 @@ func (c *client) FetchImageDescriptor(ctx context.Context, imageRef string) (*gc
 	desc, err := gcrremote.Get(parsedRef, gcrremote.WithAuthFromKeychain(c.keychain), gcrremote.WithContext(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch image reference: %s, error: %v", imageRef, err)
+	}
+	if _, ok := parsedRef.(name.Digest); ok && parsedRef.Identifier() != desc.Digest.String() {
+		return nil, fmt.Errorf("digest mismatch, expected: %s, received: %s", parsedRef.Identifier(), desc.Digest.String())
 	}
 	return desc, nil
 }

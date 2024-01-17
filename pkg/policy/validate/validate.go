@@ -90,8 +90,16 @@ func (v *Validate) Validate(ctx context.Context) (string, error) {
 		}
 
 		if v.rule.CEL.ParamRef != nil {
-			if v.rule.CEL.ParamRef.Name == "" {
-				return "", fmt.Errorf("cel.paramRef.name is required")
+			if v.rule.CEL.ParamRef.Name == "" && v.rule.CEL.ParamRef.Selector == nil {
+				return "", fmt.Errorf("one of cel.paramRef.name or cel.paramRef.selector must be set")
+			}
+
+			if v.rule.CEL.ParamRef.Name != "" && v.rule.CEL.ParamRef.Selector != nil {
+				return "", fmt.Errorf("one of cel.paramRef.name or cel.paramRef.selector must be set")
+			}
+
+			if v.rule.CEL.ParamRef.ParameterNotFoundAction == nil {
+				return "", fmt.Errorf("cel.paramRef.parameterNotFoundAction is required")
 			}
 
 			if v.rule.CEL.ParamKind == nil {

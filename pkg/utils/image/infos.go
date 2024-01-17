@@ -4,12 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/distribution/distribution/reference"
+	"github.com/distribution/reference"
 	"github.com/kyverno/kyverno/pkg/config"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
-
-var logger = log.Log.WithName("image")
 
 type ImageInfo struct {
 	// Registry is the URL address of the image registry e.g. `docker.io`
@@ -26,6 +23,12 @@ type ImageInfo struct {
 
 	// Digest is the image digest portion e.g. `sha256:128c6e3534b842a2eec139999b8ce8aa9a2af9907e2b9269550809d18cd832a3`
 	Digest string `json:"digest,omitempty"`
+
+	// Reference is an optional readable reference for the image e.g. `docker.io/nginx`
+	Reference string `json:"reference,omitempty"`
+
+	// ReferenceWithTag is an optional readable reference for the image along with the image tag e.g. `docker.io/nginx:v10`
+	ReferenceWithTag string `json:"referenceWithTag,omitempty"`
 }
 
 func (i *ImageInfo) String() string {
@@ -42,29 +45,15 @@ func (i *ImageInfo) String() string {
 	}
 }
 
-func (i *ImageInfo) ReferenceWithTag() string {
-	if i.Registry != "" {
-		return fmt.Sprintf("%s/%s:%s", i.Registry, i.Path, i.Tag)
-	} else {
-		return fmt.Sprintf("%s:%s", i.Path, i.Tag)
-	}
-}
-
 func GetImageInfo(image string, cfg config.Configuration) (*ImageInfo, error) {
-	logger.V(3).Info(
-		"getting the image info",
-		"image", image,
-		"defaultRegistry", config.Configuration.GetDefaultRegistry(cfg),
-		"enableDefaultRegistryMutation", config.Configuration.GetEnableDefaultRegistryMutation(cfg),
-	)
 	// adding the default domain in order to properly parse image info
 	fullImageName := addDefaultRegistry(image, cfg)
 	ref, err := reference.Parse(fullImageName)
 	if err != nil {
-		return nil, fmt.Errorf("bad image: %s: %w", fullImageName, err)
+		return nil, fmt.Errorf("bad image: %s, defaultRegistry: %s, enableDefaultRegistryMutation: %t: %w", fullImageName, config.Configuration.GetDefaultRegistry(cfg), config.Configuration.GetEnableDefaultRegistryMutation(cfg), err)
 	}
 
-	var registry, path, name, tag, digest string
+	var registry, path, name, tag, digest, referenceWithTag string
 	if named, ok := ref.(reference.Named); ok {
 		registry = reference.Domain(named)
 		path = reference.Path(named)
@@ -86,23 +75,23 @@ func GetImageInfo(image string, cfg config.Configuration) (*ImageInfo, error) {
 		registry = ""
 	}
 
-	logger.V(3).Info(
-		"getting the image info",
-		"image", image,
-		"registry", registry,
-		"name", name,
-		"path", path,
-		"tag", tag,
-		"digest", digest,
-	)
+	if registry != "" {
+		referenceWithTag = fmt.Sprintf("%s/%s:%s", registry, path, tag)
+	} else {
+		referenceWithTag = fmt.Sprintf("%s:%s", path, tag)
+	}
 
-	return &ImageInfo{
-		Registry: registry,
-		Name:     name,
-		Path:     path,
-		Tag:      tag,
-		Digest:   digest,
-	}, nil
+	imageInfo := &ImageInfo{
+		Registry:         registry,
+		Name:             name,
+		Path:             path,
+		Tag:              tag,
+		Digest:           digest,
+		ReferenceWithTag: referenceWithTag,
+	}
+
+	imageInfo.Reference = imageInfo.String()
+	return imageInfo, nil
 }
 
 // addDefaultRegistry always adds default registry

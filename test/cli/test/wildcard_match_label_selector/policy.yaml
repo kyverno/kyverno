@@ -1,50 +1,55 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: wildcard-support-in-matchlabels
 spec:
-  validationFailureAction: enforce
+  admission: true
   background: false
   rules:
-  - name: wildcard-label
-    match:
-      resources:
-        kinds:
-        - Pod
-        selector:
-          matchLabels:
-            protected: "*"
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          selector:
+            matchLabels:
+              protected: '*'
+    name: wildcard-label
     validate:
-      message: "Using a mutable image tag e.g. 'latest' is not allowed."
+      message: Using a mutable image tag e.g. 'latest' is not allowed.
       pattern:
         spec:
           containers:
-          - image: "!*:latest"
-  - name: label-end-with-test
-    match:
-      resources:
-        kinds:
-        - Pod
-        selector:
-          matchLabels:
-            protected: "*-test"
+          - image: '!*:latest'
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          selector:
+            matchLabels:
+              protected: '*-test'
+    name: label-end-with-test
     validate:
-      message: "Using a mutable image tag e.g. 'latest' is not allowed."
+      message: Using a mutable image tag e.g. 'latest' is not allowed.
       pattern:
         spec:
           containers:
-          - image: "!*:latest"
-  - name: label-start-with-test
-    match:
-      resources:
-        kinds:
-        - Pod
-        selector:
-          matchLabels:
-            protected: "test-*"
+          - image: '!*:latest'
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          selector:
+            matchLabels:
+              protected: test-*
+    name: label-start-with-test
     validate:
-      message: "Using a mutable image tag e.g. 'latest' is not allowed."
+      message: Using a mutable image tag e.g. 'latest' is not allowed.
       pattern:
         spec:
           containers:
-          - image: "!*:latest"
+          - image: '!*:latest'
+  validationFailureAction: Enforce

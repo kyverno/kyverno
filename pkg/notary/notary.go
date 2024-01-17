@@ -9,12 +9,13 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
+	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/images"
 	"github.com/kyverno/kyverno/pkg/logging"
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	_ "github.com/notaryproject/notation-core-go/signature/jws"
 	"github.com/notaryproject/notation-go"
+	notationlog "github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/verifier"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/opencontainers/go-digest"
@@ -22,6 +23,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"go.uber.org/multierr"
+)
+
+var (
+	maxReferrersCount = 50
+	maxPayloadSize    = int64(10 * 1000 * 1000) // 10 MB
 )
 
 func NewVerifier() images.ImageVerifier {
@@ -63,7 +69,7 @@ func (v *notaryVerifier) VerifySignature(ctx context.Context, opts images.Option
 		MaxSignatureAttempts: 10,
 	}
 
-	targetDesc, outcomes, err := notation.Verify(context.TODO(), notationVerifier, parsedRef.Repo, remoteVerifyOptions)
+	targetDesc, outcomes, err := notation.Verify(notationlog.WithLogger(ctx, NotaryLoggerAdapter(v.log.WithName("Notary Verifier Debug"))), notationVerifier, parsedRef.Repo, remoteVerifyOptions)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to verify %s", ref)
 	}
@@ -134,31 +140,32 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
 	}
-	authenticator, err := getAuthenticator(ctx, opts.ImageRef, opts.Client)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to parse authenticator: %s", opts.ImageRef)
-	}
-
-	remoteOpts, err := getRemoteOpts(*authenticator)
+	remoteOpts, err := opts.Client.Options(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	v.log.V(4).Info("client setup done", "repo", ref)
 
-	repoDesc, err := remote.Head(ref, remoteOpts...)
+	repoDesc, err := gcrremote.Head(ref, remoteOpts...)
 	if err != nil {
 		return nil, err
 	}
 	v.log.V(4).Info("fetched repository", "repoDesc", repoDesc)
 
-	referrers, err := remote.Referrers(ref.Context().Digest(repoDesc.Digest.String()), remoteOpts...)
+	referrers, err := gcrremote.Referrers(ref.Context().Digest(repoDesc.Digest.String()), remoteOpts...)
 	if err != nil {
 		return nil, err
 	}
+
 	referrersDescs, err := referrers.IndexManifest()
 	if err != nil {
 		return nil, err
+	}
+
+	// This check ensures that the manifest does not have an abnormal amount of referrers attached to it to protect against compromised images
+	if len(referrersDescs.Manifests) > maxReferrersCount {
+		return nil, fmt.Errorf("failed to fetch referrers: to many referrers found, max limit is %d", maxReferrersCount)
 	}
 
 	v.log.V(4).Info("fetched referrers", "referrers", referrersDescs)
@@ -265,7 +272,7 @@ func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Referenc
 	return targetDesc, nil
 }
 
-func extractStatements(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, remoteOpts []remote.Option) ([]map[string]interface{}, error) {
+func extractStatements(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, remoteOpts []gcrremote.Option) ([]map[string]interface{}, error) {
 	statements := make([]map[string]interface{}, 0)
 	data, err := extractStatement(ctx, repoRef, desc, remoteOpts)
 	if err != nil {
@@ -279,14 +286,14 @@ func extractStatements(ctx context.Context, repoRef name.Reference, desc v1.Desc
 	return statements, nil
 }
 
-func extractStatement(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, remoteOpts []remote.Option) (map[string]interface{}, error) {
+func extractStatement(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, remoteOpts []gcrremote.Option) (map[string]interface{}, error) {
 	refStr := repoRef.Context().RegistryStr() + "/" + repoRef.Context().RepositoryStr() + "@" + desc.Digest.String()
 	ref, err := name.ParseReference(refStr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse image reference: %s", refStr)
 	}
 
-	remoteDesc, err := remote.Get(ref, remoteOpts...)
+	remoteDesc, err := gcrremote.Get(ref, remoteOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("error in fetching manifest: %w", err)
 	}
@@ -298,23 +305,38 @@ func extractStatement(ctx context.Context, repoRef name.Reference, desc v1.Descr
 	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
 		return nil, err
 	}
-
 	if len(manifest.Layers) == 0 {
 		return nil, fmt.Errorf("no predicate found: %+v", manifest)
 	}
 	if len(manifest.Layers) > 1 {
 		return nil, fmt.Errorf("multiple layers in predicate not supported: %+v", manifest)
 	}
-	predicateDesc := manifest.Layers[0]
 
-	layer, err := remote.Layer(ref.Context().Digest(predicateDesc.Digest.String()), remoteOpts...)
+	predicateDesc := manifest.Layers[0]
+	digest := predicateDesc.Digest.String()
+	if predicateDesc.Size > maxPayloadSize {
+		return nil, fmt.Errorf("predicate size %d exceeds %d for digest %s", predicateDesc.Size, maxPayloadSize, digest)
+	}
+
+	layer, err := gcrremote.Layer(ref.Context().Digest(digest), remoteOpts...)
 	if err != nil {
 		return nil, err
 	}
+
+	layerSize, err := layer.Size()
+	if err != nil {
+		return nil, err
+	}
+
+	if layerSize > maxPayloadSize {
+		return nil, fmt.Errorf("layer size %d exceeds %d for digest %s", layerSize, maxPayloadSize, digest)
+	}
+
 	ioPredicate, err := layer.Uncompressed()
 	if err != nil {
 		return nil, err
 	}
+
 	predicateBytes := new(bytes.Buffer)
 	_, err = predicateBytes.ReadFrom(ioPredicate)
 	if err != nil {
@@ -325,17 +347,18 @@ func extractStatement(ctx context.Context, repoRef name.Reference, desc v1.Descr
 	if err := json.Unmarshal(predicateBytes.Bytes(), &predicate); err != nil {
 		return nil, err
 	}
+
 	data := make(map[string]interface{})
 	if err := json.Unmarshal(manifestBytes, &data); err != nil {
 		return nil, err
 	}
-
 	if data["type"] == nil {
 		data["type"] = desc.ArtifactType
 	}
 	if data["predicate"] == nil {
 		data["predicate"] = predicate
 	}
+
 	return data, nil
 }
 

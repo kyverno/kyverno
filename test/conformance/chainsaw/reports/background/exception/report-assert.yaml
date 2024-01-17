@@ -1,0 +1,23 @@
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: PolicyReport
+metadata:
+  ownerReferences:
+  - apiVersion: v1
+    kind: ConfigMap
+    name: emergency
+scope:
+  apiVersion: v1
+  kind: ConfigMap
+  name: emergency
+results:
+- policy: require-labels
+  result: skip
+  rule: require-team
+  scored: true
+  source: kyverno
+summary:
+  error: 0
+  fail: 0
+  pass: 0
+  skip: 1
+  warn: 0

@@ -2,10 +2,6 @@ package utils
 
 func ExcludeKyvernoResources(kind string) bool {
 	switch kind {
-	case "ClusterPolicyReport":
-		return true
-	case "PolicyReport":
-		return true
 	case "AdmissionReport":
 		return true
 	case "ClusterAdmissionReport":

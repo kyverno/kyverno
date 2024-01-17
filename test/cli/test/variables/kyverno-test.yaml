@@ -1,77 +1,88 @@
-name: test-variables
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  - cm-variable-example.yaml
-  - cm-multiple-example.yaml
-  - cm-array-example.yaml
-  - cm-blk-scalar-example.yaml
-  - cm-globalval-example.yaml
-  - image-example.yaml
+- cm-variable-example.yaml
+- cm-multiple-example.yaml
+- cm-array-example.yaml
+- cm-blk-scalar-example.yaml
+- cm-globalval-example.yaml
+- image-example.yaml
 resources:
-  - resources.yaml
-variables: variables.yaml
+- resources.yaml
 results:
-  - policy: cm-multiple-example
-    rule: example-configmap-lookup
-    resource: test-env-test
-    kind: Pod
-    result: pass
-  - policy: cm-multiple-example
-    rule: example-configmap-lookup
-    resource: test-env-dev
-    kind: Pod
-    result: fail
-  - policy: cm-variable-example
-    rule: example-configmap-lookup
-    resource: test-env-test
-    kind: Pod
-    result: pass
-  - policy: cm-variable-example
-    rule: example-configmap-lookup
-    resource: test-env-dev
-    kind: Pod
-    result: fail
-  - policy: cm-array-example
-    rule: validate-role-annotation
-    resource: test-web
-    kind: Pod
-    result: fail
-  - policy: cm-array-example
-    rule: validate-role-annotation
-    resource: test-app
-    kind: Pod
-    result: pass
-  - policy: cm-blk-scalar-example
-    rule: validate-blk-role-annotation
-    resource: test-blk-web
-    kind: Pod
-    result: fail
-  - policy: cm-blk-scalar-example
-    rule: validate-blk-role-annotation
-    resource: test-blk-app
-    kind: Pod
-    result: pass
-  - policy: cm-globalval-example
-    rule: validate-mode
-    resource: test-global-dev
-    kind: Pod
-    result: pass
-  - policy: cm-globalval-example
-    rule: validate-mode
-    resource: test-global-prod
-    kind: Pod
-    result: fail
-  - policy: images
-    rule: only-allow-trusted-images
-    resource: test-pod-with-non-root-user-image
-    kind: Pod
-    status: pass
-  - policy: images
-    rule: only-allow-trusted-images
-    resource: test-pod-with-trusted-registry
-    kind: Pod
-    status: pass
-  - policy: images
-    rule: only-allow-trusted-images
-    resource: test-pod-with-non-trusted-registry
-    kind: Pod
-    status: fail
+- kind: Pod
+  policy: cm-array-example
+  resources:
+  - test-web
+  result: fail
+  rule: validate-role-annotation
+- kind: Pod
+  policy: cm-array-example
+  resources:
+  - test-app
+  result: pass
+  rule: validate-role-annotation
+- kind: Pod
+  policy: cm-blk-scalar-example
+  resources:
+  - test-blk-web
+  result: fail
+  rule: validate-blk-role-annotation
+- kind: Pod
+  policy: cm-blk-scalar-example
+  resources:
+  - test-blk-app
+  result: pass
+  rule: validate-blk-role-annotation
+- kind: Pod
+  policy: cm-globalval-example
+  resources:
+  - test-global-prod
+  result: fail
+  rule: validate-mode
+- kind: Pod
+  policy: cm-globalval-example
+  resources:
+  - test-global-dev
+  result: pass
+  rule: validate-mode
+- kind: Pod
+  policy: cm-multiple-example
+  resources:
+  - test-env-dev
+  result: fail
+  rule: example-configmap-lookup
+- kind: Pod
+  policy: cm-multiple-example
+  resources:
+  - test-env-test
+  result: pass
+  rule: example-configmap-lookup
+- kind: Pod
+  policy: cm-variable-example
+  resources:
+  - test-env-dev
+  result: fail
+  rule: example-configmap-lookup
+- kind: Pod
+  policy: cm-variable-example
+  resources:
+  - test-env-test
+  result: pass
+  rule: example-configmap-lookup
+- kind: Pod
+  policy: images
+  resources:
+  - test-pod-with-non-trusted-registry
+  result: fail
+  rule: only-allow-trusted-images
+- kind: Pod
+  policy: images
+  resources:
+  - test-pod-with-non-root-user-image
+  - test-pod-with-trusted-registry
+  result: pass
+  rule: only-allow-trusted-images
+variables: variables.yaml

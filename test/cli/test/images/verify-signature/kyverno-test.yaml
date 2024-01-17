@@ -1,26 +1,33 @@
-name: test-image-verify-signature
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  - policies.yaml
+- policies.yaml
 resources:
-  - resources.yaml
+- resources.yaml
 results:
-  - policy: check-image
-    rule: verify-signature
-    resource: signed
-    kind: Pod
-    status: pass
-  - policy: check-image
-    rule: verify-signature
-    resource: unsigned
-    kind: Pod
-    status: fail
-  - policy: check-data-volume-image
-    rule: verify-signature
-    resource: signed-registry-image-datavolume
-    kind: DataVolume
-    status: pass
-  - policy: check-data-volume-image
-    rule: verify-signature
-    resource: unsigned-registry-image-datavolume
-    kind: DataVolume
-    status: fail
+- kind: DataVolume
+  policy: check-data-volume-image
+  resources:
+  - unsigned-registry-image-datavolume
+  result: fail
+  rule: verify-signature
+- kind: DataVolume
+  policy: check-data-volume-image
+  resources:
+  - signed-registry-image-datavolume
+  result: pass
+  rule: verify-signature
+- kind: Pod
+  policy: check-image
+  resources:
+  - unsigned
+  result: fail
+  rule: verify-signature
+- kind: Pod
+  policy: check-image
+  resources:
+  - signed
+  result: pass
+  rule: verify-signature

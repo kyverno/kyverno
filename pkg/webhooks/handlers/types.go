@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -35,6 +36,7 @@ func FromAdmissionFunc(name string, h AdmissionHandler) AdmissionHandler {
 	return h.WithTrace(name)
 }
 
-func (h HttpHandler) ToHandlerFunc() http.HandlerFunc {
-	return http.HandlerFunc(h)
+func (h HttpHandler) ToHandlerFunc(operation string) http.HandlerFunc {
+	handler := otelhttp.NewHandler(http.HandlerFunc(h), operation)
+	return handler.ServeHTTP
 }

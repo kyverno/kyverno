@@ -19,6 +19,7 @@ limitations under the License.
 package v2alpha1
 
 import (
+	v2beta1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v2beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
@@ -29,8 +30,8 @@ import (
 type ClusterCleanupPolicyApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",omitempty,inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *CleanupPolicySpecApplyConfiguration   `json:"spec,omitempty"`
-	Status                           *CleanupPolicyStatusApplyConfiguration `json:"status,omitempty"`
+	Spec                             *v2beta1.CleanupPolicySpecApplyConfiguration   `json:"spec,omitempty"`
+	Status                           *v2beta1.CleanupPolicyStatusApplyConfiguration `json:"status,omitempty"`
 }
 
 // ClusterCleanupPolicy constructs an declarative configuration of the ClusterCleanupPolicy type for use with
@@ -204,7 +205,7 @@ func (b *ClusterCleanupPolicyApplyConfiguration) ensureObjectMetaApplyConfigurat
 // WithSpec sets the Spec field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Spec field is set to the value of the last call.
-func (b *ClusterCleanupPolicyApplyConfiguration) WithSpec(value *CleanupPolicySpecApplyConfiguration) *ClusterCleanupPolicyApplyConfiguration {
+func (b *ClusterCleanupPolicyApplyConfiguration) WithSpec(value *v2beta1.CleanupPolicySpecApplyConfiguration) *ClusterCleanupPolicyApplyConfiguration {
 	b.Spec = value
 	return b
 }
@@ -212,7 +213,7 @@ func (b *ClusterCleanupPolicyApplyConfiguration) WithSpec(value *CleanupPolicySp
 // WithStatus sets the Status field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Status field is set to the value of the last call.
-func (b *ClusterCleanupPolicyApplyConfiguration) WithStatus(value *CleanupPolicyStatusApplyConfiguration) *ClusterCleanupPolicyApplyConfiguration {
+func (b *ClusterCleanupPolicyApplyConfiguration) WithStatus(value *v2beta1.CleanupPolicyStatusApplyConfiguration) *ClusterCleanupPolicyApplyConfiguration {
 	b.Status = value
 	return b
 }

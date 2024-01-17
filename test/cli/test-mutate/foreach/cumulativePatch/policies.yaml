@@ -1,26 +1,30 @@
-apiVersion : kyverno.io/v1
+---
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: add-default-resources
   annotations:
-    pod-policies.kyverno.io/autogen-controllers: "none"
+    pod-policies.kyverno.io/autogen-controllers: none
+  name: add-default-resources
 spec:
+  admission: true
   background: false
   rules:
-    - name: add-default-requests
-      match:
-        resources:
+  - match:
+      any:
+      - resources:
           kinds:
-            - Pod
-      mutate:
-        foreach:
-        - list: "request.object.spec.containers"
-          patchesJson6902: |-
-            - path: /spec/containers/{{elementIndex}}/resources/requests/memory
-              op: add
-              value: "100Mi"
-        - list: "request.object.spec.containers"
-          patchesJson6902: |-
-            - path: /spec/containers/{{elementIndex}}/resources/requests/cpu
-              op: add
-              value: "100m"
+          - Pod
+    mutate:
+      foreach:
+      - list: request.object.spec.containers
+        patchesJson6902: |-
+          - path: /spec/containers/{{elementIndex}}/resources/requests/memory
+            op: add
+            value: "100Mi"
+      - list: request.object.spec.containers
+        patchesJson6902: |-
+          - path: /spec/containers/{{elementIndex}}/resources/requests/cpu
+            op: add
+            value: "100m"
+    name: add-default-requests
+  validationFailureAction: Audit

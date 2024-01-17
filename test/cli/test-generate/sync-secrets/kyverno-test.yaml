@@ -1,13 +1,17 @@
-name: sync-secrets
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  - policy.yaml
+- policy.yaml
 resources:
-  - resource.yaml
+- resource.yaml
 results:
-  - policy: sync-secrets
-    rule: sync-image-pull-secret
-    resource: hello-world-namespace
-    generatedResource: generatedResource.yaml
-    cloneSourceResource: cloneSourceResource.yaml
-    kind: Namespace
-    result: pass
+- cloneSourceResource: cloneSourceResource.yaml
+  generatedResource: generatedResource.yaml
+  kind: Namespace
+  policy: sync-secrets
+  resources:
+  - hello-world-namespace
+  result: pass
+  rule: sync-image-pull-secret

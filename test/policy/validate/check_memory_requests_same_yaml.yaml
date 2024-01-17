@@ -1,26 +1,27 @@
-apiVersion : kyverno.io/v1
-kind : ClusterPolicy
-metadata :
-  name : validation-example2
-spec :
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validation-example2
+spec:
+  admission: true
+  background: true
   rules:
-    - name: check-memory_requests_link_in_yaml
-      match:
-        resources:
-          # Kind specifies one or more resource types to match
+  - match:
+      any:
+      - resources:
           kinds:
-            - Deployment
-          # Name is optional and can use wildcards
-          name: "*"
-          # Selector is optional
-          selector:
-      validate:
-        pattern:
-          spec:
-            containers:
-              - name: "*"
-                resources:
-                  requests:
-                    memory: "$(<=/spec/containers/0/resources/limits/memory)"
-                  limits:
-                    memory: "2048Mi"
+          - Deployment
+          name: '*'
+    name: check-memory_requests_link_in_yaml
+    validate:
+      pattern:
+        spec:
+          containers:
+          - name: '*'
+            resources:
+              limits:
+                memory: 2048Mi
+              requests:
+                memory: $(<=/spec/containers/0/resources/limits/memory)
+  validationFailureAction: Audit

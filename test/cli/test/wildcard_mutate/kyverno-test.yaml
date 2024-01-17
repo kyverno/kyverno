@@ -1,18 +1,23 @@
-name: wildcard-support-in-matchlabels
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  -  policy.yaml
+- policy.yaml
 resources:
-  -  resources.yaml
+- resources.yaml
 results:
-  - policy: mutate-wildcard
-    rule: mutate-wildcard
-    resource: wildcard-mutate
-    patchedResource: patchedResource.yaml
-    kind: Pod
-    result: pass
-  - policy: mutate-wildcard
-    rule: mutate-wildcard
-    resource: wildcard-mutate-fail
-    patchedResource: patchedResource1.yaml
-    kind: Pod
-    result: fail
+- kind: Pod
+  patchedResource: patchedResource1.yaml
+  policy: mutate-wildcard
+  resources:
+  - wildcard-mutate-fail
+  result: fail
+  rule: mutate-wildcard
+- kind: Pod
+  patchedResource: patchedResource.yaml
+  policy: mutate-wildcard
+  resources:
+  - wildcard-mutate
+  result: pass
+  rule: mutate-wildcard
