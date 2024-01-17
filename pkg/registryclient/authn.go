@@ -4,11 +4,8 @@ import (
 	"context"
 	"net/url"
 	"regexp"
-	"strings"
 
-	"github.com/fluxcd/pkg/oci/auth/aws"
 	"github.com/fluxcd/pkg/oci/auth/azure"
-	"github.com/fluxcd/pkg/oci/auth/gcp"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -91,55 +88,4 @@ func isACRRegistry(input string) bool {
 	}
 	matches := acrRE.FindStringSubmatch(serverURL.Hostname())
 	return len(matches) != 0
-}
-
-type awskeychain struct{}
-
-var AWSKeychain authn.Keychain = awskeychain{}
-
-func (awskeychain) Resolve(resource authn.Resource) (authn.Authenticator, error) {
-	if !isAWSRegistry(resource.RegistryStr()) {
-		return authn.Anonymous, nil
-	}
-	awsClient := aws.NewClient()
-	auth, err := awsClient.Login(context.TODO(), true, resource.String())
-	if err != nil {
-		return authn.Anonymous, nil
-	}
-	return auth, nil
-}
-
-func isAWSRegistry(input string) bool {
-	input = strings.TrimPrefix(input, proxyEndpointScheme)
-	serverURL, err := url.Parse(proxyEndpointScheme + input)
-	if err != nil {
-		return false
-	}
-	if serverURL.Hostname() == ecrPublicName {
-		return true
-	}
-	matches := ecrPattern.FindStringSubmatch(serverURL.Hostname())
-	return len(matches) >= 3
-}
-
-type gcpkeychain struct{}
-
-var GCPKeychain authn.Keychain = gcpkeychain{}
-
-func (gcpkeychain) Resolve(resource authn.Resource) (authn.Authenticator, error) {
-	if !gcp.ValidHost(resource.RegistryStr()) {
-		return authn.Anonymous, nil
-	}
-
-	ref, err := name.ParseReference(resource.String())
-	if err != nil {
-		return authn.Anonymous, nil
-	}
-
-	gcpClient := gcp.NewClient()
-	auth, err := gcpClient.Login(context.TODO(), true, resource.String(), ref)
-	if err != nil {
-		return authn.Anonymous, nil
-	}
-	return auth, nil
 }
