@@ -50,7 +50,7 @@ vulnerability-reporting:
   accepts-vulnerability-reports: true
   email-contact: kyverno-security@googlegroups.com
   security-policy: 'https://kyverno.io/docs/security/'
-  bug-bounty-available: true
+  bug-bounty-available: false
   bug-bounty-url: ''
 dependencies:
   third-party-packages: true
