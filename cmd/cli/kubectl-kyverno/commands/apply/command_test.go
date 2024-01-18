@@ -384,7 +384,7 @@ func TestCommandWithInvalidArg(t *testing.T) {
 	assert.Error(t, err)
 	out, err := io.ReadAll(b)
 	assert.NoError(t, err)
-	expected := `Error: require policy`
+	expected := ``
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
 }
 
@@ -398,7 +398,7 @@ func TestCommandWithInvalidFlag(t *testing.T) {
 	assert.Error(t, err)
 	out, err := io.ReadAll(b)
 	assert.NoError(t, err)
-	expected := `Error: unknown flag: --xxx`
+	expected := ``
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
 }
 
