@@ -7,10 +7,13 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernov2beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
@@ -54,6 +57,7 @@ type controller struct {
 	// listers
 	polLister      kyvernov1listers.PolicyLister
 	cpolLister     kyvernov1listers.ClusterPolicyLister
+	polexLister    kyvernov2beta1listers.PolicyExceptionLister
 	vapLister      admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyLister
 	bgscanrLister  cache.GenericLister
 	cbgscanrLister cache.GenericLister
@@ -80,6 +84,7 @@ func NewController(
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
+	polexInformer kyvernov2beta1informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer,
 	nsInformer corev1informers.NamespaceInformer,
 	metadataCache resource.MetadataCache,
@@ -98,6 +103,7 @@ func NewController(
 		engine:         engine,
 		polLister:      polInformer.Lister(),
 		cpolLister:     cpolInformer.Lister(),
+		polexLister:    polexInformer.Lister(),
 		bgscanrLister:  bgscanr.Lister(),
 		cbgscanrLister: cbgscanr.Lister(),
 		nsLister:       nsInformer.Lister(),
@@ -119,6 +125,9 @@ func NewController(
 		logger.Error(err, "failed to register event handlers")
 	}
 	if _, err := controllerutils.AddEventHandlersT(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+	if _, err := controllerutils.AddEventHandlersT(polexInformer.Informer(), c.addException, c.updateException, c.deleteException); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
 	c.metadataCache.AddEventHandler(func(eventType resource.EventType, uid types.UID, _ schema.GroupVersionKind, res resource.Resource) {
@@ -151,6 +160,20 @@ func (c *controller) updatePolicy(old, obj kyvernov1.PolicyInterface) {
 }
 
 func (c *controller) deletePolicy(obj kyvernov1.PolicyInterface) {
+	c.enqueueResources()
+}
+
+func (c *controller) addException(obj *kyvernov2beta1.PolicyException) {
+	c.enqueueResources()
+}
+
+func (c *controller) updateException(old, obj *kyvernov2beta1.PolicyException) {
+	if old.GetResourceVersion() != obj.GetResourceVersion() {
+		c.enqueueResources()
+	}
+}
+
+func (c *controller) deleteException(obj *kyvernov2beta1.PolicyException) {
 	c.enqueueResources()
 }
 
@@ -198,7 +221,7 @@ func (c *controller) getMeta(namespace, name string) (metav1.Object, error) {
 	}
 }
 
-func (c *controller) needsReconcile(namespace, name, hash string, policies ...engineapi.GenericPolicy) (bool, bool, error) {
+func (c *controller) needsReconcile(namespace, name, hash string, exceptions []kyvernov2beta1.PolicyException, policies ...engineapi.GenericPolicy) (bool, bool, error) {
 	// if the reportMetadata does not exist, we need a full reconcile
 	reportMetadata, err := c.getMeta(namespace, name)
 	if err != nil {
@@ -225,10 +248,13 @@ func (c *controller) needsReconcile(namespace, name, hash string, policies ...en
 			return true, true, nil
 		}
 	}
-	// if a policy changed, we need a partial reconcile
+	// if a policy or an exception changed, we need a partial reconcile
 	expected := map[string]string{}
 	for _, policy := range policies {
 		expected[reportutils.PolicyLabel(policy)] = policy.GetResourceVersion()
+	}
+	for _, exception := range exceptions {
+		expected[reportutils.PolicyExceptionLabel(exception)] = exception.GetResourceVersion()
 	}
 	actual := map[string]string{}
 	for key, value := range reportMetadata.GetLabels() {
@@ -251,6 +277,7 @@ func (c *controller) reconcileReport(
 	uid types.UID,
 	gvk schema.GroupVersionKind,
 	resource resource.Resource,
+	exceptions []kyvernov2beta1.PolicyException,
 	policies ...engineapi.GenericPolicy,
 ) error {
 	// namespace labels to be used by the scanner
@@ -280,6 +307,10 @@ func (c *controller) reconcileReport(
 	for _, policy := range policies {
 		expected[reportutils.PolicyLabel(policy)] = policy.GetResourceVersion()
 	}
+	for _, exception := range exceptions {
+		expected[reportutils.PolicyExceptionLabel(exception)] = exception.GetResourceVersion()
+	}
+
 	actual := map[string]string{}
 	for key, value := range observed.GetLabels() {
 		if reportutils.IsPolicyLabel(key) {
@@ -302,18 +333,34 @@ func (c *controller) reconcileReport(
 			}
 			policyNameToLabel[key] = reportutils.PolicyLabel(policy)
 		}
-		// keep up to date results
+
+		for _, exception := range exceptions {
+			key, err := cache.MetaNamespaceKeyFunc(exception)
+			if err != nil {
+				return err
+			}
+			policyNameToLabel[key] = reportutils.PolicyExceptionLabel(exception)
+		}
+
 		for _, result := range observed.GetResults() {
 			// if the policy did not change, keep the result
 			label := policyNameToLabel[result.Policy]
-			if label != "" && expected[label] == actual[label] {
+			exceptionLabel := policyNameToLabel[result.Properties["exception"]]
+			if (label != "" && expected[label] == actual[label]) || (exceptionLabel != "" && expected[exceptionLabel] == actual[exceptionLabel]) {
 				ruleResults = append(ruleResults, result)
 			}
 		}
 	}
 	// calculate necessary results
 	for _, policy := range policies {
-		if full || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
+		reevaluate := false
+		for _, polex := range exceptions {
+			if actual[reportutils.PolicyExceptionLabel(polex)] != polex.GetResourceVersion() {
+				reevaluate = true
+				break
+			}
+		}
+		if full || reevaluate || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
 			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp)
 			for _, result := range scanner.ScanResource(ctx, *target, nsLabels, policy) {
 				if result.Error != nil {
@@ -333,6 +380,9 @@ func (c *controller) reconcileReport(
 	}
 	for _, policy := range policies {
 		reportutils.SetPolicyLabel(desired, policy)
+	}
+	for _, exception := range exceptions {
+		reportutils.SetPolicyExceptionLabel(desired, exception)
 	}
 	reportutils.SetResourceVersionLabels(desired, target)
 	reportutils.SetResults(desired, ruleResults...)
@@ -418,15 +468,20 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 			policies = append(policies, engineapi.NewValidatingAdmissionPolicy(pol))
 		}
 	}
+	// load policy exceptions with background process enabled
+	exceptions, err := utils.FetchPolicyExceptions(c.polexLister, namespace)
+	if err != nil {
+		return err
+	}
 	// we have the resource, check if we need to reconcile
-	if needsReconcile, full, err := c.needsReconcile(namespace, name, resource.Hash, policies...); err != nil {
+	if needsReconcile, full, err := c.needsReconcile(namespace, name, resource.Hash, exceptions, policies...); err != nil {
 		return err
 	} else {
 		defer func() {
 			c.queue.AddAfter(key, c.forceDelay)
 		}()
 		if needsReconcile {
-			return c.reconcileReport(ctx, namespace, name, full, uid, gvk, resource, policies...)
+			return c.reconcileReport(ctx, namespace, name, full, uid, gvk, resource, exceptions, policies...)
 		}
 	}
 	return nil
