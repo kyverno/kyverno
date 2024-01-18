@@ -107,6 +107,11 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []policyre
 				Category: annotations[kyverno.AnnotationPolicyCategory],
 				Severity: SeverityFromString(annotations[kyverno.AnnotationPolicySeverity]),
 			}
+			if ruleResult.Exception() != nil {
+				result.Properties = map[string]string{
+					"exception": ruleResult.Exception().Name,
+				}
+			}
 			pss := ruleResult.PodSecurityChecks()
 			if pss != nil {
 				var controls []string
