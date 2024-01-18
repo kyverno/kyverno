@@ -414,24 +414,33 @@ func validateJMESPath(p kyvernov1.PolicyInterface) error {
 	}
 	policyString := string(policyRaw)
 	if !checkClosedBraces(policyString) {
-		return fmt.Errorf("unclosed curly braces found in policy string")
+		return fmt.Errorf(policyString)
 	}
 	return nil
 }
 
 func checkClosedBraces(s string) bool {
 	stack := []rune{}
+	ignore := false
+
 	for _, char := range s {
 		switch char {
+		case '\'':
+			ignore = !ignore
 		case '{':
-			stack = append(stack, char)
-		case '}':
-			if len(stack) == 0 {
-				return false
+			if !ignore {
+				stack = append(stack, char)
 			}
-			stack = stack[:len(stack)-1]
+		case '}':
+			if !ignore {
+				if len(stack) == 0 {
+					return false
+				}
+				stack = stack[:len(stack)-1]
+			}
 		}
 	}
+
 	return len(stack) == 0
 }
 
