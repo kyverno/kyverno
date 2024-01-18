@@ -1,8 +1,8 @@
 apiVersion: v2
 type: application
 name: kyverno-policies
-version: 3.1.0
-appVersion: v1.11.0
+version: 3.1.1
+appVersion: v1.11.1
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Pod Security Standards implemented as Kyverno policies
 keywords:
@@ -31,3 +31,5 @@ annotations:
       description: "Walk back change in PSS policy to send to to_upper"
     - kind: fixed
       description: Skip DELETE requests on policies using deny statements
+    - kind: added
+      description: Add policyKind to allow changing ClusterPolicy to Policy for all policies

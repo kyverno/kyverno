@@ -2,7 +2,7 @@
 
 Kubernetes Native Policy Management
 
-![Version: 3.1.0](https://img.shields.io/badge/Version-3.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.11.0](https://img.shields.io/badge/AppVersion-v1.11.0-informational?style=flat-square)
+![Version: 3.1.1](https://img.shields.io/badge/Version-3.1.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.11.1](https://img.shields.io/badge/AppVersion-v1.11.1-informational?style=flat-square)
 
 ## About
 
@@ -715,6 +715,13 @@ The chart values are organised per component.
 | imagePullSecrets | object | `{}` | Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | customLabels | object | `{}` | Additional labels |
+| policyReportsCleanup.enabled | bool | `true` | Create a helm post-upgrade hook to cleanup the old policy reports. |
+| policyReportsCleanup.image.registry | string | `nil` | Image registry |
+| policyReportsCleanup.image.repository | string | `"bitnami/kubectl"` | Image repository |
+| policyReportsCleanup.image.tag | string | `"1.28.4"` | Image tag Defaults to `latest` if omitted |
+| policyReportsCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
+| policyReportsCleanup.podSecurityContext | object | `{}` | Security context for the pod |
+| policyReportsCleanup.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
 
 ## TLS Configuration
 
@@ -756,7 +763,7 @@ Please consult the [values.yaml](./values.yaml) file before overriding `config.r
 
 Running a highly-available Kyverno installation is crucial in a production environment.
 
-In order to run Kyverno in high availability mode, you should set `replicaCount` to `3` or more.
+In order to run Kyverno in high availability mode, you should set `replicas` to `3` or more for desired components.
 You should also pay attention to anti affinity rules, spreading pods across nodes and availability zones.
 
 Please see https://kyverno.io/docs/installation/#security-vs-operability for more informations.
@@ -771,7 +778,7 @@ Kubernetes: `>=1.25.0-0`
 
 | Repository | Name | Version |
 |------------|------|---------|
-|  | crds | 3.1.0 |
+|  | crds | 3.1.1 |
 |  | grafana | 0.0.0 |
 
 ## Maintainers

@@ -1,8 +1,8 @@
 apiVersion: v2
 type: application
 name: kyverno
-version: 3.1.0
-appVersion: v1.11.0
+version: 3.1.1
+appVersion: v1.11.1
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Native Policy Management
 keywords:
@@ -35,8 +35,6 @@ annotations:
   artifacthub.io/changes: |
     - kind: added
       description: support for GrafanaDashboard custom resource
-    - kind: changed
-      description: only create ServiceMonitor if cluster supports it
     - kind: fixed
       description: rbac templating issues
     - kind: added
@@ -82,5 +80,5 @@ dependencies:
     version: "0.0.0"
     condition: grafana.enabled
   - name: crds
-    version: "3.1.0"
+    version: "3.1.1"
     condition: crds.install
