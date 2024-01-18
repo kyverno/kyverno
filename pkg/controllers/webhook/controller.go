@@ -812,25 +812,9 @@ func computeOperationsForValidatingWebhookConf(rules []kyvernov1.Rule, operation
 	return operationStatusMap
 }
 
-func isMutationEmpty(m kyvernov1.Mutation) bool {
-	if len(m.Targets) > 0 {
-		return false
-	}
-	if m.RawPatchStrategicMerge != nil && len(m.RawPatchStrategicMerge.Raw) > 0 {
-		return false
-	}
-	if m.PatchesJSON6902 != "" {
-		return false
-	}
-	if len(m.ForEachMutation) > 0 {
-		return false
-	}
-	return true
-}
-
 func computeOperationsForMutatingWebhookConf(rules []kyvernov1.Rule, operationStatusMap map[string]bool) map[string]bool {
 	for _, r := range rules {
-		if !isMutationEmpty(r.Mutation) || len(r.VerifyImages) > 0 {
+		if r.HasMutate() || r.HasVerifyImages() {
 			opFound := false
 			if len(r.MatchResources.Any) != 0 {
 				opFound, operationStatusMap = scanResourceFilter(r.MatchResources.Any, operationStatusMap)
