@@ -40,6 +40,10 @@ func (p *PolicyException) Contains(policy string, rule string) bool {
 	return p.Spec.Contains(policy, rule)
 }
 
+func (p *PolicyException) GetKind() string {
+	return "PolicyException"
+}
+
 // Exception stores infos about a policy and rules
 type Exception = kyvernov2beta1.Exception
 

@@ -2,7 +2,22 @@ package validatingadmissionpolicygenerate
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"k8s.io/apimachinery/pkg/labels"
 )
+
+// hasExceptions checks if there is an exception that match both the policy and the rule.
+func (c *controller) hasExceptions(policyName, rule string) (bool, error) {
+	polexs, err := c.polexLister.List(labels.Everything())
+	if err != nil {
+		return false, err
+	}
+	for _, polex := range polexs {
+		if polex.Contains(policyName, rule) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
 
 func checkResources(resource kyvernov1.ResourceDescription) (bool, string) {
 	var msg string
