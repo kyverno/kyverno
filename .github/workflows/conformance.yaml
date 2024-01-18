@@ -101,6 +101,7 @@ jobs:
           - ^events$
           - ^exceptions$
           - ^filter$
+          - ^fluxcd$
           - ^generate$/^clusterpolicy$
           - ^generate$/^policy$
           - ^generate$/^validation$
