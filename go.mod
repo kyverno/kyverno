@@ -35,7 +35,7 @@ require (
 	github.com/notaryproject/notation-core-go v1.0.1
 	github.com/notaryproject/notation-go v1.0.1
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.30.0
+	github.com/onsi/gomega v1.31.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0-rc5
 	github.com/pkg/errors v0.9.1
@@ -72,12 +72,12 @@ require (
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
-	k8s.io/api v0.29.0
+	k8s.io/api v0.29.1
 	k8s.io/apiextensions-apiserver v0.29.0
 	k8s.io/apimachinery v0.29.1
 	k8s.io/apiserver v0.29.0
-	k8s.io/cli-runtime v0.29.0
-	k8s.io/client-go v0.29.0
+	k8s.io/cli-runtime v0.29.1
+	k8s.io/client-go v0.29.1
 	k8s.io/klog/v2 v2.120.0
 	k8s.io/kube-aggregator v0.29.0
 	k8s.io/pod-security-admission v0.29.0
