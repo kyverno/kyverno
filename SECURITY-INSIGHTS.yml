@@ -51,12 +51,12 @@ vulnerability-reporting:
   email-contact: kyverno-security@googlegroups.com
   security-policy: 'https://kyverno.io/docs/security/'
   bug-bounty-available: true
-  bug-bounty-url: 'https://hackerone.com/kubernetes'
+  bug-bounty-url: ''
 dependencies:
   third-party-packages: true
   dependencies-lists:
   - 'https://github.com/kyverno/kyverno/blob/main/go.mod'
   dependencies-lifecycle:
-    policy-url: 'https://kyverno.io/policies/'
+    policy-url: 'https://kyverno.io/docs/installation/#compatibility-matrix'
   env-dependencies-policy:
-    policy-url: 'https://kyverno.io/policies/'
+    policy-url: ''
