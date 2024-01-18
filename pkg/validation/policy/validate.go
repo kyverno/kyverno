@@ -408,7 +408,7 @@ func ValidateVariables(p kyvernov1.PolicyInterface, backgroundMode bool) error {
 
 func validateJMESPath(p kyvernov1.PolicyInterface) error {
 	polCopy := cleanup(p.CreateDeepCopy())
-	policyRaw, err := json.Marshal(polCopy)
+	policyRaw, err := json.Marshal(polCopy.GetSpec().Rules)
 	if err != nil {
 		return fmt.Errorf("failed to serialize the policy: %v", err)
 	}
