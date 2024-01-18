@@ -19,8 +19,7 @@ func NewPolicyFailEvent(source Source, reason Reason, engineResponse engineapi.E
 	}
 	pol := engineResponse.Policy()
 	regarding := corev1.ObjectReference{
-		// TODO: iirc it's not safe to assume api version is set
-		APIVersion: "kyverno.io/v1",
+		APIVersion: pol.GetAPIVersion(),
 		Kind:       pol.GetKind(),
 		Name:       pol.GetName(),
 		Namespace:  pol.GetNamespace(),
@@ -94,8 +93,7 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 		action = ResourcePassed
 	}
 	regarding := corev1.ObjectReference{
-		// TODO: iirc it's not safe to assume api version is set
-		APIVersion: "kyverno.io/v1",
+		APIVersion: policy.GetAPIVersion(),
 		Kind:       policy.GetKind(),
 		Name:       policy.GetName(),
 		Namespace:  policy.GetNamespace(),
