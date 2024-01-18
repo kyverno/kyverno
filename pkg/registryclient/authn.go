@@ -11,9 +11,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-var (
-	acrRE = regexp.MustCompile(`.*\.azurecr\.io|.*\.azurecr\.cn|.*\.azurecr\.de|.*\.azurecr\.us`)
-)
+var acrRE = regexp.MustCompile(`.*\.azurecr\.io|.*\.azurecr\.cn|.*\.azurecr\.de|.*\.azurecr\.us`)
 
 const (
 	mcrHostname = "mcr.microsoft.com"
