@@ -154,7 +154,11 @@ func (r *ResourceLoader) Delete(entry *v2alpha1.CachedContextEntry) error {
 func (r *ResourceLoader) createGenericListerForResource(resource schema.GroupVersionResource, namespace string) (cache.ResourceEntry, error) {
 	informer := dynamicinformer.NewFilteredDynamicInformer(r.client, resource, namespace, resyncPeriod, k8scache.Indexers{k8scache.NamespaceIndex: k8scache.MetaNamespaceIndexFunc}, nil)
 	watchErrHandler := NewWatchErrorHandler(r.logger, resource, namespace)
-	informer.Informer().SetWatchErrorHandler(watchErrHandler.WatchErrorHandlerFunction())
+	err := informer.Informer().SetWatchErrorHandler(watchErrHandler.WatchErrorHandlerFunction())
+	if err != nil {
+		r.logger.Error(err, "failed to add watch error handler")
+		return nil, err
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go informer.Informer().Run(ctx.Done())
