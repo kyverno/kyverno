@@ -604,8 +604,6 @@ github.com/kr/text v0.2.0 h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=
 github.com/kr/text v0.2.0/go.mod h1:eLer722TekiGuMkidMxC/pM04lWEeraHUUmBw8l2grE=
 github.com/kylelemons/godebug v1.1.0 h1:RPNrshWIDI6G2gRW9EHilWtl7Z6Sb1BR0xunSBf0SNc=
 github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+fNqagV/RAw=
-github.com/kyverno/cosign/v2 v2.0.0-20231109090756-51fd41540436 h1:PvxtUeaEvHgnVwnksc2LDBjWM7wsyIzZhZzS+RW+BEE=
-github.com/kyverno/cosign/v2 v2.0.0-20231109090756-51fd41540436/go.mod h1:QuAzDDmES0ROCdTPf97GzjidUmn5lpQq84ESET3NAi8=
 github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877 h1:XOLJNGX/q6MVpI8p8MKvk6jGBMvO4CrdwrizMMSsaRU=
 github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877/go.mod h1:yzDHaKovQy16rjN4kFnjF+IdNoN4p1ndw+va6+B8zUU=
 github.com/kyverno/go-jmespath/internal/testify v1.5.2-0.20230630133209-945021c749d9 h1:lL311dF3a2aeNibJj8v+uhFU3XkvRHZmCtAdSPOrQYY=
@@ -786,6 +784,8 @@ github.com/shibumi/go-pathspec v1.3.0/go.mod h1:Xutfslp817l2I1cZvgcfeMQJG5QnU2lh
 github.com/shopspring/decimal v1.2.0/go.mod h1:DKyhrW/HYNuLGql+MJL6WCR6knT2jwCFRcu2hWCYk4o=
 github.com/shopspring/decimal v1.3.1 h1:2Usl1nmF/WZucqkFZhnfFYxxxu8LG21F6nPQBE5gKV8=
 github.com/shopspring/decimal v1.3.1/go.mod h1:DKyhrW/HYNuLGql+MJL6WCR6knT2jwCFRcu2hWCYk4o=
+github.com/sigstore/cosign/v2 v2.2.2 h1:V1uE1/QnKGfj77vuqlEGBg6O2ZJqOrWkLwjTC21Vxw0=
+github.com/sigstore/cosign/v2 v2.2.2/go.mod h1:bNmX0qyby7sgcqY9oY/jy5m+XJ3N3LtpOsNfO+A1CGo=
 github.com/sigstore/fulcio v1.4.3 h1:9JcUCZjjVhRF9fmhVuz6i1RyhCc/EGCD7MOl+iqCJLQ=
 github.com/sigstore/fulcio v1.4.3/go.mod h1:BQPWo7cfxmJwgaHlphUHUpFkp5+YxeJes82oo39m5og=
 github.com/sigstore/k8s-manifest-sigstore v0.5.2 h1:9whTtk3idmyixkReYocyVu6bSoKSaf+vbbWTqnJRUKA=

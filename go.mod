@@ -382,7 +382,4 @@ require (
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 )
 
-replace (
-	github.com/sigstore/cosign/v2 => github.com/kyverno/cosign/v2 v2.0.0-20231109090756-51fd41540436
-	k8s.io/pod-security-admission v0.29.0 => github.com/YTGhost/pod-security-admission v0.0.0-20231116105308-8b1daa0177f2
-)
+replace k8s.io/pod-security-admission v0.29.0 => github.com/YTGhost/pod-security-admission v0.0.0-20231116105308-8b1daa0177f2
