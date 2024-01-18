@@ -9,3 +9,4 @@ Contributors are those who have made enough contributions to the project as defi
 | Mariam Fahmy             | [@MariamFahmy98](https://github.com/MariamFahmy98)     |
 | Ved Ratan                | [@VedRatan](https://github.com/VedRatan)               |
 | Chandan DK               | [@Chandan-DK](https://github.com/Chandan-DK)           |
+| Swastik Gour             | [@swastik959](https://github.com/swastik959)           |
