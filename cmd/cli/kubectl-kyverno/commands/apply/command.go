@@ -148,7 +148,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	rc, resources1, skipInvalidPolicies, responses1, err, policies, validatingAdmissionPolicies := c.loadPolicies(skipInvalidPolicies)
+	rc, resources1, skipInvalidPolicies, responses1, policies, validatingAdmissionPolicies, err := c.loadPolicies(skipInvalidPolicies)
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
@@ -291,7 +291,7 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, policies []kyvernov1.P
 	return resources, nil
 }
 
-func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error, []kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy) {
+func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, []kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, error) {
 	// load policies
 	var policies []kyvernov1.PolicyInterface
 	var validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy
@@ -302,13 +302,13 @@ func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPoli
 		if isGit {
 			gitSourceURL, err := url.Parse(path)
 			if err != nil {
-				return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("failed to load policies (%w)", err), nil, nil
+				return nil, nil, skipInvalidPolicies, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
 			}
 
 			pathElems := strings.Split(gitSourceURL.Path[1:], "/")
 			if len(pathElems) <= 1 {
 				err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
-				return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("failed to parse URL (%w)", err), nil, nil
+				return nil, nil, skipInvalidPolicies, nil, nil, nil, fmt.Errorf("failed to parse URL (%w)", err)
 			}
 			gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
 			repoURL := gitSourceURL.String()
@@ -317,11 +317,11 @@ func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPoli
 			fs := memfs.New()
 			if _, err := gitutils.Clone(repoURL, fs, c.GitBranch); err != nil {
 				log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", err)
-				return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("failed to clone repository (%w)", err), nil, nil
+				return nil, nil, skipInvalidPolicies, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
 			}
 			policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
 			if err != nil {
-				return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err), nil, nil
+				return nil, nil, skipInvalidPolicies, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
 			}
 			for _, policyYaml := range policyYamls {
 				policiesFromFile, admissionPoliciesFromFile, err := policy.Load(fs, "", policyYaml)
@@ -334,14 +334,14 @@ func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPoli
 		} else {
 			policiesFromFile, admissionPoliciesFromFile, err := policy.Load(nil, "", path)
 			if err != nil {
-				return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("failed to load policies (%w)", err), nil, nil
+				return nil, nil, skipInvalidPolicies, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
 			}
 			policies = append(policies, policiesFromFile...)
 			validatingAdmissionPolicies = append(validatingAdmissionPolicies, admissionPoliciesFromFile...)
 		}
 	}
 
-	return nil, nil, skipInvalidPolicies, nil, nil, policies, validatingAdmissionPolicies
+	return nil, nil, skipInvalidPolicies, nil, policies, validatingAdmissionPolicies, nil
 }
 
 func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, skipInvalidPolicies SkippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error, dclient.Interface) {
