@@ -18,6 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
+	"github.com/pkg/errors"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -55,15 +56,17 @@ type validator struct {
 }
 
 func newValidator(log logr.Logger, contextLoader engineapi.EngineContextLoader, ctx engineapi.PolicyContext, rule kyvernov1.Rule) *validator {
+	anyAllConditions, _ := datautils.ToMap(rule.RawAnyAllConditions)
 	return &validator{
-		log:           log,
-		rule:          rule,
-		policyContext: ctx,
-		contextLoader: contextLoader,
-		pattern:       rule.Validation.GetPattern(),
-		anyPattern:    rule.Validation.GetAnyPattern(),
-		deny:          rule.Validation.Deny,
-		forEach:       rule.Validation.ForEachValidation,
+		log:              log,
+		rule:             rule,
+		policyContext:    ctx,
+		contextLoader:    contextLoader,
+		pattern:          rule.Validation.GetPattern(),
+		anyPattern:       rule.Validation.GetAnyPattern(),
+		deny:             rule.Validation.Deny,
+		anyAllConditions: anyAllConditions,
+		forEach:          rule.Validation.ForEachValidation,
 	}
 }
 
@@ -121,6 +124,22 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 		}
 
 		ruleResponse := v.validateResourceWithRule()
+
+		if engineutils.IsUpdateRequest(v.policyContext) {
+			priorResp, err := v.validateOldObject(ctx)
+			if err != nil {
+				return engineapi.RuleError(v.rule.Name, engineapi.Validation, "failed to validate old object", err)
+			}
+
+			if engineutils.IsSameRuleResponse(ruleResponse, priorResp) {
+				v.log.V(3).Info("skipping modified resource as validation results have not changed")
+				if ruleResponse.Status() == engineapi.RuleStatusPass {
+					return ruleResponse
+				}
+				return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "skipping modified resource as validation results have not changed")
+			}
+		}
+
 		return ruleResponse
 	}
 
@@ -131,6 +150,20 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 
 	v.log.V(2).Info("invalid validation rule: podSecurity, cel, patterns, or deny expected")
 	return nil
+}
+
+func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleResponse, error) {
+	pc := v.policyContext
+	oldPc, err := v.policyContext.OldPolicyContext()
+	if err != nil {
+		return nil, errors.Wrapf(err, "cannot get old policy context")
+	}
+
+	v.policyContext = oldPc
+	resp := v.validate(ctx)
+	v.policyContext = pc
+
+	return resp, nil
 }
 
 func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse {

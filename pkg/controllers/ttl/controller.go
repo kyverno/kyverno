@@ -122,7 +122,11 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 	if err != nil {
 		return err
 	}
-	obj, err := c.lister.ByNamespace(namespace).Get(name)
+	getter := c.lister.Get
+	if namespace != "" {
+		getter = c.lister.ByNamespace(namespace).Get
+	}
+	obj, err := getter(name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// resource doesn't exist anymore, nothing much to do at this point

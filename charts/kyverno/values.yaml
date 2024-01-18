@@ -391,8 +391,27 @@ policyReportsCleanup:
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
 
+  # -- Image pull secrets
+  imagePullSecrets: []
+  # - name: secretName
+
   # -- Security context for the pod
   podSecurityContext: {}
+
+  # -- Node labels for pod assignment
+  nodeSelector: {}
+
+  # -- List of node taints to tolerate
+  tolerations: []
+
+  # -- Pod anti affinity constraints.
+  podAntiAffinity: {}
+
+  # -- Pod affinity constraints.
+  podAffinity: {}
+
+  # -- Node affinity constraints.
+  nodeAffinity: {}
 
   # -- Security context for the hook containers
   securityContext:

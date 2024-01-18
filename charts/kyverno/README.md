@@ -2,7 +2,7 @@
 
 Kubernetes Native Policy Management
 
-![Version: 3.1.1](https://img.shields.io/badge/Version-3.1.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.11.1](https://img.shields.io/badge/AppVersion-v1.11.1-informational?style=flat-square)
+![Version: 3.1.2](https://img.shields.io/badge/Version-3.1.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.11.2](https://img.shields.io/badge/AppVersion-v1.11.2-informational?style=flat-square)
 
 ## About
 
@@ -720,7 +720,13 @@ The chart values are organised per component.
 | policyReportsCleanup.image.repository | string | `"bitnami/kubectl"` | Image repository |
 | policyReportsCleanup.image.tag | string | `"1.28.4"` | Image tag Defaults to `latest` if omitted |
 | policyReportsCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
+| policyReportsCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
 | policyReportsCleanup.podSecurityContext | object | `{}` | Security context for the pod |
+| policyReportsCleanup.nodeSelector | object | `{}` | Node labels for pod assignment |
+| policyReportsCleanup.tolerations | list | `[]` | List of node taints to tolerate |
+| policyReportsCleanup.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
+| policyReportsCleanup.podAffinity | object | `{}` | Pod affinity constraints. |
+| policyReportsCleanup.nodeAffinity | object | `{}` | Node affinity constraints. |
 | policyReportsCleanup.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
 
 ## TLS Configuration
@@ -778,7 +784,7 @@ Kubernetes: `>=1.25.0-0`
 
 | Repository | Name | Version |
 |------------|------|---------|
-|  | crds | 3.1.1 |
+|  | crds | 3.1.2 |
 |  | grafana | 0.0.0 |
 
 ## Maintainers

@@ -2,7 +2,7 @@ package table
 
 type RowCompact struct {
 	IsFailure bool
-	ID        int    `header:"id"`
+	ID        int    `header:"id,text"`
 	Policy    string `header:"policy"`
 	Rule      string `header:"rule"`
 	Resource  string `header:"resource"`

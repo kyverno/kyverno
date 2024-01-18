@@ -1,8 +1,8 @@
 apiVersion: v2
 type: application
 name: kyverno
-version: 3.1.1
-appVersion: v1.11.1
+version: 3.1.2
+appVersion: v1.11.2
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Native Policy Management
 keywords:
@@ -75,10 +75,18 @@ annotations:
       description: missing image pull policy missing in a couple of deployments
     - kind: added
       description: added TUF flags for custom sigstore deployments
+    - kind: fixed
+      description: Fix Helm chart to not error when replicas defined
+    - kind: added
+      description: allow tolerations and affinity settings for reportsCleanup
+    - kind: added
+      description: Add imagePullSecrets to post-upgrade job
+    - kind: added
+      description: allow nodeSelector settings for policyReportsCleanup
 dependencies:
   - name: grafana
     version: "0.0.0"
     condition: grafana.enabled
   - name: crds
-    version: "3.1.1"
+    version: "3.1.2"
     condition: crds.install
