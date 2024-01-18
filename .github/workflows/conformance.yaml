@@ -101,7 +101,8 @@ jobs:
           - ^events$
           - ^exceptions$
           - ^filter$
-          - ^fluxcd$
+          - ^fluxcd$/^verify-flux-repositories$
+          - ^fluxcd$/^verify-git-repositories$
           - ^generate$/^clusterpolicy$
           - ^generate$/^policy$
           - ^generate$/^validation$
