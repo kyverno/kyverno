@@ -64,7 +64,7 @@ spec:
           tolerations:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          {{- with .Values.cleanupJobs.admissionReports.nodeSelector }}
+          {{- with .Values.cleanupJobs.admissionReports.nodeSelector | default .Values.global.nodeSelector }}
           nodeSelector:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
