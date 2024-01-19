@@ -924,7 +924,7 @@ func jpRound(arguments []interface{}) (interface{}, error) {
 	rounded := math.Round(op.Float()*shift) / shift
 	formattedResult := fmt.Sprintf("%."+strconv.Itoa(intLength)+"f", rounded)
 	parsedNumber, _ := strconv.ParseFloat(formattedResult, 64)
-	parsed, _ := fmt.Printf("%.2f\n", parsedNumber
+	parsed, _ := fmt.Printf("%.2f\n", parsedNumber)
 	return parsed, nil
 }
 
