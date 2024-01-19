@@ -23,6 +23,8 @@ type GenericPolicy interface {
 	GetPolicy() interface{}
 	// GetType returns policy type
 	GetType() PolicyType
+	// GetAPIVersion returns policy API version
+	GetAPIVersion() string
 	// GetName returns policy name
 	GetName() string
 	// GetNamespace returns policy namespace
@@ -49,6 +51,10 @@ func (p *KyvernoPolicy) GetPolicy() interface{} {
 
 func (p *KyvernoPolicy) GetType() PolicyType {
 	return KyvernoPolicyType
+}
+
+func (p *KyvernoPolicy) GetAPIVersion() string {
+	return "kyverno.io/v1"
 }
 
 func (p *KyvernoPolicy) GetName() string {
@@ -95,6 +101,10 @@ func (p *ValidatingAdmissionPolicy) GetPolicy() interface{} {
 
 func (p *ValidatingAdmissionPolicy) GetType() PolicyType {
 	return ValidatingAdmissionPolicyType
+}
+
+func (p *ValidatingAdmissionPolicy) GetAPIVersion() string {
+	return "admissionregistration.k8s.io/v1alpha1"
 }
 
 func (p *ValidatingAdmissionPolicy) GetName() string {
