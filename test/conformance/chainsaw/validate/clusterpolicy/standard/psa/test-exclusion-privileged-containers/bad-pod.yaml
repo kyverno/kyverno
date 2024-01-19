@@ -3,10 +3,6 @@ kind: Pod
 metadata:
   name: bad-pod
 spec:
-  hostNetwork: true
-  securityContext:
-    windowsOptions:
-      hostProcess: true
   containers:
   - name: busybox
     image: busybox
@@ -14,14 +10,13 @@ spec:
     - sleep
     - 1d
     securityContext:
-      windowsOptions:
-        hostProcess: true
+      privileged: true
   initContainers:
-  - name: nginx2
+  - name: nginx
     image: nginx
     args:
     - sleep
     - 1d
     securityContext:
       windowsOptions:
-        hostProcess: true
+        hostProcess: false

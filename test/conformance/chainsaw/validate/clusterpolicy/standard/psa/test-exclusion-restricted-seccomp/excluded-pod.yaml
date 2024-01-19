@@ -3,25 +3,8 @@ kind: Pod
 metadata:
   name: excluded-pod
 spec:
-  securityContext:
-    seccompProfile:
-      type: Unconfined
   containers:
-  - name: nginx1
-    image: nginx
-    args:
-    - sleep
-    - 1d
-    securityContext:
-      seccompProfile:
-        type: Unconfined
-      runAsNonRoot: true
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop:
-        - ALL
-  initContainers:
-  - name: nginx2
+  - name: nginx
     image: nginx
     args:
     - sleep
