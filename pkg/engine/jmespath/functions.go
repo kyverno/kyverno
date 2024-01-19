@@ -923,7 +923,9 @@ func jpRound(arguments []interface{}) (interface{}, error) {
 	shift := math.Pow(10, float64(intLength))
 	rounded := math.Round(op.Float()*shift) / shift
 	formattedResult := fmt.Sprintf("%."+strconv.Itoa(intLength)+"f", rounded)
-	return formattedResult, nil
+	parsedNumber, _ := strconv.ParseFloat(formattedResult, 64)
+	parsed, _ := fmt.Printf("%.2f\n", parsedNumber
+	return parsed, nil
 }
 
 func jpBase64Decode(arguments []interface{}) (interface{}, error) {
