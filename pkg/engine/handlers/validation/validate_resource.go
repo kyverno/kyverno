@@ -185,12 +185,19 @@ func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleRespo
 
 func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse {
 	applyCount := 0
+	elementCount := 0
 	for _, foreach := range v.forEach {
 		elements, err := engineutils.EvaluateList(foreach.List, v.policyContext.JSONContext())
 		if err != nil {
 			v.log.V(2).Info("failed to evaluate list", "list", foreach.List, "error", err.Error())
 			continue
 		}
+		if len(elements) == 1 && elements[0] == nil {
+			continue
+		} else {
+			elementCount++
+		}
+
 		resp, count := v.validateElements(ctx, foreach, elements, foreach.ElementScope)
 		if resp.Status() != engineapi.RuleStatusPass {
 			return resp
@@ -198,9 +205,10 @@ func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse
 		applyCount += count
 	}
 	if applyCount == 0 {
-		if v.forEach == nil {
+		if v.forEach == nil || elementCount == 0 {
 			return nil
 		}
+
 		return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "rule skipped")
 	}
 	return engineapi.RulePass(v.rule.Name, engineapi.Validation, "rule passed")
