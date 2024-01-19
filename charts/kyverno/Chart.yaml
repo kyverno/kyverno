@@ -1,8 +1,8 @@
 apiVersion: v2
 type: application
 name: kyverno
-version: 3.1.3
-appVersion: v1.11.3
+version: 3.1.4
+appVersion: v1.11.4
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Native Policy Management
 keywords:
@@ -36,5 +36,5 @@ dependencies:
     version: "0.0.0"
     condition: grafana.enabled
   - name: crds
-    version: "3.1.3"
+    version: "3.1.4"
     condition: crds.install
