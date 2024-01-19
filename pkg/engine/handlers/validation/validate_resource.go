@@ -185,27 +185,24 @@ func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleRespo
 
 func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse {
 	applyCount := 0
-	elementCount := 0
+	//	elementCount := 0
 	for _, foreach := range v.forEach {
 		elements, err := engineutils.EvaluateList(foreach.List, v.policyContext.JSONContext())
 		if err != nil {
 			v.log.V(2).Info("failed to evaluate list", "list", foreach.List, "error", err.Error())
 			continue
 		}
-		if len(elements) == 1 && elements[0] == nil {
-			continue
-		} else {
-			elementCount++
-		}
 
 		resp, count := v.validateElements(ctx, foreach, elements, foreach.ElementScope)
-		if resp.Status() != engineapi.RuleStatusPass {
+		if resp == nil {
+			return nil
+		} else if resp.Status() != engineapi.RuleStatusPass {
 			return resp
 		}
 		applyCount += count
 	}
 	if applyCount == 0 {
-		if v.forEach == nil || elementCount == 0 {
+		if v.forEach == nil {
 			return nil
 		}
 
@@ -218,6 +215,7 @@ func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForE
 	v.policyContext.JSONContext().Checkpoint()
 	defer v.policyContext.JSONContext().Restore()
 	applyCount := 0
+	elementCount := 0
 
 	for index, element := range elements {
 		if element == nil {
@@ -258,7 +256,12 @@ func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForE
 			return engineapi.NewRuleResponse(v.rule.Name, engineapi.Validation, msg, status), applyCount
 		}
 
+		elementCount++
 		applyCount++
+	}
+	if elementCount == 0 {
+		msg := fmt.Sprintf("validation warn: no elements that match the foreach block")
+		return engineapi.NewRuleResponse(v.rule.Name, engineapi.Validation, msg, engineapi.RuleStatusWarn), applyCount
 	}
 
 	return engineapi.RulePass(v.rule.Name, engineapi.Validation, ""), applyCount
