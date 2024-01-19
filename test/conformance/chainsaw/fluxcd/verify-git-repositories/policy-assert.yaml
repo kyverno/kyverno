@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: verify-git-repositories-assert
+  name: verify-git-repositories
 spec:
   validationFailureAction: Audit
   background: false

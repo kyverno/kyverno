@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: verify-flux-images-assert
+  name: verify-flux-images
 spec:
   validationFailureAction: Audit  # Consider changing to 'enforce' once tested
   background: false
