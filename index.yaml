@@ -8,6 +8,52 @@ entries:
       artifacthub.io/operator: "false"
       artifacthub.io/prerelease: "false"
     apiVersion: v2
+    appVersion: v1.11.4
+    created: "2024-01-19T10:27:31.742489411Z"
+    dependencies:
+    - condition: grafana.enabled
+      name: grafana
+      repository: ""
+      version: 0.0.0
+    - condition: crds.install
+      name: crds
+      repository: ""
+      version: 3.1.4
+    description: Kubernetes Native Policy Management
+    digest: 65a7d7f734f1b2a3a369cded0b05f8086d91989ba1576f8e4cf3eea134ea0fe4
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - policy
+    - validating webhook
+    - admission controller
+    - mutation
+    - mutate
+    - validate
+    - generate
+    - supply chain
+    - security
+    kubeVersion: '>=1.25.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-3.1.4.tgz
+    version: 3.1.4
+  - annotations:
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://kyverno.io/docs
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
     appVersion: v1.11.3
     created: "2024-01-05T10:16:00.404567699Z"
     dependencies:
@@ -9763,4 +9809,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2024-01-19T10:27:14.994038476Z"
+generated: "2024-01-19T10:27:31.728665937Z"
