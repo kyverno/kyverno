@@ -6,7 +6,7 @@ spec:
   validationFailureAction: Audit  # Consider changing to 'enforce' once tested
   background: false
   rules:
-    - name: assert-cosign-signatures
+    - name: verify-cosign-signature
       match:
         any:
         - resources:
@@ -15,10 +15,10 @@ spec:
       deny:
         conditions:
           any:
-          - key: "{{ request.object.spec.containers[*].image }}"
+          - key: "request.object.spec.containers[*].image"
             operator: NotEqual
             value: "ghcr.io/fluxcd/source-controller:*"
-          - key: "{{ request.object.spec.containers[*].image }}"
+          - key: "request.object.spec.containers[*].image"
             operator: NotEqual
             value: "ghcr.io/fluxcd/kustomize-controller:*"
         message: "Flux image must have a valid Cosign signature."

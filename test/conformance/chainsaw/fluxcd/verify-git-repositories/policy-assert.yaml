@@ -6,7 +6,7 @@ spec:
   validationFailureAction: Audit
   background: false
   rules:
-    - name: validate-git-repository-urls
+    - name: github-repositories-only
       match:
         any:
         - resources:
@@ -15,10 +15,10 @@ spec:
       deny:
         conditions:
           any:
-          - key: "{{ request.object.spec.url }}"
+          - key: "request.object.spec.url"
             operator: NotEqual
             value: "https://github.com/fluxcd/?*"
-          - key: "{{ request.object.spec.url }}"
+          - key: "request.object.spec.url"
             operator: NotEqual
             value: "ssh://git@github.com:fluxcd/?*"
         message: "GitRepository URL must be from the allowed organization."
