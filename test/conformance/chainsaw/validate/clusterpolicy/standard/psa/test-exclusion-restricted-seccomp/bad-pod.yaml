@@ -5,23 +5,23 @@ metadata:
 spec:
   securityContext:
     seccompProfile:
-      type: foo
+      type: Unconfined
   containers:
-  - name: nginx1
-    image: nginx
+  - name: busybox
+    image: busybox
     args:
     - sleep
     - 1d
     securityContext:
       seccompProfile:
-        type: baz
+        type: Unconfined
       runAsNonRoot: true
       allowPrivilegeEscalation: false
       capabilities:
         drop:
         - ALL
   initContainers:
-  - name: nginx2
+  - name: nginx
     image: nginx
     args:
     - sleep
@@ -29,6 +29,7 @@ spec:
     securityContext:
       seccompProfile:
         type: Localhost
+        localhostProfile: profiles/audit.json
       runAsNonRoot: true
       allowPrivilegeEscalation: false
       capabilities:

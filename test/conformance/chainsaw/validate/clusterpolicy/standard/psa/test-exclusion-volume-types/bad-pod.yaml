@@ -4,9 +4,10 @@ metadata:
   name: bad-pod
 spec:
   volumes:
-  - name: flex
-    flexVolume:
-      driver: /var/lib2
+  - name: udev
+    gcePersistentDisk:
+      pdName: gke-pv
+      fsType: ext4
   containers:
   - name: nginx
     image: nginx
@@ -16,6 +17,7 @@ spec:
     securityContext:
       seccompProfile:
         type: Localhost
+        localhostProfile: profiles/audit.json
       runAsNonRoot: true
       allowPrivilegeEscalation: false
       capabilities:

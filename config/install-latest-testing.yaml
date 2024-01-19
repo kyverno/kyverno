@@ -50772,7 +50772,7 @@ spec:
           serviceAccountName: kyverno-cleanup-jobs
           containers:
           - name: cleanup
-            image: "bitnami/kubectl:1.26.10"
+            image: "bitnami/kubectl:1.28.5"
             imagePullPolicy: 
             command:
             - /bin/sh
@@ -50820,7 +50820,7 @@ spec:
           serviceAccountName: kyverno-cleanup-jobs
           containers:
           - name: cleanup
-            image: "bitnami/kubectl:1.26.4"
+            image: "bitnami/kubectl:1.28.5"
             imagePullPolicy: 
             command:
             - /bin/sh
