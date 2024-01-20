@@ -55,7 +55,7 @@ func (anyin AnyInHandler) validateValueWithStringPattern(key string, value inter
 	return keyExists
 }
 
-// anykeyExistsInArray checks if the  key exists in the array value
+// anykeyExistsInArray checks if the key exists in the array value
 // The value can be a string, an array of strings, or a JSON format
 // array of strings (e.g. ["val1", "val2", "val3"].
 func anyKeyExistsInArray(key string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
@@ -129,6 +129,14 @@ func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNo
 		for _, val := range valuesAvailable {
 			valueSlice = append(valueSlice, fmt.Sprint(val))
 		}
+		if anyNotIn {
+			return false, isAnyNotIn(key, valueSlice)
+		}
+		return false, isAnyIn(key, valueSlice)
+	
+	case int, int32, int64, float32, float64:
+		var valueSlice []string
+		valueSlice = append(valueSlice, fmt.Sprint(value))
 		if anyNotIn {
 			return false, isAnyNotIn(key, valueSlice)
 		}
