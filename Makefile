@@ -866,6 +866,11 @@ kind-load-kyverno-init: $(KIND) image-build-kyverno-init ## Build kyvernopre ima
 	@echo Load kyvernopre image... >&2
 	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_KYVERNOPRE_REPO):$(GIT_SHA)
 
+.PHONY: kind-load-cli
+kind-load-cli: $(KIND) image-build-cli ## Build cli image and load it in kind cluster
+	@echo Load cli image... >&2
+	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_CLI_REPO):$(GIT_SHA)
+
 .PHONY: kind-load-kyverno
 kind-load-kyverno: $(KIND) image-build-kyverno ## Build kyverno image and load it in kind cluster
 	@echo Load kyverno image... >&2
@@ -887,7 +892,13 @@ kind-load-background-controller: $(KIND) image-build-background-controller ## Bu
 	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(GIT_SHA)
 
 .PHONY: kind-load-all
-kind-load-all: kind-load-kyverno-init kind-load-kyverno kind-load-cleanup-controller kind-load-reports-controller kind-load-background-controller ## Build images and load them in kind cluster
+kind-load-all: ## Build images and load them in kind cluster
+kind-load-all: kind-load-kyverno-init
+kind-load-all: kind-load-kyverno
+kind-load-all: kind-load-cleanup-controller
+kind-load-all: kind-load-reports-controller
+kind-load-all: kind-load-background-controller
+kind-load-all: kind-load-cli
 
 .PHONY: kind-load-image-archive
 kind-load-image-archive: $(KIND) ## Load docker images from archive
