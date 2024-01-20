@@ -668,6 +668,93 @@ func TestValidate_anchor_map_notfound(t *testing.T) {
 	assert.Assert(t, er.IsSuccessful())
 }
 
+func TestValidate_foreach_zero_reported_asskip(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+			"name": "check-sa-tokens",
+			"annotations": {
+				"pod-policies.kyverno.io/autogen-controllers": "none"
+			}
+		},
+		"spec": {
+			"validationFailureAction": "Enforce",
+			"background": true,
+			"rules": [
+				{
+					"name": "check-token-exp",
+					"match": {
+						"resources": {
+							"kinds": ["Pod"]
+						}
+					},
+					"validate": {
+						"foreach": [
+							{
+								"list": "request.object.spec.volumes[].projected.sources[].serviceAccountToken.expirationSeconds",
+								"deny": {
+									"conditions": {
+										"any": [
+											{
+												"key": "{{ element }}",
+												"operator": "GreaterThan",
+												"value": 3600,
+												"message": "expirationSeconds must be less than 1 hour"
+											}
+										]
+									}
+								}
+							}
+						]
+					}
+				}
+			]
+		}
+	}
+`)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+			"name": "my-pod"
+		},
+		"spec": {
+			"containers": [
+				{
+					"name": "nginx",
+					"image": "nginx",
+					"volumeMounts": [
+						{
+							"mountPath": "/var/run/secrets/tokens",
+							"name": "my-proj-vol"
+						}
+					]
+				}
+			],
+			"serviceAccountName": "my-service-account"
+		}
+	}	
+`)
+
+	var policy kyvernov1.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), newPolicyContext(t, *resourceUnstructured, kyvernov1.Create, nil).WithPolicy(&policy), cfg, nil)
+	msgs := []string{"validation rule 'pod rule 2' passed."}
+
+	for index, r := range er.PolicyResponse.Rules {
+		assert.Equal(t, r.Message(), msgs[index])
+	}
+	assert.Assert(t, er.IsSuccessful())
+}
+
 func TestValidate_anchor_map_found_valid(t *testing.T) {
 	// anchor not present in resource
 	rawPolicy := []byte(`{
