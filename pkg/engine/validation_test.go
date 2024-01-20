@@ -747,7 +747,7 @@ func TestValidate_foreach_zero_reported_asskip(t *testing.T) {
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := testValidate(context.TODO(), registryclient.NewOrDie(), newPolicyContext(t, *resourceUnstructured, kyvernov1.Create, nil).WithPolicy(&policy), cfg, nil)
-	msgs := []string{"validation rule 'pod rule 2' passed."}
+	msgs := []string{"validation rule 'check-token-exp' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message(), msgs[index])
