@@ -10,3 +10,4 @@ Contributors are those who have made enough contributions to the project as defi
 | Ved Ratan                | [@VedRatan](https://github.com/VedRatan)               |
 | Chandan DK               | [@Chandan-DK](https://github.com/Chandan-DK)           |
 | Swastik Gour             | [@swastik959](https://github.com/swastik959)           |
+| Amit Kumar               | [@hackeramitkumar](https://github.com/hackeramitkumar) |
