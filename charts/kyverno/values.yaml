@@ -29,6 +29,8 @@ global:
   # extraEnvVars:
   # - name: HTTPS_PROXY
   #   value: 'https://proxy.example.com:3128'
+  # -- Global node labels for pod assignment. Non-global values will override the global value.
+  nodeSelector: {}
 
 # -- (string) Override the name of the chart
 nameOverride: ~
@@ -363,7 +365,7 @@ webhooksCleanup:
     repository: bitnami/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.26.4'
+    tag: '1.28.5'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -385,6 +387,9 @@ webhooksCleanup:
 
   # -- Pod affinity constraints.
   podAffinity: {}
+
+  # -- Pod labels.
+  podLabels: {}
 
   # -- Node affinity constraints.
   nodeAffinity: {}
@@ -414,7 +419,7 @@ policyReportsCleanup:
     repository: bitnami/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.28.4'
+    tag: '1.28.5'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -437,6 +442,9 @@ policyReportsCleanup:
 
   # -- Pod affinity constraints.
   podAffinity: {}
+
+  # -- Pod labels.
+  podLabels: {}
 
   # -- Node affinity constraints.
   nodeAffinity: {}
@@ -580,7 +588,7 @@ cleanupJobs:
       repository: bitnami/kubectl
       # -- Image tag
       # Defaults to `latest` if omitted
-      tag: '1.26.10'
+      tag: '1.28.5'
       # -- (string) Image pull policy
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~
@@ -654,7 +662,7 @@ cleanupJobs:
       repository: bitnami/kubectl
       # -- Image tag
       # Defaults to `latest` if omitted
-      tag: '1.26.4'
+      tag: '1.28.5'
       # -- (string) Image pull policy
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~

@@ -65,7 +65,7 @@ jobs:
       id: parse-results
       continue-on-error: true
       run: |
-        VULNS=$(cat scan.json | jq '.Results[] | select(.Target=="ko-app/kyverno") | length')
+        VULNS=$(cat scan.json | jq '.Results[] | select(.Target=="ko-app/kyverno").Vulnerabilities | length')
         if [[ $VULNS -eq 0 ]]
         then
           echo "No vulnerabilities found, halting"
