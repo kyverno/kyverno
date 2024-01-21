@@ -5,7 +5,7 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"k8s.io/api/admissionregistration/v1alpha1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -40,8 +40,8 @@ type CustomNamespaceLister struct {
 	dClient dclient.Interface
 }
 
-func (c *CustomNamespaceLister) List(selector labels.Selector) (ret []*v1.Namespace, err error) {
-	var namespaces []*v1.Namespace
+func (c *CustomNamespaceLister) List(selector labels.Selector) (ret []*corev1.Namespace, err error) {
+	var namespaces []*corev1.Namespace
 	namespace, err := c.dClient.GetKubeClient().CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (c *CustomNamespaceLister) List(selector labels.Selector) (ret []*v1.Namesp
 	return namespaces, nil
 }
 
-func (c *CustomNamespaceLister) Get(name string) (*v1.Namespace, error) {
+func (c *CustomNamespaceLister) Get(name string) (*corev1.Namespace, error) {
 	namespace, err := c.dClient.GetKubeClient().CoreV1().Namespaces().Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
