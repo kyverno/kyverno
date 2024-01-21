@@ -68,7 +68,6 @@ func doesResourceMatchConditionBlock(
 	}
 
 	var errs []error
-	//CHANGE KIND MATCH CONDITION HEREEEEE
 	if len(conditionBlock.Kinds) > 0 {
 		// Matching on ephemeralcontainers even when they are not explicitly specified for backward compatibility.
 		if !matchutils.CheckKind(conditionBlock.Kinds, gvk, subresource, true) {
