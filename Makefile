@@ -839,12 +839,13 @@ test-perf: $(PACKAGE_SHIM) ## Run perf tests
 
 .PHONY: docker-save-image-all
 docker-save-image-all: $(KIND) image-build-all ## Save docker images in archive
-	docker save 												\
-		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNOPRE_REPO):$(GIT_SHA) 	\
-		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNO_REPO):$(GIT_SHA) 		\
-		$(LOCAL_REGISTRY)/$(LOCAL_CLEANUP_REPO):$(GIT_SHA) 		\
-		$(LOCAL_REGISTRY)/$(LOCAL_REPORTS_REPO):$(GIT_SHA) 		\
-		$(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(GIT_SHA) 	\
+	docker save \
+		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNOPRE_REPO):$(GIT_SHA) \
+		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNO_REPO):$(GIT_SHA) \
+		$(LOCAL_REGISTRY)/$(LOCAL_CLEANUP_REPO):$(GIT_SHA) \
+		$(LOCAL_REGISTRY)/$(LOCAL_REPORTS_REPO):$(GIT_SHA) \
+		$(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(GIT_SHA) \
+		$(LOCAL_REGISTRY)/$(LOCAL_CLI_REPO):$(GIT_SHA) \
 	> kyverno.tar
 
 ########
@@ -924,6 +925,9 @@ kind-install-kyverno: $(HELM) ## Install kyverno helm chart
 		--set backgroundController.image.registry=$(LOCAL_REGISTRY) \
 		--set backgroundController.image.repository=$(LOCAL_BACKGROUND_REPO) \
 		--set backgroundController.image.tag=$(GIT_SHA) \
+		--set crdsMigration.image.registry=$(LOCAL_REGISTRY) \
+		--set crdsMigration.image.repository=$(LOCAL_CLI_REPO) \
+		--set crdsMigration.image.tag=$(GIT_SHA) \
 		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno.yaml)
 
 .PHONY: kind-deploy-kyverno

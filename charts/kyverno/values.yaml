@@ -10,11 +10,13 @@ global:
     # -- (string) Global value that allows to set a single image registry across all deployments.
     # When set, it will override any values set under `.image.registry` across the chart.
     registry: ~
+
   caCertificates:
     # -- Global CA certificates to use with Kyverno deployments
     # This value is expected to be one large string of CA certificates
     # Individual controller values will override this global value
     data: ~
+
     # -- Global value to set single volume to be mounted for CA certificates for all deployments.
     # Not used when `.Values.global.caCertificates.data` is defined
     # Individual  controller values will override this global value
@@ -23,12 +25,14 @@ global:
     # hostPath:
     #   path: /etc/pki/tls/ca-certificates.crt
     #   type: File
+
   # -- Additional container environment variables to apply to all containers and init containers
   extraEnvVars: []
   # Example setting proxy
   # extraEnvVars:
   # - name: HTTPS_PROXY
   #   value: 'https://proxy.example.com:3128'
+
   # -- Global node labels for pod assignment. Non-global values will override the global value.
   nodeSelector: {}
 
@@ -470,15 +474,14 @@ crdsMigration:
 
   image:
     # -- (string) Image registry
-    registry: ~
-    # -- Image repository
-    repository: bitnami/kubectl
-    # -- Image tag
-    # Defaults to `latest` if omitted
-    tag: '1.28.5'
+    registry: ghcr.io
+    # -- (string) Image repository
+    repository: kyverno/kyverno-cli
+    # -- (string) Image tag
+    # Defaults to appVersion in Chart.yaml if omitted
+    tag: ~
     # -- (string) Image pull policy
-    # Defaults to image.pullPolicy if omitted
-    pullPolicy: ~
+    pullPolicy: IfNotPresent
 
   # -- Image pull secrets
   imagePullSecrets: []

@@ -28,27 +28,10 @@ spec:
         - name: kubectl
           image: {{ (include "kyverno.image" (dict "globalRegistry" ((.Values.global).image).registry "image" .Values.crdsMigration.image "defaultTag" (default .Chart.AppVersion .Values.crdsMigration.image.tag))) | quote }}
           imagePullPolicy: {{ .Values.crdsMigration.image.pullPolicy }}
-          command:
-            - /bin/bash
-            - -c
-            - |
-              NAMESPACES=$(kubectl get namespaces -o=jsonpath='{.items[*].metadata.name}')
-
-              for ns in $NAMESPACES; do
-                # Get policy exceptions
-                EXCEPTIONS=$(kubectl get polex -n $ns -o=jsonpath='{.items[*].metadata.name}')
-
-                # Check if there are any exceptions
-                if [ -z "$EXCEPTIONS" ]; then
-                echo "No exceptions found in the namespace: $ns"
-                fi
-
-                # Reapply each policy exception
-                for pol in $EXCEPTIONS; do
-                  echo "Reapplying policy exception: $pol"
-                  kubectl apply -f <(kubectl get polex -n $ns $pol -o=json)
-                done
-              done
+          args:
+            - migrate
+            - --resource
+            - policyexceptions.kyverno.io
           {{- with .Values.crdsMigration.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
