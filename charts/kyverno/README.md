@@ -751,6 +751,20 @@ The chart values are organised per component.
 | policyReportsCleanup.podLabels | object | `{}` | Pod labels. |
 | policyReportsCleanup.nodeAffinity | object | `{}` | Node affinity constraints. |
 | policyReportsCleanup.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
+| crdsMigration.exceptions | object | `{"enabled":true}` | Create a helm post-upgrade hook to migrate the existing CRDs to the stored version |
+| crdsMigration.image.registry | string | `"ghcr.io"` | Image registry |
+| crdsMigration.image.repository | string | `"kyverno/kyverno-cli"` | Image repository |
+| crdsMigration.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
+| crdsMigration.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
+| crdsMigration.imagePullSecrets | list | `[]` | Image pull secrets |
+| crdsMigration.podSecurityContext | object | `{}` | Security context for the pod |
+| crdsMigration.nodeSelector | object | `{}` | Node labels for pod assignment |
+| crdsMigration.tolerations | list | `[]` | List of node taints to tolerate |
+| crdsMigration.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
+| crdsMigration.podAffinity | object | `{}` | Pod affinity constraints. |
+| crdsMigration.podLabels | object | `{}` | Pod labels. |
+| crdsMigration.nodeAffinity | object | `{}` | Node affinity constraints. |
+| crdsMigration.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
 
 ## TLS Configuration
 
