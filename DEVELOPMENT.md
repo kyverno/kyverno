@@ -419,7 +419,7 @@ You can run Kyverno locally or in your IDE of choice with a few steps:
     - `--serverIP` must be set to `<local ip>:9443` (`<local ip>` is the private ip adress of your local machine)
     - `--backgroundServiceAccountName` must be set to `system:serviceaccount:kyverno:kyverno-background-controller`
     - `--caSecretName` must be set to `kyverno-svc.kyverno.svc.kyverno-tls-ca`
-    - `--tlsSecretName` must be set to  `kyverno-svc.kyverno.svc.kyverno-tls-pair`
+    - `--tlsSecretName` must be set to `kyverno-svc.kyverno.svc.kyverno-tls-pair`
 
 Once you are ready with the steps above, Kyverno can be started locally with:
 ```console
