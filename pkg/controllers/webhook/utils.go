@@ -12,22 +12,41 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	objectmeta "k8s.io/client-go/tools/cache"
 )
 
 // webhook is the instance that aggregates the GVK of existing policies
 // based on kind, failurePolicy and webhookTimeout
+// a fine-grained webhook is created per policy with a unique path
 type webhook struct {
+	// policyMeta is set for fine-grained webhooks
+	policyMeta objectmeta.ObjectName
+
 	maxWebhookTimeout int32
 	failurePolicy     admissionregistrationv1.FailurePolicyType
 	rules             map[schema.GroupVersion]sets.Set[string]
+	matchConditions   []admissionregistrationv1.MatchCondition
 }
 
-func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePolicyType) *webhook {
+func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePolicyType, matchConditions []admissionregistrationv1.MatchCondition) *webhook {
 	return &webhook{
 		maxWebhookTimeout: timeout,
 		failurePolicy:     failurePolicy,
 		rules:             map[schema.GroupVersion]sets.Set[string]{},
+		matchConditions:   matchConditions,
 	}
+}
+
+func newWebhookPerPolicy(timeout int32, failurePolicy admissionregistrationv1.FailurePolicyType, matchConditions []admissionregistrationv1.MatchCondition, policy kyvernov1.PolicyInterface) *webhook {
+	webhook := newWebhook(timeout, failurePolicy, matchConditions)
+	webhook.policyMeta = objectmeta.ObjectName{
+		Namespace: policy.GetNamespace(),
+		Name:      policy.GetName(),
+	}
+	if policy.GetSpec().CustomWebhookConfigurations() {
+		webhook.matchConditions = policy.GetSpec().GetMatchConditions()
+	}
+	return webhook
 }
 
 func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.OperationType) []admissionregistrationv1.RuleWithOperations {
@@ -86,6 +105,14 @@ func (wh *webhook) isEmpty() bool {
 	return len(wh.rules) == 0
 }
 
+func (wh *webhook) key(separator string) string {
+	p := wh.policyMeta
+	if p.Namespace != "" {
+		return p.Namespace + separator + p.Name
+	}
+	return p.Name
+}
+
 func objectMeta(name string, annotations map[string]string, labels map[string]string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
 	desiredLabels := make(map[string]string)
 	defaultLabels := map[string]string{
@@ -130,4 +157,19 @@ func capTimeout(maxWebhookTimeout int32) int32 {
 		return 30
 	}
 	return maxWebhookTimeout
+}
+
+func webhookNameAndPath(wh webhook, baseName, basePath string) (name string, path string) {
+	if wh.failurePolicy == ignore {
+		name = baseName + "-ignore"
+		path = basePath + "/ignore"
+	} else {
+		name = baseName + "-fail"
+		path = basePath + "/fail"
+	}
+	if wh.policyMeta.Name != "" {
+		name = name + "-fine-grained-" + wh.key("-")
+		path = path + "/matchconditions/" + wh.key("/")
+	}
+	return name, path
 }
