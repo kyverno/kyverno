@@ -1,15 +1,15 @@
 {{- if .Values.policyReportsCleanup.enabled -}}
-  {{- if not .Values.templating.enabled -}}
+{{- if not .Values.templating.enabled -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ template "kyverno.fullname" . }}-hook-post-upgrade
+  name: {{ template "kyverno.fullname" . }}-clean-reports
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.hooks.labels" . | nindent 4 }}
   annotations:
-    "helm.sh/hook": post-upgrade
-    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+    helm.sh/hook: post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
 spec:
   backoffLimit: 2
   template:
@@ -86,5 +86,5 @@ spec:
           {{- tpl (toYaml .) $ | nindent 10 }}
         {{- end }}
       {{- end }}
-  {{- end -}}
+{{- end -}}
 {{- end -}}
