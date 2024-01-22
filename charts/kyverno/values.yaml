@@ -1166,6 +1166,17 @@ admissionController:
     # -- Otel collector credentials
     creds: ''
 
+  profiling:
+    # -- Enable profiling
+    enabled: false
+    # -- Profiling endpoint port
+    port: 6060
+    # -- Service type.
+    serviceType: ClusterIP
+    # -- Service node port.
+    # Only used if `type` is `NodePort`.
+    nodePort:
+
 # Background controller configuration
 backgroundController:
 
@@ -1453,6 +1464,17 @@ backgroundController:
     collector: ''
     # -- Otel collector credentials
     creds: ''
+
+  profiling:
+    # -- Enable profiling
+    enabled: false
+    # -- Profiling endpoint port
+    port: 6060
+    # -- Service type.
+    serviceType: ClusterIP
+    # -- Service node port.
+    # Only used if `type` is `NodePort`.
+    nodePort:
 
 # Cleanup controller configuration
 cleanupController:
@@ -1749,6 +1771,17 @@ cleanupController:
     # -- Otel collector credentials
     creds: ''
 
+  profiling:
+    # -- Enable profiling
+    enabled: false
+    # -- Profiling endpoint port
+    port: 6060
+    # -- Service type.
+    serviceType: ClusterIP
+    # -- Service node port.
+    # Only used if `type` is `NodePort`.
+    nodePort:
+
 # Reports controller configuration
 reportsController:
 
@@ -2010,3 +2043,14 @@ reportsController:
     collector: ~
     # -- (string) Otel collector credentials
     creds: ~
+
+  profiling:
+    # -- Enable profiling
+    enabled: false
+    # -- Profiling endpoint port
+    port: 6060
+    # -- Service type.
+    serviceType: ClusterIP
+    # -- Service node port.
+    # Only used if `type` is `NodePort`.
+    nodePort:
