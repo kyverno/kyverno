@@ -19,9 +19,7 @@ import (
 	k8scache "k8s.io/client-go/tools/cache"
 )
 
-var (
-	resyncPeriod = 15 * time.Second
-)
+var resyncPeriod = 15 * time.Second
 
 type ResourceLoader struct {
 	logger logr.Logger
