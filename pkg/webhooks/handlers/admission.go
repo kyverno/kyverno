@@ -3,11 +3,13 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/julienschmidt/httprouter"
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
@@ -17,6 +19,9 @@ func (inner AdmissionHandler) WithAdmission(logger logr.Logger) HttpHandler {
 
 func (inner AdmissionHandler) withAdmission(logger logr.Logger) HttpHandler {
 	return func(writer http.ResponseWriter, request *http.Request) {
+		params := httprouter.ParamsFromContext(request.Context())
+		fmt.Println("====", params.ByName("policy"))
+
 		startTime := time.Now()
 		if request.Body == nil {
 			HttpError(request.Context(), writer, request, logger, errors.New("empty body"), http.StatusBadRequest)
