@@ -925,9 +925,9 @@ kind-install-kyverno: $(HELM) ## Install kyverno helm chart
 		--set backgroundController.image.registry=$(LOCAL_REGISTRY) \
 		--set backgroundController.image.repository=$(LOCAL_BACKGROUND_REPO) \
 		--set backgroundController.image.tag=$(GIT_SHA) \
-		--set crdsMigration.image.registry=$(LOCAL_REGISTRY) \
-		--set crdsMigration.image.repository=$(LOCAL_CLI_REPO) \
-		--set crdsMigration.image.tag=$(GIT_SHA) \
+		--set crds.migration.image.registry=$(LOCAL_REGISTRY) \
+		--set crds.migration.image.repository=$(LOCAL_CLI_REPO) \
+		--set crds.migration.image.tag=$(GIT_SHA) \
 		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno.yaml)
 
 .PHONY: kind-deploy-kyverno
