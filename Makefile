@@ -839,12 +839,13 @@ test-perf: $(PACKAGE_SHIM) ## Run perf tests
 
 .PHONY: docker-save-image-all
 docker-save-image-all: $(KIND) image-build-all ## Save docker images in archive
-	docker save 												\
-		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNOPRE_REPO):$(GIT_SHA) 	\
-		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNO_REPO):$(GIT_SHA) 		\
-		$(LOCAL_REGISTRY)/$(LOCAL_CLEANUP_REPO):$(GIT_SHA) 		\
-		$(LOCAL_REGISTRY)/$(LOCAL_REPORTS_REPO):$(GIT_SHA) 		\
-		$(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(GIT_SHA) 	\
+	docker save \
+		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNOPRE_REPO):$(GIT_SHA) \
+		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNO_REPO):$(GIT_SHA) \
+		$(LOCAL_REGISTRY)/$(LOCAL_CLEANUP_REPO):$(GIT_SHA) \
+		$(LOCAL_REGISTRY)/$(LOCAL_REPORTS_REPO):$(GIT_SHA) \
+		$(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(GIT_SHA) \
+		$(LOCAL_REGISTRY)/$(LOCAL_CLI_REPO):$(GIT_SHA) \
 	> kyverno.tar
 
 ########
@@ -865,6 +866,11 @@ kind-delete-cluster: $(KIND) ## Delete kind cluster
 kind-load-kyverno-init: $(KIND) image-build-kyverno-init ## Build kyvernopre image and load it in kind cluster
 	@echo Load kyvernopre image... >&2
 	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_KYVERNOPRE_REPO):$(GIT_SHA)
+
+.PHONY: kind-load-cli
+kind-load-cli: $(KIND) image-build-cli ## Build cli image and load it in kind cluster
+	@echo Load cli image... >&2
+	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_CLI_REPO):$(GIT_SHA)
 
 .PHONY: kind-load-kyverno
 kind-load-kyverno: $(KIND) image-build-kyverno ## Build kyverno image and load it in kind cluster
@@ -887,7 +893,13 @@ kind-load-background-controller: $(KIND) image-build-background-controller ## Bu
 	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(GIT_SHA)
 
 .PHONY: kind-load-all
-kind-load-all: kind-load-kyverno-init kind-load-kyverno kind-load-cleanup-controller kind-load-reports-controller kind-load-background-controller ## Build images and load them in kind cluster
+kind-load-all: ## Build images and load them in kind cluster
+kind-load-all: kind-load-kyverno-init
+kind-load-all: kind-load-kyverno
+kind-load-all: kind-load-cleanup-controller
+kind-load-all: kind-load-reports-controller
+kind-load-all: kind-load-background-controller
+kind-load-all: kind-load-cli
 
 .PHONY: kind-load-image-archive
 kind-load-image-archive: $(KIND) ## Load docker images from archive
@@ -913,6 +925,9 @@ kind-install-kyverno: $(HELM) ## Install kyverno helm chart
 		--set backgroundController.image.registry=$(LOCAL_REGISTRY) \
 		--set backgroundController.image.repository=$(LOCAL_BACKGROUND_REPO) \
 		--set backgroundController.image.tag=$(GIT_SHA) \
+		--set crdsMigration.image.registry=$(LOCAL_REGISTRY) \
+		--set crdsMigration.image.repository=$(LOCAL_CLI_REPO) \
+		--set crdsMigration.image.tag=$(GIT_SHA) \
 		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno.yaml)
 
 .PHONY: kind-deploy-kyverno

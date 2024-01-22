@@ -14,6 +14,11 @@ spec:
   - name: step-02
     try:
     - apply:
+        expect:
+        - check:
+            ($error != null): true
+        file: bad-pod.yaml
+    - apply:
         file: excluded-pod.yaml
     - apply:
         file: good-pod.yaml
