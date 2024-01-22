@@ -49218,18 +49218,6 @@ rules:
     verbs:
       - create
   - apiGroups:
-      - kyverno.io
-    resources:
-      - policyexceptions
-    verbs:
-      - update
-  - apiGroups:
-      - apiextensions.k8s.io
-    resources:
-      - customresourcedefinitions/status
-    verbs:
-      - update
-  - apiGroups:
       - '*'
     resources:
       - '*'
@@ -49397,24 +49385,11 @@ rules:
     verbs:
       - list
       - watch
-      - update
   - apiGroups:
       - kyverno.io
     resources:
       - clustercleanuppolicies/status
       - cleanuppolicies/status
-    verbs:
-      - update
-  - apiGroups:
-      - apiextensions.k8s.io
-    resources:
-      - customresourcedefinitions
-    verbs:
-      - get
-  - apiGroups:
-      - apiextensions.k8s.io
-    resources:
-      - customresourcedefinitions/status
     verbs:
       - update
   - apiGroups:
