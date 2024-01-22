@@ -198,7 +198,7 @@ func (er EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailur
 	if polType := pol.GetType(); polType == ValidatingAdmissionPolicyType {
 		return ""
 	}
-	spec := pol.GetPolicy().(kyvernov1.PolicyInterface).GetSpec()
+	spec := pol.AsKyvernoPolicy().GetSpec()
 	for _, v := range spec.ValidationFailureActionOverrides {
 		if !v.Action.IsValid() {
 			continue
