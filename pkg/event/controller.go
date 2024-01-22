@@ -9,12 +9,12 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 	corev1 "k8s.io/api/core/v1"
-	apieventsv1 "k8s.io/api/events/v1"
+	eventsv1 "k8s.io/api/events/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
-	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
+	v1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	"k8s.io/client-go/tools/events"
 )
 
@@ -34,7 +34,7 @@ type generator struct {
 	recorders map[Source]events.EventRecorder
 
 	// client
-	eventsClient eventsv1.EventsV1Interface
+	eventsClient v1.EventsV1Interface
 
 	// metrics
 	droppedEventsCounter metric.Int64Counter
@@ -56,7 +56,7 @@ type Controller interface {
 }
 
 // NewEventGenerator to generate a new event controller
-func NewEventGenerator(eventsClient eventsv1.EventsV1Interface, logger logr.Logger, omitEvents ...string) Controller {
+func NewEventGenerator(eventsClient v1.EventsV1Interface, logger logr.Logger, omitEvents ...string) Controller {
 	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
 	droppedEventsCounter, err := meter.Int64Counter(
 		"kyverno_events_dropped",
@@ -112,7 +112,7 @@ func (gen *generator) Run(ctx context.Context) {
 
 func (gen *generator) startRecorders(ctx context.Context) error {
 	eventHandler := func(obj runtime.Object) {
-		event, ok := obj.(*apieventsv1.Event)
+		event, ok := obj.(*eventsv1.Event)
 		if !ok {
 			gen.logger.Error(nil, "unexpected type, expected eventsv1.Event")
 			return
