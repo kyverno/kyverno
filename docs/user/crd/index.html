@@ -3496,6 +3496,19 @@ Generation
 <p>VerifyImages is used to verify image signatures and mutate them to add a digest</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>skipBackgroundRequests</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>SkipBackgroundRequests bypasses admission requests that are sent by the background controller.
+The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to apply
+generate and mutateExisting rules to those requests.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -3897,7 +3910,7 @@ string
 </em>
 </td>
 <td>
-<p>Specify signature algorithm for public keys. Supported values are sha256 and sha512.</p>
+<p>Specify signature algorithm for public keys. Supported values are sha224, sha256, sha384 and sha512.</p>
 </td>
 </tr>
 <tr>
@@ -5409,6 +5422,16 @@ string
 <td>
 <p>This will track the resources that are updated by the generate Policy.
 Will be used during clean up resources.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>retryCount</code><br/>
+<em>
+int
+</em>
+</td>
+<td>
 </td>
 </tr>
 </tbody>
@@ -7737,6 +7760,19 @@ Generation
 <td>
 <em>(Optional)</em>
 <p>VerifyImages is used to verify image signatures and mutate them to add a digest</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>skipBackgroundRequests</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>SkipBackgroundRequests bypasses admission requests that are sent by the background controller.
+The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to apply
+generate and mutateExisting rules to those requests.</p>
 </td>
 </tr>
 </tbody>

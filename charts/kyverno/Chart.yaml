@@ -1,8 +1,8 @@
 apiVersion: v2
 type: application
 name: kyverno
-version: 3.1.1
-appVersion: v1.11.1
+version: 3.1.4
+appVersion: v1.11.4
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Native Policy Management
 keywords:
@@ -31,54 +31,10 @@ annotations:
   artifacthub.io/links: |
     - name: Documentation
       url: https://kyverno.io/docs
-  # valid kinds are: added, changed, deprecated, removed, fixed and security
-  artifacthub.io/changes: |
-    - kind: added
-      description: support for GrafanaDashboard custom resource
-    - kind: fixed
-      description: rbac templating issues
-    - kind: added
-      description: make sigstore volume configurable
-    - kind: changed
-      description: no deployments can run with 0 replicas
-    - kind: changed
-      description: change dashboard title of kyverno grafana dashboard
-    - kind: added
-      description: view aggregated cluster role support
-    - kind: added
-      description: support for webhook annotations in config map
-    - kind: added
-      description: allow overriding PDB api version
-    - kind: fixed
-      description: missing image pull secrets in helm hooks
-    - kind: added
-      description: support `excludeRoles` and `excludeClusterRoles` in config
-    - kind: added
-      description: define resources for cleanupJobs
-    - kind: changed
-      description: change to enable webhook cleanup hook by default
-    - kind: added
-      description: allow pod labels for cleanup jobs
-    - kind: added
-      description: allow nodeSelector for cleanup jobs
-    - kind: added
-      description: allow nodeSelector, tolerations and affinity settings for webhooksCleanup
-    - kind: added
-      description: allow affinity settings for cleanup jobs
-    - kind: added
-      description: Add helper to handle the labels for cleanup jobs, add component label
-    - kind: added
-      description: allow podSecurityContext and securityContext for webhooksCleanup
-    - kind: added
-      description: match conditions support in webhooks
-    - kind: fixed
-      description: missing image pull policy missing in a couple of deployments
-    - kind: added
-      description: added TUF flags for custom sigstore deployments
 dependencies:
   - name: grafana
     version: "0.0.0"
     condition: grafana.enabled
   - name: crds
-    version: "3.1.1"
+    version: "3.1.4"
     condition: crds.install

@@ -212,8 +212,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 3.1.1
-    helm.sh/chart: crds-3.1.1
+    app.kubernetes.io/version: 3.1.4
+    helm.sh/chart: crds-3.1.4
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: admissionreports.kyverno.io
@@ -251,11 +251,9 @@ spec:
       type: integer
     - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.gvr']
       name: GVR
-      priority: 1
       type: string
     - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.name']
       name: REF
-      priority: 1
       type: string
     - jsonPath: .metadata.labels['audit\.kyverno\.io/report\.aggregate']
       name: AGGREGATE
@@ -551,8 +549,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 3.1.1
-    helm.sh/chart: crds-3.1.1
+    app.kubernetes.io/version: 3.1.4
+    helm.sh/chart: crds-3.1.4
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: backgroundscanreports.kyverno.io
@@ -572,15 +570,12 @@ spec:
   - additionalPrinterColumns:
     - jsonPath: .metadata.ownerReferences[0].apiVersion
       name: ApiVersion
-      priority: 1
       type: string
     - jsonPath: .metadata.ownerReferences[0].kind
       name: Kind
-      priority: 1
       type: string
     - jsonPath: .metadata.ownerReferences[0].name
       name: Subject
-      priority: 1
       type: string
     - jsonPath: .spec.summary.pass
       name: Pass
@@ -858,8 +853,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 3.1.1
-    helm.sh/chart: crds-3.1.1
+    app.kubernetes.io/version: 3.1.4
+    helm.sh/chart: crds-3.1.4
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: cleanuppolicies.kyverno.io
@@ -3368,8 +3363,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 3.1.1
-    helm.sh/chart: crds-3.1.1
+    app.kubernetes.io/version: 3.1.4
+    helm.sh/chart: crds-3.1.4
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: clusteradmissionreports.kyverno.io
@@ -3407,11 +3402,9 @@ spec:
       type: integer
     - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.gvr']
       name: GVR
-      priority: 1
       type: string
     - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.name']
       name: REF
-      priority: 1
       type: string
     - jsonPath: .metadata.labels['audit\.kyverno\.io/report\.aggregate']
       name: AGGREGATE
@@ -3708,8 +3701,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 3.1.1
-    helm.sh/chart: crds-3.1.1
+    app.kubernetes.io/version: 3.1.4
+    helm.sh/chart: crds-3.1.4
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: clusterbackgroundscanreports.kyverno.io
@@ -3729,15 +3722,12 @@ spec:
   - additionalPrinterColumns:
     - jsonPath: .metadata.ownerReferences[0].apiVersion
       name: ApiVersion
-      priority: 1
       type: string
     - jsonPath: .metadata.ownerReferences[0].kind
       name: Kind
-      priority: 1
       type: string
     - jsonPath: .metadata.ownerReferences[0].name
       name: Subject
-      priority: 1
       type: string
     - jsonPath: .spec.summary.pass
       name: Pass
@@ -4015,8 +4005,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 3.1.1
-    helm.sh/chart: crds-3.1.1
+    app.kubernetes.io/version: 3.1.4
+    helm.sh/chart: crds-3.1.4
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: clustercleanuppolicies.kyverno.io
@@ -6525,8 +6515,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 3.1.1
-    helm.sh/chart: crds-3.1.1
+    app.kubernetes.io/version: 3.1.4
+    helm.sh/chart: crds-3.1.4
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: clusterpolicies.kyverno.io
@@ -8935,6 +8925,13 @@ spec:
                         is supported for backwards compatibility but will be deprecated
                         in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
                       x-kubernetes-preserve-unknown-fields: true
+                    skipBackgroundRequests:
+                      default: true
+                      description: SkipBackgroundRequests bypasses admission requests
+                        that are sent by the background controller. The default value
+                        is set to "true", it must be set to "false" to apply generate
+                        and mutateExisting rules to those requests.
+                      type: boolean
                     validate:
                       description: Validation is used to validate matching resources.
                       properties:
@@ -9885,7 +9882,7 @@ spec:
                                               default: sha256
                                               description: Specify signature algorithm
                                                 for public keys. Supported values
-                                                are sha256 and sha512.
+                                                are sha224, sha256, sha384 and sha512.
                                               type: string
                                           type: object
                                         repository:
@@ -10342,7 +10339,8 @@ spec:
                                                   default: sha256
                                                   description: Specify signature algorithm
                                                     for public keys. Supported values
-                                                    are sha256 and sha512.
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             repository:
@@ -10758,7 +10756,7 @@ spec:
                                             default: sha256
                                             description: Specify signature algorithm
                                               for public keys. Supported values are
-                                              sha256 and sha512.
+                                              sha224, sha256, sha384 and sha512.
                                             type: string
                                         type: object
                                       repository:
@@ -13369,6 +13367,13 @@ spec:
                             is supported for backwards compatibility but will be deprecated
                             in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
                           x-kubernetes-preserve-unknown-fields: true
+                        skipBackgroundRequests:
+                          default: true
+                          description: SkipBackgroundRequests bypasses admission requests
+                            that are sent by the background controller. The default
+                            value is set to "true", it must be set to "false" to apply
+                            generate and mutateExisting rules to those requests.
+                          type: boolean
                         validate:
                           description: Validation is used to validate matching resources.
                           properties:
@@ -14370,7 +14375,8 @@ spec:
                                                   default: sha256
                                                   description: Specify signature algorithm
                                                     for public keys. Supported values
-                                                    are sha256 and sha512.
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             repository:
@@ -14856,8 +14862,8 @@ spec:
                                                       default: sha256
                                                       description: Specify signature
                                                         algorithm for public keys.
-                                                        Supported values are sha256
-                                                        and sha512.
+                                                        Supported values are sha224,
+                                                        sha256, sha384 and sha512.
                                                       type: string
                                                   type: object
                                                 repository:
@@ -15295,7 +15301,7 @@ spec:
                                                 default: sha256
                                                 description: Specify signature algorithm
                                                   for public keys. Supported values
-                                                  are sha256 and sha512.
+                                                  are sha224, sha256, sha384 and sha512.
                                                 type: string
                                             type: object
                                           repository:
@@ -17585,6 +17591,13 @@ spec:
                             type: object
                           type: array
                       type: object
+                    skipBackgroundRequests:
+                      default: true
+                      description: SkipBackgroundRequests bypasses admission requests
+                        that are sent by the background controller. The default value
+                        is set to "true", it must be set to "false" to apply generate
+                        and mutateExisting rules to those requests.
+                      type: boolean
                     validate:
                       description: Validation is used to validate matching resources.
                       properties:
@@ -18627,7 +18640,7 @@ spec:
                                               default: sha256
                                               description: Specify signature algorithm
                                                 for public keys. Supported values
-                                                are sha256 and sha512.
+                                                are sha224, sha256, sha384 and sha512.
                                               type: string
                                           type: object
                                         repository:
@@ -19073,7 +19086,8 @@ spec:
                                                   default: sha256
                                                   description: Specify signature algorithm
                                                     for public keys. Supported values
-                                                    are sha256 and sha512.
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             repository:
@@ -19489,7 +19503,7 @@ spec:
                                             default: sha256
                                             description: Specify signature algorithm
                                               for public keys. Supported values are
-                                              sha256 and sha512.
+                                              sha224, sha256, sha384 and sha512.
                                             type: string
                                         type: object
                                       repository:
@@ -22085,6 +22099,13 @@ spec:
                             is supported for backwards compatibility but will be deprecated
                             in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
                           x-kubernetes-preserve-unknown-fields: true
+                        skipBackgroundRequests:
+                          default: true
+                          description: SkipBackgroundRequests bypasses admission requests
+                            that are sent by the background controller. The default
+                            value is set to "true", it must be set to "false" to apply
+                            generate and mutateExisting rules to those requests.
+                          type: boolean
                         validate:
                           description: Validation is used to validate matching resources.
                           properties:
@@ -23086,7 +23107,8 @@ spec:
                                                   default: sha256
                                                   description: Specify signature algorithm
                                                     for public keys. Supported values
-                                                    are sha256 and sha512.
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             repository:
@@ -23572,8 +23594,8 @@ spec:
                                                       default: sha256
                                                       description: Specify signature
                                                         algorithm for public keys.
-                                                        Supported values are sha256
-                                                        and sha512.
+                                                        Supported values are sha224,
+                                                        sha256, sha384 and sha512.
                                                       type: string
                                                   type: object
                                                 repository:
@@ -24011,7 +24033,7 @@ spec:
                                                 default: sha256
                                                 description: Specify signature algorithm
                                                   for public keys. Supported values
-                                                  are sha256 and sha512.
+                                                  are sha224, sha256, sha384 and sha512.
                                                 type: string
                                             type: object
                                           repository:
@@ -24258,8 +24280,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 3.1.1
-    helm.sh/chart: crds-3.1.1
+    app.kubernetes.io/version: 3.1.4
+    helm.sh/chart: crds-3.1.4
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: policies.kyverno.io
@@ -26669,6 +26691,13 @@ spec:
                         is supported for backwards compatibility but will be deprecated
                         in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
                       x-kubernetes-preserve-unknown-fields: true
+                    skipBackgroundRequests:
+                      default: true
+                      description: SkipBackgroundRequests bypasses admission requests
+                        that are sent by the background controller. The default value
+                        is set to "true", it must be set to "false" to apply generate
+                        and mutateExisting rules to those requests.
+                      type: boolean
                     validate:
                       description: Validation is used to validate matching resources.
                       properties:
@@ -27619,7 +27648,7 @@ spec:
                                               default: sha256
                                               description: Specify signature algorithm
                                                 for public keys. Supported values
-                                                are sha256 and sha512.
+                                                are sha224, sha256, sha384 and sha512.
                                               type: string
                                           type: object
                                         repository:
@@ -28076,7 +28105,8 @@ spec:
                                                   default: sha256
                                                   description: Specify signature algorithm
                                                     for public keys. Supported values
-                                                    are sha256 and sha512.
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             repository:
@@ -28492,7 +28522,7 @@ spec:
                                             default: sha256
                                             description: Specify signature algorithm
                                               for public keys. Supported values are
-                                              sha256 and sha512.
+                                              sha224, sha256, sha384 and sha512.
                                             type: string
                                         type: object
                                       repository:
@@ -31104,6 +31134,13 @@ spec:
                             is supported for backwards compatibility but will be deprecated
                             in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
                           x-kubernetes-preserve-unknown-fields: true
+                        skipBackgroundRequests:
+                          default: true
+                          description: SkipBackgroundRequests bypasses admission requests
+                            that are sent by the background controller. The default
+                            value is set to "true", it must be set to "false" to apply
+                            generate and mutateExisting rules to those requests.
+                          type: boolean
                         validate:
                           description: Validation is used to validate matching resources.
                           properties:
@@ -32105,7 +32142,8 @@ spec:
                                                   default: sha256
                                                   description: Specify signature algorithm
                                                     for public keys. Supported values
-                                                    are sha256 and sha512.
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             repository:
@@ -32591,8 +32629,8 @@ spec:
                                                       default: sha256
                                                       description: Specify signature
                                                         algorithm for public keys.
-                                                        Supported values are sha256
-                                                        and sha512.
+                                                        Supported values are sha224,
+                                                        sha256, sha384 and sha512.
                                                       type: string
                                                   type: object
                                                 repository:
@@ -33030,7 +33068,7 @@ spec:
                                                 default: sha256
                                                 description: Specify signature algorithm
                                                   for public keys. Supported values
-                                                  are sha256 and sha512.
+                                                  are sha224, sha256, sha384 and sha512.
                                                 type: string
                                             type: object
                                           repository:
@@ -35321,6 +35359,13 @@ spec:
                             type: object
                           type: array
                       type: object
+                    skipBackgroundRequests:
+                      default: true
+                      description: SkipBackgroundRequests bypasses admission requests
+                        that are sent by the background controller. The default value
+                        is set to "true", it must be set to "false" to apply generate
+                        and mutateExisting rules to those requests.
+                      type: boolean
                     validate:
                       description: Validation is used to validate matching resources.
                       properties:
@@ -36363,7 +36408,7 @@ spec:
                                               default: sha256
                                               description: Specify signature algorithm
                                                 for public keys. Supported values
-                                                are sha256 and sha512.
+                                                are sha224, sha256, sha384 and sha512.
                                               type: string
                                           type: object
                                         repository:
@@ -36809,7 +36854,8 @@ spec:
                                                   default: sha256
                                                   description: Specify signature algorithm
                                                     for public keys. Supported values
-                                                    are sha256 and sha512.
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             repository:
@@ -37225,7 +37271,7 @@ spec:
                                             default: sha256
                                             description: Specify signature algorithm
                                               for public keys. Supported values are
-                                              sha256 and sha512.
+                                              sha224, sha256, sha384 and sha512.
                                             type: string
                                         type: object
                                       repository:
@@ -39821,6 +39867,13 @@ spec:
                             is supported for backwards compatibility but will be deprecated
                             in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
                           x-kubernetes-preserve-unknown-fields: true
+                        skipBackgroundRequests:
+                          default: true
+                          description: SkipBackgroundRequests bypasses admission requests
+                            that are sent by the background controller. The default
+                            value is set to "true", it must be set to "false" to apply
+                            generate and mutateExisting rules to those requests.
+                          type: boolean
                         validate:
                           description: Validation is used to validate matching resources.
                           properties:
@@ -40822,7 +40875,8 @@ spec:
                                                   default: sha256
                                                   description: Specify signature algorithm
                                                     for public keys. Supported values
-                                                    are sha256 and sha512.
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             repository:
@@ -41308,8 +41362,8 @@ spec:
                                                       default: sha256
                                                       description: Specify signature
                                                         algorithm for public keys.
-                                                        Supported values are sha256
-                                                        and sha512.
+                                                        Supported values are sha224,
+                                                        sha256, sha384 and sha512.
                                                       type: string
                                                   type: object
                                                 repository:
@@ -41747,7 +41801,7 @@ spec:
                                                 default: sha256
                                                 description: Specify signature algorithm
                                                   for public keys. Supported values
-                                                  are sha256 and sha512.
+                                                  are sha224, sha256, sha384 and sha512.
                                                 type: string
                                             type: object
                                           repository:
@@ -41994,8 +42048,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 3.1.1
-    helm.sh/chart: crds-3.1.1
+    app.kubernetes.io/version: 3.1.4
+    helm.sh/chart: crds-3.1.4
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: policyexceptions.kyverno.io
@@ -43020,8 +43074,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 3.1.1
-    helm.sh/chart: crds-3.1.1
+    app.kubernetes.io/version: 3.1.4
+    helm.sh/chart: crds-3.1.4
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: updaterequests.kyverno.io
@@ -43412,6 +43466,8 @@ spec:
               message:
                 description: Specifies request status message.
                 type: string
+              retryCount:
+                type: integer
               state:
                 description: State represents state of the update request.
                 type: string
@@ -43432,8 +43488,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 3.1.1
-    helm.sh/chart: crds-3.1.1
+    app.kubernetes.io/version: 3.1.4
+    helm.sh/chart: crds-3.1.4
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: clusterpolicyreports.wgpolicyk8s.io
@@ -43451,11 +43507,9 @@ spec:
   - additionalPrinterColumns:
     - jsonPath: .scope.kind
       name: Kind
-      priority: 1
       type: string
     - jsonPath: .scope.name
       name: Name
-      priority: 1
       type: string
     - jsonPath: .summary.pass
       name: Pass
@@ -43801,8 +43855,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 3.1.1
-    helm.sh/chart: crds-3.1.1
+    app.kubernetes.io/version: 3.1.4
+    helm.sh/chart: crds-3.1.4
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: policyreports.wgpolicyk8s.io
@@ -43820,11 +43874,9 @@ spec:
   - additionalPrinterColumns:
     - jsonPath: .scope.kind
       name: Kind
-      priority: 1
       type: string
     - jsonPath: .scope.name
       name: Name
-      priority: 1
       type: string
     - jsonPath: .summary.pass
       name: Pass
@@ -45804,7 +45856,7 @@ spec:
           serviceAccountName: kyverno-cleanup-jobs
           containers:
           - name: cleanup
-            image: "bitnami/kubectl:1.26.10"
+            image: "bitnami/kubectl:1.28.5"
             imagePullPolicy: 
             command:
             - /bin/sh
@@ -45852,7 +45904,7 @@ spec:
           serviceAccountName: kyverno-cleanup-jobs
           containers:
           - name: cleanup
-            image: "bitnami/kubectl:1.26.4"
+            image: "bitnami/kubectl:1.28.5"
             imagePullPolicy: 
             command:
             - /bin/sh

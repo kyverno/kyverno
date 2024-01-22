@@ -22,6 +22,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -100,9 +101,10 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 	trigger, err := c.getTrigger(ur.Spec)
 	if err != nil {
 		logger.V(3).Info("the trigger resource does not exist or is pending creation, re-queueing", "details", err.Error())
-		if err := common.UpdateRetryAnnotation(c.kyvernoClient, ur); err != nil {
+		if err := updateStatus(c.statusControl, *ur, err, nil); err != nil {
 			return err
 		}
+		return nil
 	}
 
 	if trigger == nil {
@@ -112,19 +114,27 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 	namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
 	genResources, err = c.applyGenerate(*trigger, *ur, namespaceLabels)
 	if err != nil {
-		// Need not update the status when policy doesn't apply on resource, because all the update requests are removed by the cleanup controller
 		if strings.Contains(err.Error(), doesNotApply) {
-			logger.V(4).Info("skipping updating status of update request")
-			return nil
+			ur.Status.State = kyvernov1beta1.Completed
+			logger.V(4).Info(fmt.Sprintf("%s, updating UR status to Completed", err.Error()))
+			_, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
+			return err
 		}
 
-		policy, _ := c.getPolicySpec(*ur)
+		policy, err := c.getPolicySpec(*ur)
+		if err != nil {
+			return err
+		}
+
 		events := event.NewBackgroundFailedEvent(err, policy, ur.Spec.Rule, event.GeneratePolicyController,
 			kyvernov1.ResourceSpec{Kind: trigger.GetKind(), Namespace: trigger.GetNamespace(), Name: trigger.GetName()})
 		c.eventGen.Add(events...)
 	}
 
-	return updateStatus(c.statusControl, *ur, err, genResources)
+	if err = updateStatus(c.statusControl, *ur, err, genResources); err != nil {
+		return err
+	}
+	return err
 }
 
 const doesNotApply = "policy does not apply to resource"
@@ -365,8 +375,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 
 		genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy, ur)
 		if err != nil {
-			log.Error(err, "failed to apply generate rule", "policy", policy.GetName(),
-				"rule", rule.Name, "resource", resource.GetName(), "suggestion", "users need to grant Kyverno's service account additional privileges")
+			log.Error(err, "failed to apply generate rule", "policy", policy.GetName(), "rule", rule.Name, "resource", resource.GetName())
 			return nil, err
 		}
 		ruleNameToProcessingTime[rule.Name] = time.Since(startTime)
@@ -452,6 +461,11 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, t
 			} else {
 				if !rule.Generation.Synchronize {
 					logger.V(4).Info("synchronize disabled, skip syncing changes")
+					continue
+				}
+				if err := validate.MatchPattern(logger, generatedObj.Object, newResource.Object); err == nil {
+					logger.V(4).Info("patterns match, skipping updates")
+					continue
 				}
 				logger.V(4).Info("updating existing resource")
 				if targetMeta.GetAPIVersion() == "" {

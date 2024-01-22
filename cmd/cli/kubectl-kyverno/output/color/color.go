@@ -65,6 +65,10 @@ func Resource(kind, namespace, name string) string {
 	return BoldFgCyan.Sprint(namespace) + "/" + BoldFgCyan.Sprint(kind) + "/" + BoldFgCyan.Sprint(name)
 }
 
+func Excluded() string {
+	return BoldYellow.Sprint("Excluded")
+}
+
 func NotFound() string {
 	return BoldYellow.Sprint("Not found")
 }

@@ -1,0 +1,10 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      if kubectl get updaterequests -n kyverno 2>&1 | grep -q 'No resources found in kyverno namespace.'
+      then
+        exit 0
+      else
+        exit 1
+      fi

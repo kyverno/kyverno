@@ -41,11 +41,8 @@ spec:
             - dictionary-2
             namespaces:
             - staging-2
-      preconditions:
-        any:
-        - key: "{{ request.operation }}"
-          operator: Equals
-          value: DELETE
+            operations:
+            - DELETE
       mutate:
         targets:
         - apiVersion: v1
