@@ -50323,6 +50323,7 @@ spec:
             - --protectManagedResources=false
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
+            
           resources:
             limits:
               memory: 384Mi
@@ -50346,6 +50347,7 @@ spec:
           - containerPort: 8000
             name: metrics-port
             protocol: TCP
+          
           env:
           - name: INIT_CONFIG
             value: kyverno
@@ -50458,6 +50460,7 @@ spec:
           - containerPort: 8000
             name: metrics
             protocol: TCP
+          
           args:
             - --disableMetrics=false
             - --otelConfig=prometheus
@@ -50467,6 +50470,7 @@ spec:
             - --loggingFormat=text
             - --v=2
             - --enablePolicyException=true
+            
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME
             value: kyverno-background-controller
@@ -50557,6 +50561,7 @@ spec:
           - containerPort: 8000
             name: metrics
             protocol: TCP
+          
           args:
             - --caSecretName=kyverno-cleanup-controller.kyverno.svc.kyverno-tls-ca
             - --tlsSecretName=kyverno-cleanup-controller.kyverno.svc.kyverno-tls-pair
@@ -50571,6 +50576,7 @@ spec:
             - --loggingFormat=text
             - --v=2
             - --ttlReconciliationInterval=1m
+            
           env:
           - name: KYVERNO_DEPLOYMENT
             value: kyverno-cleanup-controller
@@ -50691,6 +50697,7 @@ spec:
           - containerPort: 8000
             name: metrics
             protocol: TCP
+          
           args:
             - --disableMetrics=false
             - --otelConfig=prometheus
@@ -50711,6 +50718,7 @@ spec:
             - --reportsChunkSize=1000
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
+            
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME
             value: kyverno-reports-controller

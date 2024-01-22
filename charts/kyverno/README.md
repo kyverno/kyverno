@@ -413,6 +413,10 @@ The chart values are organised per component.
 | admissionController.metering.port | int | `8000` | Prometheus endpoint port |
 | admissionController.metering.collector | string | `""` | Otel collector endpoint |
 | admissionController.metering.creds | string | `""` | Otel collector credentials |
+| admissionController.profiling.enabled | bool | `false` | Enable profiling |
+| admissionController.profiling.port | int | `6060` | Profiling endpoint port |
+| admissionController.profiling.serviceType | string | `"ClusterIP"` | Service type. |
+| admissionController.profiling.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
 
 ### Background controller
 
@@ -481,6 +485,10 @@ The chart values are organised per component.
 | backgroundController.metering.port | int | `8000` | Prometheus endpoint port |
 | backgroundController.metering.collector | string | `""` | Otel collector endpoint |
 | backgroundController.metering.creds | string | `""` | Otel collector credentials |
+| backgroundController.profiling.enabled | bool | `false` | Enable profiling |
+| backgroundController.profiling.port | int | `6060` | Profiling endpoint port |
+| backgroundController.profiling.serviceType | string | `"ClusterIP"` | Service type. |
+| backgroundController.profiling.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
 
 ### Cleanup controller
 
@@ -556,6 +564,10 @@ The chart values are organised per component.
 | cleanupController.metering.port | int | `8000` | Prometheus endpoint port |
 | cleanupController.metering.collector | string | `""` | Otel collector endpoint |
 | cleanupController.metering.creds | string | `""` | Otel collector credentials |
+| cleanupController.profiling.enabled | bool | `false` | Enable profiling |
+| cleanupController.profiling.port | int | `6060` | Profiling endpoint port |
+| cleanupController.profiling.serviceType | string | `"ClusterIP"` | Service type. |
+| cleanupController.profiling.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
 
 ### Reports controller
 
@@ -627,6 +639,10 @@ The chart values are organised per component.
 | reportsController.metering.port | int | `8000` | Prometheus endpoint port |
 | reportsController.metering.collector | string | `nil` | Otel collector endpoint |
 | reportsController.metering.creds | string | `nil` | Otel collector credentials |
+| reportsController.profiling.enabled | bool | `false` | Enable profiling |
+| reportsController.profiling.port | int | `6060` | Profiling endpoint port |
+| reportsController.profiling.serviceType | string | `"ClusterIP"` | Service type. |
+| reportsController.profiling.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
 
 ### Grafana
 
