@@ -767,7 +767,8 @@ The chart values are organised per component.
 | policyReportsCleanup.podLabels | object | `{}` | Pod labels. |
 | policyReportsCleanup.nodeAffinity | object | `{}` | Node affinity constraints. |
 | policyReportsCleanup.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
-| crdsMigration.exceptions | object | `{"enabled":true}` | Create a helm post-upgrade hook to migrate the existing CRDs to the stored version |
+| crdsMigration.exceptions | object | `{"enabled":true}` | Create a helm post-upgrade hook to migrate the existing policy exceptions to the stored version |
+| crdsMigration.cleanuppolicies | object | `{"enabled":true}` | Create a helm post-upgrade hook to migrate the existing cleanup policies to the stored version |
 | crdsMigration.image.registry | string | `"ghcr.io"` | Image registry |
 | crdsMigration.image.repository | string | `"kyverno/kyverno-cli"` | Image repository |
 | crdsMigration.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
