@@ -37,7 +37,9 @@ type resourceEntry struct {
 }
 
 func (re *resourceEntry) Get() (interface{}, error) {
+	re.logger.V(4).Info("fetching data from resource cache entry")
 	if re.watchErrHandler.Error() != nil {
+		re.logger.Error(re.watchErrHandler.Error(), "failed to fetch data from entry")
 		return nil, re.watchErrHandler.Error()
 	}
 	obj, err := re.lister.List(labels.Everything())
@@ -126,6 +128,7 @@ func (r *ResourceLoader) Get(rc *kyvernov1.ResourceCache) (interface{}, error) {
 		r.logger.Error(err, "")
 		return nil, err
 	}
+	r.logger.V(2).Info("key", key, "entry", entry)
 	r.logger.V(2).Info("successfully fetched cache entry")
 	return entry.Get()
 }

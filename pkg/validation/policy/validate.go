@@ -623,7 +623,7 @@ func getAllowedVariables(background bool, target bool) *regexp.Regexp {
 
 func addContextVariables(entries []kyvernov1.ContextEntry, ctx *enginecontext.MockContext) {
 	for _, contextEntry := range entries {
-		if contextEntry.APICall != nil || contextEntry.ImageRegistry != nil || contextEntry.Variable != nil {
+		if contextEntry.APICall != nil || contextEntry.ImageRegistry != nil || contextEntry.Variable != nil || contextEntry.ResourceCache != nil {
 			ctx.AddVariable(contextEntry.Name + "*")
 		}
 

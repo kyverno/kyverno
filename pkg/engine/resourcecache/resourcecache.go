@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -42,9 +41,18 @@ func New(logger logr.Logger, dclient dynamic.Interface, informer v2alpha1.Cached
 	extloader := externalapi.New(logger, config)
 
 	cacheEntryInformer := informer.Informer()
+	ctx, cancel := context.WithCancel(context.Background())
+	go cacheEntryInformer.Run(ctx.Done())
+	if !k8scache.WaitForCacheSync(ctx.Done(), cacheEntryInformer.HasSynced) {
+		cancel()
+		err := errors.New("resource informer cache failed to sync")
+		logger.Error(err, "")
+		return nil, err
+	}
 
-	_, err = cacheEntryInformer.AddEventHandler(k8scache.ResourceEventHandlerFuncs{
+	ccEventHandler, err := cacheEntryInformer.AddEventHandler(k8scache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
+			logger.V(4).Info("new cached context entry added, creating cache entry")
 			entry, ok := obj.(*kyvernov2alpha1.CachedContextEntry)
 			if !ok {
 				return
@@ -64,16 +72,13 @@ func New(logger logr.Logger, dclient dynamic.Interface, informer v2alpha1.Cached
 			}
 		},
 		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
+			logger.V(4).Info("cached context entry updated, updating cache entry")
 			newentry, ok := newObj.(*kyvernov2alpha1.CachedContextEntry)
 			if !ok {
 				return
 			}
 			oldentry, ok := oldObj.(*kyvernov2alpha1.CachedContextEntry)
 			if !ok {
-				return
-			}
-
-			if reflect.DeepEqual(newentry.Spec, oldentry.Spec) {
 				return
 			}
 
@@ -102,6 +107,7 @@ func New(logger logr.Logger, dclient dynamic.Interface, informer v2alpha1.Cached
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
+			logger.V(4).Info("cached context entry deleted, deleting cache entry")
 			entry, ok := obj.(*kyvernov2alpha1.CachedContextEntry)
 			if !ok {
 				return
@@ -122,32 +128,34 @@ func New(logger logr.Logger, dclient dynamic.Interface, informer v2alpha1.Cached
 		},
 	})
 
+	if !k8scache.WaitForCacheSync(ctx.Done(), ccEventHandler.HasSynced) {
+		cancel()
+		err := errors.New("resource informer cache event handler failed to sync")
+		logger.Error(err, "")
+		return nil, err
+	}
+
 	if err != nil {
+		cancel()
 		return nil, err
 	}
 
 	entries, err := informer.Lister().List(labels.Everything())
 	if err != nil {
+		cancel()
 		logger.Error(err, "failed to fetch context entries")
 		return nil, err
 	}
 
 	if err := k8sloader.AddEntries(entries...); err != nil {
+		cancel()
 		logger.Error(err, "failed to add entries to k8s resource loader")
 		return nil, err
 	}
 
 	if err := extloader.AddEntries(entries...); err != nil {
-		logger.Error(err, "failed to add entries to external api loader")
-		return nil, err
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	go cacheEntryInformer.Run(ctx.Done())
-	if !k8scache.WaitForCacheSync(ctx.Done(), cacheEntryInformer.HasSynced) {
 		cancel()
-		err := errors.New("resource informer cache failed to sync")
-		logger.Error(err, "")
+		logger.Error(err, "failed to add entries to external api loader")
 		return nil, err
 	}
 
@@ -171,8 +179,10 @@ func (r *resourceCache) Get(c kyvernov1.ContextEntry, jsonCtx enginecontext.Inte
 	if err != nil {
 		return nil, err
 	}
+	r.logger.V(6).Info("variables substituted", "resourcecache", rc)
+
 	if rc.Resource != nil {
-		if data, err = r.k8sloader.Get(rc); err != nil {
+		if data, err = r.k8sloader.Get(rc); err != nil || data == nil {
 			r.logger.Error(err, "failed to get data from k8sloader")
 			return nil, err
 		}
@@ -188,6 +198,8 @@ func (r *resourceCache) Get(c kyvernov1.ContextEntry, jsonCtx enginecontext.Inte
 	if err != nil {
 		return nil, err
 	}
+	r.logger.V(6).Info("fetched json data", "name", c.Name, "jsondata", jsonData)
+
 	if c.ResourceCache.JMESPath == "" {
 		err := jsonCtx.AddContextEntry(c.Name, jsonData)
 		if err != nil {
@@ -195,6 +207,7 @@ func (r *resourceCache) Get(c kyvernov1.ContextEntry, jsonCtx enginecontext.Inte
 			return nil, fmt.Errorf("failed to add resource data to context entry %s: %w", c.Name, err)
 		}
 
+		r.logger.V(6).Info("added context data", "name", c.Name, "contextData", jsonData)
 		return jsonData, nil
 	}
 
@@ -209,6 +222,7 @@ func (r *resourceCache) Get(c kyvernov1.ContextEntry, jsonCtx enginecontext.Inte
 		r.logger.Error(err, "failed to apply JMESPath for context entry")
 		return nil, fmt.Errorf("failed to apply JMESPath %s for context entry %s: %w", path, c.Name, err)
 	}
+	r.logger.V(6).Info("applied jmespath expression", "name", c.Name, "results", results)
 
 	contextData, err := json.Marshal(results)
 	if err != nil {
@@ -222,7 +236,7 @@ func (r *resourceCache) Get(c kyvernov1.ContextEntry, jsonCtx enginecontext.Inte
 		return nil, fmt.Errorf("failed to add resource cache results for context entry %s: %w", c.Name, err)
 	}
 
-	r.logger.V(4).Info("added context data", "name", c.Name, "len", len(contextData))
+	r.logger.V(6).Info("added context data", "name", c.Name, "contextData", contextData)
 	return contextData, nil
 }
 

@@ -55,7 +55,9 @@ func (w *WatchErrorHandler) WatchErrorHandlerFunction() k8scache.WatchErrorHandl
 
 func (w *WatchErrorHandler) Error() error {
 	data := w.data.Get()
-	w.logger.V(2).Info("Error from watcher:", data)
+	if data != nil {
+		w.logger.V(2).Info("Error from watcher:", data)
+	}
 	return data
 }
 
