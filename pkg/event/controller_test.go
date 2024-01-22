@@ -2,64 +2,53 @@ package event
 
 import (
 	"context"
-	"fmt"
-	"sync"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/fake"
+	clienttesting "k8s.io/client-go/testing"
 )
 
-func TestGeneratorWithLargeBatch(t *testing.T) {
-	fakeClient := fake.NewSimpleClientset()
+func TestEventGenerator(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	eventCreated := make(chan struct{})
+	clientset := fake.NewSimpleClientset()
+	clientset.PrependReactor("create", "events", func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+		eventCreated <- struct{}{}
+		return true, nil, nil
+	})
+
 	logger := logr.Discard()
 
-	gen := NewEventGenerator(fakeClient.EventsV1(), logger)
+	eventsClient := clientset.EventsV1()
+	eventGenerator := NewEventGenerator(eventsClient, logger)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	var wg sync.WaitGroup
-	wg.Add(1)
+	go eventGenerator.Run(ctx)
+	time.Sleep(1 * time.Second)
 
-	go func() {
-		defer wg.Done()
-		gen.Run(ctx, Workers, &wg)
-	}()
-
-	for i := 0; i < 1000; i++ {
-		event := Info{
-			Regarding: corev1.ObjectReference{
-				Kind:      "Pod",
-				Name:      fmt.Sprintf("pod-%d", i),
-				Namespace: "default",
-			},
-			Reason:  "TestReason",
-			Action:  "TestAction",
-			Message: fmt.Sprintf("TestMessage-%d", i),
-			Source:  PolicyController,
-		}
-		gen.Add(event)
-	}
-
-	lastEvent := Info{
+	info := Info{
 		Regarding: corev1.ObjectReference{
 			Kind:      "Pod",
-			Name:      "pod-1000",
+			Name:      "pod",
 			Namespace: "default",
 		},
 		Reason:  "TestReason",
 		Action:  "TestAction",
-		Message: "TestMessage-1000",
+		Message: "TestMessage",
 		Source:  PolicyController,
 	}
 
-	// Add the 1001st event (this should fail)
-	gen.Add(lastEvent)
+	eventGenerator.Add(info)
 
-	// TODO: Check for emitted events using the fakeClient
-
-	cancel()
-	wg.Wait()
-
-	// TODO: Assert event created or not
+	select {
+	case <-eventCreated:
+	case <-time.After(wait.ForeverTestTimeout):
+		t.Fatal("event not created")
+	}
 }

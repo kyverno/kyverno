@@ -2,7 +2,6 @@ package event
 
 import (
 	"context"
-	"sync"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
@@ -17,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	"k8s.io/client-go/tools/events"
-	"k8s.io/klog/v2"
 )
 
 const (
@@ -54,7 +52,7 @@ type Interface interface {
 // Controller interface to generate event
 type Controller interface {
 	Interface
-	Run(context.Context, int, *sync.WaitGroup)
+	Run(context.Context)
 }
 
 // NewEventGenerator to generate a new event controller
@@ -98,7 +96,7 @@ func (gen *generator) Add(infos ...Info) {
 }
 
 // Run begins generator
-func (gen *generator) Run(ctx context.Context, workers int, waitGroup *sync.WaitGroup) {
+func (gen *generator) Run(ctx context.Context) {
 	logger := gen.logger
 	logger.Info("start")
 	defer logger.Info("terminated")
@@ -137,9 +135,7 @@ func (gen *generator) startRecorders(ctx context.Context) error {
 		stopWatcher()
 	}()
 
-	logger := klog.Background().V(int(0))
-	// TODO: logger watcher should be stopped
-	if _, err := gen.broadcaster.StartLogging(logger); err != nil {
+	if _, err := gen.broadcaster.StartLogging(gen.logger); err != nil {
 		return err
 	}
 	gen.recorders = map[Source]events.EventRecorder{

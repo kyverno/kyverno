@@ -144,8 +144,7 @@ func main() {
 		os.Exit(1)
 	}
 	// start event generator
-	var wg sync.WaitGroup
-	go eventGenerator.Run(ctx, event.CleanupWorkers, &wg)
+	go eventGenerator.Run(ctx)
 	// setup leader election
 	le, err := leaderelection.New(
 		setup.Logger.WithName("leader-election"),
