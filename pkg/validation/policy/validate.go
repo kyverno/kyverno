@@ -421,18 +421,33 @@ func validateJMESPath(p kyvernov1.PolicyInterface) error {
 
 func checkClosedBraces(s string) bool {
 	stack := []rune{}
-	ignore := false
+	insideSingleQuote := false
+	insideDoubleQuote := false
 
 	for _, char := range s {
 		switch char {
 		case '\'':
-			ignore = !ignore
+			insideSingleQuote = !insideSingleQuote
+		case '"':
+			if insideDoubleQuote && insideSingleQuote {
+				insideSingleQuote = false
+			}
+			insideDoubleQuote = !insideDoubleQuote
 		case '{':
-			if !ignore {
+			if !insideSingleQuote && !insideDoubleQuote {
+				stack = append(stack, char)
+			}
+			if !insideSingleQuote && insideDoubleQuote {
 				stack = append(stack, char)
 			}
 		case '}':
-			if !ignore {
+			if !insideSingleQuote && !insideDoubleQuote {
+				if len(stack) == 0 {
+					return false
+				}
+				stack = stack[:len(stack)-1]
+			}
+			if !insideSingleQuote && insideDoubleQuote {
 				if len(stack) == 0 {
 					return false
 				}
