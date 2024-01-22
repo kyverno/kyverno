@@ -468,8 +468,12 @@ policyReportsCleanup:
       type: RuntimeDefault
 
 crdsMigration:
-  # -- Create a helm post-upgrade hook to migrate the existing CRDs to the stored version
+  # -- Create a helm post-upgrade hook to migrate the existing policy exceptions to the stored version
   exceptions:
+    enabled: true
+
+  # -- Create a helm post-upgrade hook to migrate the existing cleanup policies to the stored version
+  cleanuppolicies:
     enabled: true
 
   image:
