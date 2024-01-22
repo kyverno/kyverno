@@ -7,6 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -48,6 +49,13 @@ const (
 	// Descending means iterating from last to first element.
 	Descending ForeachOrder = "Descending"
 )
+
+// WebhookConfigurations specifies the configuration for Kubernetes admission webhookconfigurations.
+type WebhookConfigurations struct {
+	// MatchCondition configures admission webhook matchConditions.
+	// +optional
+	MatchConditions []admissionregistrationv1.MatchCondition `json:"matchConditions,omitempty" yaml:"matchConditions,omitempty"`
+}
 
 // AnyAllConditions consists of conditions wrapped denoting a logical criteria to be fulfilled.
 // AnyConditions get fulfilled when at least one of its sub-conditions passes.
