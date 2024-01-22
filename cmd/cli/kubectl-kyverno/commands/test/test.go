@@ -125,6 +125,10 @@ func runTest(out io.Writer, testCase test.TestCase, auditWarn bool) ([]engineapi
 		}
 		validPolicies = append(validPolicies, pol)
 	}
+	rclient := store.GetRegistryClient()
+	if rclient == nil {
+		rclient = registryclient.NewOrDie()
+	}
 	// execute engine
 	var engineResponses []engineapi.EngineResponse
 	var resultCounts processor.ResultCounts
@@ -142,7 +146,7 @@ func runTest(out io.Writer, testCase test.TestCase, auditWarn bool) ([]engineapi
 			Client:                    dClient,
 			Subresources:              vars.Subresources(),
 			Out:                       out,
-			RegistryClient:            registryclient.NewOrDie(),
+			RegistryClient:            rclient,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {

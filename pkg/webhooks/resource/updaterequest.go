@@ -36,6 +36,9 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 		}
 
 		policyNew := skipBackgroundRequests(policy, logger, h.backgroundServiceAccountName, policyContext.AdmissionInfo().AdmissionUserInfo.Username)
+		if policyNew == nil {
+			continue
+		}
 		logger.V(4).Info("update request for mutateExisting policy")
 
 		// skip rules that don't specify the DELETE operation in case the admission request is of type DELETE
@@ -82,11 +85,13 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 }
 
 func (h *resourceHandlers) handleGenerate(ctx context.Context, logger logr.Logger, request admissionv1.AdmissionRequest, generatePolicies []kyvernov1.PolicyInterface, policyContext *engine.PolicyContext, ts time.Time) {
-	gh := generation.NewGenerationHandler(logger, h.engine, h.client, h.kyvernoClient, h.nsLister, h.urLister, h.cpolLister, h.polLister, h.urGenerator, h.eventGen, h.metricsConfig)
+	gh := generation.NewGenerationHandler(logger, h.engine, h.client, h.kyvernoClient, h.nsLister, h.urLister, h.cpolLister, h.polLister, h.urGenerator, h.eventGen, h.metricsConfig, h.backgroundServiceAccountName)
 	var policies []kyvernov1.PolicyInterface
 	for _, p := range generatePolicies {
 		new := skipBackgroundRequests(p, logger, h.backgroundServiceAccountName, policyContext.AdmissionInfo().AdmissionUserInfo.Username)
-		policies = append(policies, new)
+		if new != nil {
+			policies = append(policies, new)
+		}
 	}
 	go gh.Handle(ctx, request, policies, policyContext)
 }
