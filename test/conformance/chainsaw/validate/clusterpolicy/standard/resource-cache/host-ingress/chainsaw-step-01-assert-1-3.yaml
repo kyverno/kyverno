@@ -1,0 +1,4 @@
+apiVersion: kyverno.io/v2alpha1
+kind: CachedContextEntry
+metadata:
+  name: cachedingresses

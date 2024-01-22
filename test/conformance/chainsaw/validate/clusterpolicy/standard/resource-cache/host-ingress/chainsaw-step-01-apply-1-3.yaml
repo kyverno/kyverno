@@ -1,0 +1,10 @@
+apiVersion: kyverno.io/v2alpha1
+kind: CachedContextEntry
+metadata:
+  name: cachedingresses
+spec:
+  resource:
+    group: networking.k8s.io
+    version: v1
+    kind: ingresses
+    namespace: test-ingress
