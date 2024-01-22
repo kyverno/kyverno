@@ -45,9 +45,6 @@ rules:
     verbs:
       - list
       - watch
-      {{- if .Values.crdsMigration.cleanuppolicies.enabled }}
-      - update
-      {{- end }}
   - apiGroups:
       - kyverno.io
     resources:
@@ -55,20 +52,6 @@ rules:
       - cleanuppolicies/status
     verbs:
       - update
-  {{- if .Values.crdsMigration.cleanuppolicies.enabled }}
-  - apiGroups:
-      - apiextensions.k8s.io
-    resources:
-      - customresourcedefinitions
-    verbs:
-      - get
-  - apiGroups:
-      - apiextensions.k8s.io
-    resources:
-      - customresourcedefinitions/status
-    verbs:
-      - update
-  {{- end }}
   - apiGroups:
       - ''
     resources:
