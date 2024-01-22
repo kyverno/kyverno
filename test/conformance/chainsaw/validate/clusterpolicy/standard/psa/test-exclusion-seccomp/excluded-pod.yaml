@@ -14,7 +14,7 @@ spec:
     - 1d
     securityContext:
       seccompProfile:
-        type: Unconfined
+        type: RuntimeDefault
   initContainers:
   - name: nginx2
     image: nginx
@@ -23,4 +23,4 @@ spec:
     - 1d
     securityContext:
       seccompProfile:
-        type: Unconfined
+        type: RuntimeDefault

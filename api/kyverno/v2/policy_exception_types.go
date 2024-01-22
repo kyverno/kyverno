@@ -47,6 +47,10 @@ func (p *PolicyException) Contains(policy string, rule string) bool {
 	return p.Spec.Contains(policy, rule)
 }
 
+func (p *PolicyException) GetKind() string {
+	return "PolicyException"
+}
+
 // PolicyExceptionSpec stores policy exception spec
 type PolicyExceptionSpec struct {
 	// Background controls if exceptions are applied to existing policies during a background scan.
