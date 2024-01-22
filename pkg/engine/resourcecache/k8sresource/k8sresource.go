@@ -122,7 +122,7 @@ func (r *ResourceLoader) Get(rc *kyvernov1.ResourceCache) (interface{}, error) {
 	key := getKeyForResourceEntry(resource, rc.Resource.Namespace)
 	entry, ok := r.cache.Get(key)
 	if !ok {
-		err := fmt.Errorf("failed to create fetch entry key=%s", key)
+		err := fmt.Errorf("failed to fetch entry key=%s", key)
 		r.logger.Error(err, "")
 		return nil, err
 	}

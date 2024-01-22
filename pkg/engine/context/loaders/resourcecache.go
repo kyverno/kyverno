@@ -43,7 +43,7 @@ func (r *resourceCacheLoader) LoadData() error {
 	if r.data == nil {
 		var err error
 		if r.data, err = r.resourceCache.Get(r.entry, r.enginectx); err != nil {
-			return fmt.Errorf("failed to fetch data for APICall: %w", err)
+			return fmt.Errorf("failed to fetch data for Resource cache entry: %w", err)
 		}
 	}
 	return nil
