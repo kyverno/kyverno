@@ -8,3 +8,6 @@ Contributors are those who have made enough contributions to the project as defi
 | Vishal Choudhary         | [@Vishal-Chdhry](https://github.com/Vishal-Chdhry)     |
 | Mariam Fahmy             | [@MariamFahmy98](https://github.com/MariamFahmy98)     |
 | Ved Ratan                | [@VedRatan](https://github.com/VedRatan)               |
+| Chandan DK               | [@Chandan-DK](https://github.com/Chandan-DK)           |
+| Swastik Gour             | [@swastik959](https://github.com/swastik959)           |
+| Amit Kumar               | [@hackeramitkumar](https://github.com/hackeramitkumar) |

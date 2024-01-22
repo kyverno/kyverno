@@ -12,7 +12,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	"go.uber.org/multierr"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -54,7 +53,7 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 		var response *engineapi.EngineResponse
 		if policy.GetType() == engineapi.KyvernoPolicyType {
 			var err error
-			pol := policy.GetPolicy().(kyvernov1.PolicyInterface)
+			pol := policy.AsKyvernoPolicy()
 			response, err = s.validateResource(ctx, resource, nsLabels, pol)
 			if err != nil {
 				logger.Error(err, "failed to scan resource")
@@ -74,8 +73,8 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 				}
 			}
 		} else {
-			pol := policy.GetPolicy().(admissionregistrationv1alpha1.ValidatingAdmissionPolicy)
-			res := validatingadmissionpolicy.Validate(pol, resource)
+			pol := policy.AsValidatingAdmissionPolicy()
+			res := validatingadmissionpolicy.Validate(*pol, resource)
 			response = &res
 		}
 		results[&policies[i]] = ScanResult{response, multierr.Combine(errors...)}
