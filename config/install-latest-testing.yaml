@@ -49224,7 +49224,7 @@ rules:
     verbs:
       - update
   - apiGroups:
-    - apiextensions.k8s.io
+      - apiextensions.k8s.io
     resources:
       - customresourcedefinitions/status
     verbs:
@@ -49397,13 +49397,24 @@ rules:
     verbs:
       - list
       - watch
-      - get
-      - patch
+      - update
   - apiGroups:
       - kyverno.io
     resources:
       - clustercleanuppolicies/status
       - cleanuppolicies/status
+    verbs:
+      - update
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+    verbs:
+      - get
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions/status
     verbs:
       - update
   - apiGroups:

@@ -29,41 +29,12 @@ spec:
         - name: kubectl
           image: {{ (include "kyverno.image" (dict "globalRegistry" ((.Values.global).image).registry "image" .Values.crdsMigration.image "defaultTag" (default .Chart.AppVersion .Values.crdsMigration.image.tag))) | quote }}
           imagePullPolicy: {{ .Values.crdsMigration.image.pullPolicy }}
-          command:
-            - /bin/bash
-            - -c
-            - |
-              NAMESPACES=$(kubectl get namespaces -o=jsonpath='{.items[*].metadata.name}')
-
-              for ns in $NAMESPACES; do
-                # Get cleanup policies
-                CLEANUP_POLICIES=$(kubectl get cleanpol -n $ns -o=jsonpath='{.items[*].metadata.name}')
-
-                # Check if there are any cleanup policies
-                if [ -z "$CLEANUP_POLICIES" ]; then
-                echo "No cleanup policies found in the namespace: $ns"
-                fi
-
-                # Reapply each cleanup policy
-                for pol in $CLEANUP_POLICIES; do
-                  echo "Reapplying cleanup policy: $pol"
-                  kubectl apply -f <(kubectl get cleanpol -n $ns $pol -o=json)
-                done
-              done
-
-              # Get clustercleanup policies
-              CCLEANUP_POLICIES=$(kubectl get ccleanpol -o=jsonpath='{.items[*].metadata.name}')
-
-              # Check if there are any clustercleanup policies
-              if [ -z "$CCLEANUP_POLICIES" ]; then
-              echo "No clustercleanup policies found."
-              fi
-
-              # Reapply each clustercleanup policy
-              for pol in $CCLEANUP_POLICIES; do
-                echo "Reapplying clustercleanup policy: $pol"
-                kubectl apply -f <(kubectl get ccleanpol $pol -o=json)
-              done
+          args:
+            - migrate
+            - --resource
+            - cleanuppolicies.kyverno.io
+            - --resource
+            - clustercleanuppolicies.kyverno.io
           {{- with .Values.crdsMigration.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
