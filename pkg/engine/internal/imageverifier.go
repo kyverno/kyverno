@@ -385,7 +385,7 @@ func (iv *ImageVerifier) verifyAttestations(
 ) (*engineapi.RuleResponse, string) {
 	image := imageInfo.String()
 	for i, attestation := range imageVerify.Attestations {
-		var attestationError error
+		var errorList []error
 		path := fmt.Sprintf(".attestations[%d]", i)
 
 		iv.logger.V(2).Info(fmt.Sprintf("attestation %+v", attestation))
@@ -408,12 +408,14 @@ func (iv *ImageVerifier) verifyAttestations(
 			verifiedCount := 0
 
 			for _, a := range attestor.Entries {
+				var attestationError error
 				entryPath := fmt.Sprintf("%s.entries[%d]", attestorPath, i)
 				v, opts, subPath := iv.buildVerifier(a, imageVerify, image, &imageVerify.Attestations[i])
 				cosignResp, err := v.FetchAttestations(ctx, *opts)
 				if err != nil {
 					iv.logger.Error(err, "failed to fetch attestations")
-					return iv.handleRegistryErrors(image, err), ""
+					errorList = append(errorList, err)
+					continue
 				}
 
 				if imageInfo.Digest == "" {
@@ -422,20 +424,27 @@ func (iv *ImageVerifier) verifyAttestations(
 				}
 
 				attestationError = iv.verifyAttestation(cosignResp.Statements, attestation, imageInfo)
-				if attestationError != nil {
-					attestationError = fmt.Errorf("%s: %w", entryPath+subPath, attestationError)
-					return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, attestationError.Error()), ""
-				}
 
-				verifiedCount++
-				if verifiedCount >= requiredCount {
-					iv.logger.V(2).Info("image attestations verification succeeded", "verifiedCount", verifiedCount, "requiredCount", requiredCount)
-					break
+				if attestationError == nil {
+					verifiedCount++
+					if verifiedCount >= requiredCount {
+						iv.logger.V(2).Info("image attestations verification succeeded", "verifiedCount", verifiedCount, "requiredCount", requiredCount)
+						break
+					}
+				} else {
+					attestationError = fmt.Errorf("%s: %w", entryPath+subPath, attestationError)
+					iv.logger.Error(attestationError, "image attestation verification failed")
+					errorList = append(errorList, attestationError)
 				}
 			}
 
+			err := multierr.Combine(errorList...)
+			errMsg := "attestations verification failed"
+			if err != nil {
+				errMsg = err.Error()
+			}
 			if verifiedCount < requiredCount {
-				msg := fmt.Sprintf("image attestations verification failed, verifiedCount: %v, requiredCount: %v", verifiedCount, requiredCount)
+				msg := fmt.Sprintf("image attestations verification failed, verifiedCount: %v, requiredCount: %v, error: %s", verifiedCount, requiredCount, errMsg)
 				return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg), ""
 			}
 		}
