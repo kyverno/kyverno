@@ -40,6 +40,12 @@ spec:
             items:
               type: string
             type: array
+          policyExceptions:
+            description: Policy Exceptions are the policy exceptions to be used in
+              the test
+            items:
+              type: string
+            type: array
           resources:
             description: Resources are the resource to be used in the test
             items:
