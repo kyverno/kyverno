@@ -127,7 +127,7 @@ spec:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, policy, _ := yamlutils.GetPolicy(tt.policy)
+			_, policy, _, _ := yamlutils.GetPolicy(tt.policy)
 			kinds := GetKinds(policy[0])
 			if !reflect.DeepEqual(kinds, tt.wantKinds) {
 				t.Errorf("Expected %v, got %v", tt.wantKinds, kinds)
