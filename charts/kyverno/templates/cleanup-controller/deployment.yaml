@@ -29,7 +29,7 @@ spec:
       {{- end }}
     spec:
       {{- with .Values.cleanupController.imagePullSecrets }}
-      imagePullSecrets: 
+      imagePullSecrets:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
       {{- with .Values.cleanupController.podSecurityContext }}
@@ -86,6 +86,11 @@ spec:
           - containerPort: 8000
             name: metrics
             protocol: TCP
+          {{ if .Values.cleanupController.profiling.enabled }}
+          - containerPort: {{ .Values.cleanupController.profiling.port }}
+            name: profiling-port
+            protocol: TCP
+          {{- end }}
           args:
             - --caSecretName={{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-ca
             - --tlsSecretName={{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-pair
@@ -121,6 +126,10 @@ spec:
             {{- if $value }}
             - --{{ $key }}={{ $value }}
             {{- end }}
+            {{- end }}
+            {{ if .Values.cleanupController.profiling.enabled }}
+            - --profile=true
+            - --profilePort={{ .Values.cleanupController.profiling.port }}
             {{- end }}
           env:
           - name: KYVERNO_DEPLOYMENT
