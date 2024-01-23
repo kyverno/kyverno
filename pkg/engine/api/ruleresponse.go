@@ -44,14 +44,21 @@ type RuleResponse struct {
 	podSecurityChecks *PodSecurityChecks
 	// exception is the exception applied (if any)
 	exception *kyvernov2beta1.PolicyException
+	// emitWarning enable passing rule message as warning to api server warning header
+	emitWarning bool
 }
 
 func NewRuleResponse(name string, ruleType RuleType, msg string, status RuleStatus) *RuleResponse {
+	emitWarn := false
+	if status == RuleStatusError || status == RuleStatusFail || status == RuleStatusWarn {
+		emitWarn = true
+	}
 	return &RuleResponse{
-		name:     name,
-		ruleType: ruleType,
-		message:  msg,
-		status:   status,
+		name:        name,
+		ruleType:    ruleType,
+		message:     msg,
+		status:      status,
+		emitWarning: emitWarn,
 	}
 }
 
@@ -105,6 +112,11 @@ func (r RuleResponse) WithStats(stats ExecutionStats) RuleResponse {
 	return r
 }
 
+func (r RuleResponse) WithEmitWarning(emitWarning bool) *RuleResponse {
+	r.emitWarning = emitWarning
+	return &r
+}
+
 func (r *RuleResponse) Stats() ExecutionStats {
 	return r.stats
 }
@@ -143,6 +155,10 @@ func (r *RuleResponse) RuleType() RuleType {
 
 func (r *RuleResponse) Status() RuleStatus {
 	return r.status
+}
+
+func (r *RuleResponse) EmitWarning() bool {
+	return r.emitWarning
 }
 
 // HasStatus checks if rule status is in a given list
