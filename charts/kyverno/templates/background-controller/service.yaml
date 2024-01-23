@@ -1,5 +1,6 @@
 {{- if .Values.backgroundController.enabled -}}
 {{- if .Values.backgroundController.metricsService.create -}}
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -24,4 +25,26 @@ spec:
     {{- include "kyverno.background-controller.matchLabels" . | nindent 4 }}
   type: {{ .Values.backgroundController.metricsService.type }}
 {{- end -}}
+{{- end -}}
+{{- if .Values.backgroundController.profiling.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "kyverno.background-controller.name" . }}-profiling
+  namespace: {{ template "kyverno.namespace" . }}
+  labels:
+    {{- include "kyverno.background-controller.labels" . | nindent 4 }}
+spec:
+  ports:
+  - port: {{ .Values.backgroundController.profiling.port }}
+    targetPort: {{ .Values.backgroundController.profiling.port }}
+    protocol: TCP
+    name: profiling-port
+    {{- if and (eq .Values.backgroundController.profiling.serviceType "NodePort") (not (empty .Values.backgroundController.profiling.nodePort)) }}
+    nodePort: {{ .Values.backgroundController.profiling.nodePort }}
+    {{- end }}
+  selector:
+    {{- include "kyverno.background-controller.matchLabels" . | nindent 4 }}
+  type: {{ .Values.backgroundController.profiling.serviceType }}
 {{- end -}}

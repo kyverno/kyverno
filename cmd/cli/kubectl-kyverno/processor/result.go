@@ -1,7 +1,6 @@
 package processor
 
 import (
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy/annotations"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -34,7 +33,7 @@ func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.Eng
 		if polType := genericPolicy.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
 			return
 		}
-		policy := genericPolicy.GetPolicy().(kyvernov1.PolicyInterface)
+		policy := genericPolicy.AsKyvernoPolicy()
 		scored := annotations.Scored(policy.GetAnnotations())
 		for _, rule := range autogen.ComputeRules(policy) {
 			if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
@@ -72,7 +71,7 @@ func (rc *ResultCounts) addGenerateResponse(auditWarn bool, resPath string, resp
 	if polType := genericPolicy.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
 		return
 	}
-	policy := genericPolicy.GetPolicy().(kyvernov1.PolicyInterface)
+	policy := genericPolicy.AsKyvernoPolicy()
 	for _, policyRule := range autogen.ComputeRules(policy) {
 		for _, ruleResponse := range response.PolicyResponse.Rules {
 			if policyRule.Name == ruleResponse.Name() {
@@ -96,7 +95,7 @@ func (rc *ResultCounts) addMutateResponse(resourcePath string, response engineap
 	if polType := genericPolicy.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
 		return false
 	}
-	policy := genericPolicy.GetPolicy().(kyvernov1.PolicyInterface)
+	policy := genericPolicy.AsKyvernoPolicy()
 	var policyHasMutate bool
 	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.HasMutate() {

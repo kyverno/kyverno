@@ -324,9 +324,9 @@ func (c *controller) reconcileReport(
 			var key string
 			var err error
 			if policy.GetType() == engineapi.KyvernoPolicyType {
-				key, err = cache.MetaNamespaceKeyFunc(policy.GetPolicy().(kyvernov1.PolicyInterface))
+				key, err = cache.MetaNamespaceKeyFunc(policy.AsKyvernoPolicy())
 			} else {
-				key, err = cache.MetaNamespaceKeyFunc(policy.GetPolicy().(admissionregistrationv1alpha1.ValidatingAdmissionPolicy))
+				key, err = cache.MetaNamespaceKeyFunc(policy.AsValidatingAdmissionPolicy())
 			}
 			if err != nil {
 				return err
