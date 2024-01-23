@@ -30,9 +30,19 @@ func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePoli
 	}
 }
 
-func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.OperationType) []admissionregistrationv1.RuleWithOperations {
+func findKeyContainingSubstring(m map[string][]admissionregistrationv1.OperationType, substring string, defaultOpn []admissionregistrationv1.OperationType) []admissionregistrationv1.OperationType {
+	for key, value := range m {
+		if strings.Contains(strings.ToLower(key), strings.ToLower(substring)) || strings.Contains(strings.ToLower(substring), strings.ToLower(key)) {
+			return value
+		}
+	}
+	return defaultOpn
+}
+
+func (wh *webhook) buildRulesWithOperations(final map[string][]admissionregistrationv1.OperationType, defaultOpn []admissionregistrationv1.OperationType) []admissionregistrationv1.RuleWithOperations {
 	var rules []admissionregistrationv1.RuleWithOperations
 	for gv, resources := range wh.rules {
+		firstResource := sets.List(resources)[0]
 		// if we have pods, we add pods/ephemeralcontainers by default
 		if (gv.Group == "" || gv.Group == "*") && (gv.Version == "v1" || gv.Version == "*") && (resources.Has("pods") || resources.Has("*")) {
 			resources.Insert("pods/ephemeralcontainers")
@@ -43,7 +53,7 @@ func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.Opera
 				APIVersions: []string{gv.Version},
 				Resources:   sets.List(resources),
 			},
-			Operations: ops,
+			Operations: findKeyContainingSubstring(final, firstResource, defaultOpn),
 		})
 	}
 	less := func(a []string, b []string) (int, bool) {

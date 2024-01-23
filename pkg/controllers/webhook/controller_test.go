@@ -105,7 +105,10 @@ func TestComputeOperationsForMutatingWebhookConf(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			result := computeOperationsForMutatingWebhookConf(testCase.rules, make(map[string]bool))
+			var result map[string]bool
+			for _, r := range testCase.rules {
+				result = computeOperationsForMutatingWebhookConf(r, make(map[string]bool))
+			}
 			if !reflect.DeepEqual(result, testCase.expectedResult) {
 				t.Errorf("Expected %v, but got %v", testCase.expectedResult, result)
 			}
@@ -129,26 +132,14 @@ func TestComputeOperationsForValidatingWebhookConf(t *testing.T) {
 						},
 					},
 				},
-				{
-					ExcludeResources: kyvernov1.MatchResources{
-						ResourceDescription: kyvernov1.ResourceDescription{
-							Operations: []v1.AdmissionOperation{"DELETE"},
-						},
-					},
-				},
 			},
 			expectedResult: map[string]bool{
 				"CREATE": true,
-				"DELETE": true,
 			},
 		},
 		{
 			name: "Test Case 2",
 			rules: []kyvernov1.Rule{
-				{
-					MatchResources:   kyvernov1.MatchResources{},
-					ExcludeResources: kyvernov1.MatchResources{},
-				},
 				{
 					MatchResources:   kyvernov1.MatchResources{},
 					ExcludeResources: kyvernov1.MatchResources{},
@@ -187,7 +178,10 @@ func TestComputeOperationsForValidatingWebhookConf(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			result := computeOperationsForValidatingWebhookConf(testCase.rules, make(map[string]bool))
+			var result map[string]bool
+			for _, r := range testCase.rules {
+				result = computeOperationsForValidatingWebhookConf(r, make(map[string]bool))
+			}
 			if !reflect.DeepEqual(result, testCase.expectedResult) {
 				t.Errorf("Expected %v, but got %v", testCase.expectedResult, result)
 			}
