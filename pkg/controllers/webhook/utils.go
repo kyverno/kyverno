@@ -7,6 +7,7 @@ import (
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/config"
 	"golang.org/x/exp/maps"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -168,8 +169,8 @@ func webhookNameAndPath(wh webhook, baseName, basePath string) (name string, pat
 		path = basePath + "/fail"
 	}
 	if wh.policyMeta.Name != "" {
-		name = name + "-fine-grained-" + wh.key("-")
-		path = path + "/matchconditions/" + wh.key("/")
+		name = name + "-finegrained-" + wh.key("-")
+		path = path + config.FineGrainedWebhookPath + "/" + wh.key("/")
 	}
 	return name, path
 }

@@ -651,20 +651,20 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 		for _, p := range policies {
 			if p.AdmissionProcessingEnabled() {
 				spec := p.GetSpec()
-				if spec.CustomWebhookConfigurations() {
-					fineGrainedIgnore := newWebhookPerPolicy(c.defaultTimeout, ignore, cfg.GetMatchConditions(), p)
-					fineGrainedFail := newWebhookPerPolicy(c.defaultTimeout, fail, cfg.GetMatchConditions(), p)
-					if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
-						c.mergeWebhook(fineGrainedIgnore, p, true)
-						fineGrainedIgnoreList = append(fineGrainedIgnoreList, fineGrainedIgnore)
-					} else {
-						c.mergeWebhook(fineGrainedFail, p, true)
-						fineGrainedFailList = append(fineGrainedFailList, fineGrainedFail)
-					}
-					continue
-				}
-
 				if spec.HasMutateStandard() || spec.HasVerifyImages() {
+					if spec.CustomWebhookConfigurations() {
+						fineGrainedIgnore := newWebhookPerPolicy(c.defaultTimeout, ignore, cfg.GetMatchConditions(), p)
+						fineGrainedFail := newWebhookPerPolicy(c.defaultTimeout, fail, cfg.GetMatchConditions(), p)
+						if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
+							c.mergeWebhook(fineGrainedIgnore, p, true)
+							fineGrainedIgnoreList = append(fineGrainedIgnoreList, fineGrainedIgnore)
+						} else {
+							c.mergeWebhook(fineGrainedFail, p, true)
+							fineGrainedFailList = append(fineGrainedFailList, fineGrainedFail)
+						}
+						continue
+					}
+
 					if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
 						c.mergeWebhook(ignoreWebhook, p, false)
 					} else {
@@ -787,20 +787,20 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 		for _, p := range policies {
 			if p.AdmissionProcessingEnabled() {
 				spec := p.GetSpec()
-				if spec.CustomWebhookConfigurations() {
-					fineGrainedIgnore := newWebhookPerPolicy(c.defaultTimeout, ignore, cfg.GetMatchConditions(), p)
-					fineGrainedFail := newWebhookPerPolicy(c.defaultTimeout, fail, cfg.GetMatchConditions(), p)
-					if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
-						c.mergeWebhook(fineGrainedIgnore, p, true)
-						fineGrainedIgnoreList = append(fineGrainedIgnoreList, fineGrainedIgnore)
-					} else {
-						c.mergeWebhook(fineGrainedFail, p, true)
-						fineGrainedFailList = append(fineGrainedFailList, fineGrainedFail)
-					}
-					continue
-				}
-
 				if spec.HasValidate() || spec.HasGenerate() || spec.HasMutateExisting() || spec.HasVerifyImageChecks() || spec.HasVerifyManifests() {
+					if spec.CustomWebhookConfigurations() {
+						fineGrainedIgnore := newWebhookPerPolicy(c.defaultTimeout, ignore, cfg.GetMatchConditions(), p)
+						fineGrainedFail := newWebhookPerPolicy(c.defaultTimeout, fail, cfg.GetMatchConditions(), p)
+						if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
+							c.mergeWebhook(fineGrainedIgnore, p, true)
+							fineGrainedIgnoreList = append(fineGrainedIgnoreList, fineGrainedIgnore)
+						} else {
+							c.mergeWebhook(fineGrainedFail, p, true)
+							fineGrainedFailList = append(fineGrainedFailList, fineGrainedFail)
+						}
+						continue
+					}
+
 					if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
 						c.mergeWebhook(ignoreWebhook, p, true)
 					} else {
