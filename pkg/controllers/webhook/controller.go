@@ -766,9 +766,7 @@ func scanResourceFilterForResources(resFilter kyvernov1.ResourceFilters) []strin
 	var resources []string
 	for _, rf := range resFilter {
 		if rf.ResourceDescription.Kinds != nil {
-			for _, k := range rf.ResourceDescription.Kinds {
-				resources = append(resources, k)
-			}
+			resources = append(resources, rf.ResourceDescription.Kinds...)
 		}
 	}
 	return resources
@@ -833,10 +831,8 @@ func addOpnForMutatingWebhookConf(rules []kyvernov1.Rule) map[string][]admission
 		for _, r := range resources {
 			mapResourceToOpn, mapResourceToOpnType = appendResource(r, mapResourceToOpn, operationStatusMap, mapResourceToOpnType)
 		}
-
 	}
 	return mapResourceToOpnType
-
 }
 
 func addOpnForValidatingWebhookConf(rules []kyvernov1.Rule) map[string][]admissionregistrationv1.OperationType {
@@ -850,19 +846,16 @@ func addOpnForValidatingWebhookConf(rules []kyvernov1.Rule) map[string][]admissi
 		for _, r := range resources {
 			mapResourceToOpn, mapResourceToOpnType = appendResource(r, mapResourceToOpn, operationStatusMap, mapResourceToOpnType)
 		}
-
 	}
 	return mapResourceToOpnType
-
 }
 
 func appendResource(r string, mapResourceToOpn map[string]map[string]bool, opnStatusMap map[string]bool, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) (map[string]map[string]bool, map[string][]admissionregistrationv1.OperationType) {
-
 	if _, exists := mapResourceToOpn[r]; exists {
 		opnStatMap1 := opnStatusMap
 		opnStatMap2 := mapResourceToOpn[r]
-		for opn, _ := range opnStatusMap {
-			if opnStatMap1[opn] == true || opnStatMap2[opn] == true {
+		for opn := range opnStatusMap {
+			if opnStatMap1[opn] || opnStatMap2[opn] {
 				opnStatusMap[opn] = true
 			}
 		}
@@ -879,7 +872,6 @@ func appendResource(r string, mapResourceToOpn map[string]map[string]bool, opnSt
 		mapResourceToOpnType[r] = getMinimumOperations(opnStatusMap)
 	}
 	return mapResourceToOpn, mapResourceToOpnType
-
 }
 
 func computeResourcesOfRule(r kyvernov1.Rule) []string {
@@ -897,14 +889,10 @@ func computeResourcesOfRule(r kyvernov1.Rule) []string {
 		resources = scanResourceFilterForResources(r.MatchResources.Any)
 	}
 	if r.MatchResources.ResourceDescription.Kinds != nil {
-		for _, k := range r.MatchResources.ResourceDescription.Kinds {
-			resources = append(resources, k)
-		}
+		resources = append(resources, r.MatchResources.ResourceDescription.Kinds...)
 	}
-	if r.MatchResources.ResourceDescription.Kinds != nil {
-		for _, k := range r.MatchResources.ResourceDescription.Kinds {
-			resources = append(resources, k)
-		}
+	if r.ExcludeResources.ResourceDescription.Kinds != nil {
+		resources = append(resources, r.ExcludeResources.ResourceDescription.Kinds...)
 	}
 	return resources
 }
