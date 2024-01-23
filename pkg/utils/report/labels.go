@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,13 +32,14 @@ const (
 	LabelDomainPolicy                    = "pol.kyverno.io"
 	LabelPrefixClusterPolicy             = LabelDomainClusterPolicy + "/"
 	LabelPrefixPolicy                    = LabelDomainPolicy + "/"
+	LabelPrefixPolicyException           = "polex.kyverno.io/"
 	LabelPrefixValidatingAdmissionPolicy = "validatingadmissionpolicy.apiserver.io/"
 	//	aggregated admission report label
 	LabelAggregatedReport = "audit.kyverno.io/report.aggregate"
 )
 
 func IsPolicyLabel(label string) bool {
-	return strings.HasPrefix(label, LabelPrefixPolicy) || strings.HasPrefix(label, LabelPrefixClusterPolicy)
+	return strings.HasPrefix(label, LabelPrefixPolicy) || strings.HasPrefix(label, LabelPrefixClusterPolicy) || strings.HasPrefix(label, LabelPrefixPolicyException)
 }
 
 func PolicyNameFromLabel(namespace, label string) (string, error) {
@@ -71,6 +73,10 @@ func PolicyLabelDomain(policy kyvernov1.PolicyInterface) string {
 
 func PolicyLabel(policy engineapi.GenericPolicy) string {
 	return PolicyLabelPrefix(policy) + policy.GetName()
+}
+
+func PolicyExceptionLabel(exception kyvernov2beta1.PolicyException) string {
+	return LabelPrefixPolicyException + exception.GetName()
 }
 
 func CleanupKyvernoLabels(obj metav1.Object) {
@@ -132,6 +138,10 @@ func SetResourceVersionLabels(report kyvernov1alpha2.ReportInterface, resource *
 
 func SetPolicyLabel(report kyvernov1alpha2.ReportInterface, policy engineapi.GenericPolicy) {
 	controllerutils.SetLabel(report, PolicyLabel(policy), policy.GetResourceVersion())
+}
+
+func SetPolicyExceptionLabel(report kyvernov1alpha2.ReportInterface, exception kyvernov2beta1.PolicyException) {
+	controllerutils.SetLabel(report, PolicyExceptionLabel(exception), exception.GetResourceVersion())
 }
 
 func GetResourceUid(report metav1.Object) types.UID {

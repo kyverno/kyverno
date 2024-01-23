@@ -19,8 +19,7 @@ func NewPolicyFailEvent(source Source, reason Reason, engineResponse engineapi.E
 	}
 	pol := engineResponse.Policy()
 	regarding := corev1.ObjectReference{
-		// TODO: iirc it's not safe to assume api version is set
-		APIVersion: "kyverno.io/v1",
+		APIVersion: pol.GetAPIVersion(),
 		Kind:       pol.GetKind(),
 		Name:       pol.GetName(),
 		Namespace:  pol.GetNamespace(),
@@ -78,7 +77,7 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 	var action Action
 	policy := engineResponse.Policy()
 	if policy.GetType() == engineapi.KyvernoPolicyType {
-		pol := engineResponse.Policy().GetPolicy().(kyvernov1.PolicyInterface)
+		pol := engineResponse.Policy().AsKyvernoPolicy()
 		hasValidate := pol.GetSpec().HasValidate()
 		hasVerifyImages := pol.GetSpec().HasVerifyImages()
 		hasMutate := pol.GetSpec().HasMutate()
@@ -94,8 +93,7 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 		action = ResourcePassed
 	}
 	regarding := corev1.ObjectReference{
-		// TODO: iirc it's not safe to assume api version is set
-		APIVersion: "kyverno.io/v1",
+		APIVersion: policy.GetAPIVersion(),
 		Kind:       policy.GetKind(),
 		Name:       policy.GetName(),
 		Namespace:  policy.GetNamespace(),
@@ -228,7 +226,7 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 	exception := ruleResp.Exception()
 	exceptionName, exceptionNamespace := exception.GetName(), exception.GetNamespace()
 	policyMessage := fmt.Sprintf("resource %s was skipped from rule %s due to policy exception %s/%s", resourceKey(engineResponse.PatchedResource), ruleResp.Name(), exceptionNamespace, exceptionName)
-	pol := engineResponse.Policy().GetPolicy().(kyvernov1.PolicyInterface)
+	pol := engineResponse.Policy().AsKyvernoPolicy()
 	var exceptionMessage string
 	if pol.GetNamespace() == "" {
 		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s", resourceKey(engineResponse.PatchedResource), pol.GetName(), ruleResp.Name())
