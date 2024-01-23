@@ -324,9 +324,9 @@ func (c *controller) reconcileReport(
 			var key string
 			var err error
 			if policy.GetType() == engineapi.KyvernoPolicyType {
-				key, err = cache.MetaNamespaceKeyFunc(policy.GetPolicy().(kyvernov1.PolicyInterface))
+				key, err = cache.MetaNamespaceKeyFunc(policy.AsKyvernoPolicy())
 			} else {
-				key, err = cache.MetaNamespaceKeyFunc(policy.GetPolicy().(admissionregistrationv1alpha1.ValidatingAdmissionPolicy))
+				key, err = cache.MetaNamespaceKeyFunc(policy.AsValidatingAdmissionPolicy())
 			}
 			if err != nil {
 				return err
@@ -361,7 +361,7 @@ func (c *controller) reconcileReport(
 			}
 		}
 		if full || reevaluate || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
-			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp)
+			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client)
 			for _, result := range scanner.ScanResource(ctx, *target, nsLabels, policy) {
 				if result.Error != nil {
 					return result.Error

@@ -29,7 +29,7 @@ spec:
       {{- end }}
     spec:
       {{- with .Values.backgroundController.imagePullSecrets }}
-      imagePullSecrets: 
+      imagePullSecrets:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
       {{- with .Values.backgroundController.podSecurityContext }}
@@ -86,6 +86,11 @@ spec:
           - containerPort: 8000
             name: metrics
             protocol: TCP
+          {{ if .Values.backgroundController.profiling.enabled }}
+          - containerPort: {{ .Values.backgroundController.profiling.port }}
+            name: profiling-port
+            protocol: TCP
+          {{- end }}
           args:
             {{- if .Values.backgroundController.tracing.enabled }}
             - --enableTracing
@@ -120,6 +125,10 @@ spec:
             {{- if $value }}
             - --{{ $key }}={{ $value }}
             {{- end }}
+            {{- end }}
+            {{ if .Values.backgroundController.profiling.enabled }}
+            - --profile=true
+            - --profilePort={{ .Values.backgroundController.profiling.port }}
             {{- end }}
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME
