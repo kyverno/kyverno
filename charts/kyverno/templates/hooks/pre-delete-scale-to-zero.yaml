@@ -1,18 +1,23 @@
 {{- if .Values.webhooksCleanup.enabled -}}
-  {{- if not .Values.templating.enabled -}}
+{{- if not .Values.templating.enabled -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ template "kyverno.fullname" . }}-hook-pre-delete
+  name: {{ template "kyverno.fullname" . }}-scale-to-zero
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.hooks.labels" . | nindent 4 }}
   annotations:
-    "helm.sh/hook": pre-delete
-    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+    helm.sh/hook: pre-delete
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
 spec:
   backoffLimit: 2
   template:
+    metadata:
+      {{- with .Values.webhooksCleanup.podLabels }}
+      labels:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
     spec:
       serviceAccount: {{ template "kyverno.admission-controller.serviceAccountName" . }}
       {{- with .Values.webhooksCleanup.podSecurityContext }}
@@ -63,5 +68,5 @@ spec:
           {{- tpl (toYaml .) $ | nindent 10 }}
         {{- end }}
       {{- end }}
-  {{- end -}}
+{{- end -}}
 {{- end -}}
