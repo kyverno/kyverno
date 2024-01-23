@@ -49507,7 +49507,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kyverno-cleanup-jobs
+  name: kyverno:cleanup-jobs
   labels:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
@@ -49845,7 +49845,7 @@ subjects:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: kyverno-cleanup-jobs
+  name: kyverno:cleanup-jobs
   labels:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
@@ -49853,7 +49853,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: kyverno-cleanup-jobs
+  name: kyverno:cleanup-jobs
 subjects:
   - kind: ServiceAccount
     name: kyverno-cleanup-jobs
@@ -50399,6 +50399,7 @@ spec:
             - --protectManagedResources=false
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
+            
           resources:
             limits:
               memory: 384Mi
@@ -50422,6 +50423,7 @@ spec:
           - containerPort: 8000
             name: metrics-port
             protocol: TCP
+          
           env:
           - name: INIT_CONFIG
             value: kyverno
@@ -50534,6 +50536,7 @@ spec:
           - containerPort: 8000
             name: metrics
             protocol: TCP
+          
           args:
             - --disableMetrics=false
             - --otelConfig=prometheus
@@ -50543,6 +50546,7 @@ spec:
             - --loggingFormat=text
             - --v=2
             - --enablePolicyException=true
+            
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME
             value: kyverno-background-controller
@@ -50633,6 +50637,7 @@ spec:
           - containerPort: 8000
             name: metrics
             protocol: TCP
+          
           args:
             - --caSecretName=kyverno-cleanup-controller.kyverno.svc.kyverno-tls-ca
             - --tlsSecretName=kyverno-cleanup-controller.kyverno.svc.kyverno-tls-pair
@@ -50647,6 +50652,7 @@ spec:
             - --loggingFormat=text
             - --v=2
             - --ttlReconciliationInterval=1m
+            
           env:
           - name: KYVERNO_DEPLOYMENT
             value: kyverno-cleanup-controller
@@ -50767,6 +50773,7 @@ spec:
           - containerPort: 8000
             name: metrics
             protocol: TCP
+          
           args:
             - --disableMetrics=false
             - --otelConfig=prometheus
@@ -50787,6 +50794,7 @@ spec:
             - --reportsChunkSize=1000
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
+            
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME
             value: kyverno-reports-controller
@@ -50852,7 +50860,7 @@ spec:
           serviceAccountName: kyverno-cleanup-jobs
           containers:
           - name: cleanup
-            image: "bitnami/kubectl:1.26.10"
+            image: "bitnami/kubectl:1.28.5"
             imagePullPolicy: 
             command:
             - /bin/sh
@@ -50900,7 +50908,7 @@ spec:
           serviceAccountName: kyverno-cleanup-jobs
           containers:
           - name: cleanup
-            image: "bitnami/kubectl:1.26.4"
+            image: "bitnami/kubectl:1.28.5"
             imagePullPolicy: 
             command:
             - /bin/sh
