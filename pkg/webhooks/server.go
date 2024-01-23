@@ -285,6 +285,6 @@ func registerWebhookHandlers(
 	mux.HandlerFunc("POST", basePath, builder(all).ToHandlerFunc(name))
 	mux.HandlerFunc("POST", basePath+"/ignore", builder(ignore).ToHandlerFunc(name))
 	mux.HandlerFunc("POST", basePath+"/fail", builder(fail).ToHandlerFunc(name))
-	mux.HandlerFunc("POST", basePath+"/ignore/matchconditions/*policy", builder(ignore).ToHandlerFunc(name))
-	mux.HandlerFunc("POST", basePath+"/fail/matchconditions/*policy", builder(fail).ToHandlerFunc(name))
+	mux.HandlerFunc("POST", basePath+"/ignore"+config.FineGrainedWebhookPath+"/*policy", builder(ignore).ToHandlerFunc(name))
+	mux.HandlerFunc("POST", basePath+"/fail"+config.FineGrainedWebhookPath+"/*policy", builder(fail).ToHandlerFunc(name))
 }

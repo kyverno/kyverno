@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -19,9 +18,6 @@ func (inner AdmissionHandler) WithAdmission(logger logr.Logger) HttpHandler {
 
 func (inner AdmissionHandler) withAdmission(logger logr.Logger) HttpHandler {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		params := httprouter.ParamsFromContext(request.Context())
-		fmt.Println("====", params.ByName("policy"))
-
 		startTime := time.Now()
 		if request.Body == nil {
 			HttpError(request.Context(), writer, request, logger, errors.New("empty body"), http.StatusBadRequest)
@@ -52,8 +48,11 @@ func (inner AdmissionHandler) withAdmission(logger logr.Logger) HttpHandler {
 			"uid", admissionReview.Request.UID,
 			"user", admissionReview.Request.UserInfo,
 		)
+
+		params := httprouter.ParamsFromContext(request.Context())
 		admissionRequest := AdmissionRequest{
 			AdmissionRequest: *admissionReview.Request,
+			URLParams:        params.ByName("policy"),
 		}
 		admissionResponse := inner(request.Context(), logger, admissionRequest, startTime)
 		admissionReview.Response = &admissionResponse
