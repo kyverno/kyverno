@@ -182,7 +182,8 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 	return admissionutils.MutationResponse(request.UID, patch, warnings...)
 }
 
-func (h *resourceHandlers) retrieveAndCategorizePolicies(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, failurePolicy string, mutation bool) (
+func (h *resourceHandlers) retrieveAndCategorizePolicies(
+	ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, failurePolicy string, mutation bool) (
 	[]kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, error) {
 	var policies, mutatePolicies, generatePolicies, imageVerifyValidatePolicies []kyvernov1.PolicyInterface
 	if request.URLParams == "" {

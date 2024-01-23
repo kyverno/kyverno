@@ -690,6 +690,7 @@ func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookC
 		if webhook.isEmpty() {
 			continue
 		}
+		failurePolicy := webhook.failurePolicy
 		timeout := capTimeout(webhook.maxWebhookTimeout)
 		name, path := webhookNameAndPath(*webhook, config.MutatingWebhookName, config.MutatingWebhookServicePath)
 		mutatingWebhooks = append(
@@ -698,7 +699,7 @@ func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookC
 				Name:                    name,
 				ClientConfig:            c.clientConfig(caBundle, path),
 				Rules:                   webhook.buildRulesWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update),
-				FailurePolicy:           &webhook.failurePolicy,
+				FailurePolicy:           &failurePolicy,
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
 				NamespaceSelector:       webhookCfg.NamespaceSelector,
@@ -833,13 +834,14 @@ func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhoo
 		}
 		timeout := capTimeout(webhook.maxWebhookTimeout)
 		name, path := webhookNameAndPath(*webhook, config.ValidatingWebhookName, config.ValidatingWebhookServicePath)
+		failurePolicy := webhook.failurePolicy
 		validatingWebhooks = append(
 			validatingWebhooks,
 			admissionregistrationv1.ValidatingWebhook{
 				Name:                    name,
 				ClientConfig:            c.clientConfig(caBundle, path),
 				Rules:                   webhook.buildRulesWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect),
-				FailurePolicy:           &webhook.failurePolicy,
+				FailurePolicy:           &failurePolicy,
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
 				NamespaceSelector:       webhookCfg.NamespaceSelector,
