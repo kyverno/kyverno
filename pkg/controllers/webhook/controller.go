@@ -656,10 +656,10 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 						fineGrainedIgnore := newWebhookPerPolicy(c.defaultTimeout, ignore, cfg.GetMatchConditions(), p)
 						fineGrainedFail := newWebhookPerPolicy(c.defaultTimeout, fail, cfg.GetMatchConditions(), p)
 						if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
-							c.mergeWebhook(fineGrainedIgnore, p, true)
+							c.mergeWebhook(fineGrainedIgnore, p, false)
 							fineGrainedIgnoreList = append(fineGrainedIgnoreList, fineGrainedIgnore)
 						} else {
-							c.mergeWebhook(fineGrainedFail, p, true)
+							c.mergeWebhook(fineGrainedFail, p, false)
 							fineGrainedFailList = append(fineGrainedFailList, fineGrainedFail)
 						}
 						continue

@@ -102,7 +102,7 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 	logger = logger.WithValues("kind", kind).WithValues("URLParams", request.URLParams)
 	logger.V(4).Info("received an admission request in validating webhook")
 
-	policies, mutatePolicies, generatePolicies, err := h.retrieveAndCategorizePolicies(ctx, logger, request, failurePolicy)
+	policies, mutatePolicies, generatePolicies, _, err := h.retrieveAndCategorizePolicies(ctx, logger, request, failurePolicy, false)
 	if err != nil {
 		return errorResponse(logger, request.UID, err, "failed to fetch policy with key")
 	}
@@ -139,11 +139,13 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 
 func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, failurePolicy string, startTime time.Time) handlers.AdmissionResponse {
 	kind := request.Kind.Kind
-	logger = logger.WithValues("kind", kind)
+	logger = logger.WithValues("kind", kind).WithValues("URLParams", request.URLParams)
 	logger.V(4).Info("received an admission request in mutating webhook")
-	gvr := schema.GroupVersionResource(request.Resource)
-	mutatePolicies := filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.Mutate, gvr, request.SubResource, request.Namespace)...)
-	verifyImagesPolicies := filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesMutate, gvr, request.SubResource, request.Namespace)...)
+
+	_, mutatePolicies, _, verifyImagesPolicies, err := h.retrieveAndCategorizePolicies(ctx, logger, request, failurePolicy, true)
+	if err != nil {
+		return errorResponse(logger, request.UID, err, "failed to fetch policy with key")
+	}
 	if len(mutatePolicies) == 0 && len(verifyImagesPolicies) == 0 {
 		logger.V(4).Info("no policies matched mutate admission request")
 		return admissionutils.ResponseSuccess(request.UID)
@@ -180,23 +182,28 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 	return admissionutils.MutationResponse(request.UID, patch, warnings...)
 }
 
-func (h *resourceHandlers) retrieveAndCategorizePolicies(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, failurePolicy string) ([]kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, error) {
+func (h *resourceHandlers) retrieveAndCategorizePolicies(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, failurePolicy string, mutation bool) (
+	[]kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, error) {
 	var policies, mutatePolicies, generatePolicies, imageVerifyValidatePolicies []kyvernov1.PolicyInterface
 	if request.URLParams == "" {
 		gvr := schema.GroupVersionResource(request.Resource)
 		policies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.ValidateEnforce, gvr, request.SubResource, request.Namespace)...)
 		mutatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.Mutate, gvr, request.SubResource, request.Namespace)...)
 		generatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.Generate, gvr, request.SubResource, request.Namespace)...)
-		imageVerifyValidatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesValidate, gvr, request.SubResource, request.Namespace)...)
-		policies = append(policies, imageVerifyValidatePolicies...)
+		if mutation {
+			imageVerifyValidatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesMutate, gvr, request.SubResource, request.Namespace)...)
+		} else {
+			imageVerifyValidatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesValidate, gvr, request.SubResource, request.Namespace)...)
+			policies = append(policies, imageVerifyValidatePolicies...)
+		}
 	} else {
 		meta := strings.Split(request.URLParams, "/")
-		polName := meta[0]
+		polName := meta[1]
 		polNamespace := ""
 
-		if len(meta) >= 2 {
-			polNamespace = meta[0]
-			polName = meta[1]
+		if len(meta) >= 3 {
+			polNamespace = meta[1]
+			polName = meta[2]
 		}
 
 		var policy kyvernov1.PolicyInterface
@@ -207,13 +214,13 @@ func (h *resourceHandlers) retrieveAndCategorizePolicies(ctx context.Context, lo
 			policy, err = h.polLister.Policies(polNamespace).Get(polName)
 		}
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("key %s/%s: %v", polNamespace, polName, err)
+			return nil, nil, nil, nil, fmt.Errorf("key %s/%s: %v", polNamespace, polName, err)
 		}
 
 		filteredPolicies := filterPolicies(ctx, failurePolicy, policy)
 		if len(filteredPolicies) == 0 {
 			logger.V(4).Info("no policy found with key", "namespace", polNamespace, "name", polName)
-			return nil, nil, nil, nil
+			return nil, nil, nil, nil, nil
 		}
 		policy = filteredPolicies[0]
 		spec := policy.GetSpec()
@@ -230,7 +237,7 @@ func (h *resourceHandlers) retrieveAndCategorizePolicies(ctx context.Context, lo
 			policies = append(policies, policy)
 		}
 	}
-	return policies, mutatePolicies, generatePolicies, nil
+	return policies, mutatePolicies, generatePolicies, imageVerifyValidatePolicies, nil
 }
 
 func filterPolicies(ctx context.Context, failurePolicy string, policies ...kyvernov1.PolicyInterface) []kyvernov1.PolicyInterface {
