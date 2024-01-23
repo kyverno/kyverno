@@ -637,7 +637,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 		ObjectMeta: objectMeta(config.MutatingWebhookConfigurationName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels(), c.buildOwner()...),
 		Webhooks:   []admissionregistrationv1.MutatingWebhook{},
 	}
-	var final map[string][]admissionregistrationv1.OperationType
+	var mapResourceToOpnType map[string][]admissionregistrationv1.OperationType
 	if c.watchdogCheck() {
 		ignore := newWebhook(c.defaultTimeout, ignore)
 		fail := newWebhook(c.defaultTimeout, fail)
@@ -657,7 +657,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 						c.mergeWebhook(fail, p, false)
 					}
 					rules := p.GetSpec().Rules
-					final = addOpnForMutatingWebhookConf(rules)
+					mapResourceToOpnType = addOpnForMutatingWebhookConf(rules)
 				}
 			}
 		}
@@ -673,7 +673,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 				admissionregistrationv1.MutatingWebhook{
 					Name:                    config.MutatingWebhookName + "-ignore",
 					ClientConfig:            c.clientConfig(caBundle, config.MutatingWebhookServicePath+"/ignore"),
-					Rules:                   ignore.buildRulesWithOperations(final, []admissionregistrationv1.OperationType{"CREATE", "UPDATE"}),
+					Rules:                   ignore.buildRulesWithOperations(mapResourceToOpnType, []admissionregistrationv1.OperationType{"CREATE", "UPDATE"}),
 					FailurePolicy:           &ignore.failurePolicy,
 					SideEffects:             &noneOnDryRun,
 					AdmissionReviewVersions: []string{"v1"},
@@ -692,7 +692,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 				admissionregistrationv1.MutatingWebhook{
 					Name:                    config.MutatingWebhookName + "-fail",
 					ClientConfig:            c.clientConfig(caBundle, config.MutatingWebhookServicePath+"/fail"),
-					Rules:                   fail.buildRulesWithOperations(final, []admissionregistrationv1.OperationType{"CREATE", "UPDATE"}),
+					Rules:                   fail.buildRulesWithOperations(mapResourceToOpnType, []admissionregistrationv1.OperationType{"CREATE", "UPDATE"}),
 					FailurePolicy:           &fail.failurePolicy,
 					SideEffects:             &noneOnDryRun,
 					AdmissionReviewVersions: []string{"v1"},
@@ -823,62 +823,62 @@ func computeOperationsForValidatingWebhookConf(r kyvernov1.Rule, operationStatus
 }
 
 func addOpnForMutatingWebhookConf(rules []kyvernov1.Rule) map[string][]admissionregistrationv1.OperationType {
-	var experiment map[string]map[string]bool
-	var final map[string][]admissionregistrationv1.OperationType
+	var mapResourceToOpn map[string]map[string]bool
+	var mapResourceToOpnType map[string][]admissionregistrationv1.OperationType
 	for _, r := range rules {
 		var resources []string
 		operationStatusMap := getOperationStatusMap()
 		operationStatusMap = computeOperationsForMutatingWebhookConf(r, operationStatusMap)
 		resources = computeResourcesOfRule(r)
 		for _, r := range resources {
-			experiment, final = appendResource(r, experiment, operationStatusMap, final)
+			mapResourceToOpn, mapResourceToOpnType = appendResource(r, mapResourceToOpn, operationStatusMap, mapResourceToOpnType)
 		}
 
 	}
-	return final
+	return mapResourceToOpnType
 
 }
 
 func addOpnForValidatingWebhookConf(rules []kyvernov1.Rule) map[string][]admissionregistrationv1.OperationType {
-	var experiment map[string]map[string]bool
-	var final map[string][]admissionregistrationv1.OperationType
+	var mapResourceToOpn map[string]map[string]bool
+	var mapResourceToOpnType map[string][]admissionregistrationv1.OperationType
 	for _, r := range rules {
 		var resources []string
 		operationStatusMap := getOperationStatusMap()
 		operationStatusMap = computeOperationsForValidatingWebhookConf(r, operationStatusMap)
 		resources = computeResourcesOfRule(r)
 		for _, r := range resources {
-			experiment, final = appendResource(r, experiment, operationStatusMap, final)
+			mapResourceToOpn, mapResourceToOpnType = appendResource(r, mapResourceToOpn, operationStatusMap, mapResourceToOpnType)
 		}
 
 	}
-	return final
+	return mapResourceToOpnType
 
 }
 
-func appendResource(r string, experiment map[string]map[string]bool, opnStatusMap map[string]bool, final map[string][]admissionregistrationv1.OperationType) (map[string]map[string]bool, map[string][]admissionregistrationv1.OperationType) {
+func appendResource(r string, mapResourceToOpn map[string]map[string]bool, opnStatusMap map[string]bool, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) (map[string]map[string]bool, map[string][]admissionregistrationv1.OperationType) {
 
-	if _, exists := experiment[r]; exists {
+	if _, exists := mapResourceToOpn[r]; exists {
 		opnStatMap1 := opnStatusMap
-		opnStatMap2 := experiment[r]
+		opnStatMap2 := mapResourceToOpn[r]
 		for opn, _ := range opnStatusMap {
 			if opnStatMap1[opn] == true || opnStatMap2[opn] == true {
 				opnStatusMap[opn] = true
 			}
 		}
-		experiment[r] = opnStatusMap
-		final[r] = getMinimumOperations(opnStatusMap)
+		mapResourceToOpn[r] = opnStatusMap
+		mapResourceToOpnType[r] = getMinimumOperations(opnStatusMap)
 	} else {
-		if experiment == nil {
-			experiment = make(map[string]map[string]bool)
+		if mapResourceToOpn == nil {
+			mapResourceToOpn = make(map[string]map[string]bool)
 		}
-		experiment[r] = opnStatusMap
-		if final == nil {
-			final = make(map[string][]admissionregistrationv1.OperationType)
+		mapResourceToOpn[r] = opnStatusMap
+		if mapResourceToOpnType == nil {
+			mapResourceToOpnType = make(map[string][]admissionregistrationv1.OperationType)
 		}
-		final[r] = getMinimumOperations(opnStatusMap)
+		mapResourceToOpnType[r] = getMinimumOperations(opnStatusMap)
 	}
-	return experiment, final
+	return mapResourceToOpn, mapResourceToOpnType
 
 }
 
@@ -969,7 +969,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 		ObjectMeta: objectMeta(config.ValidatingWebhookConfigurationName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels(), c.buildOwner()...),
 		Webhooks:   []admissionregistrationv1.ValidatingWebhook{},
 	}
-	var final map[string][]admissionregistrationv1.OperationType
+	var mapResourceToOpnType map[string][]admissionregistrationv1.OperationType
 	if c.watchdogCheck() {
 		ignore := newWebhook(c.defaultTimeout, ignore)
 		fail := newWebhook(c.defaultTimeout, fail)
@@ -990,7 +990,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 				}
 			}
 			rules := p.GetSpec().Rules
-			final = addOpnForValidatingWebhookConf(rules)
+			mapResourceToOpnType = addOpnForValidatingWebhookConf(rules)
 		}
 		webhookCfg := config.WebhookConfig{}
 		webhookCfgs := cfg.GetWebhooks()
@@ -1008,7 +1008,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 				admissionregistrationv1.ValidatingWebhook{
 					Name:                    config.ValidatingWebhookName + "-ignore",
 					ClientConfig:            c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/ignore"),
-					Rules:                   ignore.buildRulesWithOperations(final, []admissionregistrationv1.OperationType{"CREATE", "UPDATE", "DELETE", "CONNECT"}),
+					Rules:                   ignore.buildRulesWithOperations(mapResourceToOpnType, []admissionregistrationv1.OperationType{"CREATE", "UPDATE", "DELETE", "CONNECT"}),
 					FailurePolicy:           &ignore.failurePolicy,
 					SideEffects:             sideEffects,
 					AdmissionReviewVersions: []string{"v1"},
@@ -1026,7 +1026,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 				admissionregistrationv1.ValidatingWebhook{
 					Name:                    config.ValidatingWebhookName + "-fail",
 					ClientConfig:            c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/fail"),
-					Rules:                   fail.buildRulesWithOperations(final, []admissionregistrationv1.OperationType{"CREATE", "UPDATE", "DELETE", "CONNECT"}),
+					Rules:                   fail.buildRulesWithOperations(mapResourceToOpnType, []admissionregistrationv1.OperationType{"CREATE", "UPDATE", "DELETE", "CONNECT"}),
 					FailurePolicy:           &fail.failurePolicy,
 					SideEffects:             sideEffects,
 					AdmissionReviewVersions: []string{"v1"},
