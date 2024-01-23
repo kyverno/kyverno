@@ -1,3 +1,4 @@
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -20,8 +21,8 @@ spec:
   selector:
     {{- include "kyverno.admission-controller.matchLabels" . | nindent 4 }}
   type: {{ .Values.admissionController.service.type }}
----
 {{- if .Values.admissionController.metricsService.create }}
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -44,4 +45,26 @@ spec:
   selector:
     {{- include "kyverno.admission-controller.matchLabels" . | nindent 4 }}
   type: {{ .Values.admissionController.metricsService.type }}
+{{- end -}}
+{{- if .Values.admissionController.profiling.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "kyverno.admission-controller.serviceName" . }}-profiling
+  namespace: {{ template "kyverno.namespace" . }}
+  labels:
+    {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
+spec:
+  ports:
+  - port: {{ .Values.admissionController.profiling.port }}
+    targetPort: {{ .Values.admissionController.profiling.port }}
+    protocol: TCP
+    name: profiling-port
+    {{- if and (eq .Values.admissionController.profiling.serviceType "NodePort") (not (empty .Values.admissionController.profiling.nodePort)) }}
+    nodePort: {{ .Values.admissionController.profiling.nodePort }}
+    {{- end }}
+  selector:
+    {{- include "kyverno.admission-controller.matchLabels" . | nindent 4 }}
+  type: {{ .Values.admissionController.profiling.serviceType }}
 {{- end -}}
