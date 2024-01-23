@@ -76,6 +76,12 @@ func Command() *cobra.Command {
 		Example:      command.FormatExamples(examples...),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			defer func() {
+				if err := recover(); err != nil {
+					// Handle the panic here
+					fmt.Println("Note: The current version of the CLI does not support the specified rule type.")
+				}
+			}()
 			out := cmd.OutOrStdout()
 			color.Init(removeColor)
 			applyCommandConfig.PolicyPaths = args
