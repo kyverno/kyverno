@@ -131,11 +131,18 @@ func Validate(policyData PolicyData, resource unstructured.Unstructured, client 
 			for _, binding := range bindings {
 				// convert policy binding from v1alpha1 to v1beta1
 				var namespaceSelector, objectSelector, paramSelector metav1.LabelSelector
-				if binding.Spec.MatchResources.NamespaceSelector != nil {
-					namespaceSelector = *binding.Spec.MatchResources.NamespaceSelector
-				}
-				if binding.Spec.MatchResources.ObjectSelector != nil {
-					objectSelector = *binding.Spec.MatchResources.ObjectSelector
+				var resourceRules, excludeResourceRules []v1alpha1.NamedRuleWithOperations
+				var matchPolicy *v1alpha1.MatchPolicyType
+				if binding.Spec.MatchResources != nil {
+					if binding.Spec.MatchResources.NamespaceSelector != nil {
+						namespaceSelector = *binding.Spec.MatchResources.NamespaceSelector
+					}
+					if binding.Spec.MatchResources.ObjectSelector != nil {
+						objectSelector = *binding.Spec.MatchResources.ObjectSelector
+					}
+					resourceRules = binding.Spec.MatchResources.ResourceRules
+					excludeResourceRules = binding.Spec.MatchResources.ExcludeResourceRules
+					matchPolicy = binding.Spec.MatchResources.MatchPolicy
 				}
 
 				var paramRef v1beta1.ParamRef
@@ -157,9 +164,9 @@ func Validate(policyData PolicyData, resource unstructured.Unstructured, client 
 						MatchResources: &v1beta1.MatchResources{
 							NamespaceSelector:    &namespaceSelector,
 							ObjectSelector:       &objectSelector,
-							ResourceRules:        convertRules(binding.Spec.MatchResources.ResourceRules),
-							ExcludeResourceRules: convertRules(binding.Spec.MatchResources.ExcludeResourceRules),
-							MatchPolicy:          (*v1beta1.MatchPolicyType)(binding.Spec.MatchResources.MatchPolicy),
+							ResourceRules:        convertRules(resourceRules),
+							ExcludeResourceRules: convertRules(excludeResourceRules),
+							MatchPolicy:          (*v1beta1.MatchPolicyType)(matchPolicy),
 						},
 						ValidationActions: convertValidationActions(binding.Spec.ValidationActions),
 					},
