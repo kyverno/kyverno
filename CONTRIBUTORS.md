@@ -9,4 +9,4 @@ Contributors are those who have made enough contributions to the project as defi
 | Swastik Gour             | [@swastik959](https://github.com/swastik959)           |
 | Amit Kumar               | [@hackeramitkumar](https://github.com/hackeramitkumar) |
 | Khaled Emara             | [@KhaledEmaraDev](https://github.com/KhaledEmaraDev)   |
-| Anushka Mittak           | [@anushkamittal2001](https://github.com/anushkamittal2001)|
+| Anushka Mittal           | [@anushkamittal2001](https://github.com/anushkamittal2001)|
