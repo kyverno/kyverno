@@ -49449,6 +49449,7 @@ rules:
       - clusteradmissionreports
       - backgroundscanreports
       - clusterbackgroundscanreports
+      - policyexceptions
     verbs:
       - create
       - delete
@@ -49489,6 +49490,34 @@ rules:
       - subjectaccessreviews
     verbs:
       - create
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ''
+    resources:
+      - configmaps
+      - namespaces
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - create
+      - update
+      - patch
+      - get
+      - list
+      - watch
   - apiGroups:
       - '*'
     resources:
@@ -49932,12 +49961,25 @@ rules:
       - list
       - watch
   - apiGroups:
+      - ''
+    resources:
+      - secrets
+      - configmaps
+      - namespaces
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
       - kyverno.io
     resources:
       - admissionreports
       - clusteradmissionreports
       - backgroundscanreports
       - clusterbackgroundscanreports
+      - policyexceptions
+      - policies
+      - clusterpolicies
     verbs:
       - create
       - delete
