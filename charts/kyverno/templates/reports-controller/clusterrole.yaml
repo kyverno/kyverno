@@ -43,6 +43,22 @@ rules:
       - watch
       - deletecollection
   - apiGroups:
+      - reports.kyverno.io
+    resources:
+      - admissionreports
+      - clusteradmissionreports
+      - backgroundscanreports
+      - clusterbackgroundscanreports
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+      - deletecollection
+  - apiGroups:
       - wgpolicyk8s.io
     resources:
       - policyreports
