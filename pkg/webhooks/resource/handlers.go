@@ -109,7 +109,6 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 
 	if len(policies) == 0 && len(mutatePolicies) == 0 && len(generatePolicies) == 0 {
 		logger.V(4).Info("no policies matched admission request")
-		return admissionutils.ResponseSuccess(request.UID)
 	}
 
 	logger.V(4).Info("processing policies for validate admission request", "validate", len(policies), "mutate", len(mutatePolicies), "generate", len(generatePolicies))
