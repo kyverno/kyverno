@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	kyvernoreports "github.com/kyverno/kyverno/api/kyverno/reports/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -12,13 +13,13 @@ import (
 
 func DeleteReport(ctx context.Context, report kyvernov1alpha2.ReportInterface, client versioned.Interface) error {
 	switch v := report.(type) {
-	case *kyvernov1alpha2.AdmissionReport:
+	case *kyvernoreports.AdmissionReport:
 		return client.ReportsV1().AdmissionReports(report.GetNamespace()).Delete(ctx, v.GetName(), metav1.DeleteOptions{})
-	case *kyvernov1alpha2.ClusterAdmissionReport:
+	case *kyvernoreports.ClusterAdmissionReport:
 		return client.ReportsV1().ClusterAdmissionReports().Delete(ctx, v.GetName(), metav1.DeleteOptions{})
-	case *kyvernov1alpha2.BackgroundScanReport:
+	case *kyvernoreports.BackgroundScanReport:
 		return client.ReportsV1().BackgroundScanReports(report.GetNamespace()).Delete(ctx, v.GetName(), metav1.DeleteOptions{})
-	case *kyvernov1alpha2.ClusterBackgroundScanReport:
+	case *kyvernoreports.ClusterBackgroundScanReport:
 		return client.ReportsV1().ClusterBackgroundScanReports().Delete(ctx, v.GetName(), metav1.DeleteOptions{})
 	case *policyreportv1alpha2.PolicyReport:
 		return client.Wgpolicyk8sV1alpha2().PolicyReports(report.GetNamespace()).Delete(ctx, v.GetName(), metav1.DeleteOptions{})

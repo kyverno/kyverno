@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	kyvernoreports "github.com/kyverno/kyverno/api/kyverno/reports/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -12,16 +13,16 @@ import (
 
 func UpdateReport(ctx context.Context, report kyvernov1alpha2.ReportInterface, client versioned.Interface) (kyvernov1alpha2.ReportInterface, error) {
 	switch v := report.(type) {
-	case *kyvernov1alpha2.AdmissionReport:
+	case *kyvernoreports.AdmissionReport:
 		report, err := client.ReportsV1().AdmissionReports(report.GetNamespace()).Update(ctx, v, metav1.UpdateOptions{})
 		return report, err
-	case *kyvernov1alpha2.ClusterAdmissionReport:
+	case *kyvernoreports.ClusterAdmissionReport:
 		report, err := client.ReportsV1().ClusterAdmissionReports().Update(ctx, v, metav1.UpdateOptions{})
 		return report, err
-	case *kyvernov1alpha2.BackgroundScanReport:
+	case *kyvernoreports.BackgroundScanReport:
 		report, err := client.ReportsV1().BackgroundScanReports(report.GetNamespace()).Update(ctx, v, metav1.UpdateOptions{})
 		return report, err
-	case *kyvernov1alpha2.ClusterBackgroundScanReport:
+	case *kyvernoreports.ClusterBackgroundScanReport:
 		report, err := client.ReportsV1().ClusterBackgroundScanReports().Update(ctx, v, metav1.UpdateOptions{})
 		return report, err
 	case *policyreportv1alpha2.PolicyReport:

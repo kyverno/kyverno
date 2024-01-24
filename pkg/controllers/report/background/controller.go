@@ -199,9 +199,9 @@ func (c *controller) enqueueResources() {
 
 func (c *controller) getReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
-		return c.kyvernoclient.ReportsV1().ClusterBackgroundScanReports().Get(ctx, name, metav1.GetOptions{})
+		return c.kyvernoClient.ReportsV1().ClusterBackgroundScanReports().Get(ctx, name, metav1.GetOptions{})
 	} else {
-		return c.kyvernoclient.ReportsV1().BackgroundScanReports(namespace).Get(ctx, name, metav1.GetOptions{})
+		return c.kyvernoClient.ReportsV1().BackgroundScanReports(namespace).Get(ctx, name, metav1.GetOptions{})
 	}
 }
 
@@ -406,9 +406,9 @@ func (c *controller) storeReport(ctx context.Context, observed, desired kyvernov
 		return err
 	} else if hasReport && !wantsReport {
 		if observed.GetNamespace() == "" {
-			return c.kyvernoclient.ReportsV1().ClusterBackgroundScanReports().Delete(ctx, observed.GetName(), metav1.DeleteOptions{})
+			return c.kyvernoClient.ReportsV1().ClusterBackgroundScanReports().Delete(ctx, observed.GetName(), metav1.DeleteOptions{})
 		} else {
-			return c.kyvernoclient.ReportsV1().BackgroundScanReports(observed.GetNamespace()).Delete(ctx, observed.GetName(), metav1.DeleteOptions{})
+			return c.kyvernoClient.ReportsV1().BackgroundScanReports(observed.GetNamespace()).Delete(ctx, observed.GetName(), metav1.DeleteOptions{})
 		}
 	} else {
 		if utils.ReportsAreIdentical(observed, desired) {
@@ -434,9 +434,9 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 			return nil
 		} else {
 			if report.GetNamespace() == "" {
-				return c.kyvernoclient.ReportsV1().ClusterBackgroundScanReports().Delete(ctx, report.GetName(), metav1.DeleteOptions{})
+				return c.kyvernoClient.ReportsV1().ClusterBackgroundScanReports().Delete(ctx, report.GetName(), metav1.DeleteOptions{})
 			} else {
-				return c.kyvernoclient.ReportsV1().BackgroundScanReports(report.GetNamespace()).Delete(ctx, report.GetName(), metav1.DeleteOptions{})
+				return c.kyvernoClient.ReportsV1().BackgroundScanReports(report.GetNamespace()).Delete(ctx, report.GetName(), metav1.DeleteOptions{})
 			}
 		}
 	}
