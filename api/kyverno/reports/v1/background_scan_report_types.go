@@ -34,6 +34,7 @@ type BackgroundScanReportSpec struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
 // +kubebuilder:resource:shortName=bgscanr,categories=kyverno
 // +kubebuilder:printcolumn:name="ApiVersion",type=string,JSONPath=".metadata.ownerReferences[0].apiVersion"
 // +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=".metadata.ownerReferences[0].kind"
@@ -69,6 +70,7 @@ func (r *BackgroundScanReport) SetSummary(summary policyreportv1alpha2.PolicyRep
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
 // +kubebuilder:resource:scope=Cluster,shortName=cbgscanr,categories=kyverno
 // +kubebuilder:printcolumn:name="ApiVersion",type=string,JSONPath=".metadata.ownerReferences[0].apiVersion"
 // +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=".metadata.ownerReferences[0].kind"

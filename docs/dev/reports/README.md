@@ -194,7 +194,7 @@ When deploying PSS policies (with `restricted` profile), it creates:
 For every `Pod` in the cluster it will create a background scan report like this and a similar admission report (aggregated):
 
 ```yaml
-apiVersion: kyverno.io/v1alpha2
+apiVersion: reports.kyverno.io/v1
 kind: BackgroundScanReport
 metadata:
   annotations:

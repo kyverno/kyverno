@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kyvernoreports "github.com/kyverno/kyverno/api/kyverno/reports/v1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -78,10 +78,10 @@ func NewController(
 	metadataCache resource.MetadataCache,
 	chunkSize int,
 ) controllers.Controller {
-	admrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("admissionreports"))
-	cadmrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusteradmissionreports"))
-	bgscanrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("backgroundscanreports"))
-	cbgscanrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
+	admrInformer := metadataFactory.ForResource(kyvernoreports.SchemeGroupVersion.WithResource("admissionreports"))
+	cadmrInformer := metadataFactory.ForResource(kyvernoreports.SchemeGroupVersion.WithResource("clusteradmissionreports"))
+	bgscanrInformer := metadataFactory.ForResource(kyvernoreports.SchemeGroupVersion.WithResource("backgroundscanreports"))
+	cbgscanrInformer := metadataFactory.ForResource(kyvernoreports.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
 	polrInformer := metadataFactory.ForResource(policyreportv1alpha2.SchemeGroupVersion.WithResource("policyreports"))
 	cpolrInformer := metadataFactory.ForResource(policyreportv1alpha2.SchemeGroupVersion.WithResource("clusterpolicyreports"))
 	c := controller{
@@ -221,7 +221,7 @@ func (c *controller) mergeBackgroundScanReports(ctx context.Context, namespace s
 	}
 }
 
-func (c *controller) reconcileReport(ctx context.Context, policyMap map[string]policyMapEntry, report kyvernov1alpha2.ReportInterface, namespace, name string, results ...policyreportv1alpha2.PolicyReportResult) (kyvernov1alpha2.ReportInterface, error) {
+func (c *controller) reconcileReport(ctx context.Context, policyMap map[string]policyMapEntry, report kyvernoreports.ReportInterface, namespace, name string, results ...policyreportv1alpha2.PolicyReportResult) (kyvernoreports.ReportInterface, error) {
 	if report == nil {
 		report = reportutils.NewPolicyReport(namespace, name, nil, results...)
 		for _, result := range results {
@@ -249,7 +249,7 @@ func (c *controller) reconcileReport(ctx context.Context, policyMap map[string]p
 	return reportutils.UpdateReport(ctx, after, c.client)
 }
 
-func (c *controller) cleanReports(ctx context.Context, actual map[string]kyvernov1alpha2.ReportInterface, expected []kyvernov1alpha2.ReportInterface) error {
+func (c *controller) cleanReports(ctx context.Context, actual map[string]kyvernoreports.ReportInterface, expected []kyvernoreports.ReportInterface) error {
 	keep := sets.New[string]()
 	for _, obj := range expected {
 		keep.Insert(obj.GetName())
@@ -265,7 +265,7 @@ func (c *controller) cleanReports(ctx context.Context, actual map[string]kyverno
 	return nil
 }
 
-func mergeReports(policyMap map[string]policyMapEntry, accumulator map[string]policyreportv1alpha2.PolicyReportResult, reports ...kyvernov1alpha2.ReportInterface) {
+func mergeReports(policyMap map[string]policyMapEntry, accumulator map[string]policyreportv1alpha2.PolicyReportResult, reports ...kyvernoreports.ReportInterface) {
 	for _, report := range reports {
 		if len(report.GetOwnerReferences()) == 1 {
 			ownerRef := report.GetOwnerReferences()[0]
@@ -350,8 +350,8 @@ func (c *controller) buildReportsResults(ctx context.Context, namespace string) 
 	return results, policyMap, nil
 }
 
-func (c *controller) getPolicyReports(ctx context.Context, namespace string) ([]kyvernov1alpha2.ReportInterface, error) {
-	var reports []kyvernov1alpha2.ReportInterface
+func (c *controller) getPolicyReports(ctx context.Context, namespace string) ([]kyvernoreports.ReportInterface, error) {
+	var reports []kyvernoreports.ReportInterface
 	if namespace == "" {
 		list, err := c.client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().List(ctx, metav1.ListOptions{})
 		if err != nil {
@@ -385,12 +385,12 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	if err != nil {
 		return err
 	}
-	actual := map[string]kyvernov1alpha2.ReportInterface{}
+	actual := map[string]kyvernoreports.ReportInterface{}
 	for _, report := range policyReports {
 		actual[report.GetName()] = report
 	}
 	splitReports := reportutils.SplitResultsByPolicy(logger, results)
-	var expected []kyvernov1alpha2.ReportInterface
+	var expected []kyvernoreports.ReportInterface
 	chunkSize := c.chunkSize
 	if chunkSize <= 0 {
 		chunkSize = len(results)

@@ -37,6 +37,7 @@ type AdmissionReportSpec struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
 // +kubebuilder:resource:shortName=admr,categories=kyverno
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="PASS",type=integer,JSONPath=".spec.summary.pass"
@@ -71,6 +72,7 @@ func (r *AdmissionReport) SetSummary(summary policyreportv1alpha2.PolicyReportSu
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
 // +kubebuilder:resource:scope=Cluster,shortName=cadmr,categories=kyverno
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="PASS",type=integer,JSONPath=".spec.summary.pass"

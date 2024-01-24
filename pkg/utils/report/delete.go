@@ -5,13 +5,12 @@ import (
 	"errors"
 
 	kyvernoreports "github.com/kyverno/kyverno/api/kyverno/reports/v1"
-	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func DeleteReport(ctx context.Context, report kyvernov1alpha2.ReportInterface, client versioned.Interface) error {
+func DeleteReport(ctx context.Context, report kyvernoreports.ReportInterface, client versioned.Interface) error {
 	switch v := report.(type) {
 	case *kyvernoreports.AdmissionReport:
 		return client.ReportsV1().AdmissionReports(report.GetNamespace()).Delete(ctx, v.GetName(), metav1.DeleteOptions{})

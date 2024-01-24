@@ -1,4 +1,4 @@
-apiVersion: kyverno.io/v1alpha2
+apiVersion: reports.kyverno.io/v1
 kind: AdmissionReport
 metadata:
   ownerReferences:

@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kyvernoreports "github.com/kyverno/kyverno/api/kyverno/reports/v1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -69,10 +69,10 @@ func NewController(
 	metadataCache resource.MetadataCache,
 	chunkSize int,
 ) controllers.Controller {
-	admrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("admissionreports"))
-	cadmrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusteradmissionreports"))
-	bgscanrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("backgroundscanreports"))
-	cbgscanrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
+	admrInformer := metadataFactory.ForResource(kyvernoreports.SchemeGroupVersion.WithResource("admissionreports"))
+	cadmrInformer := metadataFactory.ForResource(kyvernoreports.SchemeGroupVersion.WithResource("clusteradmissionreports"))
+	bgscanrInformer := metadataFactory.ForResource(kyvernoreports.SchemeGroupVersion.WithResource("backgroundscanreports"))
+	cbgscanrInformer := metadataFactory.ForResource(kyvernoreports.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
 	polrInformer := metadataFactory.ForResource(policyreportv1alpha2.SchemeGroupVersion.WithResource("policyreports"))
 	cpolrInformer := metadataFactory.ForResource(policyreportv1alpha2.SchemeGroupVersion.WithResource("clusterpolicyreports"))
 	c := controller{
@@ -214,7 +214,7 @@ func (c *controller) createVapMap() (sets.Set[string], error) {
 	return results, nil
 }
 
-func (c *controller) getBackgroundScanReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
+func (c *controller) getBackgroundScanReport(ctx context.Context, namespace, name string) (kyvernoreports.ReportInterface, error) {
 	if namespace == "" {
 		report, err := c.client.ReportsV1().ClusterBackgroundScanReports().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
@@ -236,7 +236,7 @@ func (c *controller) getBackgroundScanReport(ctx context.Context, namespace, nam
 	}
 }
 
-func (c *controller) getAdmissionReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
+func (c *controller) getAdmissionReport(ctx context.Context, namespace, name string) (kyvernoreports.ReportInterface, error) {
 	if namespace == "" {
 		report, err := c.client.ReportsV1().ClusterAdmissionReports().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
@@ -258,7 +258,7 @@ func (c *controller) getAdmissionReport(ctx context.Context, namespace, name str
 	}
 }
 
-func (c *controller) getPolicyReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
+func (c *controller) getPolicyReport(ctx context.Context, namespace, name string) (kyvernoreports.ReportInterface, error) {
 	if namespace == "" {
 		report, err := c.client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
@@ -280,7 +280,7 @@ func (c *controller) getPolicyReport(ctx context.Context, namespace, name string
 	}
 }
 
-func (c *controller) getReports(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, kyvernov1alpha2.ReportInterface, error) {
+func (c *controller) getReports(ctx context.Context, namespace, name string) (kyvernoreports.ReportInterface, kyvernoreports.ReportInterface, error) {
 	admissionReport, err := c.getAdmissionReport(ctx, namespace, name)
 	if err != nil {
 		return nil, nil, err

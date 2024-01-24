@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+	kyvernoreports "github.com/kyverno/kyverno/api/kyverno/reports/v1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func mergeReports(policyMap map[string]policyMapEntry, vapMap sets.Set[string], accumulator map[string]policyreportv1alpha2.PolicyReportResult, uid types.UID, reports ...kyvernov1alpha2.ReportInterface) {
+func mergeReports(policyMap map[string]policyMapEntry, vapMap sets.Set[string], accumulator map[string]policyreportv1alpha2.PolicyReportResult, uid types.UID, reports ...kyvernoreports.ReportInterface) {
 	for _, report := range reports {
 		if report != nil {
 			for _, result := range report.GetResults() {
@@ -42,14 +42,14 @@ func mergeReports(policyMap map[string]policyMapEntry, vapMap sets.Set[string], 
 	}
 }
 
-func deleteReport(ctx context.Context, report kyvernov1alpha2.ReportInterface, client versioned.Interface) error {
+func deleteReport(ctx context.Context, report kyvernoreports.ReportInterface, client versioned.Interface) error {
 	if !controllerutils.IsManagedByKyverno(report) {
 		return errors.New("can't delete report because it is not managed by kyverno")
 	}
 	return reportutils.DeleteReport(ctx, report, client)
 }
 
-func updateReport(ctx context.Context, report kyvernov1alpha2.ReportInterface, client versioned.Interface) (kyvernov1alpha2.ReportInterface, error) {
+func updateReport(ctx context.Context, report kyvernoreports.ReportInterface, client versioned.Interface) (kyvernoreports.ReportInterface, error) {
 	if !controllerutils.IsManagedByKyverno(report) {
 		return nil, errors.New("can't update report because it is not managed by kyverno")
 	}

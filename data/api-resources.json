@@ -2020,7 +2020,7 @@
   {
     "kind": "APIResourceList",
     "apiVersion": "v1",
-    "groupVersion": "kyverno.io/v1alpha2",
+    "groupVersion": "reports.kyverno.io/v1",
     "resources": [
       {
         "name": "admissionreports",

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+	kyvernoreports "github.com/kyverno/kyverno/api/kyverno/reports/v1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -52,8 +52,8 @@ func NewController(
 	dclient dclient.Interface,
 	metadataFactory metadatainformers.SharedInformerFactory,
 ) controllers.Controller {
-	admrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("admissionreports"))
-	cadmrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusteradmissionreports"))
+	admrInformer := metadataFactory.ForResource(kyvernoreports.SchemeGroupVersion.WithResource("admissionreports"))
+	cadmrInformer := metadataFactory.ForResource(kyvernoreports.SchemeGroupVersion.WithResource("clusteradmissionreports"))
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
 		client:      client,
@@ -108,7 +108,7 @@ func (c *controller) getReports(uid types.UID) ([]metav1.Object, error) {
 	return results, nil
 }
 
-func (c *controller) fetchReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
+func (c *controller) fetchReport(ctx context.Context, namespace, name string) (kyvernoreports.ReportInterface, error) {
 	if namespace == "" {
 		return c.client.ReportsV1().ClusterAdmissionReports().Get(ctx, name, metav1.GetOptions{})
 	} else {
@@ -116,8 +116,8 @@ func (c *controller) fetchReport(ctx context.Context, namespace, name string) (k
 	}
 }
 
-func (c *controller) fetchReports(ctx context.Context, uid types.UID) ([]kyvernov1alpha2.ReportInterface, error) {
-	var results []kyvernov1alpha2.ReportInterface
+func (c *controller) fetchReports(ctx context.Context, uid types.UID) ([]kyvernoreports.ReportInterface, error) {
+	var results []kyvernoreports.ReportInterface
 	ns := sets.New[string]()
 	if reports, err := c.getReports(uid); err != nil {
 		return nil, err
@@ -171,7 +171,7 @@ func (c *controller) deleteReport(ctx context.Context, namespace, name string) e
 	}
 }
 
-func mergeReports(resource corev1.ObjectReference, accumulator map[string]policyreportv1alpha2.PolicyReportResult, reports ...kyvernov1alpha2.ReportInterface) {
+func mergeReports(resource corev1.ObjectReference, accumulator map[string]policyreportv1alpha2.PolicyReportResult, reports ...kyvernoreports.ReportInterface) {
 	for _, report := range reports {
 		for _, result := range report.GetResults() {
 			key := result.Policy + "/" + result.Rule
@@ -185,7 +185,7 @@ func mergeReports(resource corev1.ObjectReference, accumulator map[string]policy
 	}
 }
 
-func (c *controller) aggregateReports(ctx context.Context, uid types.UID) (kyvernov1alpha2.ReportInterface, []kyvernov1alpha2.ReportInterface, error) {
+func (c *controller) aggregateReports(ctx context.Context, uid types.UID) (kyvernoreports.ReportInterface, []kyvernoreports.ReportInterface, error) {
 	reports, err := c.fetchReports(ctx, uid)
 	if err != nil {
 		return nil, nil, err
@@ -194,7 +194,7 @@ func (c *controller) aggregateReports(ctx context.Context, uid types.UID) (kyver
 		return nil, nil, nil
 	}
 	// do we have an aggregated report ?
-	var aggregated kyvernov1alpha2.ReportInterface
+	var aggregated kyvernoreports.ReportInterface
 	for _, report := range reports {
 		if report.GetName() == string(uid) {
 			aggregated = report

@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kyvernoreports "github.com/kyverno/kyverno/api/kyverno/reports/v1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -94,8 +94,8 @@ func NewController(
 	eventGen event.Interface,
 	policyReports bool,
 ) controllers.Controller {
-	bgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("backgroundscanreports"))
-	cbgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
+	bgscanr := metadataFactory.ForResource(kyvernoreports.SchemeGroupVersion.WithResource("backgroundscanreports"))
+	cbgscanr := metadataFactory.ForResource(kyvernoreports.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
 		client:         client,
@@ -197,7 +197,7 @@ func (c *controller) enqueueResources() {
 	}
 }
 
-func (c *controller) getReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
+func (c *controller) getReport(ctx context.Context, namespace, name string) (kyvernoreports.ReportInterface, error) {
 	if namespace == "" {
 		return c.kyvernoClient.ReportsV1().ClusterBackgroundScanReports().Get(ctx, name, metav1.GetOptions{})
 	} else {
@@ -395,7 +395,7 @@ func (c *controller) reconcileReport(
 	return nil
 }
 
-func (c *controller) storeReport(ctx context.Context, observed, desired kyvernov1alpha2.ReportInterface) error {
+func (c *controller) storeReport(ctx context.Context, observed, desired kyvernoreports.ReportInterface) error {
 	var err error
 	hasReport := observed.GetResourceVersion() != ""
 	wantsReport := desired != nil && len(desired.GetResults()) != 0
