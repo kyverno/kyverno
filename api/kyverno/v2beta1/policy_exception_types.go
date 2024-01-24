@@ -16,6 +16,7 @@ limitations under the License.
 package v2beta1
 
 import (
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -56,6 +57,10 @@ type PolicyExceptionSpec struct {
 
 	// Match defines match clause used to check if a resource applies to the exception
 	Match MatchResources `json:"match" yaml:"match"`
+
+	// VerifyImages helps in matching the resources with the defined Image references and
+	// exclude them from applied policies
+	VerifyImages []kyvernov1.ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
 
 	// Conditions are used to determine if a resource applies to the exception by evaluating a
 	// set of conditions. The declaration can contain nested `any` or `all` statements.

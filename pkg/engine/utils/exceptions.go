@@ -40,6 +40,10 @@ func MatchesException(
 					return nil
 				}
 			}
+
+			if polex.Spec.VerifyImages != nil {
+
+			}
 			return &polex
 		}
 	}
