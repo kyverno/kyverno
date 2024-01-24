@@ -48,18 +48,19 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 
 	// config
-	controllerName string
-	logger         logr.Logger
-	webhookName    string
-	path           string
-	server         string
-	servicePort    int32
-	rules          []admissionregistrationv1.RuleWithOperations
-	failurePolicy  *admissionregistrationv1.FailurePolicyType
-	sideEffects    *admissionregistrationv1.SideEffectClass
-	configuration  config.Configuration
-	labelSelector  *metav1.LabelSelector
-	caSecretName   string
+	controllerName               string
+	logger                       logr.Logger
+	webhookName                  string
+	path                         string
+	server                       string
+	servicePort                  int32
+	rules                        []admissionregistrationv1.RuleWithOperations
+	failurePolicy                *admissionregistrationv1.FailurePolicyType
+	sideEffects                  *admissionregistrationv1.SideEffectClass
+	configuration                config.Configuration
+	labelSelector                *metav1.LabelSelector
+	caSecretName                 string
+	disableAutoWebhookGeneration bool
 }
 
 func NewController(
@@ -77,25 +78,27 @@ func NewController(
 	sideEffects *admissionregistrationv1.SideEffectClass,
 	configuration config.Configuration,
 	caSecretName string,
+	disableAutoWebhookGeneration bool,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 	c := controller{
-		vwcClient:      vwcClient,
-		vwcLister:      vwcInformer.Lister(),
-		secretLister:   secretInformer.Lister().Secrets(config.KyvernoNamespace()),
-		queue:          queue,
-		controllerName: controllerName,
-		logger:         logging.ControllerLogger(controllerName),
-		webhookName:    webhookName,
-		path:           path,
-		server:         server,
-		servicePort:    servicePort,
-		rules:          rules,
-		failurePolicy:  failurePolicy,
-		sideEffects:    sideEffects,
-		configuration:  configuration,
-		labelSelector:  labelSelector,
-		caSecretName:   caSecretName,
+		vwcClient:                    vwcClient,
+		vwcLister:                    vwcInformer.Lister(),
+		secretLister:                 secretInformer.Lister().Secrets(config.KyvernoNamespace()),
+		queue:                        queue,
+		controllerName:               controllerName,
+		logger:                       logging.ControllerLogger(controllerName),
+		webhookName:                  webhookName,
+		path:                         path,
+		server:                       server,
+		servicePort:                  servicePort,
+		rules:                        rules,
+		failurePolicy:                failurePolicy,
+		sideEffects:                  sideEffects,
+		configuration:                configuration,
+		labelSelector:                labelSelector,
+		caSecretName:                 caSecretName,
+		disableAutoWebhookGeneration: disableAutoWebhookGeneration,
 	}
 	if _, _, err := controllerutils.AddDefaultEventHandlers(c.logger, vwcInformer.Informer(), queue); err != nil {
 		c.logger.Error(err, "failed to register event handlers")
@@ -134,6 +137,9 @@ func (c *controller) enqueue() {
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, _ string) error {
+	if c.disableAutoWebhookGeneration {
+		return nil
+	}
 	if key != c.webhookName {
 		return nil
 	}
