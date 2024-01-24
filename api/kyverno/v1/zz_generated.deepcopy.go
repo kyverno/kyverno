@@ -1409,7 +1409,11 @@ func (in *Spec) DeepCopyInto(out *Spec) {
 		*out = new(bool)
 		**out = **in
 	}
-	in.WebhookConfigurations.DeepCopyInto(&out.WebhookConfigurations)
+	if in.WebhookConfigurations != nil {
+		in, out := &in.WebhookConfigurations, &out.WebhookConfigurations
+		*out = new(WebhookConfigurations)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 
