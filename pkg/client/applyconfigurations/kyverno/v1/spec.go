@@ -38,6 +38,7 @@ type SpecApplyConfiguration struct {
 	GenerateExistingOnPolicyUpdate   *bool                                               `json:"generateExistingOnPolicyUpdate,omitempty"`
 	GenerateExisting                 *bool                                               `json:"generateExisting,omitempty"`
 	UseServerSideApply               *bool                                               `json:"useServerSideApply,omitempty"`
+	WebhookConfigurations            *WebhookConfigurationsApplyConfiguration            `json:"webhookConfigurations,omitempty"`
 }
 
 // SpecApplyConfiguration constructs an declarative configuration of the Spec type for use with
@@ -157,5 +158,13 @@ func (b *SpecApplyConfiguration) WithGenerateExisting(value bool) *SpecApplyConf
 // If called multiple times, the UseServerSideApply field is set to the value of the last call.
 func (b *SpecApplyConfiguration) WithUseServerSideApply(value bool) *SpecApplyConfiguration {
 	b.UseServerSideApply = &value
+	return b
+}
+
+// WithWebhookConfigurations sets the WebhookConfigurations field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the WebhookConfigurations field is set to the value of the last call.
+func (b *SpecApplyConfiguration) WithWebhookConfigurations(value *WebhookConfigurationsApplyConfiguration) *SpecApplyConfiguration {
+	b.WebhookConfigurations = value
 	return b
 }
