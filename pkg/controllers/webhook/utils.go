@@ -43,12 +43,13 @@ func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePoli
 
 func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.OperationType) []admissionregistrationv1.RuleWithOperations {
 	var rules []admissionregistrationv1.RuleWithOperations
+
 	for gv, resources := range wh.rules {
-		scope := gv.scopeType
 		// if we have pods, we add pods/ephemeralcontainers by default
 		if (gv.Group == "" || gv.Group == "*") && (gv.Version == "v1" || gv.Version == "*") && (resources.Has("pods") || resources.Has("*")) {
 			resources.Insert("pods/ephemeralcontainers")
 		}
+		scope := gv.scopeType
 		rules = append(rules, admissionregistrationv1.RuleWithOperations{
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{gv.Group},
@@ -85,11 +86,27 @@ func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.Opera
 	return rules
 }
 
-func (wh *webhook) set(gvrs schema.GroupVersionResource, scopeType admissionregistrationv1.ScopeType) {
+func (wh *webhook) set(gvrs GroupVersionResourceScope) {
 	gvs := groupVersionScope{
 		GroupVersion: gvrs.GroupVersion(),
-		scopeType:    scopeType,
+		scopeType:    gvrs.Scope,
 	}
+
+	// check if the resource contains wildcard and is already added as all scope
+	// in that case, we do not need to add it again as namespaced scope
+	if (gvrs.Resource == "*" || gvrs.Group == "*") && gvs.scopeType == admissionregistrationv1.NamespacedScope {
+		allScopeResource := groupVersionScope{
+			GroupVersion: gvs.GroupVersion,
+			scopeType:    admissionregistrationv1.AllScopes,
+		}
+		resources := wh.rules[allScopeResource]
+		if resources != nil {
+			// explicitly do nothing as the resource is already added as all scope
+			return
+		}
+	}
+
+	// check if the resource is already added
 	resources := wh.rules[gvs]
 	if resources == nil {
 		wh.rules[gvs] = sets.New(gvrs.Resource)
