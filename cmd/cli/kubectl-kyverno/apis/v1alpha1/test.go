@@ -34,4 +34,7 @@ type Test struct {
 
 	// Values are the values to be used in the test
 	Values *ValuesSpec `json:"values,omitempty"`
+
+	// Policy Exceptions are the policy exceptions to be used in the test
+	PolicyExceptions []string `json:"policyExceptions,omitempty"`
 }

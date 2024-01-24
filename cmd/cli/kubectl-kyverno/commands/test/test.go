@@ -6,7 +6,9 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/path"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
@@ -74,6 +76,17 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 			fmt.Fprintln(out, "  Warning: found duplicated resource", dup.Kind, dup.Name, dup.Namespace)
 		}
 	}
+	// policy exceptions
+	var policyExceptions []*kyvernov2beta1.PolicyException
+	if len(testCase.Test.PolicyExceptions) > 0 {
+		fmt.Fprintln(out, "  Loading policy exceptions", "...")
+		policyexceptionFullPath := path.GetFullPaths(testCase.Test.PolicyExceptions, testDir, isGit)
+		policyExceptions, err = exception.Loader(testCase.Fs, testDir, policyexceptionFullPath...)
+		if err != nil {
+			return nil, fmt.Errorf("Error: failed to load policy exceptions (%s)", err)
+		}
+	}
+	fmt.Print(policyExceptions)
 	// init store
 	var store store.Store
 	store.SetLocal(true)
