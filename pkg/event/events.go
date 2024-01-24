@@ -77,7 +77,7 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 	var action Action
 	policy := engineResponse.Policy()
 	if policy.GetType() == engineapi.KyvernoPolicyType {
-		pol := engineResponse.Policy().GetPolicy().(kyvernov1.PolicyInterface)
+		pol := engineResponse.Policy().AsKyvernoPolicy()
 		hasValidate := pol.GetSpec().HasValidate()
 		hasVerifyImages := pol.GetSpec().HasVerifyImages()
 		hasMutate := pol.GetSpec().HasMutate()
@@ -226,7 +226,7 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 	exception := ruleResp.Exception()
 	exceptionName, exceptionNamespace := exception.GetName(), exception.GetNamespace()
 	policyMessage := fmt.Sprintf("resource %s was skipped from rule %s due to policy exception %s/%s", resourceKey(engineResponse.PatchedResource), ruleResp.Name(), exceptionNamespace, exceptionName)
-	pol := engineResponse.Policy().GetPolicy().(kyvernov1.PolicyInterface)
+	pol := engineResponse.Policy().AsKyvernoPolicy()
 	var exceptionMessage string
 	if pol.GetNamespace() == "" {
 		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s", resourceKey(engineResponse.PatchedResource), pol.GetName(), ruleResp.Name())
