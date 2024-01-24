@@ -758,6 +758,11 @@ func (in *ImageVerification) DeepCopyInto(out *ImageVerification) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.SkipImageReferences != nil {
+		in, out := &in.SkipImageReferences, &out.SkipImageReferences
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.AdditionalExtensions != nil {
 		in, out := &in.AdditionalExtensions, &out.AdditionalExtensions
 		*out = make(map[string]string, len(*in))

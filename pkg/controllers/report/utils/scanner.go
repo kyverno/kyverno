@@ -6,6 +6,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -20,6 +21,7 @@ type scanner struct {
 	engine engineapi.Engine
 	config config.Configuration
 	jp     jmespath.Interface
+	client dclient.Interface
 }
 
 type ScanResult struct {
@@ -36,12 +38,14 @@ func NewScanner(
 	engine engineapi.Engine,
 	config config.Configuration,
 	jp jmespath.Interface,
+	client dclient.Interface,
 ) Scanner {
 	return &scanner{
 		logger: logger,
 		engine: engine,
 		config: config,
 		jp:     jp,
+		client: client,
 	}
 }
 
@@ -74,7 +78,11 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 			}
 		} else {
 			pol := policy.AsValidatingAdmissionPolicy()
-			res := validatingadmissionpolicy.Validate(*pol, resource)
+			policyData := validatingadmissionpolicy.NewPolicyData(*pol)
+			res, err := validatingadmissionpolicy.Validate(policyData, resource, s.client)
+			if err != nil {
+				errors = append(errors, err)
+			}
 			response = &res
 		}
 		results[&policies[i]] = ScanResult{response, multierr.Combine(errors...)}
