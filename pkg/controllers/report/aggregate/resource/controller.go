@@ -216,7 +216,7 @@ func (c *controller) createVapMap() (sets.Set[string], error) {
 
 func (c *controller) getBackgroundScanReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
-		report, err := c.client.KyvernoV1alpha2().ClusterBackgroundScanReports().Get(ctx, name, metav1.GetOptions{})
+		report, err := c.client.ReportsV1().ClusterBackgroundScanReports().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				return nil, nil
@@ -225,7 +225,7 @@ func (c *controller) getBackgroundScanReport(ctx context.Context, namespace, nam
 		}
 		return report, nil
 	} else {
-		report, err := c.client.KyvernoV1alpha2().BackgroundScanReports(namespace).Get(ctx, name, metav1.GetOptions{})
+		report, err := c.client.ReportsV1().BackgroundScanReports(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				return nil, nil
@@ -238,7 +238,7 @@ func (c *controller) getBackgroundScanReport(ctx context.Context, namespace, nam
 
 func (c *controller) getAdmissionReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
-		report, err := c.client.KyvernoV1alpha2().ClusterAdmissionReports().Get(ctx, name, metav1.GetOptions{})
+		report, err := c.client.ReportsV1().ClusterAdmissionReports().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				return nil, nil
@@ -247,7 +247,7 @@ func (c *controller) getAdmissionReport(ctx context.Context, namespace, name str
 		}
 		return report, nil
 	} else {
-		report, err := c.client.KyvernoV1alpha2().AdmissionReports(namespace).Get(ctx, name, metav1.GetOptions{})
+		report, err := c.client.ReportsV1().AdmissionReports(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				return nil, nil

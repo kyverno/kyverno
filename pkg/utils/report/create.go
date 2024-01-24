@@ -13,16 +13,16 @@ import (
 func CreateReport(ctx context.Context, report kyvernov1alpha2.ReportInterface, client versioned.Interface) (kyvernov1alpha2.ReportInterface, error) {
 	switch v := report.(type) {
 	case *kyvernov1alpha2.AdmissionReport:
-		report, err := client.KyvernoV1alpha2().AdmissionReports(report.GetNamespace()).Create(ctx, v, metav1.CreateOptions{})
+		report, err := client.ReportsV1().AdmissionReports(report.GetNamespace()).Create(ctx, v, metav1.CreateOptions{})
 		return report, err
 	case *kyvernov1alpha2.ClusterAdmissionReport:
-		report, err := client.KyvernoV1alpha2().ClusterAdmissionReports().Create(ctx, v, metav1.CreateOptions{})
+		report, err := client.ReportsV1().ClusterAdmissionReports().Create(ctx, v, metav1.CreateOptions{})
 		return report, err
 	case *kyvernov1alpha2.BackgroundScanReport:
-		report, err := client.KyvernoV1alpha2().BackgroundScanReports(report.GetNamespace()).Create(ctx, v, metav1.CreateOptions{})
+		report, err := client.ReportsV1().BackgroundScanReports(report.GetNamespace()).Create(ctx, v, metav1.CreateOptions{})
 		return report, err
 	case *kyvernov1alpha2.ClusterBackgroundScanReport:
-		report, err := client.KyvernoV1alpha2().ClusterBackgroundScanReports().Create(ctx, v, metav1.CreateOptions{})
+		report, err := client.ReportsV1().ClusterBackgroundScanReports().Create(ctx, v, metav1.CreateOptions{})
 		return report, err
 	case *policyreportv1alpha2.PolicyReport:
 		report, err := client.Wgpolicyk8sV1alpha2().PolicyReports(report.GetNamespace()).Create(ctx, v, metav1.CreateOptions{})

@@ -110,9 +110,9 @@ func (c *controller) getReports(uid types.UID) ([]metav1.Object, error) {
 
 func (c *controller) fetchReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
-		return c.client.KyvernoV1alpha2().ClusterAdmissionReports().Get(ctx, name, metav1.GetOptions{})
+		return c.client.ReportsV1().ClusterAdmissionReports().Get(ctx, name, metav1.GetOptions{})
 	} else {
-		return c.client.KyvernoV1alpha2().AdmissionReports(namespace).Get(ctx, name, metav1.GetOptions{})
+		return c.client.ReportsV1().AdmissionReports(namespace).Get(ctx, name, metav1.GetOptions{})
 	}
 }
 
@@ -142,7 +142,7 @@ func (c *controller) fetchReports(ctx context.Context, uid types.UID) ([]kyverno
 	} else {
 		for n := range ns {
 			if n == "" {
-				cadmrs, err := c.client.KyvernoV1alpha2().ClusterAdmissionReports().List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
+				cadmrs, err := c.client.ReportsV1().ClusterAdmissionReports().List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
 				if err != nil {
 					return nil, err
 				}
@@ -150,7 +150,7 @@ func (c *controller) fetchReports(ctx context.Context, uid types.UID) ([]kyverno
 					results = append(results, &cadmrs.Items[i])
 				}
 			} else {
-				admrs, err := c.client.KyvernoV1alpha2().AdmissionReports(n).List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
+				admrs, err := c.client.ReportsV1().AdmissionReports(n).List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
 				if err != nil {
 					return nil, err
 				}
@@ -165,9 +165,9 @@ func (c *controller) fetchReports(ctx context.Context, uid types.UID) ([]kyverno
 
 func (c *controller) deleteReport(ctx context.Context, namespace, name string) error {
 	if namespace == "" {
-		return c.client.KyvernoV1alpha2().ClusterAdmissionReports().Delete(ctx, name, metav1.DeleteOptions{})
+		return c.client.ReportsV1().ClusterAdmissionReports().Delete(ctx, name, metav1.DeleteOptions{})
 	} else {
-		return c.client.KyvernoV1alpha2().AdmissionReports(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+		return c.client.ReportsV1().AdmissionReports(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	}
 }
 

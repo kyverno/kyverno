@@ -141,7 +141,7 @@ func (c *controller) mergeAdmissionReports(ctx context.Context, namespace string
 	if namespace == "" {
 		next := ""
 		for {
-			cadms, err := c.client.KyvernoV1alpha2().ClusterAdmissionReports().List(ctx, metav1.ListOptions{
+			cadms, err := c.client.ReportsV1().ClusterAdmissionReports().List(ctx, metav1.ListOptions{
 				// no need to consider non aggregated reports
 				LabelSelector: reportutils.LabelAggregatedReport,
 				Limit:         mergeLimit,
@@ -161,7 +161,7 @@ func (c *controller) mergeAdmissionReports(ctx context.Context, namespace string
 	} else {
 		next := ""
 		for {
-			adms, err := c.client.KyvernoV1alpha2().AdmissionReports(namespace).List(ctx, metav1.ListOptions{
+			adms, err := c.client.ReportsV1().AdmissionReports(namespace).List(ctx, metav1.ListOptions{
 				// no need to consider non aggregated reports
 				LabelSelector: reportutils.LabelAggregatedReport,
 				Limit:         mergeLimit,
@@ -185,7 +185,7 @@ func (c *controller) mergeBackgroundScanReports(ctx context.Context, namespace s
 	if namespace == "" {
 		next := ""
 		for {
-			cbgscans, err := c.client.KyvernoV1alpha2().ClusterBackgroundScanReports().List(ctx, metav1.ListOptions{
+			cbgscans, err := c.client.ReportsV1().ClusterBackgroundScanReports().List(ctx, metav1.ListOptions{
 				Limit:    mergeLimit,
 				Continue: next,
 			})
@@ -203,7 +203,7 @@ func (c *controller) mergeBackgroundScanReports(ctx context.Context, namespace s
 	} else {
 		next := ""
 		for {
-			bgscans, err := c.client.KyvernoV1alpha2().BackgroundScanReports(namespace).List(ctx, metav1.ListOptions{
+			bgscans, err := c.client.ReportsV1().BackgroundScanReports(namespace).List(ctx, metav1.ListOptions{
 				Limit:    mergeLimit,
 				Continue: next,
 			})
