@@ -376,6 +376,11 @@ func (in *ImageVerification) DeepCopyInto(out *ImageVerification) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.SkipImageReferences != nil {
+		in, out := &in.SkipImageReferences, &out.SkipImageReferences
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.Attestors != nil {
 		in, out := &in.Attestors, &out.Attestors
 		*out = make([]v1.AttestorSet, len(*in))
