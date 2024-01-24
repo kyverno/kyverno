@@ -327,7 +327,7 @@ The chart values are organised per component.
 | features.generateValidatingAdmissionPolicy.enabled | bool | `false` | Enables the feature |
 | features.logging.format | string | `"text"` | Logging format |
 | features.logging.verbosity | int | `2` | Logging verbosity |
-| features.omitEvents.eventTypes | list | `[]` | Events which should not be emitted (possible values `PolicyViolation`, `PolicyApplied`, `PolicyError`, and `PolicySkipped`) |
+| features.omitEvents.eventTypes | list | `["PolicyApplied","PolicySkipped"]` | Events which should not be emitted (possible values `PolicyViolation`, `PolicyApplied`, `PolicyError`, and `PolicySkipped`) |
 | features.policyExceptions.enabled | bool | `true` | Enables the feature |
 | features.policyExceptions.namespace | string | `""` | Restrict policy exceptions to a single namespace |
 | features.protectManagedResources.enabled | bool | `false` | Enables the feature |
