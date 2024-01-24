@@ -1,6 +1,8 @@
 features:
   policyExceptions:
     enabled: true
+  omitEvents:
+    eventTypes: []
 
 backgroundController:
   rbac:
