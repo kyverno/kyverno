@@ -36,3 +36,16 @@ spec:
           kind: Ingress
           name: my-app-ingress
           namespace: test-ingress
+  - name: check-metric
+    try:
+    - script:
+        content: |
+          if kubectl run curl -it --rm --image=curlimages/curl -- sh -c 'VALUE=$(curl -sk http://kyverno-svc-metrics.kyverno.svc:8000/metrics | awk '/^kyverno_cache_failed_external_api_calls / {print $2}'); [ "$VALUE" -eq 0 ]; exit $?'
+          then
+            echo "Test succeeded. Metric is equal thanto 0."
+            exit 0
+          else
+            echo "Test failed. Metric is not equal to 0."
+            exit 1
+          fi
+
