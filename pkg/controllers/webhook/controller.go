@@ -896,7 +896,7 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 		}
 	}
 	for _, gvr := range gvrsList {
-		if policy.GetNamespace() == "" {
+		if !policy.IsNamespaced() {
 			// For ClusterPolices the Webhook rules scope should be "All Scopes"
 			dst.set(gvr, admissionregistrationv1.AllScopes)
 		} else {
