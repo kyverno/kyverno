@@ -19,7 +19,7 @@ limitations under the License.
 package v1alpha2
 
 import (
-	v2 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v2"
+	reportsv1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/reports/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
@@ -30,7 +30,7 @@ import (
 type ClusterBackgroundScanReportApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *v2.BackgroundScanReportSpecApplyConfiguration `json:"spec,omitempty"`
+	Spec                             *reportsv1.BackgroundScanReportSpecApplyConfiguration `json:"spec,omitempty"`
 }
 
 // ClusterBackgroundScanReport constructs an declarative configuration of the ClusterBackgroundScanReport type for use with
@@ -204,7 +204,7 @@ func (b *ClusterBackgroundScanReportApplyConfiguration) ensureObjectMetaApplyCon
 // WithSpec sets the Spec field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Spec field is set to the value of the last call.
-func (b *ClusterBackgroundScanReportApplyConfiguration) WithSpec(value *v2.BackgroundScanReportSpecApplyConfiguration) *ClusterBackgroundScanReportApplyConfiguration {
+func (b *ClusterBackgroundScanReportApplyConfiguration) WithSpec(value *reportsv1.BackgroundScanReportSpecApplyConfiguration) *ClusterBackgroundScanReportApplyConfiguration {
 	b.Spec = value
 	return b
 }

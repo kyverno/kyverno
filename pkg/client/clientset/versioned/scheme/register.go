@@ -19,6 +19,7 @@ limitations under the License.
 package scheme
 
 import (
+	reportsv1 "github.com/kyverno/kyverno/api/kyverno/reports/v1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
@@ -44,6 +45,7 @@ var localSchemeBuilder = runtime.SchemeBuilder{
 	kyvernov2beta1.AddToScheme,
 	kyvernov2alpha1.AddToScheme,
 	wgpolicyk8sv1alpha2.AddToScheme,
+	reportsv1.AddToScheme,
 }
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition

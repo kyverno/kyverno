@@ -21,6 +21,7 @@ package externalversions
 import (
 	"fmt"
 
+	reportsv1 "github.com/kyverno/kyverno/api/kyverno/reports/v1"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	v1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
@@ -79,16 +80,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1beta1().UpdateRequests().Informer()}, nil
 
 		// Group=kyverno.io, Version=v2
-	case v2.SchemeGroupVersion.WithResource("admissionreports"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2().AdmissionReports().Informer()}, nil
-	case v2.SchemeGroupVersion.WithResource("backgroundscanreports"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2().BackgroundScanReports().Informer()}, nil
 	case v2.SchemeGroupVersion.WithResource("cleanuppolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2().CleanupPolicies().Informer()}, nil
-	case v2.SchemeGroupVersion.WithResource("clusteradmissionreports"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2().ClusterAdmissionReports().Informer()}, nil
-	case v2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2().ClusterBackgroundScanReports().Informer()}, nil
 	case v2.SchemeGroupVersion.WithResource("clustercleanuppolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2().ClusterCleanupPolicies().Informer()}, nil
 	case v2.SchemeGroupVersion.WithResource("policyexceptions"):
@@ -115,6 +108,16 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2beta1().Policies().Informer()}, nil
 	case v2beta1.SchemeGroupVersion.WithResource("policyexceptions"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2beta1().PolicyExceptions().Informer()}, nil
+
+		// Group=reports.kyverno.io, Version=v1
+	case reportsv1.SchemeGroupVersion.WithResource("admissionreports"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Reports().V1().AdmissionReports().Informer()}, nil
+	case reportsv1.SchemeGroupVersion.WithResource("backgroundscanreports"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Reports().V1().BackgroundScanReports().Informer()}, nil
+	case reportsv1.SchemeGroupVersion.WithResource("clusteradmissionreports"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Reports().V1().ClusterAdmissionReports().Informer()}, nil
+	case reportsv1.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Reports().V1().ClusterBackgroundScanReports().Informer()}, nil
 
 		// Group=wgpolicyk8s.io, Version=v1alpha2
 	case policyreportv1alpha2.SchemeGroupVersion.WithResource("clusterpolicyreports"):

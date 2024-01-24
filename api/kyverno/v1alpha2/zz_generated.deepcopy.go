@@ -22,7 +22,7 @@ limitations under the License.
 package v1alpha2
 
 import (
-	v2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	v1 "github.com/kyverno/kyverno/api/kyverno/reports/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -60,7 +60,7 @@ func (in *AdmissionReportList) DeepCopyInto(out *AdmissionReportList) {
 	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]v2.AdmissionReport, len(*in))
+		*out = make([]v1.AdmissionReport, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -120,7 +120,7 @@ func (in *BackgroundScanReportList) DeepCopyInto(out *BackgroundScanReportList) 
 	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]v2.BackgroundScanReport, len(*in))
+		*out = make([]v1.BackgroundScanReport, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -180,7 +180,7 @@ func (in *ClusterAdmissionReportList) DeepCopyInto(out *ClusterAdmissionReportLi
 	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]v2.ClusterAdmissionReport, len(*in))
+		*out = make([]v1.ClusterAdmissionReport, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -240,7 +240,7 @@ func (in *ClusterBackgroundScanReportList) DeepCopyInto(out *ClusterBackgroundSc
 	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]v2.ClusterBackgroundScanReport, len(*in))
+		*out = make([]v1.ClusterBackgroundScanReport, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}

@@ -17,7 +17,7 @@ limitations under the License.
 package v1alpha2
 
 import (
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	kyvernoreports "github.com/kyverno/kyverno/api/kyverno/reports/v1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 )
 
@@ -37,7 +37,7 @@ import (
 // +kubebuilder:printcolumn:name="AGGREGATE",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/report\\.aggregate']",priority=1
 
 // AdmissionReport is the Schema for the AdmissionReports API
-type AdmissionReport kyvernov2.AdmissionReport
+type AdmissionReport kyvernoreports.AdmissionReport
 
 func (r *AdmissionReport) GetResults() []policyreportv1alpha2.PolicyReportResult {
 	return r.Spec.Results
@@ -68,7 +68,7 @@ func (r *AdmissionReport) SetSummary(summary policyreportv1alpha2.PolicyReportSu
 // +kubebuilder:printcolumn:name="AGGREGATE",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/report\\.aggregate']",priority=1
 
 // ClusterAdmissionReport is the Schema for the ClusterAdmissionReports API
-type ClusterAdmissionReport kyvernov2.ClusterAdmissionReport
+type ClusterAdmissionReport kyvernoreports.ClusterAdmissionReport
 
 func (r *ClusterAdmissionReport) GetResults() []policyreportv1alpha2.PolicyReportResult {
 	return r.Spec.Results
@@ -86,10 +86,10 @@ func (r *ClusterAdmissionReport) SetSummary(summary policyreportv1alpha2.PolicyR
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // AdmissionReportList contains a list of AdmissionReport
-type AdmissionReportList kyvernov2.AdmissionReportList
+type AdmissionReportList kyvernoreports.AdmissionReportList
 
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // ClusterAdmissionReportList contains a list of ClusterAdmissionReport
-type ClusterAdmissionReportList kyvernov2.ClusterAdmissionReportList
+type ClusterAdmissionReportList kyvernoreports.ClusterAdmissionReportList

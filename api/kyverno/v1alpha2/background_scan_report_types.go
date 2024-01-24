@@ -17,7 +17,7 @@ limitations under the License.
 package v1alpha2
 
 import (
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	kyvernoreports "github.com/kyverno/kyverno/api/kyverno/reports/v1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 )
 
@@ -38,7 +38,7 @@ import (
 // +kubebuilder:printcolumn:name="Hash",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.hash']",priority=1
 
 // BackgroundScanReport is the Schema for the BackgroundScanReports API
-type BackgroundScanReport kyvernov2.BackgroundScanReport
+type BackgroundScanReport kyvernoreports.BackgroundScanReport
 
 func (r *BackgroundScanReport) GetResults() []policyreportv1alpha2.PolicyReportResult {
 	return r.Spec.Results
@@ -70,7 +70,7 @@ func (r *BackgroundScanReport) SetSummary(summary policyreportv1alpha2.PolicyRep
 // +kubebuilder:printcolumn:name="Hash",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.hash']",priority=1
 
 // ClusterBackgroundScanReport is the Schema for the ClusterBackgroundScanReports API
-type ClusterBackgroundScanReport kyvernov2.ClusterBackgroundScanReport
+type ClusterBackgroundScanReport kyvernoreports.ClusterBackgroundScanReport
 
 func (r *ClusterBackgroundScanReport) GetResults() []policyreportv1alpha2.PolicyReportResult {
 	return r.Spec.Results
@@ -88,10 +88,10 @@ func (r *ClusterBackgroundScanReport) SetSummary(summary policyreportv1alpha2.Po
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // BackgroundScanReportList contains a list of BackgroundScanReport
-type BackgroundScanReportList kyvernov2.BackgroundScanReportList
+type BackgroundScanReportList kyvernoreports.BackgroundScanReportList
 
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // ClusterBackgroundScanReportList contains a list of ClusterBackgroundScanReport
-type ClusterBackgroundScanReportList kyvernov2.ClusterBackgroundScanReportList
+type ClusterBackgroundScanReportList kyvernoreports.ClusterBackgroundScanReportList
