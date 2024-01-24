@@ -96,14 +96,15 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 
 	// config
-	server             string
-	defaultTimeout     int32
-	servicePort        int32
-	autoUpdateWebhooks bool
-	admissionReports   bool
-	runtime            runtimeutils.Runtime
-	configuration      config.Configuration
-	caSecretName       string
+	server                       string
+	defaultTimeout               int32
+	servicePort                  int32
+	autoUpdateWebhooks           bool
+	admissionReports             bool
+	disableAutoWebhookGeneration bool
+	runtime                      runtimeutils.Runtime
+	configuration                config.Configuration
+	caSecretName                 string
 
 	// state
 	lock        sync.Mutex
@@ -131,30 +132,32 @@ func NewController(
 	runtime runtimeutils.Runtime,
 	configuration config.Configuration,
 	caSecretName string,
+	disableAutoWebhookGeneration bool,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
-		discoveryClient:    discoveryClient,
-		mwcClient:          mwcClient,
-		vwcClient:          vwcClient,
-		leaseClient:        leaseClient,
-		kyvernoClient:      kyvernoClient,
-		mwcLister:          mwcInformer.Lister(),
-		vwcLister:          vwcInformer.Lister(),
-		cpolLister:         cpolInformer.Lister(),
-		polLister:          polInformer.Lister(),
-		secretLister:       secretInformer.Lister(),
-		leaseLister:        leaseInformer.Lister(),
-		clusterroleLister:  clusterroleInformer.Lister(),
-		queue:              queue,
-		server:             server,
-		defaultTimeout:     defaultTimeout,
-		servicePort:        servicePort,
-		autoUpdateWebhooks: autoUpdateWebhooks,
-		admissionReports:   admissionReports,
-		runtime:            runtime,
-		configuration:      configuration,
-		caSecretName:       caSecretName,
+		discoveryClient:              discoveryClient,
+		mwcClient:                    mwcClient,
+		vwcClient:                    vwcClient,
+		leaseClient:                  leaseClient,
+		kyvernoClient:                kyvernoClient,
+		mwcLister:                    mwcInformer.Lister(),
+		vwcLister:                    vwcInformer.Lister(),
+		cpolLister:                   cpolInformer.Lister(),
+		polLister:                    polInformer.Lister(),
+		secretLister:                 secretInformer.Lister(),
+		leaseLister:                  leaseInformer.Lister(),
+		clusterroleLister:            clusterroleInformer.Lister(),
+		queue:                        queue,
+		server:                       server,
+		defaultTimeout:               defaultTimeout,
+		servicePort:                  servicePort,
+		autoUpdateWebhooks:           autoUpdateWebhooks,
+		admissionReports:             admissionReports,
+		runtime:                      runtime,
+		configuration:                configuration,
+		caSecretName:                 caSecretName,
+		disableAutoWebhookGeneration: disableAutoWebhookGeneration,
 		policyState: map[string]sets.Set[string]{
 			config.MutatingWebhookConfigurationName:   sets.New[string](),
 			config.ValidatingWebhookConfigurationName: sets.New[string](),
@@ -480,6 +483,9 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
+	if c.disableAutoWebhookGeneration {
+		return nil
+	}
 	switch name {
 	case config.MutatingWebhookConfigurationName:
 		if c.runtime.IsRollingUpdate() {
