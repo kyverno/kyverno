@@ -3,23 +3,21 @@ kind: PolicyReport
 metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
-  namespace: staging-ns
+  namespace: default
   ownerReferences:
   - apiVersion: apps/v1
     kind: Deployment
-    name: deployment-3
+    name: deployment-1
 results:
 - message: 'failed expression: object.spec.replicas <= 5'
-  policy: check-deployment-replicas-03
-  properties:
-    binding: check-deployment-replicas-binding-03
+  policy: check-deployment-replicas-05
   result: fail
   source: ValidatingAdmissionPolicy
 scope:
   apiVersion: apps/v1
   kind: Deployment
-  name: deployment-3
-  namespace: staging-ns
+  name: deployment-1
+  namespace: default
 summary:
   error: 0
   fail: 1
@@ -32,22 +30,20 @@ kind: PolicyReport
 metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
-  namespace: staging-ns
+  namespace: default
   ownerReferences:
   - apiVersion: apps/v1
     kind: Deployment
-    name: deployment-4
+    name: deployment-2
 results:
-- policy: check-deployment-replicas-03
-  properties:
-    binding: check-deployment-replicas-binding-03
+- policy: check-deployment-replicas-05
   result: pass
   source: ValidatingAdmissionPolicy
 scope:
   apiVersion: apps/v1
   kind: Deployment
-  name: deployment-4
-  namespace: staging-ns
+  name: deployment-2
+  namespace: default
 summary:
   error: 0
   fail: 0

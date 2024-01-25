@@ -2,7 +2,7 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   creationTimestamp: null
-  name: with-validating-admission-policy-binding
+  name: with-validating-admission-policy-binding-fail
 spec:
   steps:
   - name: step-01
@@ -27,7 +27,3 @@ spec:
     try:
     - assert:
         file: report-assert.yaml
-  - name: step-05
-    try:
-    - error:
-        file: report-error.yaml
