@@ -12,8 +12,6 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/engine/resourcecache/cache"
-	"github.com/kyverno/kyverno/pkg/metrics"
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 )
@@ -28,10 +26,9 @@ type Getter interface {
 }
 
 type ExternalAPILoader struct {
-	logger               logr.Logger
-	config               apicall.APICallConfiguration
-	cache                cache.Cache
-	failedFetchesCounter metric.Int64Counter
+	logger logr.Logger
+	config apicall.APICallConfiguration
+	cache  cache.Cache
 }
 
 type externalEntry struct {
@@ -91,19 +88,9 @@ func (e *externalEntry) Run(ctx context.Context, stopCh <-chan struct{}) {
 func New(logger logr.Logger, config apicall.APICallConfiguration) *ExternalAPILoader {
 	logger = logger.WithName("external api loader")
 
-	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
-	failedFetchesCounter, err := meter.Int64Counter(
-		"kyverno_cache_failed_external_api_calls",
-		metric.WithDescription("can be used to track the number of failed external api calls in the cache"),
-	)
-	if err != nil {
-		logger.Error(err, "failed to register metric kyverno_cache_external_api_failed")
-	}
-
 	return &ExternalAPILoader{
-		logger:               logger,
-		config:               config,
-		failedFetchesCounter: failedFetchesCounter,
+		logger: logger,
+		config: config,
 	}
 }
 
@@ -148,7 +135,7 @@ func (e *ExternalAPILoader) AddEntry(entry *v2alpha1.CachedContextEntry) error {
 		apicaller:            executor,
 		ticker:               ticker,
 		cancel:               cancel,
-		failedFetchesCounter: &e.failedFetchesCounter,
+		failedFetchesCounter: &e.config.FailedFetchesCounter,
 	}
 
 	data, err := extEntry.apicaller.Execute(ctx, extEntry.call)

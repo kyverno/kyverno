@@ -16,8 +16,13 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+	"k8s.io/klog/v2"
 )
 
 type APICall struct {
@@ -48,11 +53,23 @@ func parseentry(ent kyvernov1.ContextEntry) entry {
 
 type APICallConfiguration struct {
 	maxAPICallResponseLength int64
+	FailedFetchesCounter     metric.Int64Counter
 }
 
 func NewAPICallConfiguration(maxLen int64) APICallConfiguration {
+	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
+	failedFetchesCounter, err := meter.Int64Counter(
+		"kyverno_failed_api_calls",
+		metric.WithDescription("can be used to track the number of failed api calls"),
+	)
+	if err != nil {
+		logger := klog.Background().V(int(0))
+		logger.Error(err, "failed to register metric kyverno_failed_api_calls")
+	}
+
 	return APICallConfiguration{
 		maxAPICallResponseLength: maxLen,
+		FailedFetchesCounter:     failedFetchesCounter,
 	}
 }
 
@@ -102,6 +119,10 @@ func (a *APICall) Fetch(ctx context.Context) ([]byte, error) {
 	}
 	data, err := a.Execute(ctx, call)
 	if err != nil {
+		metricLabels := []attribute.KeyValue{
+			attribute.String("url", string(call.URLPath)),
+		}
+		a.config.FailedFetchesCounter.Add(ctx, 1, metric.WithAttributes(metricLabels...))
 		return nil, err
 	}
 	return data, nil
@@ -118,7 +139,7 @@ func (a *APICall) Store(data []byte) ([]byte, error) {
 func (a *APICall) Execute(ctx context.Context, call *kyvernov1.APICall) ([]byte, error) {
 	if call.URLPath != "" {
 		if a.client == nil {
-			return nil, fmt.Errorf("Client not found for K8s API Call %s", a.entry.Name)
+			return nil, fmt.Errorf("client not found for K8s API Call %s", a.entry.Name)
 		}
 		return a.executeK8sAPICall(ctx, call.URLPath, call.Method, call.Data)
 	}
@@ -179,7 +200,7 @@ func (a *APICall) executeServiceCall(ctx context.Context, apiCall *kyvernov1.API
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		if _, ok := err.(*http.MaxBytesError); ok {
-			return nil, fmt.Errorf("response length must be less than max allowed response length of %d.", a.config.maxAPICallResponseLength)
+			return nil, fmt.Errorf("response length must be less than max allowed response length of %d", a.config.maxAPICallResponseLength)
 		} else {
 			return nil, fmt.Errorf("failed to read data from APICall %s: %w", a.entry.Name, err)
 		}
