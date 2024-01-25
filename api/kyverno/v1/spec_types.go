@@ -130,7 +130,7 @@ type Spec struct {
 }
 
 func (s *Spec) CustomWebhookConfigurations() bool {
-	return s.WebhookConfigurations == nil
+	return s.WebhookConfigurations != nil
 }
 
 func (s *Spec) SetRules(rules []Rule) {
