@@ -4,8 +4,8 @@ metadata:
   name: good-pod
 spec:
   securityContext:
-      windowsOptions:
-        hostProcess: false
+    windowsOptions:
+      hostProcess: false
   containers:
   - name: nginx1
     image: nginx

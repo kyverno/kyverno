@@ -192,6 +192,7 @@ func createrLeaderControllers(
 			kyvernoClient,
 			dynamicClient.Discovery(),
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+			kyvernoInformer.Kyverno().V2beta1().PolicyExceptions(),
 			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
 			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings(),
 			eventGenerator,
@@ -255,6 +256,7 @@ func main() {
 		internal.WithKyvernoClient(),
 		internal.WithDynamicClient(),
 		internal.WithKyvernoDynamicClient(),
+		internal.WithEventsClient(),
 		internal.WithApiServerClient(),
 		internal.WithFlagSets(flagset),
 	)
@@ -320,7 +322,7 @@ func main() {
 		omitEventsValues = []string{}
 	}
 	eventGenerator := event.NewEventGenerator(
-		setup.KyvernoDynamicClient,
+		setup.EventsClient,
 		logging.WithName("EventGenerator"),
 		omitEventsValues...,
 	)

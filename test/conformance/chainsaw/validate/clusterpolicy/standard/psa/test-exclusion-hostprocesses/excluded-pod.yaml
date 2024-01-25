@@ -5,8 +5,8 @@ metadata:
 spec:
   hostNetwork: true
   securityContext:
-      windowsOptions:
-        hostProcess: true
+    windowsOptions:
+      hostProcess: true
   containers:
   - name: nginx1
     image: nginx

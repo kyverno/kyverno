@@ -61,7 +61,7 @@ func (o options) execute(out io.Writer, dirs ...string) error {
 }
 
 func (o options) processFile(out io.Writer, path string) {
-	policies, vaps, err := policy.LoadWithLoader(policy.KubectlValidateLoader, nil, "", path)
+	policies, vaps, vapBindings, err := policy.LoadWithLoader(policy.KubectlValidateLoader, nil, "", path)
 	if err != nil {
 		return
 	}
@@ -161,6 +161,16 @@ func (o options) processFile(out io.Writer, path string) {
 		}
 		for _, vap := range vaps {
 			finalBytes, err := yaml.Marshal(vap)
+			if err != nil {
+				fmt.Fprintf(out, "    ERROR: converting to yaml: %s", err)
+				fmt.Fprintln(out)
+				return
+			}
+			yamlBytes = append(yamlBytes, []byte("---\n")...)
+			yamlBytes = append(yamlBytes, finalBytes...)
+		}
+		for _, vapBinding := range vapBindings {
+			finalBytes, err := yaml.Marshal(vapBinding)
 			if err != nil {
 				fmt.Fprintf(out, "    ERROR: converting to yaml: %s", err)
 				fmt.Fprintln(out)

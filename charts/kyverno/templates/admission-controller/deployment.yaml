@@ -35,7 +35,7 @@ spec:
       securityContext:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.admissionController.nodeSelector }}
+      {{- with .Values.admissionController.nodeSelector | default .Values.global.nodeSelector }}
       nodeSelector:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
@@ -175,6 +175,10 @@ spec:
             - --{{ $key }}={{ $value }}
             {{- end }}
             {{- end }}
+            {{ if .Values.admissionController.profiling.enabled }}
+            - --profile=true
+            - --profilePort={{ .Values.admissionController.profiling.port }}
+            {{- end }}
           {{- with .Values.admissionController.container.resources }}
           resources:
             {{- tpl (toYaml .) $ | nindent 12 }}
@@ -190,6 +194,11 @@ spec:
           - containerPort: 8000
             name: metrics-port
             protocol: TCP
+          {{ if .Values.admissionController.profiling.enabled }}
+          - containerPort: {{ .Values.admissionController.profiling.port }}
+            name: profiling-port
+            protocol: TCP
+          {{- end }}
           env:
           - name: INIT_CONFIG
             value: {{ template "kyverno.config.configMapName" . }}

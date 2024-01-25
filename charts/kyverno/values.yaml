@@ -10,11 +10,13 @@ global:
     # -- (string) Global value that allows to set a single image registry across all deployments.
     # When set, it will override any values set under `.image.registry` across the chart.
     registry: ~
+
   caCertificates:
     # -- Global CA certificates to use with Kyverno deployments
     # This value is expected to be one large string of CA certificates
     # Individual controller values will override this global value
     data: ~
+
     # -- Global value to set single volume to be mounted for CA certificates for all deployments.
     # Not used when `.Values.global.caCertificates.data` is defined
     # Individual  controller values will override this global value
@@ -23,12 +25,16 @@ global:
     # hostPath:
     #   path: /etc/pki/tls/ca-certificates.crt
     #   type: File
+
   # -- Additional container environment variables to apply to all containers and init containers
   extraEnvVars: []
   # Example setting proxy
   # extraEnvVars:
   # - name: HTTPS_PROXY
   #   value: 'https://proxy.example.com:3128'
+
+  # -- Global node labels for pod assignment. Non-global values will override the global value.
+  nodeSelector: {}
 
 # -- (string) Override the name of the chart
 nameOverride: ~
@@ -62,6 +68,67 @@ crds:
 
   # -- Additional CRDs labels
   customLabels: {}
+
+  migration:
+
+    # -- Enable CRDs migration using helm post upgrade hook
+    enabled: true
+
+    # -- Resources to migrate
+    resources:
+    - cleanuppolicies.kyverno.io
+    - clustercleanuppolicies.kyverno.io
+    - policyexceptions.kyverno.io
+
+    image:
+      # -- (string) Image registry
+      registry: ghcr.io
+      # -- (string) Image repository
+      repository: kyverno/kyverno-cli
+      # -- (string) Image tag
+      # Defaults to appVersion in Chart.yaml if omitted
+      tag: ~
+      # -- (string) Image pull policy
+      pullPolicy: IfNotPresent
+
+    # -- Image pull secrets
+    imagePullSecrets: []
+    # - name: secretName
+
+    # -- Security context for the pod
+    podSecurityContext: {}
+
+    # -- Node labels for pod assignment
+    nodeSelector: {}
+
+    # -- List of node taints to tolerate
+    tolerations: []
+
+    # -- Pod anti affinity constraints.
+    podAntiAffinity: {}
+
+    # -- Pod affinity constraints.
+    podAffinity: {}
+
+    # -- Pod labels.
+    podLabels: {}
+
+    # -- Node affinity constraints.
+    nodeAffinity: {}
+
+    # -- Security context for the hook containers
+    securityContext:
+      runAsUser: 65534
+      runAsGroup: 65534
+      runAsNonRoot: true
+      privileged: false
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
 
 # Configuration
 config:
@@ -363,7 +430,7 @@ webhooksCleanup:
     repository: bitnami/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.26.4'
+    tag: '1.28.5'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -385,6 +452,9 @@ webhooksCleanup:
 
   # -- Pod affinity constraints.
   podAffinity: {}
+
+  # -- Pod labels.
+  podLabels: {}
 
   # -- Node affinity constraints.
   nodeAffinity: {}
@@ -414,7 +484,7 @@ policyReportsCleanup:
     repository: bitnami/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.28.4'
+    tag: '1.28.5'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -437,6 +507,9 @@ policyReportsCleanup:
 
   # -- Pod affinity constraints.
   podAffinity: {}
+
+  # -- Pod labels.
+  podLabels: {}
 
   # -- Node affinity constraints.
   nodeAffinity: {}
@@ -528,11 +601,11 @@ features:
     verbosity: 2
   omitEvents:
     # -- Events which should not be emitted (possible values `PolicyViolation`, `PolicyApplied`, `PolicyError`, and `PolicySkipped`)
-    eventTypes: []
+    eventTypes:
+      - PolicyApplied
+      - PolicySkipped
       # - PolicyViolation
-      # - PolicyApplied
       # - PolicyError
-      # - PolicySkipped
   policyExceptions:
     # -- Enables the feature
     enabled: true
@@ -580,7 +653,7 @@ cleanupJobs:
       repository: bitnami/kubectl
       # -- Image tag
       # Defaults to `latest` if omitted
-      tag: '1.26.10'
+      tag: '1.28.5'
       # -- (string) Image pull policy
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~
@@ -654,7 +727,7 @@ cleanupJobs:
       repository: bitnami/kubectl
       # -- Image tag
       # Defaults to `latest` if omitted
-      tag: '1.26.4'
+      tag: '1.28.5'
       # -- (string) Image pull policy
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~
@@ -1099,6 +1172,17 @@ admissionController:
     # -- Otel collector credentials
     creds: ''
 
+  profiling:
+    # -- Enable profiling
+    enabled: false
+    # -- Profiling endpoint port
+    port: 6060
+    # -- Service type.
+    serviceType: ClusterIP
+    # -- Service node port.
+    # Only used if `type` is `NodePort`.
+    nodePort:
+
 # Background controller configuration
 backgroundController:
 
@@ -1386,6 +1470,17 @@ backgroundController:
     collector: ''
     # -- Otel collector credentials
     creds: ''
+
+  profiling:
+    # -- Enable profiling
+    enabled: false
+    # -- Profiling endpoint port
+    port: 6060
+    # -- Service type.
+    serviceType: ClusterIP
+    # -- Service node port.
+    # Only used if `type` is `NodePort`.
+    nodePort:
 
 # Cleanup controller configuration
 cleanupController:
@@ -1682,6 +1777,17 @@ cleanupController:
     # -- Otel collector credentials
     creds: ''
 
+  profiling:
+    # -- Enable profiling
+    enabled: false
+    # -- Profiling endpoint port
+    port: 6060
+    # -- Service type.
+    serviceType: ClusterIP
+    # -- Service node port.
+    # Only used if `type` is `NodePort`.
+    nodePort:
+
 # Reports controller configuration
 reportsController:
 
@@ -1943,3 +2049,14 @@ reportsController:
     collector: ~
     # -- (string) Otel collector credentials
     creds: ~
+
+  profiling:
+    # -- Enable profiling
+    enabled: false
+    # -- Profiling endpoint port
+    port: 6060
+    # -- Service type.
+    serviceType: ClusterIP
+    # -- Service node port.
+    # Only used if `type` is `NodePort`.
+    nodePort:
