@@ -6,6 +6,7 @@ features:
 
 backgroundController:
   rbac:
+    create: true
     clusterRole:
       extraResources:
         - apiGroups:
