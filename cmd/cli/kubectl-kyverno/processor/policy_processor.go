@@ -30,6 +30,7 @@ import (
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gomodules.xyz/jsonpatch/v2"
 	yamlv2 "gopkg.in/yaml.v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -54,8 +55,17 @@ type PolicyProcessor struct {
 	Out                       io.Writer
 }
 
-func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
-	cfg := config.NewDefaultConfiguration(false)
+func (p *PolicyProcessor) ApplyPoliciesOnResource(skipResourceFilters bool) ([]engineapi.EngineResponse, error) {
+	cfg := config.NewDefaultConfiguration(skipResourceFilters)
+	if p.Client != nil {
+		kyvernoConfigMapName := config.KyvernoConfigMapName()
+		kyvernoConfigMap, err := p.Client.GetKubeClient().CoreV1().ConfigMaps(config.KyvernoNamespace()).Get(context.TODO(), kyvernoConfigMapName, metav1.GetOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("error retrieving the kyverno configmap: %w", err)
+		}
+		cfg.Load(kyvernoConfigMap)
+	}
+
 	jp := jmespath.New(cfg)
 	resource := p.Resource
 	namespaceLabels := p.NamespaceSelectorMap[p.Resource.GetNamespace()]

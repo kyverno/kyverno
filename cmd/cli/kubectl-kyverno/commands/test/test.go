@@ -154,7 +154,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 			Subresources:              vars.Subresources(),
 			Out:                       out,
 		}
-		ers, err := processor.ApplyPoliciesOnResource()
+		ers, err := processor.ApplyPoliciesOnResource(false)
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 		}

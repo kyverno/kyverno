@@ -117,7 +117,7 @@ func Test_NamespaceSelector(t *testing.T) {
 			Rc:                   rc,
 			Out:                  os.Stdout,
 		}
-		processor.ApplyPoliciesOnResource()
+		processor.ApplyPoliciesOnResource(false)
 		assert.Equal(t, int64(rc.Pass()), int64(tc.result.pass))
 		assert.Equal(t, int64(rc.Fail()), int64(tc.result.fail))
 		assert.Equal(t, int64(rc.Skip()), int64(tc.result.skip))

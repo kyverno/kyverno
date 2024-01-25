@@ -277,7 +277,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 			Subresources:         vars.Subresources(),
 			Out:                  out,
 		}
-		ers, err := processor.ApplyPoliciesOnResource()
+		ers, err := processor.ApplyPoliciesOnResource(c.SkipResourceFilters)
 		if err != nil {
 			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 		}
