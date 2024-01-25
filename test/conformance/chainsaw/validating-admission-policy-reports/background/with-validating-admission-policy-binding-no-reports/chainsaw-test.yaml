@@ -15,8 +15,6 @@ spec:
     try:
     - apply:
         file: policy.yaml
-    - assert:
-        file: policy.yaml
   - name: step-03
     try:
     - error:

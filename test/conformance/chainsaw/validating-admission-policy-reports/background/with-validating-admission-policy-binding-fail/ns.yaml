@@ -3,4 +3,4 @@ kind: Namespace
 metadata:
   name: staging-ns-2
   labels:
-    environment: staging
+    environment: staging-ns-2

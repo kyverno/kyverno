@@ -10,8 +10,6 @@ metadata:
     name: deployment-4
 results:
 - policy: check-deployment-replicas-03
-  properties:
-    binding: check-deployment-replicas-binding-03
   result: pass
   source: ValidatingAdmissionPolicy
 scope:

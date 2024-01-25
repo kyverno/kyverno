@@ -27,4 +27,4 @@ spec:
   matchResources:
     namespaceSelector:
       matchLabels:
-        environment: staging
+        environment: staging-ns-2

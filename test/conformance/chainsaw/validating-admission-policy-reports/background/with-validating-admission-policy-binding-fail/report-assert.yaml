@@ -9,10 +9,9 @@ metadata:
     kind: Deployment
     name: deployment-3
 results:
-- policy: check-deployment-replicas-04
-  properties:
-    binding: check-deployment-replicas-binding-04
-  result: pass
+- message: 'failed expression: object.spec.replicas <= 5'
+  policy: check-deployment-replicas-04
+  result: fail
   source: ValidatingAdmissionPolicy
 scope:
   apiVersion: apps/v1

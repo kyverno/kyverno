@@ -9,7 +9,7 @@
             "program": "${workspaceFolder}/cmd/kyverno",
             "args": [
                 "--kubeconfig=${userHome}/.kube/config",
-                "--serverIP=172.18.0.1:9443",
+                "--serverIP=<SERVER-IP>:9443",
                 "--backgroundServiceAccountName=system:serviceaccount:kyverno:kyverno-background-controller",
                 "-v=2",
                 "--caSecretName=kyverno-svc.kyverno.svc.kyverno-tls-ca",
@@ -32,7 +32,6 @@
             "program": "${workspaceFolder}/cmd/reports-controller",
             "args": [
                 "--kubeconfig=${userHome}/.kube/config",
-                "--validatingAdmissionPolicyReports=true",
             ],
             "env": {
                 "KYVERNO_NAMESPACE": "kyverno",
