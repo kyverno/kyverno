@@ -49806,6 +49806,16 @@ rules:
       - list
       - watch
   - apiGroups:
+      - ''
+    resources:
+      - secrets
+      - configmaps
+      - namespaces
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
       - kyverno.io
     resources:
       - admissionreports
