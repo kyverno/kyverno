@@ -128,7 +128,7 @@ func Validate(policyData PolicyData, resource unstructured.Unstructured, client 
 			logger.V(3).Info("validate resource %s against policy %s", resPath, policy.GetName())
 			return validateResource(policy, nil, resource, a)
 		} else {
-			for _, binding := range bindings {
+			for i, binding := range bindings {
 				// convert policy binding from v1alpha1 to v1beta1
 				var namespaceSelector, objectSelector, paramSelector metav1.LabelSelector
 				var resourceRules, excludeResourceRules []v1alpha1.NamedRuleWithOperations
@@ -181,7 +181,7 @@ func Validate(policyData PolicyData, resource unstructured.Unstructured, client 
 
 				resPath := fmt.Sprintf("%s/%s/%s", a.GetNamespace(), a.GetKind().Kind, a.GetName())
 				logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
-				return validateResource(policy, &binding, resource, a)
+				return validateResource(policy, &bindings[i], resource, a)
 			}
 		}
 	} else {
