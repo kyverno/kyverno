@@ -801,7 +801,7 @@ admissionController:
 
     # -- Enable wildcard get/list/watch permissions
     # This flag offers an option to opt-out of wildcard permissions, set it to false provides minimum rbac permissions to run Kyverno. Warning: set it to false could potentially break current working policies.
-    enableWildcardRBAC: true
+    enableReadOnlyWildcardPermissions: true
 
     serviceAccount:
       # -- The ServiceAccount name
@@ -1202,7 +1202,7 @@ backgroundController:
 
     # -- Enable wildcard get/list/watch permissions
     # This flag offers an option to opt-out of wildcard permissions, set it to false provides minimum rbac permissions to run Kyverno. Warning: set it to false could potentially break current working policies.
-    enableWildcardRBAC: true
+    enableReadOnlyWildcardPermissions: true
 
     serviceAccount:
       # -- Service account name
@@ -1803,7 +1803,7 @@ reportsController:
 
     # -- Enable wildcard get/list/watch permissions
     # This flag offers an option to opt-out of wildcard permissions, set it to false provides minimum rbac permissions to run Kyverno. Warning: set it to false could potentially break current working policies.
-    enableWildcardRBAC: true
+    enableReadOnlyWildcardPermissions: true
 
     serviceAccount:
       # -- Service account name

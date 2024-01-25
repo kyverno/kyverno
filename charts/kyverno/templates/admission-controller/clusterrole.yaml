@@ -127,7 +127,7 @@ rules:
       - get
       - list
       - watch
-{{- if .Values.admissionController.rbac.enableWildcardRBAC }}
+{{- if .Values.admissionController.rbac.enableReadOnlyWildcardPermissions }}
   - apiGroups:
       - '*'
     resources:

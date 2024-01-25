@@ -18,7 +18,7 @@ metadata:
   labels:
     {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
 rules:
-{{- if .Values.reportsController.rbac.enableWildcardRBAC }}
+{{- if .Values.reportsController.rbac.enableReadOnlyWildcardPermissions }}
   - apiGroups:
       - '*'
     resources:

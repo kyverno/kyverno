@@ -18,7 +18,7 @@ metadata:
   labels:
     {{- include "kyverno.background-controller.labels" . | nindent 4 }}
 rules:
-{{- if .Values.backgroundController.rbac.enableWildcardRBAC }}
+{{- if .Values.backgroundController.rbac.enableReadOnlyWildcardPermissions }}
   - apiGroups:
       - '*'
     resources:
