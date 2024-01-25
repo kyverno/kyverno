@@ -30,8 +30,9 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23
 	github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877
+	github.com/kyverno/kyverno-json v0.0.1
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
-	github.com/notaryproject/notation-core-go v1.0.1
+	github.com/notaryproject/notation-core-go v1.0.2
 	github.com/notaryproject/notation-go v1.0.1
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.31.1
@@ -67,7 +68,7 @@ require (
 	golang.org/x/crypto v0.18.0
 	golang.org/x/text v0.14.0
 	gomodules.xyz/jsonpatch/v2 v2.4.0
-	google.golang.org/grpc v1.60.1
+	google.golang.org/grpc v1.61.0
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
@@ -91,6 +92,11 @@ require (
 )
 
 require github.com/open-policy-agent/gatekeeper/v3 v3.14.0 // indirect
+
+require (
+	github.com/jmespath-community/go-jmespath v1.1.2-0.20231004164315-78945398586a // indirect
+	github.com/smarty/assertions v1.15.1 // indirect
+)
 
 require (
 	cloud.google.com/go/compute v1.23.3 // indirect
