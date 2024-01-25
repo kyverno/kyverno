@@ -387,7 +387,7 @@ func (c *controller) reconcileReport(
 			// if the policy did not change, keep the result
 			label := policyNameToLabel[result.Policy]
 			exceptionLabel := policyNameToLabel[result.Properties["exception"]]
-			vapBindingLabel := policyNameToLabel[result.Properties["validatingadmissionpolicybinding"]]
+			vapBindingLabel := policyNameToLabel[result.Properties["binding"]]
 			if (label != "" && expected[label] == actual[label]) ||
 				(exceptionLabel != "" && expected[exceptionLabel] == actual[exceptionLabel]) ||
 				(vapBindingLabel != "" && expected[vapBindingLabel] == actual[vapBindingLabel]) {
@@ -526,7 +526,7 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 	}
 	var vapBindings []admissionregistrationv1alpha1.ValidatingAdmissionPolicyBinding
 	if c.vapBindingLister != nil {
-		// load validating admission policies
+		// load validating admission policy bindings
 		vapBindings, err = utils.FetchValidatingAdmissionPolicyBindings(c.vapBindingLister)
 		if err != nil {
 			return err

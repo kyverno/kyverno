@@ -126,7 +126,7 @@ func Validate(policyData PolicyData, resource unstructured.Unstructured, client 
 			a = admission.NewAttributesRecord(resource.DeepCopyObject(), nil, resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
 			resPath := fmt.Sprintf("%s/%s/%s", a.GetNamespace(), a.GetKind().Kind, a.GetName())
 			logger.V(3).Info("validate resource %s against policy %s", resPath, policy.GetName())
-			return validateResource(policy, resource, a)
+			return validateResource(policy, nil, resource, a)
 		} else {
 			for _, binding := range bindings {
 				// convert policy binding from v1alpha1 to v1beta1
@@ -181,20 +181,20 @@ func Validate(policyData PolicyData, resource unstructured.Unstructured, client 
 
 				resPath := fmt.Sprintf("%s/%s/%s", a.GetNamespace(), a.GetKind().Kind, a.GetName())
 				logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
-				return validateResource(policy, resource, a)
+				return validateResource(policy, &binding, resource, a)
 			}
 		}
 	} else {
 		a = admission.NewAttributesRecord(resource.DeepCopyObject(), nil, resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
 		resPath := fmt.Sprintf("%s/%s/%s", a.GetNamespace(), a.GetKind().Kind, a.GetName())
 		logger.V(3).Info("validate resource %s against policy %s", resPath, policy.GetName())
-		return validateResource(policy, resource, a)
+		return validateResource(policy, nil, resource, a)
 	}
 
 	return engineResponse, nil
 }
 
-func validateResource(policy v1alpha1.ValidatingAdmissionPolicy, resource unstructured.Unstructured, a admission.Attributes) (engineapi.EngineResponse, error) {
+func validateResource(policy v1alpha1.ValidatingAdmissionPolicy, binding *v1alpha1.ValidatingAdmissionPolicyBinding, resource unstructured.Unstructured, a admission.Attributes) (engineapi.EngineResponse, error) {
 	startTime := time.Now()
 
 	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
@@ -250,6 +250,10 @@ func validateResource(policy v1alpha1.ValidatingAdmissionPolicy, resource unstru
 
 	if isPass {
 		ruleResp = engineapi.RulePass(policy.GetName(), engineapi.Validation, "")
+	}
+
+	if binding != nil {
+		ruleResp = ruleResp.WithBinding(binding)
 	}
 	policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
 	engineResponse = engineResponse.WithPolicyResponse(policyResp)
