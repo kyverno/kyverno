@@ -30,6 +30,7 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23
 	github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877
+	github.com/kyverno/kyverno-json v0.0.1
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
 	github.com/notaryproject/notation-core-go v1.0.2
 	github.com/notaryproject/notation-go v1.0.1
@@ -91,6 +92,11 @@ require (
 )
 
 require github.com/open-policy-agent/gatekeeper/v3 v3.14.0 // indirect
+
+require (
+	github.com/jmespath-community/go-jmespath v1.1.2-0.20231004164315-78945398586a // indirect
+	github.com/smarty/assertions v1.15.1 // indirect
+)
 
 require (
 	cloud.google.com/go/compute v1.23.3 // indirect
