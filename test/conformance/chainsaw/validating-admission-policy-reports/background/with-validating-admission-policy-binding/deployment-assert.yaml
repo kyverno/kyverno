@@ -12,8 +12,10 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: deployment-3
+  namespace: staging-ns
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: deployment-4
+  namespace: staging-ns
