@@ -30,11 +30,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/spf13/cobra"
 	"k8s.io/api/admissionregistration/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -159,12 +157,6 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	resources, err := c.loadResources(out, policies, vaps, dClient)
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
-	}
-	if c.Cluster && !c.SkipResourceFilters {
-		resources, err = c.filterResources(resources, dClient)
-		if err != nil {
-			return rc, resources1, skipInvalidPolicies, responses1, err
-		}
 	}
 	if !c.Stdin {
 		var policyRulesCount int
