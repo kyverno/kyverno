@@ -69,8 +69,8 @@ rules:
 {{- with .Values.backgroundController.rbac.coreClusterRole.extraResources }}
   {{- toYaml . | nindent 2 }}
 {{- end }}
-{{- with .Values.backgroundController.rbac.clusterRole.extraResources }}
 ---
+{{- with .Values.backgroundController.rbac.clusterRole.extraResources }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
