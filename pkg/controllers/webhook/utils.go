@@ -2,7 +2,6 @@ package webhook
 
 import (
 	"cmp"
-	"fmt"
 	"slices"
 	"strings"
 
