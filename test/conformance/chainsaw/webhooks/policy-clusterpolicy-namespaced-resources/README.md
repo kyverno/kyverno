@@ -1,6 +1,6 @@
 ## Description
 
-This test verifies the resource validation webhook is configured correctly when a Policy target the `Secret` resource and ClusterPolicy target the `ConfigMap` resource.
+This test verifies the resource validation webhook is configured correctly when a Policy targets the `Secret` resource and ClusterPolicy targets the `ConfigMap` resource.
 
 ## Steps
 

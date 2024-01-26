@@ -8,26 +8,15 @@ webhooks:
 - failurePolicy: Fail
   rules:
   - apiGroups:
-    - ''
+    - '*'
     apiVersions:
-    - 'v1'
+    - '*'
     operations:
     - CREATE
     - UPDATE
     - DELETE
     - CONNECT
     resources:
-    - 'configmaps'
+    - '*'
+    - pods/ephemeralcontainers
     scope: '*'
-  - apiGroups:
-      - ''
-    apiVersions:
-      - 'v1'
-    operations:
-      - CREATE
-      - UPDATE
-      - DELETE
-      - CONNECT
-    resources:
-      - 'secrets'
-    scope: 'Namespaced'
