@@ -561,6 +561,9 @@ features:
   aggregateReports:
     # -- Enables the feature
     enabled: true
+  alternateReportStorage:
+    # -- Enables the feature
+    enabled: false
   policyReports:
     # -- Enables the feature
     enabled: true
