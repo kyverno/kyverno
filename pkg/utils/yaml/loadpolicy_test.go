@@ -20,6 +20,7 @@ func TestGetPolicy(t *testing.T) {
 		wantPolicies []policy
 		vaps         []policy
 		vapBindings  []policy
+		polex        []policy
 		wantErr      bool
 	}{{
 		name: "policy",
@@ -486,10 +487,101 @@ spec:
 			{"ValidatingAdmissionPolicyBinding", ""},
 		},
 		wantErr: false,
+	}, {
+		name: "PolicyException",
+		args: args{
+			[]byte(`
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: delta-exception
+  namespace: delta
+spec:
+  exceptions:
+  - policyName: disallow-host-namespaces
+    ruleNames:
+    - host-namespaces
+    - autogen-host-namespaces
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+        - Deployment
+        namespaces:
+        - delta
+        names:
+        - important-tool*
+`),
+		}, polex: []policy{
+			{"PolicyException", "delta"},
+		},
+		wantErr: false,
+	}, {
+		name: "PolicyException and Policy",
+		args: args{
+			[]byte(`
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: delta-exception
+  namespace: delta
+spec:
+  exceptions:
+  - policyName: disallow-host-namespaces
+    ruleNames:
+    - host-namespaces
+    - autogen-host-namespaces
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+        - Deployment
+        namespaces:
+        - delta
+        names:
+        - important-tool*
+---
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: generate-policy
+  namespace: ns-1
+spec:
+  rules:
+  - name: copy-game-demo
+    match:
+      resources:
+        kinds:
+        - Namespace
+    exclude:
+      resources:
+        namespaces:
+        - kube-system
+        - default
+        - kube-public
+        - kyverno
+    generate:
+      kind: ConfigMap
+      name: game-demo
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      clone:
+        namespace: default
+        name: game-demo
+`),
+		}, wantPolicies: []policy{
+			{"Policy", "ns-1"},
+		},
+		polex: []policy{
+			{"PolicyException", "delta"},
+		},
+		wantErr: false,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotPolicies, gotValidatingAdmissionPolicies, gotBindings, _, err := GetPolicy(tt.args.bytes)
+			gotPolicies, gotValidatingAdmissionPolicies, gotBindings, gotPolicyExceptions, err := GetPolicy(tt.args.bytes)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -510,6 +602,12 @@ spec:
 				if assert.Equal(t, len(tt.vapBindings), len(gotBindings)) {
 					for i := range tt.vapBindings {
 						assert.Equal(t, tt.vapBindings[i].kind, gotBindings[i].Kind)
+					}
+				}
+
+				if assert.Equal(t, len(tt.polex), len(gotPolicyExceptions)) {
+					for i := range tt.polex {
+						assert.Equal(t, tt.polex[i].kind, gotPolicyExceptions[i].Kind)
 					}
 				}
 			}
