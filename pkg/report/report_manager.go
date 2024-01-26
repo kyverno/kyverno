@@ -242,6 +242,6 @@ func (r *reportManager) DeepCopy(report kyvernov1alpha2.ReportInterface) kyverno
 	if r.storeInDB {
 		return deepCopyReportV1(report)
 	} else {
-		return deepCopyV1Alpha1(report)
+		return deepCopyV1Alpha2(report)
 	}
 }

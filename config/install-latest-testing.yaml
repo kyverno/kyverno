@@ -51779,6 +51779,7 @@ spec:
             - --otelConfig=prometheus
             - --metricsPort=8000
             - --admissionReports=true
+            - --alternateReportStorage=false
             - --autoUpdateWebhooks=true
             - --enableConfigMapCaching=true
             - --enableDeferredLoading=true
@@ -52174,6 +52175,7 @@ spec:
             - --metricsPort=8000
             - --admissionReports=true
             - --aggregateReports=true
+            - --alternateReportStorage=false
             - --policyReports=true
             - --validatingAdmissionPolicyReports=false
             - --backgroundScan=true

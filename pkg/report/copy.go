@@ -6,7 +6,7 @@ import (
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 )
 
-func deepCopyV1Alpha1(report kyvernov1alpha2.ReportInterface) kyvernov1alpha2.ReportInterface {
+func deepCopyV1Alpha2(report kyvernov1alpha2.ReportInterface) kyvernov1alpha2.ReportInterface {
 	switch v := report.(type) {
 	case *kyvernov1alpha2.AdmissionReport:
 		return v.DeepCopy()
