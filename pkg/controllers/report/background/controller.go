@@ -22,6 +22,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/report"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -52,6 +53,7 @@ type controller struct {
 	// clients
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
+	reportManager report.Interface
 	engine        engineapi.Engine
 
 	// listers
@@ -80,6 +82,7 @@ type controller struct {
 func NewController(
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
+	reportManager report.Interface,
 	engine engineapi.Engine,
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
@@ -94,12 +97,13 @@ func NewController(
 	eventGen event.Interface,
 	policyReports bool,
 ) controllers.Controller {
-	bgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("backgroundscanreports"))
-	cbgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
+	bgscanr := reportManager.BackgroundScanReportInformer(metadataFactory)
+	cbgscanr := reportManager.ClusterBackgroundScanReportInformer(metadataFactory)
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
 		client:         client,
 		kyvernoClient:  kyvernoClient,
+		reportManager:  reportManager,
 		engine:         engine,
 		polLister:      polInformer.Lister(),
 		cpolLister:     cpolInformer.Lister(),
@@ -199,9 +203,9 @@ func (c *controller) enqueueResources() {
 
 func (c *controller) getReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
-		return c.kyvernoClient.KyvernoV1alpha2().ClusterBackgroundScanReports().Get(ctx, name, metav1.GetOptions{})
+		return c.reportManager.GetClusterBackgroundScanReports(ctx, name, metav1.GetOptions{})
 	} else {
-		return c.kyvernoClient.KyvernoV1alpha2().BackgroundScanReports(namespace).Get(ctx, name, metav1.GetOptions{})
+		return c.reportManager.GetBackgroundScanReports(ctx, name, namespace, metav1.GetOptions{})
 	}
 }
 
@@ -300,7 +304,7 @@ func (c *controller) reconcileReport(
 		if !apierrors.IsNotFound(err) {
 			return err
 		}
-		observed = reportutils.NewBackgroundScanReport(namespace, name, gvk, resource.Name, uid)
+		observed = c.reportManager.NewBackgroundScanReport(namespace, name, gvk, resource.Name, uid)
 	}
 	// build desired report
 	expected := map[string]string{}
@@ -372,7 +376,7 @@ func (c *controller) reconcileReport(
 			}
 		}
 	}
-	desired := reportutils.DeepCopy(observed)
+	desired := c.reportManager.DeepCopy(observed)
 	for key := range desired.GetLabels() {
 		if reportutils.IsPolicyLabel(key) {
 			delete(desired.GetLabels(), key)
@@ -402,19 +406,19 @@ func (c *controller) storeReport(ctx context.Context, observed, desired kyvernov
 	if !hasReport && !wantsReport {
 		return nil
 	} else if !hasReport && wantsReport {
-		_, err = reportutils.CreateReport(ctx, desired, c.kyvernoClient)
+		_, err = c.reportManager.CreateReport(ctx, desired)
 		return err
 	} else if hasReport && !wantsReport {
 		if observed.GetNamespace() == "" {
-			return c.kyvernoClient.KyvernoV1alpha2().ClusterBackgroundScanReports().Delete(ctx, observed.GetName(), metav1.DeleteOptions{})
+			return c.reportManager.DeleteClusterBackgroundScanReports(ctx, observed.GetName(), metav1.DeleteOptions{})
 		} else {
-			return c.kyvernoClient.KyvernoV1alpha2().BackgroundScanReports(observed.GetNamespace()).Delete(ctx, observed.GetName(), metav1.DeleteOptions{})
+			return c.reportManager.DeleteBackgroundScanReports(ctx, observed.GetName(), observed.GetNamespace(), metav1.DeleteOptions{})
 		}
 	} else {
 		if utils.ReportsAreIdentical(observed, desired) {
 			return nil
 		}
-		_, err = reportutils.UpdateReport(ctx, desired, c.kyvernoClient)
+		_, err = c.reportManager.UpdateReport(ctx, desired)
 		return err
 	}
 }
@@ -434,9 +438,9 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 			return nil
 		} else {
 			if report.GetNamespace() == "" {
-				return c.kyvernoClient.KyvernoV1alpha2().ClusterBackgroundScanReports().Delete(ctx, report.GetName(), metav1.DeleteOptions{})
+				return c.reportManager.DeleteClusterBackgroundScanReports(ctx, report.GetName(), metav1.DeleteOptions{})
 			} else {
-				return c.kyvernoClient.KyvernoV1alpha2().BackgroundScanReports(report.GetNamespace()).Delete(ctx, report.GetName(), metav1.DeleteOptions{})
+				return c.reportManager.DeleteBackgroundScanReports(ctx, report.GetName(), report.GetNamespace(), metav1.DeleteOptions{})
 			}
 		}
 	}

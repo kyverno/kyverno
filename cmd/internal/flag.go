@@ -56,6 +56,8 @@ var (
 	imageVerifyCacheEnabled     bool
 	imageVerifyCacheTTLDuration time.Duration
 	imageVerifyCacheMaxSize     int64
+	// alternate report storage
+	alternateReportStorage bool
 )
 
 func initLoggingFlags() {
@@ -131,6 +133,10 @@ func initLeaderElectionFlags() {
 
 func initCleanupFlags() {
 	flag.StringVar(&cleanupServerPort, "cleanupServerPort", "9443", "kyverno cleanup server port, defaults to '9443'.")
+}
+
+func initAltReportStoreFlag() {
+	flag.BoolVar(&alternateReportStorage, "alternateReportStorage", false, "Store kyverno intermediate reports in a separate api group reports.kyverno.io. defaults to false.")
 }
 
 type options struct {

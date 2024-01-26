@@ -30,10 +30,3 @@ type ReportInterface interface {
 	SetResults([]policyreportv1alpha2.PolicyReportResult)
 	SetSummary(policyreportv1alpha2.PolicyReportSummary)
 }
-
-// +kubebuilder:object:generate=false
-
-// ReportListInterface abstracts the concrete report list change request type
-type ReportListInterface interface {
-	metav1.ListInterface
-}

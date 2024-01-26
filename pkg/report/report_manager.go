@@ -10,6 +10,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/informers"
@@ -31,21 +32,25 @@ type Interface interface {
 	NewBackgroundScanReport(namespace, name string, gvk schema.GroupVersionKind, owner string, uid types.UID) kyvernov1alpha2.ReportInterface
 
 	GetAdmissionReports(ctx context.Context, name string, namespace string, opts metav1.GetOptions) (kyvernov1alpha2.ReportInterface, error)
-	ListAdmissionReports(ctx context.Context, namespace string, opts metav1.ListOptions) (kyvernov1alpha2.ReportListInterface, error)
+	ListAdmissionReports(ctx context.Context, namespace string, opts metav1.ListOptions) (runtime.Object, error)
+	DeleteAdmissionReports(ctx context.Context, name, namespace string, opts metav1.DeleteOptions) error
 
 	GetBackgroundScanReports(ctx context.Context, name string, namespace string, opts metav1.GetOptions) (kyvernov1alpha2.ReportInterface, error)
-	ListBackgroundScanReports(ctx context.Context, namespace string, opts metav1.ListOptions) (kyvernov1alpha2.ReportListInterface, error)
+	ListBackgroundScanReports(ctx context.Context, namespace string, opts metav1.ListOptions) (runtime.Object, error)
+	DeleteBackgroundScanReports(ctx context.Context, name, namespace string, opts metav1.DeleteOptions) error
 
-	GetClusterAdmissionReports(ctx context.Context, name string, namespace string, opts metav1.GetOptions) (kyvernov1alpha2.ReportInterface, error)
-	ListClusterAdmissionReports(ctx context.Context, namespace string, opts metav1.ListOptions) (kyvernov1alpha2.ReportListInterface, error)
+	GetClusterAdmissionReports(ctx context.Context, name string, opts metav1.GetOptions) (kyvernov1alpha2.ReportInterface, error)
+	ListClusterAdmissionReports(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error)
+	DeleteClusterAdmissionReports(ctx context.Context, namespace string, opts metav1.DeleteOptions) error
 
-	GetClusterBackgroundScanReports(ctx context.Context, name string, namespace string, opts metav1.GetOptions) (kyvernov1alpha2.ReportInterface, error)
-	ListClusterBackgroundScanReports(ctx context.Context, namespace string, opts metav1.ListOptions) (kyvernov1alpha2.ReportListInterface, error)
+	GetClusterBackgroundScanReports(ctx context.Context, name string, opts metav1.GetOptions) (kyvernov1alpha2.ReportInterface, error)
+	ListClusterBackgroundScanReports(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error)
+	DeleteClusterBackgroundScanReports(ctx context.Context, namespace string, opts metav1.DeleteOptions) error
 
-	GetAdmissionReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer
-	GetClusterAdmissionReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer
-	GetBackgroundScanReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer
-	GetClusterBackgroundScanReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer
+	AdmissionReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer
+	ClusterAdmissionReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer
+	BackgroundScanReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer
+	ClusterBackgroundScanReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer
 
 	DeepCopy(report kyvernov1alpha2.ReportInterface) kyvernov1alpha2.ReportInterface
 }
@@ -89,11 +94,19 @@ func (r *reportManager) GetAdmissionReports(ctx context.Context, name string, na
 	}
 }
 
-func (r *reportManager) ListAdmissionReports(ctx context.Context, namespace string, opts metav1.ListOptions) (kyvernov1alpha2.ReportListInterface, error) {
+func (r *reportManager) ListAdmissionReports(ctx context.Context, namespace string, opts metav1.ListOptions) (runtime.Object, error) {
 	if r.storeInDB {
 		return r.client.ReportsV1().AdmissionReports(namespace).List(ctx, opts)
 	} else {
 		return r.client.KyvernoV1alpha2().AdmissionReports(namespace).List(ctx, opts)
+	}
+}
+
+func (r *reportManager) DeleteAdmissionReports(ctx context.Context, name, namespace string, opts metav1.DeleteOptions) error {
+	if r.storeInDB {
+		return r.client.ReportsV1().AdmissionReports(namespace).Delete(ctx, name, opts)
+	} else {
+		return r.client.KyvernoV1alpha2().AdmissionReports(namespace).Delete(ctx, name, opts)
 	}
 }
 
@@ -105,7 +118,7 @@ func (r *reportManager) GetBackgroundScanReports(ctx context.Context, name strin
 	}
 }
 
-func (r *reportManager) ListBackgroundScanReports(ctx context.Context, namespace string, opts metav1.ListOptions) (kyvernov1alpha2.ReportListInterface, error) {
+func (r *reportManager) ListBackgroundScanReports(ctx context.Context, namespace string, opts metav1.ListOptions) (runtime.Object, error) {
 	if r.storeInDB {
 		return r.client.ReportsV1().BackgroundScanReports(namespace).List(ctx, opts)
 	} else {
@@ -113,7 +126,15 @@ func (r *reportManager) ListBackgroundScanReports(ctx context.Context, namespace
 	}
 }
 
-func (r *reportManager) GetClusterAdmissionReports(ctx context.Context, name string, namespace string, opts metav1.GetOptions) (kyvernov1alpha2.ReportInterface, error) {
+func (r *reportManager) DeleteBackgroundScanReports(ctx context.Context, name, namespace string, opts metav1.DeleteOptions) error {
+	if r.storeInDB {
+		return r.client.ReportsV1().BackgroundScanReports(namespace).Delete(ctx, name, opts)
+	} else {
+		return r.client.KyvernoV1alpha2().BackgroundScanReports(namespace).Delete(ctx, name, opts)
+	}
+}
+
+func (r *reportManager) GetClusterAdmissionReports(ctx context.Context, name string, opts metav1.GetOptions) (kyvernov1alpha2.ReportInterface, error) {
 	if r.storeInDB {
 		return r.client.ReportsV1().ClusterAdmissionReports().Get(ctx, name, opts)
 	} else {
@@ -121,7 +142,7 @@ func (r *reportManager) GetClusterAdmissionReports(ctx context.Context, name str
 	}
 }
 
-func (r *reportManager) ListClusterAdmissionReports(ctx context.Context, namespace string, opts metav1.ListOptions) (kyvernov1alpha2.ReportListInterface, error) {
+func (r *reportManager) ListClusterAdmissionReports(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
 	if r.storeInDB {
 		return r.client.ReportsV1().ClusterAdmissionReports().List(ctx, opts)
 	} else {
@@ -129,7 +150,15 @@ func (r *reportManager) ListClusterAdmissionReports(ctx context.Context, namespa
 	}
 }
 
-func (r *reportManager) GetClusterBackgroundScanReports(ctx context.Context, name string, namespace string, opts metav1.GetOptions) (kyvernov1alpha2.ReportInterface, error) {
+func (r *reportManager) DeleteClusterAdmissionReports(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+	if r.storeInDB {
+		return r.client.ReportsV1().ClusterAdmissionReports().Delete(ctx, name, opts)
+	} else {
+		return r.client.KyvernoV1alpha2().ClusterAdmissionReports().Delete(ctx, name, opts)
+	}
+}
+
+func (r *reportManager) GetClusterBackgroundScanReports(ctx context.Context, name string, opts metav1.GetOptions) (kyvernov1alpha2.ReportInterface, error) {
 	if r.storeInDB {
 		return r.client.ReportsV1().ClusterBackgroundScanReports().Get(ctx, name, opts)
 	} else {
@@ -137,11 +166,19 @@ func (r *reportManager) GetClusterBackgroundScanReports(ctx context.Context, nam
 	}
 }
 
-func (r *reportManager) ListClusterBackgroundScanReports(ctx context.Context, namespace string, opts metav1.ListOptions) (kyvernov1alpha2.ReportListInterface, error) {
+func (r *reportManager) ListClusterBackgroundScanReports(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
 	if r.storeInDB {
 		return r.client.ReportsV1().ClusterBackgroundScanReports().List(ctx, opts)
 	} else {
 		return r.client.KyvernoV1alpha2().ClusterBackgroundScanReports().List(ctx, opts)
+	}
+}
+
+func (r *reportManager) DeleteClusterBackgroundScanReports(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+	if r.storeInDB {
+		return r.client.ReportsV1().ClusterBackgroundScanReports().Delete(ctx, name, opts)
+	} else {
+		return r.client.KyvernoV1alpha2().ClusterBackgroundScanReports().Delete(ctx, name, opts)
 	}
 }
 
@@ -169,7 +206,7 @@ func (r *reportManager) NewBackgroundScanReport(namespace, name string, gvk sche
 	}
 }
 
-func (r *reportManager) GetAdmissionReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer {
+func (r *reportManager) AdmissionReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer {
 	if r.storeInDB {
 		return metadataFactory.ForResource(reportv1.SchemeGroupVersion.WithResource("admissionreports"))
 	} else {
@@ -177,7 +214,7 @@ func (r *reportManager) GetAdmissionReportInformer(metadataFactory metadatainfor
 	}
 }
 
-func (r *reportManager) GetClusterAdmissionReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer {
+func (r *reportManager) ClusterAdmissionReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer {
 	if r.storeInDB {
 		return metadataFactory.ForResource(reportv1.SchemeGroupVersion.WithResource("clusteradmissionreports"))
 	} else {
@@ -185,7 +222,7 @@ func (r *reportManager) GetClusterAdmissionReportInformer(metadataFactory metada
 	}
 }
 
-func (r *reportManager) GetBackgroundScanReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer {
+func (r *reportManager) BackgroundScanReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer {
 	if r.storeInDB {
 		return metadataFactory.ForResource(reportv1.SchemeGroupVersion.WithResource("backgroundscanreports"))
 	} else {
@@ -193,7 +230,7 @@ func (r *reportManager) GetBackgroundScanReportInformer(metadataFactory metadata
 	}
 }
 
-func (r *reportManager) GetClusterBackgroundScanReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer {
+func (r *reportManager) ClusterBackgroundScanReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer {
 	if r.storeInDB {
 		return metadataFactory.ForResource(reportv1.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
 	} else {

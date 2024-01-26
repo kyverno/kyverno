@@ -88,6 +88,7 @@ func main() {
 		internal.WithLeaderElection(),
 		internal.WithKyvernoClient(),
 		internal.WithKyvernoDynamicClient(),
+		internal.WithAlternateReportStore(),
 		internal.WithEventsClient(),
 		internal.WithConfigMapCaching(),
 		internal.WithDeferredLoading(),

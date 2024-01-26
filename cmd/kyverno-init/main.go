@@ -30,6 +30,7 @@ func main() {
 	appConfig := internal.NewConfiguration(
 		internal.WithKubeconfig(),
 		internal.WithKyvernoClient(),
+		internal.WithAlternateReportStore(),
 		internal.WithDynamicClient(),
 		internal.WithKyvernoDynamicClient(),
 	)
