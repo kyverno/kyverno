@@ -1,0 +1,21 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: policy-clusterpolicy-same-resource
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: policy.yaml
+    - apply:
+        file: clusterpolicy.yaml
+    - assert:
+        file: policy-assert.yaml
+    - assert:
+        file: clusterpolicy-assert.yaml
+  - name: step-02
+    try:
+    - assert:
+        file: webhooks.yaml
