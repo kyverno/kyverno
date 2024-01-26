@@ -9,7 +9,6 @@ import (
 	openapiv2 "github.com/google/gnostic-models/openapiv2"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
@@ -21,7 +20,6 @@ type TopLevelApiDescription struct {
 	Kind        string
 	Resource    string
 	SubResource string
-	ScopeType   admissionregistrationv1.ScopeType
 }
 
 func (gvrs TopLevelApiDescription) GroupVersionResource() schema.GroupVersionResource {
@@ -217,15 +215,10 @@ func (c serverResources) findResources(group, version, kind, subresource string)
 				if !strings.Contains(resource.Name, "/") {
 					gvk := getGVK(gv, resource.Group, resource.Version, resource.Kind)
 					if wildcard.Match(group, gvk.Group) && wildcard.Match(version, gvk.Version) && wildcard.Match(kind, gvk.Kind) {
-						scope := admissionregistrationv1.AllScopes
-						if resource.Namespaced {
-							scope = admissionregistrationv1.NamespacedScope
-						}
 						gvrs := TopLevelApiDescription{
 							GroupVersion: gv,
 							Kind:         resource.Kind,
 							Resource:     resource.Name,
-							ScopeType:    scope,
 						}
 						resources[gvrs] = resource
 					}

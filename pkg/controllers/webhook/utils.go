@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/utils/ptr"
 )
 
 // webhook is the instance that aggregates the GVK of existing policies
@@ -49,13 +50,12 @@ func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.Opera
 		if (gv.Group == "" || gv.Group == "*") && (gv.Version == "v1" || gv.Version == "*") && (resources.Has("pods") || resources.Has("*")) {
 			resources.Insert("pods/ephemeralcontainers")
 		}
-		scope := gv.scopeType
 		rules = append(rules, admissionregistrationv1.RuleWithOperations{
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{gv.Group},
 				APIVersions: []string{gv.Version},
 				Resources:   sets.List(resources),
-				Scope:       &scope,
+				Scope:       ptr.To(gv.scopeType),
 			},
 			Operations: ops,
 		})
