@@ -61,7 +61,7 @@ func (o options) execute(out io.Writer, dirs ...string) error {
 }
 
 func (o options) processFile(out io.Writer, path string) {
-	policies, vaps, vapBindings, err := policy.LoadWithLoader(policy.KubectlValidateLoader, nil, "", path)
+	policies, vaps, vapBindings, _, err := policy.LoadWithLoader(policy.KubectlValidateLoader, nil, "", path)
 	if err != nil {
 		return
 	}

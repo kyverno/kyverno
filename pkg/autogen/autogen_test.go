@@ -569,7 +569,7 @@ kA==
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			policies, _, _, err := yamlutils.GetPolicy([]byte(test.policy))
+			policies, _, _, _, err := yamlutils.GetPolicy([]byte(test.policy))
 			assert.NilError(t, err)
 			assert.Equal(t, 1, len(policies))
 			rules := computeRules(policies[0])
@@ -580,7 +580,7 @@ kA==
 
 func Test_PodSecurityWithNoExceptions(t *testing.T) {
 	policy := []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"pod-security"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"restricted","match":{"all":[{"resources":{"kinds":["Pod"]}}]},"validate":{"podSecurity":{"level":"restricted","version":"v1.24"}}}]}}`)
-	policies, _, _, err := yamlutils.GetPolicy([]byte(policy))
+	policies, _, _, _, err := yamlutils.GetPolicy([]byte(policy))
 	assert.NilError(t, err)
 	assert.Equal(t, 1, len(policies))
 
@@ -628,7 +628,7 @@ func Test_ValidateWithCELExpressions(t *testing.T) {
 		}
 	  }
 `)
-	policies, _, _, err := yamlutils.GetPolicy([]byte(policy))
+	policies, _, _, _, err := yamlutils.GetPolicy([]byte(policy))
 	assert.NilError(t, err)
 	assert.Equal(t, 1, len(policies))
 
