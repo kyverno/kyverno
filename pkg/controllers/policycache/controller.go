@@ -103,7 +103,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		}
 		return err
 	}
-	if policy.AdmissionProcessingEnabled() && !policy.GetSpec().CustomWebhookConfigurations() {
+	if policy.AdmissionProcessingEnabled() && !policy.GetSpec().CustomWebhookConfiguration() {
 		return c.cache.Set(key, policy, c.client.Discovery())
 	} else {
 		c.cache.Unset(key)

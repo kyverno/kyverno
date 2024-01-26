@@ -141,8 +141,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov1.ValidationFailureActionOverrideApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("Variable"):
 		return &kyvernov1.VariableApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("WebhookConfigurations"):
-		return &kyvernov1.WebhookConfigurationsApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("WebhookConfiguration"):
+		return &kyvernov1.WebhookConfigurationApplyConfiguration{}
 
 		// Group=kyverno.io, Version=v1alpha2
 	case v1alpha2.SchemeGroupVersion.WithKind("AdmissionReport"):
@@ -257,8 +257,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2beta1.SpecApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("Validation"):
 		return &kyvernov2beta1.ValidationApplyConfiguration{}
-	case v2beta1.SchemeGroupVersion.WithKind("WebhookConfigurations"):
-		return &kyvernov2beta1.WebhookConfigurationsApplyConfiguration{}
+	case v2beta1.SchemeGroupVersion.WithKind("WebhookConfiguration"):
+		return &kyvernov2beta1.WebhookConfigurationApplyConfiguration{}
 
 		// Group=wgpolicyk8s.io, Version=v1alpha2
 	case policyreportv1alpha2.SchemeGroupVersion.WithKind("ClusterPolicyReport"):

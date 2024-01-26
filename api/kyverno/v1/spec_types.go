@@ -123,14 +123,14 @@ type Spec struct {
 	// +optional
 	UseServerSideApply bool `json:"useServerSideApply,omitempty" yaml:"useServerSideApply,omitempty"`
 
-	// WebhookConfigurations specifies the custom configuration for Kubernetes admission webhookconfigurations.
+	// WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
 	// Requires Kubernetes 1.27 or later.
 	// +optional
-	WebhookConfigurations *WebhookConfigurations `json:"webhookConfigurations,omitempty" yaml:"webhookConfigurations,omitempty"`
+	WebhookConfiguration *WebhookConfiguration `json:"webhookConfiguration,omitempty" yaml:"webhookConfiguration,omitempty"`
 }
 
-func (s *Spec) CustomWebhookConfigurations() bool {
-	return s.WebhookConfigurations != nil
+func (s *Spec) CustomWebhookConfiguration() bool {
+	return s.WebhookConfiguration != nil
 }
 
 func (s *Spec) SetRules(rules []Rule) {
@@ -267,10 +267,10 @@ func (s *Spec) GetFailurePolicy(ctx context.Context) FailurePolicyType {
 	return *s.FailurePolicy
 }
 
-// GetMatchConditions returns matchConditions in webhookConfigurations
+// GetMatchConditions returns matchConditions in webhookConfiguration
 func (s *Spec) GetMatchConditions() []admissionregistrationv1.MatchCondition {
-	if s.WebhookConfigurations != nil {
-		return s.WebhookConfigurations.MatchConditions
+	if s.WebhookConfiguration != nil {
+		return s.WebhookConfiguration.MatchConditions
 	}
 	return nil
 }

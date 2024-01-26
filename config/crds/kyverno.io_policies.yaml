@@ -4470,9 +4470,9 @@ spec:
                       type: array
                   type: object
                 type: array
-              webhookConfigurations:
-                description: WebhookConfigurations specifies the custom configuration
-                  for Kubernetes admission webhookconfigurations. Requires Kubernetes
+              webhookConfiguration:
+                description: WebhookConfiguration specifies the custom configuration
+                  for Kubernetes admission webhookconfiguration. Requires Kubernetes
                   1.27 or later.
                 properties:
                   matchConditions:
@@ -13294,9 +13294,9 @@ spec:
                       type: array
                   type: object
                 type: array
-              webhookConfigurations:
-                description: WebhookConfigurations specifies the custom configuration
-                  for Kubernetes admission webhookconfigurations. Requires Kubernetes
+              webhookConfiguration:
+                description: WebhookConfiguration specifies the custom configuration
+                  for Kubernetes admission webhookconfiguration. Requires Kubernetes
                   1.27 or later.
                 properties:
                   matchConditions:

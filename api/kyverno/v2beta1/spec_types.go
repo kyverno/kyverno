@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -84,14 +83,14 @@ type Spec struct {
 	// +optional
 	UseServerSideApply bool `json:"useServerSideApply,omitempty" yaml:"useServerSideApply,omitempty"`
 
-	// WebhookConfigurations specifies the custom configuration for Kubernetes admission webhookconfigurations.
+	// WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
 	// Requires Kubernetes 1.27 or later.
 	// +optional
-	WebhookConfigurations WebhookConfigurations `json:"webhookConfigurations,omitempty" yaml:"webhookConfigurations,omitempty"`
+	WebhookConfiguration *WebhookConfiguration `json:"webhookConfiguration,omitempty" yaml:"webhookConfiguration,omitempty"`
 }
 
-func (s *Spec) CustomWebhookConfigurations() bool {
-	return !datautils.DeepEqual(s.WebhookConfigurations, WebhookConfigurations{})
+func (s *Spec) CustomWebhookConfiguration() bool {
+	return s.WebhookConfiguration != nil
 }
 
 func (s *Spec) SetRules(rules []Rule) {

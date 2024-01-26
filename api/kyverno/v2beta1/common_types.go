@@ -7,8 +7,8 @@ import (
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
-// WebhookConfigurations specifies the configuration for Kubernetes admission webhookconfigurations.
-type WebhookConfigurations struct {
+// WebhookConfiguration specifies the configuration for Kubernetes admission webhookconfiguration.
+type WebhookConfiguration struct {
 	// MatchCondition configures admission webhook matchConditions.
 	// +optional
 	MatchConditions []admissionregistrationv1.MatchCondition `json:"matchConditions,omitempty" yaml:"matchConditions,omitempty"`
