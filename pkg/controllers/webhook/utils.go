@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"cmp"
+	"fmt"
 	"slices"
 	"strings"
 
@@ -79,6 +80,9 @@ func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.Opera
 			return x
 		}
 		if x, match := less(a.Resources, b.Resources); match {
+			return x
+		}
+		if x := strings.Compare(fmt.Sprint(a.Scope), fmt.Sprint(b.Scope)); x != 0 {
 			return x
 		}
 		return 0
