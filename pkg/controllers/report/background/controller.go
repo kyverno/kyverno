@@ -376,7 +376,7 @@ func (c *controller) reconcileReport(
 			}
 		}
 	}
-	desired := c.reportManager.DeepCopy(observed)
+	desired := reportutils.DeepCopy(observed)
 	for key := range desired.GetLabels() {
 		if reportutils.IsPolicyLabel(key) {
 			delete(desired.GetLabels(), key)
