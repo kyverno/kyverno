@@ -137,3 +137,7 @@ func (rc *ResultCounts) addValidatingAdmissionResponse(vap v1alpha1.ValidatingAd
 		}
 	}
 }
+
+func (rc *ResultCounts) PolicyValError(){
+	rc.err++
+}
