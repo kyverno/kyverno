@@ -31,7 +31,7 @@ func TestLoad(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, _, err := Load(tt.fs, tt.resourcePath, tt.paths...)
+			_, _, _, _, err := Load(tt.fs, tt.resourcePath, tt.paths...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -87,7 +87,7 @@ func TestLoadWithKubectlValidate(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			policies, vaps, _, err := LoadWithLoader(KubectlValidateLoader, tt.fs, tt.resourcePath, tt.paths...)
+			policies, vaps, _, _, err := LoadWithLoader(KubectlValidateLoader, tt.fs, tt.resourcePath, tt.paths...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
 				return
