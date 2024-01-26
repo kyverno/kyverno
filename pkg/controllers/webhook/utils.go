@@ -82,7 +82,7 @@ func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.Opera
 		if x, match := less(a.Resources, b.Resources); match {
 			return x
 		}
-		if x := strings.Compare(fmt.Sprint(a.Scope), fmt.Sprint(b.Scope)); x != 0 {
+		if x := strings.Compare(string(*a.Scope), string(*b.Scope)); x != 0 {
 			return x
 		}
 		return 0
