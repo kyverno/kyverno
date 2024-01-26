@@ -65,7 +65,10 @@ func (l *PolicyExceptionLister) List(selector labels.Selector) ([]*kyvernov2beta
 
 	var matchedExceptions []*kyvernov2beta1.PolicyException
 	for i := range l.Exceptions {
-		matchedExceptions = append(matchedExceptions, &l.Exceptions[i])
+		exceptionLabels := labels.Set(l.Exceptions[i].GetLabels())
+		if selector.Matches(exceptionLabels) {
+			matchedExceptions = append(matchedExceptions, &l.Exceptions[i])
+		}
 	}
 	return matchedExceptions, nil
 }
