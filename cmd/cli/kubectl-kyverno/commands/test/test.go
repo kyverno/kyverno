@@ -6,6 +6,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/path"
@@ -57,7 +58,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	// policies
 	fmt.Fprintln(out, "  Loading policies", "...")
 	policyFullPath := path.GetFullPaths(testCase.Test.Policies, testDir, isGit)
-	policies, validatingAdmissionPolicies, _, err := policy.Load(testCase.Fs, testDir, policyFullPath...)
+	policies, validatingAdmissionPolicies, _, _, err := policy.Load(testCase.Fs, testDir, policyFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("Error: failed to load policies (%s)", err)
 	}
@@ -74,6 +75,16 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 			fmt.Fprintln(out, "  Warning: found duplicated resource", dup.Kind, dup.Name, dup.Namespace)
 		}
 	}
+	// policy exceptions
+	var policyExceptions []kyvernov2beta1.PolicyException
+	if len(testCase.Test.PolicyExceptions) > 0 {
+		fmt.Fprintln(out, "  Loading policy exceptions", "...")
+		policyexceptionFullPath := path.GetFullPaths(testCase.Test.PolicyExceptions, testDir, isGit)
+		_, _, _, policyExceptions, err = policy.Load(testCase.Fs, testDir, policyexceptionFullPath...)
+		if err != nil {
+			return nil, fmt.Errorf("Error: failed to load policy exceptions (%s)", err)
+		}
+	}
 	// init store
 	var store store.Store
 	store.SetLocal(true)
@@ -81,7 +92,11 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	if vars != nil {
 		vars.SetInStore(&store)
 	}
-	fmt.Fprintln(out, "  Applying", len(policies)+len(validatingAdmissionPolicies), pluralize.Pluralize(len(policies)+len(validatingAdmissionPolicies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
+	if len(policyExceptions) > 0 {
+		fmt.Fprintln(out, "  Applying", len(policies)+len(validatingAdmissionPolicies), pluralize.Pluralize(len(policies)+len(validatingAdmissionPolicies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "with", len(policyExceptions), pluralize.Pluralize(len(policyExceptions), "exception", "exceptions"), "...")
+	} else {
+		fmt.Fprintln(out, "  Applying", len(policies)+len(validatingAdmissionPolicies), pluralize.Pluralize(len(policies)+len(validatingAdmissionPolicies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
+	}
 	// TODO document the code below
 	ruleToCloneSourceResource := map[string]string{}
 	for _, policy := range policies {
@@ -143,6 +158,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 			Store:                     &store,
 			Policies:                  validPolicies,
 			Resource:                  *resource,
+			PolicyExceptions:          policyExceptions,
 			MutateLogPath:             "",
 			Variables:                 vars,
 			UserInfo:                  userInfo,
