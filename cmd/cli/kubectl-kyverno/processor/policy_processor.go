@@ -11,6 +11,7 @@ import (
 	json_patch "github.com/evanphx/json-patch/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
@@ -31,6 +32,7 @@ import (
 	"gomodules.xyz/jsonpatch/v2"
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -38,6 +40,7 @@ type PolicyProcessor struct {
 	Store                     *store.Store
 	Policies                  []kyvernov1.PolicyInterface
 	Resource                  unstructured.Unstructured
+	PolicyExceptions          []kyvernov2beta1.PolicyException
 	MutateLogPath             string
 	MutateLogPathIsDir        bool
 	Variables                 *variables.Variables
@@ -54,11 +57,27 @@ type PolicyProcessor struct {
 	Out                       io.Writer
 }
 
+type PolicyExceptionLister struct {
+	Exceptions []kyvernov2beta1.PolicyException
+}
+
+func (l *PolicyExceptionLister) List(selector labels.Selector) ([]*kyvernov2beta1.PolicyException, error) {
+
+	var matchedExceptions []*kyvernov2beta1.PolicyException
+	for i := range l.Exceptions {
+		matchedExceptions = append(matchedExceptions, &l.Exceptions[i])
+	}
+	return matchedExceptions, nil
+}
+
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
 	cfg := config.NewDefaultConfiguration(false)
 	jp := jmespath.New(cfg)
 	resource := p.Resource
 	namespaceLabels := p.NamespaceSelectorMap[p.Resource.GetNamespace()]
+	policyExceptionLister := &PolicyExceptionLister{
+		Exceptions: p.PolicyExceptions,
+	}
 	var client engineapi.Client
 	if p.Client != nil {
 		client = adapters.Client(p.Client)
@@ -76,7 +95,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 		imageverifycache.DisabledImageVerifyCache(),
 		store.ContextLoaderFactory(p.Store, nil),
-		nil,
+		policyExceptionLister,
 		"",
 	)
 	gvk, subresource := resource.GroupVersionKind(), ""
