@@ -325,6 +325,14 @@ config:
   # Items to exclude from config.resourceFilters
   resourceFiltersExclude: []
 
+  # -- resourceFilter namespace include
+  # Namespaces to include to the default resourceFilters
+  resourceFiltersIncludeNamespaces: []
+
+  # -- resourceFilters include list
+  # Items to include to config.resourceFilters
+  resourceFiltersInclude: []
+
 # Metrics configuration
 metricsConfig:
 
