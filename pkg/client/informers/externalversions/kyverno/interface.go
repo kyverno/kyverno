@@ -21,6 +21,7 @@ package kyverno
 import (
 	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
 	v1 "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	v1alpha2 "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha2"
 	v1beta1 "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
 	v2 "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
 	v2alpha1 "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
@@ -31,6 +32,8 @@ import (
 type Interface interface {
 	// V1 provides access to shared informers for resources in V1.
 	V1() v1.Interface
+	// V1alpha2 provides access to shared informers for resources in V1alpha2.
+	V1alpha2() v1alpha2.Interface
 	// V1beta1 provides access to shared informers for resources in V1beta1.
 	V1beta1() v1beta1.Interface
 	// V2 provides access to shared informers for resources in V2.
@@ -55,6 +58,11 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // V1 returns a new v1.Interface.
 func (g *group) V1() v1.Interface {
 	return v1.New(g.factory, g.namespace, g.tweakListOptions)
+}
+
+// V1alpha2 returns a new v1alpha2.Interface.
+func (g *group) V1alpha2() v1alpha2.Interface {
+	return v1alpha2.New(g.factory, g.namespace, g.tweakListOptions)
 }
 
 // V1beta1 returns a new v1beta1.Interface.
