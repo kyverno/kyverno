@@ -21,6 +21,21 @@ rules:
       - patch
       - update
       - watch
+  - apiGroups:
+      - reports.kyverno.io
+    resources:
+      - admissionreports
+      - clusteradmissionreports
+      - backgroundscanreports
+      - clusterbackgroundscanreports
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -31,6 +46,17 @@ metadata:
 rules:
   - apiGroups:
       - kyverno.io
+    resources:
+      - admissionreports
+      - clusteradmissionreports
+      - backgroundscanreports
+      - clusterbackgroundscanreports
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - reports.kyverno.io
     resources:
       - admissionreports
       - clusteradmissionreports
