@@ -20,6 +20,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
+	"github.com/kyverno/kyverno/pkg/report"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
@@ -38,6 +39,7 @@ type resourceHandlers struct {
 	// clients
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
+	reportManager report.Interface
 	engine        engineapi.Engine
 
 	// config
@@ -65,6 +67,7 @@ func NewHandlers(
 	engine engineapi.Engine,
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
+	reportManager report.Interface,
 	configuration config.Configuration,
 	metricsConfig metrics.MetricsConfigManager,
 	pCache policycache.Cache,
@@ -82,6 +85,7 @@ func NewHandlers(
 		engine:                       engine,
 		client:                       client,
 		kyvernoClient:                kyvernoClient,
+		reportManager:                reportManager,
 		configuration:                configuration,
 		metricsConfig:                metricsConfig,
 		pCache:                       pCache,
@@ -123,7 +127,7 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 		namespaceLabels = engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
 	}
 	policyContext = policyContext.WithNamespaceLabels(namespaceLabels)
-	vh := validation.NewValidationHandler(logger, h.kyvernoClient, h.engine, h.pCache, h.pcBuilder, h.eventGen, h.admissionReports, h.metricsConfig, h.configuration)
+	vh := validation.NewValidationHandler(logger, h.kyvernoClient, h.reportManager, h.engine, h.pCache, h.pcBuilder, h.eventGen, h.admissionReports, h.metricsConfig, h.configuration)
 
 	ok, msg, warnings := vh.HandleValidation(ctx, request, policies, policyContext, startTime)
 	if !ok {
@@ -168,7 +172,7 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.Response(request.UID, err)
 	}
-	ivh := imageverification.NewImageVerificationHandler(logger, h.kyvernoClient, h.engine, h.eventGen, h.admissionReports, h.configuration, h.nsLister)
+	ivh := imageverification.NewImageVerificationHandler(logger, h.kyvernoClient, h.reportManager, h.engine, h.eventGen, h.admissionReports, h.configuration, h.nsLister)
 	imagePatches, imageVerifyWarnings, err := ivh.Handle(ctx, newRequest, verifyImagesPolicies, policyContext)
 	if err != nil {
 		logger.Error(err, "image verification failed")

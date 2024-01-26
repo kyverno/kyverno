@@ -878,6 +878,17 @@ func (c *controller) getLease() (*coordinationv1.Lease, error) {
 	return c.leaseLister.Leases(config.KyvernoNamespace()).Get("kyverno-health")
 }
 
+// GroupVersionResourceScope adds the resource scope to the GVR
+type GroupVersionResourceScope struct {
+	schema.GroupVersionResource
+	Scope admissionregistrationv1.ScopeType
+}
+
+// String puts / between group/version/resource and scope
+func (gvs GroupVersionResourceScope) String() string {
+	return gvs.GroupVersion().String() + "/" + gvs.Resource + "/" + string(gvs.Scope)
+}
+
 // mergeWebhook merges the matching kinds of the policy to webhook.rule
 func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface, updateValidate bool) {
 	var matchedGVK []string
@@ -898,31 +909,43 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
 		}
 	}
-	var gvrsList []schema.GroupVersionResource
+	var gvrsList []GroupVersionResourceScope
 	for _, gvk := range matchedGVK {
 		// NOTE: webhook stores GVR in its rules while policy stores GVK in its rules definition
 		group, version, kind, subresource := kubeutils.ParseKindSelector(gvk)
+
+		// if kind or group is `*` we use the scope of the policy
+		policyScope := admissionregistrationv1.AllScopes
+		if policy.IsNamespaced() {
+			policyScope = admissionregistrationv1.NamespacedScope
+		}
+
 		// if kind is `*` no need to lookup resources
 		if kind == "*" && subresource == "*" {
-			gvrsList = append(gvrsList, schema.GroupVersionResource{Group: group, Version: version, Resource: "*/*"})
+			gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*/*"}, Scope: policyScope})
 		} else if kind == "*" && subresource == "" {
-			gvrsList = append(gvrsList, schema.GroupVersionResource{Group: group, Version: version, Resource: "*"})
+			gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*"}, Scope: policyScope})
 		} else if kind == "*" && subresource != "" {
-			gvrsList = append(gvrsList, schema.GroupVersionResource{Group: group, Version: version, Resource: "*/" + subresource})
+			gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*/" + subresource}, Scope: policyScope})
 		} else {
 			gvrss, err := c.discoveryClient.FindResources(group, version, kind, subresource)
 			if err != nil {
 				logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
 				continue
 			}
-			for gvrs := range gvrss {
-				gvrsList = append(gvrsList, gvrs.GroupVersion.WithResource(gvrs.ResourceSubresource()))
+			for gvrs, resource := range gvrss {
+				resourceScope := admissionregistrationv1.AllScopes
+				if resource.Namespaced {
+					resourceScope = admissionregistrationv1.NamespacedScope
+				}
+				gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: gvrs.GroupVersion.WithResource(gvrs.ResourceSubresource()), Scope: resourceScope})
 			}
 		}
 	}
-	for _, gvr := range gvrsList {
-		dst.set(gvr)
+	for _, gvrs := range gvrsList {
+		dst.set(gvrs)
 	}
+
 	spec := policy.GetSpec()
 	if spec.WebhookTimeoutSeconds != nil {
 		if dst.maxWebhookTimeout < *spec.WebhookTimeoutSeconds {
