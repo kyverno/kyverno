@@ -5,24 +5,18 @@ metadata:
     webhook.kyverno.io/managed-by: kyverno
   name: kyverno-resource-validating-webhook-cfg
 webhooks:
-- rules:
+- failurePolicy: Fail
+  rules:
   - apiGroups:
-    - ""
+    - '*'
     apiVersions:
-    - v1
+    - '*'
     operations:
     - CREATE
     - UPDATE
     - DELETE
     - CONNECT
     resources:
-    - pods/attach
-    - pods/binding
+    - '*'
     - pods/ephemeralcontainers
-    - pods/eviction
-    - pods/exec
-    - pods/log
-    - pods/portforward
-    - pods/proxy
-    - pods/status
-    scope: 'Namespaced'
+    scope: '*'
