@@ -705,6 +705,7 @@ func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookC
 				NamespaceSelector:       webhookCfg.NamespaceSelector,
 				ObjectSelector:          webhookCfg.ObjectSelector,
 				TimeoutSeconds:          &timeout,
+				ReinvocationPolicy:      &ifNeeded,
 				MatchConditions:         webhook.matchConditions,
 			},
 		)
