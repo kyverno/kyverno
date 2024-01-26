@@ -27,12 +27,25 @@ rules:
       - list
       - watch
   - apiGroups:
+      - ''
+    resources:
+      - secrets
+      - configmaps
+      - namespaces
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
       - kyverno.io
     resources:
       - admissionreports
       - clusteradmissionreports
       - backgroundscanreports
       - clusterbackgroundscanreports
+      - policyexceptions
+      - policies
+      - clusterpolicies
     verbs:
       - create
       - delete
