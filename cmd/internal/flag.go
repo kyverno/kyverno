@@ -222,6 +222,10 @@ func initFlags(config Configuration, opts ...Option) {
 	if config.UsesLeaderElection() {
 		initLeaderElectionFlags()
 	}
+	// alternate report storage
+	if config.UsesAlternateReportStore() {
+		initAltReportStoreFlag()
+	}
 
 	initCleanupFlags()
 
