@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/api/admissionregistration/v1alpha1"
 )
@@ -28,6 +29,12 @@ func TestLoad(t *testing.T) {
 		resourcePath: "",
 		paths:        []string{"../_testdata/policies/invalid-schema.yaml"},
 		wantErr:      true,
+	}, {
+		name:         "policy-exception",
+		fs:           nil,
+		resourcePath: "",
+		paths:        []string{"../_testdata/exceptions/exception.yaml"},
+		wantErr:      false,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -47,7 +54,7 @@ func TestLoadWithKubectlValidate(t *testing.T) {
 		resourcePath string
 		paths        []string
 		wantErr      bool
-		checks       func(*testing.T, []kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy)
+		checks       func(*testing.T, []kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, []kyvernov2beta1.PolicyException)
 	}{{
 		name:         "cpol-limit-configmap-for-sa",
 		fs:           nil,
@@ -66,7 +73,7 @@ func TestLoadWithKubectlValidate(t *testing.T) {
 		resourcePath: "",
 		paths:        []string{"../_testdata/policies/check-image.yaml"},
 		wantErr:      false,
-		checks: func(t *testing.T, policies []kyvernov1.PolicyInterface, vaps []v1alpha1.ValidatingAdmissionPolicy) {
+		checks: func(t *testing.T, policies []kyvernov1.PolicyInterface, vaps []v1alpha1.ValidatingAdmissionPolicy, polex []kyvernov2beta1.PolicyException) {
 			assert.Len(t, policies, 1)
 			policy := policies[0]
 			assert.NotNil(t, policy)
@@ -84,16 +91,22 @@ func TestLoadWithKubectlValidate(t *testing.T) {
 			assert.True(t, rule.VerifyImages[0].VerifyDigest)
 			assert.True(t, rule.VerifyImages[0].UseCache)
 		},
+	}, {
+		name:         "policy-exception",
+		fs:           nil,
+		resourcePath: "",
+		paths:        []string{"../_testdata/exceptions/exception.yaml"},
+		wantErr:      false,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			policies, vaps, _, _, err := LoadWithLoader(KubectlValidateLoader, tt.fs, tt.resourcePath, tt.paths...)
+			policies, vaps, _, polex, err := LoadWithLoader(KubectlValidateLoader, tt.fs, tt.resourcePath, tt.paths...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if tt.checks != nil {
-				tt.checks(t, policies, vaps)
+				tt.checks(t, policies, vaps, polex)
 			}
 		})
 	}
