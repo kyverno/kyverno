@@ -264,7 +264,7 @@ func (c *controller) aggregateReports(ctx context.Context, uid types.UID) (kyver
 		}
 		after := aggregated
 		if aggregated.GetResourceVersion() != "" {
-			after = reportutils.DeepCopy(aggregated)
+			after = c.reportManager.DeepCopy(aggregated)
 		}
 		reportutils.SetResults(after, results...)
 		if after.GetResourceVersion() == "" {

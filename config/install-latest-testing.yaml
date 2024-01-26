@@ -51935,6 +51935,7 @@ spec:
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
+            - --alternateReportStorage=false
             - --enableConfigMapCaching=true
             - --enableDeferredLoading=true
             - --loggingFormat=text

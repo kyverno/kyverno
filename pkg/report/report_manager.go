@@ -202,7 +202,7 @@ func (r *reportManager) NewBackgroundScanReport(namespace, name string, gvk sche
 	if r.storeInDB {
 		return newBackgroundScanReportReportsV1(namespace, name, gvk, owner, uid)
 	} else {
-		return newBackgroundScanReportReportsV1(namespace, name, gvk, owner, uid)
+		return newBackgroundScanReportV1Alpha1(namespace, name, gvk, owner, uid)
 	}
 }
 
