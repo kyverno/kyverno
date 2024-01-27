@@ -2825,7 +2825,9 @@ Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, v1.26, lates
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.PodSecurity">PodSecurity</a>)
+<a href="#kyverno.io/v1.PodSecurity">PodSecurity</a>, 
+<a href="#kyverno.io/v2.PolicyExceptionSpec">PolicyExceptionSpec</a>, 
+<a href="#kyverno.io/v2beta1.PolicyExceptionSpec">PolicyExceptionSpec</a>)
 </p>
 <p>
 <p>PodSecurityStandard specifies the Pod Security Standard controls to be excluded.</p>
@@ -6193,6 +6195,21 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
 <p>Exceptions is a list policy/rules to be excluded</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>podSecurity</code><br/>
+<em>
+<a href="#kyverno.io/v1.PodSecurityStandard">
+[]PodSecurityStandard
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PodSecurity specifies the Pod Security Standard controls to be excluded.
+Applicable only to policies that have validate.podSecurity subrule.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -6958,6 +6975,21 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
 <p>Exceptions is a list policy/rules to be excluded</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>podSecurity</code><br/>
+<em>
+<a href="#kyverno.io/v1.PodSecurityStandard">
+[]PodSecurityStandard
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PodSecurity specifies the Pod Security Standard controls to be excluded.
+Applicable only to policies that have validate.podSecurity subrule.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -7675,6 +7707,21 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
 </td>
 <td>
 <p>Exceptions is a list policy/rules to be excluded</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>podSecurity</code><br/>
+<em>
+<a href="#kyverno.io/v1.PodSecurityStandard">
+[]PodSecurityStandard
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PodSecurity specifies the Pod Security Standard controls to be excluded.
+Applicable only to policies that have validate.podSecurity subrule.</p>
 </td>
 </tr>
 </table>
@@ -8635,6 +8682,21 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
 <p>Exceptions is a list policy/rules to be excluded</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>podSecurity</code><br/>
+<em>
+<a href="#kyverno.io/v1.PodSecurityStandard">
+[]PodSecurityStandard
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PodSecurity specifies the Pod Security Standard controls to be excluded.
+Applicable only to policies that have validate.podSecurity subrule.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -9286,6 +9348,21 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
 </td>
 <td>
 <p>Exceptions is a list policy/rules to be excluded</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>podSecurity</code><br/>
+<em>
+<a href="#kyverno.io/v1.PodSecurityStandard">
+[]PodSecurityStandard
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PodSecurity specifies the Pod Security Standard controls to be excluded.
+Applicable only to policies that have validate.podSecurity subrule.</p>
 </td>
 </tr>
 </tbody>
