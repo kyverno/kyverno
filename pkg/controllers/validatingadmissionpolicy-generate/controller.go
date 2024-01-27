@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"fmt"
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
@@ -439,7 +438,6 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		}
 	}
 
-	var Warnings string
 	if observedVAP.ResourceVersion == "" {
 		err := c.buildValidatingAdmissionPolicy(observedVAP, policy)
 		if err != nil {
@@ -462,11 +460,6 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		if err != nil {
 			c.updateClusterPolicyStatus(ctx, *policy, false, err.Error())
 			return err
-		}
-		if observedVAP.Status.TypeChecking.ExpressionWarnings != nil {
-			for _, v := range observedVAP.Status.TypeChecking.ExpressionWarnings {
-				Warnings = fmt.Sprintf("Expression Warning :\n%s", v.Warning)
-			}
 		}
 	}
 
@@ -495,7 +488,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		}
 	}
 
-	c.updateClusterPolicyStatus(ctx, *policy, true, Warnings)
+	c.updateClusterPolicyStatus(ctx, *policy, true, "")
 	// generate events
 	e := event.NewValidatingAdmissionPolicyEvent(policy, observedVAP.Name, observedVAPbinding.Name)
 	c.eventGen.Add(e...)

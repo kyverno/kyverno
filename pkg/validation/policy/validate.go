@@ -26,10 +26,13 @@ import (
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	typeChecker "k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy"
 	"k8s.io/client-go/discovery"
 )
 
@@ -364,6 +367,21 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			validationJson, err := json.Marshal(validationElem)
 			if err != nil {
 				return nil, err
+			}
+			// Check for expression warnings. If present in ValidatingAdmissionPolicy, block the policy from creation
+			if rule.Validation.CEL != nil {
+				discoveryClient := client.Discovery()
+				vap := new(admissionregistrationv1alpha1.ValidatingAdmissionPolicy)
+				typeCheckerStruct := new(typeChecker.TypeChecker)
+				BuildValidatingAdmissionPolicy(vap, policy, discoveryClient)
+				v1beta1 := validatingadmissionpolicy.CreateV1beta1ValidatingAdmissionPolicy(vap)
+				expressionWarnings := typeCheckerStruct.Check(v1beta1)
+				for _, warning := range expressionWarnings {
+					warnings = append(warnings, warning.Warning)
+				}
+				if expressionWarnings != nil {
+					return warnings, fmt.Errorf("Expression Warninigs present")
+				}
 			}
 			checkForScaleSubresource(validationJson, allKinds, &warnings)
 			checkForStatusSubresource(validationJson, allKinds, &warnings)

@@ -3,6 +3,7 @@ package validatingadmissionpolicy
 import (
 	"k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/api/admissionregistration/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func convertRules(v1alpha1rules []v1alpha1.NamedRuleWithOperations) []v1beta1.NamedRuleWithOperations {
@@ -51,4 +52,26 @@ func convertValidationActions(v1alpha1actions []v1alpha1.ValidationAction) []v1b
 		v1beta1actions = append(v1beta1actions, v1beta1.ValidationAction(a))
 	}
 	return v1beta1actions
+}
+
+func CreateV1beta1ValidatingAdmissionPolicy(policy *v1alpha1.ValidatingAdmissionPolicy) *v1beta1.ValidatingAdmissionPolicy {
+	var namespaceSelector, objectSelector metav1.LabelSelector
+	v1beta1policy := &v1beta1.ValidatingAdmissionPolicy{
+		Spec: v1beta1.ValidatingAdmissionPolicySpec{
+			FailurePolicy: (*v1beta1.FailurePolicyType)(policy.Spec.FailurePolicy),
+			ParamKind:     (*v1beta1.ParamKind)(policy.Spec.ParamKind),
+			MatchConstraints: &v1beta1.MatchResources{
+				NamespaceSelector:    &namespaceSelector,
+				ObjectSelector:       &objectSelector,
+				ResourceRules:        convertRules(policy.Spec.MatchConstraints.ResourceRules),
+				ExcludeResourceRules: convertRules(policy.Spec.MatchConstraints.ExcludeResourceRules),
+				MatchPolicy:          (*v1beta1.MatchPolicyType)(policy.Spec.MatchConstraints.MatchPolicy),
+			},
+			Validations:      convertValidations(policy.Spec.Validations),
+			AuditAnnotations: convertAuditAnnotations(policy.Spec.AuditAnnotations),
+			MatchConditions:  convertMatchConditions(policy.Spec.MatchConditions),
+			Variables:        convertVariables(policy.Spec.Variables),
+		},
+	}
+	return v1beta1policy
 }
