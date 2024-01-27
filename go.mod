@@ -33,7 +33,7 @@ require (
 	github.com/kyverno/kyverno-json v0.0.1
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
 	github.com/notaryproject/notation-core-go v1.0.2
-	github.com/notaryproject/notation-go v1.0.1
+	github.com/notaryproject/notation-go v1.1.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.31.1
 	github.com/opencontainers/go-digest v1.0.0

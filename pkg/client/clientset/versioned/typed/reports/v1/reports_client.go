@@ -21,7 +21,7 @@ package v1
 import (
 	"net/http"
 
-	v1 "github.com/kyverno/kyverno/api/kyverno/reports/v1"
+	v1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
