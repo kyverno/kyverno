@@ -21,7 +21,7 @@ package fake
 import (
 	"context"
 
-	v1 "github.com/kyverno/kyverno/api/kyverno/reports/v1"
+	v1 "github.com/kyverno/kyverno/api/reports/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	types "k8s.io/apimachinery/pkg/types"

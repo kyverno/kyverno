@@ -1,9 +1,9 @@
 package report
 
 import (
-	reportv1 "github.com/kyverno/kyverno/api/kyverno/reports/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 )
 
 func deepCopyV1Alpha2(report kyvernov1alpha2.ReportInterface) kyvernov1alpha2.ReportInterface {
@@ -27,13 +27,13 @@ func deepCopyV1Alpha2(report kyvernov1alpha2.ReportInterface) kyvernov1alpha2.Re
 
 func deepCopyReportV1(report kyvernov1alpha2.ReportInterface) kyvernov1alpha2.ReportInterface {
 	switch v := report.(type) {
-	case *reportv1.AdmissionReport:
+	case *reportsv1.AdmissionReport:
 		return v.DeepCopy()
-	case *reportv1.ClusterAdmissionReport:
+	case *reportsv1.ClusterAdmissionReport:
 		return v.DeepCopy()
-	case *reportv1.BackgroundScanReport:
+	case *reportsv1.BackgroundScanReport:
 		return v.DeepCopy()
-	case *reportv1.ClusterBackgroundScanReport:
+	case *reportsv1.ClusterBackgroundScanReport:
 		return v.DeepCopy()
 	case *policyreportv1alpha2.PolicyReport:
 		return v.DeepCopy()

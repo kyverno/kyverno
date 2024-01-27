@@ -3,8 +3,8 @@ package report
 import (
 	"context"
 
-	reportv1 "github.com/kyverno/kyverno/api/kyverno/reports/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -208,7 +208,7 @@ func (r *reportManager) NewBackgroundScanReport(namespace, name string, gvk sche
 
 func (r *reportManager) AdmissionReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer {
 	if r.storeInDB {
-		return metadataFactory.ForResource(reportv1.SchemeGroupVersion.WithResource("admissionreports"))
+		return metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("admissionreports"))
 	} else {
 		return metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("admissionreports"))
 	}
@@ -216,7 +216,7 @@ func (r *reportManager) AdmissionReportInformer(metadataFactory metadatainformer
 
 func (r *reportManager) ClusterAdmissionReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer {
 	if r.storeInDB {
-		return metadataFactory.ForResource(reportv1.SchemeGroupVersion.WithResource("clusteradmissionreports"))
+		return metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("clusteradmissionreports"))
 	} else {
 		return metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusteradmissionreports"))
 	}
@@ -224,7 +224,7 @@ func (r *reportManager) ClusterAdmissionReportInformer(metadataFactory metadatai
 
 func (r *reportManager) BackgroundScanReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer {
 	if r.storeInDB {
-		return metadataFactory.ForResource(reportv1.SchemeGroupVersion.WithResource("backgroundscanreports"))
+		return metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("backgroundscanreports"))
 	} else {
 		return metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("backgroundscanreports"))
 	}
@@ -232,7 +232,7 @@ func (r *reportManager) BackgroundScanReportInformer(metadataFactory metadatainf
 
 func (r *reportManager) ClusterBackgroundScanReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer {
 	if r.storeInDB {
-		return metadataFactory.ForResource(reportv1.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
+		return metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
 	} else {
 		return metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
 	}

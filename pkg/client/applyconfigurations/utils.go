@@ -19,7 +19,6 @@ limitations under the License.
 package applyconfigurations
 
 import (
-	reportsv1 "github.com/kyverno/kyverno/api/kyverno/reports/v1"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	v1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
@@ -27,6 +26,7 @@ import (
 	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	v2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	kyvernov1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v1alpha2"
 	kyvernov1beta1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v1beta1"
@@ -143,6 +143,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov1.ValidationFailureActionOverrideApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("Variable"):
 		return &kyvernov1.VariableApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("WebhookConfiguration"):
+		return &kyvernov1.WebhookConfigurationApplyConfiguration{}
 
 		// Group=kyverno.io, Version=v1alpha2
 	case v1alpha2.SchemeGroupVersion.WithKind("AdmissionReport"):
@@ -257,6 +259,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2beta1.SpecApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("Validation"):
 		return &kyvernov2beta1.ValidationApplyConfiguration{}
+	case v2beta1.SchemeGroupVersion.WithKind("WebhookConfiguration"):
+		return &kyvernov2beta1.WebhookConfigurationApplyConfiguration{}
 
 		// Group=reports.kyverno.io, Version=v1
 	case reportsv1.SchemeGroupVersion.WithKind("AdmissionReport"):
