@@ -293,6 +293,21 @@ If is set to &ldquo;true&rdquo; create &amp; update for generate rules will use 
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>webhookConfiguration</code><br/>
+<em>
+<a href="#kyverno.io/v1.WebhookConfiguration">
+WebhookConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -554,6 +569,21 @@ bool
 <p>UseServerSideApply controls whether to use server-side apply for generate rules
 If is set to &ldquo;true&rdquo; create &amp; update for generate rules will use apply instead of create/update.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>webhookConfiguration</code><br/>
+<em>
+<a href="#kyverno.io/v1.WebhookConfiguration">
+WebhookConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
 </td>
 </tr>
 </table>
@@ -3910,6 +3940,21 @@ If is set to &ldquo;true&rdquo; create &amp; update for generate rules will use 
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>webhookConfiguration</code><br/>
+<em>
+<a href="#kyverno.io/v1.WebhookConfiguration">
+WebhookConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -4436,6 +4481,40 @@ Kubernetes apiextensions/v1.JSON
 <em>(Optional)</em>
 <p>Default is an optional arbitrary JSON object that the variable may take if the JMESPath
 expression evaluates to nil</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.WebhookConfiguration">WebhookConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Spec">Spec</a>)
+</p>
+<p>
+<p>WebhookConfiguration specifies the configuration for Kubernetes admission webhookconfiguration.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>matchConditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchCondition configures admission webhook matchConditions.</p>
 </td>
 </tr>
 </tbody>
@@ -8288,6 +8367,21 @@ If is set to &ldquo;true&rdquo; create &amp; update for generate rules will use 
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>webhookConfiguration</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.WebhookConfiguration">
+WebhookConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -8548,6 +8642,21 @@ bool
 <p>UseServerSideApply controls whether to use server-side apply for generate rules
 If is set to &ldquo;true&rdquo; create &amp; update for generate rules will use apply instead of create/update.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>webhookConfiguration</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.WebhookConfiguration">
+WebhookConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
 </td>
 </tr>
 </table>
@@ -9932,6 +10041,21 @@ If is set to &ldquo;true&rdquo; create &amp; update for generate rules will use 
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>webhookConfiguration</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.WebhookConfiguration">
+WebhookConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -10062,6 +10186,40 @@ CEL
 <td>
 <em>(Optional)</em>
 <p>CEL allows validation checks using the Common Expression Language (<a href="https://kubernetes.io/docs/reference/using-api/cel/">https://kubernetes.io/docs/reference/using-api/cel/</a>).</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2beta1.WebhookConfiguration">WebhookConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2beta1.Spec">Spec</a>)
+</p>
+<p>
+<p>WebhookConfiguration specifies the configuration for Kubernetes admission webhookconfiguration.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>matchConditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchCondition configures admission webhook matchConditions.</p>
 </td>
 </tr>
 </tbody>
