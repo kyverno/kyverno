@@ -1,6 +1,6 @@
 ## Description
 
-This is test migrated from e2e which roughly tests that mutations are successful when the value of key being mutated contains both a context variable as well as a context variable plus additional JMESPath filtering in that variable reference. The test migrated here to kuttl represents a condensed version of the original test to eliminate minor redundancy.
+This is test migrated from e2e which roughly tests that mutations are successful when the value of key being mutated contains both a context variable as well as a context variable plus additional JMESPath filtering in that variable reference. The test migrated here to chainsaw represents a condensed version of the original test to eliminate minor redundancy.
 
 ## Expected Behavior
 
