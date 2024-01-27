@@ -81,7 +81,7 @@ func addPolicy(policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies
 		}
 
 		validatingAdmissionPolicyBindings = append(validatingAdmissionPolicyBindings, validatingAdmissionPolicyBinding)
-	} else if strings.Compare(kind, "policyException") == 0 {
+	} else if strings.Compare(kind, "PolicyException") == 0 {
 		var policyException = kyvernov2beta1.PolicyException{}
 
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(us.Object, &policyException, true); err != nil {

@@ -491,7 +491,7 @@ spec:
 		name: "PolicyException",
 		args: args{
 			[]byte(`
-apiVersion: kyverno.io/v2
+apiVersion: kyverno.io/v2beta1
 kind: PolicyException
 metadata:
   name: delta-exception
@@ -521,7 +521,7 @@ spec:
 		name: "PolicyException and Policy",
 		args: args{
 			[]byte(`
-apiVersion: kyverno.io/v2
+apiVersion: kyverno.io/v2beta1
 kind: PolicyException
 metadata:
   name: delta-exception
@@ -543,7 +543,7 @@ spec:
         names:
         - important-tool*
 ---
-apiVersion: kyverno.io/v1
+apiVersion: kyverno.io/v2beta1
 kind: Policy
 metadata:
   name: generate-policy
@@ -608,6 +608,7 @@ spec:
 				if assert.Equal(t, len(tt.polex), len(gotPolicyExceptions)) {
 					for i := range tt.polex {
 						assert.Equal(t, tt.polex[i].kind, gotPolicyExceptions[i].Kind)
+						assert.Equal(t, tt.polex[i].namespace, gotPolicyExceptions[i].Namespace)
 					}
 				}
 			}
