@@ -263,18 +263,12 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2beta1.WebhookConfigurationApplyConfiguration{}
 
 		// Group=reports.kyverno.io, Version=v1
-	case reportsv1.SchemeGroupVersion.WithKind("AdmissionReport"):
-		return &applyconfigurationsreportsv1.AdmissionReportApplyConfiguration{}
-	case reportsv1.SchemeGroupVersion.WithKind("AdmissionReportSpec"):
-		return &applyconfigurationsreportsv1.AdmissionReportSpecApplyConfiguration{}
-	case reportsv1.SchemeGroupVersion.WithKind("BackgroundScanReport"):
-		return &applyconfigurationsreportsv1.BackgroundScanReportApplyConfiguration{}
-	case reportsv1.SchemeGroupVersion.WithKind("BackgroundScanReportSpec"):
-		return &applyconfigurationsreportsv1.BackgroundScanReportSpecApplyConfiguration{}
-	case reportsv1.SchemeGroupVersion.WithKind("ClusterAdmissionReport"):
-		return &applyconfigurationsreportsv1.ClusterAdmissionReportApplyConfiguration{}
-	case reportsv1.SchemeGroupVersion.WithKind("ClusterBackgroundScanReport"):
-		return &applyconfigurationsreportsv1.ClusterBackgroundScanReportApplyConfiguration{}
+	case reportsv1.SchemeGroupVersion.WithKind("ClusterEphemeralReport"):
+		return &applyconfigurationsreportsv1.ClusterEphemeralReportApplyConfiguration{}
+	case reportsv1.SchemeGroupVersion.WithKind("EphemeralReport"):
+		return &applyconfigurationsreportsv1.EphemeralReportApplyConfiguration{}
+	case reportsv1.SchemeGroupVersion.WithKind("EphemeralReportSpec"):
+		return &applyconfigurationsreportsv1.EphemeralReportSpecApplyConfiguration{}
 
 		// Group=wgpolicyk8s.io, Version=v1alpha2
 	case policyreportv1alpha2.SchemeGroupVersion.WithKind("ClusterPolicyReport"):

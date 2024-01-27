@@ -28,10 +28,8 @@ import (
 
 type ReportsV1Interface interface {
 	RESTClient() rest.Interface
-	AdmissionReportsGetter
-	BackgroundScanReportsGetter
-	ClusterAdmissionReportsGetter
-	ClusterBackgroundScanReportsGetter
+	ClusterEphemeralReportsGetter
+	EphemeralReportsGetter
 }
 
 // ReportsV1Client is used to interact with features provided by the reports.kyverno.io group.
@@ -39,20 +37,12 @@ type ReportsV1Client struct {
 	restClient rest.Interface
 }
 
-func (c *ReportsV1Client) AdmissionReports(namespace string) AdmissionReportInterface {
-	return newAdmissionReports(c, namespace)
+func (c *ReportsV1Client) ClusterEphemeralReports() ClusterEphemeralReportInterface {
+	return newClusterEphemeralReports(c)
 }
 
-func (c *ReportsV1Client) BackgroundScanReports(namespace string) BackgroundScanReportInterface {
-	return newBackgroundScanReports(c, namespace)
-}
-
-func (c *ReportsV1Client) ClusterAdmissionReports() ClusterAdmissionReportInterface {
-	return newClusterAdmissionReports(c)
-}
-
-func (c *ReportsV1Client) ClusterBackgroundScanReports() ClusterBackgroundScanReportInterface {
-	return newClusterBackgroundScanReports(c)
+func (c *ReportsV1Client) EphemeralReports(namespace string) EphemeralReportInterface {
+	return newEphemeralReports(c, namespace)
 }
 
 // NewForConfig creates a new ReportsV1Client for the given config.

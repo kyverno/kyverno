@@ -18,10 +18,6 @@ limitations under the License.
 
 package v1
 
-type AdmissionReportExpansion interface{}
+type ClusterEphemeralReportExpansion interface{}
 
-type BackgroundScanReportExpansion interface{}
-
-type ClusterAdmissionReportExpansion interface{}
-
-type ClusterBackgroundScanReportExpansion interface{}
+type EphemeralReportExpansion interface{}
