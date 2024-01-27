@@ -55,6 +55,14 @@ func TestAnyNotInHandler_Evaluate(t *testing.T) {
 			want: false,
 		},
 		{
+			name: "key is int and in value",
+			args: args{
+				key:   1,
+				value: []interface{}{1,2,3},
+			},
+			want: false,
+		},
+		{
 			name: "key is int and not in value",
 			args: args{
 				key:   64,
@@ -67,6 +75,15 @@ func TestAnyNotInHandler_Evaluate(t *testing.T) {
 			args: args{
 				key:   3.14,
 				value: "3.14",
+			},
+			want: false,
+		},
+		
+		{
+			name: "key is float and in value",
+			args: args{
+				key:   2.2,
+				value: []interface{}{1.1,2.2,3.3},
 			},
 			want: false,
 		},
