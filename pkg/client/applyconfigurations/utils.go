@@ -26,6 +26,7 @@ import (
 	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	v2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	kyvernov1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v1alpha2"
 	kyvernov1beta1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v1beta1"
@@ -33,6 +34,7 @@ import (
 	kyvernov2alpha1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v2alpha1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v2beta1"
 	applyconfigurationspolicyreportv1alpha2 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/policyreport/v1alpha2"
+	applyconfigurationsreportsv1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/reports/v1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -255,6 +257,20 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2beta1.SpecApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("Validation"):
 		return &kyvernov2beta1.ValidationApplyConfiguration{}
+
+		// Group=reports.kyverno.io, Version=v1
+	case reportsv1.SchemeGroupVersion.WithKind("AdmissionReport"):
+		return &applyconfigurationsreportsv1.AdmissionReportApplyConfiguration{}
+	case reportsv1.SchemeGroupVersion.WithKind("AdmissionReportSpec"):
+		return &applyconfigurationsreportsv1.AdmissionReportSpecApplyConfiguration{}
+	case reportsv1.SchemeGroupVersion.WithKind("BackgroundScanReport"):
+		return &applyconfigurationsreportsv1.BackgroundScanReportApplyConfiguration{}
+	case reportsv1.SchemeGroupVersion.WithKind("BackgroundScanReportSpec"):
+		return &applyconfigurationsreportsv1.BackgroundScanReportSpecApplyConfiguration{}
+	case reportsv1.SchemeGroupVersion.WithKind("ClusterAdmissionReport"):
+		return &applyconfigurationsreportsv1.ClusterAdmissionReportApplyConfiguration{}
+	case reportsv1.SchemeGroupVersion.WithKind("ClusterBackgroundScanReport"):
+		return &applyconfigurationsreportsv1.ClusterBackgroundScanReportApplyConfiguration{}
 
 		// Group=wgpolicyk8s.io, Version=v1alpha2
 	case policyreportv1alpha2.SchemeGroupVersion.WithKind("ClusterPolicyReport"):

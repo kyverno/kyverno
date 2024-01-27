@@ -18,4 +18,4 @@ webhooks:
     resources:
     - pods
     - pods/ephemeralcontainers
-    scope: '*'
+    scope: 'Namespaced'

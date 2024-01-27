@@ -293,6 +293,8 @@ The chart values are organised per component.
 | config.excludeKyvernoNamespace | bool | `true` | Exclude Kyverno namespace Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters |
 | config.resourceFiltersExcludeNamespaces | list | `[]` | resourceFilter namespace exclude Namespaces to exclude from the default resourceFilters |
 | config.resourceFiltersExclude | list | `[]` | resourceFilters exclude list Items to exclude from config.resourceFilters |
+| config.resourceFiltersIncludeNamespaces | list | `[]` | resourceFilter namespace include Namespaces to include to the default resourceFilters |
+| config.resourceFiltersInclude | list | `[]` | resourceFilters include list Items to include to config.resourceFilters |
 
 ### Metrics config
 
@@ -313,6 +315,7 @@ The chart values are organised per component.
 |-----|------|---------|-------------|
 | features.admissionReports.enabled | bool | `true` | Enables the feature |
 | features.aggregateReports.enabled | bool | `true` | Enables the feature |
+| features.alternateReportStorage.enabled | bool | `false` | Enables the feature |
 | features.policyReports.enabled | bool | `true` | Enables the feature |
 | features.validatingAdmissionPolicyReports.enabled | bool | `false` | Enables the feature |
 | features.autoUpdateWebhooks.enabled | bool | `true` | Enables the feature |
@@ -820,6 +823,8 @@ It contains an array of string templates that are passed through the `tpl` Helm 
 Please consult the [values.yaml](./values.yaml) file before overriding `config.resourceFilters` and use the apropriate templates to build your desired exclusions list.
 
 Add entries to `config.resourceFiltersExclude` that you wish to omit from `config.resourceFilters`.
+
+Add entries to `config.resourceFiltersInclude` that you with to add to `config.resourceFilters`.
 
 ## High availability
 

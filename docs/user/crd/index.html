@@ -36,6 +36,9 @@ background-color: #1589dd;
 <a href="#kyverno.io%2fv2beta1"><b style="color: white">kyverno.io/v2beta1</b></a>
 </li>
 <li>
+<a href="#reports.kyverno.io%2fv1"><b style="color: white">reports.kyverno.io/v1</b></a>
+</li>
+<li>
 <a href="#wgpolicyk8s.io%2fv1alpha2"><b style="color: white">wgpolicyk8s.io/v1alpha2</b></a>
 </li>
 </ul>
@@ -2822,7 +2825,9 @@ Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, v1.26, lates
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.PodSecurity">PodSecurity</a>)
+<a href="#kyverno.io/v1.PodSecurity">PodSecurity</a>, 
+<a href="#kyverno.io/v2.PolicyExceptionSpec">PolicyExceptionSpec</a>, 
+<a href="#kyverno.io/v2beta1.PolicyExceptionSpec">PolicyExceptionSpec</a>)
 </p>
 <p>
 <p>PodSecurityStandard specifies the Pod Security Standard controls to be excluded.</p>
@@ -6190,6 +6195,21 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
 <p>Exceptions is a list policy/rules to be excluded</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>podSecurity</code><br/>
+<em>
+<a href="#kyverno.io/v1.PodSecurityStandard">
+[]PodSecurityStandard
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PodSecurity specifies the Pod Security Standard controls to be excluded.
+Applicable only to policies that have validate.podSecurity subrule.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -6955,6 +6975,21 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
 <p>Exceptions is a list policy/rules to be excluded</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>podSecurity</code><br/>
+<em>
+<a href="#kyverno.io/v1.PodSecurityStandard">
+[]PodSecurityStandard
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PodSecurity specifies the Pod Security Standard controls to be excluded.
+Applicable only to policies that have validate.podSecurity subrule.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -7672,6 +7707,21 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
 </td>
 <td>
 <p>Exceptions is a list policy/rules to be excluded</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>podSecurity</code><br/>
+<em>
+<a href="#kyverno.io/v1.PodSecurityStandard">
+[]PodSecurityStandard
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PodSecurity specifies the Pod Security Standard controls to be excluded.
+Applicable only to policies that have validate.podSecurity subrule.</p>
 </td>
 </tr>
 </table>
@@ -8632,6 +8682,21 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
 <p>Exceptions is a list policy/rules to be excluded</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>podSecurity</code><br/>
+<em>
+<a href="#kyverno.io/v1.PodSecurityStandard">
+[]PodSecurityStandard
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PodSecurity specifies the Pod Security Standard controls to be excluded.
+Applicable only to policies that have validate.podSecurity subrule.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -9283,6 +9348,21 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
 </td>
 <td>
 <p>Exceptions is a list policy/rules to be excluded</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>podSecurity</code><br/>
+<em>
+<a href="#kyverno.io/v1.PodSecurityStandard">
+[]PodSecurityStandard
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PodSecurity specifies the Pod Security Standard controls to be excluded.
+Applicable only to policies that have validate.podSecurity subrule.</p>
 </td>
 </tr>
 </tbody>
@@ -9987,6 +10067,519 @@ CEL
 </tbody>
 </table>
 <hr />
+<h2 id="reports.kyverno.io/v1">reports.kyverno.io/v1</h2>
+<p>
+</p>
+Resource Types:
+<ul><li>
+<a href="#reports.kyverno.io/v1.AdmissionReport">AdmissionReport</a>
+</li><li>
+<a href="#reports.kyverno.io/v1.BackgroundScanReport">BackgroundScanReport</a>
+</li><li>
+<a href="#reports.kyverno.io/v1.ClusterAdmissionReport">ClusterAdmissionReport</a>
+</li><li>
+<a href="#reports.kyverno.io/v1.ClusterBackgroundScanReport">ClusterBackgroundScanReport</a>
+</li></ul>
+<hr />
+<h3 id="reports.kyverno.io/v1.AdmissionReport">AdmissionReport
+</h3>
+<p>
+<p>AdmissionReport is the Schema for the AdmissionReports API</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+reports.kyverno.io/v1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>AdmissionReport</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#reports.kyverno.io/v1.AdmissionReportSpec">
+AdmissionReportSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>owner</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#ownerreference-v1-meta">
+Kubernetes meta/v1.OwnerReference
+</a>
+</em>
+</td>
+<td>
+<p>Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+PolicyReportSummary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="reports.kyverno.io/v1.BackgroundScanReport">BackgroundScanReport
+</h3>
+<p>
+<p>BackgroundScanReport is the Schema for the BackgroundScanReports API</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+reports.kyverno.io/v1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>BackgroundScanReport</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#reports.kyverno.io/v1.BackgroundScanReportSpec">
+BackgroundScanReportSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+PolicyReportSummary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="reports.kyverno.io/v1.ClusterAdmissionReport">ClusterAdmissionReport
+</h3>
+<p>
+<p>ClusterAdmissionReport is the Schema for the ClusterAdmissionReports API</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+reports.kyverno.io/v1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>ClusterAdmissionReport</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#reports.kyverno.io/v1.AdmissionReportSpec">
+AdmissionReportSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>owner</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#ownerreference-v1-meta">
+Kubernetes meta/v1.OwnerReference
+</a>
+</em>
+</td>
+<td>
+<p>Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+PolicyReportSummary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="reports.kyverno.io/v1.ClusterBackgroundScanReport">ClusterBackgroundScanReport
+</h3>
+<p>
+<p>ClusterBackgroundScanReport is the Schema for the ClusterBackgroundScanReports API</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+reports.kyverno.io/v1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>ClusterBackgroundScanReport</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#reports.kyverno.io/v1.BackgroundScanReportSpec">
+BackgroundScanReportSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+PolicyReportSummary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="reports.kyverno.io/v1.AdmissionReportSpec">AdmissionReportSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#reports.kyverno.io/v1.AdmissionReport">AdmissionReport</a>, 
+<a href="#reports.kyverno.io/v1.ClusterAdmissionReport">ClusterAdmissionReport</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>owner</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#ownerreference-v1-meta">
+Kubernetes meta/v1.OwnerReference
+</a>
+</em>
+</td>
+<td>
+<p>Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+PolicyReportSummary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="reports.kyverno.io/v1.BackgroundScanReportSpec">BackgroundScanReportSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#reports.kyverno.io/v1.BackgroundScanReport">BackgroundScanReport</a>, 
+<a href="#reports.kyverno.io/v1.ClusterBackgroundScanReport">ClusterBackgroundScanReport</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+PolicyReportSummary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h2 id="wgpolicyk8s.io/v1alpha2">wgpolicyk8s.io/v1alpha2</h2>
 Resource Types:
 <ul><li>
@@ -10210,7 +10803,9 @@ PolicyReportSummary
 <a href="#wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport</a>, 
 <a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>, 
 <a href="#kyverno.io/v2.AdmissionReportSpec">AdmissionReportSpec</a>, 
-<a href="#kyverno.io/v2.BackgroundScanReportSpec">BackgroundScanReportSpec</a>)
+<a href="#kyverno.io/v2.BackgroundScanReportSpec">BackgroundScanReportSpec</a>, 
+<a href="#reports.kyverno.io/v1.AdmissionReportSpec">AdmissionReportSpec</a>, 
+<a href="#reports.kyverno.io/v1.BackgroundScanReportSpec">BackgroundScanReportSpec</a>)
 </p>
 <p>
 <p>PolicyReportResult provides the result for an individual policy</p>
@@ -10384,7 +10979,9 @@ PolicySeverity
 <a href="#wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport</a>, 
 <a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>, 
 <a href="#kyverno.io/v2.AdmissionReportSpec">AdmissionReportSpec</a>, 
-<a href="#kyverno.io/v2.BackgroundScanReportSpec">BackgroundScanReportSpec</a>)
+<a href="#kyverno.io/v2.BackgroundScanReportSpec">BackgroundScanReportSpec</a>, 
+<a href="#reports.kyverno.io/v1.AdmissionReportSpec">AdmissionReportSpec</a>, 
+<a href="#reports.kyverno.io/v1.BackgroundScanReportSpec">BackgroundScanReportSpec</a>)
 </p>
 <p>
 <p>PolicyReportSummary provides a status count summary</p>

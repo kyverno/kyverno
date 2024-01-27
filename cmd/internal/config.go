@@ -17,6 +17,7 @@ type Configuration interface {
 	UsesImageVerifyCache() bool
 	UsesLeaderElection() bool
 	UsesKyvernoClient() bool
+	UsesAlternateReportStore() bool
 	UsesDynamicClient() bool
 	UsesApiServerClient() bool
 	UsesMetadataClient() bool
@@ -107,6 +108,12 @@ func WithKyvernoClient() ConfigurationOption {
 	}
 }
 
+func WithAlternateReportStore() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesAlternateReportStore = true
+	}
+}
+
 func WithDynamicClient() ConfigurationOption {
 	return func(c *configuration) {
 		c.usesDynamicClient = true
@@ -158,6 +165,7 @@ type configuration struct {
 	usesImageVerifyCache     bool
 	usesLeaderElection       bool
 	usesKyvernoClient        bool
+	usesAlternateReportStore bool
 	usesDynamicClient        bool
 	usesApiServerClient      bool
 	usesMetadataClient       bool
@@ -212,6 +220,10 @@ func (c *configuration) UsesLeaderElection() bool {
 
 func (c *configuration) UsesKyvernoClient() bool {
 	return c.usesKyvernoClient
+}
+
+func (c *configuration) UsesAlternateReportStore() bool {
+	return c.usesAlternateReportStore
 }
 
 func (c *configuration) UsesDynamicClient() bool {
