@@ -47,6 +47,9 @@ spec:
       preconditions:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if not (quote .Values.skipBackgroundRequests | empty)  }}
+      skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
+      {{- end }}
       validate:
         message: >-
           Running as root is not allowed. Either the field spec.securityContext.runAsNonRoot
