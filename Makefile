@@ -482,20 +482,29 @@ codegen-client-all: codegen-register codegen-defaulters codegen-applyconfigurati
 .PHONY: codegen-crds-kyverno
 codegen-crds-kyverno: $(CONTROLLER_GEN) ## Generate kyverno CRDs
 	@echo Generate kyverno crds... >&2
-	@$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)
+	@rm -rf $(CRDS_PATH)/kyverno && mkdir -p $(CRDS_PATH)/kyverno
+	@$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)/kyverno
 
-.PHONY: codegen-crds-report
-codegen-crds-report: $(CONTROLLER_GEN) ## Generate policy reports CRDs
+.PHONY: codegen-crds-policyreport
+codegen-crds-policyreport: $(CONTROLLER_GEN) ## Generate policy reports CRDs
 	@echo Generate policy reports crds... >&2
-	@$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)
+	@rm -rf $(CRDS_PATH)/policyreport && mkdir -p $(CRDS_PATH)/policyreport
+	@$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)/policyreport
+
+.PHONY: codegen-crds-reports
+codegen-crds-reports: $(CONTROLLER_GEN) ## Generate reports CRDs
+	@echo Generate policy reports crds... >&2
+	@rm -rf $(CRDS_PATH)/reports && mkdir -p $(CRDS_PATH)/reports
+	@$(CONTROLLER_GEN) crd paths=./api/reports/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)/reports
 
 .PHONY: codegen-crds-cli
 codegen-crds-cli: $(CONTROLLER_GEN) ## Generate CLI CRDs
 	@echo Generate cli crds... >&2
+	@rm -rf ${PWD}/cmd/cli/kubectl-kyverno/config/crds && mkdir -p ${PWD}/cmd/cli/kubectl-kyverno/config/crds
 	@$(CONTROLLER_GEN) crd paths=./cmd/cli/kubectl-kyverno/apis/... crd:crdVersions=v1 output:dir=${PWD}/cmd/cli/kubectl-kyverno/config/crds
 
 .PHONY: codegen-crds-all
-codegen-crds-all: codegen-crds-kyverno codegen-crds-report codegen-cli-crds ## Generate all CRDs
+codegen-crds-all: codegen-crds-kyverno codegen-crds-policyreport codegen-crds-reports codegen-cli-crds ## Generate all CRDs
 
 .PHONY: codegen-helm-docs
 codegen-helm-docs: ## Generate helm docs
@@ -532,9 +541,9 @@ codegen-cli-docs: $(CLI_BIN) ## Generate CLI docs
 codegen-cli-crds: codegen-crds-kyverno ## Copy generated CRDs to embed in the CLI
 	@echo Copy generated CRDs to embed in the CLI... >&2
 	@rm -rf cmd/cli/kubectl-kyverno/data/crds && mkdir -p cmd/cli/kubectl-kyverno/data/crds
-	@cp config/crds/kyverno.io_clusterpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
-	@cp config/crds/kyverno.io_policies.yaml cmd/cli/kubectl-kyverno/data/crds
-	@cp config/crds/kyverno.io_policyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/kyverno/kyverno.io_clusterpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/kyverno/kyverno.io_policies.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/kyverno/kyverno.io_policyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp cmd/cli/kubectl-kyverno/config/crds/* cmd/cli/kubectl-kyverno/data/crds
 
 .PHONY: codegen-docs-all

@@ -4,19 +4,19 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
-  name: admissionreports.reports.kyverno.io
+  name: clusterephemeralreports.reports.kyverno.io
 spec:
   group: reports.kyverno.io
   names:
     categories:
     - kyverno
-    kind: AdmissionReport
-    listKind: AdmissionReportList
-    plural: admissionreports
+    kind: ClusterEphemeralReport
+    listKind: ClusterEphemeralReportList
+    plural: clusterephemeralreports
     shortNames:
-    - admr
-    singular: admissionreport
-  scope: Namespaced
+    - cadmr
+    singular: clusterephemeralreport
+  scope: Cluster
   versions:
   - additionalPrinterColumns:
     - jsonPath: .metadata.creationTimestamp
@@ -50,7 +50,8 @@ spec:
     name: v1
     schema:
       openAPIV3Schema:
-        description: AdmissionReport is the Schema for the AdmissionReports API
+        description: ClusterEphemeralReport is the Schema for the ClusterEphemeralReports
+          API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
